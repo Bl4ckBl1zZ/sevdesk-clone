@@ -1,0 +1,346 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- SYNTHETIC TEST DATA - not a real bank statement. Generated for the F07 statement import fixtures
+     (docs/spec/07-testing.md 3.3). Element choices for Revolut are UNSURE until the owner's real export exists. -->
+<Document xmlns="urn:iso:std:iso:20022:tech:xsd:camt.053.001.02">
+  <BkToCstmrStmt>
+    <GrpHdr>
+      <MsgId>MSG-SYNTH-EUR-2026-10</MsgId>
+      <CreDtTm>2026-11-01T06:00:00Z</CreDtTm>
+    </GrpHdr>
+    <Stmt>
+      <Id>SYNTH-EUR-2026-10</Id>
+      <CreDtTm>2026-11-01T06:00:00Z</CreDtTm>
+      <FrToDt><FrDtTm>2026-10-01T00:00:00Z</FrDtTm><ToDtTm>2026-10-31T23:59:59Z</ToDtTm></FrToDt>
+      <Acct>
+        <Id><IBAN>LT443250010000000101</IBAN></Id>
+        <Ccy>EUR</Ccy>
+        <Ownr><Nm>Muster Consulting e.K.</Nm></Ownr>
+        <Svcr><FinInstnId><BIC>REVOLT21</BIC></FinInstnId></Svcr>
+      </Acct>
+      <Bal>
+        <Tp><CdOrPrtry><Cd>OPBD</Cd></CdOrPrtry></Tp>
+        <Amt Ccy="EUR">12500.00</Amt>
+        <CdtDbtInd>CRDT</CdtDbtInd>
+        <Dt><Dt>2026-10-01</Dt></Dt>
+      </Bal>
+      <Bal>
+        <Tp><CdOrPrtry><Cd>CLBD</Cd></CdOrPrtry></Tp>
+        <Amt Ccy="EUR">13007.23</Amt>
+        <CdtDbtInd>CRDT</CdtDbtInd>
+        <Dt><Dt>2026-10-31</Dt></Dt>
+      </Bal>
+      <Ntry>
+        <NtryRef>1</NtryRef>
+        <Amt Ccy="EUR">10.00</Amt>
+        <CdtDbtInd>DBIT</CdtDbtInd>
+        <Sts>BOOK</Sts>
+        <BookgDt><Dt>2026-10-01</Dt></BookgDt>
+        <ValDt><Dt>2026-10-01</Dt></ValDt>
+        <AcctSvcrRef>6a1f0c2e-0001-4c3b-9d10-000000000001</AcctSvcrRef>
+        <BkTxCd>
+          <Domn><Cd>ACMT</Cd><Fmly><Cd>MDOP</Cd><SubFmlyCd>CHRG</SubFmlyCd></Fmly></Domn>
+          <Prtry><Cd>FEE</Cd></Prtry>
+        </BkTxCd>
+        <NtryDtls>
+          <TxDtls>
+            <Refs><AcctSvcrRef>6a1f0c2e-0001-4c3b-9d10-000000000001</AcctSvcrRef></Refs>
+            <AddtlTxInf>Basic plan fee</AddtlTxInf>
+          </TxDtls>
+        </NtryDtls>
+        <AddtlNtryInf>Basic plan fee</AddtlNtryInf>
+      </Ntry>
+      <Ntry>
+        <NtryRef>2</NtryRef>
+        <Amt Ccy="EUR">1190.00</Amt>
+        <CdtDbtInd>CRDT</CdtDbtInd>
+        <Sts>BOOK</Sts>
+        <BookgDt><Dt>2026-10-02</Dt></BookgDt>
+        <ValDt><Dt>2026-10-02</Dt></ValDt>
+        <AcctSvcrRef>6a1f0c2e-0002-4c3b-9d10-000000000002</AcctSvcrRef>
+        <BkTxCd>
+          <Domn><Cd>PMNT</Cd><Fmly><Cd>RCDT</Cd><SubFmlyCd>ESCT</SubFmlyCd></Fmly></Domn>
+          <Prtry><Cd>TRANSFER</Cd></Prtry>
+        </BkTxCd>
+        <NtryDtls>
+          <TxDtls>
+            <Refs><AcctSvcrRef>6a1f0c2e-0002-4c3b-9d10-000000000002</AcctSvcrRef><EndToEndId>E2E-MUELLER-0042</EndToEndId></Refs>
+            <RltdPties>
+              <Dbtr><Nm>Mueller GmbH</Nm></Dbtr>
+              <DbtrAcct><Id><IBAN>DE89370400440532013000</IBAN></Id></DbtrAcct>
+            </RltdPties>
+            <RltdAgts><DbtrAgt><FinInstnId><BIC>COBADEFFXXX</BIC></FinInstnId></DbtrAgt></RltdAgts>
+            <RmtInf><Ustrd>RE-2026-0042</Ustrd></RmtInf>
+            <AddtlTxInf>Mueller GmbH</AddtlTxInf>
+          </TxDtls>
+        </NtryDtls>
+        <AddtlNtryInf>Mueller GmbH</AddtlNtryInf>
+      </Ntry>
+      <Ntry>
+        <NtryRef>3</NtryRef>
+        <Amt Ccy="EUR">50.37</Amt>
+        <CdtDbtInd>DBIT</CdtDbtInd>
+        <Sts>BOOK</Sts>
+        <BookgDt><Dt>2026-10-05</Dt></BookgDt>
+        <ValDt><Dt>2026-10-05</Dt></ValDt>
+        <AcctSvcrRef>6a1f0c2e-0003-4c3b-9d10-000000000003</AcctSvcrRef>
+        <BkTxCd>
+          <Domn><Cd>PMNT</Cd><Fmly><Cd>CCRD</Cd><SubFmlyCd>POSD</SubFmlyCd></Fmly></Domn>
+          <Prtry><Cd>CARD_PAYMENT</Cd></Prtry>
+        </BkTxCd>
+        <Chrgs><Amt Ccy="EUR">0.25</Amt></Chrgs>
+        <NtryDtls>
+          <TxDtls>
+            <Refs><AcctSvcrRef>6a1f0c2e-0003-4c3b-9d10-000000000003</AcctSvcrRef></Refs>
+            <AmtDtls>
+              <InstdAmt><Amt Ccy="USD">54.99</Amt></InstdAmt>
+              <TxAmt><Amt Ccy="EUR">50.12</Amt><CcyXchg><SrcCcy>USD</SrcCcy><TrgtCcy>EUR</TrgtCcy><XchgRate>0.9114</XchgRate></CcyXchg></TxAmt>
+            </AmtDtls>
+            <RltdPties><Cdtr><Nm>Adobe Systems</Nm></Cdtr></RltdPties>
+            <AddtlTxInf>Adobe Systems</AddtlTxInf>
+          </TxDtls>
+        </NtryDtls>
+        <AddtlNtryInf>Adobe Systems</AddtlNtryInf>
+      </Ntry>
+      <Ntry>
+        <NtryRef>4</NtryRef>
+        <Amt Ccy="EUR">3.80</Amt>
+        <CdtDbtInd>DBIT</CdtDbtInd>
+        <Sts>BOOK</Sts>
+        <BookgDt><Dt>2026-10-07</Dt></BookgDt>
+        <ValDt><Dt>2026-10-07</Dt></ValDt>
+        <AcctSvcrRef>6a1f0c2e-0004-4c3b-9d10-000000000004</AcctSvcrRef>
+        <BkTxCd>
+          <Domn><Cd>PMNT</Cd><Fmly><Cd>CCRD</Cd><SubFmlyCd>POSD</SubFmlyCd></Fmly></Domn>
+          <Prtry><Cd>CARD_PAYMENT</Cd></Prtry>
+        </BkTxCd>
+        <NtryDtls>
+          <TxDtls>
+            <Refs><AcctSvcrRef>6a1f0c2e-0004-4c3b-9d10-000000000004</AcctSvcrRef></Refs>
+            <RltdPties><Cdtr><Nm>Cafe Einstein</Nm></Cdtr></RltdPties>
+            <AddtlTxInf>Cafe Einstein</AddtlTxInf>
+          </TxDtls>
+        </NtryDtls>
+        <AddtlNtryInf>Cafe Einstein</AddtlNtryInf>
+      </Ntry>
+      <Ntry>
+        <NtryRef>5</NtryRef>
+        <Amt Ccy="EUR">3.80</Amt>
+        <CdtDbtInd>DBIT</CdtDbtInd>
+        <Sts>BOOK</Sts>
+        <BookgDt><Dt>2026-10-07</Dt></BookgDt>
+        <ValDt><Dt>2026-10-07</Dt></ValDt>
+        <AcctSvcrRef>6a1f0c2e-0005-4c3b-9d10-000000000005</AcctSvcrRef>
+        <BkTxCd>
+          <Domn><Cd>PMNT</Cd><Fmly><Cd>CCRD</Cd><SubFmlyCd>POSD</SubFmlyCd></Fmly></Domn>
+          <Prtry><Cd>CARD_PAYMENT</Cd></Prtry>
+        </BkTxCd>
+        <NtryDtls>
+          <TxDtls>
+            <Refs><AcctSvcrRef>6a1f0c2e-0005-4c3b-9d10-000000000005</AcctSvcrRef></Refs>
+            <RltdPties><Cdtr><Nm>Cafe Einstein</Nm></Cdtr></RltdPties>
+            <AddtlTxInf>Cafe Einstein</AddtlTxInf>
+          </TxDtls>
+        </NtryDtls>
+        <AddtlNtryInf>Cafe Einstein</AddtlNtryInf>
+      </Ntry>
+      <Ntry>
+        <NtryRef>6</NtryRef>
+        <Amt Ccy="EUR">201.00</Amt>
+        <CdtDbtInd>DBIT</CdtDbtInd>
+        <Sts>BOOK</Sts>
+        <BookgDt><Dt>2026-10-09</Dt></BookgDt>
+        <ValDt><Dt>2026-10-09</Dt></ValDt>
+        <AcctSvcrRef>6a1f0c2e-0006-4c3b-9d10-000000000006</AcctSvcrRef>
+        <BkTxCd>
+          <Domn><Cd>PMNT</Cd><Fmly><Cd>CCRD</Cd><SubFmlyCd>CWDL</SubFmlyCd></Fmly></Domn>
+          <Prtry><Cd>ATM</Cd></Prtry>
+        </BkTxCd>
+        <Chrgs><Amt Ccy="EUR">1.00</Amt></Chrgs>
+        <NtryDtls>
+          <TxDtls>
+            <Refs><AcctSvcrRef>6a1f0c2e-0006-4c3b-9d10-000000000006</AcctSvcrRef></Refs>
+            <RltdPties><Cdtr><Nm>Cash withdrawal at ATM Alexanderplatz</Nm></Cdtr></RltdPties>
+            <AddtlTxInf>Cash withdrawal at ATM Alexanderplatz</AddtlTxInf>
+          </TxDtls>
+        </NtryDtls>
+        <AddtlNtryInf>Cash withdrawal at ATM Alexanderplatz</AddtlNtryInf>
+      </Ntry>
+      <Ntry>
+        <NtryRef>7</NtryRef>
+        <Amt Ccy="EUR">920.00</Amt>
+        <CdtDbtInd>DBIT</CdtDbtInd>
+        <Sts>BOOK</Sts>
+        <BookgDt><Dt>2026-10-12</Dt></BookgDt>
+        <ValDt><Dt>2026-10-12</Dt></ValDt>
+        <AcctSvcrRef>6a1f0c2e-0007-4c3b-9d10-000000000007</AcctSvcrRef>
+        <BkTxCd>
+          <Domn><Cd>FORX</Cd><Fmly><Cd>SPOT</Cd><SubFmlyCd>OTHR</SubFmlyCd></Fmly></Domn>
+          <Prtry><Cd>EXCHANGE</Cd></Prtry>
+        </BkTxCd>
+        <NtryDtls>
+          <TxDtls>
+            <Refs><AcctSvcrRef>6a1f0c2e-0007-4c3b-9d10-000000000007</AcctSvcrRef></Refs>
+            <AmtDtls>
+              <InstdAmt><Amt Ccy="USD">1000.00</Amt></InstdAmt>
+              <TxAmt><Amt Ccy="EUR">920.00</Amt><CcyXchg><SrcCcy>USD</SrcCcy><TrgtCcy>EUR</TrgtCcy><XchgRate>1.0870</XchgRate></CcyXchg></TxAmt>
+            </AmtDtls>
+            <AddtlTxInf>Exchanged to USD</AddtlTxInf>
+          </TxDtls>
+        </NtryDtls>
+        <AddtlNtryInf>Exchanged to USD</AddtlNtryInf>
+      </Ntry>
+      <Ntry>
+        <NtryRef>8</NtryRef>
+        <Amt Ccy="EUR">850.00</Amt>
+        <CdtDbtInd>DBIT</CdtDbtInd>
+        <Sts>BOOK</Sts>
+        <BookgDt><Dt>2026-10-14</Dt></BookgDt>
+        <ValDt><Dt>2026-10-14</Dt></ValDt>
+        <AcctSvcrRef>6a1f0c2e-0008-4c3b-9d10-000000000008</AcctSvcrRef>
+        <BkTxCd>
+          <Domn><Cd>PMNT</Cd><Fmly><Cd>ICDT</Cd><SubFmlyCd>ESCT</SubFmlyCd></Fmly></Domn>
+          <Prtry><Cd>TRANSFER</Cd></Prtry>
+        </BkTxCd>
+        <NtryDtls>
+          <TxDtls>
+            <Refs><AcctSvcrRef>6a1f0c2e-0008-4c3b-9d10-000000000008</AcctSvcrRef><EndToEndId>E2E-MIETE-202610</EndToEndId></Refs>
+            <RltdPties>
+              <Cdtr><Nm>Hausverwaltung Schmidt</Nm></Cdtr>
+              <CdtrAcct><Id><IBAN>DE44500105175407324931</IBAN></Id></CdtrAcct>
+            </RltdPties>
+            <RltdAgts><CdtrAgt><FinInstnId><BIC>INGDDEFFXXX</BIC></FinInstnId></CdtrAgt></RltdAgts>
+            <RmtInf><Ustrd>Miete Oktober 2026</Ustrd></RmtInf>
+            <AddtlTxInf>To Hausverwaltung Schmidt</AddtlTxInf>
+          </TxDtls>
+        </NtryDtls>
+        <AddtlNtryInf>To Hausverwaltung Schmidt</AddtlNtryInf>
+      </Ntry>
+      <Ntry>
+        <NtryRef>9</NtryRef>
+        <Amt Ccy="EUR">1000.00</Amt>
+        <CdtDbtInd>DBIT</CdtDbtInd>
+        <Sts>BOOK</Sts>
+        <BookgDt><Dt>2026-10-15</Dt></BookgDt>
+        <ValDt><Dt>2026-10-15</Dt></ValDt>
+        <AcctSvcrRef>6a1f0c2e-0009-4c3b-9d10-000000000009</AcctSvcrRef>
+        <BkTxCd>
+          <Domn><Cd>PMNT</Cd><Fmly><Cd>ICDT</Cd><SubFmlyCd>ESCT</SubFmlyCd></Fmly></Domn>
+          <Prtry><Cd>TRANSFER</Cd></Prtry>
+        </BkTxCd>
+        <NtryDtls>
+          <TxDtls>
+            <Refs><AcctSvcrRef>6a1f0c2e-0009-4c3b-9d10-000000000009</AcctSvcrRef><EndToEndId>NOTPROVIDED</EndToEndId></Refs>
+            <RltdPties>
+              <Cdtr><Nm>Max Muster</Nm></Cdtr>
+              <CdtrAcct><Id><IBAN>DE65200411330987654321</IBAN></Id></CdtrAcct>
+            </RltdPties>
+            <RltdAgts><CdtrAgt><FinInstnId><BIC>COBADEHD001</BIC></FinInstnId></CdtrAgt></RltdAgts>
+            <RmtInf><Ustrd>Privatentnahme</Ustrd></RmtInf>
+            <AddtlTxInf>To Max Muster</AddtlTxInf>
+          </TxDtls>
+        </NtryDtls>
+        <AddtlNtryInf>To Max Muster</AddtlNtryInf>
+      </Ntry>
+      <Ntry>
+        <NtryRef>10</NtryRef>
+        <Amt Ccy="EUR">595.00</Amt>
+        <CdtDbtInd>CRDT</CdtDbtInd>
+        <Sts>BOOK</Sts>
+        <BookgDt><Dt>2026-10-16</Dt></BookgDt>
+        <ValDt><Dt>2026-10-16</Dt></ValDt>
+        <AcctSvcrRef>6a1f0c2e-0010-4c3b-9d10-000000000010</AcctSvcrRef>
+        <BkTxCd>
+          <Domn><Cd>PMNT</Cd><Fmly><Cd>RCDT</Cd><SubFmlyCd>ESCT</SubFmlyCd></Fmly></Domn>
+          <Prtry><Cd>TRANSFER</Cd></Prtry>
+        </BkTxCd>
+        <NtryDtls>
+          <TxDtls>
+            <Refs><AcctSvcrRef>6a1f0c2e-0010-4c3b-9d10-000000000010</AcctSvcrRef><EndToEndId>E2E-BETA-0043</EndToEndId></Refs>
+            <RltdPties>
+              <Dbtr><Nm>Beta AG</Nm></Dbtr>
+              <DbtrAcct><Id><IBAN>DE15760260001122334455</IBAN></Id></DbtrAcct>
+            </RltdPties>
+            <RltdAgts><DbtrAgt><FinInstnId><BIC>GENODEF1S12</BIC></FinInstnId></DbtrAgt></RltdAgts>
+            <RmtInf><Ustrd>RE-2026-0043</Ustrd></RmtInf>
+            <AddtlTxInf>Beta AG</AddtlTxInf>
+          </TxDtls>
+        </NtryDtls>
+        <AddtlNtryInf>Beta AG</AddtlNtryInf>
+      </Ntry>
+      <Ntry>
+        <NtryRef>11</NtryRef>
+        <Amt Ccy="EUR">595.00</Amt>
+        <CdtDbtInd>DBIT</CdtDbtInd>
+        <RvslInd>true</RvslInd>
+        <Sts>BOOK</Sts>
+        <BookgDt><Dt>2026-10-20</Dt></BookgDt>
+        <ValDt><Dt>2026-10-20</Dt></ValDt>
+        <AcctSvcrRef>6a1f0c2e-0011-4c3b-9d10-000000000011</AcctSvcrRef>
+        <BkTxCd>
+          <Domn><Cd>PMNT</Cd><Fmly><Cd>RCDT</Cd><SubFmlyCd>RRTN</SubFmlyCd></Fmly></Domn>
+          <Prtry><Cd>REVERSAL</Cd></Prtry>
+        </BkTxCd>
+        <NtryDtls>
+          <TxDtls>
+            <Refs><AcctSvcrRef>6a1f0c2e-0011-4c3b-9d10-000000000011</AcctSvcrRef><EndToEndId>E2E-BETA-0043</EndToEndId></Refs>
+            <RltdPties>
+              <Cdtr><Nm>Beta AG</Nm></Cdtr>
+              <CdtrAcct><Id><IBAN>DE15760260001122334455</IBAN></Id></CdtrAcct>
+            </RltdPties>
+            <RltdAgts><CdtrAgt><FinInstnId><BIC>GENODEF1S12</BIC></FinInstnId></CdtrAgt></RltdAgts>
+            <RmtInf><Ustrd>RE-2026-0043</Ustrd></RmtInf>
+            <AddtlTxInf>Reversal: Beta AG</AddtlTxInf>
+          </TxDtls>
+        </NtryDtls>
+        <AddtlNtryInf>Reversal: Beta AG</AddtlNtryInf>
+      </Ntry>
+      <Ntry>
+        <NtryRef>12</NtryRef>
+        <Amt Ccy="EUR">2380.00</Amt>
+        <CdtDbtInd>CRDT</CdtDbtInd>
+        <Sts>BOOK</Sts>
+        <BookgDt><Dt>2026-10-23</Dt></BookgDt>
+        <ValDt><Dt>2026-10-23</Dt></ValDt>
+        <AcctSvcrRef>6a1f0c2e-0012-4c3b-9d10-000000000012</AcctSvcrRef>
+        <BkTxCd>
+          <Domn><Cd>PMNT</Cd><Fmly><Cd>RCDT</Cd><SubFmlyCd>ESCT</SubFmlyCd></Fmly></Domn>
+          <Prtry><Cd>TRANSFER</Cd></Prtry>
+        </BkTxCd>
+        <NtryDtls>
+          <TxDtls>
+            <Refs><AcctSvcrRef>6a1f0c2e-0012-4c3b-9d10-000000000012</AcctSvcrRef><EndToEndId>E2E-GAMMA-4445</EndToEndId></Refs>
+            <RltdPties>
+              <Dbtr><Nm>Gamma UG (haftungsbeschraenkt)</Nm></Dbtr>
+              <DbtrAcct><Id><IBAN>DE50120300001000123456</IBAN></Id></DbtrAcct>
+            </RltdPties>
+            <RltdAgts><DbtrAgt><FinInstnId><BIC>BYLADEM1001</BIC></FinInstnId></DbtrAgt></RltdAgts>
+            <RmtInf><Ustrd>RE-2026-0044 RE-2026-0045</Ustrd></RmtInf>
+            <AddtlTxInf>Gamma UG</AddtlTxInf>
+          </TxDtls>
+        </NtryDtls>
+        <AddtlNtryInf>Gamma UG</AddtlNtryInf>
+      </Ntry>
+      <Ntry>
+        <NtryRef>13</NtryRef>
+        <Amt Ccy="EUR">23.80</Amt>
+        <CdtDbtInd>DBIT</CdtDbtInd>
+        <Sts>BOOK</Sts>
+        <BookgDt><Dt>2026-10-31</Dt></BookgDt>
+        <ValDt><Dt>2026-10-31</Dt></ValDt>
+        <AcctSvcrRef>6a1f0c2e-0013-4c3b-9d10-000000000013</AcctSvcrRef>
+        <BkTxCd>
+          <Domn><Cd>PMNT</Cd><Fmly><Cd>CCRD</Cd><SubFmlyCd>POSD</SubFmlyCd></Fmly></Domn>
+          <Prtry><Cd>CARD_PAYMENT</Cd></Prtry>
+        </BkTxCd>
+        <NtryDtls>
+          <TxDtls>
+            <Refs><AcctSvcrRef>6a1f0c2e-0013-4c3b-9d10-000000000013</AcctSvcrRef></Refs>
+            <RltdPties><Cdtr><Nm>Hetzner Online</Nm></Cdtr></RltdPties>
+            <AddtlTxInf>Hetzner Online</AddtlTxInf>
+          </TxDtls>
+        </NtryDtls>
+        <AddtlNtryInf>Hetzner Online</AddtlNtryInf>
+      </Ntry>
+    </Stmt>
+  </BkToCstmrStmt>
+</Document>

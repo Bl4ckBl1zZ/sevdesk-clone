@@ -1,0 +1,136 @@
+{
+  "format": "mt940",
+  "statementId": "SYNTH202610 10/1",
+  "iban": "LT443250010000000101",
+  "currency": "EUR",
+  "periodFrom": "2026-10-01",
+  "periodTo": "2026-10-31",
+  "openingBalanceCents": 1250000,
+  "closingBalanceCents": 1300723,
+  "balanceSource": "statement",
+  "issues": [],
+  "skipped": [],
+  "arithmetic": {
+    "status": "ok"
+  },
+  "transactions": [
+    {
+      "line": 6,
+      "bookingDate": "2026-10-01",
+      "valueDate": "2026-10-01",
+      "amountCents": -1000,
+      "currency": "EUR",
+      "purpose": "Basic plan fee",
+      "proprietaryCode": "NCHG"
+    },
+    {
+      "line": 8,
+      "bookingDate": "2026-10-02",
+      "valueDate": "2026-10-02",
+      "amountCents": 119000,
+      "currency": "EUR",
+      "purpose": "Mueller GmbH / Ref: RE-2026-0042 / IBAN: DE89370400440532013000",
+      "proprietaryCode": "NTRF"
+    },
+    {
+      "line": 11,
+      "bookingDate": "2026-10-05",
+      "valueDate": "2026-10-05",
+      "amountCents": -5037,
+      "currency": "EUR",
+      "purpose": "Adobe Systems",
+      "proprietaryCode": "NMSC"
+    },
+    {
+      "line": 13,
+      "bookingDate": "2026-10-07",
+      "valueDate": "2026-10-07",
+      "amountCents": -380,
+      "currency": "EUR",
+      "purpose": "Cafe Einstein",
+      "proprietaryCode": "NMSC"
+    },
+    {
+      "line": 15,
+      "bookingDate": "2026-10-07",
+      "valueDate": "2026-10-07",
+      "amountCents": -380,
+      "currency": "EUR",
+      "purpose": "Cafe Einstein",
+      "proprietaryCode": "NMSC"
+    },
+    {
+      "line": 17,
+      "bookingDate": "2026-10-09",
+      "valueDate": "2026-10-09",
+      "amountCents": -20100,
+      "currency": "EUR",
+      "purpose": "Cash withdrawal at ATM Alexanderplatz",
+      "proprietaryCode": "NMSC"
+    },
+    {
+      "line": 19,
+      "bookingDate": "2026-10-12",
+      "valueDate": "2026-10-12",
+      "amountCents": -92000,
+      "currency": "EUR",
+      "purpose": "Exchanged to USD",
+      "proprietaryCode": "NTRF"
+    },
+    {
+      "line": 21,
+      "bookingDate": "2026-10-14",
+      "valueDate": "2026-10-14",
+      "amountCents": -85000,
+      "currency": "EUR",
+      "purpose": "To Hausverwaltung Schmidt / Ref: Miete Oktober 2026 / IBAN: DE44500105175407324931",
+      "proprietaryCode": "NTRF"
+    },
+    {
+      "line": 24,
+      "bookingDate": "2026-10-15",
+      "valueDate": "2026-10-15",
+      "amountCents": -100000,
+      "currency": "EUR",
+      "purpose": "To Max Muster / Ref: Privatentnahme / IBAN: DE65200411330987654321",
+      "proprietaryCode": "NTRF"
+    },
+    {
+      "line": 27,
+      "bookingDate": "2026-10-16",
+      "valueDate": "2026-10-16",
+      "amountCents": 59500,
+      "currency": "EUR",
+      "purpose": "Beta AG / Ref: RE-2026-0043 / IBAN: DE15760260001122334455",
+      "proprietaryCode": "NTRF"
+    },
+    {
+      "line": 29,
+      "bookingDate": "2026-10-20",
+      "valueDate": "2026-10-20",
+      "amountCents": -59500,
+      "currency": "EUR",
+      "purpose": "Reversal: Beta AG / Ref: RE-2026-0043 / IBAN: DE15760260001122334455",
+      "proprietaryCode": "NTRF",
+      "reversal": true
+    },
+    {
+      "line": 32,
+      "bookingDate": "2026-10-23",
+      "valueDate": "2026-10-23",
+      "amountCents": 238000,
+      "currency": "EUR",
+      "purpose": "Gamma UG / Ref: RE-2026-0044 RE-2026-0045 / IBAN: DE50120300001000123456",
+      "proprietaryCode": "NTRF"
+    },
+    {
+      "line": 35,
+      "bookingDate": "2026-10-31",
+      "valueDate": "2026-10-31",
+      "amountCents": -2380,
+      "currency": "EUR",
+      "purpose": "Hetzner Online",
+      "proprietaryCode": "NMSC"
+    }
+  ]
+}

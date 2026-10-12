@@ -1,0 +1,37 @@
+{
+  "format": "camt053",
+  "statementId": "SYNTH-EUR-GAP",
+  "iban": "LT443250010000000101",
+  "currency": "EUR",
+  "periodFrom": "2026-11-10",
+  "periodTo": "2026-11-30",
+  "periodStartUtc": "2026-11-10T00:00:00Z",
+  "periodEndUtc": "2026-11-30T23:59:59Z",
+  "openingBalanceCents": 1334998,
+  "closingBalanceCents": 1349998,
+  "balanceSource": "statement",
+  "issues": [],
+  "skipped": [],
+  "arithmetic": {
+    "status": "ok"
+  },
+  "transactions": [
+    {
+      "line": 32,
+      "bookingDate": "2026-11-12",
+      "valueDate": "2026-11-12",
+      "amountCents": 15000,
+      "currency": "EUR",
+      "counterpartyName": "Epsilon GmbH",
+      "counterpartyIban": "DE89370400440532013000",
+      "counterpartyBic": "COBADEFFXXX",
+      "counterpartySource": "statement",
+      "purpose": "RE-2026-0047",
+      "endToEndId": "E2E-EPS-0047",
+      "bankRef": "6a1f0c2e-0016-4c3b-9d10-000000000016",
+      "entryReference": "6a1f0c2e-0016-4c3b-9d10-000000000016",
+      "bankTransactionCode": "PMNT-RCDT-ESCT",
+      "proprietaryCode": "TRANSFER"
+    }
+  ]
+}

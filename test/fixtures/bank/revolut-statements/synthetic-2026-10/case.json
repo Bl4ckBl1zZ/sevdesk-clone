@@ -1,0 +1,8 @@
+{
+  "synthetic": true,
+  "description": "SYNTHETIC Revolut Business month (not real bank data). Account 'Muster Consulting e.K.', IBAN LT443250010000000101 with an EUR and a USD pocket; October 2026 with incoming invoice payments, a card FX payment with fee, two identical coffees, an ATM withdrawal with fee, an EUR->USD exchange, rent, a private withdrawal, a returned payment (RvslInd) and a month-end booking at 2026-10-31T23:30Z. Extra files: an overlapping statement (2026-10-23..11-05) and one with a balance gap (2026-11-10..11-30). Format details are UNSURE until the owner's real export (F07 Q-03).",
+  "accounts": {
+    "EUR": { "iban": "LT443250010000000101", "openingBalanceCents": 1250000, "closingBalanceCents": 1300723 },
+    "USD": { "iban": "LT443250010000000101", "openingBalanceCents": 0, "closingBalanceCents": 88000 }
+  }
+}

@@ -1,0 +1,81 @@
+{
+  "format": "camt053",
+  "statementId": "SYNTH-EUR-OVERLAP",
+  "iban": "LT443250010000000101",
+  "currency": "EUR",
+  "periodFrom": "2026-10-23",
+  "periodTo": "2026-11-05",
+  "periodStartUtc": "2026-10-23T00:00:00Z",
+  "periodEndUtc": "2026-11-05T23:59:59Z",
+  "openingBalanceCents": 1065103,
+  "closingBalanceCents": 1329723,
+  "balanceSource": "statement",
+  "issues": [],
+  "skipped": [],
+  "arithmetic": {
+    "status": "ok"
+  },
+  "transactions": [
+    {
+      "line": 32,
+      "bookingDate": "2026-10-23",
+      "valueDate": "2026-10-23",
+      "amountCents": 238000,
+      "currency": "EUR",
+      "counterpartyName": "Gamma UG (haftungsbeschraenkt)",
+      "counterpartyIban": "DE50120300001000123456",
+      "counterpartyBic": "BYLADEM1001",
+      "counterpartySource": "statement",
+      "purpose": "RE-2026-0044 RE-2026-0045",
+      "endToEndId": "E2E-GAMMA-4445",
+      "bankRef": "6a1f0c2e-0012-4c3b-9d10-000000000012",
+      "entryReference": "6a1f0c2e-0012-4c3b-9d10-000000000012",
+      "bankTransactionCode": "PMNT-RCDT-ESCT",
+      "proprietaryCode": "TRANSFER"
+    },
+    {
+      "line": 58,
+      "bookingDate": "2026-10-31",
+      "valueDate": "2026-10-31",
+      "amountCents": -2380,
+      "currency": "EUR",
+      "counterpartyName": "Hetzner Online",
+      "counterpartySource": "statement",
+      "purpose": "Hetzner Online",
+      "bankRef": "6a1f0c2e-0013-4c3b-9d10-000000000013",
+      "entryReference": "6a1f0c2e-0013-4c3b-9d10-000000000013",
+      "bankTransactionCode": "PMNT-CCRD-POSD",
+      "proprietaryCode": "CARD_PAYMENT",
+      "merchantName": "Hetzner Online"
+    },
+    {
+      "line": 79,
+      "bookingDate": "2026-11-02",
+      "valueDate": "2026-11-02",
+      "amountCents": 30000,
+      "currency": "EUR",
+      "counterpartyName": "Delta e.V.",
+      "counterpartyIban": "DE77100100100123456789",
+      "counterpartyBic": "PBNKDEFFXXX",
+      "counterpartySource": "statement",
+      "purpose": "RE-2026-0046",
+      "endToEndId": "E2E-DELTA-0046",
+      "bankRef": "6a1f0c2e-0014-4c3b-9d10-000000000014",
+      "entryReference": "6a1f0c2e-0014-4c3b-9d10-000000000014",
+      "bankTransactionCode": "PMNT-RCDT-ESCT",
+      "proprietaryCode": "TRANSFER"
+    },
+    {
+      "line": 105,
+      "bookingDate": "2026-11-04",
+      "valueDate": "2026-11-04",
+      "amountCents": -1000,
+      "currency": "EUR",
+      "purpose": "Basic plan fee",
+      "bankRef": "6a1f0c2e-0015-4c3b-9d10-000000000015",
+      "entryReference": "6a1f0c2e-0015-4c3b-9d10-000000000015",
+      "bankTransactionCode": "ACMT-MDOP-CHRG",
+      "proprietaryCode": "FEE"
+    }
+  ]
+}
