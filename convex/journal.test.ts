@@ -5,6 +5,7 @@ import { checkInvariants, clearInvariantTarget } from "../test/invariants";
 import { api, internal } from "./_generated/api";
 import type { Id } from "./_generated/dataModel";
 import { errorCode } from "./lib/errors";
+import { settleOpeningItem } from "./model/accounting";
 import { auditedInsert } from "./model/audit";
 import { patchCompanyProfile } from "./model/companyProfile";
 import { type PostJournalOptions, postJournalEntry } from "./model/journal";
@@ -464,6 +465,13 @@ describe("journal model (ACC-001…ACC-006)", () => {
       taxPointDate: "2026-02-04",
       taxPeriod: "2026-02",
     });
+    // the payments slice keeps the open amount of the opening item in step (audited, never below 0)
+    const aId = a?.id as Id<"openingItems">;
+    expect(await t.model(OWNER, (ctx) => settleOpeningItem(ctx, aId, 119000))).toEqual({ openAmountCents: 0 });
+    expect(await t.model(OWNER, (ctx) => settleOpeningItem(ctx, aId, 1)).catch(errorCode)).toBe("invalid_input");
+    expect(await t.model(OWNER, (ctx) => settleOpeningItem(ctx, aId, -119001)).catch(errorCode)).toBe("invalid_input");
+    const after = await owner.query(api.accounting.openingBalanceStatus, { fiscalYear: 2026 });
+    expect(after.openingItems.map((i) => i.openAmountCents)).toEqual([0, 59500]);
     // bookkeeper may enter opening balances, viewer may not
     const viewer = await t.asUser("viewer");
     expect(

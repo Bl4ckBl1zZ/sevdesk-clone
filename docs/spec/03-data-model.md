@@ -892,18 +892,21 @@ ledgerAccounts: { chart: "SKR03" | "SKR04"; number: string; name: string;
   taxKeyDefault?: string; automaticVatAccount?: boolean; euerKey?: string; euerLineByYear?: Record<string, string>;
   bwaGroup?: string; passThrough?: boolean /* durchlaufende Posten (VOU-011) */;
   allowedTaxRules?: string[]; isSystem: boolean; archivedAt?: number }   // seeded from data files
+  // P1: no table yet — the seeded SKR03/SKR04 charts are date-effective rule data (src/domain/rules/accounting,
+  // `chart-skr03`/`chart-skr04`, with `verified` per account); the table arrives with custom accounts (ACC-009, P2)
 
 accountRoleMappings: { chart: "SKR03" | "SKR04"; role: string; account: string;
   validFrom: string; mappingVersion: string /* e.g. "roles-2026.1" or "override-<n>" */;
   source: "seed" | "override"; sourceText?: string;          // override: audited with source text (ACC-008)
   confirmedByAdvisorOn?: string }                            // optional, non-blocking "Mit Steuerberater geprüft am" (⚠ rows); defaults are decided (B5)
   // append-only versions; resolution = latest validFrom ≤ posting date per (chart, role); index by_chart_role_validFrom
+  // P1: only `source: "override"` rows are stored; the shipped mapping (`roles-2026.2`) is rule data (`account-roles`)
 
 journalEntries: 🔒 { seq: number;                           // gapless (GOBD-05)
   date: string; period: string /* YYYY-MM */;
   originalDate?: string; latePosting?: { reason: string };  // externally dated event into a locked period → first open period (ACC-006 b)
   lines: { account: string; role?: string; debitCents: number; creditCents: number; taxKey?: string; costCenterId?: string;
-           contactId?: Id<"contacts">;                      // removed by staged purge after contact anonymisation (PRV-007)
+           contactId?: string /* Id<"contacts"> as string */; // removed by staged purge after contact anonymisation (PRV-007)
            taxPointDate?: string; taxPeriod?: string;       // VAT-relevant lines (TAX-008); UStVA reads taxPeriod
            currency?: string; amountFx?: number /* minor units */; fxRate?: FxRate }[];   // ACC-023
                                                             // Σdebit = Σcredit > 0, ≥ 2 lines (asserted)
@@ -914,7 +917,21 @@ journalEntries: 🔒 { seq: number;                           // gapless (GOBD-0
   attachments?: FileRef[];                                  // manual entries: required unless opening balance or reversal (ACC-005)
   ruleVersion: string; roleMappingVersion: string; explanation: string;   // "Warum dieses Konto?" key (ACC-003)
   reversalOfId?: Id<"journalEntries">; recordedAt: number; lockedAt?: number; actor: Actor }
-// indexes: by_seq (unique), by_period, by_source, by_account (via lines read model)
+// indexes: by_seq (unique), by_period [period, seq], by_source [source.kind, source.id], by_reversalOf;
+// by_account via the `journalLines` read model
+
+journalLines: 🔒 { entryId: Id<"journalEntries">; lineIndex: number; seq: number; date: string; period: string;
+  account: string; role?: string; debitCents: number; creditCents: number; contactId?: string }
+  // derived read model: one row per entry line, inserted in the posting transaction, never changed; not audited
+  // separately (RI-12 checks it mirrors the audited entries). Serves balances, Kontenblatt, CSH-026.
+  // indexes: by_account_date_seq, by_entry, by_date [date, seq], by_contact
+
+openingItems: 🔒 { fiscalYear: number; kind: "receivable"; number: string; documentDate: string; dueDate?: string;
+  contactId?: string; counterpartyName: string; grossCents: number; openCents: number; taxedAs: "soll" | "ist";
+  notDueVat?: { rateBp: number; vatCents: number }[];       // Ist: VAT not yet declared, due on payment (ACC-013)
+  openAmountCents: number; recordedAt: number; lockedAt?: number; actor: Actor }
+  // open receivables carried into the books by the opening balance (ACC-013 P1 subset; payables P2);
+  // payments target them with `{ kind: "opening_item", id }`. indexes: by_fiscalYear [fiscalYear, number], by_contact
 
 allocations: 🔒 { paymentId: Id<"payments">;                 // cash-basis view (F08 §4.4): EÜR, Ist-UStVA, profitability
   target: { kind: "salesDocument" | "voucher" | "opening_item"; id: string };
@@ -1122,6 +1139,8 @@ importedRecords: { importId; externalType: string; externalId: string; table: st
 | `payments` | `reversedById`, `lockedAt`, `reconciledTransactionId` (once), `receiptFile` (once) | reversal payment (`reversalOfId`) |
 | `allocations` | none | written by reversal payments |
 | `journalEntries` | `lockedAt`; `lines[].contactId` removed by staged purge (PRV-007) | reversal entry (Generalumkehr) |
+| `journalLines` | none (read model of `journalEntries`; the PRV-007 purge rewrites `contactId` together with the entry) | via the entry's reversal |
+| `openingItems` | `openAmountCents` (payments/reversals against the item), `lockedAt` (once) | reversal of the opening entry |
 | `cashTransfers` | `bankTransactionId` (once, when the bank side is matched) | reversal row (`reversalOfId`), subject to the never-negative check |
 | `bankTransactions` | `status`, `ignoredReason`, `ignoredLinkId`, `allocatedCents`, `bookedAt`, `lockedAt`, `sources` (append), `reversalOfId` (once), one-time fill of empty counterparty fields (BNK-122) | n/a (booked bank data never changes; a differing re-delivery is stored as a revision with `applied: false` + integrity finding, BNK-113) |
 | `bankTransactionRevisions`, `bankStatements` | none (statement: `reconciled`/`differences` recomputed on re-upload as a new row) | new row |
@@ -1178,6 +1197,7 @@ Conflicts and naming differences resolved while merging the F01–F12 data-model
 | Payment reversal links | F05 D-05, PAY-040; 03 v1.0 `reversedById` | Both: `reversalOfId` on the reversal row, `reversedById` on the original (whitelisted) | Navigation in both directions without scanning |
 | Cash balance definition | F07 CSH-013, D-06; 03 v1.0 | **Superseded (B3):** no cash book; the `cash` account balance is derived from the journal in (date, seq) order (F07 CSH-026) | Simple cash, no Kassenbuch |
 | Recurring template status | F04 §4.2.10, App. G | `status: active \| inactive` (UI "Pausiert"); "Beendet" derived | No stored state that a date passing has to flip |
+| Journal P1 storage | F08 §3.1a (journal slice) | Seed chart + seed role mapping as rule data, `accountRoleMappings` holds overrides only; `journalLines` read model; `openingItems` for opening receivables; `contactId` stored as string | Rule data is versioned and reviewable like every other legal table; balances and the cash check need an index per account |
 | Journal roles | F08 ACC-003/008; lead decision | `accountRoleMappings` (versioned, per chart, `validFrom`, overrides with source text); journal lines store resolved `account` + `role`; entries store `ruleVersion`, `roleMappingVersion`, `explanation` | Reproducible postings; DATEV/EÜR read the resolved account |
 | Voucher totals currency | F06 Q-06, D-03 | Both: `totals` (document currency) and `totalsEur` (+ per-line `netEurCents/vatEurCents`) | UStVA/EÜR need EUR; the supplier's document is in the foreign currency |
 | `dsgvoRequests.kind` | F12 PRV-010; 03 v1.0 `deletion` | `erasure` (Art. 17) replaces `deletion`; `rectification`, `objection` added | Matches F12 and GDPR naming |

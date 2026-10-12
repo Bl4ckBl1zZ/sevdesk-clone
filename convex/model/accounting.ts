@@ -9,7 +9,7 @@ import { berlinCalendarDate } from "../../src/domain/time/berlin";
 import { type CalendarDate, calendarDate, isCalendarDate } from "../../src/domain/time/calendar-date";
 import type { Doc, Id } from "../_generated/dataModel";
 import { appError } from "../lib/errors";
-import { auditedInsert } from "./audit";
+import { auditedInsert, auditedPatch } from "./audit";
 import { getCompanyProfile, patchCompanyProfile } from "./companyProfile";
 import {
   entriesBySource,
@@ -407,7 +407,37 @@ export async function openingStatus(ctx: ReadCtx, now: number, requestedYear?: n
       counterpartyName: i.counterpartyName,
       documentDate: i.documentDate,
       openCents: i.openCents,
+      openAmountCents: i.openAmountCents,
       taxedAs: i.taxedAs,
     })),
   };
+}
+
+/**
+ * Open amount of an opening receivable (ACC-013): the payments slice calls this in the same mutation that posts a
+ * `payment_received` with target `{ kind: "opening_item" }` (+cents) or its reversal (−cents). Never below 0 or
+ * above the carried-over amount.
+ */
+export async function settleOpeningItem(
+  ctx: ModelCtx,
+  openingItemId: Id<"openingItems">,
+  settledCents: number,
+): Promise<{ openAmountCents: number }> {
+  const item = await ctx.db.get(openingItemId);
+  if (!item) throw appError("not_found", "Der offene Posten aus der Eröffnungsbilanz existiert nicht.");
+  if (!Number.isSafeInteger(settledCents) || settledCents === 0) {
+    throw appError("invalid_input", "Bitte einen Betrag in ganzen Cent angeben.");
+  }
+  const openAmountCents = item.openAmountCents - settledCents;
+  if (openAmountCents < 0 || openAmountCents > item.openCents) {
+    throw appError("invalid_input", `Der Betrag übersteigt den offenen Posten ${item.number}.`);
+  }
+  await auditedPatch(
+    ctx,
+    "openingItems",
+    openingItemId,
+    { openAmountCents },
+    { action: settledCents > 0 ? "payment.record" : "payment.reverse", label: `Offener Posten ${item.number}` },
+  );
+  return { openAmountCents };
 }
