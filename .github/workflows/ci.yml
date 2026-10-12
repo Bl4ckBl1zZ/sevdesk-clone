@@ -90,7 +90,8 @@ jobs:
           nohup scripts/convex-local-backend.sh > convex-backend.log 2>&1 &
           for i in $(seq 1 60); do curl -fs http://127.0.0.1:3210/version >/dev/null && break; sleep 1; done
           scripts/convex-local-backend.sh env >> "$GITHUB_ENV"
-      - run: pnpm convex deploy --yes --typecheck disable
+      # Convex env (IS_TEST, memory auth mail, test keys), push functions, write .env.test.local.
+      - run: pnpm test:backend
       - run: pnpm test -p integration
       - uses: actions/upload-artifact@v4
         if: failure()
@@ -100,9 +101,12 @@ jobs:
 
   e2e:
     runs-on: ubuntu-24.04
-    # Smoke only for now: Playwright starts `pnpm build && pnpm start` itself.
-    # TODO(P0): run against deploy/compose.dev.yml (Caddy *.localtest.me, Convex, einvoice-tools), 3 shards,
-    # inside mcr.microsoft.com/playwright:v1.64.0-noble for visual baselines.
+    # P0 gate journeys against the precompiled self-hosted backend (owner bootstrap via e-mail code, passkey with the
+    # CDP virtual authenticator, setup wizard, invite) on desktop + pixel; Playwright starts `pnpm build && pnpm start`
+    # with the variables of .env.test.local. The iPhone project (WebKit, no CDP) runs the backend-free specs.
+    # TODO(P1): run against deploy/compose.dev.yml (Caddy *.localtest.me, einvoice-tools), shards, visual baselines.
+    env:
+      CONVEX_BACKEND_VERSION: precompiled-2026-10-10-72ce13c
     steps:
       - uses: actions/checkout@v5
       - uses: pnpm/action-setup@v4
@@ -112,7 +116,17 @@ jobs:
           cache: pnpm
       - run: pnpm install --frozen-lockfile
       - run: pnpm exec playwright install --with-deps chromium webkit
-      - run: pnpm e2e
+      - uses: actions/cache@v4
+        with:
+          path: ~/.cache/rechnungen/convex-backend
+          key: convex-backend-${{ env.CONVEX_BACKEND_VERSION }}
+      - name: Start self-hosted Convex backend
+        run: |
+          nohup scripts/convex-local-backend.sh > convex-backend.log 2>&1 &
+          for i in $(seq 1 60); do curl -fs http://127.0.0.1:3210/version >/dev/null && break; sleep 1; done
+      - run: pnpm test:backend
+      - run: pnpm e2e --project=desktop --project=pixel
+      - run: E2E_BACKEND= pnpm e2e --project=iphone
       - uses: actions/upload-artifact@v4
         if: always()
         with:
@@ -120,6 +134,7 @@ jobs:
           path: |
             playwright-report/
             results/
+            convex-backend.log
           if-no-files-found: ignore
 
   build:

@@ -77,7 +77,7 @@ export default defineConfig({
           name: "integration",
           include: ["test/integration/**/*.test.ts"],
           environment: "node",
-          setupFiles: ["./test/setup-invariants.ts"],
+          setupFiles: ["./test/load-test-env.ts", "./test/setup-invariants.ts"],
           fileParallelism: false,
           testTimeout: 60_000,
         },

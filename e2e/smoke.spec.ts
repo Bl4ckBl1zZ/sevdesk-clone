@@ -1,10 +1,13 @@
 import { expect, test } from "./fixtures";
 
-test("SMOKE home page loads in German without axe violations", async ({ page, expectNoAxeViolations }) => {
-  await page.goto("/");
+test("SEC-02 signed-out visitors land on the German sign-in page without axe violations", async ({
+  page,
+  expectNoAxeViolations,
+}) => {
+  await page.goto("/rechnungen");
+  await expect(page).toHaveURL(/\/anmelden\?weiter=%2Frechnungen$/);
   await expect(page.locator("html")).toHaveAttribute("lang", "de");
-  await expect(page.getByRole("heading", { level: 1, name: "Start" })).toBeVisible();
-  await expect(page).toHaveTitle(/Start · Rechnungen/);
+  await expect(page.getByRole("heading", { level: 1, name: "Anmelden" })).toBeVisible();
   await expectNoAxeViolations();
 });
 

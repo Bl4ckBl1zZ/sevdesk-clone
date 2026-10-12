@@ -191,7 +191,7 @@ describe("signed daily checkpoint (AUD-016, SEC-04)", () => {
     ]);
   });
 
-  test("AUD-013 E-AUD-09 rows removed from an append-only table after the checkpoint are reported", async () => {
+  test("AUD-013 RI-14 rows removed from an append-only table after the checkpoint are reported (E-AUD-09)", async () => {
     const t = makeT();
     await withActivity(t);
     await t.action(internal.integrity.verify, {});

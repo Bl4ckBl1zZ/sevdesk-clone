@@ -1,6 +1,23 @@
+import { ownerStorageState } from "./backend";
 import { expect, test } from "./fixtures";
 
-/** App shell navigation (04-ui-ux §3). Runs against the UI without a backend (P0). */
+/**
+ * App shell navigation (04-ui-ux §3) as the signed-in owner. Needs the backend and runs after e2e/journey.spec.ts
+ * in the same project (single worker, files in order), which created the owner and completed the setup.
+ */
+const STATE = (project: string) => `test-results/.auth/owner-${project}-shell.json`;
+let ready = false;
+
+test.beforeAll(async ({ browser }, testInfo) => {
+  ready = (await ownerStorageState(browser, testInfo.project.use, STATE(testInfo.project.name))) !== null;
+});
+test.beforeEach(() => {
+  test.skip(!ready, "needs the backend journey (owner with completed setup)");
+});
+test.use({
+  // biome-ignore lint/correctness/noEmptyPattern: Playwright fixtures must destructure their first argument
+  storageState: async ({}, use, testInfo) => use(ready ? STATE(testInfo.project.name) : undefined),
+});
 
 test.describe("desktop shell", () => {
   test.skip(({ isMobile }) => isMobile, "desktop layout only");

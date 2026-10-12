@@ -1,8 +1,9 @@
+import { backendEnabled } from "./backend";
 import { expect, test } from "./fixtures";
 
 /**
- * Sign-in pages (04-ui-ux §4.9) without a backend: rendering, flow to the code step and accessibility.
- * TODO(auth branch): full passkey + OTP journeys with the virtual WebAuthn authenticator and the auth-mail fake.
+ * Sign-in pages (04-ui-ux §4.9): rendering, flow to the code step and accessibility. The full passkey + e-mail
+ * code journeys against the backend are e2e/journey.spec.ts.
  */
 
 test("MISC-10 /anmelden offers passkey first and the e-mail code as fallback", async ({
@@ -23,6 +24,8 @@ test("MISC-10 /anmelden offers passkey first and the e-mail code as fallback", a
 });
 
 test("MISC-10 requesting a code leads to the six-digit code step", async ({ page, expectNoAxeViolations }) => {
+  // With a backend the answer depends on its state (first run shows the gate message); the journey covers it.
+  test.skip(backendEnabled, "covered by e2e/journey.spec.ts against the backend");
   await page.goto("/anmelden?weiter=/rechnungen");
   await page.getByLabel("E-Mail-Adresse").fill("inhaber@firma.de");
   await page.getByRole("button", { name: "Code per E-Mail senden" }).click();
@@ -35,11 +38,12 @@ test("MISC-10 requesting a code leads to the six-digit code step", async ({ page
   await expectNoAxeViolations();
 });
 
-test("MISC-10 passkey enrolment and two-factor pages", async ({ page, expectNoAxeViolations }) => {
+test("MISC-10 the two-factor page renders; passkey enrolment needs a session", async ({
+  page,
+  expectNoAxeViolations,
+}) => {
   await page.goto("/anmelden/passkey-einrichten");
-  await expect(page.getByRole("heading", { level: 1, name: "Passkey einrichten" })).toBeVisible();
-  await expect(page.getByText("Für das Inhaberkonto ist ein Passkey Pflicht.")).toBeVisible();
-  await expectNoAxeViolations();
+  await expect(page).toHaveURL(/\/anmelden\?weiter=%2Fanmelden%2Fpasskey-einrichten$/);
 
   await page.goto("/anmelden/zwei-faktor");
   await expect(page.getByRole("heading", { level: 1, name: "Zwei-Faktor-Bestätigung" })).toBeVisible();

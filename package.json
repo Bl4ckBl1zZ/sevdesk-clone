@@ -17,6 +17,7 @@
     "test": "node scripts/vitest.mjs",
     "test:watch": "vitest",
     "test:coverage": "node scripts/vitest.mjs --coverage",
+    "test:backend": "tsx scripts/test-backend.ts",
     "golden": "vitest run --project domain --passWithNoTests test/golden",
     "golden:update": "vitest run --project domain --passWithNoTests --update test/golden",
     "e2e": "playwright test",
