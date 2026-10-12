@@ -1,0 +1,34 @@
+{
+  "id": "T-GLD-08",
+  "title": "catering supplied 2025-12-31 @19",
+  "input": {
+    "documentDate": "2026-01-05",
+    "number": "RE-2026-0001",
+    "supplyDate": {
+      "kind": "date",
+      "date": "2025-12-31"
+    },
+    "lines": [
+      {
+        "kind": "item",
+        "name": "Catering Silvesterfeier (Speisen)",
+        "quantityMilli": 40000,
+        "unitCode": "C62",
+        "unitPriceMicros": 350000,
+        "vatCategory": "S",
+        "vatRateBp": 1900,
+        "vatRuleRowId": "restaurant_food@2024-01-01"
+      },
+      {
+        "kind": "item",
+        "name": "Getränkepauschale",
+        "quantityMilli": 40000,
+        "unitCode": "C62",
+        "unitPriceMicros": 150000,
+        "vatCategory": "S",
+        "vatRateBp": 1900,
+        "vatRuleRowId": "standard@2021-01-01"
+      }
+    ]
+  }
+}

@@ -1,0 +1,39 @@
+--- page 1 ---
+Muster Design GmbH
+Muster Design GmbH · Hauptstraße 1 · 10115 Berlin
+Nummer | RE-2026-0045
+Rechnungsdatum | 12.10.2026
+Erika Beispiel
+Leistungsdatum | 09.10.2026
+Lindenallee 12
+Kundennummer | K-20007
+04109 Leipzig
+Ansprechpartner | Erika Musterfrau
+Telefon | +49 30 1234567
+E-Mail | rechnung@muster-design.de
+Rechnung RE-2026-0045
+Pos. | Bezeichnung | Menge Einheit | Einzelpreis brutto | USt | Gesamt brutto
+1 | Druckerpatrone schwarz | 3 Stk. | 19,99 € | 19 % | 59,97 €
+2 | Netzwerkkabel 10 m | 1 Stk. | 49,00 € | 19 % | 49,00 €
+3 | Kaffee (Bohnen, 1 kg) | 2 Stk. | 10,70 € | 7 % | 21,40 €
+Summe netto | 111,57 €
+zzgl. 19 % USt auf 91,57 € | 17,40 €
+zzgl. 7 % USt auf 20,00 € | 1,40 €
+Gesamtbetrag | 130,37 €
+Sie kommen spätestens 30 Tage nach Fälligkeit und Zugang dieser Rechnung in Verzug, ohne dass es einer
+Mahnung bedarf (§ 286 Abs. 3 BGB).
+Zahlbar ohne Abzug bis zum 26.10.2026.
+Bitte geben Sie als Verwendungszweck ausschließlich an: RE-2026-0045
+Kontoinhaber: Muster Design GmbH
+IBAN: DE89 3704 0044 0532 0130 00
+BIC: COBADEFFXXX
+Bank: Commerzbank
+Muster Design GmbH | Sitz: Berlin | IBAN: DE89 3704 0044 0532 0130 00
+Hauptstraße 1 | Registergericht: Amtsgericht Charlottenburg | BIC: COBADEFFXXX
+10115 Berlin | HRB 123456 B
+Tel. +49 30 1234567 | Geschäftsführer: Max Mustermann, Erika
+rechnung@muster-design.de | Musterfrau
+www.muster-design.de | Stammkapital: 25.000,00 €
+Steuernummer: 21/815/08150
+USt-IdNr.: DE123456788
+Seite 1 von 1

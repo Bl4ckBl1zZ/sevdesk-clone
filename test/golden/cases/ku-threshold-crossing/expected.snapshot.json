@@ -1,0 +1,136 @@
+{
+  "buyer": {
+    "address": {
+      "city": "Köln",
+      "countryCode": "DE",
+      "postalCode": "50667",
+      "street": "Musterweg 5"
+    },
+    "contactNumber": "K-10023",
+    "contactPerson": {
+      "name": "Max Beispiel"
+    },
+    "invoiceEmail": "buchhaltung@beispiel-kunde.de",
+    "isConsumer": false,
+    "isPublicAuthority": false,
+    "name": "Beispiel Kunde GmbH",
+    "vatId": "DE811907980"
+  },
+  "currency": "EUR",
+  "documentDate": "2026-10-12",
+  "dueDate": "2026-11-11",
+  "einvoice": {
+    "decision": "PDF_NEEDS_CONSENT",
+    "format": "zugferd_en16931"
+  },
+  "flags": {},
+  "language": "de",
+  "layoutVersionId": "layout-v1",
+  "lines": [
+    {
+      "kind": "item",
+      "name": "Hochzeitsreportage (ganztägig)",
+      "netCents": 280000,
+      "position": 1,
+      "quantityMilli": 1000,
+      "unitCode": "LS",
+      "unitPriceMicros": 28000000,
+      "vatCategory": "S",
+      "vatRateBp": 1900,
+      "vatRuleRowId": "standard@2021-01-01"
+    }
+  ],
+  "notes": [
+    {
+      "de": "Zahlbar ohne Abzug bis zum 11.11.2026.",
+      "en": "Payable without deduction by 11 Nov 2026.",
+      "id": "terms",
+      "ruleRowId": "terms@2007-01-01",
+      "zone": "payment"
+    },
+    {
+      "de": "Bitte geben Sie als Verwendungszweck ausschließlich an: 2026-031",
+      "en": "Please use only this payment reference: 2026-031",
+      "id": "pay_ref",
+      "ruleRowId": "pay_ref@2007-01-01",
+      "zone": "payment"
+    }
+  ],
+  "number": "2026-031",
+  "payment": {
+    "bankAccount": {
+      "accountHolder": "Lena Kleinert",
+      "bankName": "Deutsche Kreditbank",
+      "bic": "BYLADEM1001",
+      "iban": "DE02120300000000202051"
+    },
+    "dueDays": 30,
+    "method": "transfer",
+    "paymentReference": "2026-031",
+    "showEpcQr": true
+  },
+  "priceMode": "net",
+  "references": {
+    "precedingInvoices": []
+  },
+  "ruleVersions": {
+    "note:pay_ref": "pay_ref@2007-01-01",
+    "note:terms": "terms@2007-01-01",
+    "vat:standard": "standard@2021-01-01"
+  },
+  "schemaVersion": 1,
+  "seller": {
+    "address": {
+      "city": "Leipzig",
+      "countryCode": "DE",
+      "postalCode": "04109",
+      "street": "Gartenweg 3"
+    },
+    "contact": {
+      "email": "hallo@kleinert-foto.de",
+      "name": "Lena Kleinert",
+      "phone": "+49 341 555123"
+    },
+    "electronicAddress": {
+      "scheme": "EM",
+      "value": "hallo@kleinert-foto.de"
+    },
+    "kleinunternehmer": false,
+    "legalForm": "einzelunternehmen",
+    "name": "Lena Kleinert Fotografie",
+    "representatives": [],
+    "taxNumber": "3201081508150",
+    "taxNumberState": "SN",
+    "vatAccounting": "ist",
+    "vatId": "DE811569869"
+  },
+  "supplyDate": {
+    "date": "2026-10-09",
+    "kind": "date"
+  },
+  "taxCase": "domestic",
+  "texts": {},
+  "totals": {
+    "advancesDeductedGrossCents": 0,
+    "allowanceTotalCents": 0,
+    "byGroup": [
+      {
+        "allowanceCents": 0,
+        "baseCents": 280000,
+        "category": "S",
+        "chargeCents": 0,
+        "lineNetSumCents": 280000,
+        "rateBp": 1900,
+        "vatCents": 53200
+      }
+    ],
+    "chargeTotalCents": 0,
+    "grossCents": 333200,
+    "lineNetSumCents": 280000,
+    "netCents": 280000,
+    "payableCents": 333200,
+    "roundingCents": 0,
+    "vatCents": 53200
+  },
+  "type": "invoice"
+}

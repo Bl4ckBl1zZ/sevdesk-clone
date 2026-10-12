@@ -1,0 +1,30 @@
+{
+  "id": "T-GLD-19",
+  "title": "AE invoice without customer VAT ID corrected, 384 + BG-3",
+  "buyer": "at",
+  "input": {
+    "type": "correction",
+    "correctionKind": "rectification",
+    "number": "RE-2026-0049",
+    "documentDate": "2026-10-22",
+    "taxCase": "eu_b2b_service",
+    "original": {
+      "number": "RE-2026-0040",
+      "date": "2026-10-05"
+    },
+    "rectifiedFields": [
+      "buyer.vatId"
+    ],
+    "lines": [
+      {
+        "kind": "item",
+        "name": "Beratung UX-Konzept",
+        "quantityMilli": 20000,
+        "unitCode": "HUR",
+        "unitPriceMicros": 1000000,
+        "vatCategory": "AE",
+        "vatRateBp": 0
+      }
+    ]
+  }
+}

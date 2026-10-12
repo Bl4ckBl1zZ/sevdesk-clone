@@ -1,0 +1,146 @@
+{
+  "buyer": {
+    "address": {
+      "city": "Köln",
+      "countryCode": "DE",
+      "postalCode": "50667",
+      "street": "Musterweg 5"
+    },
+    "contactNumber": "K-10023",
+    "contactPerson": {
+      "name": "Max Beispiel"
+    },
+    "invoiceEmail": "buchhaltung@beispiel-kunde.de",
+    "isConsumer": false,
+    "isPublicAuthority": false,
+    "name": "Beispiel Kunde GmbH",
+    "vatId": "DE811907980"
+  },
+  "currency": "EUR",
+  "documentDate": "2027-12-31",
+  "dueDate": "2028-01-30",
+  "einvoice": {
+    "decision": "PDF_NEEDS_CONSENT",
+    "format": "zugferd_en16931"
+  },
+  "flags": {},
+  "language": "de",
+  "layoutVersionId": "layout-v1",
+  "lines": [
+    {
+      "kind": "item",
+      "name": "Wartung Elektroanlage",
+      "netCents": 34000,
+      "position": 1,
+      "quantityMilli": 4000,
+      "unitCode": "HUR",
+      "unitPriceMicros": 850000,
+      "vatCategory": "S",
+      "vatRateBp": 1900,
+      "vatRuleRowId": "standard@2021-01-01"
+    }
+  ],
+  "notes": [
+    {
+      "de": "Zahlbar ohne Abzug bis zum 30.01.2028.",
+      "en": "Payable without deduction by 30 Jan 2028.",
+      "id": "terms",
+      "ruleRowId": "terms@2007-01-01",
+      "zone": "payment"
+    },
+    {
+      "de": "Bitte geben Sie als Verwendungszweck ausschließlich an: RE-2027-0412",
+      "en": "Please use only this payment reference: RE-2027-0412",
+      "id": "pay_ref",
+      "ruleRowId": "pay_ref@2007-01-01",
+      "zone": "payment"
+    }
+  ],
+  "number": "RE-2027-0412",
+  "payment": {
+    "bankAccount": {
+      "accountHolder": "Bauer Elektrotechnik e.K.",
+      "bankName": "UniCredit Bank",
+      "bic": "HYVEDEMMXXX",
+      "iban": "DE02700202700010108669"
+    },
+    "dueDays": 30,
+    "method": "transfer",
+    "paymentReference": "RE-2027-0412",
+    "showEpcQr": true
+  },
+  "priceMode": "net",
+  "references": {
+    "precedingInvoices": []
+  },
+  "ruleVersions": {
+    "note:pay_ref": "pay_ref@2007-01-01",
+    "note:terms": "terms@2007-01-01",
+    "vat:standard": "standard@2021-01-01"
+  },
+  "schemaVersion": 1,
+  "seller": {
+    "address": {
+      "city": "München",
+      "countryCode": "DE",
+      "postalCode": "80331",
+      "street": "Werkstraße 12"
+    },
+    "contact": {
+      "email": "info@bauer-elektro.de",
+      "name": "Hans Bauer",
+      "phone": "+49 89 7654321"
+    },
+    "electronicAddress": {
+      "scheme": "EM",
+      "value": "info@bauer-elektro.de"
+    },
+    "kleinunternehmer": false,
+    "legalForm": "ek",
+    "name": "Bauer Elektrotechnik e.K.",
+    "register": {
+      "court": "Amtsgericht München",
+      "number": "98765",
+      "type": "HRA"
+    },
+    "representatives": [
+      {
+        "name": "Hans Bauer"
+      }
+    ],
+    "seat": "München",
+    "taxNumber": "9143081508150",
+    "taxNumberState": "BY",
+    "vatAccounting": "ist",
+    "vatId": "DE811569869"
+  },
+  "supplyDate": {
+    "date": "2027-12-28",
+    "kind": "date"
+  },
+  "taxCase": "domestic",
+  "texts": {},
+  "totals": {
+    "advancesDeductedGrossCents": 0,
+    "allowanceTotalCents": 0,
+    "byGroup": [
+      {
+        "allowanceCents": 0,
+        "baseCents": 34000,
+        "category": "S",
+        "chargeCents": 0,
+        "lineNetSumCents": 34000,
+        "rateBp": 1900,
+        "vatCents": 6460
+      }
+    ],
+    "chargeTotalCents": 0,
+    "grossCents": 40460,
+    "lineNetSumCents": 34000,
+    "netCents": 34000,
+    "payableCents": 40460,
+    "roundingCents": 0,
+    "vatCents": 6460
+  },
+  "type": "invoice"
+}

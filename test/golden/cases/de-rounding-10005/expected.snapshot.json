@@ -1,0 +1,177 @@
+{
+  "buyer": {
+    "address": {
+      "city": "Köln",
+      "countryCode": "DE",
+      "postalCode": "50667",
+      "street": "Musterweg 5"
+    },
+    "contactNumber": "K-10023",
+    "contactPerson": {
+      "name": "Max Beispiel"
+    },
+    "invoiceEmail": "buchhaltung@beispiel-kunde.de",
+    "isConsumer": false,
+    "isPublicAuthority": false,
+    "name": "Beispiel Kunde GmbH",
+    "vatId": "DE811907980"
+  },
+  "currency": "EUR",
+  "documentDate": "2026-10-12",
+  "dueDate": "2026-11-11",
+  "einvoice": {
+    "decision": "PDF_NEEDS_CONSENT",
+    "format": "zugferd_en16931"
+  },
+  "flags": {},
+  "language": "de",
+  "layoutVersionId": "layout-v1",
+  "lines": [
+    {
+      "kind": "item",
+      "name": "Testposition A",
+      "netCents": 1001,
+      "position": 1,
+      "quantityMilli": 1000,
+      "unitCode": "C62",
+      "unitPriceMicros": 100050,
+      "vatCategory": "S",
+      "vatRateBp": 1900,
+      "vatRuleRowId": "standard@2021-01-01"
+    },
+    {
+      "kind": "item",
+      "name": "Testposition B",
+      "netCents": 1001,
+      "position": 2,
+      "quantityMilli": 1000,
+      "unitCode": "C62",
+      "unitPriceMicros": 100050,
+      "vatCategory": "S",
+      "vatRateBp": 1900,
+      "vatRuleRowId": "standard@2021-01-01"
+    },
+    {
+      "kind": "item",
+      "name": "Testposition C",
+      "netCents": 1001,
+      "position": 3,
+      "quantityMilli": 1000,
+      "unitCode": "C62",
+      "unitPriceMicros": 100050,
+      "vatCategory": "S",
+      "vatRateBp": 1900,
+      "vatRuleRowId": "standard@2021-01-01"
+    }
+  ],
+  "notes": [
+    {
+      "de": "Zahlbar ohne Abzug bis zum 11.11.2026.",
+      "en": "Payable without deduction by 11 Nov 2026.",
+      "id": "terms",
+      "ruleRowId": "terms@2007-01-01",
+      "zone": "payment"
+    },
+    {
+      "de": "Bitte geben Sie als Verwendungszweck ausschließlich an: RE-2026-0042",
+      "en": "Please use only this payment reference: RE-2026-0042",
+      "id": "pay_ref",
+      "ruleRowId": "pay_ref@2007-01-01",
+      "zone": "payment"
+    }
+  ],
+  "number": "RE-2026-0042",
+  "payment": {
+    "bankAccount": {
+      "accountHolder": "Muster Design GmbH",
+      "bankName": "Commerzbank",
+      "bic": "COBADEFFXXX",
+      "iban": "DE89370400440532013000"
+    },
+    "dueDays": 30,
+    "method": "transfer",
+    "paymentReference": "RE-2026-0042",
+    "showEpcQr": true
+  },
+  "priceMode": "net",
+  "references": {
+    "precedingInvoices": []
+  },
+  "ruleVersions": {
+    "note:pay_ref": "pay_ref@2007-01-01",
+    "note:terms": "terms@2007-01-01",
+    "vat:standard": "standard@2021-01-01"
+  },
+  "schemaVersion": 1,
+  "seller": {
+    "address": {
+      "city": "Berlin",
+      "countryCode": "DE",
+      "postalCode": "10115",
+      "street": "Hauptstraße 1"
+    },
+    "contact": {
+      "email": "rechnung@muster-design.de",
+      "name": "Erika Musterfrau",
+      "phone": "+49 30 1234567",
+      "website": "www.muster-design.de"
+    },
+    "electronicAddress": {
+      "scheme": "EM",
+      "value": "rechnung@muster-design.de"
+    },
+    "kleinunternehmer": false,
+    "legalForm": "gmbh",
+    "name": "Muster Design GmbH",
+    "register": {
+      "court": "Amtsgericht Charlottenburg",
+      "number": "123456 B",
+      "type": "HRB"
+    },
+    "representatives": [
+      {
+        "name": "Max Mustermann"
+      },
+      {
+        "name": "Erika Musterfrau"
+      }
+    ],
+    "seat": "Berlin",
+    "shareCapital": {
+      "amountCents": 2500000
+    },
+    "taxNumber": "1121081508150",
+    "taxNumberState": "BE",
+    "vatAccounting": "soll",
+    "vatId": "DE123456788"
+  },
+  "supplyDate": {
+    "date": "2026-10-09",
+    "kind": "date"
+  },
+  "taxCase": "domestic",
+  "texts": {},
+  "totals": {
+    "advancesDeductedGrossCents": 0,
+    "allowanceTotalCents": 0,
+    "byGroup": [
+      {
+        "allowanceCents": 0,
+        "baseCents": 3003,
+        "category": "S",
+        "chargeCents": 0,
+        "lineNetSumCents": 3003,
+        "rateBp": 1900,
+        "vatCents": 571
+      }
+    ],
+    "chargeTotalCents": 0,
+    "grossCents": 3574,
+    "lineNetSumCents": 3003,
+    "netCents": 3003,
+    "payableCents": 3574,
+    "roundingCents": 0,
+    "vatCents": 571
+  },
+  "type": "invoice"
+}

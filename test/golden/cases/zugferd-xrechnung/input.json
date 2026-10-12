@@ -1,0 +1,14 @@
+{
+  "id": "INV-19",
+  "title": "ZUGFeRD hybrid with the XRechnung profile (xrechnung.xml)",
+  "input": {
+    "number": "RE-2026-0053",
+    "references": {
+      "buyerReference": "EK-4711"
+    },
+    "einvoice": {
+      "format": "zugferd_xrechnung",
+      "decision": "PDF_NEEDS_CONSENT"
+    }
+  }
+}

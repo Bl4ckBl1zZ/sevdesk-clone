@@ -1,0 +1,25 @@
+{
+  "id": "T-GLD-09",
+  "title": "therapy 300,00 E VATEX-EU-132 + note § 4 Nr. 14",
+  "buyer": "consumer",
+  "input": {
+    "taxCase": "exempt_4",
+    "lines": [
+      {
+        "kind": "item",
+        "name": "Physiotherapie (6 Behandlungen)",
+        "quantityMilli": 6000,
+        "unitCode": "C62",
+        "unitPriceMicros": 500000,
+        "vatCategory": "E",
+        "vatRateBp": 0,
+        "vatRuleRowId": "exempt@2007-01-01",
+        "exemptionParagraph": "14"
+      }
+    ],
+    "einvoice": {
+      "format": "none",
+      "decision": "NOT_REQUIRED"
+    }
+  }
+}

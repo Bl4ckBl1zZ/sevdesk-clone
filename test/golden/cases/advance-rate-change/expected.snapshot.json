@@ -1,0 +1,172 @@
+{
+  "buyer": {
+    "address": {
+      "city": "Köln",
+      "countryCode": "DE",
+      "postalCode": "50667",
+      "street": "Musterweg 5"
+    },
+    "contactNumber": "K-10023",
+    "contactPerson": {
+      "name": "Max Beispiel"
+    },
+    "invoiceEmail": "buchhaltung@beispiel-kunde.de",
+    "isConsumer": false,
+    "isPublicAuthority": false,
+    "name": "Beispiel Kunde GmbH",
+    "vatId": "DE811907980"
+  },
+  "currency": "EUR",
+  "deductions": [
+    {
+      "advanceDate": "2025-11-20",
+      "advanceNumber": "RE-2025-0210",
+      "byGroup": [
+        {
+          "category": "S",
+          "grossCents": 119000,
+          "netCents": 100000,
+          "rateBp": 1900,
+          "vatCents": 19000
+        }
+      ],
+      "deductedGrossCents": 119000,
+      "paidOn": "2025-11-28",
+      "partiallyPaid": false
+    }
+  ],
+  "documentDate": "2026-01-20",
+  "einvoice": {
+    "decision": "PDF_NEEDS_CONSENT",
+    "format": "zugferd_en16931"
+  },
+  "flags": {
+    "chainIndex": 2
+  },
+  "language": "de",
+  "layoutVersionId": "layout-v1",
+  "lines": [
+    {
+      "kind": "item",
+      "name": "Catering Jahresauftakt (Speisen)",
+      "netCents": 100000,
+      "position": 1,
+      "quantityMilli": 1000,
+      "unitCode": "LS",
+      "unitPriceMicros": 10000000,
+      "vatCategory": "S",
+      "vatRateBp": 700,
+      "vatRuleRowId": "restaurant_food@2026-01-01"
+    }
+  ],
+  "notes": [
+    {
+      "de": "Schlussrechnung zu Auftrag AB-2026-0007. Bereits geleistete Abschlagszahlungen und die darauf entfallende Umsatzsteuer werden abgezogen.",
+      "en": "Final invoice for AB-2026-0007. Advance payments received and the VAT thereon are deducted.",
+      "id": "final_info",
+      "ruleRowId": "final_info@2007-01-01",
+      "xmlSubjectCode": "AAI",
+      "zone": "title"
+    }
+  ],
+  "number": "RE-2026-0009",
+  "payment": {
+    "bankAccount": {
+      "accountHolder": "Muster Design GmbH",
+      "bankName": "Commerzbank",
+      "bic": "COBADEFFXXX",
+      "iban": "DE89370400440532013000"
+    },
+    "dueDays": 30,
+    "method": "transfer",
+    "paymentReference": "RE-2026-0009",
+    "refundIban": "DE89370400440532013000",
+    "showEpcQr": true
+  },
+  "priceMode": "net",
+  "references": {
+    "precedingInvoices": [
+      {
+        "date": "2025-11-20",
+        "number": "RE-2025-0210",
+        "role": "advance"
+      }
+    ]
+  },
+  "ruleVersions": {
+    "note:final_info": "final_info@2007-01-01",
+    "vat:restaurant_food": "restaurant_food@2026-01-01"
+  },
+  "schemaVersion": 1,
+  "seller": {
+    "address": {
+      "city": "Berlin",
+      "countryCode": "DE",
+      "postalCode": "10115",
+      "street": "Hauptstraße 1"
+    },
+    "contact": {
+      "email": "rechnung@muster-design.de",
+      "name": "Erika Musterfrau",
+      "phone": "+49 30 1234567",
+      "website": "www.muster-design.de"
+    },
+    "electronicAddress": {
+      "scheme": "EM",
+      "value": "rechnung@muster-design.de"
+    },
+    "kleinunternehmer": false,
+    "legalForm": "gmbh",
+    "name": "Muster Design GmbH",
+    "register": {
+      "court": "Amtsgericht Charlottenburg",
+      "number": "123456 B",
+      "type": "HRB"
+    },
+    "representatives": [
+      {
+        "name": "Max Mustermann"
+      },
+      {
+        "name": "Erika Musterfrau"
+      }
+    ],
+    "seat": "Berlin",
+    "shareCapital": {
+      "amountCents": 2500000
+    },
+    "taxNumber": "1121081508150",
+    "taxNumberState": "BE",
+    "vatAccounting": "soll",
+    "vatId": "DE123456788"
+  },
+  "supplyDate": {
+    "date": "2026-01-15",
+    "kind": "date"
+  },
+  "taxCase": "domestic",
+  "texts": {},
+  "totals": {
+    "advancesDeductedGrossCents": 119000,
+    "allowanceTotalCents": 0,
+    "byGroup": [
+      {
+        "allowanceCents": 0,
+        "baseCents": 100000,
+        "category": "S",
+        "chargeCents": 0,
+        "lineNetSumCents": 100000,
+        "rateBp": 700,
+        "vatCents": 7000
+      }
+    ],
+    "chargeTotalCents": 0,
+    "grossCents": 107000,
+    "lineNetSumCents": 100000,
+    "netCents": 100000,
+    "payableCents": -12000,
+    "roundingCents": 0,
+    "vatCents": 7000
+  },
+  "type": "final_invoice"
+}

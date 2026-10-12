@@ -1,0 +1,871 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<Invoice xmlns="urn:oasis:names:specification:ubl:schema:xsd:Invoice-2" xmlns:cac="urn:oasis:names:specification:ubl:schema:xsd:CommonAggregateComponents-2" xmlns:cbc="urn:oasis:names:specification:ubl:schema:xsd:CommonBasicComponents-2">
+  <cbc:CustomizationID>urn:cen.eu:en16931:2017#compliant#urn:xeinkauf.de:kosit:xrechnung_3.0</cbc:CustomizationID>
+  <cbc:ProfileID>urn:fdc:peppol.eu:2017:poacc:billing:01:1.0</cbc:ProfileID>
+  <cbc:ID>RE-2026-0054</cbc:ID>
+  <cbc:IssueDate>2026-10-12</cbc:IssueDate>
+  <cbc:DueDate>2026-11-11</cbc:DueDate>
+  <cbc:InvoiceTypeCode>380</cbc:InvoiceTypeCode>
+  <cbc:DocumentCurrencyCode>EUR</cbc:DocumentCurrencyCode>
+  <cbc:BuyerReference>K-10023</cbc:BuyerReference>
+  <cac:AccountingSupplierParty>
+    <cac:Party>
+      <cbc:EndpointID schemeID="EM">rechnung@muster-design.de</cbc:EndpointID>
+      <cac:PostalAddress>
+        <cbc:StreetName>Hauptstraße 1</cbc:StreetName>
+        <cbc:CityName>Berlin</cbc:CityName>
+        <cbc:PostalZone>10115</cbc:PostalZone>
+        <cac:Country>
+          <cbc:IdentificationCode>DE</cbc:IdentificationCode>
+        </cac:Country>
+      </cac:PostalAddress>
+      <cac:PartyTaxScheme>
+        <cbc:CompanyID>DE123456788</cbc:CompanyID>
+        <cac:TaxScheme>
+          <cbc:ID>VAT</cbc:ID>
+        </cac:TaxScheme>
+      </cac:PartyTaxScheme>
+      <cac:PartyTaxScheme>
+        <cbc:CompanyID>1121081508150</cbc:CompanyID>
+        <cac:TaxScheme>
+          <cbc:ID>FC</cbc:ID>
+        </cac:TaxScheme>
+      </cac:PartyTaxScheme>
+      <cac:PartyLegalEntity>
+        <cbc:RegistrationName>Muster Design GmbH</cbc:RegistrationName>
+        <cbc:CompanyID>HRB 123456 B</cbc:CompanyID>
+        <cbc:CompanyLegalForm>Sitz: Berlin · Registergericht: Amtsgericht Charlottenburg · HRB 123456 B · Geschäftsführer: Max Mustermann, Erika Musterfrau · Stammkapital: 25.000,00 €</cbc:CompanyLegalForm>
+      </cac:PartyLegalEntity>
+      <cac:Contact>
+        <cbc:Name>Erika Musterfrau</cbc:Name>
+        <cbc:Telephone>+49 30 1234567</cbc:Telephone>
+        <cbc:ElectronicMail>rechnung@muster-design.de</cbc:ElectronicMail>
+      </cac:Contact>
+    </cac:Party>
+  </cac:AccountingSupplierParty>
+  <cac:AccountingCustomerParty>
+    <cac:Party>
+      <cbc:EndpointID schemeID="EM">buchhaltung@beispiel-kunde.de</cbc:EndpointID>
+      <cac:PartyIdentification>
+        <cbc:ID>K-10023</cbc:ID>
+      </cac:PartyIdentification>
+      <cac:PostalAddress>
+        <cbc:StreetName>Musterweg 5</cbc:StreetName>
+        <cbc:CityName>Köln</cbc:CityName>
+        <cbc:PostalZone>50667</cbc:PostalZone>
+        <cac:Country>
+          <cbc:IdentificationCode>DE</cbc:IdentificationCode>
+        </cac:Country>
+      </cac:PostalAddress>
+      <cac:PartyTaxScheme>
+        <cbc:CompanyID>DE811907980</cbc:CompanyID>
+        <cac:TaxScheme>
+          <cbc:ID>VAT</cbc:ID>
+        </cac:TaxScheme>
+      </cac:PartyTaxScheme>
+      <cac:PartyLegalEntity>
+        <cbc:RegistrationName>Beispiel Kunde GmbH</cbc:RegistrationName>
+      </cac:PartyLegalEntity>
+      <cac:Contact>
+        <cbc:Name>Max Beispiel</cbc:Name>
+      </cac:Contact>
+    </cac:Party>
+  </cac:AccountingCustomerParty>
+  <cac:Delivery>
+    <cbc:ActualDeliveryDate>2026-10-09</cbc:ActualDeliveryDate>
+  </cac:Delivery>
+  <cac:PaymentMeans>
+    <cbc:PaymentMeansCode name="SEPA-Überweisung">58</cbc:PaymentMeansCode>
+    <cbc:PaymentID>RE-2026-0054</cbc:PaymentID>
+    <cac:PayeeFinancialAccount>
+      <cbc:ID>DE89370400440532013000</cbc:ID>
+      <cbc:Name>Muster Design GmbH</cbc:Name>
+      <cac:FinancialInstitutionBranch>
+        <cbc:ID>COBADEFFXXX</cbc:ID>
+      </cac:FinancialInstitutionBranch>
+    </cac:PayeeFinancialAccount>
+  </cac:PaymentMeans>
+  <cac:PaymentTerms>
+    <cbc:Note>Zahlbar innerhalb von 30 Tagen ohne Abzug bis 11.11.2026.</cbc:Note>
+  </cac:PaymentTerms>
+  <cac:TaxTotal>
+    <cbc:TaxAmount currencyID="EUR">1140.00</cbc:TaxAmount>
+    <cac:TaxSubtotal>
+      <cbc:TaxableAmount currencyID="EUR">6000.00</cbc:TaxableAmount>
+      <cbc:TaxAmount currencyID="EUR">1140.00</cbc:TaxAmount>
+      <cac:TaxCategory>
+        <cbc:ID>S</cbc:ID>
+        <cbc:Percent>19.00</cbc:Percent>
+        <cac:TaxScheme>
+          <cbc:ID>VAT</cbc:ID>
+        </cac:TaxScheme>
+      </cac:TaxCategory>
+    </cac:TaxSubtotal>
+  </cac:TaxTotal>
+  <cac:LegalMonetaryTotal>
+    <cbc:LineExtensionAmount currencyID="EUR">6000.00</cbc:LineExtensionAmount>
+    <cbc:TaxExclusiveAmount currencyID="EUR">6000.00</cbc:TaxExclusiveAmount>
+    <cbc:TaxInclusiveAmount currencyID="EUR">7140.00</cbc:TaxInclusiveAmount>
+    <cbc:PayableAmount currencyID="EUR">7140.00</cbc:PayableAmount>
+  </cac:LegalMonetaryTotal>
+  <cac:InvoiceLine>
+    <cbc:ID>1</cbc:ID>
+    <cbc:InvoicedQuantity unitCode="HUR">2</cbc:InvoicedQuantity>
+    <cbc:LineExtensionAmount currencyID="EUR">50.00</cbc:LineExtensionAmount>
+    <cac:Item>
+      <cbc:Description>Ausführliche Beschreibung der erbrachten Leistung zur Prüfung des Seitenumbruchs</cbc:Description>
+      <cbc:Name>Leistungsposition 01</cbc:Name>
+      <cac:ClassifiedTaxCategory>
+        <cbc:ID>S</cbc:ID>
+        <cbc:Percent>19.00</cbc:Percent>
+        <cac:TaxScheme>
+          <cbc:ID>VAT</cbc:ID>
+        </cac:TaxScheme>
+      </cac:ClassifiedTaxCategory>
+    </cac:Item>
+    <cac:Price>
+      <cbc:PriceAmount currencyID="EUR">25.00</cbc:PriceAmount>
+    </cac:Price>
+  </cac:InvoiceLine>
+  <cac:InvoiceLine>
+    <cbc:ID>2</cbc:ID>
+    <cbc:InvoicedQuantity unitCode="HUR">3</cbc:InvoicedQuantity>
+    <cbc:LineExtensionAmount currencyID="EUR">112.50</cbc:LineExtensionAmount>
+    <cac:Item>
+      <cbc:Description>Ausführliche Beschreibung der erbrachten Leistung zur Prüfung des Seitenumbruchs</cbc:Description>
+      <cbc:Name>Leistungsposition 02</cbc:Name>
+      <cac:ClassifiedTaxCategory>
+        <cbc:ID>S</cbc:ID>
+        <cbc:Percent>19.00</cbc:Percent>
+        <cac:TaxScheme>
+          <cbc:ID>VAT</cbc:ID>
+        </cac:TaxScheme>
+      </cac:ClassifiedTaxCategory>
+    </cac:Item>
+    <cac:Price>
+      <cbc:PriceAmount currencyID="EUR">37.50</cbc:PriceAmount>
+    </cac:Price>
+  </cac:InvoiceLine>
+  <cac:InvoiceLine>
+    <cbc:ID>3</cbc:ID>
+    <cbc:InvoicedQuantity unitCode="HUR">4</cbc:InvoicedQuantity>
+    <cbc:LineExtensionAmount currencyID="EUR">200.00</cbc:LineExtensionAmount>
+    <cac:Item>
+      <cbc:Description>Ausführliche Beschreibung der erbrachten Leistung zur Prüfung des Seitenumbruchs</cbc:Description>
+      <cbc:Name>Leistungsposition 03</cbc:Name>
+      <cac:ClassifiedTaxCategory>
+        <cbc:ID>S</cbc:ID>
+        <cbc:Percent>19.00</cbc:Percent>
+        <cac:TaxScheme>
+          <cbc:ID>VAT</cbc:ID>
+        </cac:TaxScheme>
+      </cac:ClassifiedTaxCategory>
+    </cac:Item>
+    <cac:Price>
+      <cbc:PriceAmount currencyID="EUR">50.00</cbc:PriceAmount>
+    </cac:Price>
+  </cac:InvoiceLine>
+  <cac:InvoiceLine>
+    <cbc:ID>4</cbc:ID>
+    <cbc:InvoicedQuantity unitCode="HUR">5</cbc:InvoicedQuantity>
+    <cbc:LineExtensionAmount currencyID="EUR">312.50</cbc:LineExtensionAmount>
+    <cac:Item>
+      <cbc:Description>Ausführliche Beschreibung der erbrachten Leistung zur Prüfung des Seitenumbruchs</cbc:Description>
+      <cbc:Name>Leistungsposition 04</cbc:Name>
+      <cac:ClassifiedTaxCategory>
+        <cbc:ID>S</cbc:ID>
+        <cbc:Percent>19.00</cbc:Percent>
+        <cac:TaxScheme>
+          <cbc:ID>VAT</cbc:ID>
+        </cac:TaxScheme>
+      </cac:ClassifiedTaxCategory>
+    </cac:Item>
+    <cac:Price>
+      <cbc:PriceAmount currencyID="EUR">62.50</cbc:PriceAmount>
+    </cac:Price>
+  </cac:InvoiceLine>
+  <cac:InvoiceLine>
+    <cbc:ID>5</cbc:ID>
+    <cbc:InvoicedQuantity unitCode="HUR">1</cbc:InvoicedQuantity>
+    <cbc:LineExtensionAmount currencyID="EUR">75.00</cbc:LineExtensionAmount>
+    <cac:Item>
+      <cbc:Description>Ausführliche Beschreibung der erbrachten Leistung zur Prüfung des Seitenumbruchs</cbc:Description>
+      <cbc:Name>Leistungsposition 05</cbc:Name>
+      <cac:ClassifiedTaxCategory>
+        <cbc:ID>S</cbc:ID>
+        <cbc:Percent>19.00</cbc:Percent>
+        <cac:TaxScheme>
+          <cbc:ID>VAT</cbc:ID>
+        </cac:TaxScheme>
+      </cac:ClassifiedTaxCategory>
+    </cac:Item>
+    <cac:Price>
+      <cbc:PriceAmount currencyID="EUR">75.00</cbc:PriceAmount>
+    </cac:Price>
+  </cac:InvoiceLine>
+  <cac:InvoiceLine>
+    <cbc:ID>6</cbc:ID>
+    <cbc:InvoicedQuantity unitCode="HUR">2</cbc:InvoicedQuantity>
+    <cbc:LineExtensionAmount currencyID="EUR">175.00</cbc:LineExtensionAmount>
+    <cac:Item>
+      <cbc:Description>Ausführliche Beschreibung der erbrachten Leistung zur Prüfung des Seitenumbruchs</cbc:Description>
+      <cbc:Name>Leistungsposition 06</cbc:Name>
+      <cac:ClassifiedTaxCategory>
+        <cbc:ID>S</cbc:ID>
+        <cbc:Percent>19.00</cbc:Percent>
+        <cac:TaxScheme>
+          <cbc:ID>VAT</cbc:ID>
+        </cac:TaxScheme>
+      </cac:ClassifiedTaxCategory>
+    </cac:Item>
+    <cac:Price>
+      <cbc:PriceAmount currencyID="EUR">87.50</cbc:PriceAmount>
+    </cac:Price>
+  </cac:InvoiceLine>
+  <cac:InvoiceLine>
+    <cbc:ID>7</cbc:ID>
+    <cbc:InvoicedQuantity unitCode="HUR">3</cbc:InvoicedQuantity>
+    <cbc:LineExtensionAmount currencyID="EUR">37.50</cbc:LineExtensionAmount>
+    <cac:Item>
+      <cbc:Description>Ausführliche Beschreibung der erbrachten Leistung zur Prüfung des Seitenumbruchs</cbc:Description>
+      <cbc:Name>Leistungsposition 07</cbc:Name>
+      <cac:ClassifiedTaxCategory>
+        <cbc:ID>S</cbc:ID>
+        <cbc:Percent>19.00</cbc:Percent>
+        <cac:TaxScheme>
+          <cbc:ID>VAT</cbc:ID>
+        </cac:TaxScheme>
+      </cac:ClassifiedTaxCategory>
+    </cac:Item>
+    <cac:Price>
+      <cbc:PriceAmount currencyID="EUR">12.50</cbc:PriceAmount>
+    </cac:Price>
+  </cac:InvoiceLine>
+  <cac:InvoiceLine>
+    <cbc:ID>8</cbc:ID>
+    <cbc:InvoicedQuantity unitCode="HUR">4</cbc:InvoicedQuantity>
+    <cbc:LineExtensionAmount currencyID="EUR">100.00</cbc:LineExtensionAmount>
+    <cac:Item>
+      <cbc:Description>Ausführliche Beschreibung der erbrachten Leistung zur Prüfung des Seitenumbruchs</cbc:Description>
+      <cbc:Name>Leistungsposition 08</cbc:Name>
+      <cac:ClassifiedTaxCategory>
+        <cbc:ID>S</cbc:ID>
+        <cbc:Percent>19.00</cbc:Percent>
+        <cac:TaxScheme>
+          <cbc:ID>VAT</cbc:ID>
+        </cac:TaxScheme>
+      </cac:ClassifiedTaxCategory>
+    </cac:Item>
+    <cac:Price>
+      <cbc:PriceAmount currencyID="EUR">25.00</cbc:PriceAmount>
+    </cac:Price>
+  </cac:InvoiceLine>
+  <cac:InvoiceLine>
+    <cbc:ID>9</cbc:ID>
+    <cbc:InvoicedQuantity unitCode="HUR">5</cbc:InvoicedQuantity>
+    <cbc:LineExtensionAmount currencyID="EUR">187.50</cbc:LineExtensionAmount>
+    <cac:Item>
+      <cbc:Description>Ausführliche Beschreibung der erbrachten Leistung zur Prüfung des Seitenumbruchs</cbc:Description>
+      <cbc:Name>Leistungsposition 09</cbc:Name>
+      <cac:ClassifiedTaxCategory>
+        <cbc:ID>S</cbc:ID>
+        <cbc:Percent>19.00</cbc:Percent>
+        <cac:TaxScheme>
+          <cbc:ID>VAT</cbc:ID>
+        </cac:TaxScheme>
+      </cac:ClassifiedTaxCategory>
+    </cac:Item>
+    <cac:Price>
+      <cbc:PriceAmount currencyID="EUR">37.50</cbc:PriceAmount>
+    </cac:Price>
+  </cac:InvoiceLine>
+  <cac:InvoiceLine>
+    <cbc:ID>10</cbc:ID>
+    <cbc:InvoicedQuantity unitCode="HUR">1</cbc:InvoicedQuantity>
+    <cbc:LineExtensionAmount currencyID="EUR">50.00</cbc:LineExtensionAmount>
+    <cac:Item>
+      <cbc:Description>Ausführliche Beschreibung der erbrachten Leistung zur Prüfung des Seitenumbruchs</cbc:Description>
+      <cbc:Name>Leistungsposition 10</cbc:Name>
+      <cac:ClassifiedTaxCategory>
+        <cbc:ID>S</cbc:ID>
+        <cbc:Percent>19.00</cbc:Percent>
+        <cac:TaxScheme>
+          <cbc:ID>VAT</cbc:ID>
+        </cac:TaxScheme>
+      </cac:ClassifiedTaxCategory>
+    </cac:Item>
+    <cac:Price>
+      <cbc:PriceAmount currencyID="EUR">50.00</cbc:PriceAmount>
+    </cac:Price>
+  </cac:InvoiceLine>
+  <cac:InvoiceLine>
+    <cbc:ID>11</cbc:ID>
+    <cbc:InvoicedQuantity unitCode="HUR">2</cbc:InvoicedQuantity>
+    <cbc:LineExtensionAmount currencyID="EUR">125.00</cbc:LineExtensionAmount>
+    <cac:Item>
+      <cbc:Description>Ausführliche Beschreibung der erbrachten Leistung zur Prüfung des Seitenumbruchs</cbc:Description>
+      <cbc:Name>Leistungsposition 11</cbc:Name>
+      <cac:ClassifiedTaxCategory>
+        <cbc:ID>S</cbc:ID>
+        <cbc:Percent>19.00</cbc:Percent>
+        <cac:TaxScheme>
+          <cbc:ID>VAT</cbc:ID>
+        </cac:TaxScheme>
+      </cac:ClassifiedTaxCategory>
+    </cac:Item>
+    <cac:Price>
+      <cbc:PriceAmount currencyID="EUR">62.50</cbc:PriceAmount>
+    </cac:Price>
+  </cac:InvoiceLine>
+  <cac:InvoiceLine>
+    <cbc:ID>12</cbc:ID>
+    <cbc:InvoicedQuantity unitCode="HUR">3</cbc:InvoicedQuantity>
+    <cbc:LineExtensionAmount currencyID="EUR">225.00</cbc:LineExtensionAmount>
+    <cac:Item>
+      <cbc:Description>Ausführliche Beschreibung der erbrachten Leistung zur Prüfung des Seitenumbruchs</cbc:Description>
+      <cbc:Name>Leistungsposition 12</cbc:Name>
+      <cac:ClassifiedTaxCategory>
+        <cbc:ID>S</cbc:ID>
+        <cbc:Percent>19.00</cbc:Percent>
+        <cac:TaxScheme>
+          <cbc:ID>VAT</cbc:ID>
+        </cac:TaxScheme>
+      </cac:ClassifiedTaxCategory>
+    </cac:Item>
+    <cac:Price>
+      <cbc:PriceAmount currencyID="EUR">75.00</cbc:PriceAmount>
+    </cac:Price>
+  </cac:InvoiceLine>
+  <cac:InvoiceLine>
+    <cbc:ID>13</cbc:ID>
+    <cbc:InvoicedQuantity unitCode="HUR">4</cbc:InvoicedQuantity>
+    <cbc:LineExtensionAmount currencyID="EUR">350.00</cbc:LineExtensionAmount>
+    <cac:Item>
+      <cbc:Description>Ausführliche Beschreibung der erbrachten Leistung zur Prüfung des Seitenumbruchs</cbc:Description>
+      <cbc:Name>Leistungsposition 13</cbc:Name>
+      <cac:ClassifiedTaxCategory>
+        <cbc:ID>S</cbc:ID>
+        <cbc:Percent>19.00</cbc:Percent>
+        <cac:TaxScheme>
+          <cbc:ID>VAT</cbc:ID>
+        </cac:TaxScheme>
+      </cac:ClassifiedTaxCategory>
+    </cac:Item>
+    <cac:Price>
+      <cbc:PriceAmount currencyID="EUR">87.50</cbc:PriceAmount>
+    </cac:Price>
+  </cac:InvoiceLine>
+  <cac:InvoiceLine>
+    <cbc:ID>14</cbc:ID>
+    <cbc:InvoicedQuantity unitCode="HUR">5</cbc:InvoicedQuantity>
+    <cbc:LineExtensionAmount currencyID="EUR">62.50</cbc:LineExtensionAmount>
+    <cac:Item>
+      <cbc:Description>Ausführliche Beschreibung der erbrachten Leistung zur Prüfung des Seitenumbruchs</cbc:Description>
+      <cbc:Name>Leistungsposition 14</cbc:Name>
+      <cac:ClassifiedTaxCategory>
+        <cbc:ID>S</cbc:ID>
+        <cbc:Percent>19.00</cbc:Percent>
+        <cac:TaxScheme>
+          <cbc:ID>VAT</cbc:ID>
+        </cac:TaxScheme>
+      </cac:ClassifiedTaxCategory>
+    </cac:Item>
+    <cac:Price>
+      <cbc:PriceAmount currencyID="EUR">12.50</cbc:PriceAmount>
+    </cac:Price>
+  </cac:InvoiceLine>
+  <cac:InvoiceLine>
+    <cbc:ID>15</cbc:ID>
+    <cbc:InvoicedQuantity unitCode="HUR">1</cbc:InvoicedQuantity>
+    <cbc:LineExtensionAmount currencyID="EUR">25.00</cbc:LineExtensionAmount>
+    <cac:Item>
+      <cbc:Description>Ausführliche Beschreibung der erbrachten Leistung zur Prüfung des Seitenumbruchs</cbc:Description>
+      <cbc:Name>Leistungsposition 15</cbc:Name>
+      <cac:ClassifiedTaxCategory>
+        <cbc:ID>S</cbc:ID>
+        <cbc:Percent>19.00</cbc:Percent>
+        <cac:TaxScheme>
+          <cbc:ID>VAT</cbc:ID>
+        </cac:TaxScheme>
+      </cac:ClassifiedTaxCategory>
+    </cac:Item>
+    <cac:Price>
+      <cbc:PriceAmount currencyID="EUR">25.00</cbc:PriceAmount>
+    </cac:Price>
+  </cac:InvoiceLine>
+  <cac:InvoiceLine>
+    <cbc:ID>16</cbc:ID>
+    <cbc:InvoicedQuantity unitCode="HUR">2</cbc:InvoicedQuantity>
+    <cbc:LineExtensionAmount currencyID="EUR">75.00</cbc:LineExtensionAmount>
+    <cac:Item>
+      <cbc:Description>Ausführliche Beschreibung der erbrachten Leistung zur Prüfung des Seitenumbruchs</cbc:Description>
+      <cbc:Name>Leistungsposition 16</cbc:Name>
+      <cac:ClassifiedTaxCategory>
+        <cbc:ID>S</cbc:ID>
+        <cbc:Percent>19.00</cbc:Percent>
+        <cac:TaxScheme>
+          <cbc:ID>VAT</cbc:ID>
+        </cac:TaxScheme>
+      </cac:ClassifiedTaxCategory>
+    </cac:Item>
+    <cac:Price>
+      <cbc:PriceAmount currencyID="EUR">37.50</cbc:PriceAmount>
+    </cac:Price>
+  </cac:InvoiceLine>
+  <cac:InvoiceLine>
+    <cbc:ID>17</cbc:ID>
+    <cbc:InvoicedQuantity unitCode="HUR">3</cbc:InvoicedQuantity>
+    <cbc:LineExtensionAmount currencyID="EUR">150.00</cbc:LineExtensionAmount>
+    <cac:Item>
+      <cbc:Description>Ausführliche Beschreibung der erbrachten Leistung zur Prüfung des Seitenumbruchs</cbc:Description>
+      <cbc:Name>Leistungsposition 17</cbc:Name>
+      <cac:ClassifiedTaxCategory>
+        <cbc:ID>S</cbc:ID>
+        <cbc:Percent>19.00</cbc:Percent>
+        <cac:TaxScheme>
+          <cbc:ID>VAT</cbc:ID>
+        </cac:TaxScheme>
+      </cac:ClassifiedTaxCategory>
+    </cac:Item>
+    <cac:Price>
+      <cbc:PriceAmount currencyID="EUR">50.00</cbc:PriceAmount>
+    </cac:Price>
+  </cac:InvoiceLine>
+  <cac:InvoiceLine>
+    <cbc:ID>18</cbc:ID>
+    <cbc:InvoicedQuantity unitCode="HUR">4</cbc:InvoicedQuantity>
+    <cbc:LineExtensionAmount currencyID="EUR">250.00</cbc:LineExtensionAmount>
+    <cac:Item>
+      <cbc:Description>Ausführliche Beschreibung der erbrachten Leistung zur Prüfung des Seitenumbruchs</cbc:Description>
+      <cbc:Name>Leistungsposition 18</cbc:Name>
+      <cac:ClassifiedTaxCategory>
+        <cbc:ID>S</cbc:ID>
+        <cbc:Percent>19.00</cbc:Percent>
+        <cac:TaxScheme>
+          <cbc:ID>VAT</cbc:ID>
+        </cac:TaxScheme>
+      </cac:ClassifiedTaxCategory>
+    </cac:Item>
+    <cac:Price>
+      <cbc:PriceAmount currencyID="EUR">62.50</cbc:PriceAmount>
+    </cac:Price>
+  </cac:InvoiceLine>
+  <cac:InvoiceLine>
+    <cbc:ID>19</cbc:ID>
+    <cbc:InvoicedQuantity unitCode="HUR">5</cbc:InvoicedQuantity>
+    <cbc:LineExtensionAmount currencyID="EUR">375.00</cbc:LineExtensionAmount>
+    <cac:Item>
+      <cbc:Description>Ausführliche Beschreibung der erbrachten Leistung zur Prüfung des Seitenumbruchs</cbc:Description>
+      <cbc:Name>Leistungsposition 19</cbc:Name>
+      <cac:ClassifiedTaxCategory>
+        <cbc:ID>S</cbc:ID>
+        <cbc:Percent>19.00</cbc:Percent>
+        <cac:TaxScheme>
+          <cbc:ID>VAT</cbc:ID>
+        </cac:TaxScheme>
+      </cac:ClassifiedTaxCategory>
+    </cac:Item>
+    <cac:Price>
+      <cbc:PriceAmount currencyID="EUR">75.00</cbc:PriceAmount>
+    </cac:Price>
+  </cac:InvoiceLine>
+  <cac:InvoiceLine>
+    <cbc:ID>20</cbc:ID>
+    <cbc:InvoicedQuantity unitCode="HUR">1</cbc:InvoicedQuantity>
+    <cbc:LineExtensionAmount currencyID="EUR">87.50</cbc:LineExtensionAmount>
+    <cac:Item>
+      <cbc:Description>Ausführliche Beschreibung der erbrachten Leistung zur Prüfung des Seitenumbruchs</cbc:Description>
+      <cbc:Name>Leistungsposition 20</cbc:Name>
+      <cac:ClassifiedTaxCategory>
+        <cbc:ID>S</cbc:ID>
+        <cbc:Percent>19.00</cbc:Percent>
+        <cac:TaxScheme>
+          <cbc:ID>VAT</cbc:ID>
+        </cac:TaxScheme>
+      </cac:ClassifiedTaxCategory>
+    </cac:Item>
+    <cac:Price>
+      <cbc:PriceAmount currencyID="EUR">87.50</cbc:PriceAmount>
+    </cac:Price>
+  </cac:InvoiceLine>
+  <cac:InvoiceLine>
+    <cbc:ID>21</cbc:ID>
+    <cbc:InvoicedQuantity unitCode="HUR">2</cbc:InvoicedQuantity>
+    <cbc:LineExtensionAmount currencyID="EUR">25.00</cbc:LineExtensionAmount>
+    <cac:Item>
+      <cbc:Description>Ausführliche Beschreibung der erbrachten Leistung zur Prüfung des Seitenumbruchs</cbc:Description>
+      <cbc:Name>Leistungsposition 21</cbc:Name>
+      <cac:ClassifiedTaxCategory>
+        <cbc:ID>S</cbc:ID>
+        <cbc:Percent>19.00</cbc:Percent>
+        <cac:TaxScheme>
+          <cbc:ID>VAT</cbc:ID>
+        </cac:TaxScheme>
+      </cac:ClassifiedTaxCategory>
+    </cac:Item>
+    <cac:Price>
+      <cbc:PriceAmount currencyID="EUR">12.50</cbc:PriceAmount>
+    </cac:Price>
+  </cac:InvoiceLine>
+  <cac:InvoiceLine>
+    <cbc:ID>22</cbc:ID>
+    <cbc:InvoicedQuantity unitCode="HUR">3</cbc:InvoicedQuantity>
+    <cbc:LineExtensionAmount currencyID="EUR">75.00</cbc:LineExtensionAmount>
+    <cac:Item>
+      <cbc:Description>Ausführliche Beschreibung der erbrachten Leistung zur Prüfung des Seitenumbruchs</cbc:Description>
+      <cbc:Name>Leistungsposition 22</cbc:Name>
+      <cac:ClassifiedTaxCategory>
+        <cbc:ID>S</cbc:ID>
+        <cbc:Percent>19.00</cbc:Percent>
+        <cac:TaxScheme>
+          <cbc:ID>VAT</cbc:ID>
+        </cac:TaxScheme>
+      </cac:ClassifiedTaxCategory>
+    </cac:Item>
+    <cac:Price>
+      <cbc:PriceAmount currencyID="EUR">25.00</cbc:PriceAmount>
+    </cac:Price>
+  </cac:InvoiceLine>
+  <cac:InvoiceLine>
+    <cbc:ID>23</cbc:ID>
+    <cbc:InvoicedQuantity unitCode="HUR">4</cbc:InvoicedQuantity>
+    <cbc:LineExtensionAmount currencyID="EUR">150.00</cbc:LineExtensionAmount>
+    <cac:Item>
+      <cbc:Description>Ausführliche Beschreibung der erbrachten Leistung zur Prüfung des Seitenumbruchs</cbc:Description>
+      <cbc:Name>Leistungsposition 23</cbc:Name>
+      <cac:ClassifiedTaxCategory>
+        <cbc:ID>S</cbc:ID>
+        <cbc:Percent>19.00</cbc:Percent>
+        <cac:TaxScheme>
+          <cbc:ID>VAT</cbc:ID>
+        </cac:TaxScheme>
+      </cac:ClassifiedTaxCategory>
+    </cac:Item>
+    <cac:Price>
+      <cbc:PriceAmount currencyID="EUR">37.50</cbc:PriceAmount>
+    </cac:Price>
+  </cac:InvoiceLine>
+  <cac:InvoiceLine>
+    <cbc:ID>24</cbc:ID>
+    <cbc:InvoicedQuantity unitCode="HUR">5</cbc:InvoicedQuantity>
+    <cbc:LineExtensionAmount currencyID="EUR">250.00</cbc:LineExtensionAmount>
+    <cac:Item>
+      <cbc:Description>Ausführliche Beschreibung der erbrachten Leistung zur Prüfung des Seitenumbruchs</cbc:Description>
+      <cbc:Name>Leistungsposition 24</cbc:Name>
+      <cac:ClassifiedTaxCategory>
+        <cbc:ID>S</cbc:ID>
+        <cbc:Percent>19.00</cbc:Percent>
+        <cac:TaxScheme>
+          <cbc:ID>VAT</cbc:ID>
+        </cac:TaxScheme>
+      </cac:ClassifiedTaxCategory>
+    </cac:Item>
+    <cac:Price>
+      <cbc:PriceAmount currencyID="EUR">50.00</cbc:PriceAmount>
+    </cac:Price>
+  </cac:InvoiceLine>
+  <cac:InvoiceLine>
+    <cbc:ID>25</cbc:ID>
+    <cbc:InvoicedQuantity unitCode="HUR">1</cbc:InvoicedQuantity>
+    <cbc:LineExtensionAmount currencyID="EUR">62.50</cbc:LineExtensionAmount>
+    <cac:Item>
+      <cbc:Description>Ausführliche Beschreibung der erbrachten Leistung zur Prüfung des Seitenumbruchs</cbc:Description>
+      <cbc:Name>Leistungsposition 25</cbc:Name>
+      <cac:ClassifiedTaxCategory>
+        <cbc:ID>S</cbc:ID>
+        <cbc:Percent>19.00</cbc:Percent>
+        <cac:TaxScheme>
+          <cbc:ID>VAT</cbc:ID>
+        </cac:TaxScheme>
+      </cac:ClassifiedTaxCategory>
+    </cac:Item>
+    <cac:Price>
+      <cbc:PriceAmount currencyID="EUR">62.50</cbc:PriceAmount>
+    </cac:Price>
+  </cac:InvoiceLine>
+  <cac:InvoiceLine>
+    <cbc:ID>26</cbc:ID>
+    <cbc:InvoicedQuantity unitCode="HUR">2</cbc:InvoicedQuantity>
+    <cbc:LineExtensionAmount currencyID="EUR">150.00</cbc:LineExtensionAmount>
+    <cac:Item>
+      <cbc:Description>Ausführliche Beschreibung der erbrachten Leistung zur Prüfung des Seitenumbruchs</cbc:Description>
+      <cbc:Name>Leistungsposition 26</cbc:Name>
+      <cac:ClassifiedTaxCategory>
+        <cbc:ID>S</cbc:ID>
+        <cbc:Percent>19.00</cbc:Percent>
+        <cac:TaxScheme>
+          <cbc:ID>VAT</cbc:ID>
+        </cac:TaxScheme>
+      </cac:ClassifiedTaxCategory>
+    </cac:Item>
+    <cac:Price>
+      <cbc:PriceAmount currencyID="EUR">75.00</cbc:PriceAmount>
+    </cac:Price>
+  </cac:InvoiceLine>
+  <cac:InvoiceLine>
+    <cbc:ID>27</cbc:ID>
+    <cbc:InvoicedQuantity unitCode="HUR">3</cbc:InvoicedQuantity>
+    <cbc:LineExtensionAmount currencyID="EUR">262.50</cbc:LineExtensionAmount>
+    <cac:Item>
+      <cbc:Description>Ausführliche Beschreibung der erbrachten Leistung zur Prüfung des Seitenumbruchs</cbc:Description>
+      <cbc:Name>Leistungsposition 27</cbc:Name>
+      <cac:ClassifiedTaxCategory>
+        <cbc:ID>S</cbc:ID>
+        <cbc:Percent>19.00</cbc:Percent>
+        <cac:TaxScheme>
+          <cbc:ID>VAT</cbc:ID>
+        </cac:TaxScheme>
+      </cac:ClassifiedTaxCategory>
+    </cac:Item>
+    <cac:Price>
+      <cbc:PriceAmount currencyID="EUR">87.50</cbc:PriceAmount>
+    </cac:Price>
+  </cac:InvoiceLine>
+  <cac:InvoiceLine>
+    <cbc:ID>28</cbc:ID>
+    <cbc:InvoicedQuantity unitCode="HUR">4</cbc:InvoicedQuantity>
+    <cbc:LineExtensionAmount currencyID="EUR">50.00</cbc:LineExtensionAmount>
+    <cac:Item>
+      <cbc:Description>Ausführliche Beschreibung der erbrachten Leistung zur Prüfung des Seitenumbruchs</cbc:Description>
+      <cbc:Name>Leistungsposition 28</cbc:Name>
+      <cac:ClassifiedTaxCategory>
+        <cbc:ID>S</cbc:ID>
+        <cbc:Percent>19.00</cbc:Percent>
+        <cac:TaxScheme>
+          <cbc:ID>VAT</cbc:ID>
+        </cac:TaxScheme>
+      </cac:ClassifiedTaxCategory>
+    </cac:Item>
+    <cac:Price>
+      <cbc:PriceAmount currencyID="EUR">12.50</cbc:PriceAmount>
+    </cac:Price>
+  </cac:InvoiceLine>
+  <cac:InvoiceLine>
+    <cbc:ID>29</cbc:ID>
+    <cbc:InvoicedQuantity unitCode="HUR">5</cbc:InvoicedQuantity>
+    <cbc:LineExtensionAmount currencyID="EUR">125.00</cbc:LineExtensionAmount>
+    <cac:Item>
+      <cbc:Description>Ausführliche Beschreibung der erbrachten Leistung zur Prüfung des Seitenumbruchs</cbc:Description>
+      <cbc:Name>Leistungsposition 29</cbc:Name>
+      <cac:ClassifiedTaxCategory>
+        <cbc:ID>S</cbc:ID>
+        <cbc:Percent>19.00</cbc:Percent>
+        <cac:TaxScheme>
+          <cbc:ID>VAT</cbc:ID>
+        </cac:TaxScheme>
+      </cac:ClassifiedTaxCategory>
+    </cac:Item>
+    <cac:Price>
+      <cbc:PriceAmount currencyID="EUR">25.00</cbc:PriceAmount>
+    </cac:Price>
+  </cac:InvoiceLine>
+  <cac:InvoiceLine>
+    <cbc:ID>30</cbc:ID>
+    <cbc:InvoicedQuantity unitCode="HUR">1</cbc:InvoicedQuantity>
+    <cbc:LineExtensionAmount currencyID="EUR">37.50</cbc:LineExtensionAmount>
+    <cac:Item>
+      <cbc:Description>Ausführliche Beschreibung der erbrachten Leistung zur Prüfung des Seitenumbruchs</cbc:Description>
+      <cbc:Name>Leistungsposition 30</cbc:Name>
+      <cac:ClassifiedTaxCategory>
+        <cbc:ID>S</cbc:ID>
+        <cbc:Percent>19.00</cbc:Percent>
+        <cac:TaxScheme>
+          <cbc:ID>VAT</cbc:ID>
+        </cac:TaxScheme>
+      </cac:ClassifiedTaxCategory>
+    </cac:Item>
+    <cac:Price>
+      <cbc:PriceAmount currencyID="EUR">37.50</cbc:PriceAmount>
+    </cac:Price>
+  </cac:InvoiceLine>
+  <cac:InvoiceLine>
+    <cbc:ID>31</cbc:ID>
+    <cbc:InvoicedQuantity unitCode="HUR">2</cbc:InvoicedQuantity>
+    <cbc:LineExtensionAmount currencyID="EUR">100.00</cbc:LineExtensionAmount>
+    <cac:Item>
+      <cbc:Description>Ausführliche Beschreibung der erbrachten Leistung zur Prüfung des Seitenumbruchs</cbc:Description>
+      <cbc:Name>Leistungsposition 31</cbc:Name>
+      <cac:ClassifiedTaxCategory>
+        <cbc:ID>S</cbc:ID>
+        <cbc:Percent>19.00</cbc:Percent>
+        <cac:TaxScheme>
+          <cbc:ID>VAT</cbc:ID>
+        </cac:TaxScheme>
+      </cac:ClassifiedTaxCategory>
+    </cac:Item>
+    <cac:Price>
+      <cbc:PriceAmount currencyID="EUR">50.00</cbc:PriceAmount>
+    </cac:Price>
+  </cac:InvoiceLine>
+  <cac:InvoiceLine>
+    <cbc:ID>32</cbc:ID>
+    <cbc:InvoicedQuantity unitCode="HUR">3</cbc:InvoicedQuantity>
+    <cbc:LineExtensionAmount currencyID="EUR">187.50</cbc:LineExtensionAmount>
+    <cac:Item>
+      <cbc:Description>Ausführliche Beschreibung der erbrachten Leistung zur Prüfung des Seitenumbruchs</cbc:Description>
+      <cbc:Name>Leistungsposition 32</cbc:Name>
+      <cac:ClassifiedTaxCategory>
+        <cbc:ID>S</cbc:ID>
+        <cbc:Percent>19.00</cbc:Percent>
+        <cac:TaxScheme>
+          <cbc:ID>VAT</cbc:ID>
+        </cac:TaxScheme>
+      </cac:ClassifiedTaxCategory>
+    </cac:Item>
+    <cac:Price>
+      <cbc:PriceAmount currencyID="EUR">62.50</cbc:PriceAmount>
+    </cac:Price>
+  </cac:InvoiceLine>
+  <cac:InvoiceLine>
+    <cbc:ID>33</cbc:ID>
+    <cbc:InvoicedQuantity unitCode="HUR">4</cbc:InvoicedQuantity>
+    <cbc:LineExtensionAmount currencyID="EUR">300.00</cbc:LineExtensionAmount>
+    <cac:Item>
+      <cbc:Description>Ausführliche Beschreibung der erbrachten Leistung zur Prüfung des Seitenumbruchs</cbc:Description>
+      <cbc:Name>Leistungsposition 33</cbc:Name>
+      <cac:ClassifiedTaxCategory>
+        <cbc:ID>S</cbc:ID>
+        <cbc:Percent>19.00</cbc:Percent>
+        <cac:TaxScheme>
+          <cbc:ID>VAT</cbc:ID>
+        </cac:TaxScheme>
+      </cac:ClassifiedTaxCategory>
+    </cac:Item>
+    <cac:Price>
+      <cbc:PriceAmount currencyID="EUR">75.00</cbc:PriceAmount>
+    </cac:Price>
+  </cac:InvoiceLine>
+  <cac:InvoiceLine>
+    <cbc:ID>34</cbc:ID>
+    <cbc:InvoicedQuantity unitCode="HUR">5</cbc:InvoicedQuantity>
+    <cbc:LineExtensionAmount currencyID="EUR">437.50</cbc:LineExtensionAmount>
+    <cac:Item>
+      <cbc:Description>Ausführliche Beschreibung der erbrachten Leistung zur Prüfung des Seitenumbruchs</cbc:Description>
+      <cbc:Name>Leistungsposition 34</cbc:Name>
+      <cac:ClassifiedTaxCategory>
+        <cbc:ID>S</cbc:ID>
+        <cbc:Percent>19.00</cbc:Percent>
+        <cac:TaxScheme>
+          <cbc:ID>VAT</cbc:ID>
+        </cac:TaxScheme>
+      </cac:ClassifiedTaxCategory>
+    </cac:Item>
+    <cac:Price>
+      <cbc:PriceAmount currencyID="EUR">87.50</cbc:PriceAmount>
+    </cac:Price>
+  </cac:InvoiceLine>
+  <cac:InvoiceLine>
+    <cbc:ID>35</cbc:ID>
+    <cbc:InvoicedQuantity unitCode="HUR">1</cbc:InvoicedQuantity>
+    <cbc:LineExtensionAmount currencyID="EUR">12.50</cbc:LineExtensionAmount>
+    <cac:Item>
+      <cbc:Description>Ausführliche Beschreibung der erbrachten Leistung zur Prüfung des Seitenumbruchs</cbc:Description>
+      <cbc:Name>Leistungsposition 35</cbc:Name>
+      <cac:ClassifiedTaxCategory>
+        <cbc:ID>S</cbc:ID>
+        <cbc:Percent>19.00</cbc:Percent>
+        <cac:TaxScheme>
+          <cbc:ID>VAT</cbc:ID>
+        </cac:TaxScheme>
+      </cac:ClassifiedTaxCategory>
+    </cac:Item>
+    <cac:Price>
+      <cbc:PriceAmount currencyID="EUR">12.50</cbc:PriceAmount>
+    </cac:Price>
+  </cac:InvoiceLine>
+  <cac:InvoiceLine>
+    <cbc:ID>36</cbc:ID>
+    <cbc:InvoicedQuantity unitCode="HUR">2</cbc:InvoicedQuantity>
+    <cbc:LineExtensionAmount currencyID="EUR">50.00</cbc:LineExtensionAmount>
+    <cac:Item>
+      <cbc:Description>Ausführliche Beschreibung der erbrachten Leistung zur Prüfung des Seitenumbruchs</cbc:Description>
+      <cbc:Name>Leistungsposition 36</cbc:Name>
+      <cac:ClassifiedTaxCategory>
+        <cbc:ID>S</cbc:ID>
+        <cbc:Percent>19.00</cbc:Percent>
+        <cac:TaxScheme>
+          <cbc:ID>VAT</cbc:ID>
+        </cac:TaxScheme>
+      </cac:ClassifiedTaxCategory>
+    </cac:Item>
+    <cac:Price>
+      <cbc:PriceAmount currencyID="EUR">25.00</cbc:PriceAmount>
+    </cac:Price>
+  </cac:InvoiceLine>
+  <cac:InvoiceLine>
+    <cbc:ID>37</cbc:ID>
+    <cbc:InvoicedQuantity unitCode="HUR">3</cbc:InvoicedQuantity>
+    <cbc:LineExtensionAmount currencyID="EUR">112.50</cbc:LineExtensionAmount>
+    <cac:Item>
+      <cbc:Description>Ausführliche Beschreibung der erbrachten Leistung zur Prüfung des Seitenumbruchs</cbc:Description>
+      <cbc:Name>Leistungsposition 37</cbc:Name>
+      <cac:ClassifiedTaxCategory>
+        <cbc:ID>S</cbc:ID>
+        <cbc:Percent>19.00</cbc:Percent>
+        <cac:TaxScheme>
+          <cbc:ID>VAT</cbc:ID>
+        </cac:TaxScheme>
+      </cac:ClassifiedTaxCategory>
+    </cac:Item>
+    <cac:Price>
+      <cbc:PriceAmount currencyID="EUR">37.50</cbc:PriceAmount>
+    </cac:Price>
+  </cac:InvoiceLine>
+  <cac:InvoiceLine>
+    <cbc:ID>38</cbc:ID>
+    <cbc:InvoicedQuantity unitCode="HUR">4</cbc:InvoicedQuantity>
+    <cbc:LineExtensionAmount currencyID="EUR">200.00</cbc:LineExtensionAmount>
+    <cac:Item>
+      <cbc:Description>Ausführliche Beschreibung der erbrachten Leistung zur Prüfung des Seitenumbruchs</cbc:Description>
+      <cbc:Name>Leistungsposition 38</cbc:Name>
+      <cac:ClassifiedTaxCategory>
+        <cbc:ID>S</cbc:ID>
+        <cbc:Percent>19.00</cbc:Percent>
+        <cac:TaxScheme>
+          <cbc:ID>VAT</cbc:ID>
+        </cac:TaxScheme>
+      </cac:ClassifiedTaxCategory>
+    </cac:Item>
+    <cac:Price>
+      <cbc:PriceAmount currencyID="EUR">50.00</cbc:PriceAmount>
+    </cac:Price>
+  </cac:InvoiceLine>
+  <cac:InvoiceLine>
+    <cbc:ID>39</cbc:ID>
+    <cbc:InvoicedQuantity unitCode="HUR">5</cbc:InvoicedQuantity>
+    <cbc:LineExtensionAmount currencyID="EUR">312.50</cbc:LineExtensionAmount>
+    <cac:Item>
+      <cbc:Description>Ausführliche Beschreibung der erbrachten Leistung zur Prüfung des Seitenumbruchs</cbc:Description>
+      <cbc:Name>Leistungsposition 39</cbc:Name>
+      <cac:ClassifiedTaxCategory>
+        <cbc:ID>S</cbc:ID>
+        <cbc:Percent>19.00</cbc:Percent>
+        <cac:TaxScheme>
+          <cbc:ID>VAT</cbc:ID>
+        </cac:TaxScheme>
+      </cac:ClassifiedTaxCategory>
+    </cac:Item>
+    <cac:Price>
+      <cbc:PriceAmount currencyID="EUR">62.50</cbc:PriceAmount>
+    </cac:Price>
+  </cac:InvoiceLine>
+  <cac:InvoiceLine>
+    <cbc:ID>40</cbc:ID>
+    <cbc:InvoicedQuantity unitCode="HUR">1</cbc:InvoicedQuantity>
+    <cbc:LineExtensionAmount currencyID="EUR">75.00</cbc:LineExtensionAmount>
+    <cac:Item>
+      <cbc:Description>Ausführliche Beschreibung der erbrachten Leistung zur Prüfung des Seitenumbruchs</cbc:Description>
+      <cbc:Name>Leistungsposition 40</cbc:Name>
+      <cac:ClassifiedTaxCategory>
+        <cbc:ID>S</cbc:ID>
+        <cbc:Percent>19.00</cbc:Percent>
+        <cac:TaxScheme>
+          <cbc:ID>VAT</cbc:ID>
+        </cac:TaxScheme>
+      </cac:ClassifiedTaxCategory>
+    </cac:Item>
+    <cac:Price>
+      <cbc:PriceAmount currencyID="EUR">75.00</cbc:PriceAmount>
+    </cac:Price>
+  </cac:InvoiceLine>
+</Invoice>

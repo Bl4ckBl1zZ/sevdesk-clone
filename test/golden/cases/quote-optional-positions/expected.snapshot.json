@@ -1,0 +1,163 @@
+{
+  "buyer": {
+    "address": {
+      "city": "Köln",
+      "countryCode": "DE",
+      "postalCode": "50667",
+      "street": "Musterweg 5"
+    },
+    "contactNumber": "K-10023",
+    "contactPerson": {
+      "name": "Max Beispiel"
+    },
+    "invoiceEmail": "buchhaltung@beispiel-kunde.de",
+    "isConsumer": false,
+    "isPublicAuthority": false,
+    "name": "Beispiel Kunde GmbH",
+    "vatId": "DE811907980"
+  },
+  "currency": "EUR",
+  "documentDate": "2026-10-12",
+  "einvoice": {
+    "decision": "NOT_REQUIRED",
+    "format": "none"
+  },
+  "flags": {},
+  "language": "de",
+  "layoutVersionId": "layout-v1",
+  "lines": [
+    {
+      "kind": "heading",
+      "text": "Konzeption"
+    },
+    {
+      "kind": "item",
+      "name": "Beratung Webdesign",
+      "netCents": 100000,
+      "note": "Konzeption",
+      "position": 1,
+      "quantityMilli": 10000,
+      "unitCode": "HUR",
+      "unitPriceMicros": 1000000,
+      "vatCategory": "S",
+      "vatRateBp": 1900,
+      "vatRuleRowId": "standard@2021-01-01"
+    },
+    {
+      "amountCents": 100000,
+      "kind": "subtotal",
+      "text": "Zwischensumme"
+    },
+    {
+      "kind": "heading",
+      "text": "Optionen"
+    },
+    {
+      "kind": "item",
+      "name": "Suchmaschinenoptimierung",
+      "netCents": 80000,
+      "note": "Optionen",
+      "optional": true,
+      "position": 2,
+      "quantityMilli": 8000,
+      "unitCode": "HUR",
+      "unitPriceMicros": 1000000,
+      "vatCategory": "S",
+      "vatRateBp": 1900,
+      "vatRuleRowId": "standard@2021-01-01"
+    }
+  ],
+  "notes": [],
+  "number": "AN-2026-0012",
+  "payment": {
+    "bankAccount": {
+      "accountHolder": "Muster Design GmbH",
+      "bankName": "Commerzbank",
+      "bic": "COBADEFFXXX",
+      "iban": "DE89370400440532013000"
+    },
+    "dueDays": 30,
+    "method": "transfer",
+    "paymentReference": "AN-2026-0012",
+    "showEpcQr": false
+  },
+  "priceMode": "net",
+  "references": {
+    "precedingInvoices": []
+  },
+  "ruleVersions": {
+    "vat:standard": "standard@2021-01-01"
+  },
+  "schemaVersion": 1,
+  "seller": {
+    "address": {
+      "city": "Berlin",
+      "countryCode": "DE",
+      "postalCode": "10115",
+      "street": "Hauptstraße 1"
+    },
+    "contact": {
+      "email": "rechnung@muster-design.de",
+      "name": "Erika Musterfrau",
+      "phone": "+49 30 1234567",
+      "website": "www.muster-design.de"
+    },
+    "electronicAddress": {
+      "scheme": "EM",
+      "value": "rechnung@muster-design.de"
+    },
+    "kleinunternehmer": false,
+    "legalForm": "gmbh",
+    "name": "Muster Design GmbH",
+    "register": {
+      "court": "Amtsgericht Charlottenburg",
+      "number": "123456 B",
+      "type": "HRB"
+    },
+    "representatives": [
+      {
+        "name": "Max Mustermann"
+      },
+      {
+        "name": "Erika Musterfrau"
+      }
+    ],
+    "seat": "Berlin",
+    "shareCapital": {
+      "amountCents": 2500000
+    },
+    "taxNumber": "1121081508150",
+    "taxNumberState": "BE",
+    "vatAccounting": "soll",
+    "vatId": "DE123456788"
+  },
+  "taxCase": "domestic",
+  "texts": {
+    "footText": "Wir freuen uns auf Ihren Auftrag.",
+    "headText": "Vielen Dank für Ihre Anfrage. Gerne bieten wir Ihnen an:"
+  },
+  "totals": {
+    "advancesDeductedGrossCents": 0,
+    "allowanceTotalCents": 0,
+    "byGroup": [
+      {
+        "allowanceCents": 0,
+        "baseCents": 100000,
+        "category": "S",
+        "chargeCents": 0,
+        "lineNetSumCents": 100000,
+        "rateBp": 1900,
+        "vatCents": 19000
+      }
+    ],
+    "chargeTotalCents": 0,
+    "grossCents": 119000,
+    "lineNetSumCents": 100000,
+    "netCents": 100000,
+    "payableCents": 119000,
+    "roundingCents": 0,
+    "vatCents": 19000
+  },
+  "type": "quote",
+  "validUntil": "2026-11-11"
+}

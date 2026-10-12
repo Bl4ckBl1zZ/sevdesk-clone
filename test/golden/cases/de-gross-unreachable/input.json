@@ -1,0 +1,29 @@
+{
+  "id": "T-GLD-06",
+  "title": "6,29 € gross @19 → 5,28 / 1,00 / 6,28 with deviation −0,01",
+  "buyer": "consumer",
+  "input": {
+    "priceMode": "gross",
+    "lines": [
+      {
+        "kind": "item",
+        "name": "USB-Stick",
+        "quantityMilli": 1000,
+        "unitCode": "C62",
+        "unitPriceMicros": 62900,
+        "vatCategory": "S",
+        "vatRateBp": 1900,
+        "vatRuleRowId": "standard@2021-01-01"
+      }
+    ],
+    "einvoice": {
+      "format": "none",
+      "decision": "NOT_REQUIRED"
+    }
+  },
+  "paymentPatch": {
+    "dueDays": 0,
+    "method": "cash",
+    "showEpcQr": false
+  }
+}

@@ -1,0 +1,164 @@
+{
+  "buyer": {
+    "address": {
+      "city": "Köln",
+      "countryCode": "DE",
+      "postalCode": "50667",
+      "street": "Musterweg 5"
+    },
+    "contactNumber": "K-10023",
+    "contactPerson": {
+      "name": "Max Beispiel"
+    },
+    "invoiceEmail": "buchhaltung@beispiel-kunde.de",
+    "isConsumer": false,
+    "isPublicAuthority": false,
+    "name": "Beispiel Kunde GmbH",
+    "vatId": "DE811907980"
+  },
+  "currency": "EUR",
+  "documentDate": "2026-08-10",
+  "dueDate": "2026-09-09",
+  "einvoice": {
+    "decision": "PDF_NEEDS_CONSENT",
+    "format": "zugferd_en16931"
+  },
+  "flags": {
+    "chainIndex": 1
+  },
+  "language": "de",
+  "layoutVersionId": "layout-v1",
+  "lines": [
+    {
+      "kind": "item",
+      "name": "Abschlag 30 % Website-Relaunch",
+      "netCents": 300000,
+      "position": 1,
+      "quantityMilli": 1000,
+      "unitCode": "LS",
+      "unitPriceMicros": 30000000,
+      "vatCategory": "S",
+      "vatRateBp": 1900,
+      "vatRuleRowId": "standard@2021-01-01"
+    }
+  ],
+  "notes": [
+    {
+      "de": "1. Abschlagsrechnung zu Auftrag AB-2026-0007 vom 03.08.2026. Die Leistung ist noch nicht (vollständig) erbracht; die Abrechnung erfolgt mit der Schlussrechnung.",
+      "en": "Advance invoice no. 1 for AB-2026-0007. The supply has not yet been (fully) rendered; it will be settled in the final invoice.",
+      "id": "advance_info",
+      "ruleRowId": "advance_info@2007-01-01",
+      "xmlSubjectCode": "AAI",
+      "zone": "title"
+    },
+    {
+      "de": "Zahlbar ohne Abzug bis zum 09.09.2026.",
+      "en": "Payable without deduction by 9 Sep 2026.",
+      "id": "terms",
+      "ruleRowId": "terms@2007-01-01",
+      "zone": "payment"
+    },
+    {
+      "de": "Bitte geben Sie als Verwendungszweck ausschließlich an: RE-2026-0031",
+      "en": "Please use only this payment reference: RE-2026-0031",
+      "id": "pay_ref",
+      "ruleRowId": "pay_ref@2007-01-01",
+      "zone": "payment"
+    }
+  ],
+  "number": "RE-2026-0031",
+  "payment": {
+    "bankAccount": {
+      "accountHolder": "Muster Design GmbH",
+      "bankName": "Commerzbank",
+      "bic": "COBADEFFXXX",
+      "iban": "DE89370400440532013000"
+    },
+    "dueDays": 30,
+    "method": "transfer",
+    "paymentReference": "RE-2026-0031",
+    "showEpcQr": true
+  },
+  "priceMode": "net",
+  "references": {
+    "precedingInvoices": []
+  },
+  "ruleVersions": {
+    "note:advance_info": "advance_info@2007-01-01",
+    "note:pay_ref": "pay_ref@2007-01-01",
+    "note:terms": "terms@2007-01-01",
+    "vat:standard": "standard@2021-01-01"
+  },
+  "schemaVersion": 1,
+  "seller": {
+    "address": {
+      "city": "Berlin",
+      "countryCode": "DE",
+      "postalCode": "10115",
+      "street": "Hauptstraße 1"
+    },
+    "contact": {
+      "email": "rechnung@muster-design.de",
+      "name": "Erika Musterfrau",
+      "phone": "+49 30 1234567",
+      "website": "www.muster-design.de"
+    },
+    "electronicAddress": {
+      "scheme": "EM",
+      "value": "rechnung@muster-design.de"
+    },
+    "kleinunternehmer": false,
+    "legalForm": "gmbh",
+    "name": "Muster Design GmbH",
+    "register": {
+      "court": "Amtsgericht Charlottenburg",
+      "number": "123456 B",
+      "type": "HRB"
+    },
+    "representatives": [
+      {
+        "name": "Max Mustermann"
+      },
+      {
+        "name": "Erika Musterfrau"
+      }
+    ],
+    "seat": "Berlin",
+    "shareCapital": {
+      "amountCents": 2500000
+    },
+    "taxNumber": "1121081508150",
+    "taxNumberState": "BE",
+    "vatAccounting": "soll",
+    "vatId": "DE123456788"
+  },
+  "supplyDate": {
+    "date": "2026-10-09",
+    "kind": "date"
+  },
+  "taxCase": "domestic",
+  "texts": {},
+  "totals": {
+    "advancesDeductedGrossCents": 0,
+    "allowanceTotalCents": 0,
+    "byGroup": [
+      {
+        "allowanceCents": 0,
+        "baseCents": 300000,
+        "category": "S",
+        "chargeCents": 0,
+        "lineNetSumCents": 300000,
+        "rateBp": 1900,
+        "vatCents": 57000
+      }
+    ],
+    "chargeTotalCents": 0,
+    "grossCents": 357000,
+    "lineNetSumCents": 300000,
+    "netCents": 300000,
+    "payableCents": 357000,
+    "roundingCents": 0,
+    "vatCents": 57000
+  },
+  "type": "advance_invoice"
+}

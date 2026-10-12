@@ -1,0 +1,10 @@
+{
+  "id": "T-GLD-01",
+  "title": "10 h × 100,00 @19 → 1.000,00 / 190,00 / 1.190,00, Skonto, EPC QR",
+  "paymentPatch": {
+    "skonto": {
+      "percentBp": 200,
+      "days": 14
+    }
+  }
+}

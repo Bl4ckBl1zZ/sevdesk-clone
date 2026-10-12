@@ -1,0 +1,16 @@
+{
+  "id": "T-GLD-28",
+  "title": "e.K. footer: Firma, Sitz, Registergericht, HRA",
+  "seller": "ek",
+  "input": {
+    "number": "RE-2026-0123"
+  },
+  "paymentPatch": {
+    "bankAccount": {
+      "iban": "DE02700202700010108669",
+      "bic": "HYVEDEMMXXX",
+      "accountHolder": "Bauer Elektrotechnik e.K.",
+      "bankName": "UniCredit Bank"
+    }
+  }
+}

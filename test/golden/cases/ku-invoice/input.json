@@ -1,0 +1,34 @@
+{
+  "id": "T-GLD-10",
+  "title": "KU B2C 2 × 500,00, no VAT, KU note; XML (opt-in) category E + BT-120",
+  "seller": "ku",
+  "buyer": "consumer",
+  "input": {
+    "taxCase": "kleinunternehmer",
+    "number": "2026-017",
+    "lines": [
+      {
+        "kind": "item",
+        "name": "Fotoshooting Familie (halber Tag)",
+        "quantityMilli": 2000,
+        "unitCode": "E48",
+        "unitPriceMicros": 5000000,
+        "vatCategory": "KU",
+        "vatRateBp": 0
+      }
+    ],
+    "einvoice": {
+      "format": "none",
+      "decision": "NOT_REQUIRED"
+    }
+  },
+  "paymentPatch": {
+    "bankAccount": {
+      "iban": "DE02120300000000202051",
+      "bic": "BYLADEM1001",
+      "accountHolder": "Lena Kleinert",
+      "bankName": "Deutsche Kreditbank"
+    },
+    "dueDays": 14
+  }
+}

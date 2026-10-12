@@ -1,0 +1,48 @@
+{
+  "id": "T-GLD-05",
+  "title": "gross mode → net 111,57, VAT 18,80, gross 130,37 (+ §286 note)",
+  "buyer": "consumer",
+  "input": {
+    "priceMode": "gross",
+    "number": "RE-2026-0045",
+    "lines": [
+      {
+        "kind": "item",
+        "name": "Druckerpatrone schwarz",
+        "quantityMilli": 3000,
+        "unitCode": "C62",
+        "unitPriceMicros": 199900,
+        "vatCategory": "S",
+        "vatRateBp": 1900,
+        "vatRuleRowId": "standard@2021-01-01"
+      },
+      {
+        "kind": "item",
+        "name": "Netzwerkkabel 10 m",
+        "quantityMilli": 1000,
+        "unitCode": "C62",
+        "unitPriceMicros": 490000,
+        "vatCategory": "S",
+        "vatRateBp": 1900,
+        "vatRuleRowId": "standard@2021-01-01"
+      },
+      {
+        "kind": "item",
+        "name": "Kaffee (Bohnen, 1 kg)",
+        "quantityMilli": 2000,
+        "unitCode": "C62",
+        "unitPriceMicros": 107000,
+        "vatCategory": "S",
+        "vatRateBp": 700,
+        "vatRuleRowId": "reduced@2021-01-01"
+      }
+    ],
+    "einvoice": {
+      "format": "none",
+      "decision": "NOT_REQUIRED"
+    }
+  },
+  "paymentPatch": {
+    "dueDays": 14
+  }
+}

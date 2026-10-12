@@ -1,0 +1,39 @@
+{
+  "id": "DUN-005",
+  "title": "1. Mahnung with fee, interest table, 40 € flat fee and EPC-QR on the total",
+  "input": {
+    "type": "reminder",
+    "number": "MA-2026-0004",
+    "documentDate": "2026-12-15",
+    "supplyDate": null,
+    "lines": [],
+    "reminder": {
+      "level": 1,
+      "title": "1. Mahnung",
+      "invoiceNumber": "RE-2026-0042",
+      "invoiceDate": "2026-10-12",
+      "invoiceDueDate": "2026-11-11",
+      "invoiceGrossCents": 119000,
+      "paymentsReceivedCents": 19000,
+      "openAmountCents": 100000,
+      "feeCents": 500,
+      "interestCents": 1080,
+      "interestSegments": [
+        {
+          "from": "2026-11-12",
+          "to": "2026-12-15",
+          "days": 34,
+          "rateBp": 1159,
+          "amountCents": 1080
+        }
+      ],
+      "flatFee40Cents": 4000,
+      "newDueDate": "2026-12-29",
+      "totalCents": 105580
+    },
+    "einvoice": {
+      "format": "none",
+      "decision": "NOT_REQUIRED"
+    }
+  }
+}

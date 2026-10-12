@@ -1,0 +1,130 @@
+{
+  "buyer": {
+    "address": {
+      "city": "Köln",
+      "countryCode": "DE",
+      "postalCode": "50667",
+      "street": "Musterweg 5"
+    },
+    "contactNumber": "K-10023",
+    "contactPerson": {
+      "name": "Max Beispiel"
+    },
+    "invoiceEmail": "buchhaltung@beispiel-kunde.de",
+    "isConsumer": false,
+    "isPublicAuthority": false,
+    "name": "Beispiel Kunde GmbH",
+    "vatId": "DE811907980"
+  },
+  "currency": "EUR",
+  "documentDate": "2026-12-15",
+  "einvoice": {
+    "decision": "NOT_REQUIRED",
+    "format": "none"
+  },
+  "flags": {},
+  "language": "de",
+  "layoutVersionId": "layout-v1",
+  "lines": [],
+  "notes": [],
+  "number": "MA-2026-0004",
+  "payment": {
+    "bankAccount": {
+      "accountHolder": "Muster Design GmbH",
+      "bankName": "Commerzbank",
+      "bic": "COBADEFFXXX",
+      "iban": "DE89370400440532013000"
+    },
+    "dueDays": 30,
+    "method": "transfer",
+    "paymentReference": "MA-2026-0004",
+    "showEpcQr": true
+  },
+  "priceMode": "net",
+  "references": {
+    "precedingInvoices": []
+  },
+  "reminder": {
+    "feeCents": 500,
+    "flatFee40Cents": 4000,
+    "interestCents": 1080,
+    "interestSegments": [
+      {
+        "amountCents": 1080,
+        "days": 34,
+        "from": "2026-11-12",
+        "rateBp": 1159,
+        "to": "2026-12-15"
+      }
+    ],
+    "invoiceDate": "2026-10-12",
+    "invoiceDueDate": "2026-11-11",
+    "invoiceGrossCents": 119000,
+    "invoiceNumber": "RE-2026-0042",
+    "level": 1,
+    "newDueDate": "2026-12-29",
+    "openAmountCents": 100000,
+    "paymentsReceivedCents": 19000,
+    "title": "1. Mahnung",
+    "totalCents": 105580
+  },
+  "ruleVersions": {},
+  "schemaVersion": 1,
+  "seller": {
+    "address": {
+      "city": "Berlin",
+      "countryCode": "DE",
+      "postalCode": "10115",
+      "street": "Hauptstraße 1"
+    },
+    "contact": {
+      "email": "rechnung@muster-design.de",
+      "name": "Erika Musterfrau",
+      "phone": "+49 30 1234567",
+      "website": "www.muster-design.de"
+    },
+    "electronicAddress": {
+      "scheme": "EM",
+      "value": "rechnung@muster-design.de"
+    },
+    "kleinunternehmer": false,
+    "legalForm": "gmbh",
+    "name": "Muster Design GmbH",
+    "register": {
+      "court": "Amtsgericht Charlottenburg",
+      "number": "123456 B",
+      "type": "HRB"
+    },
+    "representatives": [
+      {
+        "name": "Max Mustermann"
+      },
+      {
+        "name": "Erika Musterfrau"
+      }
+    ],
+    "seat": "Berlin",
+    "shareCapital": {
+      "amountCents": 2500000
+    },
+    "taxNumber": "1121081508150",
+    "taxNumberState": "BE",
+    "vatAccounting": "soll",
+    "vatId": "DE123456788"
+  },
+  "taxCase": "domestic",
+  "texts": {},
+  "totals": {
+    "advancesDeductedGrossCents": 0,
+    "allowanceTotalCents": 0,
+    "byGroup": [],
+    "chargeTotalCents": 0,
+    "grossCents": 0,
+    "lineNetSumCents": 0,
+    "netCents": 0,
+    "payableCents": 0,
+    "roundingCents": 0,
+    "vatCents": 0
+  },
+  "type": "reminder"
+}

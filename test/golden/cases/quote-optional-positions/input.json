@@ -1,0 +1,55 @@
+{
+  "id": "T-GLD-31",
+  "title": "quote with an optional line excluded from totals, validity",
+  "input": {
+    "type": "quote",
+    "number": "AN-2026-0012",
+    "validUntil": "2026-11-11",
+    "supplyDate": null,
+    "texts": {
+      "headText": "Vielen Dank für Ihre Anfrage. Gerne bieten wir Ihnen an:",
+      "footText": "Wir freuen uns auf Ihren Auftrag."
+    },
+    "lines": [
+      {
+        "kind": "heading",
+        "text": "Konzeption"
+      },
+      {
+        "kind": "item",
+        "name": "Beratung Webdesign",
+        "quantityMilli": 10000,
+        "unitCode": "HUR",
+        "unitPriceMicros": 1000000,
+        "vatCategory": "S",
+        "vatRateBp": 1900,
+        "vatRuleRowId": "standard@2021-01-01"
+      },
+      {
+        "kind": "subtotal"
+      },
+      {
+        "kind": "heading",
+        "text": "Optionen"
+      },
+      {
+        "kind": "item",
+        "name": "Suchmaschinenoptimierung",
+        "quantityMilli": 8000,
+        "unitCode": "HUR",
+        "unitPriceMicros": 1000000,
+        "vatCategory": "S",
+        "vatRateBp": 1900,
+        "vatRuleRowId": "standard@2021-01-01",
+        "optional": true
+      }
+    ],
+    "einvoice": {
+      "format": "none",
+      "decision": "NOT_REQUIRED"
+    }
+  },
+  "paymentPatch": {
+    "showEpcQr": false
+  }
+}

@@ -1,0 +1,36 @@
+{
+  "id": "T-GLD-13",
+  "title": "advance invoice 3.000,00 @19 (TypeCode 326), expected supply",
+  "input": {
+    "type": "advance_invoice",
+    "number": "RE-2026-0031",
+    "documentDate": "2026-08-10",
+    "supplyDate": {
+      "kind": "date",
+      "date": "2026-10-09"
+    },
+    "chain": {
+      "orderLabel": {
+        "de": "Auftrag",
+        "en": "order"
+      },
+      "orderNumber": "AB-2026-0007",
+      "orderDate": "2026-08-03"
+    },
+    "flags": {
+      "chainIndex": 1
+    },
+    "lines": [
+      {
+        "kind": "item",
+        "name": "Abschlag 30 % Website-Relaunch",
+        "quantityMilli": 1000,
+        "unitCode": "LS",
+        "unitPriceMicros": 30000000,
+        "vatCategory": "S",
+        "vatRateBp": 1900,
+        "vatRuleRowId": "standard@2021-01-01"
+      }
+    ]
+  }
+}

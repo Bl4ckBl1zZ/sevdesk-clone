@@ -1,0 +1,156 @@
+{
+  "buyer": {
+    "address": {
+      "city": "Bremen",
+      "countryCode": "DE",
+      "postalCode": "28195",
+      "street": "Rathausplatz 1"
+    },
+    "contactNumber": "K-50001",
+    "electronicAddress": {
+      "scheme": "0204",
+      "value": "04011000-1234512345-06"
+    },
+    "invoiceEmail": "rechnungseingang@musterstadt.example",
+    "isConsumer": false,
+    "isPublicAuthority": true,
+    "name": "Stadtverwaltung Musterstadt"
+  },
+  "currency": "EUR",
+  "documentDate": "2026-10-12",
+  "dueDate": "2026-11-11",
+  "einvoice": {
+    "decision": "MUST_E",
+    "format": "xrechnung_ubl"
+  },
+  "flags": {},
+  "language": "de",
+  "layoutVersionId": "layout-v1",
+  "lines": [
+    {
+      "description": "Konzeption der Startseite",
+      "kind": "item",
+      "name": "Beratung Webdesign",
+      "netCents": 100000,
+      "position": 1,
+      "quantityMilli": 10000,
+      "unitCode": "HUR",
+      "unitPriceMicros": 1000000,
+      "vatCategory": "S",
+      "vatRateBp": 1900,
+      "vatRuleRowId": "standard@2021-01-01"
+    }
+  ],
+  "notes": [
+    {
+      "de": "Zahlbar ohne Abzug bis zum 11.11.2026.",
+      "en": "Payable without deduction by 11 Nov 2026.",
+      "id": "terms",
+      "ruleRowId": "terms@2007-01-01",
+      "zone": "payment"
+    },
+    {
+      "de": "Bitte geben Sie als Verwendungszweck ausschließlich an: RE-2026-0042",
+      "en": "Please use only this payment reference: RE-2026-0042",
+      "id": "pay_ref",
+      "ruleRowId": "pay_ref@2007-01-01",
+      "zone": "payment"
+    }
+  ],
+  "number": "RE-2026-0042",
+  "payment": {
+    "bankAccount": {
+      "accountHolder": "Muster Design GmbH",
+      "bankName": "Commerzbank",
+      "bic": "COBADEFFXXX",
+      "iban": "DE89370400440532013000"
+    },
+    "dueDays": 30,
+    "method": "transfer",
+    "paymentReference": "RE-2026-0042",
+    "showEpcQr": true
+  },
+  "priceMode": "net",
+  "references": {
+    "buyerReference": "04011000-1234512345-06",
+    "orderReference": "BEST-2026-118",
+    "precedingInvoices": []
+  },
+  "ruleVersions": {
+    "note:pay_ref": "pay_ref@2007-01-01",
+    "note:terms": "terms@2007-01-01",
+    "vat:standard": "standard@2021-01-01"
+  },
+  "schemaVersion": 1,
+  "seller": {
+    "address": {
+      "city": "Berlin",
+      "countryCode": "DE",
+      "postalCode": "10115",
+      "street": "Hauptstraße 1"
+    },
+    "contact": {
+      "email": "rechnung@muster-design.de",
+      "name": "Erika Musterfrau",
+      "phone": "+49 30 1234567",
+      "website": "www.muster-design.de"
+    },
+    "electronicAddress": {
+      "scheme": "EM",
+      "value": "rechnung@muster-design.de"
+    },
+    "kleinunternehmer": false,
+    "legalForm": "gmbh",
+    "name": "Muster Design GmbH",
+    "register": {
+      "court": "Amtsgericht Charlottenburg",
+      "number": "123456 B",
+      "type": "HRB"
+    },
+    "representatives": [
+      {
+        "name": "Max Mustermann"
+      },
+      {
+        "name": "Erika Musterfrau"
+      }
+    ],
+    "seat": "Berlin",
+    "shareCapital": {
+      "amountCents": 2500000
+    },
+    "taxNumber": "1121081508150",
+    "taxNumberState": "BE",
+    "vatAccounting": "soll",
+    "vatId": "DE123456788"
+  },
+  "supplyDate": {
+    "date": "2026-10-09",
+    "kind": "date"
+  },
+  "taxCase": "domestic",
+  "texts": {},
+  "totals": {
+    "advancesDeductedGrossCents": 0,
+    "allowanceTotalCents": 0,
+    "byGroup": [
+      {
+        "allowanceCents": 0,
+        "baseCents": 100000,
+        "category": "S",
+        "chargeCents": 0,
+        "lineNetSumCents": 100000,
+        "rateBp": 1900,
+        "vatCents": 19000
+      }
+    ],
+    "chargeTotalCents": 0,
+    "grossCents": 119000,
+    "lineNetSumCents": 100000,
+    "netCents": 100000,
+    "payableCents": 119000,
+    "roundingCents": 0,
+    "vatCents": 19000
+  },
+  "type": "invoice"
+}

@@ -19,7 +19,7 @@
     "test:coverage": "node scripts/vitest.mjs --coverage",
     "test:backend": "tsx scripts/test-backend.ts",
     "golden": "vitest run --project domain --passWithNoTests test/golden",
-    "golden:update": "vitest run --project domain --passWithNoTests --update test/golden",
+    "golden:update": "vitest run --project domain --passWithNoTests test/golden --update",
     "e2e": "playwright test",
     "trace": "tsx scripts/trace.ts",
     "lint": "biome check . && tsx scripts/check-boundaries.ts",

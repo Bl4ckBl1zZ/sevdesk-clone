@@ -1,0 +1,147 @@
+{
+  "buyer": {
+    "address": {
+      "city": "Köln",
+      "countryCode": "DE",
+      "postalCode": "50667",
+      "street": "Musterweg 5"
+    },
+    "contactNumber": "K-10023",
+    "contactPerson": {
+      "name": "Max Beispiel"
+    },
+    "invoiceEmail": "buchhaltung@beispiel-kunde.de",
+    "isConsumer": false,
+    "isPublicAuthority": false,
+    "name": "Beispiel Kunde GmbH",
+    "vatId": "DE811907980"
+  },
+  "currency": "EUR",
+  "documentDate": "2026-10-12",
+  "dueDate": "2026-11-11",
+  "einvoice": {
+    "decision": "PDF_NEEDS_CONSENT",
+    "format": "zugferd_en16931"
+  },
+  "flags": {},
+  "language": "de",
+  "layoutVersionId": "layout-v1",
+  "lines": [
+    {
+      "description": "Konzeption der Startseite",
+      "kind": "item",
+      "name": "Beratung Webdesign",
+      "netCents": 100000,
+      "position": 1,
+      "quantityMilli": 10000,
+      "unitCode": "HUR",
+      "unitPriceMicros": 1000000,
+      "vatCategory": "S",
+      "vatRateBp": 1900,
+      "vatRuleRowId": "standard@2021-01-01"
+    }
+  ],
+  "notes": [
+    {
+      "de": "Zahlbar ohne Abzug bis zum 11.11.2026.",
+      "en": "Payable without deduction by 11 Nov 2026.",
+      "id": "terms",
+      "ruleRowId": "terms@2007-01-01",
+      "zone": "payment"
+    },
+    {
+      "de": "Bitte geben Sie als Verwendungszweck ausschließlich an: RE-2026-0123",
+      "en": "Please use only this payment reference: RE-2026-0123",
+      "id": "pay_ref",
+      "ruleRowId": "pay_ref@2007-01-01",
+      "zone": "payment"
+    }
+  ],
+  "number": "RE-2026-0123",
+  "payment": {
+    "bankAccount": {
+      "accountHolder": "Bauer Elektrotechnik e.K.",
+      "bankName": "UniCredit Bank",
+      "bic": "HYVEDEMMXXX",
+      "iban": "DE02700202700010108669"
+    },
+    "dueDays": 30,
+    "method": "transfer",
+    "paymentReference": "RE-2026-0123",
+    "showEpcQr": true
+  },
+  "priceMode": "net",
+  "references": {
+    "precedingInvoices": []
+  },
+  "ruleVersions": {
+    "note:pay_ref": "pay_ref@2007-01-01",
+    "note:terms": "terms@2007-01-01",
+    "vat:standard": "standard@2021-01-01"
+  },
+  "schemaVersion": 1,
+  "seller": {
+    "address": {
+      "city": "München",
+      "countryCode": "DE",
+      "postalCode": "80331",
+      "street": "Werkstraße 12"
+    },
+    "contact": {
+      "email": "info@bauer-elektro.de",
+      "name": "Hans Bauer",
+      "phone": "+49 89 7654321"
+    },
+    "electronicAddress": {
+      "scheme": "EM",
+      "value": "info@bauer-elektro.de"
+    },
+    "kleinunternehmer": false,
+    "legalForm": "ek",
+    "name": "Bauer Elektrotechnik e.K.",
+    "register": {
+      "court": "Amtsgericht München",
+      "number": "98765",
+      "type": "HRA"
+    },
+    "representatives": [
+      {
+        "name": "Hans Bauer"
+      }
+    ],
+    "seat": "München",
+    "taxNumber": "9143081508150",
+    "taxNumberState": "BY",
+    "vatAccounting": "ist",
+    "vatId": "DE811569869"
+  },
+  "supplyDate": {
+    "date": "2026-10-09",
+    "kind": "date"
+  },
+  "taxCase": "domestic",
+  "texts": {},
+  "totals": {
+    "advancesDeductedGrossCents": 0,
+    "allowanceTotalCents": 0,
+    "byGroup": [
+      {
+        "allowanceCents": 0,
+        "baseCents": 100000,
+        "category": "S",
+        "chargeCents": 0,
+        "lineNetSumCents": 100000,
+        "rateBp": 1900,
+        "vatCents": 19000
+      }
+    ],
+    "chargeTotalCents": 0,
+    "grossCents": 119000,
+    "lineNetSumCents": 100000,
+    "netCents": 100000,
+    "payableCents": 119000,
+    "roundingCents": 0,
+    "vatCents": 19000
+  },
+  "type": "invoice"
+}

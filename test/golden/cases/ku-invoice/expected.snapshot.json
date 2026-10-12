@@ -1,0 +1,147 @@
+{
+  "buyer": {
+    "address": {
+      "city": "Leipzig",
+      "countryCode": "DE",
+      "postalCode": "04109",
+      "street": "Lindenallee 12"
+    },
+    "contactNumber": "K-20007",
+    "invoiceEmail": "erika.beispiel@example.org",
+    "isConsumer": true,
+    "isPublicAuthority": false,
+    "name": "Erika Beispiel"
+  },
+  "currency": "EUR",
+  "documentDate": "2026-10-12",
+  "dueDate": "2026-10-26",
+  "einvoice": {
+    "decision": "NOT_REQUIRED",
+    "format": "none"
+  },
+  "flags": {},
+  "language": "de",
+  "layoutVersionId": "layout-v1",
+  "lines": [
+    {
+      "kind": "item",
+      "name": "Fotoshooting Familie (halber Tag)",
+      "netCents": 100000,
+      "position": 1,
+      "quantityMilli": 2000,
+      "unitCode": "E48",
+      "unitPriceMicros": 5000000,
+      "vatCategory": "KU",
+      "vatRateBp": 0
+    }
+  ],
+  "notes": [
+    {
+      "de": "Steuerfreie Leistung gemäß § 19 Abs. 1 UStG (Kleinunternehmerregelung).",
+      "en": "VAT-exempt supply under Section 19 (1) German VAT Act (small business scheme).",
+      "id": "ku_note_19",
+      "ruleRowId": "ku_note_19@2025-01-01",
+      "xmlSubjectCode": "REG",
+      "zone": "legal"
+    },
+    {
+      "de": "Zahlbar ohne Abzug bis zum 26.10.2026.",
+      "en": "Payable without deduction by 26 Oct 2026.",
+      "id": "terms",
+      "ruleRowId": "terms@2007-01-01",
+      "zone": "payment"
+    },
+    {
+      "de": "Bitte geben Sie als Verwendungszweck ausschließlich an: 2026-017",
+      "en": "Please use only this payment reference: 2026-017",
+      "id": "pay_ref",
+      "ruleRowId": "pay_ref@2007-01-01",
+      "zone": "payment"
+    },
+    {
+      "de": "Sie kommen spätestens 30 Tage nach Fälligkeit und Zugang dieser Rechnung in Verzug, ohne dass es einer Mahnung bedarf (§ 286 Abs. 3 BGB).",
+      "en": "You will be in default no later than 30 days after the due date and receipt of this invoice without a further reminder (Section 286 (3) German Civil Code).",
+      "id": "b2c_286",
+      "ruleRowId": "b2c_286@2007-01-01",
+      "zone": "legal"
+    }
+  ],
+  "number": "2026-017",
+  "payment": {
+    "bankAccount": {
+      "accountHolder": "Lena Kleinert",
+      "bankName": "Deutsche Kreditbank",
+      "bic": "BYLADEM1001",
+      "iban": "DE02120300000000202051"
+    },
+    "dueDays": 14,
+    "method": "transfer",
+    "paymentReference": "2026-017",
+    "showEpcQr": true
+  },
+  "priceMode": "net",
+  "references": {
+    "precedingInvoices": []
+  },
+  "ruleVersions": {
+    "note:b2c_286": "b2c_286@2007-01-01",
+    "note:ku_note_19": "ku_note_19@2025-01-01",
+    "note:pay_ref": "pay_ref@2007-01-01",
+    "note:terms": "terms@2007-01-01"
+  },
+  "schemaVersion": 1,
+  "seller": {
+    "address": {
+      "city": "Leipzig",
+      "countryCode": "DE",
+      "postalCode": "04109",
+      "street": "Gartenweg 3"
+    },
+    "contact": {
+      "email": "hallo@kleinert-foto.de",
+      "name": "Lena Kleinert",
+      "phone": "+49 341 555123"
+    },
+    "electronicAddress": {
+      "scheme": "EM",
+      "value": "hallo@kleinert-foto.de"
+    },
+    "kleinunternehmer": true,
+    "legalForm": "einzelunternehmen",
+    "name": "Lena Kleinert Fotografie",
+    "representatives": [],
+    "taxNumber": "3201081508150",
+    "taxNumberState": "SN",
+    "vatAccounting": "ist"
+  },
+  "supplyDate": {
+    "date": "2026-10-09",
+    "kind": "date"
+  },
+  "taxCase": "kleinunternehmer",
+  "texts": {},
+  "totals": {
+    "advancesDeductedGrossCents": 0,
+    "allowanceTotalCents": 0,
+    "byGroup": [
+      {
+        "allowanceCents": 0,
+        "baseCents": 100000,
+        "category": "KU",
+        "chargeCents": 0,
+        "exemptionReasonText": "Steuerfreie Leistung gemäß § 19 Abs. 1 UStG (Kleinunternehmerregelung).",
+        "lineNetSumCents": 100000,
+        "rateBp": 0,
+        "vatCents": 0
+      }
+    ],
+    "chargeTotalCents": 0,
+    "grossCents": 100000,
+    "lineNetSumCents": 100000,
+    "netCents": 100000,
+    "payableCents": 100000,
+    "roundingCents": 0,
+    "vatCents": 0
+  },
+  "type": "invoice"
+}

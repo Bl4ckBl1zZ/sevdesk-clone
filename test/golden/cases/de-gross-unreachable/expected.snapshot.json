@@ -1,0 +1,152 @@
+{
+  "buyer": {
+    "address": {
+      "city": "Leipzig",
+      "countryCode": "DE",
+      "postalCode": "04109",
+      "street": "Lindenallee 12"
+    },
+    "contactNumber": "K-20007",
+    "invoiceEmail": "erika.beispiel@example.org",
+    "isConsumer": true,
+    "isPublicAuthority": false,
+    "name": "Erika Beispiel"
+  },
+  "currency": "EUR",
+  "documentDate": "2026-10-12",
+  "dueDate": "2026-10-12",
+  "einvoice": {
+    "decision": "NOT_REQUIRED",
+    "format": "none"
+  },
+  "flags": {},
+  "language": "de",
+  "layoutVersionId": "layout-v1",
+  "lines": [
+    {
+      "grossCents": 629,
+      "kind": "item",
+      "name": "USB-Stick",
+      "netCents": 528,
+      "position": 1,
+      "quantityMilli": 1000,
+      "unitCode": "C62",
+      "unitPriceMicros": 62900,
+      "vatCategory": "S",
+      "vatRateBp": 1900,
+      "vatRuleRowId": "standard@2021-01-01"
+    }
+  ],
+  "notes": [
+    {
+      "de": "Zahlbar sofort ohne Abzug.",
+      "en": "Payable immediately.",
+      "id": "terms_immediate",
+      "ruleRowId": "terms_immediate@2007-01-01",
+      "zone": "payment"
+    },
+    {
+      "de": "Sie kommen spätestens 30 Tage nach Fälligkeit und Zugang dieser Rechnung in Verzug, ohne dass es einer Mahnung bedarf (§ 286 Abs. 3 BGB).",
+      "en": "You will be in default no later than 30 days after the due date and receipt of this invoice without a further reminder (Section 286 (3) German Civil Code).",
+      "id": "b2c_286",
+      "ruleRowId": "b2c_286@2007-01-01",
+      "zone": "legal"
+    }
+  ],
+  "number": "RE-2026-0042",
+  "payment": {
+    "bankAccount": {
+      "accountHolder": "Muster Design GmbH",
+      "bankName": "Commerzbank",
+      "bic": "COBADEFFXXX",
+      "iban": "DE89370400440532013000"
+    },
+    "dueDays": 0,
+    "method": "cash",
+    "paymentReference": "RE-2026-0042",
+    "showEpcQr": false
+  },
+  "priceMode": "gross",
+  "references": {
+    "precedingInvoices": []
+  },
+  "ruleVersions": {
+    "note:b2c_286": "b2c_286@2007-01-01",
+    "note:terms_immediate": "terms_immediate@2007-01-01",
+    "vat:standard": "standard@2021-01-01"
+  },
+  "schemaVersion": 1,
+  "seller": {
+    "address": {
+      "city": "Berlin",
+      "countryCode": "DE",
+      "postalCode": "10115",
+      "street": "Hauptstraße 1"
+    },
+    "contact": {
+      "email": "rechnung@muster-design.de",
+      "name": "Erika Musterfrau",
+      "phone": "+49 30 1234567",
+      "website": "www.muster-design.de"
+    },
+    "electronicAddress": {
+      "scheme": "EM",
+      "value": "rechnung@muster-design.de"
+    },
+    "kleinunternehmer": false,
+    "legalForm": "gmbh",
+    "name": "Muster Design GmbH",
+    "register": {
+      "court": "Amtsgericht Charlottenburg",
+      "number": "123456 B",
+      "type": "HRB"
+    },
+    "representatives": [
+      {
+        "name": "Max Mustermann"
+      },
+      {
+        "name": "Erika Musterfrau"
+      }
+    ],
+    "seat": "Berlin",
+    "shareCapital": {
+      "amountCents": 2500000
+    },
+    "taxNumber": "1121081508150",
+    "taxNumberState": "BE",
+    "vatAccounting": "soll",
+    "vatId": "DE123456788"
+  },
+  "supplyDate": {
+    "date": "2026-10-09",
+    "kind": "date"
+  },
+  "taxCase": "domestic",
+  "texts": {},
+  "totals": {
+    "advancesDeductedGrossCents": 0,
+    "allowanceTotalCents": 0,
+    "byGroup": [
+      {
+        "allowanceCents": 0,
+        "baseCents": 528,
+        "category": "S",
+        "chargeCents": 0,
+        "enteredGrossCents": 629,
+        "grossDeviationCents": -1,
+        "lineNetSumCents": 528,
+        "rateBp": 1900,
+        "vatCents": 100
+      }
+    ],
+    "chargeTotalCents": 0,
+    "grossCents": 628,
+    "lineNetSumCents": 528,
+    "netCents": 528,
+    "payableCents": 628,
+    "roundingCents": 0,
+    "vatCents": 100
+  },
+  "type": "invoice"
+}

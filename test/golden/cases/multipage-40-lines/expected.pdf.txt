@@ -1,0 +1,177 @@
+--- page 1 ---
+Muster Design GmbH
+Muster Design GmbH · Hauptstraße 1 · 10115 Berlin
+Nummer | RE-2026-0054
+Rechnungsdatum | 12.10.2026
+Beispiel Kunde GmbH
+Leistungsdatum | 09.10.2026
+z. Hd. Max Beispiel
+Kundennummer | K-10023
+Musterweg 5
+Ansprechpartner | Erika Musterfrau
+50667 Köln
+Telefon | +49 30 1234567
+E-Mail | rechnung@muster-design.de
+Rechnung RE-2026-0054
+Pos. | Bezeichnung | Menge Einheit | Einzelpreis netto | Gesamt netto
+1 | Leistungsposition 01 | 2 Std. | 25,00 € | 50,00 €
+Ausführliche Beschreibung der erbrachten Leistung zur
+Prüfung des Seitenumbruchs
+2 | Leistungsposition 02 | 3 Std. | 37,50 € | 112,50 €
+Ausführliche Beschreibung der erbrachten Leistung zur
+Prüfung des Seitenumbruchs
+3 | Leistungsposition 03 | 4 Std. | 50,00 € | 200,00 €
+Ausführliche Beschreibung der erbrachten Leistung zur
+Prüfung des Seitenumbruchs
+4 | Leistungsposition 04 | 5 Std. | 62,50 € | 312,50 €
+Ausführliche Beschreibung der erbrachten Leistung zur
+Prüfung des Seitenumbruchs
+5 | Leistungsposition 05 | 1 Std. | 75,00 € | 75,00 €
+Ausführliche Beschreibung der erbrachten Leistung zur
+Prüfung des Seitenumbruchs
+6 | Leistungsposition 06 | 2 Std. | 87,50 € | 175,00 €
+Ausführliche Beschreibung der erbrachten Leistung zur
+Prüfung des Seitenumbruchs
+7 | Leistungsposition 07 | 3 Std. | 12,50 € | 37,50 €
+Ausführliche Beschreibung der erbrachten Leistung zur
+Prüfung des Seitenumbruchs
+8 | Leistungsposition 08 | 4 Std. | 25,00 € | 100,00 €
+Ausführliche Beschreibung der erbrachten Leistung zur
+Prüfung des Seitenumbruchs
+9 | Leistungsposition 09 | 5 Std. | 37,50 € | 187,50 €
+Ausführliche Beschreibung der erbrachten Leistung zur
+Prüfung des Seitenumbruchs
+10 | Leistungsposition 10 | 1 Std. | 50,00 € | 50,00 €
+Ausführliche Beschreibung der erbrachten Leistung zur
+Prüfung des Seitenumbruchs
+Muster Design GmbH | Sitz: Berlin | IBAN: DE89 3704 0044 0532 0130 00
+Hauptstraße 1 | Registergericht: Amtsgericht Charlottenburg | BIC: COBADEFFXXX
+10115 Berlin | HRB 123456 B
+Tel. +49 30 1234567 | Geschäftsführer: Max Mustermann, Erika
+rechnung@muster-design.de | Musterfrau
+www.muster-design.de | Stammkapital: 25.000,00 €
+Steuernummer: 21/815/08150
+USt-IdNr.: DE123456788
+Seite 1 von 3
+--- page 2 ---
+Pos. | Bezeichnung | Menge Einheit | Einzelpreis netto | Gesamt netto
+11 | Leistungsposition 11 | 2 Std. | 62,50 € | 125,00 €
+Ausführliche Beschreibung der erbrachten Leistung zur
+Prüfung des Seitenumbruchs
+12 | Leistungsposition 12 | 3 Std. | 75,00 € | 225,00 €
+Ausführliche Beschreibung der erbrachten Leistung zur
+Prüfung des Seitenumbruchs
+13 | Leistungsposition 13 | 4 Std. | 87,50 € | 350,00 €
+Ausführliche Beschreibung der erbrachten Leistung zur
+Prüfung des Seitenumbruchs
+14 | Leistungsposition 14 | 5 Std. | 12,50 € | 62,50 €
+Ausführliche Beschreibung der erbrachten Leistung zur
+Prüfung des Seitenumbruchs
+15 | Leistungsposition 15 | 1 Std. | 25,00 € | 25,00 €
+Ausführliche Beschreibung der erbrachten Leistung zur
+Prüfung des Seitenumbruchs
+16 | Leistungsposition 16 | 2 Std. | 37,50 € | 75,00 €
+Ausführliche Beschreibung der erbrachten Leistung zur
+Prüfung des Seitenumbruchs
+17 | Leistungsposition 17 | 3 Std. | 50,00 € | 150,00 €
+Ausführliche Beschreibung der erbrachten Leistung zur
+Prüfung des Seitenumbruchs
+18 | Leistungsposition 18 | 4 Std. | 62,50 € | 250,00 €
+Ausführliche Beschreibung der erbrachten Leistung zur
+Prüfung des Seitenumbruchs
+19 | Leistungsposition 19 | 5 Std. | 75,00 € | 375,00 €
+Ausführliche Beschreibung der erbrachten Leistung zur
+Prüfung des Seitenumbruchs
+20 | Leistungsposition 20 | 1 Std. | 87,50 € | 87,50 €
+Ausführliche Beschreibung der erbrachten Leistung zur
+Prüfung des Seitenumbruchs
+21 | Leistungsposition 21 | 2 Std. | 12,50 € | 25,00 €
+Ausführliche Beschreibung der erbrachten Leistung zur
+Prüfung des Seitenumbruchs
+22 | Leistungsposition 22 | 3 Std. | 25,00 € | 75,00 €
+Ausführliche Beschreibung der erbrachten Leistung zur
+Prüfung des Seitenumbruchs
+23 | Leistungsposition 23 | 4 Std. | 37,50 € | 150,00 €
+Ausführliche Beschreibung der erbrachten Leistung zur
+Prüfung des Seitenumbruchs
+24 | Leistungsposition 24 | 5 Std. | 50,00 € | 250,00 €
+Ausführliche Beschreibung der erbrachten Leistung zur
+Prüfung des Seitenumbruchs
+25 | Leistungsposition 25 | 1 Std. | 62,50 € | 62,50 €
+Ausführliche Beschreibung der erbrachten Leistung zur
+Prüfung des Seitenumbruchs
+26 | Leistungsposition 26 | 2 Std. | 75,00 € | 150,00 €
+Ausführliche Beschreibung der erbrachten Leistung zur
+Prüfung des Seitenumbruchs
+27 | Leistungsposition 27 | 3 Std. | 87,50 € | 262,50 €
+Ausführliche Beschreibung der erbrachten Leistung zur
+Prüfung des Seitenumbruchs
+Muster Design GmbH | Sitz: Berlin | IBAN: DE89 3704 0044 0532 0130 00
+Hauptstraße 1 | Registergericht: Amtsgericht Charlottenburg | BIC: COBADEFFXXX
+10115 Berlin | HRB 123456 B
+Tel. +49 30 1234567 | Geschäftsführer: Max Mustermann, Erika
+rechnung@muster-design.de | Musterfrau
+www.muster-design.de | Stammkapital: 25.000,00 €
+Steuernummer: 21/815/08150
+USt-IdNr.: DE123456788
+Seite 2 von 3
+--- page 3 ---
+Pos. | Bezeichnung | Menge Einheit | Einzelpreis netto | Gesamt netto
+28 | Leistungsposition 28 | 4 Std. | 12,50 € | 50,00 €
+Ausführliche Beschreibung der erbrachten Leistung zur
+Prüfung des Seitenumbruchs
+29 | Leistungsposition 29 | 5 Std. | 25,00 € | 125,00 €
+Ausführliche Beschreibung der erbrachten Leistung zur
+Prüfung des Seitenumbruchs
+30 | Leistungsposition 30 | 1 Std. | 37,50 € | 37,50 €
+Ausführliche Beschreibung der erbrachten Leistung zur
+Prüfung des Seitenumbruchs
+31 | Leistungsposition 31 | 2 Std. | 50,00 € | 100,00 €
+Ausführliche Beschreibung der erbrachten Leistung zur
+Prüfung des Seitenumbruchs
+32 | Leistungsposition 32 | 3 Std. | 62,50 € | 187,50 €
+Ausführliche Beschreibung der erbrachten Leistung zur
+Prüfung des Seitenumbruchs
+33 | Leistungsposition 33 | 4 Std. | 75,00 € | 300,00 €
+Ausführliche Beschreibung der erbrachten Leistung zur
+Prüfung des Seitenumbruchs
+34 | Leistungsposition 34 | 5 Std. | 87,50 € | 437,50 €
+Ausführliche Beschreibung der erbrachten Leistung zur
+Prüfung des Seitenumbruchs
+35 | Leistungsposition 35 | 1 Std. | 12,50 € | 12,50 €
+Ausführliche Beschreibung der erbrachten Leistung zur
+Prüfung des Seitenumbruchs
+36 | Leistungsposition 36 | 2 Std. | 25,00 € | 50,00 €
+Ausführliche Beschreibung der erbrachten Leistung zur
+Prüfung des Seitenumbruchs
+37 | Leistungsposition 37 | 3 Std. | 37,50 € | 112,50 €
+Ausführliche Beschreibung der erbrachten Leistung zur
+Prüfung des Seitenumbruchs
+38 | Leistungsposition 38 | 4 Std. | 50,00 € | 200,00 €
+Ausführliche Beschreibung der erbrachten Leistung zur
+Prüfung des Seitenumbruchs
+39 | Leistungsposition 39 | 5 Std. | 62,50 € | 312,50 €
+Ausführliche Beschreibung der erbrachten Leistung zur
+Prüfung des Seitenumbruchs
+40 | Leistungsposition 40 | 1 Std. | 75,00 € | 75,00 €
+Ausführliche Beschreibung der erbrachten Leistung zur
+Prüfung des Seitenumbruchs
+Summe netto | 6.000,00 €
+zzgl. 19 % USt auf 6.000,00 € | 1.140,00 €
+Gesamtbetrag | 7.140,00 €
+Zahlbar ohne Abzug bis zum 11.11.2026.
+Bitte geben Sie als Verwendungszweck ausschließlich an: RE-2026-0054
+Kontoinhaber: Muster Design GmbH
+IBAN: DE89 3704 0044 0532 0130 00
+BIC: COBADEFFXXX
+Bank: Commerzbank
+Diese Rechnung enthält eine E-Rechnung nach EN 16931 (ZUGFeRD 2.5).
+Muster Design GmbH | Sitz: Berlin | IBAN: DE89 3704 0044 0532 0130 00
+Hauptstraße 1 | Registergericht: Amtsgericht Charlottenburg | BIC: COBADEFFXXX
+10115 Berlin | HRB 123456 B
+Tel. +49 30 1234567 | Geschäftsführer: Max Mustermann, Erika
+rechnung@muster-design.de | Musterfrau
+www.muster-design.de | Stammkapital: 25.000,00 €
+Steuernummer: 21/815/08150
+USt-IdNr.: DE123456788
+Seite 3 von 3

@@ -1,0 +1,20 @@
+{
+  "id": "T-GLD-36",
+  "title": "EN layout of T-GLD-11 with bilingual notes",
+  "buyer": "at",
+  "input": {
+    "taxCase": "eu_b2b_service",
+    "language": "en",
+    "lines": [
+      {
+        "kind": "item",
+        "name": "UX concept consulting",
+        "quantityMilli": 20000,
+        "unitCode": "HUR",
+        "unitPriceMicros": 1000000,
+        "vatCategory": "AE",
+        "vatRateBp": 0
+      }
+    ]
+  }
+}

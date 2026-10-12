@@ -1,0 +1,42 @@
+--- page 1 ---
+Muster Design GmbH
+Muster Design GmbH · Hauptstraße 1 · 10115 Berlin
+Number | RE-2026-0042
+Invoice date | 12 Oct 2026
+Alpen Consulting GmbH
+Date of supply | 9 Oct 2026
+Mariahilfer Straße 10
+Customer no. | K-30001
+1060 Wien
+Contact | Erika Musterfrau
+AUSTRIA
+Phone | +49 30 1234567
+E-mail | rechnung@muster-design.de
+Our VAT ID | DE123456788
+Your VAT ID | ATU12345675
+Invoice RE-2026-0042
+Item | Description | Qty Unit | Unit price (net) | Amount (net)
+1 | UX concept consulting | 20 h | 100.00 | EUR 2,000.00
+Total net | EUR 2,000.00
+Total amount | EUR 2,000.00
+Reverse charge: the recipient is liable for VAT (Art. 196 Council Directive 2006/112/EC).
+/ Steuerschuldnerschaft des Leistungsempfängers (Reverse Charge). USt-IdNr. Leistender: DE123456788 ·
+USt-IdNr. Leistungsempfänger: ATU12345675
+Payable without deduction by 11 Nov 2026.
+/ Zahlbar ohne Abzug bis zum 11.11.2026.
+Please use only this payment reference: RE-2026-0042
+/ Bitte geben Sie als Verwendungszweck ausschließlich an: RE-2026-0042
+Account holder: Muster Design GmbH
+IBAN: DE89 3704 0044 0532 0130 00
+BIC: COBADEFFXXX
+Bank: Commerzbank
+This invoice contains an EN 16931 e-invoice (ZUGFeRD 2.5).
+Muster Design GmbH | Sitz: Berlin | IBAN: DE89 3704 0044 0532 0130 00
+Hauptstraße 1 | Registergericht: Amtsgericht Charlottenburg | BIC: COBADEFFXXX
+10115 Berlin | HRB 123456 B
+Tel. +49 30 1234567 | Geschäftsführer: Max Mustermann, Erika
+rechnung@muster-design.de | Musterfrau
+www.muster-design.de | Stammkapital: 25.000,00 €
+Steuernummer: 21/815/08150
+USt-IdNr.: DE123456788
+Page 1 of 1

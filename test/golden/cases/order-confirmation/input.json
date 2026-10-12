@@ -1,0 +1,35 @@
+{
+  "id": "T-GLD-32",
+  "title": "order confirmation: no XML, PDF/A-3b, footer",
+  "input": {
+    "type": "order_confirmation",
+    "number": "AB-2026-0007",
+    "documentDate": "2026-08-03",
+    "supplyDate": {
+      "kind": "date",
+      "date": "2026-10-09"
+    },
+    "references": {
+      "orderReference": "PO-55812"
+    },
+    "lines": [
+      {
+        "kind": "item",
+        "name": "Website-Relaunch gesamt",
+        "quantityMilli": 1000,
+        "unitCode": "LS",
+        "unitPriceMicros": 100000000,
+        "vatCategory": "S",
+        "vatRateBp": 1900,
+        "vatRuleRowId": "standard@2021-01-01"
+      }
+    ],
+    "einvoice": {
+      "format": "none",
+      "decision": "NOT_REQUIRED"
+    }
+  },
+  "paymentPatch": {
+    "showEpcQr": false
+  }
+}

@@ -1,0 +1,33 @@
+{
+  "id": "T-GLD-25",
+  "title": "Ist company, invoice 2028-01-02 → § 13 Ist note (PDF + BT-22)",
+  "seller": "ek",
+  "input": {
+    "number": "RE-2028-0001",
+    "documentDate": "2028-01-02",
+    "supplyDate": {
+      "kind": "date",
+      "date": "2027-12-28"
+    },
+    "lines": [
+      {
+        "kind": "item",
+        "name": "Wartung Elektroanlage",
+        "quantityMilli": 4000,
+        "unitCode": "HUR",
+        "unitPriceMicros": 850000,
+        "vatCategory": "S",
+        "vatRateBp": 1900,
+        "vatRuleRowId": "standard@2021-01-01"
+      }
+    ]
+  },
+  "paymentPatch": {
+    "bankAccount": {
+      "iban": "DE02700202700010108669",
+      "bic": "HYVEDEMMXXX",
+      "accountHolder": "Bauer Elektrotechnik e.K.",
+      "bankName": "UniCredit Bank"
+    }
+  }
+}

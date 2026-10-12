@@ -1,0 +1,11 @@
+{
+  "id": "T-GLD-35",
+  "title": "re-render of T-GLD-01 as \"Kopie\"",
+  "paymentPatch": {
+    "skonto": {
+      "percentBp": 200,
+      "days": 14
+    }
+  },
+  "variant": "copy"
+}

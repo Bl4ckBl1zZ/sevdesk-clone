@@ -1,0 +1,27 @@
+{
+  "id": "T-GLD-22",
+  "title": "Kleinbetragsrechnung 250,01 € gross rejected",
+  "buyer": "consumer",
+  "input": {
+    "flags": {
+      "kleinbetrag": true
+    },
+    "einvoice": {
+      "format": "none",
+      "decision": "MAY_PAPER_OR_PDF"
+    },
+    "lines": [
+      {
+        "kind": "item",
+        "name": "Druckerpapier A4, 20 Pakete",
+        "quantityMilli": 1000,
+        "unitCode": "LS",
+        "unitPriceMicros": 2100900,
+        "vatCategory": "S",
+        "vatRateBp": 1900,
+        "vatRuleRowId": "standard@2021-01-01"
+      }
+    ]
+  },
+  "expectError": "kleinbetrag_not_allowed"
+}

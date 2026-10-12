@@ -1,0 +1,32 @@
+{
+  "id": "T-GLD-37",
+  "title": "crossing invoice issued with VAT after the KU limit",
+  "seller": "ku",
+  "sellerPatch": {
+    "kleinunternehmer": false,
+    "vatId": "DE811569869"
+  },
+  "input": {
+    "number": "2026-031",
+    "lines": [
+      {
+        "kind": "item",
+        "name": "Hochzeitsreportage (ganztägig)",
+        "quantityMilli": 1000,
+        "unitCode": "LS",
+        "unitPriceMicros": 28000000,
+        "vatCategory": "S",
+        "vatRateBp": 1900,
+        "vatRuleRowId": "standard@2021-01-01"
+      }
+    ]
+  },
+  "paymentPatch": {
+    "bankAccount": {
+      "iban": "DE02120300000000202051",
+      "bic": "BYLADEM1001",
+      "accountHolder": "Lena Kleinert",
+      "bankName": "Deutsche Kreditbank"
+    }
+  }
+}

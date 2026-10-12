@@ -1,0 +1,41 @@
+--- page 1 ---
+Muster Design GmbH
+Muster Design GmbH · Hauptstraße 1 · 10115 Berlin
+Nummer | RE-2026-0058
+Rechnungsdatum | 12.10.2026
+Beispiel Kunde GmbH
+Leistungsdatum | 09.10.2026
+z. Hd. Max Beispiel
+Kundennummer | K-10023
+Musterweg 5
+Ansprechpartner | Erika Musterfrau
+50667 Köln
+Telefon | +49 30 1234567
+E-Mail | rechnung@muster-design.de
+Schlussrechnung RE-2026-0058
+Schlussrechnung zu Auftrag AB-2026-0007. Bereits geleistete Abschlagszahlungen und die darauf entfallende
+Umsatzsteuer werden abgezogen.
+Pos. | Bezeichnung | Menge Einheit | Einzelpreis netto | Gesamt netto
+1 | Website-Relaunch gesamt | 1 pauschal | 10.000,00 € | 10.000,00 €
+Summe netto | 10.000,00 €
+zzgl. 19 % USt auf 10.000,00 € | 1.900,00 €
+Gesamtbetrag | 11.900,00 €
+abzgl. Abschlagsrechnung RE-2026-0031 vom | -3.570,00 €
+10.08.2026: netto 3.000,00 € zzgl. 19 % USt 570,00 €
+Zahlbetrag | 8.330,00 €
+Zahlbar ohne Abzug bis zum 11.11.2026.
+Bitte geben Sie als Verwendungszweck ausschließlich an: RE-2026-0058
+Kontoinhaber: Muster Design GmbH
+IBAN: DE89 3704 0044 0532 0130 00
+BIC: COBADEFFXXX
+Bank: Commerzbank
+Diese Rechnung enthält eine E-Rechnung nach EN 16931 (ZUGFeRD 2.5).
+Muster Design GmbH | Sitz: Berlin | IBAN: DE89 3704 0044 0532 0130 00
+Hauptstraße 1 | Registergericht: Amtsgericht Charlottenburg | BIC: COBADEFFXXX
+10115 Berlin | HRB 123456 B
+Tel. +49 30 1234567 | Geschäftsführer: Max Mustermann, Erika
+rechnung@muster-design.de | Musterfrau
+www.muster-design.de | Stammkapital: 25.000,00 €
+Steuernummer: 21/815/08150
+USt-IdNr.: DE123456788
+Seite 1 von 1

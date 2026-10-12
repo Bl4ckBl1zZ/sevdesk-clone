@@ -1,0 +1,28 @@
+{
+  "id": "T-GLD-02",
+  "title": "1.000,00 @19 + 500,00 @7 → VAT 190,00 + 35,00",
+  "input": {
+    "lines": [
+      {
+        "kind": "item",
+        "name": "Beratung Webdesign",
+        "quantityMilli": 10000,
+        "unitCode": "HUR",
+        "unitPriceMicros": 1000000,
+        "vatCategory": "S",
+        "vatRateBp": 1900,
+        "vatRuleRowId": "standard@2021-01-01"
+      },
+      {
+        "kind": "item",
+        "name": "Fachbuch „Gutes Webdesign“",
+        "quantityMilli": 10000,
+        "unitCode": "C62",
+        "unitPriceMicros": 500000,
+        "vatCategory": "S",
+        "vatRateBp": 700,
+        "vatRuleRowId": "reduced@2021-01-01"
+      }
+    ]
+  }
+}

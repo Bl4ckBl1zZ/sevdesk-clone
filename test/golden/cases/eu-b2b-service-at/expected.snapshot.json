@@ -1,0 +1,159 @@
+{
+  "buyer": {
+    "address": {
+      "city": "Wien",
+      "countryCode": "AT",
+      "postalCode": "1060",
+      "street": "Mariahilfer Straße 10"
+    },
+    "contactNumber": "K-30001",
+    "invoiceEmail": "office@alpen-consulting.at",
+    "isConsumer": false,
+    "isPublicAuthority": false,
+    "name": "Alpen Consulting GmbH",
+    "vatId": "ATU12345675"
+  },
+  "currency": "EUR",
+  "documentDate": "2026-10-12",
+  "dueDate": "2026-11-11",
+  "einvoice": {
+    "decision": "PDF_NEEDS_CONSENT",
+    "format": "zugferd_en16931"
+  },
+  "flags": {},
+  "language": "de",
+  "layoutVersionId": "layout-v1",
+  "lines": [
+    {
+      "kind": "item",
+      "name": "Beratung UX-Konzept",
+      "netCents": 200000,
+      "position": 1,
+      "quantityMilli": 20000,
+      "unitCode": "HUR",
+      "unitPriceMicros": 1000000,
+      "vatCategory": "AE",
+      "vatRateBp": 0
+    }
+  ],
+  "notes": [
+    {
+      "de": "Steuerschuldnerschaft des Leistungsempfängers (Reverse Charge). USt-IdNr. Leistender: DE123456788 · USt-IdNr. Leistungsempfänger: ATU12345675",
+      "en": "Reverse charge: the recipient is liable for VAT (Art. 196 Council Directive 2006/112/EC).",
+      "id": "rc_eu",
+      "ruleRowId": "rc_eu@2007-01-01",
+      "xmlSubjectCode": "REG",
+      "zone": "legal"
+    },
+    {
+      "de": "Zahlbar ohne Abzug bis zum 11.11.2026.",
+      "en": "Payable without deduction by 11 Nov 2026.",
+      "id": "terms",
+      "ruleRowId": "terms@2007-01-01",
+      "zone": "payment"
+    },
+    {
+      "de": "Bitte geben Sie als Verwendungszweck ausschließlich an: RE-2026-0042",
+      "en": "Please use only this payment reference: RE-2026-0042",
+      "id": "pay_ref",
+      "ruleRowId": "pay_ref@2007-01-01",
+      "zone": "payment"
+    }
+  ],
+  "number": "RE-2026-0042",
+  "payment": {
+    "bankAccount": {
+      "accountHolder": "Muster Design GmbH",
+      "bankName": "Commerzbank",
+      "bic": "COBADEFFXXX",
+      "iban": "DE89370400440532013000"
+    },
+    "dueDays": 30,
+    "method": "transfer",
+    "paymentReference": "RE-2026-0042",
+    "showEpcQr": true
+  },
+  "priceMode": "net",
+  "references": {
+    "precedingInvoices": []
+  },
+  "ruleVersions": {
+    "note:pay_ref": "pay_ref@2007-01-01",
+    "note:rc_eu": "rc_eu@2007-01-01",
+    "note:terms": "terms@2007-01-01"
+  },
+  "schemaVersion": 1,
+  "seller": {
+    "address": {
+      "city": "Berlin",
+      "countryCode": "DE",
+      "postalCode": "10115",
+      "street": "Hauptstraße 1"
+    },
+    "contact": {
+      "email": "rechnung@muster-design.de",
+      "name": "Erika Musterfrau",
+      "phone": "+49 30 1234567",
+      "website": "www.muster-design.de"
+    },
+    "electronicAddress": {
+      "scheme": "EM",
+      "value": "rechnung@muster-design.de"
+    },
+    "kleinunternehmer": false,
+    "legalForm": "gmbh",
+    "name": "Muster Design GmbH",
+    "register": {
+      "court": "Amtsgericht Charlottenburg",
+      "number": "123456 B",
+      "type": "HRB"
+    },
+    "representatives": [
+      {
+        "name": "Max Mustermann"
+      },
+      {
+        "name": "Erika Musterfrau"
+      }
+    ],
+    "seat": "Berlin",
+    "shareCapital": {
+      "amountCents": 2500000
+    },
+    "taxNumber": "1121081508150",
+    "taxNumberState": "BE",
+    "vatAccounting": "soll",
+    "vatId": "DE123456788"
+  },
+  "supplyDate": {
+    "date": "2026-10-09",
+    "kind": "date"
+  },
+  "taxCase": "eu_b2b_service",
+  "texts": {},
+  "totals": {
+    "advancesDeductedGrossCents": 0,
+    "allowanceTotalCents": 0,
+    "byGroup": [
+      {
+        "allowanceCents": 0,
+        "baseCents": 200000,
+        "category": "AE",
+        "chargeCents": 0,
+        "exemptionReasonCode": "VATEX-EU-AE",
+        "exemptionReasonText": "Steuerschuldnerschaft des Leistungsempfängers",
+        "lineNetSumCents": 200000,
+        "rateBp": 0,
+        "vatCents": 0
+      }
+    ],
+    "chargeTotalCents": 0,
+    "grossCents": 200000,
+    "lineNetSumCents": 200000,
+    "netCents": 200000,
+    "payableCents": 200000,
+    "roundingCents": 0,
+    "vatCents": 0
+  },
+  "type": "invoice"
+}

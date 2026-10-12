@@ -1,0 +1,26 @@
+{
+  "id": "T-GLD-17",
+  "title": "full Storno of T-GLD-01, TypeCode 381, BT-25/26",
+  "input": {
+    "type": "cancellation",
+    "number": "RE-2026-0047",
+    "documentDate": "2026-10-20",
+    "original": {
+      "number": "RE-2026-0042",
+      "date": "2026-10-12"
+    },
+    "lines": [
+      {
+        "kind": "item",
+        "name": "Beratung Webdesign",
+        "quantityMilli": -10000,
+        "unitCode": "HUR",
+        "unitPriceMicros": 1000000,
+        "vatCategory": "S",
+        "vatRateBp": 1900,
+        "vatRuleRowId": "standard@2021-01-01",
+        "description": "Konzeption der Startseite"
+      }
+    ]
+  }
+}

@@ -1,0 +1,21 @@
+{
+  "id": "T-GLD-23",
+  "title": "XRechnung UBL, BT-10 Leitweg-ID, BT-49 scheme 0204",
+  "buyer": "public",
+  "buyerPatch": {
+    "electronicAddress": {
+      "scheme": "0204",
+      "value": "04011000-1234512345-06"
+    }
+  },
+  "input": {
+    "references": {
+      "buyerReference": "04011000-1234512345-06",
+      "orderReference": "BEST-2026-118"
+    },
+    "einvoice": {
+      "format": "xrechnung_ubl",
+      "decision": "MUST_E"
+    }
+  }
+}

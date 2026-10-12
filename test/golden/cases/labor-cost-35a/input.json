@@ -1,0 +1,45 @@
+{
+  "id": "T-GLD-26",
+  "title": "B2C 800,00 labour + 400,00 material @19 → §35a 800,00 + 152,00 = 952,00",
+  "seller": "ek",
+  "buyer": "consumer",
+  "input": {
+    "number": "RE-2026-0121",
+    "lines": [
+      {
+        "kind": "item",
+        "name": "Arbeitszeit Elektriker",
+        "quantityMilli": 12500,
+        "unitCode": "HUR",
+        "unitPriceMicros": 640000,
+        "vatCategory": "S",
+        "vatRateBp": 1900,
+        "vatRuleRowId": "standard@2021-01-01",
+        "isLaborCost": true
+      },
+      {
+        "kind": "item",
+        "name": "Material: Leitungen, Dosen, Schalter",
+        "quantityMilli": 1000,
+        "unitCode": "LS",
+        "unitPriceMicros": 4000000,
+        "vatCategory": "S",
+        "vatRateBp": 1900,
+        "vatRuleRowId": "standard@2021-01-01"
+      }
+    ],
+    "einvoice": {
+      "format": "none",
+      "decision": "NOT_REQUIRED"
+    }
+  },
+  "paymentPatch": {
+    "bankAccount": {
+      "iban": "DE02700202700010108669",
+      "bic": "HYVEDEMMXXX",
+      "accountHolder": "Bauer Elektrotechnik e.K.",
+      "bankName": "UniCredit Bank"
+    },
+    "dueDays": 14
+  }
+}

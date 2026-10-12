@@ -1,0 +1,41 @@
+{
+  "id": "T-TAB-05",
+  "title": "construction advance invoice → TypeCode 875",
+  "seller": "ek",
+  "input": {
+    "type": "advance_invoice",
+    "number": "RE-2026-0124",
+    "flags": {
+      "constructionWork": true,
+      "chainIndex": 1
+    },
+    "chain": {
+      "orderLabel": {
+        "de": "Auftrag",
+        "en": "order"
+      },
+      "orderNumber": "AB-2026-0031",
+      "orderDate": "2026-08-03"
+    },
+    "lines": [
+      {
+        "kind": "item",
+        "name": "1. Abschlag Elektroinstallation Praxisumbau",
+        "quantityMilli": 1000,
+        "unitCode": "LS",
+        "unitPriceMicros": 15000000,
+        "vatCategory": "S",
+        "vatRateBp": 1900,
+        "vatRuleRowId": "standard@2021-01-01"
+      }
+    ]
+  },
+  "paymentPatch": {
+    "bankAccount": {
+      "iban": "DE02700202700010108669",
+      "bic": "HYVEDEMMXXX",
+      "accountHolder": "Bauer Elektrotechnik e.K.",
+      "bankName": "UniCredit Bank"
+    }
+  }
+}

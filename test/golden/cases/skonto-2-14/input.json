@@ -1,0 +1,35 @@
+{
+  "id": "T-GLD-30",
+  "title": "2 % Skonto 14 days on mixed rates: BT-20 syntax line + PDF text",
+  "input": {
+    "number": "RE-2026-0051",
+    "lines": [
+      {
+        "kind": "item",
+        "name": "Beratung Webdesign",
+        "quantityMilli": 10000,
+        "unitCode": "HUR",
+        "unitPriceMicros": 1000000,
+        "vatCategory": "S",
+        "vatRateBp": 1900,
+        "vatRuleRowId": "standard@2021-01-01"
+      },
+      {
+        "kind": "item",
+        "name": "Fachbuch „Gutes Webdesign“",
+        "quantityMilli": 10000,
+        "unitCode": "C62",
+        "unitPriceMicros": 500000,
+        "vatCategory": "S",
+        "vatRateBp": 700,
+        "vatRuleRowId": "reduced@2021-01-01"
+      }
+    ]
+  },
+  "paymentPatch": {
+    "skonto": {
+      "percentBp": 200,
+      "days": 14
+    }
+  }
+}

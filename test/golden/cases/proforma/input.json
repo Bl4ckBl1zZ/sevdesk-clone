@@ -1,0 +1,25 @@
+{
+  "id": "T-GLD-32",
+  "title": "pro forma invoice: no XML, payment data",
+  "buyer": "ch",
+  "input": {
+    "type": "proforma",
+    "number": "PF-2026-0003",
+    "taxCase": "export",
+    "lines": [
+      {
+        "kind": "item",
+        "name": "Messestand-Modul",
+        "quantityMilli": 2000,
+        "unitCode": "C62",
+        "unitPriceMicros": 15000000,
+        "vatCategory": "G",
+        "vatRateBp": 0
+      }
+    ],
+    "einvoice": {
+      "format": "none",
+      "decision": "NOT_REQUIRED"
+    }
+  }
+}

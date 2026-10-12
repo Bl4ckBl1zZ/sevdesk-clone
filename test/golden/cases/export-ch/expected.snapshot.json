@@ -1,0 +1,166 @@
+{
+  "buyer": {
+    "address": {
+      "city": "Zürich",
+      "countryCode": "CH",
+      "postalCode": "8001",
+      "street": "Bahnhofstrasse 1"
+    },
+    "contactNumber": "K-30003",
+    "invoiceEmail": "kreditoren@bergwerk.ch",
+    "isConsumer": false,
+    "isPublicAuthority": false,
+    "name": "Bergwerk Maschinen AG"
+  },
+  "currency": "EUR",
+  "delivery": {
+    "address": {
+      "city": "Zürich",
+      "countryCode": "CH",
+      "postalCode": "8001",
+      "street": "Bahnhofstrasse 1"
+    }
+  },
+  "documentDate": "2026-10-12",
+  "dueDate": "2026-11-11",
+  "einvoice": {
+    "decision": "PDF_NEEDS_CONSENT",
+    "format": "zugferd_en16931"
+  },
+  "flags": {},
+  "language": "de",
+  "layoutVersionId": "layout-v1",
+  "lines": [
+    {
+      "kind": "item",
+      "name": "Messestand-Modul (Ausfuhrlieferung)",
+      "netCents": 300000,
+      "position": 1,
+      "quantityMilli": 2000,
+      "unitCode": "C62",
+      "unitPriceMicros": 15000000,
+      "vatCategory": "G",
+      "vatRateBp": 0
+    }
+  ],
+  "notes": [
+    {
+      "de": "Steuerfreie Ausfuhrlieferung (§ 4 Nr. 1 Buchst. a, § 6 UStG).",
+      "en": "VAT-exempt export delivery (Section 4 No. 1a, Section 6 German VAT Act).",
+      "id": "export",
+      "ruleRowId": "export@2007-01-01",
+      "xmlSubjectCode": "REG",
+      "zone": "legal"
+    },
+    {
+      "de": "Zahlbar ohne Abzug bis zum 11.11.2026.",
+      "en": "Payable without deduction by 11 Nov 2026.",
+      "id": "terms",
+      "ruleRowId": "terms@2007-01-01",
+      "zone": "payment"
+    },
+    {
+      "de": "Bitte geben Sie als Verwendungszweck ausschließlich an: RE-2026-0042",
+      "en": "Please use only this payment reference: RE-2026-0042",
+      "id": "pay_ref",
+      "ruleRowId": "pay_ref@2007-01-01",
+      "zone": "payment"
+    }
+  ],
+  "number": "RE-2026-0042",
+  "payment": {
+    "bankAccount": {
+      "accountHolder": "Muster Design GmbH",
+      "bankName": "Commerzbank",
+      "bic": "COBADEFFXXX",
+      "iban": "DE89370400440532013000"
+    },
+    "dueDays": 30,
+    "method": "transfer",
+    "paymentReference": "RE-2026-0042",
+    "showEpcQr": true
+  },
+  "priceMode": "net",
+  "references": {
+    "precedingInvoices": []
+  },
+  "ruleVersions": {
+    "note:export": "export@2007-01-01",
+    "note:pay_ref": "pay_ref@2007-01-01",
+    "note:terms": "terms@2007-01-01"
+  },
+  "schemaVersion": 1,
+  "seller": {
+    "address": {
+      "city": "Berlin",
+      "countryCode": "DE",
+      "postalCode": "10115",
+      "street": "Hauptstraße 1"
+    },
+    "contact": {
+      "email": "rechnung@muster-design.de",
+      "name": "Erika Musterfrau",
+      "phone": "+49 30 1234567",
+      "website": "www.muster-design.de"
+    },
+    "electronicAddress": {
+      "scheme": "EM",
+      "value": "rechnung@muster-design.de"
+    },
+    "kleinunternehmer": false,
+    "legalForm": "gmbh",
+    "name": "Muster Design GmbH",
+    "register": {
+      "court": "Amtsgericht Charlottenburg",
+      "number": "123456 B",
+      "type": "HRB"
+    },
+    "representatives": [
+      {
+        "name": "Max Mustermann"
+      },
+      {
+        "name": "Erika Musterfrau"
+      }
+    ],
+    "seat": "Berlin",
+    "shareCapital": {
+      "amountCents": 2500000
+    },
+    "taxNumber": "1121081508150",
+    "taxNumberState": "BE",
+    "vatAccounting": "soll",
+    "vatId": "DE123456788"
+  },
+  "supplyDate": {
+    "date": "2026-10-09",
+    "kind": "date"
+  },
+  "taxCase": "export",
+  "texts": {},
+  "totals": {
+    "advancesDeductedGrossCents": 0,
+    "allowanceTotalCents": 0,
+    "byGroup": [
+      {
+        "allowanceCents": 0,
+        "baseCents": 300000,
+        "category": "G",
+        "chargeCents": 0,
+        "exemptionReasonCode": "VATEX-EU-G",
+        "exemptionReasonText": "Steuerfreie Ausfuhrlieferung (§ 4 Nr. 1 Buchst. a, § 6 UStG).",
+        "lineNetSumCents": 300000,
+        "rateBp": 0,
+        "vatCents": 0
+      }
+    ],
+    "chargeTotalCents": 0,
+    "grossCents": 300000,
+    "lineNetSumCents": 300000,
+    "netCents": 300000,
+    "payableCents": 300000,
+    "roundingCents": 0,
+    "vatCents": 0
+  },
+  "type": "invoice"
+}

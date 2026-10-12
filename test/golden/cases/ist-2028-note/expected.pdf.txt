@@ -1,0 +1,34 @@
+--- page 1 ---
+Bauer Elektrotechnik e.K.
+Bauer Elektrotechnik e.K. · Werkstraße 12 · 80331 München
+Nummer | RE-2028-0001
+Rechnungsdatum | 02.01.2028
+Beispiel Kunde GmbH
+Leistungsdatum | 28.12.2027
+z. Hd. Max Beispiel
+Kundennummer | K-10023
+Musterweg 5
+Ansprechpartner | Hans Bauer
+50667 Köln
+Telefon | +49 89 7654321
+E-Mail | info@bauer-elektro.de
+Rechnung RE-2028-0001
+Pos. | Bezeichnung | Menge Einheit | Einzelpreis netto | Gesamt netto
+1 | Wartung Elektroanlage | 4 Std. | 85,00 € | 340,00 €
+Summe netto | 340,00 €
+zzgl. 19 % USt auf 340,00 € | 64,60 €
+Gesamtbetrag | 404,60 €
+Versteuerung nach vereinnahmten Entgelten.
+Zahlbar ohne Abzug bis zum 01.02.2028.
+Bitte geben Sie als Verwendungszweck ausschließlich an: RE-2028-0001
+Kontoinhaber: Bauer Elektrotechnik e.K.
+IBAN: DE02 7002 0270 0010 1086 69
+BIC: HYVEDEMMXXX
+Bank: UniCredit Bank
+Diese Rechnung enthält eine E-Rechnung nach EN 16931 (ZUGFeRD 2.5).
+Bauer Elektrotechnik e.K. | Sitz: München | IBAN: DE02 7002 0270 0010 1086 69
+Werkstraße 12 | Registergericht: Amtsgericht München | BIC: HYVEDEMMXXX
+80331 München | HRA 98765
+Tel. +49 89 7654321 | Steuernummer: 143/815/08150
+info@bauer-elektro.de | USt-IdNr.: DE811569869
+Seite 1 von 1

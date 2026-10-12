@@ -1,0 +1,34 @@
+{
+  "id": "T-GLD-29",
+  "title": "BG-14 01.11.–30.11.2026, BT-12 contract",
+  "input": {
+    "number": "RE-2026-0061",
+    "documentDate": "2026-12-01",
+    "supplyDate": {
+      "kind": "month",
+      "month": "2026-11"
+    },
+    "references": {
+      "contractReference": "V-2024-001"
+    },
+    "lines": [
+      {
+        "kind": "item",
+        "name": "Hosting & Wartung November 2026",
+        "quantityMilli": 1000,
+        "unitCode": "MON",
+        "unitPriceMicros": 2490000,
+        "vatCategory": "S",
+        "vatRateBp": 1900,
+        "vatRuleRowId": "standard@2021-01-01",
+        "period": {
+          "from": "2026-11-01",
+          "to": "2026-11-30"
+        }
+      }
+    ]
+  },
+  "paymentPatch": {
+    "dueDays": 14
+  }
+}

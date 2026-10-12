@@ -1,0 +1,14 @@
+{
+  "id": "INV-19",
+  "title": "XRechnung in CII syntax for a B2B recipient (preference xrechnung_cii)",
+  "input": {
+    "number": "RE-2026-0052",
+    "references": {
+      "buyerReference": "EK-4711"
+    },
+    "einvoice": {
+      "format": "xrechnung_cii",
+      "decision": "PDF_NEEDS_CONSENT"
+    }
+  }
+}

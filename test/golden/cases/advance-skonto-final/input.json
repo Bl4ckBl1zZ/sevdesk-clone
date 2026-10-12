@@ -1,0 +1,49 @@
+{
+  "id": "T-GLD-15",
+  "title": "AR paid with 2 % Skonto deducted 3.498,60 → payable 8.401,40",
+  "input": {
+    "type": "final_invoice",
+    "number": "RE-2026-0059",
+    "chain": {
+      "orderLabel": {
+        "de": "Auftrag",
+        "en": "order"
+      },
+      "orderNumber": "AB-2026-0007",
+      "orderDate": "2026-08-03"
+    },
+    "flags": {
+      "chainIndex": 2
+    },
+    "lines": [
+      {
+        "kind": "item",
+        "name": "Website-Relaunch gesamt",
+        "quantityMilli": 1000,
+        "unitCode": "LS",
+        "unitPriceMicros": 100000000,
+        "vatCategory": "S",
+        "vatRateBp": 1900,
+        "vatRuleRowId": "standard@2021-01-01"
+      }
+    ],
+    "deductions": [
+      {
+        "advanceNumber": "RE-2026-0031",
+        "advanceDate": "2026-08-10",
+        "paidOn": "2026-08-20",
+        "byGroup": [
+          {
+            "category": "S",
+            "rateBp": 1900,
+            "netCents": 294000,
+            "vatCents": 55860,
+            "grossCents": 349860
+          }
+        ],
+        "deductedGrossCents": 349860,
+        "partiallyPaid": false
+      }
+    ]
+  }
+}

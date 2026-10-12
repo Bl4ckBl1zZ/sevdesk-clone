@@ -1,0 +1,34 @@
+{
+  "id": "T-GLD-12",
+  "title": "goods 5.000,00 K, delivery FR, BT-80, BT-72, VATEX-EU-IC",
+  "buyer": "fr",
+  "input": {
+    "taxCase": "intra_community_supply",
+    "delivery": {
+      "partyName": "Atelier Lumière SARL – Entrepôt",
+      "address": {
+        "street": "5 Avenue de l'Industrie",
+        "postalCode": "69007",
+        "city": "Lyon",
+        "countryCode": "FR"
+      }
+    },
+    "lines": [
+      {
+        "kind": "item",
+        "name": "Studioleuchte LED 200 W",
+        "quantityMilli": 10000,
+        "unitCode": "C62",
+        "unitPriceMicros": 5000000,
+        "vatCategory": "K",
+        "vatRateBp": 0,
+        "itemNumber": "SL-200"
+      }
+    ]
+  },
+  "layout": {
+    "printOptions": {
+      "productNumbers": true
+    }
+  }
+}

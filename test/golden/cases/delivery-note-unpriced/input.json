@@ -1,0 +1,28 @@
+{
+  "id": "T-GLD-32",
+  "title": "delivery note without prices",
+  "buyer": "fr",
+  "input": {
+    "type": "delivery_note",
+    "number": "LS-2026-0019",
+    "taxCase": "intra_community_supply",
+    "lines": [
+      {
+        "kind": "item",
+        "name": "Studioleuchte LED 200 W",
+        "quantityMilli": 10000,
+        "unitCode": "C62",
+        "unitPriceMicros": 5000000,
+        "vatCategory": "K",
+        "vatRateBp": 0
+      }
+    ],
+    "einvoice": {
+      "format": "none",
+      "decision": "NOT_REQUIRED"
+    }
+  },
+  "paymentPatch": {
+    "showEpcQr": false
+  }
+}

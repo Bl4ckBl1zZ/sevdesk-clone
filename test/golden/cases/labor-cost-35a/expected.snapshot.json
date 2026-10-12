@@ -1,0 +1,176 @@
+{
+  "buyer": {
+    "address": {
+      "city": "Leipzig",
+      "countryCode": "DE",
+      "postalCode": "04109",
+      "street": "Lindenallee 12"
+    },
+    "contactNumber": "K-20007",
+    "invoiceEmail": "erika.beispiel@example.org",
+    "isConsumer": true,
+    "isPublicAuthority": false,
+    "name": "Erika Beispiel"
+  },
+  "currency": "EUR",
+  "documentDate": "2026-10-12",
+  "dueDate": "2026-10-26",
+  "einvoice": {
+    "decision": "NOT_REQUIRED",
+    "format": "none"
+  },
+  "flags": {},
+  "language": "de",
+  "layoutVersionId": "layout-v1",
+  "lines": [
+    {
+      "isLaborCost": true,
+      "kind": "item",
+      "name": "Arbeitszeit Elektriker",
+      "netCents": 80000,
+      "position": 1,
+      "quantityMilli": 12500,
+      "unitCode": "HUR",
+      "unitPriceMicros": 640000,
+      "vatCategory": "S",
+      "vatRateBp": 1900,
+      "vatRuleRowId": "standard@2021-01-01"
+    },
+    {
+      "kind": "item",
+      "name": "Material: Leitungen, Dosen, Schalter",
+      "netCents": 40000,
+      "position": 2,
+      "quantityMilli": 1000,
+      "unitCode": "LS",
+      "unitPriceMicros": 4000000,
+      "vatCategory": "S",
+      "vatRateBp": 1900,
+      "vatRuleRowId": "standard@2021-01-01"
+    }
+  ],
+  "notes": [
+    {
+      "de": "Zahlbar ohne Abzug bis zum 26.10.2026.",
+      "en": "Payable without deduction by 26 Oct 2026.",
+      "id": "terms",
+      "ruleRowId": "terms@2007-01-01",
+      "zone": "payment"
+    },
+    {
+      "de": "Bitte geben Sie als Verwendungszweck ausschließlich an: RE-2026-0121",
+      "en": "Please use only this payment reference: RE-2026-0121",
+      "id": "pay_ref",
+      "ruleRowId": "pay_ref@2007-01-01",
+      "zone": "payment"
+    },
+    {
+      "de": "Sie kommen spätestens 30 Tage nach Fälligkeit und Zugang dieser Rechnung in Verzug, ohne dass es einer Mahnung bedarf (§ 286 Abs. 3 BGB).",
+      "en": "You will be in default no later than 30 days after the due date and receipt of this invoice without a further reminder (Section 286 (3) German Civil Code).",
+      "id": "b2c_286",
+      "ruleRowId": "b2c_286@2007-01-01",
+      "zone": "legal"
+    },
+    {
+      "de": "Im Rechnungsbetrag enthaltene Arbeitskosten (§ 35a EStG): 800,00 € netto zzgl. 152,00 € USt = 952,00 €.",
+      "en": "Labour costs included (Section 35a German Income Tax Act): EUR 800.00 net plus EUR 152.00 VAT = EUR 952.00.",
+      "id": "p35a",
+      "ruleRowId": "p35a@2007-01-01",
+      "zone": "totals"
+    }
+  ],
+  "number": "RE-2026-0121",
+  "payment": {
+    "bankAccount": {
+      "accountHolder": "Bauer Elektrotechnik e.K.",
+      "bankName": "UniCredit Bank",
+      "bic": "HYVEDEMMXXX",
+      "iban": "DE02700202700010108669"
+    },
+    "dueDays": 14,
+    "method": "transfer",
+    "paymentReference": "RE-2026-0121",
+    "showEpcQr": true
+  },
+  "priceMode": "net",
+  "references": {
+    "precedingInvoices": []
+  },
+  "ruleVersions": {
+    "note:b2c_286": "b2c_286@2007-01-01",
+    "note:p35a": "p35a@2007-01-01",
+    "note:pay_ref": "pay_ref@2007-01-01",
+    "note:terms": "terms@2007-01-01",
+    "vat:standard": "standard@2021-01-01"
+  },
+  "schemaVersion": 1,
+  "seller": {
+    "address": {
+      "city": "München",
+      "countryCode": "DE",
+      "postalCode": "80331",
+      "street": "Werkstraße 12"
+    },
+    "contact": {
+      "email": "info@bauer-elektro.de",
+      "name": "Hans Bauer",
+      "phone": "+49 89 7654321"
+    },
+    "electronicAddress": {
+      "scheme": "EM",
+      "value": "info@bauer-elektro.de"
+    },
+    "kleinunternehmer": false,
+    "legalForm": "ek",
+    "name": "Bauer Elektrotechnik e.K.",
+    "register": {
+      "court": "Amtsgericht München",
+      "number": "98765",
+      "type": "HRA"
+    },
+    "representatives": [
+      {
+        "name": "Hans Bauer"
+      }
+    ],
+    "seat": "München",
+    "taxNumber": "9143081508150",
+    "taxNumberState": "BY",
+    "vatAccounting": "ist",
+    "vatId": "DE811569869"
+  },
+  "supplyDate": {
+    "date": "2026-10-09",
+    "kind": "date"
+  },
+  "taxCase": "domestic",
+  "texts": {},
+  "totals": {
+    "advancesDeductedGrossCents": 0,
+    "allowanceTotalCents": 0,
+    "byGroup": [
+      {
+        "allowanceCents": 0,
+        "baseCents": 120000,
+        "category": "S",
+        "chargeCents": 0,
+        "lineNetSumCents": 120000,
+        "rateBp": 1900,
+        "vatCents": 22800
+      }
+    ],
+    "chargeTotalCents": 0,
+    "grossCents": 142800,
+    "labor": {
+      "grossCents": 95200,
+      "netCents": 80000,
+      "vatCents": 15200
+    },
+    "lineNetSumCents": 120000,
+    "netCents": 120000,
+    "payableCents": 142800,
+    "roundingCents": 0,
+    "vatCents": 22800
+  },
+  "type": "invoice"
+}

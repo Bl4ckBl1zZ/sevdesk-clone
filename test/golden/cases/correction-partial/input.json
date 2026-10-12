@@ -1,0 +1,26 @@
+{
+  "id": "T-GLD-18",
+  "title": "−2 h → −200,00 / −38,00 / −238,00, TypeCode 381 positive amounts",
+  "input": {
+    "type": "correction",
+    "correctionKind": "credit",
+    "number": "RE-2026-0048",
+    "documentDate": "2026-10-21",
+    "original": {
+      "number": "RE-2026-0042",
+      "date": "2026-10-12"
+    },
+    "lines": [
+      {
+        "kind": "item",
+        "name": "Beratung Webdesign (2 Std. nicht erbracht)",
+        "quantityMilli": -2000,
+        "unitCode": "HUR",
+        "unitPriceMicros": 1000000,
+        "vatCategory": "S",
+        "vatRateBp": 1900,
+        "vatRuleRowId": "standard@2021-01-01"
+      }
+    ]
+  }
+}

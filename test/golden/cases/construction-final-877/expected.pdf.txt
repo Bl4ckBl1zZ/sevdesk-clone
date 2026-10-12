@@ -1,0 +1,38 @@
+--- page 1 ---
+Bauer Elektrotechnik e.K.
+Bauer Elektrotechnik e.K. · Werkstraße 12 · 80331 München
+Nummer | RE-2026-0130
+Rechnungsdatum | 12.10.2026
+Beispiel Kunde GmbH
+Leistungsdatum | 09.10.2026
+z. Hd. Max Beispiel
+Kundennummer | K-10023
+Musterweg 5
+Ansprechpartner | Hans Bauer
+50667 Köln
+Telefon | +49 89 7654321
+E-Mail | info@bauer-elektro.de
+Schlussrechnung RE-2026-0130
+Schlussrechnung zu Auftrag AB-2026-0031. Bereits geleistete Abschlagszahlungen und die darauf entfallende
+Umsatzsteuer werden abgezogen.
+Pos. | Bezeichnung | Menge Einheit | Einzelpreis netto | Gesamt netto
+1 | Elektroinstallation Praxisumbau gesamt | 1 pauschal | 40.000,00 € | 40.000,00 €
+Summe netto | 40.000,00 €
+zzgl. 19 % USt auf 40.000,00 € | 7.600,00 €
+Gesamtbetrag | 47.600,00 €
+abzgl. Abschlagsrechnung RE-2026-0124 vom | -1.785,00 €
+12.10.2026: netto 1.500,00 € zzgl. 19 % USt 285,00 €
+Zahlbetrag | 45.815,00 €
+Zahlbar ohne Abzug bis zum 11.11.2026.
+Bitte geben Sie als Verwendungszweck ausschließlich an: RE-2026-0130
+Kontoinhaber: Bauer Elektrotechnik e.K.
+IBAN: DE02 7002 0270 0010 1086 69
+BIC: HYVEDEMMXXX
+Bank: UniCredit Bank
+Diese Rechnung enthält eine E-Rechnung nach EN 16931 (ZUGFeRD 2.5).
+Bauer Elektrotechnik e.K. | Sitz: München | IBAN: DE02 7002 0270 0010 1086 69
+Werkstraße 12 | Registergericht: Amtsgericht München | BIC: HYVEDEMMXXX
+80331 München | HRA 98765
+Tel. +49 89 7654321 | Steuernummer: 143/815/08150
+info@bauer-elektro.de | USt-IdNr.: DE811569869
+Seite 1 von 1

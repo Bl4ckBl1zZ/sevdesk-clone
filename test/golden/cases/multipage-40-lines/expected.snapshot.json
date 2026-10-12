@@ -1,0 +1,661 @@
+{
+  "buyer": {
+    "address": {
+      "city": "Köln",
+      "countryCode": "DE",
+      "postalCode": "50667",
+      "street": "Musterweg 5"
+    },
+    "contactNumber": "K-10023",
+    "contactPerson": {
+      "name": "Max Beispiel"
+    },
+    "invoiceEmail": "buchhaltung@beispiel-kunde.de",
+    "isConsumer": false,
+    "isPublicAuthority": false,
+    "name": "Beispiel Kunde GmbH",
+    "vatId": "DE811907980"
+  },
+  "currency": "EUR",
+  "documentDate": "2026-10-12",
+  "dueDate": "2026-11-11",
+  "einvoice": {
+    "decision": "PDF_NEEDS_CONSENT",
+    "format": "zugferd_en16931"
+  },
+  "flags": {},
+  "language": "de",
+  "layoutVersionId": "layout-v1",
+  "lines": [
+    {
+      "description": "Ausführliche Beschreibung der erbrachten Leistung zur Prüfung des Seitenumbruchs",
+      "kind": "item",
+      "name": "Leistungsposition 01",
+      "netCents": 5000,
+      "position": 1,
+      "quantityMilli": 2000,
+      "unitCode": "HUR",
+      "unitPriceMicros": 250000,
+      "vatCategory": "S",
+      "vatRateBp": 1900,
+      "vatRuleRowId": "standard@2021-01-01"
+    },
+    {
+      "description": "Ausführliche Beschreibung der erbrachten Leistung zur Prüfung des Seitenumbruchs",
+      "kind": "item",
+      "name": "Leistungsposition 02",
+      "netCents": 11250,
+      "position": 2,
+      "quantityMilli": 3000,
+      "unitCode": "HUR",
+      "unitPriceMicros": 375000,
+      "vatCategory": "S",
+      "vatRateBp": 1900,
+      "vatRuleRowId": "standard@2021-01-01"
+    },
+    {
+      "description": "Ausführliche Beschreibung der erbrachten Leistung zur Prüfung des Seitenumbruchs",
+      "kind": "item",
+      "name": "Leistungsposition 03",
+      "netCents": 20000,
+      "position": 3,
+      "quantityMilli": 4000,
+      "unitCode": "HUR",
+      "unitPriceMicros": 500000,
+      "vatCategory": "S",
+      "vatRateBp": 1900,
+      "vatRuleRowId": "standard@2021-01-01"
+    },
+    {
+      "description": "Ausführliche Beschreibung der erbrachten Leistung zur Prüfung des Seitenumbruchs",
+      "kind": "item",
+      "name": "Leistungsposition 04",
+      "netCents": 31250,
+      "position": 4,
+      "quantityMilli": 5000,
+      "unitCode": "HUR",
+      "unitPriceMicros": 625000,
+      "vatCategory": "S",
+      "vatRateBp": 1900,
+      "vatRuleRowId": "standard@2021-01-01"
+    },
+    {
+      "description": "Ausführliche Beschreibung der erbrachten Leistung zur Prüfung des Seitenumbruchs",
+      "kind": "item",
+      "name": "Leistungsposition 05",
+      "netCents": 7500,
+      "position": 5,
+      "quantityMilli": 1000,
+      "unitCode": "HUR",
+      "unitPriceMicros": 750000,
+      "vatCategory": "S",
+      "vatRateBp": 1900,
+      "vatRuleRowId": "standard@2021-01-01"
+    },
+    {
+      "description": "Ausführliche Beschreibung der erbrachten Leistung zur Prüfung des Seitenumbruchs",
+      "kind": "item",
+      "name": "Leistungsposition 06",
+      "netCents": 17500,
+      "position": 6,
+      "quantityMilli": 2000,
+      "unitCode": "HUR",
+      "unitPriceMicros": 875000,
+      "vatCategory": "S",
+      "vatRateBp": 1900,
+      "vatRuleRowId": "standard@2021-01-01"
+    },
+    {
+      "description": "Ausführliche Beschreibung der erbrachten Leistung zur Prüfung des Seitenumbruchs",
+      "kind": "item",
+      "name": "Leistungsposition 07",
+      "netCents": 3750,
+      "position": 7,
+      "quantityMilli": 3000,
+      "unitCode": "HUR",
+      "unitPriceMicros": 125000,
+      "vatCategory": "S",
+      "vatRateBp": 1900,
+      "vatRuleRowId": "standard@2021-01-01"
+    },
+    {
+      "description": "Ausführliche Beschreibung der erbrachten Leistung zur Prüfung des Seitenumbruchs",
+      "kind": "item",
+      "name": "Leistungsposition 08",
+      "netCents": 10000,
+      "position": 8,
+      "quantityMilli": 4000,
+      "unitCode": "HUR",
+      "unitPriceMicros": 250000,
+      "vatCategory": "S",
+      "vatRateBp": 1900,
+      "vatRuleRowId": "standard@2021-01-01"
+    },
+    {
+      "description": "Ausführliche Beschreibung der erbrachten Leistung zur Prüfung des Seitenumbruchs",
+      "kind": "item",
+      "name": "Leistungsposition 09",
+      "netCents": 18750,
+      "position": 9,
+      "quantityMilli": 5000,
+      "unitCode": "HUR",
+      "unitPriceMicros": 375000,
+      "vatCategory": "S",
+      "vatRateBp": 1900,
+      "vatRuleRowId": "standard@2021-01-01"
+    },
+    {
+      "description": "Ausführliche Beschreibung der erbrachten Leistung zur Prüfung des Seitenumbruchs",
+      "kind": "item",
+      "name": "Leistungsposition 10",
+      "netCents": 5000,
+      "position": 10,
+      "quantityMilli": 1000,
+      "unitCode": "HUR",
+      "unitPriceMicros": 500000,
+      "vatCategory": "S",
+      "vatRateBp": 1900,
+      "vatRuleRowId": "standard@2021-01-01"
+    },
+    {
+      "description": "Ausführliche Beschreibung der erbrachten Leistung zur Prüfung des Seitenumbruchs",
+      "kind": "item",
+      "name": "Leistungsposition 11",
+      "netCents": 12500,
+      "position": 11,
+      "quantityMilli": 2000,
+      "unitCode": "HUR",
+      "unitPriceMicros": 625000,
+      "vatCategory": "S",
+      "vatRateBp": 1900,
+      "vatRuleRowId": "standard@2021-01-01"
+    },
+    {
+      "description": "Ausführliche Beschreibung der erbrachten Leistung zur Prüfung des Seitenumbruchs",
+      "kind": "item",
+      "name": "Leistungsposition 12",
+      "netCents": 22500,
+      "position": 12,
+      "quantityMilli": 3000,
+      "unitCode": "HUR",
+      "unitPriceMicros": 750000,
+      "vatCategory": "S",
+      "vatRateBp": 1900,
+      "vatRuleRowId": "standard@2021-01-01"
+    },
+    {
+      "description": "Ausführliche Beschreibung der erbrachten Leistung zur Prüfung des Seitenumbruchs",
+      "kind": "item",
+      "name": "Leistungsposition 13",
+      "netCents": 35000,
+      "position": 13,
+      "quantityMilli": 4000,
+      "unitCode": "HUR",
+      "unitPriceMicros": 875000,
+      "vatCategory": "S",
+      "vatRateBp": 1900,
+      "vatRuleRowId": "standard@2021-01-01"
+    },
+    {
+      "description": "Ausführliche Beschreibung der erbrachten Leistung zur Prüfung des Seitenumbruchs",
+      "kind": "item",
+      "name": "Leistungsposition 14",
+      "netCents": 6250,
+      "position": 14,
+      "quantityMilli": 5000,
+      "unitCode": "HUR",
+      "unitPriceMicros": 125000,
+      "vatCategory": "S",
+      "vatRateBp": 1900,
+      "vatRuleRowId": "standard@2021-01-01"
+    },
+    {
+      "description": "Ausführliche Beschreibung der erbrachten Leistung zur Prüfung des Seitenumbruchs",
+      "kind": "item",
+      "name": "Leistungsposition 15",
+      "netCents": 2500,
+      "position": 15,
+      "quantityMilli": 1000,
+      "unitCode": "HUR",
+      "unitPriceMicros": 250000,
+      "vatCategory": "S",
+      "vatRateBp": 1900,
+      "vatRuleRowId": "standard@2021-01-01"
+    },
+    {
+      "description": "Ausführliche Beschreibung der erbrachten Leistung zur Prüfung des Seitenumbruchs",
+      "kind": "item",
+      "name": "Leistungsposition 16",
+      "netCents": 7500,
+      "position": 16,
+      "quantityMilli": 2000,
+      "unitCode": "HUR",
+      "unitPriceMicros": 375000,
+      "vatCategory": "S",
+      "vatRateBp": 1900,
+      "vatRuleRowId": "standard@2021-01-01"
+    },
+    {
+      "description": "Ausführliche Beschreibung der erbrachten Leistung zur Prüfung des Seitenumbruchs",
+      "kind": "item",
+      "name": "Leistungsposition 17",
+      "netCents": 15000,
+      "position": 17,
+      "quantityMilli": 3000,
+      "unitCode": "HUR",
+      "unitPriceMicros": 500000,
+      "vatCategory": "S",
+      "vatRateBp": 1900,
+      "vatRuleRowId": "standard@2021-01-01"
+    },
+    {
+      "description": "Ausführliche Beschreibung der erbrachten Leistung zur Prüfung des Seitenumbruchs",
+      "kind": "item",
+      "name": "Leistungsposition 18",
+      "netCents": 25000,
+      "position": 18,
+      "quantityMilli": 4000,
+      "unitCode": "HUR",
+      "unitPriceMicros": 625000,
+      "vatCategory": "S",
+      "vatRateBp": 1900,
+      "vatRuleRowId": "standard@2021-01-01"
+    },
+    {
+      "description": "Ausführliche Beschreibung der erbrachten Leistung zur Prüfung des Seitenumbruchs",
+      "kind": "item",
+      "name": "Leistungsposition 19",
+      "netCents": 37500,
+      "position": 19,
+      "quantityMilli": 5000,
+      "unitCode": "HUR",
+      "unitPriceMicros": 750000,
+      "vatCategory": "S",
+      "vatRateBp": 1900,
+      "vatRuleRowId": "standard@2021-01-01"
+    },
+    {
+      "description": "Ausführliche Beschreibung der erbrachten Leistung zur Prüfung des Seitenumbruchs",
+      "kind": "item",
+      "name": "Leistungsposition 20",
+      "netCents": 8750,
+      "position": 20,
+      "quantityMilli": 1000,
+      "unitCode": "HUR",
+      "unitPriceMicros": 875000,
+      "vatCategory": "S",
+      "vatRateBp": 1900,
+      "vatRuleRowId": "standard@2021-01-01"
+    },
+    {
+      "description": "Ausführliche Beschreibung der erbrachten Leistung zur Prüfung des Seitenumbruchs",
+      "kind": "item",
+      "name": "Leistungsposition 21",
+      "netCents": 2500,
+      "position": 21,
+      "quantityMilli": 2000,
+      "unitCode": "HUR",
+      "unitPriceMicros": 125000,
+      "vatCategory": "S",
+      "vatRateBp": 1900,
+      "vatRuleRowId": "standard@2021-01-01"
+    },
+    {
+      "description": "Ausführliche Beschreibung der erbrachten Leistung zur Prüfung des Seitenumbruchs",
+      "kind": "item",
+      "name": "Leistungsposition 22",
+      "netCents": 7500,
+      "position": 22,
+      "quantityMilli": 3000,
+      "unitCode": "HUR",
+      "unitPriceMicros": 250000,
+      "vatCategory": "S",
+      "vatRateBp": 1900,
+      "vatRuleRowId": "standard@2021-01-01"
+    },
+    {
+      "description": "Ausführliche Beschreibung der erbrachten Leistung zur Prüfung des Seitenumbruchs",
+      "kind": "item",
+      "name": "Leistungsposition 23",
+      "netCents": 15000,
+      "position": 23,
+      "quantityMilli": 4000,
+      "unitCode": "HUR",
+      "unitPriceMicros": 375000,
+      "vatCategory": "S",
+      "vatRateBp": 1900,
+      "vatRuleRowId": "standard@2021-01-01"
+    },
+    {
+      "description": "Ausführliche Beschreibung der erbrachten Leistung zur Prüfung des Seitenumbruchs",
+      "kind": "item",
+      "name": "Leistungsposition 24",
+      "netCents": 25000,
+      "position": 24,
+      "quantityMilli": 5000,
+      "unitCode": "HUR",
+      "unitPriceMicros": 500000,
+      "vatCategory": "S",
+      "vatRateBp": 1900,
+      "vatRuleRowId": "standard@2021-01-01"
+    },
+    {
+      "description": "Ausführliche Beschreibung der erbrachten Leistung zur Prüfung des Seitenumbruchs",
+      "kind": "item",
+      "name": "Leistungsposition 25",
+      "netCents": 6250,
+      "position": 25,
+      "quantityMilli": 1000,
+      "unitCode": "HUR",
+      "unitPriceMicros": 625000,
+      "vatCategory": "S",
+      "vatRateBp": 1900,
+      "vatRuleRowId": "standard@2021-01-01"
+    },
+    {
+      "description": "Ausführliche Beschreibung der erbrachten Leistung zur Prüfung des Seitenumbruchs",
+      "kind": "item",
+      "name": "Leistungsposition 26",
+      "netCents": 15000,
+      "position": 26,
+      "quantityMilli": 2000,
+      "unitCode": "HUR",
+      "unitPriceMicros": 750000,
+      "vatCategory": "S",
+      "vatRateBp": 1900,
+      "vatRuleRowId": "standard@2021-01-01"
+    },
+    {
+      "description": "Ausführliche Beschreibung der erbrachten Leistung zur Prüfung des Seitenumbruchs",
+      "kind": "item",
+      "name": "Leistungsposition 27",
+      "netCents": 26250,
+      "position": 27,
+      "quantityMilli": 3000,
+      "unitCode": "HUR",
+      "unitPriceMicros": 875000,
+      "vatCategory": "S",
+      "vatRateBp": 1900,
+      "vatRuleRowId": "standard@2021-01-01"
+    },
+    {
+      "description": "Ausführliche Beschreibung der erbrachten Leistung zur Prüfung des Seitenumbruchs",
+      "kind": "item",
+      "name": "Leistungsposition 28",
+      "netCents": 5000,
+      "position": 28,
+      "quantityMilli": 4000,
+      "unitCode": "HUR",
+      "unitPriceMicros": 125000,
+      "vatCategory": "S",
+      "vatRateBp": 1900,
+      "vatRuleRowId": "standard@2021-01-01"
+    },
+    {
+      "description": "Ausführliche Beschreibung der erbrachten Leistung zur Prüfung des Seitenumbruchs",
+      "kind": "item",
+      "name": "Leistungsposition 29",
+      "netCents": 12500,
+      "position": 29,
+      "quantityMilli": 5000,
+      "unitCode": "HUR",
+      "unitPriceMicros": 250000,
+      "vatCategory": "S",
+      "vatRateBp": 1900,
+      "vatRuleRowId": "standard@2021-01-01"
+    },
+    {
+      "description": "Ausführliche Beschreibung der erbrachten Leistung zur Prüfung des Seitenumbruchs",
+      "kind": "item",
+      "name": "Leistungsposition 30",
+      "netCents": 3750,
+      "position": 30,
+      "quantityMilli": 1000,
+      "unitCode": "HUR",
+      "unitPriceMicros": 375000,
+      "vatCategory": "S",
+      "vatRateBp": 1900,
+      "vatRuleRowId": "standard@2021-01-01"
+    },
+    {
+      "description": "Ausführliche Beschreibung der erbrachten Leistung zur Prüfung des Seitenumbruchs",
+      "kind": "item",
+      "name": "Leistungsposition 31",
+      "netCents": 10000,
+      "position": 31,
+      "quantityMilli": 2000,
+      "unitCode": "HUR",
+      "unitPriceMicros": 500000,
+      "vatCategory": "S",
+      "vatRateBp": 1900,
+      "vatRuleRowId": "standard@2021-01-01"
+    },
+    {
+      "description": "Ausführliche Beschreibung der erbrachten Leistung zur Prüfung des Seitenumbruchs",
+      "kind": "item",
+      "name": "Leistungsposition 32",
+      "netCents": 18750,
+      "position": 32,
+      "quantityMilli": 3000,
+      "unitCode": "HUR",
+      "unitPriceMicros": 625000,
+      "vatCategory": "S",
+      "vatRateBp": 1900,
+      "vatRuleRowId": "standard@2021-01-01"
+    },
+    {
+      "description": "Ausführliche Beschreibung der erbrachten Leistung zur Prüfung des Seitenumbruchs",
+      "kind": "item",
+      "name": "Leistungsposition 33",
+      "netCents": 30000,
+      "position": 33,
+      "quantityMilli": 4000,
+      "unitCode": "HUR",
+      "unitPriceMicros": 750000,
+      "vatCategory": "S",
+      "vatRateBp": 1900,
+      "vatRuleRowId": "standard@2021-01-01"
+    },
+    {
+      "description": "Ausführliche Beschreibung der erbrachten Leistung zur Prüfung des Seitenumbruchs",
+      "kind": "item",
+      "name": "Leistungsposition 34",
+      "netCents": 43750,
+      "position": 34,
+      "quantityMilli": 5000,
+      "unitCode": "HUR",
+      "unitPriceMicros": 875000,
+      "vatCategory": "S",
+      "vatRateBp": 1900,
+      "vatRuleRowId": "standard@2021-01-01"
+    },
+    {
+      "description": "Ausführliche Beschreibung der erbrachten Leistung zur Prüfung des Seitenumbruchs",
+      "kind": "item",
+      "name": "Leistungsposition 35",
+      "netCents": 1250,
+      "position": 35,
+      "quantityMilli": 1000,
+      "unitCode": "HUR",
+      "unitPriceMicros": 125000,
+      "vatCategory": "S",
+      "vatRateBp": 1900,
+      "vatRuleRowId": "standard@2021-01-01"
+    },
+    {
+      "description": "Ausführliche Beschreibung der erbrachten Leistung zur Prüfung des Seitenumbruchs",
+      "kind": "item",
+      "name": "Leistungsposition 36",
+      "netCents": 5000,
+      "position": 36,
+      "quantityMilli": 2000,
+      "unitCode": "HUR",
+      "unitPriceMicros": 250000,
+      "vatCategory": "S",
+      "vatRateBp": 1900,
+      "vatRuleRowId": "standard@2021-01-01"
+    },
+    {
+      "description": "Ausführliche Beschreibung der erbrachten Leistung zur Prüfung des Seitenumbruchs",
+      "kind": "item",
+      "name": "Leistungsposition 37",
+      "netCents": 11250,
+      "position": 37,
+      "quantityMilli": 3000,
+      "unitCode": "HUR",
+      "unitPriceMicros": 375000,
+      "vatCategory": "S",
+      "vatRateBp": 1900,
+      "vatRuleRowId": "standard@2021-01-01"
+    },
+    {
+      "description": "Ausführliche Beschreibung der erbrachten Leistung zur Prüfung des Seitenumbruchs",
+      "kind": "item",
+      "name": "Leistungsposition 38",
+      "netCents": 20000,
+      "position": 38,
+      "quantityMilli": 4000,
+      "unitCode": "HUR",
+      "unitPriceMicros": 500000,
+      "vatCategory": "S",
+      "vatRateBp": 1900,
+      "vatRuleRowId": "standard@2021-01-01"
+    },
+    {
+      "description": "Ausführliche Beschreibung der erbrachten Leistung zur Prüfung des Seitenumbruchs",
+      "kind": "item",
+      "name": "Leistungsposition 39",
+      "netCents": 31250,
+      "position": 39,
+      "quantityMilli": 5000,
+      "unitCode": "HUR",
+      "unitPriceMicros": 625000,
+      "vatCategory": "S",
+      "vatRateBp": 1900,
+      "vatRuleRowId": "standard@2021-01-01"
+    },
+    {
+      "description": "Ausführliche Beschreibung der erbrachten Leistung zur Prüfung des Seitenumbruchs",
+      "kind": "item",
+      "name": "Leistungsposition 40",
+      "netCents": 7500,
+      "position": 40,
+      "quantityMilli": 1000,
+      "unitCode": "HUR",
+      "unitPriceMicros": 750000,
+      "vatCategory": "S",
+      "vatRateBp": 1900,
+      "vatRuleRowId": "standard@2021-01-01"
+    }
+  ],
+  "notes": [
+    {
+      "de": "Zahlbar ohne Abzug bis zum 11.11.2026.",
+      "en": "Payable without deduction by 11 Nov 2026.",
+      "id": "terms",
+      "ruleRowId": "terms@2007-01-01",
+      "zone": "payment"
+    },
+    {
+      "de": "Bitte geben Sie als Verwendungszweck ausschließlich an: RE-2026-0054",
+      "en": "Please use only this payment reference: RE-2026-0054",
+      "id": "pay_ref",
+      "ruleRowId": "pay_ref@2007-01-01",
+      "zone": "payment"
+    }
+  ],
+  "number": "RE-2026-0054",
+  "payment": {
+    "bankAccount": {
+      "accountHolder": "Muster Design GmbH",
+      "bankName": "Commerzbank",
+      "bic": "COBADEFFXXX",
+      "iban": "DE89370400440532013000"
+    },
+    "dueDays": 30,
+    "method": "transfer",
+    "paymentReference": "RE-2026-0054",
+    "showEpcQr": true
+  },
+  "priceMode": "net",
+  "references": {
+    "precedingInvoices": []
+  },
+  "ruleVersions": {
+    "note:pay_ref": "pay_ref@2007-01-01",
+    "note:terms": "terms@2007-01-01",
+    "vat:standard": "standard@2021-01-01"
+  },
+  "schemaVersion": 1,
+  "seller": {
+    "address": {
+      "city": "Berlin",
+      "countryCode": "DE",
+      "postalCode": "10115",
+      "street": "Hauptstraße 1"
+    },
+    "contact": {
+      "email": "rechnung@muster-design.de",
+      "name": "Erika Musterfrau",
+      "phone": "+49 30 1234567",
+      "website": "www.muster-design.de"
+    },
+    "electronicAddress": {
+      "scheme": "EM",
+      "value": "rechnung@muster-design.de"
+    },
+    "kleinunternehmer": false,
+    "legalForm": "gmbh",
+    "name": "Muster Design GmbH",
+    "register": {
+      "court": "Amtsgericht Charlottenburg",
+      "number": "123456 B",
+      "type": "HRB"
+    },
+    "representatives": [
+      {
+        "name": "Max Mustermann"
+      },
+      {
+        "name": "Erika Musterfrau"
+      }
+    ],
+    "seat": "Berlin",
+    "shareCapital": {
+      "amountCents": 2500000
+    },
+    "taxNumber": "1121081508150",
+    "taxNumberState": "BE",
+    "vatAccounting": "soll",
+    "vatId": "DE123456788"
+  },
+  "supplyDate": {
+    "date": "2026-10-09",
+    "kind": "date"
+  },
+  "taxCase": "domestic",
+  "texts": {},
+  "totals": {
+    "advancesDeductedGrossCents": 0,
+    "allowanceTotalCents": 0,
+    "byGroup": [
+      {
+        "allowanceCents": 0,
+        "baseCents": 600000,
+        "category": "S",
+        "chargeCents": 0,
+        "lineNetSumCents": 600000,
+        "rateBp": 1900,
+        "vatCents": 114000
+      }
+    ],
+    "chargeTotalCents": 0,
+    "grossCents": 714000,
+    "lineNetSumCents": 600000,
+    "netCents": 600000,
+    "payableCents": 714000,
+    "roundingCents": 0,
+    "vatCents": 114000
+  },
+  "type": "invoice"
+}

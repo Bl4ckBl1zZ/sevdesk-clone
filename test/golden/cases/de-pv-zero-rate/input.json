@@ -1,0 +1,32 @@
+{
+  "id": "T-GLD-07",
+  "title": "PV system 8.000,00 Z 0 % + note § 12 Abs. 3",
+  "seller": "ek",
+  "buyer": "consumer",
+  "input": {
+    "lines": [
+      {
+        "kind": "item",
+        "name": "Photovoltaikanlage 9,8 kWp inkl. Montage",
+        "quantityMilli": 1000,
+        "unitCode": "LS",
+        "unitPriceMicros": 80000000,
+        "vatCategory": "Z",
+        "vatRateBp": 0,
+        "vatRuleRowId": "zero@2023-01-01"
+      }
+    ],
+    "einvoice": {
+      "format": "none",
+      "decision": "NOT_REQUIRED"
+    }
+  },
+  "paymentPatch": {
+    "bankAccount": {
+      "iban": "DE02700202700010108669",
+      "bic": "HYVEDEMMXXX",
+      "accountHolder": "Bauer Elektrotechnik e.K.",
+      "bankName": "UniCredit Bank"
+    }
+  }
+}

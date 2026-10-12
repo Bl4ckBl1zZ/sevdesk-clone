@@ -1,0 +1,46 @@
+{
+  "id": "T-GLD-33",
+  "title": "partial invoice, gross amounts per App. E.5, TypeCode 326",
+  "input": {
+    "type": "partial_invoice",
+    "number": "RE-2026-0062",
+    "priceMode": "gross",
+    "chain": {
+      "orderLabel": {
+        "de": "Auftrag",
+        "en": "order"
+      },
+      "orderNumber": "AB-2026-0007",
+      "orderDate": "2026-08-03"
+    },
+    "flags": {
+      "chainIndex": 1
+    },
+    "supplyDate": {
+      "kind": "date",
+      "date": "2026-10-09"
+    },
+    "lines": [
+      {
+        "kind": "item",
+        "name": "Teilleistung Website (19 %)",
+        "quantityMilli": 1000,
+        "unitCode": "LS",
+        "unitPriceMicros": 16951600,
+        "vatCategory": "S",
+        "vatRateBp": 1900,
+        "vatRuleRowId": "standard@2021-01-01"
+      },
+      {
+        "kind": "item",
+        "name": "Teilleistung Schulungsunterlagen (7 %)",
+        "quantityMilli": 1000,
+        "unitCode": "LS",
+        "unitPriceMicros": 3048400,
+        "vatCategory": "S",
+        "vatRateBp": 700,
+        "vatRuleRowId": "reduced@2021-01-01"
+      }
+    ]
+  }
+}

@@ -1,0 +1,38 @@
+{
+  "id": "T-GLD-03",
+  "title": "3 × 10,005 → 10,01 each, base 30,03, VAT 5,71, gross 35,74",
+  "input": {
+    "lines": [
+      {
+        "kind": "item",
+        "name": "Testposition A",
+        "quantityMilli": 1000,
+        "unitCode": "C62",
+        "unitPriceMicros": 100050,
+        "vatCategory": "S",
+        "vatRateBp": 1900,
+        "vatRuleRowId": "standard@2021-01-01"
+      },
+      {
+        "kind": "item",
+        "name": "Testposition B",
+        "quantityMilli": 1000,
+        "unitCode": "C62",
+        "unitPriceMicros": 100050,
+        "vatCategory": "S",
+        "vatRateBp": 1900,
+        "vatRuleRowId": "standard@2021-01-01"
+      },
+      {
+        "kind": "item",
+        "name": "Testposition C",
+        "quantityMilli": 1000,
+        "unitCode": "C62",
+        "unitPriceMicros": 100050,
+        "vatCategory": "S",
+        "vatRateBp": 1900,
+        "vatRuleRowId": "standard@2021-01-01"
+      }
+    ]
+  }
+}

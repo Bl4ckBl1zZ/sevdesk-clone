@@ -1,0 +1,33 @@
+{
+  "id": "T-GLD-16",
+  "title": "10.000,00 AE, § 13b note, buyer HRB as BT-47",
+  "seller": "ek",
+  "buyer": "construction",
+  "input": {
+    "taxCase": "reverse_charge_13b",
+    "number": "RE-2026-0120",
+    "flags": {
+      "constructionWork": true
+    },
+    "lines": [
+      {
+        "kind": "item",
+        "name": "Elektroinstallation Neubau Bürogebäude, 2. OG",
+        "quantityMilli": 1000,
+        "unitCode": "LS",
+        "unitPriceMicros": 100000000,
+        "vatCategory": "AE",
+        "vatRateBp": 0,
+        "reverseCharge13b": "construction"
+      }
+    ]
+  },
+  "paymentPatch": {
+    "bankAccount": {
+      "iban": "DE02700202700010108669",
+      "bic": "HYVEDEMMXXX",
+      "accountHolder": "Bauer Elektrotechnik e.K.",
+      "bankName": "UniCredit Bank"
+    }
+  }
+}

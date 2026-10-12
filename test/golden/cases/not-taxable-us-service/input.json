@@ -1,0 +1,19 @@
+{
+  "id": "T-GLD-21",
+  "title": "IT service 4.000,00 O to a US business, no BT-31/BT-48",
+  "buyer": "us",
+  "input": {
+    "taxCase": "not_taxable_domestic",
+    "lines": [
+      {
+        "kind": "item",
+        "name": "Software development (sprint 14)",
+        "quantityMilli": 40000,
+        "unitCode": "HUR",
+        "unitPriceMicros": 1000000,
+        "vatCategory": "O",
+        "vatRateBp": 0
+      }
+    ]
+  }
+}

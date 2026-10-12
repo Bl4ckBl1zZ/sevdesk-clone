@@ -1,0 +1,59 @@
+{
+  "id": "T-TAB-05",
+  "title": "construction final invoice → TypeCode 877",
+  "seller": "ek",
+  "input": {
+    "type": "final_invoice",
+    "number": "RE-2026-0130",
+    "flags": {
+      "constructionWork": true,
+      "chainIndex": 2
+    },
+    "chain": {
+      "orderLabel": {
+        "de": "Auftrag",
+        "en": "order"
+      },
+      "orderNumber": "AB-2026-0031",
+      "orderDate": "2026-08-03"
+    },
+    "lines": [
+      {
+        "kind": "item",
+        "name": "Elektroinstallation Praxisumbau gesamt",
+        "quantityMilli": 1000,
+        "unitCode": "LS",
+        "unitPriceMicros": 400000000,
+        "vatCategory": "S",
+        "vatRateBp": 1900,
+        "vatRuleRowId": "standard@2021-01-01"
+      }
+    ],
+    "deductions": [
+      {
+        "advanceNumber": "RE-2026-0124",
+        "advanceDate": "2026-10-12",
+        "paidOn": "2026-10-20",
+        "byGroup": [
+          {
+            "category": "S",
+            "rateBp": 1900,
+            "netCents": 150000,
+            "vatCents": 28500,
+            "grossCents": 178500
+          }
+        ],
+        "deductedGrossCents": 178500,
+        "partiallyPaid": false
+      }
+    ]
+  },
+  "paymentPatch": {
+    "bankAccount": {
+      "iban": "DE02700202700010108669",
+      "bic": "HYVEDEMMXXX",
+      "accountHolder": "Bauer Elektrotechnik e.K.",
+      "bankName": "UniCredit Bank"
+    }
+  }
+}

@@ -1,0 +1,155 @@
+{
+  "buyer": {
+    "address": {
+      "city": "Stuttgart",
+      "countryCode": "DE",
+      "postalCode": "70173",
+      "street": "Industriestraße 7"
+    },
+    "contactNumber": "K-10040",
+    "invoiceEmail": "rechnungen@hochbau-schmidt.de",
+    "isConsumer": false,
+    "isPublicAuthority": false,
+    "name": "Hochbau Schmidt GmbH",
+    "registerNumber": "HRB 724111"
+  },
+  "currency": "EUR",
+  "documentDate": "2026-10-12",
+  "dueDate": "2026-11-11",
+  "einvoice": {
+    "decision": "PDF_NEEDS_CONSENT",
+    "format": "zugferd_en16931"
+  },
+  "flags": {
+    "constructionWork": true
+  },
+  "language": "de",
+  "layoutVersionId": "layout-v1",
+  "lines": [
+    {
+      "kind": "item",
+      "name": "Elektroinstallation Neubau Bürogebäude, 2. OG",
+      "netCents": 1000000,
+      "position": 1,
+      "quantityMilli": 1000,
+      "unitCode": "LS",
+      "unitPriceMicros": 100000000,
+      "vatCategory": "AE",
+      "vatRateBp": 0
+    }
+  ],
+  "notes": [
+    {
+      "de": "Steuerschuldnerschaft des Leistungsempfängers (§ 13b Abs. 2 Nr. 4, Abs. 5 UStG).",
+      "en": "Reverse charge: the recipient is liable for VAT (Section 13b German VAT Act).",
+      "id": "rc_13b",
+      "ruleRowId": "rc_13b@2007-01-01",
+      "xmlSubjectCode": "REG",
+      "zone": "legal"
+    },
+    {
+      "de": "Zahlbar ohne Abzug bis zum 11.11.2026.",
+      "en": "Payable without deduction by 11 Nov 2026.",
+      "id": "terms",
+      "ruleRowId": "terms@2007-01-01",
+      "zone": "payment"
+    },
+    {
+      "de": "Bitte geben Sie als Verwendungszweck ausschließlich an: RE-2026-0120",
+      "en": "Please use only this payment reference: RE-2026-0120",
+      "id": "pay_ref",
+      "ruleRowId": "pay_ref@2007-01-01",
+      "zone": "payment"
+    }
+  ],
+  "number": "RE-2026-0120",
+  "payment": {
+    "bankAccount": {
+      "accountHolder": "Bauer Elektrotechnik e.K.",
+      "bankName": "UniCredit Bank",
+      "bic": "HYVEDEMMXXX",
+      "iban": "DE02700202700010108669"
+    },
+    "dueDays": 30,
+    "method": "transfer",
+    "paymentReference": "RE-2026-0120",
+    "showEpcQr": true
+  },
+  "priceMode": "net",
+  "references": {
+    "precedingInvoices": []
+  },
+  "ruleVersions": {
+    "note:pay_ref": "pay_ref@2007-01-01",
+    "note:rc_13b": "rc_13b@2007-01-01",
+    "note:terms": "terms@2007-01-01",
+    "rc13b:construction": "rc13b_construction@2007-01-01"
+  },
+  "schemaVersion": 1,
+  "seller": {
+    "address": {
+      "city": "München",
+      "countryCode": "DE",
+      "postalCode": "80331",
+      "street": "Werkstraße 12"
+    },
+    "contact": {
+      "email": "info@bauer-elektro.de",
+      "name": "Hans Bauer",
+      "phone": "+49 89 7654321"
+    },
+    "electronicAddress": {
+      "scheme": "EM",
+      "value": "info@bauer-elektro.de"
+    },
+    "kleinunternehmer": false,
+    "legalForm": "ek",
+    "name": "Bauer Elektrotechnik e.K.",
+    "register": {
+      "court": "Amtsgericht München",
+      "number": "98765",
+      "type": "HRA"
+    },
+    "representatives": [
+      {
+        "name": "Hans Bauer"
+      }
+    ],
+    "seat": "München",
+    "taxNumber": "9143081508150",
+    "taxNumberState": "BY",
+    "vatAccounting": "ist",
+    "vatId": "DE811569869"
+  },
+  "supplyDate": {
+    "date": "2026-10-09",
+    "kind": "date"
+  },
+  "taxCase": "reverse_charge_13b",
+  "texts": {},
+  "totals": {
+    "advancesDeductedGrossCents": 0,
+    "allowanceTotalCents": 0,
+    "byGroup": [
+      {
+        "allowanceCents": 0,
+        "baseCents": 1000000,
+        "category": "AE",
+        "chargeCents": 0,
+        "exemptionReasonCode": "VATEX-EU-AE",
+        "exemptionReasonText": "Steuerschuldnerschaft des Leistungsempfängers",
+        "lineNetSumCents": 1000000,
+        "rateBp": 0,
+        "vatCents": 0
+      }
+    ],
+    "chargeTotalCents": 0,
+    "grossCents": 1000000,
+    "lineNetSumCents": 1000000,
+    "netCents": 1000000,
+    "payableCents": 1000000,
+    "roundingCents": 0,
+    "vatCents": 0
+  },
+  "type": "invoice"
+}

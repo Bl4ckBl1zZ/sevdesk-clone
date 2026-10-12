@@ -1,0 +1,19 @@
+{
+  "id": "T-GLD-11",
+  "title": "consulting 2.000,00 AE, both VAT IDs, VATEX-EU-AE",
+  "buyer": "at",
+  "input": {
+    "taxCase": "eu_b2b_service",
+    "lines": [
+      {
+        "kind": "item",
+        "name": "Beratung UX-Konzept",
+        "quantityMilli": 20000,
+        "unitCode": "HUR",
+        "unitPriceMicros": 1000000,
+        "vatCategory": "AE",
+        "vatRateBp": 0
+      }
+    ]
+  }
+}

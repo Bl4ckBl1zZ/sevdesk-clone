@@ -1,0 +1,38 @@
+--- page 1 ---
+Muster Design GmbH
+Muster Design GmbH · Hauptstraße 1 · 10115 Berlin
+Nummer | MA-2026-0004
+Datum | 15.12.2026
+Beispiel Kunde GmbH
+Kundennummer | K-10023
+z. Hd. Max Beispiel
+Ansprechpartner | Erika Musterfrau
+Musterweg 5
+Telefon | +49 30 1234567
+50667 Köln
+E-Mail | rechnung@muster-design.de
+1. Mahnung MA-2026-0004
+Rechnung RE-2026-0042 vom 12.10.2026, fällig seit 11.11.2026
+Rechnungsbetrag | 1.190,00 €
+bereits gezahlt | -190,00 €
+offener Betrag | 1.000,00 €
+Mahngebühr | 5,00 €
+Verzugszinsen | 10,80 €
+Verzugspauschale (§ 288 Abs. 5 BGB) | 40,00 €
+Gesamtforderung | 1.055,80 €
+Zeitraum | Tage | Zinssatz | Betrag
+12.11.2026 – 15.12.2026 | 34 | 11,59 % | 10,80 €
+Bitte überweisen Sie den Gesamtbetrag bis zum 29.12.2026.
+Kontoinhaber: Muster Design GmbH
+IBAN: DE89 3704 0044 0532 0130 00
+BIC: COBADEFFXXX
+Bank: Commerzbank
+Muster Design GmbH | Sitz: Berlin | IBAN: DE89 3704 0044 0532 0130 00
+Hauptstraße 1 | Registergericht: Amtsgericht Charlottenburg | BIC: COBADEFFXXX
+10115 Berlin | HRB 123456 B
+Tel. +49 30 1234567 | Geschäftsführer: Max Mustermann, Erika
+rechnung@muster-design.de | Musterfrau
+www.muster-design.de | Stammkapital: 25.000,00 €
+Steuernummer: 21/815/08150
+USt-IdNr.: DE123456788
+Seite 1 von 1

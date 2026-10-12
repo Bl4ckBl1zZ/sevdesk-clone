@@ -1,0 +1,24 @@
+{
+  "id": "T-GLD-24",
+  "title": "1.000,00 USD @19, rate 1.0831 → BT-111 175,42 EUR",
+  "input": {
+    "currency": "USD",
+    "fx": {
+      "rate": "1.0831",
+      "source": "bmf_monthly",
+      "date": "2026-10-01"
+    },
+    "lines": [
+      {
+        "kind": "item",
+        "name": "Beratung Webdesign",
+        "quantityMilli": 10000,
+        "unitCode": "HUR",
+        "unitPriceMicros": 1000000,
+        "vatCategory": "S",
+        "vatRateBp": 1900,
+        "vatRuleRowId": "standard@2021-01-01"
+      }
+    ]
+  }
+}

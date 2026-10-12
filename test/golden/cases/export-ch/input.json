@@ -1,0 +1,27 @@
+{
+  "id": "T-GLD-20",
+  "title": "goods 3.000,00 G, delivery CH, VATEX-EU-G",
+  "buyer": "ch",
+  "input": {
+    "taxCase": "export",
+    "delivery": {
+      "address": {
+        "street": "Bahnhofstrasse 1",
+        "postalCode": "8001",
+        "city": "Zürich",
+        "countryCode": "CH"
+      }
+    },
+    "lines": [
+      {
+        "kind": "item",
+        "name": "Messestand-Modul (Ausfuhrlieferung)",
+        "quantityMilli": 2000,
+        "unitCode": "C62",
+        "unitPriceMicros": 15000000,
+        "vatCategory": "G",
+        "vatRateBp": 0
+      }
+    ]
+  }
+}

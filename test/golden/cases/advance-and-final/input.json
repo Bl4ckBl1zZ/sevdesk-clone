@@ -1,0 +1,49 @@
+{
+  "id": "T-GLD-13",
+  "title": "final 10.000,00 @19 less AR 3.570,00 → BT-113 3.570,00, BT-115 8.330,00",
+  "input": {
+    "type": "final_invoice",
+    "number": "RE-2026-0058",
+    "chain": {
+      "orderLabel": {
+        "de": "Auftrag",
+        "en": "order"
+      },
+      "orderNumber": "AB-2026-0007",
+      "orderDate": "2026-08-03"
+    },
+    "flags": {
+      "chainIndex": 2
+    },
+    "lines": [
+      {
+        "kind": "item",
+        "name": "Website-Relaunch gesamt",
+        "quantityMilli": 1000,
+        "unitCode": "LS",
+        "unitPriceMicros": 100000000,
+        "vatCategory": "S",
+        "vatRateBp": 1900,
+        "vatRuleRowId": "standard@2021-01-01"
+      }
+    ],
+    "deductions": [
+      {
+        "advanceNumber": "RE-2026-0031",
+        "advanceDate": "2026-08-10",
+        "paidOn": "2026-08-20",
+        "byGroup": [
+          {
+            "category": "S",
+            "rateBp": 1900,
+            "netCents": 300000,
+            "vatCents": 57000,
+            "grossCents": 357000
+          }
+        ],
+        "deductedGrossCents": 357000,
+        "partiallyPaid": false
+      }
+    ]
+  }
+}

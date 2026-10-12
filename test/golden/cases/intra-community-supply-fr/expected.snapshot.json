@@ -1,0 +1,169 @@
+{
+  "buyer": {
+    "address": {
+      "city": "Paris",
+      "countryCode": "FR",
+      "postalCode": "75002",
+      "street": "12 Rue de la Paix"
+    },
+    "contactNumber": "K-30002",
+    "invoiceEmail": "compta@atelier-lumiere.fr",
+    "isConsumer": false,
+    "isPublicAuthority": false,
+    "name": "Atelier Lumière SARL",
+    "vatId": "FR40303265045"
+  },
+  "currency": "EUR",
+  "delivery": {
+    "address": {
+      "city": "Lyon",
+      "countryCode": "FR",
+      "postalCode": "69007",
+      "street": "5 Avenue de l'Industrie"
+    },
+    "partyName": "Atelier Lumière SARL – Entrepôt"
+  },
+  "documentDate": "2026-10-12",
+  "dueDate": "2026-11-11",
+  "einvoice": {
+    "decision": "PDF_NEEDS_CONSENT",
+    "format": "zugferd_en16931"
+  },
+  "flags": {},
+  "language": "de",
+  "layoutVersionId": "layout-v1",
+  "lines": [
+    {
+      "itemNumber": "SL-200",
+      "kind": "item",
+      "name": "Studioleuchte LED 200 W",
+      "netCents": 500000,
+      "position": 1,
+      "quantityMilli": 10000,
+      "unitCode": "C62",
+      "unitPriceMicros": 5000000,
+      "vatCategory": "K",
+      "vatRateBp": 0
+    }
+  ],
+  "notes": [
+    {
+      "de": "Steuerfreie innergemeinschaftliche Lieferung (§ 4 Nr. 1 Buchst. b, § 6a UStG). USt-IdNr. Lieferer: DE123456788 · USt-IdNr. Abnehmer: FR40303265045",
+      "en": "VAT-exempt intra-Community supply of goods (Art. 138 Council Directive 2006/112/EC).",
+      "id": "igl",
+      "ruleRowId": "igl@2007-01-01",
+      "xmlSubjectCode": "REG",
+      "zone": "legal"
+    },
+    {
+      "de": "Zahlbar ohne Abzug bis zum 11.11.2026.",
+      "en": "Payable without deduction by 11 Nov 2026.",
+      "id": "terms",
+      "ruleRowId": "terms@2007-01-01",
+      "zone": "payment"
+    },
+    {
+      "de": "Bitte geben Sie als Verwendungszweck ausschließlich an: RE-2026-0042",
+      "en": "Please use only this payment reference: RE-2026-0042",
+      "id": "pay_ref",
+      "ruleRowId": "pay_ref@2007-01-01",
+      "zone": "payment"
+    }
+  ],
+  "number": "RE-2026-0042",
+  "payment": {
+    "bankAccount": {
+      "accountHolder": "Muster Design GmbH",
+      "bankName": "Commerzbank",
+      "bic": "COBADEFFXXX",
+      "iban": "DE89370400440532013000"
+    },
+    "dueDays": 30,
+    "method": "transfer",
+    "paymentReference": "RE-2026-0042",
+    "showEpcQr": true
+  },
+  "priceMode": "net",
+  "references": {
+    "precedingInvoices": []
+  },
+  "ruleVersions": {
+    "note:igl": "igl@2007-01-01",
+    "note:pay_ref": "pay_ref@2007-01-01",
+    "note:terms": "terms@2007-01-01"
+  },
+  "schemaVersion": 1,
+  "seller": {
+    "address": {
+      "city": "Berlin",
+      "countryCode": "DE",
+      "postalCode": "10115",
+      "street": "Hauptstraße 1"
+    },
+    "contact": {
+      "email": "rechnung@muster-design.de",
+      "name": "Erika Musterfrau",
+      "phone": "+49 30 1234567",
+      "website": "www.muster-design.de"
+    },
+    "electronicAddress": {
+      "scheme": "EM",
+      "value": "rechnung@muster-design.de"
+    },
+    "kleinunternehmer": false,
+    "legalForm": "gmbh",
+    "name": "Muster Design GmbH",
+    "register": {
+      "court": "Amtsgericht Charlottenburg",
+      "number": "123456 B",
+      "type": "HRB"
+    },
+    "representatives": [
+      {
+        "name": "Max Mustermann"
+      },
+      {
+        "name": "Erika Musterfrau"
+      }
+    ],
+    "seat": "Berlin",
+    "shareCapital": {
+      "amountCents": 2500000
+    },
+    "taxNumber": "1121081508150",
+    "taxNumberState": "BE",
+    "vatAccounting": "soll",
+    "vatId": "DE123456788"
+  },
+  "supplyDate": {
+    "date": "2026-10-09",
+    "kind": "date"
+  },
+  "taxCase": "intra_community_supply",
+  "texts": {},
+  "totals": {
+    "advancesDeductedGrossCents": 0,
+    "allowanceTotalCents": 0,
+    "byGroup": [
+      {
+        "allowanceCents": 0,
+        "baseCents": 500000,
+        "category": "K",
+        "chargeCents": 0,
+        "exemptionReasonCode": "VATEX-EU-IC",
+        "exemptionReasonText": "Steuerfreie innergemeinschaftliche Lieferung (§ 4 Nr. 1 Buchst. b, § 6a UStG). USt-IdNr. Lieferer: DE123456788 · USt-IdNr. Abnehmer: FR40303265045",
+        "lineNetSumCents": 500000,
+        "rateBp": 0,
+        "vatCents": 0
+      }
+    ],
+    "chargeTotalCents": 0,
+    "grossCents": 500000,
+    "lineNetSumCents": 500000,
+    "netCents": 500000,
+    "payableCents": 500000,
+    "roundingCents": 0,
+    "vatCents": 0
+  },
+  "type": "invoice"
+}

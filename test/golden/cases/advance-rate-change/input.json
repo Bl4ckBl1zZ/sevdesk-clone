@@ -1,0 +1,57 @@
+{
+  "id": "T-GLD-14",
+  "title": "AR @19 (2025) deducted from a 7 % final → BT-115 −120,00 (refund)",
+  "input": {
+    "type": "final_invoice",
+    "number": "RE-2026-0009",
+    "documentDate": "2026-01-20",
+    "supplyDate": {
+      "kind": "date",
+      "date": "2026-01-15"
+    },
+    "chain": {
+      "orderLabel": {
+        "de": "Auftrag",
+        "en": "order"
+      },
+      "orderNumber": "AB-2026-0007",
+      "orderDate": "2025-11-03"
+    },
+    "flags": {
+      "chainIndex": 2
+    },
+    "lines": [
+      {
+        "kind": "item",
+        "name": "Catering Jahresauftakt (Speisen)",
+        "quantityMilli": 1000,
+        "unitCode": "LS",
+        "unitPriceMicros": 10000000,
+        "vatCategory": "S",
+        "vatRateBp": 700,
+        "vatRuleRowId": "restaurant_food@2026-01-01"
+      }
+    ],
+    "deductions": [
+      {
+        "advanceNumber": "RE-2025-0210",
+        "advanceDate": "2025-11-20",
+        "paidOn": "2025-11-28",
+        "byGroup": [
+          {
+            "category": "S",
+            "rateBp": 1900,
+            "netCents": 100000,
+            "vatCents": 19000,
+            "grossCents": 119000
+          }
+        ],
+        "deductedGrossCents": 119000,
+        "partiallyPaid": false
+      }
+    ]
+  },
+  "paymentPatch": {
+    "refundIban": "DE89370400440532013000"
+  }
+}
