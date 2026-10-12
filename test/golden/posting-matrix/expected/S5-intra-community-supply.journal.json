@@ -1,0 +1,59 @@
+{
+  "case": "S5-intra-community-supply",
+  "covers": "S5, UST-21",
+  "ruleVersion": "posting-2026.1",
+  "SKR03": {
+    "date": "2026-03-10",
+    "text": "Rechnung RE-2026-0001 Muster GmbH",
+    "explanation": "S5",
+    "roleMappingVersion": "roles-2026.2",
+    "source": {
+      "kind": "salesDocument",
+      "id": "doc1"
+    },
+    "lines": [
+      {
+        "role": "receivable",
+        "debitCents": 300000,
+        "creditCents": 0,
+        "contactId": "contact1",
+        "account": "1400"
+      },
+      {
+        "role": "revenue.icsupply",
+        "debitCents": 0,
+        "creditCents": 300000,
+        "taxKey": "igL",
+        "taxPointDate": "2026-03-10",
+        "account": "8125"
+      }
+    ]
+  },
+  "SKR04": {
+    "date": "2026-03-10",
+    "text": "Rechnung RE-2026-0001 Muster GmbH",
+    "explanation": "S5",
+    "roleMappingVersion": "roles-2026.2",
+    "source": {
+      "kind": "salesDocument",
+      "id": "doc1"
+    },
+    "lines": [
+      {
+        "role": "receivable",
+        "debitCents": 300000,
+        "creditCents": 0,
+        "contactId": "contact1",
+        "account": "1200"
+      },
+      {
+        "role": "revenue.icsupply",
+        "debitCents": 0,
+        "creditCents": 300000,
+        "taxKey": "igL",
+        "taxPointDate": "2026-03-10",
+        "account": "4125"
+      }
+    ]
+  }
+}

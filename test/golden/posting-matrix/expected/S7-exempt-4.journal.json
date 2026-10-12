@@ -1,0 +1,59 @@
+{
+  "case": "S7-exempt-4",
+  "covers": "S7 (E)",
+  "ruleVersion": "posting-2026.1",
+  "SKR03": {
+    "date": "2026-03-10",
+    "text": "Rechnung RE-2026-0001 Muster GmbH",
+    "explanation": "S7",
+    "roleMappingVersion": "roles-2026.2",
+    "source": {
+      "kind": "salesDocument",
+      "id": "doc1"
+    },
+    "lines": [
+      {
+        "role": "receivable",
+        "debitCents": 40000,
+        "creditCents": 0,
+        "contactId": "contact1",
+        "account": "1400"
+      },
+      {
+        "role": "revenue.exempt_4",
+        "debitCents": 0,
+        "creditCents": 40000,
+        "taxKey": "Stfrei4",
+        "taxPointDate": "2026-03-05",
+        "account": "8100"
+      }
+    ]
+  },
+  "SKR04": {
+    "date": "2026-03-10",
+    "text": "Rechnung RE-2026-0001 Muster GmbH",
+    "explanation": "S7",
+    "roleMappingVersion": "roles-2026.2",
+    "source": {
+      "kind": "salesDocument",
+      "id": "doc1"
+    },
+    "lines": [
+      {
+        "role": "receivable",
+        "debitCents": 40000,
+        "creditCents": 0,
+        "contactId": "contact1",
+        "account": "1200"
+      },
+      {
+        "role": "revenue.exempt_4",
+        "debitCents": 0,
+        "creditCents": 40000,
+        "taxKey": "Stfrei4",
+        "taxPointDate": "2026-03-05",
+        "account": "4100"
+      }
+    ]
+  }
+}

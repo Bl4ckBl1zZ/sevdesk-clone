@@ -1,0 +1,71 @@
+{
+  "case": "P8-write-off-soll",
+  "covers": "P8, E-TAX-11, EC-124",
+  "ruleVersion": "posting-2026.1",
+  "SKR03": {
+    "date": "2026-04-02",
+    "text": "Ausfall RE-2026-0001 Muster GmbH",
+    "explanation": "P8",
+    "roleMappingVersion": "roles-2026.2",
+    "source": {
+      "kind": "payment",
+      "id": "pay1"
+    },
+    "lines": [
+      {
+        "role": "writeoff.19",
+        "debitCents": 100000,
+        "creditCents": 0,
+        "taxKey": "USt19",
+        "account": "2406"
+      },
+      {
+        "role": "vat.output.19",
+        "debitCents": 19000,
+        "creditCents": 0,
+        "taxPointDate": "2026-04-02",
+        "account": "1776"
+      },
+      {
+        "role": "receivable",
+        "debitCents": 0,
+        "creditCents": 119000,
+        "contactId": "contact1",
+        "account": "1400"
+      }
+    ]
+  },
+  "SKR04": {
+    "date": "2026-04-02",
+    "text": "Ausfall RE-2026-0001 Muster GmbH",
+    "explanation": "P8",
+    "roleMappingVersion": "roles-2026.2",
+    "source": {
+      "kind": "payment",
+      "id": "pay1"
+    },
+    "lines": [
+      {
+        "role": "writeoff.19",
+        "debitCents": 100000,
+        "creditCents": 0,
+        "taxKey": "USt19",
+        "account": "6936"
+      },
+      {
+        "role": "vat.output.19",
+        "debitCents": 19000,
+        "creditCents": 0,
+        "taxPointDate": "2026-04-02",
+        "account": "3806"
+      },
+      {
+        "role": "receivable",
+        "debitCents": 0,
+        "creditCents": 119000,
+        "contactId": "contact1",
+        "account": "1200"
+      }
+    ]
+  }
+}

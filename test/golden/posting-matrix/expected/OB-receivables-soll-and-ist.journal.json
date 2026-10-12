@@ -1,0 +1,105 @@
+{
+  "case": "OB-receivables-soll-and-ist",
+  "covers": "ACC-013, TST-ACC-09 (Ist item keeps its not-due VAT)",
+  "ruleVersion": "posting-2026.1",
+  "SKR03": {
+    "date": "2027-01-01",
+    "text": "Eröffnungsbilanz 2027 offene Forderungen",
+    "explanation": "ACC-013-receivables",
+    "roleMappingVersion": "roles-2026.2",
+    "source": {
+      "kind": "opening_balance",
+      "id": "2027:receivables"
+    },
+    "lines": [
+      {
+        "role": "receivable",
+        "debitCents": 119000,
+        "creditCents": 0,
+        "contactId": "contact1",
+        "account": "1400"
+      },
+      {
+        "role": "opening.debtors",
+        "debitCents": 0,
+        "creditCents": 119000,
+        "account": "9008"
+      },
+      {
+        "role": "receivable",
+        "debitCents": 59500,
+        "creditCents": 0,
+        "contactId": "contact2",
+        "account": "1400"
+      },
+      {
+        "role": "opening.debtors",
+        "debitCents": 0,
+        "creditCents": 59500,
+        "account": "9008"
+      },
+      {
+        "role": "opening.gl",
+        "debitCents": 9500,
+        "creditCents": 0,
+        "account": "9000"
+      },
+      {
+        "role": "vat.output.notdue.19",
+        "debitCents": 0,
+        "creditCents": 9500,
+        "account": "1766"
+      }
+    ]
+  },
+  "SKR04": {
+    "date": "2027-01-01",
+    "text": "Eröffnungsbilanz 2027 offene Forderungen",
+    "explanation": "ACC-013-receivables",
+    "roleMappingVersion": "roles-2026.2",
+    "source": {
+      "kind": "opening_balance",
+      "id": "2027:receivables"
+    },
+    "lines": [
+      {
+        "role": "receivable",
+        "debitCents": 119000,
+        "creditCents": 0,
+        "contactId": "contact1",
+        "account": "1200"
+      },
+      {
+        "role": "opening.debtors",
+        "debitCents": 0,
+        "creditCents": 119000,
+        "account": "9008"
+      },
+      {
+        "role": "receivable",
+        "debitCents": 59500,
+        "creditCents": 0,
+        "contactId": "contact2",
+        "account": "1200"
+      },
+      {
+        "role": "opening.debtors",
+        "debitCents": 0,
+        "creditCents": 59500,
+        "account": "9008"
+      },
+      {
+        "role": "opening.gl",
+        "debitCents": 9500,
+        "creditCents": 0,
+        "account": "9000"
+      },
+      {
+        "role": "vat.output.notdue.19",
+        "debitCents": 0,
+        "creditCents": 9500,
+        "account": "3816"
+      }
+    ]
+  }
+}

@@ -1,0 +1,81 @@
+{
+  "case": "P10-payment-reversal-ist",
+  "covers": "P10, R13, EC-141 (reverses the Ist transfer too)",
+  "ruleVersion": "posting-2026.1",
+  "SKR03": {
+    "date": "2026-04-20",
+    "text": "Storno: Zahlung RE-2026-0001 Muster GmbH",
+    "explanation": "P10",
+    "roleMappingVersion": "roles-2026.2",
+    "source": {
+      "kind": "payment",
+      "id": "pay1-rev"
+    },
+    "lines": [
+      {
+        "role": "bank.bank1",
+        "debitCents": 0,
+        "creditCents": 59500,
+        "account": "1200"
+      },
+      {
+        "role": "receivable",
+        "debitCents": 59500,
+        "creditCents": 0,
+        "contactId": "contact1",
+        "account": "1400"
+      },
+      {
+        "role": "vat.output.notdue.19",
+        "debitCents": 0,
+        "creditCents": 9500,
+        "account": "1766"
+      },
+      {
+        "role": "vat.output.19",
+        "debitCents": 9500,
+        "creditCents": 0,
+        "taxPointDate": "2026-04-20",
+        "account": "1776"
+      }
+    ]
+  },
+  "SKR04": {
+    "date": "2026-04-20",
+    "text": "Storno: Zahlung RE-2026-0001 Muster GmbH",
+    "explanation": "P10",
+    "roleMappingVersion": "roles-2026.2",
+    "source": {
+      "kind": "payment",
+      "id": "pay1-rev"
+    },
+    "lines": [
+      {
+        "role": "bank.bank1",
+        "debitCents": 0,
+        "creditCents": 59500,
+        "account": "1800"
+      },
+      {
+        "role": "receivable",
+        "debitCents": 59500,
+        "creditCents": 0,
+        "contactId": "contact1",
+        "account": "1200"
+      },
+      {
+        "role": "vat.output.notdue.19",
+        "debitCents": 0,
+        "creditCents": 9500,
+        "account": "3816"
+      },
+      {
+        "role": "vat.output.19",
+        "debitCents": 9500,
+        "creditCents": 0,
+        "taxPointDate": "2026-04-20",
+        "account": "3806"
+      }
+    ]
+  }
+}

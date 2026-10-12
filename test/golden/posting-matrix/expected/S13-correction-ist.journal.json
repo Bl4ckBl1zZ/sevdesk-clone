@@ -1,0 +1,69 @@
+{
+  "case": "S13-correction-ist",
+  "covers": "S13 Ist",
+  "ruleVersion": "posting-2026.1",
+  "SKR03": {
+    "date": "2026-05-02",
+    "text": "Korrektur RK-2026-0001",
+    "explanation": "S13-ist",
+    "roleMappingVersion": "roles-2026.2",
+    "source": {
+      "kind": "salesDocument",
+      "id": "corr1"
+    },
+    "lines": [
+      {
+        "role": "receivable",
+        "debitCents": 0,
+        "creditCents": 23800,
+        "contactId": "contact1",
+        "account": "1400"
+      },
+      {
+        "role": "revenue.domestic.19",
+        "debitCents": 20000,
+        "creditCents": 0,
+        "taxKey": "USt19",
+        "account": "8400"
+      },
+      {
+        "role": "vat.output.notdue.19",
+        "debitCents": 3800,
+        "creditCents": 0,
+        "account": "1766"
+      }
+    ]
+  },
+  "SKR04": {
+    "date": "2026-05-02",
+    "text": "Korrektur RK-2026-0001",
+    "explanation": "S13-ist",
+    "roleMappingVersion": "roles-2026.2",
+    "source": {
+      "kind": "salesDocument",
+      "id": "corr1"
+    },
+    "lines": [
+      {
+        "role": "receivable",
+        "debitCents": 0,
+        "creditCents": 23800,
+        "contactId": "contact1",
+        "account": "1200"
+      },
+      {
+        "role": "revenue.domestic.19",
+        "debitCents": 20000,
+        "creditCents": 0,
+        "taxKey": "USt19",
+        "account": "4400"
+      },
+      {
+        "role": "vat.output.notdue.19",
+        "debitCents": 3800,
+        "creditCents": 0,
+        "account": "3816"
+      }
+    ]
+  }
+}

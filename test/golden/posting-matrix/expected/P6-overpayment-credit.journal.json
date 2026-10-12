@@ -1,0 +1,55 @@
+{
+  "case": "P6-overpayment-credit",
+  "covers": "P6, EC-120",
+  "ruleVersion": "posting-2026.1",
+  "SKR03": {
+    "date": "2026-04-02",
+    "text": "Guthaben Muster GmbH",
+    "explanation": "P6",
+    "roleMappingVersion": "roles-2026.2",
+    "source": {
+      "kind": "payment",
+      "id": "pay1"
+    },
+    "lines": [
+      {
+        "role": "bank.bank1",
+        "debitCents": 1000,
+        "creditCents": 0,
+        "account": "1200"
+      },
+      {
+        "role": "receivable",
+        "debitCents": 0,
+        "creditCents": 1000,
+        "contactId": "contact1",
+        "account": "1400"
+      }
+    ]
+  },
+  "SKR04": {
+    "date": "2026-04-02",
+    "text": "Guthaben Muster GmbH",
+    "explanation": "P6",
+    "roleMappingVersion": "roles-2026.2",
+    "source": {
+      "kind": "payment",
+      "id": "pay1"
+    },
+    "lines": [
+      {
+        "role": "bank.bank1",
+        "debitCents": 1000,
+        "creditCents": 0,
+        "account": "1800"
+      },
+      {
+        "role": "receivable",
+        "debitCents": 0,
+        "creditCents": 1000,
+        "contactId": "contact1",
+        "account": "1200"
+      }
+    ]
+  }
+}

@@ -1,0 +1,79 @@
+{
+  "case": "P7-dunning-fees-and-interest",
+  "covers": "P7, E-TAX-22",
+  "ruleVersion": "posting-2026.1",
+  "SKR03": {
+    "date": "2026-04-02",
+    "text": "Zahlung RE-2026-0001 Muster GmbH",
+    "explanation": "P1",
+    "roleMappingVersion": "roles-2026.2",
+    "source": {
+      "kind": "payment",
+      "id": "pay1"
+    },
+    "lines": [
+      {
+        "role": "bank.bank1",
+        "debitCents": 124500,
+        "creditCents": 0,
+        "account": "1200"
+      },
+      {
+        "role": "income.other_nontaxable",
+        "debitCents": 0,
+        "creditCents": 4000,
+        "account": "2700"
+      },
+      {
+        "role": "income.interest_default",
+        "debitCents": 0,
+        "creditCents": 1500,
+        "account": "2650"
+      },
+      {
+        "role": "receivable",
+        "debitCents": 0,
+        "creditCents": 119000,
+        "contactId": "contact1",
+        "account": "1400"
+      }
+    ]
+  },
+  "SKR04": {
+    "date": "2026-04-02",
+    "text": "Zahlung RE-2026-0001 Muster GmbH",
+    "explanation": "P1",
+    "roleMappingVersion": "roles-2026.2",
+    "source": {
+      "kind": "payment",
+      "id": "pay1"
+    },
+    "lines": [
+      {
+        "role": "bank.bank1",
+        "debitCents": 124500,
+        "creditCents": 0,
+        "account": "1800"
+      },
+      {
+        "role": "income.other_nontaxable",
+        "debitCents": 0,
+        "creditCents": 4000,
+        "account": "4830"
+      },
+      {
+        "role": "income.interest_default",
+        "debitCents": 0,
+        "creditCents": 1500,
+        "account": "7100"
+      },
+      {
+        "role": "receivable",
+        "debitCents": 0,
+        "creditCents": 119000,
+        "contactId": "contact1",
+        "account": "1200"
+      }
+    ]
+  }
+}

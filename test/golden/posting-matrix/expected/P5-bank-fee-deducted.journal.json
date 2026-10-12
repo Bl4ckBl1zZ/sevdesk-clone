@@ -1,0 +1,67 @@
+{
+  "case": "P5-bank-fee-deducted",
+  "covers": "P5",
+  "ruleVersion": "posting-2026.1",
+  "SKR03": {
+    "date": "2026-04-02",
+    "text": "Zahlung RE-2026-0001 Muster GmbH",
+    "explanation": "P1",
+    "roleMappingVersion": "roles-2026.2",
+    "source": {
+      "kind": "payment",
+      "id": "pay1"
+    },
+    "lines": [
+      {
+        "role": "bank.bank1",
+        "debitCents": 118500,
+        "creditCents": 0,
+        "account": "1200"
+      },
+      {
+        "role": "expense.bank_fees",
+        "debitCents": 500,
+        "creditCents": 0,
+        "account": "4970"
+      },
+      {
+        "role": "receivable",
+        "debitCents": 0,
+        "creditCents": 119000,
+        "contactId": "contact1",
+        "account": "1400"
+      }
+    ]
+  },
+  "SKR04": {
+    "date": "2026-04-02",
+    "text": "Zahlung RE-2026-0001 Muster GmbH",
+    "explanation": "P1",
+    "roleMappingVersion": "roles-2026.2",
+    "source": {
+      "kind": "payment",
+      "id": "pay1"
+    },
+    "lines": [
+      {
+        "role": "bank.bank1",
+        "debitCents": 118500,
+        "creditCents": 0,
+        "account": "1800"
+      },
+      {
+        "role": "expense.bank_fees",
+        "debitCents": 500,
+        "creditCents": 0,
+        "account": "6855"
+      },
+      {
+        "role": "receivable",
+        "debitCents": 0,
+        "creditCents": 119000,
+        "contactId": "contact1",
+        "account": "1200"
+      }
+    ]
+  }
+}

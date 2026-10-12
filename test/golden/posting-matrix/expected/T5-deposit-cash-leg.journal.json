@@ -1,0 +1,53 @@
+{
+  "case": "T5-deposit-cash-leg",
+  "covers": "T5, CSH-024, TST-ACC-32",
+  "ruleVersion": "posting-2026.1",
+  "SKR03": {
+    "date": "2026-03-02",
+    "text": "Bareinzahlung auf die Bank",
+    "explanation": "T5",
+    "roleMappingVersion": "roles-2026.2",
+    "source": {
+      "kind": "cashTransfer",
+      "id": "ct1"
+    },
+    "lines": [
+      {
+        "role": "transit",
+        "debitCents": 50000,
+        "creditCents": 0,
+        "account": "1360"
+      },
+      {
+        "role": "cash",
+        "debitCents": 0,
+        "creditCents": 50000,
+        "account": "1000"
+      }
+    ]
+  },
+  "SKR04": {
+    "date": "2026-03-02",
+    "text": "Bareinzahlung auf die Bank",
+    "explanation": "T5",
+    "roleMappingVersion": "roles-2026.2",
+    "source": {
+      "kind": "cashTransfer",
+      "id": "ct1"
+    },
+    "lines": [
+      {
+        "role": "transit",
+        "debitCents": 50000,
+        "creditCents": 0,
+        "account": "1460"
+      },
+      {
+        "role": "cash",
+        "debitCents": 0,
+        "creditCents": 50000,
+        "account": "1600"
+      }
+    ]
+  }
+}

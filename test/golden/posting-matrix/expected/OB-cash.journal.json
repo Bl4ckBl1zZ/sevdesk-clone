@@ -1,0 +1,53 @@
+{
+  "case": "OB-cash",
+  "covers": "ACC-013, CSH-020",
+  "ruleVersion": "posting-2026.1",
+  "SKR03": {
+    "date": "2027-01-01",
+    "text": "Eröffnungsbilanz 2027 Kasse",
+    "explanation": "ACC-013-cash",
+    "roleMappingVersion": "roles-2026.2",
+    "source": {
+      "kind": "opening_balance",
+      "id": "2027:cash"
+    },
+    "lines": [
+      {
+        "role": "cash",
+        "debitCents": 35000,
+        "creditCents": 0,
+        "account": "1000"
+      },
+      {
+        "role": "opening.gl",
+        "debitCents": 0,
+        "creditCents": 35000,
+        "account": "9000"
+      }
+    ]
+  },
+  "SKR04": {
+    "date": "2027-01-01",
+    "text": "Eröffnungsbilanz 2027 Kasse",
+    "explanation": "ACC-013-cash",
+    "roleMappingVersion": "roles-2026.2",
+    "source": {
+      "kind": "opening_balance",
+      "id": "2027:cash"
+    },
+    "lines": [
+      {
+        "role": "cash",
+        "debitCents": 35000,
+        "creditCents": 0,
+        "account": "1600"
+      },
+      {
+        "role": "opening.gl",
+        "debitCents": 0,
+        "creditCents": 35000,
+        "account": "9000"
+      }
+    ]
+  }
+}

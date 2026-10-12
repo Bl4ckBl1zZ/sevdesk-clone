@@ -1,0 +1,53 @@
+{
+  "case": "OB-bank-overdrawn",
+  "covers": "ACC-013 bank (negative balance)",
+  "ruleVersion": "posting-2026.1",
+  "SKR03": {
+    "date": "2027-01-01",
+    "text": "Eröffnungsbilanz 2027 Bank",
+    "explanation": "ACC-013-bank",
+    "roleMappingVersion": "roles-2026.2",
+    "source": {
+      "kind": "opening_balance",
+      "id": "2027:bank:bank1"
+    },
+    "lines": [
+      {
+        "role": "bank.bank1",
+        "debitCents": 0,
+        "creditCents": 12000,
+        "account": "1200"
+      },
+      {
+        "role": "opening.gl",
+        "debitCents": 12000,
+        "creditCents": 0,
+        "account": "9000"
+      }
+    ]
+  },
+  "SKR04": {
+    "date": "2027-01-01",
+    "text": "Eröffnungsbilanz 2027 Bank",
+    "explanation": "ACC-013-bank",
+    "roleMappingVersion": "roles-2026.2",
+    "source": {
+      "kind": "opening_balance",
+      "id": "2027:bank:bank1"
+    },
+    "lines": [
+      {
+        "role": "bank.bank1",
+        "debitCents": 0,
+        "creditCents": 12000,
+        "account": "1800"
+      },
+      {
+        "role": "opening.gl",
+        "debitCents": 12000,
+        "creditCents": 0,
+        "account": "9000"
+      }
+    ]
+  }
+}

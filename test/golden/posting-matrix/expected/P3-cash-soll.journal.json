@@ -1,0 +1,55 @@
+{
+  "case": "P3-cash-soll",
+  "covers": "P3, ACC-026, CSH-021, TST-ACC-29",
+  "ruleVersion": "posting-2026.1",
+  "SKR03": {
+    "date": "2026-04-02",
+    "text": "Zahlung RE-2026-0001 Muster GmbH",
+    "explanation": "P3",
+    "roleMappingVersion": "roles-2026.2",
+    "source": {
+      "kind": "payment",
+      "id": "pay1"
+    },
+    "lines": [
+      {
+        "role": "cash",
+        "debitCents": 11900,
+        "creditCents": 0,
+        "account": "1000"
+      },
+      {
+        "role": "receivable",
+        "debitCents": 0,
+        "creditCents": 11900,
+        "contactId": "contact1",
+        "account": "1400"
+      }
+    ]
+  },
+  "SKR04": {
+    "date": "2026-04-02",
+    "text": "Zahlung RE-2026-0001 Muster GmbH",
+    "explanation": "P3",
+    "roleMappingVersion": "roles-2026.2",
+    "source": {
+      "kind": "payment",
+      "id": "pay1"
+    },
+    "lines": [
+      {
+        "role": "cash",
+        "debitCents": 11900,
+        "creditCents": 0,
+        "account": "1600"
+      },
+      {
+        "role": "receivable",
+        "debitCents": 0,
+        "creditCents": 11900,
+        "contactId": "contact1",
+        "account": "1200"
+      }
+    ]
+  }
+}

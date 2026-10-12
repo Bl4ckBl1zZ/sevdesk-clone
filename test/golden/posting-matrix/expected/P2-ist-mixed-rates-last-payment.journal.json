@@ -1,0 +1,107 @@
+{
+  "case": "P2-ist-mixed-rates-last-payment",
+  "covers": "P2 Ist, E-TAX-03, EC-172 (last instalment absorbs the rounding)",
+  "ruleVersion": "posting-2026.1",
+  "SKR03": {
+    "date": "2026-04-02",
+    "text": "Zahlung RE-2026-0001 Muster GmbH",
+    "explanation": "P1-ist",
+    "roleMappingVersion": "roles-2026.2",
+    "source": {
+      "kind": "payment",
+      "id": "pay1"
+    },
+    "lines": [
+      {
+        "role": "bank.bank1",
+        "debitCents": 57501,
+        "creditCents": 0,
+        "account": "1200"
+      },
+      {
+        "role": "receivable",
+        "debitCents": 0,
+        "creditCents": 57501,
+        "contactId": "contact1",
+        "account": "1400"
+      },
+      {
+        "role": "vat.output.notdue.19",
+        "debitCents": 6333,
+        "creditCents": 0,
+        "account": "1766"
+      },
+      {
+        "role": "vat.output.19",
+        "debitCents": 0,
+        "creditCents": 6333,
+        "taxPointDate": "2026-04-02",
+        "account": "1776"
+      },
+      {
+        "role": "vat.output.notdue.7",
+        "debitCents": 1167,
+        "creditCents": 0,
+        "account": "1761"
+      },
+      {
+        "role": "vat.output.7",
+        "debitCents": 0,
+        "creditCents": 1167,
+        "taxPointDate": "2026-04-02",
+        "account": "1771"
+      }
+    ]
+  },
+  "SKR04": {
+    "date": "2026-04-02",
+    "text": "Zahlung RE-2026-0001 Muster GmbH",
+    "explanation": "P1-ist",
+    "roleMappingVersion": "roles-2026.2",
+    "source": {
+      "kind": "payment",
+      "id": "pay1"
+    },
+    "lines": [
+      {
+        "role": "bank.bank1",
+        "debitCents": 57501,
+        "creditCents": 0,
+        "account": "1800"
+      },
+      {
+        "role": "receivable",
+        "debitCents": 0,
+        "creditCents": 57501,
+        "contactId": "contact1",
+        "account": "1200"
+      },
+      {
+        "role": "vat.output.notdue.19",
+        "debitCents": 6333,
+        "creditCents": 0,
+        "account": "3816"
+      },
+      {
+        "role": "vat.output.19",
+        "debitCents": 0,
+        "creditCents": 6333,
+        "taxPointDate": "2026-04-02",
+        "account": "3806"
+      },
+      {
+        "role": "vat.output.notdue.7",
+        "debitCents": 1167,
+        "creditCents": 0,
+        "account": "3811"
+      },
+      {
+        "role": "vat.output.7",
+        "debitCents": 0,
+        "creditCents": 1167,
+        "taxPointDate": "2026-04-02",
+        "account": "3801"
+      }
+    ]
+  }
+}
