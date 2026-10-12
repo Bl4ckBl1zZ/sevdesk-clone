@@ -1,0 +1,761 @@
+{
+  "app": {
+    "name": "Rechnungen",
+    "tagline": "Rechnungen und Buchhaltung"
+  },
+  "common": {
+    "back": "Zurück",
+    "next": "Weiter",
+    "later": "Später",
+    "save": "Speichern",
+    "cancel": "Abbrechen",
+    "close": "Schließen",
+    "loading": "Wird geladen …",
+    "notConnected": "Noch nicht verbunden",
+    "notConnectedDescription": "Die Verbindung zum Server ist noch nicht eingerichtet. Eingaben wurden nicht gespeichert.",
+    "notConnectedBanner": "Noch nicht mit dem Server verbunden — Eingaben werden geprüft, aber nicht gespeichert.",
+    "unknownError": "Etwas ist schiefgelaufen. Bitte erneut versuchen.",
+    "required": "Pflichtfeld",
+    "optional": "optional",
+    "yes": "Ja",
+    "no": "Nein"
+  },
+  "nav": {
+    "label": "Hauptnavigation",
+    "sections": {
+      "verkauf": "Verkauf",
+      "einkauf": "Einkauf",
+      "bank": "Bank & Kasse",
+      "stammdaten": "Kontakte & Produkte",
+      "zeiten": "Zeiten & Projekte",
+      "buchhaltung": "Buchhaltung",
+      "steuern": "Steuern",
+      "auswertungen": "Auswertungen",
+      "system": "System"
+    },
+    "items": {
+      "start": "Start",
+      "angebote": "Angebote",
+      "auftraege": "Aufträge",
+      "lieferscheine": "Lieferscheine",
+      "rechnungen": "Rechnungen",
+      "wiederkehrend": "Wiederkehrend",
+      "mahnungen": "Mahnungen",
+      "belege": "Belege",
+      "posteingang": "Posteingang",
+      "bank": "Bankkonten",
+      "zuordnungen": "Zuordnungen",
+      "kasse": "Kasse",
+      "kontakte": "Kontakte",
+      "produkte": "Produkte",
+      "zeiten": "Zeiten",
+      "projekte": "Projekte",
+      "journal": "Journal",
+      "konten": "Kontenplan",
+      "eroeffnung": "Eröffnung",
+      "anlagen": "Anlagen",
+      "festschreibung": "Festschreibung",
+      "ustva": "UStVA",
+      "zm": "ZM",
+      "euer": "EÜR",
+      "ustJahr": "USt-Jahr",
+      "ruecklage": "Rücklage",
+      "auswertungen": "Berichte",
+      "offenePosten": "Offene Posten",
+      "liquiditaet": "Liquidität",
+      "export": "Export",
+      "einstellungen": "Einstellungen",
+      "benachrichtigungen": "Benachrichtigungen",
+      "konto": "Mein Konto",
+      "einrichtung": "Einrichtung"
+    }
+  },
+  "shell": {
+    "skipLink": "Zum Inhalt springen",
+    "search": "Suchen …",
+    "searchLabel": "Suche und Befehle öffnen",
+    "new": "Neu",
+    "newMenuLabel": "Neu erstellen",
+    "notifications": "Benachrichtigungen",
+    "account": "Konto",
+    "accountMenu": "Kontomenü",
+    "signedInAs": "Angemeldet als",
+    "notSignedIn": "Nicht angemeldet",
+    "signOut": "Abmelden",
+    "signOutFailed": "Abmelden fehlgeschlagen. Bitte erneut versuchen.",
+    "openNav": "Navigation öffnen",
+    "toggleSidebar": "Seitenleiste ein- oder ausblenden",
+    "navSheetTitle": "Navigation",
+    "navSheetDescription": "Alle Bereiche der Anwendung",
+    "mobileNav": "Schnellzugriff",
+    "more": "Mehr",
+    "receipt": "Beleg",
+    "receiptCapture": "Beleg fotografieren oder hochladen",
+    "createSheetTitle": "Neu erstellen",
+    "createSheetDescription": "Was möchten Sie anlegen?",
+    "breadcrumb": "Brotkrümelnavigation",
+    "create": {
+      "rechnung": "Rechnung",
+      "angebot": "Angebot",
+      "kontakt": "Kontakt",
+      "produkt": "Produkt",
+      "zeit": "Zeit erfassen",
+      "beleg": "Beleg"
+    }
+  },
+  "theme": {
+    "label": "Design",
+    "light": "Hell",
+    "dark": "Dunkel",
+    "system": "System"
+  },
+  "commandPalette": {
+    "title": "Befehlspalette",
+    "description": "Seiten und Aktionen suchen",
+    "placeholder": "Seite oder Aktion suchen …",
+    "empty": "Keine Treffer.",
+    "groupActions": "Aktionen",
+    "groupPages": "Seiten",
+    "groupSettings": "Einstellungen",
+    "actions": {
+      "newInvoice": "Neue Rechnung",
+      "newQuote": "Neues Angebot",
+      "newContact": "Neuer Kontakt",
+      "newProduct": "Neues Produkt",
+      "shortcuts": "Tastenkürzel anzeigen"
+    }
+  },
+  "shortcuts": {
+    "title": "Tastenkürzel",
+    "description": "Schneller arbeiten mit der Tastatur",
+    "palette": "Befehlspalette öffnen",
+    "search": "Suche in der aktuellen Liste",
+    "newInvoice": "Neue Rechnung",
+    "newQuote": "Neues Angebot",
+    "newContact": "Neuer Kontakt",
+    "newProduct": "Neues Produkt",
+    "sidebar": "Seitenleiste ein- oder ausblenden",
+    "help": "Diese Hilfe anzeigen",
+    "then": "dann"
+  },
+  "status": {
+    "draft": "Entwurf",
+    "open": "Offen",
+    "sent": "Versendet",
+    "partiallyPaid": "Teilbezahlt",
+    "overdue": "Überfällig",
+    "paid": "Bezahlt",
+    "accepted": "Angenommen",
+    "invoiced": "Berechnet",
+    "rejected": "Abgelehnt",
+    "expired": "Abgelaufen",
+    "cancelled": "Storniert",
+    "stornoTag": "Storno",
+    "locked": "Festgeschrieben"
+  },
+  "emptyState": {
+    "building": "Dieser Bereich wird gerade gebaut."
+  },
+  "pages": {
+    "start": {
+      "title": "Start",
+      "description": "Überblick über Forderungen, Umsatz und Aufgaben",
+      "empty": "Sobald Rechnungen und Belege erfasst sind, erscheinen hier Kennzahlen und Aufgaben.",
+      "action": "Einrichtung fortsetzen",
+      "widgets": {
+        "receivables": "Offene Forderungen",
+        "revenue": "Umsatz",
+        "todos": "Aufgaben",
+        "activity": "Letzte Aktivität",
+        "noData": "Noch keine Daten"
+      }
+    },
+    "angebote": {
+      "title": "Angebote",
+      "description": "Angebote erstellen und nachverfolgen",
+      "empty": "Noch keine Angebote vorhanden.",
+      "action": "Erstes Angebot erstellen"
+    },
+    "angeboteNeu": {
+      "title": "Neues Angebot",
+      "description": "Angebotseditor",
+      "empty": "Der Editor für Angebote folgt in Phase P1."
+    },
+    "auftraege": {
+      "title": "Auftragsbestätigungen",
+      "description": "Aufträge bestätigen und in Rechnungen überführen",
+      "empty": "Noch keine Auftragsbestätigungen vorhanden."
+    },
+    "lieferscheine": {
+      "title": "Lieferscheine",
+      "description": "Lieferungen dokumentieren",
+      "empty": "Noch keine Lieferscheine vorhanden."
+    },
+    "rechnungen": {
+      "title": "Rechnungen",
+      "description": "Rechnungen, Abschläge, Stornos und Korrekturen",
+      "empty": "Noch keine Rechnungen vorhanden.",
+      "action": "Erste Rechnung erstellen"
+    },
+    "rechnungenNeu": {
+      "title": "Neue Rechnung",
+      "description": "Rechnungseditor",
+      "empty": "Der Rechnungseditor folgt in Phase P1."
+    },
+    "wiederkehrend": {
+      "title": "Wiederkehrende Rechnungen",
+      "description": "Vorlagen für regelmäßige Rechnungen",
+      "empty": "Noch keine wiederkehrenden Rechnungen vorhanden."
+    },
+    "mahnungen": {
+      "title": "Mahnungen",
+      "description": "Überfällige Rechnungen anmahnen",
+      "empty": "Keine Rechnungen zum Mahnen."
+    },
+    "belege": {
+      "title": "Belege",
+      "description": "Eingangsrechnungen und Ausgaben",
+      "empty": "Noch keine Belege vorhanden.",
+      "action": "Beleg hochladen"
+    },
+    "posteingang": {
+      "title": "Posteingang",
+      "description": "Belege aus E-Mail, Upload und E-Rechnung prüfen",
+      "empty": "Der Posteingang ist leer."
+    },
+    "bank": {
+      "title": "Bank",
+      "description": "Konten und Umsätze",
+      "empty": "Noch kein Bankkonto angelegt.",
+      "action": "Bankkonto einrichten"
+    },
+    "zuordnungen": {
+      "title": "Zuordnungen",
+      "description": "Bankumsätze Rechnungen und Belegen zuordnen",
+      "empty": "Keine offenen Zuordnungen."
+    },
+    "kasse": {
+      "title": "Kasse",
+      "description": "Bargeldbestand und Bewegungen",
+      "empty": "Noch keine Barbewegungen erfasst."
+    },
+    "kontakte": {
+      "title": "Kontakte",
+      "description": "Kunden und Lieferanten",
+      "empty": "Noch keine Kontakte vorhanden.",
+      "action": "Ersten Kontakt anlegen"
+    },
+    "kontakteNeu": {
+      "title": "Neuer Kontakt",
+      "description": "Kontakt anlegen",
+      "empty": "Das Kontaktformular folgt in Phase P1."
+    },
+    "produkte": {
+      "title": "Produkte",
+      "description": "Artikel und Leistungen",
+      "empty": "Noch keine Produkte vorhanden.",
+      "action": "Erstes Produkt anlegen"
+    },
+    "produkteNeu": {
+      "title": "Neues Produkt",
+      "description": "Produkt anlegen",
+      "empty": "Das Produktformular folgt in Phase P1."
+    },
+    "zeiten": {
+      "title": "Zeiten",
+      "description": "Arbeitszeiten erfassen",
+      "empty": "Noch keine Zeiten erfasst."
+    },
+    "projekte": {
+      "title": "Projekte",
+      "description": "Projekte und Budgets",
+      "empty": "Noch keine Projekte vorhanden."
+    },
+    "journal": {
+      "title": "Journal",
+      "description": "Buchungen im Überblick",
+      "empty": "Noch keine Buchungen vorhanden."
+    },
+    "konten": {
+      "title": "Kontenplan",
+      "description": "Sachkonten nach SKR03 oder SKR04",
+      "empty": "Der Kontenplan wird nach der Einrichtung angezeigt."
+    },
+    "eroeffnung": {
+      "title": "Eröffnungsbilanz",
+      "description": "Anfangsbestände erfassen",
+      "empty": "Noch keine Eröffnungsbuchungen vorhanden."
+    },
+    "anlagen": {
+      "title": "Anlagen",
+      "description": "Anlagevermögen und Abschreibungen",
+      "empty": "Noch keine Anlagen erfasst."
+    },
+    "festschreibung": {
+      "title": "Festschreibung",
+      "description": "Zeiträume festschreiben (GoBD)",
+      "empty": "Noch kein Zeitraum festgeschrieben."
+    },
+    "ustva": {
+      "title": "Umsatzsteuer-Voranmeldung",
+      "description": "Kennzahlen und Ausfüllhilfe für Mein ELSTER",
+      "empty": "Noch keine Voranmeldungszeiträume vorhanden."
+    },
+    "zm": {
+      "title": "Zusammenfassende Meldung",
+      "description": "Innergemeinschaftliche Umsätze",
+      "empty": "Keine meldepflichtigen Umsätze."
+    },
+    "euer": {
+      "title": "Einnahmenüberschussrechnung",
+      "description": "Anlage EÜR",
+      "empty": "Noch keine Daten für die EÜR."
+    },
+    "ustJahr": {
+      "title": "Umsatzsteuer-Jahreserklärung",
+      "description": "Arbeitsblatt für die USt-Jahreserklärung",
+      "empty": "Noch keine Daten für die Jahreserklärung."
+    },
+    "ruecklage": {
+      "title": "Steuer-Rücklage",
+      "description": "Rücklagen für Umsatz- und Einkommensteuer",
+      "empty": "Noch keine Daten für die Rücklage."
+    },
+    "auswertungen": {
+      "title": "Auswertungen",
+      "description": "Berichte zu Umsatz, Kosten und Forderungen",
+      "empty": "Noch keine Daten für Auswertungen."
+    },
+    "offenePosten": {
+      "title": "Offene Posten",
+      "description": "Offene Forderungen und Verbindlichkeiten",
+      "empty": "Keine offenen Posten."
+    },
+    "liquiditaet": {
+      "title": "Liquidität",
+      "description": "Kontostände und Vorschau",
+      "empty": "Noch keine Daten für die Liquiditätsvorschau."
+    },
+    "export": {
+      "title": "Export",
+      "description": "DATEV, GoBD-Datenträgerüberlassung und Komplettsicherung",
+      "empty": "Noch keine Exporte erstellt."
+    },
+    "benachrichtigungen": {
+      "title": "Benachrichtigungen",
+      "description": "Hinweise und Fristen",
+      "empty": "Keine Benachrichtigungen."
+    },
+    "einstellungen": {
+      "title": "Einstellungen",
+      "description": "Unternehmen, Steuern, Nummernkreise und System",
+      "empty": "Bitte einen Bereich auswählen."
+    }
+  },
+  "settings": {
+    "navLabel": "Einstellungen",
+    "groups": {
+      "unternehmen": "Unternehmen",
+      "dokumente": "Dokumente",
+      "zugriff": "Zugriff & Integrationen",
+      "system": "System & Datenschutz"
+    },
+    "items": {
+      "unternehmen": "Unternehmen",
+      "steuern": "Steuern",
+      "bank": "Bankkonten",
+      "nummernkreise": "Nummernkreise",
+      "layouts": "Layouts",
+      "textvorlagen": "Textvorlagen",
+      "stammdaten": "Stammdaten",
+      "regeln": "Regeln",
+      "mitglieder": "Mitglieder",
+      "integrationen": "Integrationen",
+      "api": "API-Schlüssel",
+      "webhooks": "Webhooks",
+      "mcp": "MCP (Claude)",
+      "import": "Import",
+      "benachrichtigungen": "Benachrichtigungen",
+      "audit": "Protokoll",
+      "datenschutz": "Datenschutz",
+      "verfahrensdokumentation": "Verfahrensdokumentation",
+      "system": "System"
+    },
+    "descriptions": {
+      "unternehmen": "Firma, Rechtsform, Adresse und Pflichtangaben",
+      "steuern": "Steuernummern, Kleinunternehmer, Soll/Ist, Kontenrahmen",
+      "bank": "Konten für Rechnungen und Bankanbindung",
+      "nummernkreise": "Formate und nächste Nummern",
+      "layouts": "Vorlagen, Farben, Logo und Briefpapier",
+      "textvorlagen": "Kopf-, Fuß- und E-Mail-Texte mit Platzhaltern",
+      "stammdaten": "Einheiten, Zahlungsarten, Tags, eigene Felder, Kostenstellen",
+      "regeln": "Steuersätze, Basiszinssatz und eigene Überschreibungen",
+      "mitglieder": "Personen, Rollen und Einladungen",
+      "integrationen": "E-Mail-Versand (Anmeldung), Speicher und OCR",
+      "api": "Schlüssel für die REST-API",
+      "webhooks": "Benachrichtigungen an andere Systeme",
+      "mcp": "Zugriff für Claude",
+      "import": "Daten aus sevdesk oder CSV übernehmen",
+      "benachrichtigungen": "Welche Hinweise Sie erhalten",
+      "audit": "Wer hat wann was geändert",
+      "datenschutz": "Externe Dienste und Auftragsverarbeitung",
+      "verfahrensdokumentation": "Dokumentation nach GoBD",
+      "system": "Versionen, Zustand, Sicherungen"
+    },
+    "unchangedNotice": "Bereits fertiggestellte Dokumente bleiben unverändert.",
+    "saved": "Gespeichert.",
+    "systemStatus": "Systemstatus",
+    "bankConnection": "Bankanbindung",
+    "bankConnectionHint": "Die Verbindung über Enable Banking (Revolut Business) folgt in Phase P2. Bis dahin werden Konten von Hand angelegt.",
+    "sectionsLabel": "Abschnitte",
+    "comingSoon": "Diese Einstellungen folgen in einer späteren Phase.",
+    "tabs": {
+      "allgemein": "Allgemein",
+      "rechtliches": "Rechtliches",
+      "kontakt": "Kontakt & E-Rechnung",
+      "logo": "Logo",
+      "standards": "Standards",
+      "steuernummern": "Steuernummern",
+      "kleinunternehmer": "Kleinunternehmer",
+      "versteuerung": "Versteuerung & Voranmeldung",
+      "gewinnermittlung": "Gewinnermittlung & Kontenrahmen",
+      "umsaetze": "Umsätze",
+      "datev": "DATEV"
+    },
+    "logoHint": "PNG, JPG oder SVG, höchstens 2 MB, mindestens 300 px breit.",
+    "defaultsHint": "Zahlungsziel, Preismodus, Sprache und Rückdatierung folgen mit den Dokumenten (Phase P1).",
+    "datevHint": "Berater- und Mandantennummer werden für den DATEV-Export benötigt.",
+    "umsaetzeHint": "Vorjahresumsätze werden für die Kleinunternehmer-Grenze und die E-Rechnungs-Pflicht benötigt.",
+    "systemTiles": {
+      "database": "Datenbank",
+      "validator": "E-Rechnung-Validator",
+      "email": "E-Mail-Versand",
+      "checkpoint": "Prüfpunkt-Speicher (R2)",
+      "access": "Zugriff/Zertifikat"
+    }
+  },
+  "auth": {
+    "signInTitle": "Anmelden",
+    "signInDescription": "Mit Passkey oder einem Code per E-Mail anmelden.",
+    "firstRun": "Ersteinrichtung — Anmeldung nur mit der hinterlegten Inhaber-E-Mail-Adresse.",
+    "email": "E-Mail-Adresse",
+    "emailPlaceholder": "name@firma.de",
+    "passkeyButton": "Mit Passkey anmelden",
+    "codeButton": "Code per E-Mail senden",
+    "or": "oder",
+    "codeSent": "Falls für diese Adresse ein Zugang besteht, wurde ein Code gesendet.",
+    "codeTitle": "Code eingeben",
+    "codeDescription": "Wir haben einen sechsstelligen Code an {email} gesendet.",
+    "codeDescriptionNoEmail": "Bitte den sechsstelligen Code aus der E-Mail eingeben.",
+    "codeLabel": "Anmeldecode",
+    "codeDigit": "Ziffer {n} von 6",
+    "codeValidity": "Der Code ist noch {time} gültig.",
+    "codeExpiredHint": "Der Code ist abgelaufen. Bitte einen neuen Code anfordern.",
+    "codeSubmit": "Anmelden",
+    "codeResend": "Neuen Code senden",
+    "codeResendIn": "Neuen Code senden ({seconds} s)",
+    "codeResent": "Ein neuer Code wurde gesendet.",
+    "otherEmail": "Andere E-Mail-Adresse verwenden",
+    "missingEmail": "Bitte zuerst Ihre E-Mail-Adresse eingeben.",
+    "totpTitle": "Zwei-Faktor-Bestätigung",
+    "totpDescription": "Bitte den sechsstelligen Code aus Ihrer Authenticator-App eingeben.",
+    "totpLabel": "Code aus der Authenticator-App",
+    "totpUsePasskey": "Passkey verwenden",
+    "enrolTitle": "Passkey einrichten",
+    "enrolDescription": "Mit einem Passkey melden Sie sich künftig ohne Code an — per Fingerabdruck, Gesicht oder Geräte-PIN.",
+    "enrolDomainHint": "Der Passkey funktioniert nur auf dieser Domain. Der Code per E-Mail bleibt als Notfallzugang erhalten.",
+    "enrolMandatory": "Für das Inhaberkonto ist ein Passkey Pflicht.",
+    "enrolButton": "Passkey einrichten",
+    "enrolLater": "Später",
+    "enrolSuccess": "Passkey eingerichtet.",
+    "sessionExpiredTitle": "Sitzung abgelaufen",
+    "sessionExpiredDescription": "Bitte melden Sie sich erneut an. Ungespeicherte Eingaben bleiben erhalten.",
+    "reauthButton": "Erneut anmelden",
+    "reauthSuccess": "Sie sind wieder angemeldet.",
+    "errors": {
+      "emailInvalid": "Bitte eine gültige E-Mail-Adresse eingeben.",
+      "codeIncomplete": "Bitte alle sechs Ziffern eingeben.",
+      "codeInvalid": "Der Code ist falsch oder abgelaufen.",
+      "tooManyAttempts": "Zu viele Fehlversuche. Bitte einen neuen Code anfordern.",
+      "rateLimited": "Zu viele Codes angefordert — bitte in {minutes} Minuten erneut versuchen.",
+      "noInvite": "Für diese E-Mail-Adresse besteht keine Einladung.",
+      "passkeyCancelled": "Die Anmeldung mit Passkey wurde abgebrochen.",
+      "passkeyFailed": "Die Anmeldung mit Passkey ist fehlgeschlagen. Bitte erneut versuchen oder einen Code per E-Mail anfordern.",
+      "passkeyUnsupported": "Dieser Browser unterstützt keine Passkeys. Bitte einen Code per E-Mail anfordern.",
+      "passkeyRegistrationCancelled": "Die Einrichtung des Passkeys wurde abgebrochen.",
+      "passkeyAlreadyRegistered": "Dieser Passkey ist bereits registriert.",
+      "passkeyRegistrationFailed": "Der Passkey konnte nicht eingerichtet werden. Bitte erneut versuchen.",
+      "sessionRequired": "Bitte zuerst anmelden.",
+      "network": "Der Server ist nicht erreichbar. Bitte Verbindung prüfen.",
+      "unknown": "Die Anmeldung ist fehlgeschlagen. Bitte erneut versuchen."
+    }
+  },
+  "account": {
+    "title": "Mein Konto",
+    "description": "Passkeys, Zwei-Faktor und Sitzungen",
+    "email": "E-Mail-Adresse",
+    "emailReadOnly": "Die E-Mail-Adresse kann nur von der Inhaberin oder dem Inhaber geändert werden.",
+    "passkeys": "Passkeys",
+    "passkeysDescription": "Geräte, mit denen Sie sich ohne Code anmelden.",
+    "noPasskeys": "Noch kein Passkey eingerichtet.",
+    "addPasskey": "Passkey hinzufügen",
+    "addAnotherPasskey": "Weiteren Passkey hinzufügen",
+    "passkeyAdded": "Passkey hinzugefügt.",
+    "unnamedPasskey": "Passkey ohne Namen",
+    "createdAt": "Erstellt am {date}",
+    "rename": "Umbenennen",
+    "renamePrompt": "Neuer Name",
+    "renamed": "Passkey umbenannt.",
+    "remove": "Entfernen",
+    "removeTitle": "Passkey entfernen?",
+    "removeDescription": "Mit diesem Gerät ist danach keine Anmeldung per Passkey mehr möglich.",
+    "removeLastWarning": "Das ist Ihr letzter Passkey. Danach ist nur noch die Anmeldung per E-Mail-Code möglich.",
+    "removed": "Passkey entfernt.",
+    "totp": "Zwei-Faktor (TOTP)",
+    "totpDescription": "Zusätzlicher Code aus einer Authenticator-App für die Anmeldung per E-Mail-Code.",
+    "totpComingSoon": "Die Einrichtung folgt mit der Anmeldung per Zwei-Faktor.",
+    "sessions": "Aktive Sitzungen",
+    "sessionsDescription": "Geräte, auf denen Sie gerade angemeldet sind.",
+    "currentSession": "Diese Sitzung",
+    "unknownDevice": "Unbekanntes Gerät",
+    "noSessions": "Keine weiteren Sitzungen.",
+    "revokeOthers": "Andere Sitzungen abmelden",
+    "revokedOthers": "Andere Sitzungen wurden abgemeldet.",
+    "signOut": "Abmelden"
+  },
+  "setup": {
+    "title": "Einrichtung",
+    "description": "Einmalig alles erfassen, was vor der ersten Rechnung nötig ist.",
+    "progress": "Schritt {current} von {total}",
+    "stepsLabel": "Schritte der Einrichtung",
+    "resumeLater": "Später fortsetzen",
+    "skip": "Später",
+    "stepState": {
+      "done": "erledigt",
+      "current": "aktueller Schritt",
+      "pending": "offen"
+    },
+    "steps": {
+      "inhaberkonto": "Inhaberkonto",
+      "zugriff": "Adressen & Zugriff",
+      "email": "E-Mail-Versand",
+      "speicher": "Speicher",
+      "start": "Start",
+      "unternehmen": "Unternehmen",
+      "steuern": "Steuern",
+      "bank": "Bank",
+      "layout": "Layout",
+      "nummernkreise": "Nummernkreise",
+      "fertig": "Fertig"
+    },
+    "stepDescriptions": {
+      "inhaberkonto": "Ihr Konto als Inhaberin oder Inhaber mit Passkey absichern.",
+      "zugriff": "Serverstandort und Zugriffskonzept festhalten.",
+      "email": "Anmeldecodes werden über Cloudflare versendet.",
+      "speicher": "Prüfpunkte und Sicherungen im R2-Speicher.",
+      "start": "Neu beginnen oder Daten aus sevdesk übernehmen.",
+      "unternehmen": "Rechtsform, Firma und Pflichtangaben für Geschäftsbriefe.",
+      "steuern": "Steuernummern, Besteuerungsart und Kontenrahmen.",
+      "bank": "Bankverbindung für Rechnungen.",
+      "layout": "Logo und Farbe Ihrer Dokumente.",
+      "nummernkreise": "Formate für Rechnungs-, Angebots- und weitere Nummern.",
+      "fertig": "Pflichtangaben prüfen und Einrichtung abschließen."
+    },
+    "owner": {
+      "email": "E-Mail-Adresse (Inhaber)",
+      "passkeys": "Registrierte Passkeys",
+      "noPasskey": "Noch kein Passkey registriert.",
+      "addPasskey": "Passkey einrichten",
+      "addAnother": "Weiteren Passkey hinzufügen",
+      "recommendSecond": "Empfohlen: einen zweiten Passkey auf einem weiteren Gerät (z. B. Smartphone) einrichten.",
+      "passkeyRequired": "Bitte zuerst einen Passkey einrichten.",
+      "totp": "Zwei-Faktor (TOTP) aktivieren",
+      "totpHint": "Optional — die Einrichtung folgt."
+    },
+    "access": {
+      "country": "Serverstandort (Land)",
+      "provider": "Anbieter / Ort des Servers",
+      "providerDefault": "Eigener Server (Proxmox), Deutschland",
+      "nonEuWarning": "Der Server steht außerhalb der EU/des EWR. Bücher und Aufzeichnungen dürfen dort nur mit Genehmigung des Finanzamts geführt werden (§ 146 Abs. 2b AO).",
+      "nonEuConfirm": "Genehmigung des Finanzamts zur Buchführung außerhalb der EU liegt vor",
+      "baseDomain": "Basis-Domain",
+      "hosts": "Hosts",
+      "checks": "Prüfungen",
+      "runChecks": "Prüfungen ausführen",
+      "tailnetName": "Tailnet-Name",
+      "tailnetConfirm": "Die Anwendung ist nur im Tailnet erreichbar",
+      "unknownDomain": "wird vom Server gelesen"
+    },
+    "email": {
+      "sender": "Absender",
+      "account": "Cloudflare-Konto",
+      "token": "API-Token",
+      "tokenConfigured": "konfiguriert",
+      "tokenMissing": "fehlt",
+      "lastDelivery": "Letzte Zustellung",
+      "notificationEmail": "Adresse für Benachrichtigungen",
+      "sendTest": "Test-Code senden",
+      "noCustomerMail": "Diese Anwendung versendet keine E-Mails an Kunden."
+    },
+    "storage": {
+      "checkpoint": "Prüfpunkt-Bucket",
+      "bucketLock": "Aufbewahrungssperre (Bucket Lock)",
+      "bucketLockRecommended": "empfohlen",
+      "backups": "Sicherungen",
+      "noBackupYet": "noch keine Sicherung",
+      "test": "Speicher prüfen"
+    },
+    "start": {
+      "fresh": "Neu einrichten",
+      "freshDescription": "Unternehmensdaten, Steuern und Nummernkreise selbst eingeben.",
+      "import": "Aus sevdesk importieren",
+      "importDescription": "Kontakte, Produkte und Nummern aus einem sevdesk-Export übernehmen und danach hier weitermachen."
+    },
+    "company": {
+      "legalForm": "Rechtsform",
+      "legalFormPlaceholder": "Rechtsform wählen",
+      "name": "Firma bzw. vollständiger Name",
+      "tradeName": "Geschäftsbezeichnung",
+      "street": "Straße und Hausnummer",
+      "poBox": "Postfach",
+      "postalCode": "PLZ",
+      "city": "Ort",
+      "country": "Land",
+      "seat": "Sitz",
+      "contactName": "Ansprechpartner",
+      "phone": "Telefon",
+      "email": "E-Mail",
+      "website": "Website",
+      "registerCourt": "Registergericht",
+      "registerType": "Registerart",
+      "registerNumber": "Registernummer",
+      "representatives": "Geschäftsführer",
+      "representativesAg": "Vorstand",
+      "representativesPartners": "Gesellschafter",
+      "representativesPartg": "Partner",
+      "addRepresentative": "Person hinzufügen",
+      "removeRepresentative": "{name} entfernen",
+      "representativeName": "Vor- und Nachname",
+      "hasSupervisoryBoard": "Aufsichtsrat vorhanden",
+      "supervisoryBoardChair": "Vorsitz des Aufsichtsrats",
+      "generalPartner": "Komplementär-GmbH",
+      "generalPartnerName": "Firma der Komplementärin",
+      "footerPreview": "Vorschau Fußzeile",
+      "footerPreviewHint": "So erscheinen die Pflichtangaben im Fuß Ihrer Dokumente.",
+      "footerMissing": "Fehlt: {fields}",
+      "legalFormHints": {
+        "einzelunternehmen": "Ohne Handelsregister — vollständiger Vor- und Nachname Pflicht",
+        "freiberufler": "Freier Beruf — vollständiger Vor- und Nachname Pflicht",
+        "ek": "Eingetragener Kaufmann — Handelsregister (HRA)",
+        "gbr": "Gesellschaft bürgerlichen Rechts — Gesellschafter angeben",
+        "egbr": "Eingetragene GbR — Gesellschaftsregister (GsR)",
+        "ohg": "Offene Handelsgesellschaft — Handelsregister (HRA)",
+        "kg": "Kommanditgesellschaft — Handelsregister (HRA)",
+        "gmbh_co_kg": "GmbH & Co. KG — Angaben zur Komplementär-GmbH Pflicht",
+        "gmbh": "GmbH — im Handelsregister eingetragen, Geschäftsführer Pflicht",
+        "ug": "UG (haftungsbeschränkt) — Handelsregister (HRB), Geschäftsführer Pflicht",
+        "ag": "Aktiengesellschaft — Vorstand und Aufsichtsratsvorsitz Pflicht",
+        "partg": "Partnerschaftsgesellschaft — Partnerschaftsregister (PR)",
+        "other": "Andere Rechtsform — Pflichtangaben werden nicht automatisch geprüft"
+      },
+      "legalForms": {
+        "einzelunternehmen": "Einzelunternehmen",
+        "freiberufler": "Freiberufler",
+        "ek": "e. K.",
+        "gbr": "GbR",
+        "egbr": "eGbR",
+        "ohg": "OHG",
+        "kg": "KG",
+        "gmbh_co_kg": "GmbH & Co. KG",
+        "gmbh": "GmbH",
+        "ug": "UG (haftungsbeschränkt)",
+        "ag": "AG",
+        "partg": "PartG",
+        "other": "Andere"
+      }
+    },
+    "tax": {
+      "taxNumber": "Steuernummer",
+      "taxNumberState": "Bundesland",
+      "taxNumberStatePlaceholder": "Bundesland wählen",
+      "vatId": "USt-IdNr",
+      "taxIdHint": "Mindestens eine Angabe ist Pflicht auf Rechnungen.",
+      "ku": "Kleinunternehmer (§ 19 UStG)?",
+      "kuYes": "Ja, Kleinunternehmer",
+      "kuNo": "Nein, Regelbesteuerung",
+      "kuSince": "Kleinunternehmer seit",
+      "method": "Versteuerung",
+      "methodSoll": "Soll-Versteuerung (nach vereinbarten Entgelten)",
+      "methodSollHint": "Umsatzsteuer entsteht mit der Leistung — der Normalfall.",
+      "methodIst": "Ist-Versteuerung (nach vereinnahmten Entgelten)",
+      "methodIstHint": "Umsatzsteuer entsteht erst mit der Zahlung — nur mit Genehmigung des Finanzamts.",
+      "istConfirm": "Genehmigung des Finanzamts liegt vor",
+      "ustvaPeriod": "Voranmeldungszeitraum {year}",
+      "periodMonthly": "monatlich",
+      "periodQuarterly": "vierteljährlich",
+      "periodAnnual": "nur Jahreserklärung",
+      "periodKuHint": "Kleinunternehmer geben keine Voranmeldungen ab.",
+      "dauerfrist": "Dauerfristverlängerung",
+      "profitMethod": "Gewinnermittlung",
+      "euer": "Einnahmenüberschussrechnung (EÜR)",
+      "bilanz": "Bilanzierung",
+      "euerBlocked": "Für diese Rechtsform ist die Bilanzierung Pflicht.",
+      "euerConfirm": "Befreiung nach § 241a HGB liegt vor (Umsatz ≤ 800.000 €, Gewinn ≤ 80.000 €)",
+      "bilanzNotice": "Bei Bilanzierung dient die Anwendung als Rechnungs- und Nebenbuchhaltung mit DATEV-Übergabe.",
+      "chart": "Kontenrahmen",
+      "chartSkr03Hint": "SKR03 ist bei Einzelunternehmen verbreitet und voreingestellt",
+      "chartSkr04Hint": "SKR04 gliedert nach dem Bilanzaufbau",
+      "fiscalYearStart": "Beginn des Wirtschaftsjahres",
+      "foundedOn": "Gründungsdatum",
+      "priorYearTurnover": "Gesamtumsatz {year}",
+      "priorYearTurnoverHint": "Für die Kleinunternehmer-Grenze und die E-Rechnungs-Pflicht. Betrag in Euro, z. B. 24.500,00."
+    },
+    "bank": {
+      "iban": "IBAN",
+      "bic": "BIC",
+      "accountHolder": "Kontoinhaber",
+      "accountHolderHint": "Der Kontoinhaber muss exakt dem bei der Bank hinterlegten Namen entsprechen, sonst warnt die Bank des Kunden bei der Überweisung.",
+      "currency": "Währung",
+      "skipWarning": "Keine Bankverbindung — Rechnungen enthalten keine Zahlungsinformationen und keinen GiroCode.",
+      "connectLater": "Die Bankanbindung über Enable Banking folgt in Phase P2."
+    },
+    "layout": {
+      "logo": "Logo",
+      "template": "Vorlage",
+      "templates": {
+        "classic": "Klassisch",
+        "modern": "Modern",
+        "minimal": "Minimal"
+      },
+      "accentColor": "Akzentfarbe",
+      "previewHint": "Die PDF-Vorschau folgt mit den Dokumenten (Phase P1)."
+    },
+    "ranges": {
+      "name": "Nummernkreis",
+      "format": "Format",
+      "next": "Nächste Nummer",
+      "preview": "Vorschau",
+      "tokens": "Platzhalter",
+      "tokenYear": "Jahr",
+      "tokenYearShort": "Jahr (zweistellig)",
+      "tokenMonth": "Monat",
+      "tokenCounter": "Zähler (Stellen = Anzahl #)",
+      "draftHint": "Nummern werden erst bei der Fertigstellung vergeben."
+    },
+    "done": {
+      "required": "Pflicht",
+      "recommended": "Empfohlen",
+      "checklistUnavailable": "Die Prüfliste wird vom Server erstellt, sobald die Verbindung besteht.",
+      "noBlocking": "Alle Pflichtangaben sind vollständig.",
+      "complete": "Einrichtung abschließen",
+      "recheck": "Einrichtung erneut prüfen",
+      "completed": "Einrichtung abgeschlossen."
+    },
+    "check": {
+      "ok": "in Ordnung",
+      "warning": "Hinweis",
+      "error": "Fehler",
+      "unknown": "noch nicht geprüft"
+    }
+  }
+}

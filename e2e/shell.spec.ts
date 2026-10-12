@@ -1,0 +1,121 @@
+import { expect, test } from "./fixtures";
+
+/** App shell navigation (04-ui-ux §3). Runs against the UI without a backend (P0). */
+
+test.describe("desktop shell", () => {
+  test.skip(({ isMobile }) => isMobile, "desktop layout only");
+
+  test("MISC-10 sidebar navigation reaches the list pages without axe violations", async ({
+    page,
+    expectNoAxeViolations,
+  }) => {
+    await page.goto("/");
+    const nav = page.getByRole("navigation", { name: "Hauptnavigation" });
+    await expect(nav).toBeVisible();
+    await expectNoAxeViolations();
+
+    await nav.getByRole("link", { name: "Rechnungen" }).click();
+    await expect(page).toHaveURL(/\/rechnungen$/);
+    await expect(page.getByRole("heading", { level: 1, name: "Rechnungen" })).toBeFocused();
+    await expect(nav.getByRole("link", { name: "Rechnungen" })).toHaveAttribute("aria-current", "page");
+    await expect(page.getByRole("link", { name: "Erste Rechnung erstellen" })).toBeVisible();
+    await expectNoAxeViolations();
+
+    await nav.getByRole("link", { name: "UStVA" }).click();
+    await expect(page.getByRole("heading", { level: 1, name: "Umsatzsteuer-Voranmeldung" })).toBeVisible();
+    await expectNoAxeViolations();
+  });
+
+  test("SMOKE skip link moves focus to the main content", async ({ page }) => {
+    await page.goto("/kontakte");
+    await page.keyboard.press("Tab");
+    const skip = page.getByRole("link", { name: "Zum Inhalt springen" });
+    await expect(skip).toBeFocused();
+    await page.keyboard.press("Enter");
+    await expect(page).toHaveURL(/#main$/);
+  });
+
+  test("SMOKE Ctrl+K opens the command palette and navigates", async ({ page, expectNoAxeViolations }) => {
+    await page.goto("/");
+    await page.keyboard.press("Control+k");
+    const input = page.getByPlaceholder("Seite oder Aktion suchen …");
+    await expect(input).toBeVisible();
+    await expectNoAxeViolations();
+    await input.fill("Kontakte");
+    await page.keyboard.press("Enter");
+    await expect(page).toHaveURL(/\/kontakte$/);
+  });
+
+  test("SMOKE shortcut n then r opens a new invoice; ? shows the shortcut help", async ({ page }) => {
+    await page.goto("/");
+    await page.getByRole("heading", { level: 1, name: "Start" }).waitFor();
+    await page.keyboard.press("n");
+    await page.keyboard.press("r");
+    await expect(page).toHaveURL(/\/rechnungen\/neu$/);
+    await page.keyboard.press("Shift+?");
+    await expect(page.getByRole("dialog", { name: "Tastenkürzel" })).toBeVisible();
+  });
+
+  test("SMOKE the sidebar collapses to icons with ⌘B / Ctrl+B", async ({ page }) => {
+    await page.goto("/");
+    const sidebar = page.locator("[data-slot=sidebar][data-state]");
+    await expect(sidebar).toHaveAttribute("data-state", "expanded");
+    await page.keyboard.press("Control+b");
+    await expect(sidebar).toHaveAttribute("data-state", "collapsed");
+  });
+
+  test("MISC-10 settings pages have no axe violations", async ({ page, expectNoAxeViolations }) => {
+    for (const path of [
+      "/einstellungen",
+      "/einstellungen/unternehmen",
+      "/einstellungen/steuern",
+      "/einstellungen/nummernkreise",
+      "/konto",
+    ]) {
+      await page.goto(path);
+      await expect(page.getByRole("heading", { level: 1 })).toBeVisible();
+      await expectNoAxeViolations();
+    }
+  });
+});
+
+test.describe("mobile shell", () => {
+  test.skip(({ isMobile }) => !isMobile, "phone layout only");
+
+  test("MISC-10 bottom tab bar, Mehr sheet and Neu drawer work without axe violations", async ({
+    page,
+    expectNoAxeViolations,
+  }) => {
+    await page.goto("/");
+    const tabs = page.getByRole("navigation", { name: "Schnellzugriff" });
+    await expect(tabs).toBeVisible();
+    await expect(page.getByRole("navigation", { name: "Hauptnavigation" })).toBeHidden();
+    await expectNoAxeViolations();
+
+    await tabs.getByRole("link", { name: "Rechnungen" }).click();
+    await expect(page.getByRole("heading", { level: 1, name: "Rechnungen" })).toBeVisible();
+
+    await tabs.getByRole("button", { name: "Mehr" }).click();
+    const sheet = page.getByRole("dialog", { name: "Navigation" });
+    await expect(sheet).toBeVisible();
+    await expectNoAxeViolations();
+    await sheet.getByRole("link", { name: "Kontakte" }).click();
+    await expect(page).toHaveURL(/\/kontakte$/);
+    await expect(sheet).toBeHidden();
+
+    await tabs.getByRole("button", { name: "Neu erstellen" }).click();
+    const drawer = page.getByRole("dialog", { name: "Neu erstellen" });
+    await expect(drawer).toBeVisible();
+    await expectNoAxeViolations();
+    await drawer.getByRole("link", { name: "Angebot" }).click();
+    await expect(page).toHaveURL(/\/angebote\/neu$/);
+  });
+
+  test("MISC-10 settings list and a settings form on the phone", async ({ page, expectNoAxeViolations }) => {
+    await page.goto("/einstellungen");
+    await page.getByRole("link", { name: /^Unternehmen/ }).click();
+    await expect(page.getByRole("heading", { level: 1, name: "Unternehmen" })).toBeVisible();
+    await expect(page.getByRole("link", { name: "Einstellungen" }).first()).toBeVisible();
+    await expectNoAxeViolations();
+  });
+});
