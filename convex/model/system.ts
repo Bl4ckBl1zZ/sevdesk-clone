@@ -4,7 +4,8 @@ import { berlinCalendarDate } from "../../src/domain/time/berlin";
 import { components } from "../_generated/api";
 import type { Doc } from "../_generated/dataModel";
 import { AUTH_HARDENING } from "../lib/authHardening";
-import { env } from "../lib/env";
+import { configuredTransport } from "../lib/authMail";
+import { env, isTest } from "../lib/env";
 import { appError } from "../lib/errors";
 import { RATE_LIMIT_CONFIG } from "../lib/rateLimits";
 import { auditedInsert } from "./audit";
@@ -61,6 +62,7 @@ export async function securityInputs(ctx: ReadCtx, now: number) {
     >,
     secretsRotatedOn: env("SECRETS_ROTATED_ON"),
     auth: { ...AUTH_HARDENING, otpThrottle: AUTH_HARDENING.otpThrottle && "otpPerHour" in RATE_LIMIT_CONFIG },
+    authMail: { transport: configuredTransport(), isTest: isTest() },
     accessConcept: profile?.accessConcept
       ? { baseDomain: profile.accessConcept.baseDomain, confirmedAt: profile.accessConcept.confirmedAt }
       : undefined,

@@ -40,6 +40,7 @@ describe("AUD-020 security status inputs", () => {
       staleInvites: 1,
       ownerPasskeys: 0,
       auth: { cookieCache: false, ipRateLimit: false, otpThrottle: true },
+      authMail: { transport: "memory", isTest: true },
       convexEnv: { BETTER_AUTH_SECRET: true, JWKS: true, OWNER_EMAIL: true, CHECKPOINT_SIGNING_KEY_PEM: true },
     });
     const viewer = await t.asUser("viewer");

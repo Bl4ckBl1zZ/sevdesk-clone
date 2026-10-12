@@ -24,6 +24,9 @@ export const EDGE_PORTS = ["443", "8443"];
 export const CONVEX_TRUTHY_FLAGS = ["DO_NOT_REQUIRE_SSL", "REDACT_LOGS_TO_CLIENT", "DISABLE_BEACON"];
 const FALSY_LOOKING = /^(|0|false|no|off|n|f)$/i;
 
+/** Log drivers that rotate locally (DSGVO-06: max-size/max-file; the age limit is log-retention.sh). */
+export const ROTATING_LOG_DRIVERS = ["json-file", "local"];
+
 /** Variables that must never reach production (08 §5.2: `IS_TEST` — never in production). */
 export const FORBIDDEN_ENV = ["IS_TEST"];
 
@@ -91,6 +94,21 @@ export function lintCompose(doc: unknown): Violation[] {
       const tag = imageTag(image);
       if (!tag || tag === "latest")
         add(name, "image-pinned", `image \`${image}\` must be pinned (no implicit/latest tag)`);
+    }
+
+    const logging = isDict(svc.logging) ? svc.logging : undefined;
+    const logOptions = logging && isDict(logging.options) ? logging.options : {};
+    if (
+      !logging ||
+      !ROTATING_LOG_DRIVERS.includes(String(logging.driver ?? "")) ||
+      !logOptions["max-size"] ||
+      !logOptions["max-file"]
+    ) {
+      add(
+        name,
+        "log-rotation",
+        "needs `logging: *logging` (json-file/local with max-size and max-file) — technical logs rotate (DSGVO-06)",
+      );
     }
 
     const env = envOf(svc);

@@ -464,7 +464,9 @@ do_backups() {
   local sched
   sched="$(query dokploy schedule list --id "$SERVER_ID" --scheduleType server --json 2>/dev/null || echo '[]')"
   local name cron script
-  for spec in "convex-logical-export|0 4 * * *|convex-export.sh" "r2-monthly-copy|0 5 1 * *|r2-monthly-copy.sh"; do
+  # log-retention (DSGVO-06: technical logs ≤ 90 days) and ops-check (DSGVO-05/06, SEC-05: deployed-stack checks).
+  for spec in "convex-logical-export|0 4 * * *|convex-export.sh" "r2-monthly-copy|0 5 1 * *|r2-monthly-copy.sh" \
+    "log-retention|45 3 * * *|log-retention.sh" "ops-check|0 6 * * 1|ops-check.sh all"; do
     IFS='|' read -r name cron script <<<"$spec"
     if jq -e --arg n "$name" '.[]? | select(.name==$n)' <<<"$sched" >/dev/null; then
       ok "schedule $name exists"
@@ -476,10 +478,11 @@ do_backups() {
   done
 
   local target="root@$SERVER_IP"
-  info "server scripts: deploy/scripts/{convex-export,r2-monthly-copy}.sh → $target:/opt/rechnungen/ (+ backup.env, 0600)"
+  info "server scripts: deploy/scripts/{convex-export,r2-monthly-copy,log-retention,ops-check}.sh → $target:/opt/rechnungen/ (+ backup.env, 0600)"
   if [[ $INSTALL_SERVER_SCRIPTS -eq 1 ]]; then
     mutate ssh "$target" "install -d -m 0700 /opt/rechnungen"
-    mutate scp "$ROOT/deploy/scripts/convex-export.sh" "$ROOT/deploy/scripts/r2-monthly-copy.sh" "$target:/opt/rechnungen/"
+    mutate scp "$ROOT/deploy/scripts/convex-export.sh" "$ROOT/deploy/scripts/r2-monthly-copy.sh" \
+      "$ROOT/deploy/scripts/log-retention.sh" "$ROOT/deploy/scripts/ops-check.sh" "$target:/opt/rechnungen/"
     mutate ssh "$target" "chmod 0700 /opt/rechnungen/*.sh"
     info "create /opt/rechnungen/backup.env by hand (CONVEX_SELF_HOSTED_ADMIN_KEY, R2_* writer keys) — never via this script's output"
   else

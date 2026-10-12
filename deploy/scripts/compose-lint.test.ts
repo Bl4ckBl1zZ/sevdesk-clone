@@ -7,13 +7,14 @@ import { lintCompose } from "./compose-lint";
 const prod = () => parse(readFileSync(join(import.meta.dirname, "../compose/docker-compose.yml"), "utf8"));
 const rules = (doc: unknown) => lintCompose(doc).map((v) => `${v.service}:${v.rule}`);
 
+const logging = { driver: "json-file", options: { "max-size": "20m", "max-file": "5" } };
 const base = () => ({
   services: {
-    caddy: { image: "reg/rechnungen-caddy:abc", expose: ["443", "8443"] },
-    web: { image: "reg/rechnungen-web:abc" },
-    backend: { image: "ghcr.io/get-convex/convex-backend:72ce13c", environment: ["DISABLE_BEACON=1"] },
-    dashboard: { image: "ghcr.io/get-convex/convex-dashboard:72ce13c" },
-    postgres: { image: "postgres:17.11" },
+    caddy: { image: "reg/rechnungen-caddy:abc", expose: ["443", "8443"], logging },
+    web: { image: "reg/rechnungen-web:abc", logging },
+    backend: { image: "ghcr.io/get-convex/convex-backend:72ce13c", environment: ["DISABLE_BEACON=1"], logging },
+    dashboard: { image: "ghcr.io/get-convex/convex-dashboard:72ce13c", logging },
+    postgres: { image: "postgres:17.11", logging },
   },
 });
 
@@ -39,7 +40,7 @@ describe("production compose lint (08 §3.1)", () => {
 
   test("SEC-01 caddy must use expose (not ports) with exactly 443 and 8443", () => {
     const a = base();
-    a.services.caddy = { image: "reg/rechnungen-caddy:abc", ports: ["443:443"] } as never;
+    a.services.caddy = { image: "reg/rechnungen-caddy:abc", ports: ["443:443"], logging } as never;
     expect(rules(a)).toEqual(["caddy:edge-no-host-ports", "caddy:edge-ports"]);
     const b = base();
     b.services.caddy.expose = ["443", "8443", "2019"];
@@ -90,5 +91,15 @@ describe("production compose lint (08 §3.1)", () => {
     const a = base();
     a.services.web.image = "registry.local:5000/rechnungen-web";
     expect(rules(a)).toEqual(["web:image-pinned"]);
+  });
+
+  test("DSGVO-06 every service rotates its logs (json-file/local with max-size and max-file)", () => {
+    const doc = base() as { services: Record<string, Record<string, unknown>> };
+    delete doc.services.web?.logging;
+    if (doc.services.postgres) doc.services.postgres.logging = { driver: "json-file", options: { "max-size": "20m" } };
+    if (doc.services.backend) doc.services.backend.logging = { driver: "syslog", options: {} };
+    expect(rules(doc)).toEqual(["web:log-rotation", "backend:log-rotation", "postgres:log-rotation"]);
+    const committed = prod() as { services: Record<string, { logging?: unknown }> };
+    for (const [name, svc] of Object.entries(committed.services)) expect(svc.logging, name).toEqual(logging);
   });
 });

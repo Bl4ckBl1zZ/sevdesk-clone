@@ -16,6 +16,7 @@ const GOOD: SecurityInput = {
   webEnv: { JWT_PRIVATE_KEY_PEM: true, APP_ENCRYPTION_KEY: true },
   secretsRotatedOn: "2026-03-01",
   auth: { cookieCache: false, ipRateLimit: false, otpThrottle: true },
+  authMail: { transport: "cloudflare", isTest: false },
   accessConcept: { baseDomain: "buero.example.de", confirmedAt: NOW },
   expiredMembersWithSessions: 0,
   staleInvites: 0,
@@ -40,6 +41,7 @@ describe("AUD-020 GOBD-09 security status page", () => {
       "web-env",
       "secret-age",
       "auth-config",
+      "debug-logs",
       "access-concept",
       "expired-sessions",
       "stale-invites",
@@ -114,5 +116,14 @@ describe("AUD-020 GOBD-09 security status page", () => {
     expect(statusOf(checks, "integrity")).toBe("error");
     expect(statusOf(checks, "checkpoint")).toBe("warning");
     expect(checks.at(-1)).toMatchObject({ id: "probes", status: "unknown" });
+  });
+
+  test("DSGVO-05 a dev auth-mail transport in production is flagged: no sign-in codes or addresses in debug logs", () => {
+    const checks = evaluateSecurity({ ...GOOD, authMail: { transport: "console", isTest: false } }, NOW);
+    const c = checks.find((x) => x.id === "debug-logs");
+    expect(c).toMatchObject({ status: "error", remedy: expect.stringContaining("AUTH_MAIL_SENDER") });
+    expect(
+      statusOf(evaluateSecurity({ ...GOOD, authMail: { transport: "memory", isTest: true } }, NOW), "debug-logs"),
+    ).toBe("ok");
   });
 });

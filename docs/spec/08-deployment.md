@@ -427,6 +427,15 @@ All backups go to **Cloudflare R2** through the owner's existing Dokploy backup 
 - **Restore drill** (monthly reminder in the app; runbook `deploy/runbooks/restore.md`): spin up the `staging` environment (own compose, own Tailscale Service, own `BASE_DOMAIN` e.g. `staging.buero.example.de`) → restore the latest Postgres dump → start Convex with the same `INSTANCE_NAME`/`INSTANCE_SECRET` → `integrity.verify` → compare the chain head with the production checkpoint from R2 → record the drill result in the app (Einstellungen › System › Backups). Restores are audit-logged. Better Auth sessions from production are invalid in staging if `BETTER_AUTH_SECRET`/`JWKS` differ (intended); sign in with e-mail OTP.
 - Long-term readability (GOBD-23): the yearly full export (JSON + PDFs/XML + GDPdU) is stored separately; it stays readable without the app.
 
+### 7.1 Logs, encryption at rest and breach response (DSGVO-05, DSGVO-06)
+
+- **Access logs** (Caddy, `(access_log)` snippet): `format filter` truncates `remote_ip`/`client_ip` (IPv4 /24, IPv6 /48) and deletes `Cookie`, `Authorization`, `X-Forwarded-For`, `Cf-Connecting-Ip` and `Set-Cookie`. Checked by `deploy/caddy/caddyfile.test.ts`; the image build runs `caddy validate`.
+- **Rotation ≤ 90 days:** every compose service uses `logging: *logging` (json-file, `max-size`/`max-file`; compose-lint rule `log-rotation`). json-file rotates by size only, so the server schedule `log-retention.sh` (daily 03:45) drops lines and rotated files older than 90 days. The GoBD audit log lives in Convex and is kept per GOBD-20.
+- **No PII in debug logs:** the app has no request logger; the dev auth-mail transports (`AUTH_MAIL_SENDER=console|memory`) are flagged as an error on the security page outside test instances (F12 AUD-020).
+- **Encryption at rest:** server disk via LUKS or ZFS native encryption on the Proxmox host (a VM cannot see host encryption → the owner sets `DISK_ENCRYPTION_CONFIRMED=<YYYY-MM-DD>` in `/opt/rechnungen/backup.env` after checking); R2 encrypts every object at rest (AES-256, provider default) and the buckets use the EU-jurisdiction endpoint.
+- **Deployed-stack check** `ops-check.sh all` (server schedule, weekly Monday 06:00; also after changes): log age ≤ 90 days, masked IPs and no credentials in the Caddy log, EU R2 endpoint, disk encryption. Its checks are tested with fixtures in CI (`deploy/scripts/ops-scripts.test.ts`); the `all` mode runs only on the server.
+- **Breach response:** `deploy/runbooks/incident.md` (contain, preserve evidence, assess, notify the supervisory authority within 72 h, inform data subjects, document every breach).
+
 ## 8. Upgrades (runbooks)
 
 | Component | Procedure |

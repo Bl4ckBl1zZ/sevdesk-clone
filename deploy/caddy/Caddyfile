@@ -35,10 +35,21 @@
 	header ?Cross-Origin-Opener-Policy "same-origin"
 }
 
+# Access log (DSGVO-05/06): client IPs truncated (IPv4 /24, IPv6 /48), credentials and cookies never logged.
+# Rotation: Docker json-file max-size/max-file (compose) + deploy/scripts/log-retention.sh (≤ 90 days).
 (access_log) {
 	log {
 		output stdout
-		format json
+		format filter {
+			wrap json
+			request>remote_ip ip_mask 24 48
+			request>client_ip ip_mask 24 48
+			request>headers>Cookie delete
+			request>headers>Authorization delete
+			request>headers>X-Forwarded-For delete
+			request>headers>Cf-Connecting-Ip delete
+			resp_headers>Set-Cookie delete
+		}
 	}
 }
 

@@ -35,6 +35,8 @@ export interface SecurityInput {
   /** `SECRETS_ROTATED_ON` (YYYY-MM-DD) from the Convex env; yearly rotation reminder. */
   secretsRotatedOn?: string | undefined;
   auth: { cookieCache: boolean; ipRateLimit: boolean; otpThrottle: boolean };
+  /** DSGVO-05: the dev transports write sign-in codes and addresses to the Convex log / a table. */
+  authMail: { transport: "cloudflare" | "memory" | "console"; isTest: boolean };
   accessConcept?: { baseDomain: string; confirmedAt: number } | undefined;
   expiredMembersWithSessions: number;
   staleInvites: number;
@@ -150,6 +152,17 @@ export function evaluateSecurity(i: SecurityInput, now: number): SecurityCheck[]
           "error",
           authProblems.join("; "),
           "convex/auth.ts prüfen (02 §4.2).",
+        ),
+  );
+  out.push(
+    i.authMail.transport === "cloudflare" || i.authMail.isTest
+      ? ok("debug-logs", "Keine personenbezogenen Daten in Debug-Logs")
+      : bad(
+          "debug-logs",
+          "Keine personenbezogenen Daten in Debug-Logs",
+          "error",
+          `AUTH_MAIL_SENDER=${i.authMail.transport}: Anmeldecodes und E-Mail-Adressen landen im Log bzw. in der Datenbank.`,
+          "AUTH_MAIL_SENDER im Convex-Backend entfernen (nur für Entwicklung/Test, DSGVO-05).",
         ),
   );
   out.push(
