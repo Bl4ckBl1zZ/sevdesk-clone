@@ -11,6 +11,7 @@
       "!pnpm-lock.yaml",
       "!test/golden/cases",
       "!test/fixtures",
+      "!src/pdf/fonts/data.generated.ts",
       "!docs",
       "!**/*.md",
       "!**/*.svg"
