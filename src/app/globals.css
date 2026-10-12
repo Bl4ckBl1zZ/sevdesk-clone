@@ -157,3 +157,14 @@
     transition-duration: 0.01ms !important;
   }
 }
+
+/*
+ * MISC-10 (WCAG 1.4.3): sonner's light rich colours miss 4.5:1 for 13 px text (e.g. #008a2e on #ecfdf3 = 4.25).
+ * Darker text tones with the same hue; the extra `html` raises the specificity above sonner's injected rule.
+ */
+html [data-sonner-toaster][data-sonner-theme="light"] {
+  --success-text: hsl(140, 100%, 22%);
+  --info-text: hsl(210, 92%, 35%);
+  --warning-text: hsl(31, 92%, 28%);
+  --error-text: hsl(0, 100%, 35%);
+}
