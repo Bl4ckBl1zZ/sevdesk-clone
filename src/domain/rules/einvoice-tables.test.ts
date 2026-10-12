@@ -25,11 +25,11 @@ describe("§ 13b types (UST-22)", () => {
   test("UST-22 each type maps to its § 13b Abs. 2 Nr.; unknown types and dates before the rule are rejected", () => {
     const nr = (id: string, date = "2026-10-12") => {
       const r = lookupRc13bType(id, d(date));
-      return r.ok ? r.value.value.nr : r.error.code;
+      return r.ok ? r.value.value.paragraphNr : r.error.code;
     };
     expect(nr("construction")).toBe("4");
     expect(nr("cleaning")).toBe("8");
-    expect(nr("energy_reseller")).toBe("5b");
+    expect(nr("energy_reseller")).toBe("5 Buchst. b");
     expect(nr("telecom_reseller", "2020-12-31")).toBe("rule_missing");
     expect(nr("spaceships")).toBe("rc13b_type_unknown");
     for (const table of Object.values(RC13B_TYPES)) expect(ALL_RULE_TABLES).toContain(table);

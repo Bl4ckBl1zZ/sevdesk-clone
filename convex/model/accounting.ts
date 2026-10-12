@@ -269,7 +269,7 @@ export interface OpeningReceivableInput {
   documentDate: string;
   dueDate?: string;
   counterpartyName: string;
-  contactId?: string;
+  contactId?: Id<"contacts">;
   grossCents: number;
   openCents: number;
   taxedAs: "soll" | "ist";

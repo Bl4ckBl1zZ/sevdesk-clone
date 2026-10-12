@@ -18,4 +18,8 @@ crons.cron("integrity.checkpoint", "30 * * * *", internal.integrity.checkpointCr
 // members.expire — hourly (02 §7)
 crons.cron("members.expire", "5 * * * *", internal.members.expireCron, {});
 
+// products.applyScheduledPrices — daily 00:05 Europe/Berlin (22:05 UTC in summer, 23:05 UTC in winter; F03 PRD-031)
+crons.cron("products.applyScheduledPrices (CEST)", "5 22 * * *", internal.products.applyScheduledPricesCron, {});
+crons.cron("products.applyScheduledPrices (CET)", "5 23 * * *", internal.products.applyScheduledPricesCron, {});
+
 export default crons;

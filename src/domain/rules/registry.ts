@@ -5,6 +5,8 @@
 import { ACCOUNTING_RULE_TABLES } from "./accounting";
 import { BASISZINSSATZ } from "./basiszinssatz";
 import { EINVOICE_OBLIGATION } from "./einvoice-obligation";
+import { EU_VAT_TERRITORY } from "./eu-vat-countries";
+import { EXEMPTION_REASONS } from "./exemption-reasons";
 import { NOTE_TEXTS } from "./note-texts";
 import { RC13B_TYPES } from "./rc13b-types";
 import type { RuleTable } from "./rule-table";
@@ -19,6 +21,8 @@ export const ALL_RULE_TABLES: readonly RuleTable<unknown>[] = [
   KLEINBETRAG_LIMIT,
   EINVOICE_OBLIGATION,
   ...Object.values(NOTE_TEXTS),
+  EU_VAT_TERRITORY,
   ...Object.values(RC13B_TYPES),
+  ...Object.values(EXEMPTION_REASONS),
   ...ACCOUNTING_RULE_TABLES,
 ];

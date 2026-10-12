@@ -1,7 +1,8 @@
 /**
  * Prepares a local self-hosted Convex backend for the integration and E2E suites (07-testing §3.2; no Docker).
  *
- *   scripts/convex-local-backend.sh &     # precompiled backend on :3210 (API) / :3211 (HTTP actions)
+ *   scripts/convex-local-backend.sh &     # precompiled backend on :3210 (API) / :3211 (HTTP actions);
+ *                                         # CONVEX_PORT / CONVEX_SITE_PORT move both (parallel worktrees)
  *   pnpm test:backend                     # this script: Convex env + keys, push functions, write .env.test.local
  *   pnpm test -p integration              # reads .env.test.local (test/load-test-env.ts)
  *   pnpm e2e --project=desktop --project=pixel   # playwright.config.ts reads .env.test.local

@@ -77,7 +77,7 @@ const vOpeningReceivable = v.object({
   documentDate: v.string(),
   dueDate: v.optional(v.string()),
   counterpartyName: v.string(),
-  contactId: v.optional(v.string()),
+  contactId: v.optional(v.id("contacts")),
   grossCents: v.number(),
   openCents: v.number(),
   taxedAs: v.union(v.literal("soll"), v.literal("ist")),

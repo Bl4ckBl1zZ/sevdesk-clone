@@ -83,7 +83,7 @@
     "note:pay_ref": "pay_ref@2007-01-01",
     "note:rc_13b": "rc_13b@2007-01-01",
     "note:terms": "terms@2007-01-01",
-    "rc13b:construction": "rc13b_construction@2007-01-01"
+    "rc13b:construction": "rc13b_construction@2021-01-01"
   },
   "schemaVersion": 1,
   "seller": {

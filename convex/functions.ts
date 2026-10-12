@@ -42,6 +42,7 @@ export const SYSTEM_JOBS = [
   "cron.integrity.checkpoint",
   "cron.members.expire",
   "cron.invariants.check",
+  "cron.products.applyScheduledPrices", // F03 PRD-031, 02 §7 products.applyScheduledPrices
   "auth", // member created by the sign-up trigger, OTP throttle, auth-mail failures
   "migration", // migrations:run — the runner then acts as system:migration.<name> (AUD-028)
 ] as const;

@@ -54,6 +54,17 @@ export const PERMISSIONS = {
   "accounting.openingBalance": { roles: ["owner", "bookkeeper"], scope: null, write: true },
   /** F08 ACC-008 role mapping overrides (audited, owner only, never via MCP). */
   "accounting.roles": { roles: ["owner"], scope: null, write: true },
+  /**
+   * F02 contacts: master data is part of the bookkeeper's daily work (drafts need customers, 02 §4.3).
+   * The auditor reads master data read-only: a Betriebsprüfer needs debtors/creditors for GoBD Z1 access (02 §4.3 auditor row).
+   */
+  "contacts.read": { roles: ALL, scope: "contacts:read", write: false },
+  "contacts.write": { roles: ["owner", "bookkeeper"], scope: "contacts:write", write: true },
+  /** CON-132…134 merge and undo (⚠ for MCP, CLAUDE.md rule 8 — the MCP slice adds the confirm token). */
+  "contacts.merge": { roles: ["owner", "bookkeeper"], scope: "contacts:write", write: true },
+  /** F03 products, categories and customer prices (auditor: read-only master data for Z1, like contacts). */
+  "products.read": { roles: ALL, scope: "products:read", write: false },
+  "products.write": { roles: ["owner", "bookkeeper"], scope: "products:write", write: true },
 } as const satisfies Record<string, PermissionRule>;
 
 export type Permission = keyof typeof PERMISSIONS;

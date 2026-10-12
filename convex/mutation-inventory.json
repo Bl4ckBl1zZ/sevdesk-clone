@@ -97,6 +97,198 @@
     "wrapper": "action",
     "permission": "integrations.manage"
   },
+  "contacts:addActivity": {
+    "kind": "mutation",
+    "visibility": "public",
+    "wrapper": "mutation",
+    "permission": "contacts.write"
+  },
+  "contacts:addCertificate": {
+    "kind": "mutation",
+    "visibility": "public",
+    "wrapper": "mutation",
+    "permission": "contacts.write"
+  },
+  "contacts:addPdfConsent": {
+    "kind": "mutation",
+    "visibility": "public",
+    "wrapper": "mutation",
+    "permission": "contacts.write"
+  },
+  "contacts:archive": {
+    "kind": "mutation",
+    "visibility": "public",
+    "wrapper": "mutation",
+    "permission": "contacts.write"
+  },
+  "contacts:bulkArchive": {
+    "kind": "mutation",
+    "visibility": "public",
+    "wrapper": "mutation",
+    "permission": "contacts.write"
+  },
+  "contacts:bulkTag": {
+    "kind": "mutation",
+    "visibility": "public",
+    "wrapper": "mutation",
+    "permission": "contacts.write"
+  },
+  "contacts:create": {
+    "kind": "mutation",
+    "visibility": "public",
+    "wrapper": "mutation",
+    "permission": "contacts.write"
+  },
+  "contacts:dismissDuplicate": {
+    "kind": "mutation",
+    "visibility": "public",
+    "wrapper": "mutation",
+    "permission": "contacts.write"
+  },
+  "contacts:duplicateHints": {
+    "kind": "query",
+    "visibility": "public",
+    "wrapper": "query",
+    "permission": "contacts.read"
+  },
+  "contacts:duplicates": {
+    "kind": "query",
+    "visibility": "public",
+    "wrapper": "query",
+    "permission": "contacts.read"
+  },
+  "contacts:exportRows": {
+    "kind": "query",
+    "visibility": "public",
+    "wrapper": "query",
+    "permission": "contacts.read"
+  },
+  "contacts:generateUploadUrl": {
+    "kind": "mutation",
+    "visibility": "public",
+    "wrapper": "mutation",
+    "permission": "contacts.write"
+  },
+  "contacts:get": {
+    "kind": "query",
+    "visibility": "public",
+    "wrapper": "query",
+    "permission": "contacts.read"
+  },
+  "contacts:importCommit": {
+    "kind": "mutation",
+    "visibility": "public",
+    "wrapper": "mutation",
+    "permission": "contacts.write"
+  },
+  "contacts:importPreview": {
+    "kind": "query",
+    "visibility": "public",
+    "wrapper": "query",
+    "permission": "contacts.write"
+  },
+  "contacts:list": {
+    "kind": "query",
+    "visibility": "public",
+    "wrapper": "query",
+    "permission": "contacts.read"
+  },
+  "contacts:merge": {
+    "kind": "mutation",
+    "visibility": "public",
+    "wrapper": "mutation",
+    "permission": "contacts.merge"
+  },
+  "contacts:mergePreview": {
+    "kind": "query",
+    "visibility": "public",
+    "wrapper": "query",
+    "permission": "contacts.read"
+  },
+  "contacts:nextNumber": {
+    "kind": "query",
+    "visibility": "public",
+    "wrapper": "query",
+    "permission": "contacts.read"
+  },
+  "contacts:options": {
+    "kind": "query",
+    "visibility": "public",
+    "wrapper": "query",
+    "permission": "contacts.read"
+  },
+  "contacts:remove": {
+    "kind": "mutation",
+    "visibility": "public",
+    "wrapper": "mutation",
+    "permission": "contacts.write"
+  },
+  "contacts:removeActivity": {
+    "kind": "mutation",
+    "visibility": "public",
+    "wrapper": "mutation",
+    "permission": "contacts.write"
+  },
+  "contacts:removeAddress": {
+    "kind": "mutation",
+    "visibility": "public",
+    "wrapper": "mutation",
+    "permission": "contacts.write"
+  },
+  "contacts:removeChannel": {
+    "kind": "mutation",
+    "visibility": "public",
+    "wrapper": "mutation",
+    "permission": "contacts.write"
+  },
+  "contacts:revokePdfConsent": {
+    "kind": "mutation",
+    "visibility": "public",
+    "wrapper": "mutation",
+    "permission": "contacts.write"
+  },
+  "contacts:saveAddress": {
+    "kind": "mutation",
+    "visibility": "public",
+    "wrapper": "mutation",
+    "permission": "contacts.write"
+  },
+  "contacts:saveChannel": {
+    "kind": "mutation",
+    "visibility": "public",
+    "wrapper": "mutation",
+    "permission": "contacts.write"
+  },
+  "contacts:setTaskDone": {
+    "kind": "mutation",
+    "visibility": "public",
+    "wrapper": "mutation",
+    "permission": "contacts.write"
+  },
+  "contacts:unarchive": {
+    "kind": "mutation",
+    "visibility": "public",
+    "wrapper": "mutation",
+    "permission": "contacts.write"
+  },
+  "contacts:undoMerge": {
+    "kind": "mutation",
+    "visibility": "public",
+    "wrapper": "mutation",
+    "permission": "contacts.merge"
+  },
+  "contacts:update": {
+    "kind": "mutation",
+    "visibility": "public",
+    "wrapper": "mutation",
+    "permission": "contacts.write"
+  },
+  "contacts:updateActivity": {
+    "kind": "mutation",
+    "visibility": "public",
+    "wrapper": "mutation",
+    "permission": "contacts.write"
+  },
   "integrity:acknowledge": {
     "kind": "mutation",
     "visibility": "public",
@@ -391,6 +583,126 @@
     "wrapper": "systemMutation",
     "job": "migration"
   },
+  "products:applyScheduledPricesCron": {
+    "kind": "mutation",
+    "visibility": "internal",
+    "wrapper": "systemMutation",
+    "job": "cron.products.applyScheduledPrices"
+  },
+  "products:archive": {
+    "kind": "mutation",
+    "visibility": "public",
+    "wrapper": "mutation",
+    "permission": "products.write"
+  },
+  "products:categories": {
+    "kind": "query",
+    "visibility": "public",
+    "wrapper": "query",
+    "permission": "products.read"
+  },
+  "products:create": {
+    "kind": "mutation",
+    "visibility": "public",
+    "wrapper": "mutation",
+    "permission": "products.write"
+  },
+  "products:deleteCategory": {
+    "kind": "mutation",
+    "visibility": "public",
+    "wrapper": "mutation",
+    "permission": "products.write"
+  },
+  "products:exportRows": {
+    "kind": "query",
+    "visibility": "public",
+    "wrapper": "query",
+    "permission": "products.read"
+  },
+  "products:get": {
+    "kind": "query",
+    "visibility": "public",
+    "wrapper": "query",
+    "permission": "products.read"
+  },
+  "products:importCommit": {
+    "kind": "mutation",
+    "visibility": "public",
+    "wrapper": "mutation",
+    "permission": "products.write"
+  },
+  "products:importPreview": {
+    "kind": "query",
+    "visibility": "public",
+    "wrapper": "query",
+    "permission": "products.write"
+  },
+  "products:list": {
+    "kind": "query",
+    "visibility": "public",
+    "wrapper": "query",
+    "permission": "products.read"
+  },
+  "products:nextNumber": {
+    "kind": "query",
+    "visibility": "public",
+    "wrapper": "query",
+    "permission": "products.read"
+  },
+  "products:options": {
+    "kind": "query",
+    "visibility": "public",
+    "wrapper": "query",
+    "permission": "products.read"
+  },
+  "products:rateChangeBanners": {
+    "kind": "query",
+    "visibility": "public",
+    "wrapper": "query",
+    "permission": "products.read"
+  },
+  "products:remove": {
+    "kind": "mutation",
+    "visibility": "public",
+    "wrapper": "mutation",
+    "permission": "products.write"
+  },
+  "products:removeCustomerPrice": {
+    "kind": "mutation",
+    "visibility": "public",
+    "wrapper": "mutation",
+    "permission": "products.write"
+  },
+  "products:saveCategory": {
+    "kind": "mutation",
+    "visibility": "public",
+    "wrapper": "mutation",
+    "permission": "products.write"
+  },
+  "products:saveCustomerPrice": {
+    "kind": "mutation",
+    "visibility": "public",
+    "wrapper": "mutation",
+    "permission": "products.write"
+  },
+  "products:setScheduledPrice": {
+    "kind": "mutation",
+    "visibility": "public",
+    "wrapper": "mutation",
+    "permission": "products.write"
+  },
+  "products:unarchive": {
+    "kind": "mutation",
+    "visibility": "public",
+    "wrapper": "mutation",
+    "permission": "products.write"
+  },
+  "products:update": {
+    "kind": "mutation",
+    "visibility": "public",
+    "wrapper": "mutation",
+    "permission": "products.write"
+  },
   "settings:addBankAccount": {
     "kind": "mutation",
     "visibility": "public",
@@ -648,5 +960,41 @@
     "visibility": "public",
     "wrapper": "query",
     "permission": "members.read"
+  },
+  "vatIdChecks:check": {
+    "kind": "action",
+    "visibility": "public",
+    "wrapper": "action",
+    "permission": "contacts.write"
+  },
+  "vatIdChecks:evidence": {
+    "kind": "query",
+    "visibility": "public",
+    "wrapper": "query",
+    "permission": "contacts.read"
+  },
+  "vatIdChecks:list": {
+    "kind": "query",
+    "visibility": "public",
+    "wrapper": "query",
+    "permission": "contacts.read"
+  },
+  "vatIdChecks:prepare": {
+    "kind": "query",
+    "visibility": "public",
+    "wrapper": "query",
+    "permission": "contacts.write"
+  },
+  "vatIdChecks:record": {
+    "kind": "mutation",
+    "visibility": "internal",
+    "wrapper": "actorMutation",
+    "permission": "contacts.write"
+  },
+  "vatIdChecks:reuse": {
+    "kind": "mutation",
+    "visibility": "internal",
+    "wrapper": "actorMutation",
+    "permission": "contacts.write"
   }
 }

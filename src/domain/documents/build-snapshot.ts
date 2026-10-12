@@ -362,7 +362,7 @@ export function buildSnapshot(input: SnapshotInput): Result<DocumentSnapshot, Bu
       const rc = lookupRc13bType(type, date);
       if (!rc.ok) return err(rc.error);
       notes.ruleVersions[`rc13b:${type}`] = rc.value.rowId;
-      notes.add("rc_13b", "legal", { de: { nr: rc.value.value.nr } }, "REG");
+      notes.add("rc_13b", "legal", { de: { nr: rc.value.value.paragraphNr } }, "REG");
     }
     for (const nr of distinct(
       billable.filter((l) => l.vatCategory === "E" && l.exemptionParagraph).map((l) => l.exemptionParagraph as string),

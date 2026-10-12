@@ -21,6 +21,11 @@ const EXPECTED: Record<Permission, readonly MemberRole[]> = {
   "accounting.read": ["owner", "bookkeeper", "viewer", "auditor"],
   "accounting.openingBalance": ["owner", "bookkeeper"],
   "accounting.roles": ["owner"],
+  "contacts.read": ["owner", "bookkeeper", "viewer", "auditor"],
+  "contacts.write": ["owner", "bookkeeper"],
+  "contacts.merge": ["owner", "bookkeeper"],
+  "products.read": ["owner", "bookkeeper", "viewer", "auditor"],
+  "products.write": ["owner", "bookkeeper"],
 };
 
 describe("permission matrix (02 §4.3)", () => {
@@ -35,6 +40,14 @@ describe("permission matrix (02 §4.3)", () => {
       if (!PERMISSIONS[action].write) continue;
       expect(canDo("viewer", action)).toBe(false);
       expect(canDo("auditor", action)).toBe(false);
+    }
+  });
+
+  test("SEC-01 auditor reads contacts and products master data read-only (GoBD Z1, 02 §4.3)", () => {
+    for (const action of ["contacts.read", "products.read"] as const) expect(canDo("auditor", action)).toBe(true);
+    for (const action of ["contacts.write", "contacts.merge", "products.write"] as const) {
+      expect(canDo("auditor", action)).toBe(false);
+      expect(canDo("viewer", action)).toBe(false);
     }
   });
 

@@ -103,7 +103,7 @@
 |---|---|---|---|---|
 | CON-030 | `contactChannels` of type `email`, `phone`, `mobile`, `fax`, `web` with `value`, `label`, `isPrimary` (one per type), `isInvoiceEmail` (any number of e-mail channels) | MUST | P1 | — |
 | CON-031 | The send dialog prefills "An" with all `isInvoiceEmail` addresses of the addressed contact; for a person under an organisation without own invoice e-mail, the organisation's invoice e-mails are used | MUST | P1 | MAIL-02 |
-| CON-032 | E-mail values are normalised (trim, lowercase domain) and validated; phone numbers are stored as entered plus an E.164 form when parseable (`libphonenumber-js`, default region DE) for `tel:` links | MUST | P1 | — |
+| CON-032 | E-mail values are normalised (trim, lowercase domain) and validated; phone numbers are stored as entered plus an E.164 form when parseable (`toE164()` in `src/domain/contacts/channels.ts`, default region DE; 03 §12) for `tel:` links | MUST | P1 | — |
 | CON-033 | When no invoice e-mail exists, finalised invoices can still be downloaded/sent by post; the send dialog shows "Keine Rechnungs-E-Mail hinterlegt" and offers to add one | MUST | P1 | — |
 
 ### 3.4 Tax data, B2C and B2G
@@ -199,7 +199,7 @@
 | CON-131 | `/kontakte/duplikate` lists candidate pairs with score and reasons; "Kein Duplikat" dismisses a pair permanently | MUST | P1 | — |
 | CON-132 | **Merge** (same `kind` only): choose the winner; per field choose the value (winner by default); addresses, channels, activities, tags, custom fields, customer prices, tasks, SEPA mandates and **drafts** move to the winner. **Finalised documents, payments, vouchers, journal entries and `vatIdChecks` are not modified** (GOBD-06); they keep the loser's ID | MUST | P1 | GOBD-06, UST-03 |
 | CON-133 | The loser gets `status: archived` and `mergedIntoId = winner` (it is never deleted, EC-113). References from finalised records are **resolved** to the winner through this alias rather than rewritten, because `contactId` is not a mutable field of finalised documents (03 §11). All contact queries (document lists, stats, timeline, open items, dunning, DATEV) resolve aliases so the winner shows everything. Opening the loser redirects to the winner with a banner | MUST | P1 | GOBD-01 |
-| CON-134 | Merge is confirmed in a dialog listing what moves and what stays; it writes one audit entry with the full move list. **Undo** ("Zusammenführung rückgängig machen") restores the loser and moves back exactly the recorded items, as long as none of the moved drafts has been finalised since | SHOULD | P1 | GOBD-06 |
+| CON-134 | Merge is confirmed in a dialog listing what moves and what stays; it writes one audited `contactMerges` record with the full move list plus one audited patch per moved row (RI-15, 03 §12). **Undo** ("Zusammenführung rückgängig machen") restores the loser and moves back exactly the recorded items, as long as none of the moved drafts has been finalised since | SHOULD | P1 | GOBD-06 |
 | CON-135 | DATEV: if both contacts have exported debtor/creditor accounts, the winner keeps its account; the dialog warns "Personenkonto {loserAccount} wurde bereits an DATEV übergeben — offene Posten bitte in der Buchhaltung umbuchen." | MUST | P1 | DATEV-02 |
 
 ### 3.13 Import and export

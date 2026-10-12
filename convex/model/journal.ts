@@ -254,6 +254,13 @@ interface PersistArgs {
   reversalOfId?: Id<"journalEntries">;
 }
 
+/** ACC-010: a line's contact must be an existing F02 contact (OPOS, DATEV personal accounts, CON-170 delete guard). */
+async function contactRef(ctx: ReadCtx, id: string): Promise<Id<"contacts">> {
+  const ref = ctx.db.normalizeId("contacts", id);
+  if (!ref || !(await ctx.db.get(ref))) throw appError("invalid_input", "Der Kontakt der Buchung existiert nicht.");
+  return ref;
+}
+
 async function persist(ctx: ModelCtx, posting: Posting, a: PersistArgs) {
   const when = resolvePostingDate(posting.date, a.dating, await closedPeriods(ctx), a.today);
   if (!when.ok) fail("period_locked", when.error);
@@ -264,13 +271,18 @@ async function persist(ctx: ModelCtx, posting: Posting, a: PersistArgs) {
   if (!resolved.ok) fail(RESOLVE_ERROR[resolved.error.code], resolved.error);
 
   const seq = ((await journalHead(ctx))?.seq ?? 0) + 1;
+  const contacts = new Map<string, Id<"contacts">>();
+  for (const l of resolved.value.lines) {
+    if (l.contactId !== undefined && !contacts.has(l.contactId))
+      contacts.set(l.contactId, await contactRef(ctx, l.contactId));
+  }
   const lines = resolved.value.lines.map((l) => ({
     account: l.account,
     ...(l.role !== undefined ? { role: l.role } : {}),
     debitCents: l.debitCents,
     creditCents: l.creditCents,
     ...(l.taxKey !== undefined ? { taxKey: l.taxKey } : {}),
-    ...(l.contactId !== undefined ? { contactId: l.contactId } : {}),
+    ...(l.contactId !== undefined ? { contactId: contacts.get(l.contactId) as Id<"contacts"> } : {}),
     ...(l.taxPointDate !== undefined ? { taxPointDate: l.taxPointDate } : {}),
     ...(l.taxPeriod !== undefined ? { taxPeriod: l.taxPeriod } : {}),
   }));

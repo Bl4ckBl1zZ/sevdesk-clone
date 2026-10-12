@@ -13,6 +13,9 @@ import { makeT, type TestT } from "./test.setup";
 
 const OWNER = { actor: "user:test-owner", role: "owner", channel: "ui" } as const;
 
+/** The F02 contact of the receivable lines (ACC-010); created per test by `setup()`, read lazily by the factories. */
+let contact1: Id<"contacts">;
+
 async function setup(
   over: Parameters<typeof patchCompanyProfile>[1] = {},
 ): Promise<{ t: TestT; bank: Id<"bankAccounts"> }> {
@@ -49,6 +52,32 @@ async function setup(
       { action: "settings.bank_account.create" },
     ),
   );
+  contact1 = await t.model(OWNER, (ctx) =>
+    auditedInsert(
+      ctx,
+      "contacts",
+      {
+        kind: "organization",
+        number: "10000",
+        numberNormalized: "10000",
+        roles: ["customer"],
+        status: "active",
+        organizationName: "Kunde GmbH",
+        displayName: "Kunde GmbH",
+        searchText: "kunde gmbh 10000",
+        isConsumer: false,
+        isPublicAuthority: false,
+        reverseCharge13bCertificates: [],
+        einvoice: { preferredFormat: "auto", pdfConsents: [] },
+        language: "de",
+        currency: "EUR",
+        tags: [],
+        customFields: {},
+        version: 1,
+      },
+      { action: "contact.create" },
+    ),
+  );
   return { t, bank };
 }
 
@@ -63,7 +92,7 @@ const invoice = (id: string, date = "2026-03-10", net = 100000): BusinessEvent =
   date,
   supplyDate: { kind: "date", date },
   taxCase: "domestic",
-  contactId: "contact1",
+  contactId: contact1,
   vatGroups: [{ category: "S", rateBp: 1900, netCents: net, vatCents: Math.round(net * 0.19) }],
 });
 
@@ -74,7 +103,7 @@ const payment = (id: string, over: Partial<PaymentReceivedEvent>): PaymentReceiv
   means: { kind: "cash" },
   amountCents: 11900,
   target: { kind: "salesDocument", id: "doc1", number: "RE-doc1" },
-  contactId: "contact1",
+  contactId: contact1,
   ...over,
 });
 
@@ -120,9 +149,16 @@ describe("journal model (ACC-001…ACC-006)", () => {
     const lineRows = await t.run((ctx) => ctx.db.query("journalLines").collect());
     expect(lineRows).toHaveLength(5);
     // ACC-010: receivable lines carry the contact (OPOS, later DATEV personal accounts), in entry and read model
-    expect(all[0]?.lines[0]).toMatchObject({ account: "1400", contactId: "contact1" });
-    expect(lineRows.filter((l) => l.contactId === "contact1").map((l) => l.account)).toEqual(["1400", "1400"]);
+    expect(all[0]?.lines[0]).toMatchObject({ account: "1400", contactId: contact1 });
+    expect(lineRows.filter((l) => l.contactId === contact1).map((l) => l.account)).toEqual(["1400", "1400"]);
     expect(all[1]?.source).toEqual({ kind: "payment", id: "pay1" });
+  });
+
+  test("ACC-010 a posting line must reference an existing F02 contact", async () => {
+    const { t } = await setup();
+    const bad = { ...invoice("doc1"), contactId: "contact1" } as BusinessEvent;
+    expect(await post(t, bad).catch(errorCode)).toBe("invalid_input");
+    expect(await entries(t)).toEqual([]);
   });
 
   test("ACC-001 TST-ACC-27 RI-11 RI-12 random event sequences keep the journal balanced, gapless and the cash ≥ 0", async () => {

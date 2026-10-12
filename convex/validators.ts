@@ -117,7 +117,7 @@ export const vFxRate = v.object({
   date: v.string(),
 });
 
-/** 03 §8 `journalEntries.lines[]`. `contactId` is a string until the contacts table exists (F02). */
+/** 03 §8 `journalEntries.lines[]`; `contactId` references the F02 contact (OPOS, DATEV personal accounts). */
 export const vJournalLine = v.object({
   account: v.string(),
   role: v.optional(v.string()),
@@ -125,7 +125,7 @@ export const vJournalLine = v.object({
   creditCents: v.number(),
   taxKey: v.optional(v.string()),
   costCenterId: v.optional(v.string()),
-  contactId: v.optional(v.string()),
+  contactId: v.optional(v.id("contacts")),
   taxPointDate: v.optional(v.string()),
   taxPeriod: v.optional(v.string()),
   currency: v.optional(v.string()),
@@ -147,3 +147,16 @@ export const vJournalSourceKind = v.union(
   v.literal("fx"),
   v.literal("period_close"),
 );
+
+// ── contacts and products (03 §2, §3) ────────────────────────────────────────────────────────────────────
+export const vContactKind = v.union(v.literal("organization"), v.literal("person"));
+export const vContactRole = v.union(
+  v.literal("customer"),
+  v.literal("supplier"),
+  v.literal("partner"),
+  v.literal("prospect"),
+);
+export const vContactStatus = v.union(v.literal("lead"), v.literal("active"), v.literal("archived"));
+export const vVatCheckStatus = v.union(v.literal("valid"), v.literal("invalid"), v.literal("unavailable"));
+export const vQualifiedCode = v.union(v.literal("A"), v.literal("B"), v.literal("C"), v.literal("D"));
+export const vPriceMode = v.union(v.literal("net"), v.literal("gross"));

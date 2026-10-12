@@ -5,6 +5,9 @@ import {
   vAuditorScope,
   vChannel,
   vChart,
+  vContactKind,
+  vContactRole,
+  vContactStatus,
   vFileRef,
   vIntegrityFinding,
   vInviteRole,
@@ -13,8 +16,11 @@ import {
   vMemberRole,
   vPaymentTerms,
   vPostalAddress,
+  vPriceMode,
+  vQualifiedCode,
   vSalesDocType,
   vTimeRounding,
+  vVatCheckStatus,
 } from "./validators";
 
 /**
@@ -368,8 +374,227 @@ export default defineSchema({
     region: v.optional(v.string()),
   }).index("by_kind", ["kind"]),
 
+  // 03 §2 contacts (F02). `numberNormalized` (trim + upper case) backs the case-insensitive uniqueness of CON-003
+  // (03 delta: `by_number` indexes the normalised number); `searchText` is the folded token string (CON-172).
+  contacts: defineTable({
+    kind: vContactKind,
+    parentId: v.optional(v.id("contacts")),
+    number: v.string(),
+    numberNormalized: v.string(),
+    roles: v.array(vContactRole),
+    status: vContactStatus,
+    mergedIntoId: v.optional(v.id("contacts")),
+    organizationName: v.optional(v.string()),
+    organizationName2: v.optional(v.string()),
+    salutation: v.optional(v.union(v.literal("herr"), v.literal("frau"), v.literal("divers"), v.literal("none"))),
+    academicTitle: v.optional(v.string()),
+    firstName: v.optional(v.string()),
+    lastName: v.optional(v.string()),
+    position: v.optional(v.string()),
+    birthday: v.optional(v.string()),
+    displayName: v.string(),
+    searchText: v.string(),
+    isConsumer: v.boolean(),
+    isPublicAuthority: v.boolean(),
+    vatId: v.optional(v.string()),
+    vatIdStatus: v.optional(
+      v.object({
+        lastCheckId: v.id("vatIdChecks"),
+        status: vVatCheckStatus,
+        qualified: v.boolean(),
+        checkedAt: v.number(),
+      }),
+    ),
+    taxNumber: v.optional(v.string()),
+    buyerReference: v.optional(v.string()),
+    electronicAddress: v.optional(
+      v.object({ scheme: v.union(v.literal("EM"), v.literal("0204"), v.literal("9930")), value: v.string() }),
+    ),
+    defaultTaxCase: v.optional(v.string()),
+    reverseCharge13bCertificates: v.array(
+      v.object({
+        file: v.optional(vFileRef),
+        validUntil: v.string(),
+        addedAt: v.number(),
+        replacedAt: v.optional(v.number()),
+      }),
+    ),
+    einvoice: v.object({
+      preferredFormat: v.union(
+        v.literal("auto"),
+        v.literal("zugferd"),
+        v.literal("xrechnung_cii"),
+        v.literal("xrechnung_ubl"),
+        v.literal("pdf"),
+      ),
+      pdfConsents: v.array(
+        v.object({
+          givenAt: v.string(),
+          source: v.union(v.literal("email"), v.literal("contract"), v.literal("tacit"), v.literal("portal")),
+          note: v.optional(v.string()),
+          file: v.optional(vFileRef),
+          revokedAt: v.optional(v.string()),
+          recordedAt: v.number(),
+        }),
+      ),
+    }),
+    language: v.union(v.literal("de"), v.literal("en")),
+    currency: v.string(),
+    paymentTerms: v.optional(vPaymentTerms),
+    defaultDiscountBp: v.optional(v.number()),
+    paymentMethodId: v.optional(v.id("paymentMethods")),
+    debtorAccount: v.optional(v.string()),
+    creditorAccount: v.optional(v.string()),
+    useCollectiveDebtor: v.optional(v.boolean()),
+    iban: v.optional(v.string()),
+    bic: v.optional(v.string()),
+    tags: v.array(v.id("tags")),
+    customFields: v.record(v.string(), v.any()),
+    notes: v.optional(v.string()),
+    dsgvo: v.optional(
+      v.object({
+        restrictedAt: v.optional(v.number()),
+        deletionRequestedAt: v.optional(v.number()),
+        scheduledPurgeAt: v.optional(v.string()),
+      }),
+    ),
+    version: v.number(),
+  })
+    .index("by_number", ["numberNormalized"])
+    .index("by_vatId", ["vatId"])
+    .index("by_status_name", ["status", "displayName"])
+    .index("by_mergedInto", ["mergedIntoId"])
+    .index("by_parent", ["parentId"])
+    .index("by_debtorAccount", ["debtorAccount"])
+    .index("by_creditorAccount", ["creditorAccount"])
+    .index("by_iban", ["iban"])
+    .searchIndex("search", { searchField: "searchText", filterFields: ["status", "kind"] }),
+
+  // 03 §2 contact sub-records (mutable; personal values are encrypted in audit diffs, F02 §5.12).
+  contactAddresses: defineTable({
+    contactId: v.id("contacts"),
+    type: v.union(v.literal("billing"), v.literal("delivery"), v.literal("other")),
+    address: vPostalAddress,
+    isDefault: v.boolean(),
+    archivedAt: v.optional(v.number()),
+  }).index("by_contact", ["contactId", "type"]),
+  // `e164` (03 delta): the parseable E.164 form of phone numbers stored next to the entered value (CON-032).
+  contactChannels: defineTable({
+    contactId: v.id("contacts"),
+    type: v.union(v.literal("email"), v.literal("phone"), v.literal("mobile"), v.literal("fax"), v.literal("web")),
+    value: v.string(),
+    e164: v.optional(v.string()),
+    label: v.optional(v.string()),
+    isInvoiceEmail: v.boolean(),
+    isPrimary: v.boolean(),
+  })
+    .index("by_contact", ["contactId", "type"])
+    .index("by_type_value", ["type", "value"]),
+  contactActivities: defineTable({
+    contactId: v.id("contacts"),
+    kind: v.union(v.literal("note"), v.literal("call"), v.literal("meeting"), v.literal("task")),
+    text: v.optional(v.string()),
+    dueAt: v.optional(v.number()),
+    doneAt: v.optional(v.number()),
+    // documentId?: Id<"salesDocuments"> arrives with F04.
+    attachments: v.array(vFileRef),
+    actor: vActor,
+    editedAt: v.optional(v.number()),
+  }).index("by_contact", ["contactId"]),
+
+  // 03 §2 vatIdChecks 🔒 (append-only evidence, MISC-04). `fingerprint` (03 delta) = ID + name + address of the
+  // request for the 24-hour reuse (CON-058); `message` = the German result text of the history (CON-061).
+  vatIdChecks: defineTable({
+    contactId: v.optional(v.id("contacts")),
+    vatId: v.string(),
+    provider: v.union(v.literal("bzst_evatr"), v.literal("eu_vies")),
+    request: v.any(),
+    response: v.any(),
+    status: vVatCheckStatus,
+    qualified: v.optional(
+      v.object({ name: vQualifiedCode, street: vQualifiedCode, postalCode: vQualifiedCode, city: vQualifiedCode }),
+    ),
+    providerRequestId: v.optional(v.string()),
+    checkedAt: v.number(),
+    retentionUntil: v.string(),
+    fingerprint: v.optional(v.string()),
+    message: v.optional(v.string()),
+  })
+    .index("by_contact", ["contactId", "checkedAt"])
+    .index("by_vatId", ["vatId", "checkedAt"]),
+
+  // 03 §2 dismissedDuplicates (CON-131) and contactMerges (CON-132/134). `restore` (03 delta) keeps the winner's
+  // overwritten field values and the loser's previous status so the undo restores exactly the recorded state.
+  dismissedDuplicates: defineTable({ a: v.id("contacts"), b: v.id("contacts"), at: v.number(), actor: vActor }).index(
+    "by_pair",
+    ["a", "b"],
+  ),
+  contactMerges: defineTable({
+    winnerId: v.id("contacts"),
+    loserId: v.id("contacts"),
+    moved: v.array(v.object({ table: v.string(), id: v.string() })),
+    fieldChoices: v.record(v.string(), v.union(v.literal("winner"), v.literal("loser"))),
+    restore: v.object({
+      winner: v.record(v.string(), v.any()),
+      loserStatus: vContactStatus,
+    }),
+    at: v.number(),
+    actor: vActor,
+    undoneAt: v.optional(v.number()),
+  })
+    .index("by_winner", ["winnerId"])
+    .index("by_loser", ["loserId"]),
+
+  // 03 §3 products (F03). `numberNormalized` (03 delta, PRD-002 case-insensitive uniqueness incl. archived) and
+  // `searchText` (03 delta: one Convex search field for "name + number").
+  products: defineTable({
+    number: v.string(),
+    numberNormalized: v.string(),
+    name: v.string(),
+    searchText: v.string(),
+    description: v.optional(v.string()),
+    internalNote: v.optional(v.string()),
+    type: v.union(v.literal("service"), v.literal("good")),
+    unitCode: v.string(),
+    gtin: v.optional(v.string()),
+    priceMode: vPriceMode,
+    unitPriceMicros: v.number(),
+    scheduledPrice: v.optional(v.object({ validFrom: v.string(), priceMode: vPriceMode, unitPriceMicros: v.number() })),
+    purchasePriceMicros: v.optional(v.number()),
+    vatRateKey: v.string(),
+    exemptionReasonCode: v.optional(v.string()),
+    placeOfSupplyRule: v.optional(v.string()),
+    reverseCharge13b: v.optional(v.string()),
+    revenueAccountOverride: v.optional(v.string()),
+    laborCostShareBp: v.optional(v.number()),
+    categoryId: v.optional(v.id("productCategories")),
+    extraUnits: v.array(v.object({ unitCode: v.string(), factorMilli: v.number() })),
+    tags: v.array(v.id("tags")),
+    customFields: v.record(v.string(), v.any()),
+    active: v.boolean(),
+    version: v.number(),
+  })
+    .index("by_number", ["numberNormalized"])
+    .index("by_active_name", ["active", "name"])
+    .index("by_category", ["categoryId"])
+    .searchIndex("search", { searchField: "searchText", filterFields: ["active", "type"] }),
+  productCategories: defineTable({
+    name: v.string(),
+    parentId: v.optional(v.id("productCategories")),
+  }).index("by_parent", ["parentId"]),
+  customerPrices: defineTable({
+    productId: v.id("products"),
+    contactId: v.id("contacts"),
+    unitPriceMicros: v.number(),
+    priceMode: vPriceMode,
+    validFrom: v.optional(v.string()),
+  })
+    .index("by_product_contact_validFrom", ["productId", "contactId", "validFrom"])
+    .index("by_contact", ["contactId"]),
+
   // 03 §2 contactKeys — crypto-shredding of personal values in audit diffs.
-  // contactId becomes v.id("contacts") when the contacts table arrives (F02, P1).
+  // contactId stays a string: it is the audit entity id of the contact (appendAudit is generic over tables) and the
+  // key row must outlive a hard-deleted draft contact (03 §13 consolidation log).
   contactKeys: defineTable({
     contactId: v.string(),
     wrappedKey: v.optional(v.string()),
@@ -551,7 +776,7 @@ export default defineSchema({
     role: v.optional(v.string()),
     debitCents: v.number(),
     creditCents: v.number(),
-    contactId: v.optional(v.string()),
+    contactId: v.optional(v.id("contacts")),
   })
     .index("by_account_date_seq", ["account", "date", "seq"])
     .index("by_entry", ["entryId", "lineIndex"])
@@ -598,7 +823,7 @@ export default defineSchema({
     number: v.string(),
     documentDate: v.string(),
     dueDate: v.optional(v.string()),
-    contactId: v.optional(v.string()),
+    contactId: v.optional(v.id("contacts")),
     counterpartyName: v.string(),
     grossCents: v.number(),
     openCents: v.number(),
