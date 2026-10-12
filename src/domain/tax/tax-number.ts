@@ -99,3 +99,27 @@ export function normalizeTaxNumber(input: string, state?: Bundesland): Result<Ta
   const back = fromElster(elster);
   return back ? ok({ elster, state, display: back.display }) : invalid();
 }
+
+/** German federal states with their names, for the Steuernummer Bundesland select (F01 SET-030). */
+export const BUNDESLAND_NAMES: Readonly<Record<Bundesland, string>> = {
+  BW: "Baden-Württemberg",
+  BY: "Bayern",
+  BE: "Berlin",
+  BB: "Brandenburg",
+  HB: "Bremen",
+  HH: "Hamburg",
+  HE: "Hessen",
+  MV: "Mecklenburg-Vorpommern",
+  NI: "Niedersachsen",
+  NW: "Nordrhein-Westfalen",
+  RP: "Rheinland-Pfalz",
+  SL: "Saarland",
+  SN: "Sachsen",
+  ST: "Sachsen-Anhalt",
+  SH: "Schleswig-Holstein",
+  TH: "Thüringen",
+};
+
+export function isBundesland(code: string): code is Bundesland {
+  return Object.hasOwn(TAX_NUMBER_STATES, code);
+}

@@ -1,6 +1,6 @@
 import fc from "fast-check";
 import { describe, expect, test } from "vitest";
-import { berlinCalendarDate } from "./berlin";
+import { berlinCalendarDate, berlinEndOfDay } from "./berlin";
 import {
   addDays,
   calendarDate,
@@ -109,5 +109,27 @@ describe("Europe/Berlin calendar date of an instant (EC-020, EC-DOC-11)", () => 
     );
     expect(() => berlinCalendarDate(Number.NaN)).toThrow(/instant_invalid/);
     expect(() => berlinCalendarDate(1.5)).toThrow(/instant_invalid/);
+  });
+});
+
+describe("berlinEndOfDay (member expiry „Gültig bis“, E-AUD-34)", () => {
+  test("GOBD-22 the last millisecond of a Berlin day in winter (CET) and summer (CEST)", () => {
+    expect(berlinEndOfDay(calendarDate("2026-01-15"))).toBe(Date.UTC(2026, 0, 15, 23, 0, 0) - 1);
+    expect(berlinEndOfDay(calendarDate("2026-07-15"))).toBe(Date.UTC(2026, 6, 15, 22, 0, 0) - 1);
+  });
+
+  test("GOBD-22 on DST switch days the day still ends at local midnight", () => {
+    // 2026-03-29: CET → CEST at 02:00; midnight after is CEST.
+    expect(berlinEndOfDay(calendarDate("2026-03-29"))).toBe(Date.UTC(2026, 2, 29, 22, 0, 0) - 1);
+    // 2026-10-25: CEST → CET at 03:00; midnight after is CET.
+    expect(berlinEndOfDay(calendarDate("2026-10-25"))).toBe(Date.UTC(2026, 9, 25, 23, 0, 0) - 1);
+    fc.assert(
+      fc.property(fc.integer({ min: 0, max: 40_000 }), (day) => {
+        const date = fromEpochDay(day);
+        const end = berlinEndOfDay(date);
+        expect(berlinCalendarDate(end)).toBe(date);
+        expect(berlinCalendarDate(end + 1)).toBe(addDays(date, 1));
+      }),
+    );
   });
 });

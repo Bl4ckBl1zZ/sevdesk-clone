@@ -1,37 +1,10 @@
 import { describe, expect, test } from "vitest";
-import { footerDelta } from "./legal-forms";
-import { checkFormat, previewNumbers } from "./number-format";
-import { accessSchema, bankSchema, companyDefaults, companySchema, taxDefaults, taxSchema } from "./schema";
-import { resumeStep, WIZARD_STEPS } from "./steps";
+import { footerDelta } from "../company/legal-forms";
+import { checkFormat, previewNumbers } from "../numbering/format";
+import { accessSchema, bankSchema, companyDefaults, companySchema, taxDefaults, taxSchema } from "./settings";
 
 const messagesOf = (r: { success: boolean; error?: { issues: { path: PropertyKey[]; message: string }[] } }) =>
   Object.fromEntries((r.error?.issues ?? []).map((i) => [i.path.join("."), i.message]));
-
-describe("setup wizard steps (F01 §3.1)", () => {
-  test("SET-002 the wizard has the eleven steps in F01 order; only Bank and Layout can be skipped", () => {
-    expect(WIZARD_STEPS.map((s) => s.key)).toEqual([
-      "inhaberkonto",
-      "zugriff",
-      "email",
-      "speicher",
-      "start",
-      "unternehmen",
-      "steuern",
-      "bank",
-      "layout",
-      "nummernkreise",
-      "fertig",
-    ]);
-    expect(WIZARD_STEPS.filter((s) => s.skippable).map((s) => s.key)).toEqual(["bank", "layout"]);
-    expect(WIZARD_STEPS.map((s) => s.slug).join(" ")).not.toMatch(/smtp|imap|zahlung/i);
-  });
-
-  test("SET-003 the wizard resumes at the first incomplete step", () => {
-    expect(resumeStep([]).key).toBe("inhaberkonto");
-    expect(resumeStep(["inhaberkonto", "zugriff"]).key).toBe("email");
-    expect(resumeStep(WIZARD_STEPS.map((s) => s.key)).key).toBe("fertig");
-  });
-});
 
 describe("Adressen & Zugriff", () => {
   const base = {
@@ -49,7 +22,7 @@ describe("Adressen & Zugriff", () => {
     expect(accessSchema.safeParse({ ...base, countryCode: "US", nonEuConfirmed: true }).success).toBe(true);
   });
 
-  test("SMOKE the tailnet-only confirmation is mandatory", () => {
+  test("SET-007 the tailnet-only confirmation is mandatory", () => {
     const r = accessSchema.safeParse({ ...base, tailnetOnlyConfirmed: false });
     expect(messagesOf(r).tailnetOnlyConfirmed).toMatch(/nur im Tailnet/);
   });
@@ -67,11 +40,11 @@ describe("Unternehmen (F01 §5.1)", () => {
     email: "info@muster.de",
   };
 
-  test("SMOKE a complete Einzelunternehmen passes", () => {
+  test("SET-015 a complete Einzelunternehmen passes", () => {
     expect(companySchema.safeParse(valid).success).toBe(true);
   });
 
-  test("SMOKE contact name, phone and e-mail are required (XRechnung BT-41/42/43)", () => {
+  test("SET-016 contact name, phone and e-mail are required (XRechnung BT-41/42/43)", () => {
     const r = companySchema.safeParse({ ...valid, contactName: "", phone: "12", email: "x" });
     expect(messagesOf(r)).toMatchObject({
       contactName: expect.stringMatching(/Ansprechpartner/),
@@ -80,7 +53,7 @@ describe("Unternehmen (F01 §5.1)", () => {
     });
   });
 
-  test("SMOKE street or P.O. box, German postal codes have five digits, websites need https://", () => {
+  test("SET-015 street or P.O. box, German postal codes have five digits, websites need https://", () => {
     const r = companySchema.safeParse({ ...valid, street: "", postalCode: "1011", website: "muster.de" });
     expect(messagesOf(r)).toMatchObject({
       street: "Straße oder Postfach fehlt.",
@@ -91,7 +64,7 @@ describe("Unternehmen (F01 §5.1)", () => {
     expect(companySchema.safeParse({ ...valid, countryCode: "AT", postalCode: "1010" }).success).toBe(true);
   });
 
-  test("SMOKE representatives need a written-out first and last name", () => {
+  test("SET-012 representatives need a written-out first and last name", () => {
     const r = companySchema.safeParse({ ...valid, legalForm: "gmbh", representatives: [{ name: "M. Mustermann" }] });
     expect(messagesOf(r)["representatives.0.name"]).toBe(
       "Bitte Vor- und Nachnamen ausschreiben (z. B. „Max Mustermann“).",
@@ -101,7 +74,7 @@ describe("Unternehmen (F01 §5.1)", () => {
     ).toBe(true);
   });
 
-  test("SMOKE register numbers follow the register type", () => {
+  test("SET-011 register numbers follow the register type", () => {
     const gmbh = { ...valid, legalForm: "gmbh" as const, registerCourt: "Amtsgericht Charlottenburg" };
     expect(companySchema.safeParse({ ...gmbh, registerNumber: "123456 B" }).success).toBe(true);
     expect(messagesOf(companySchema.safeParse({ ...gmbh, registerNumber: "HRB-12" })).registerNumber).toBe(
@@ -109,27 +82,27 @@ describe("Unternehmen (F01 §5.1)", () => {
     );
   });
 
-  test("SMOKE switching to GmbH lists the added footer items", () => {
+  test("SET-011 switching to GmbH lists the added footer items", () => {
     expect(footerDelta("einzelunternehmen", "gmbh")).toEqual(["Sitz", "Registergericht", "HRB", "Geschäftsführer"]);
     expect(footerDelta("gmbh", "einzelunternehmen")).toEqual([]);
   });
 });
 
 describe("Steuern (F01 §5.3)", () => {
-  test("SMOKE SKR03 is preselected and regular taxation (Soll) is the default", () => {
+  test("SET-041 SET-037 SKR03 is preselected and regular taxation (Soll) is the default", () => {
     const d = taxDefaults("einzelunternehmen");
     expect(d.chartOfAccounts).toBe("SKR03");
     expect(d.taxationMethod).toBe("soll");
     expect(d.isKleinunternehmer).toBe("no");
   });
 
-  test("SMOKE Steuernummer or USt-IdNr is required", () => {
+  test("SET-030 Steuernummer or USt-IdNr is required", () => {
     const r = taxSchema.safeParse(taxDefaults("einzelunternehmen"));
     expect(messagesOf(r).taxNumber).toBe("Steuernummer oder USt-IdNr fehlt (Pflichtangabe auf Rechnungen).");
     expect(taxSchema.safeParse({ ...taxDefaults("einzelunternehmen"), vatId: "de 123456788" }).success).toBe(true);
   });
 
-  test("SMOKE Ist-Versteuerung needs the Finanzamt confirmation; Kleinunternehmer needs a start date", () => {
+  test("SET-037 SET-033 Ist-Versteuerung needs the Finanzamt confirmation; Kleinunternehmer needs a start date", () => {
     const base = { ...taxDefaults("einzelunternehmen"), vatId: "DE123456788" };
     const r = taxSchema.safeParse({ ...base, taxationMethod: "ist", isKleinunternehmer: "yes" });
     expect(Object.keys(messagesOf(r)).sort()).toEqual(["istConfirmed", "kuValidFrom"]);
@@ -144,14 +117,14 @@ describe("Steuern (F01 §5.3)", () => {
     ).toBe(true);
   });
 
-  test("SMOKE EÜR is refused for a GmbH and needs the §241a confirmation for an e.K.", () => {
+  test("SET-039 EÜR is refused for a GmbH and needs the §241a confirmation for an e.K.", () => {
     const gmbh = { ...taxDefaults("gmbh"), vatId: "DE123456788", profitMethod: "euer" as const };
     expect(messagesOf(taxSchema.safeParse(gmbh)).profitMethod).toMatch(/Bilanzierung Pflicht/);
     const ek = { ...taxDefaults("ek"), vatId: "DE123456788", profitMethod: "euer" as const };
     expect(messagesOf(taxSchema.safeParse(ek)).euerConfirmed).toMatch(/§ 241a HGB/);
   });
 
-  test("SMOKE an abweichendes Wirtschaftsjahr only for registered companies with Bilanz", () => {
+  test("SET-042 an abweichendes Wirtschaftsjahr only for registered companies with Bilanz", () => {
     const eu = { ...taxDefaults("einzelunternehmen"), vatId: "DE123456788", fiscalYearStartMonth: 7 };
     expect(messagesOf(taxSchema.safeParse(eu)).fiscalYearStartMonth).toMatch(/abweichendes Wirtschaftsjahr/);
     const gmbh = { ...taxDefaults("gmbh"), vatId: "DE123456788", fiscalYearStartMonth: 7 };
@@ -160,7 +133,7 @@ describe("Steuern (F01 §5.3)", () => {
 });
 
 describe("Bank (F01 §5.4)", () => {
-  test("SMOKE IBAN checksum, BIC format and the 70-character account holder limit", () => {
+  test("SET-050 IBAN checksum, BIC format and the 70-character account holder limit", () => {
     const ok = bankSchema.safeParse({
       iban: "DE89 3704 0044 0532 0130 00",
       bic: "",
@@ -183,7 +156,7 @@ describe("Bank (F01 §5.4)", () => {
 });
 
 describe("Nummernkreise preview (F01 §5.5)", () => {
-  test("SMOKE preview shows the next three numbers", () => {
+  test("SET-055 preview shows the next three numbers", () => {
     expect(previewNumbers("RE-{YYYY}-{####}", { year: 2026, month: 10 }, 42)).toEqual([
       "RE-2026-0042",
       "RE-2026-0043",
@@ -191,7 +164,7 @@ describe("Nummernkreise preview (F01 §5.5)", () => {
     ]);
   });
 
-  test("SMOKE format errors use the F01 texts", () => {
+  test("SET-056 format errors use the F01 texts", () => {
     expect(checkFormat("RE {YYYY}-{####}", "yearly").message).toMatch(/Das Zeichen „ “ ist nicht erlaubt/);
     expect(checkFormat("RE-{YYYY}", "yearly").message).toBe("Das Format muss genau einen Zähler wie {####} enthalten.");
     expect(checkFormat("RE-{####}", "yearly").message).toMatch(/jährlicher Neustart/);

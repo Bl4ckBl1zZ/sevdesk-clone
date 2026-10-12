@@ -1,7 +1,7 @@
 /**
- * Which company fields the form SHOWS per legal form (F01 SET-011, §5.2) — presentation only.
- * The authoritative Geschäftsbrief matrix (blocking errors, warnings, name suffixes) is the pure domain function
- * `validateCompanyForDocuments` (F01 SET-012). TODO(domain): derive this table from src/domain once it exists.
+ * Legal forms and the company fields each one needs (F01 SET-011, §5.2 Geschäftsbrief matrix, MAIL-03).
+ * Shared by the company form (which fields to show and mark as mandatory) and the authoritative check
+ * `validateCompanyForDocuments` (./validate.ts, SET-012).
  */
 export const LEGAL_FORMS = [
   "einzelunternehmen",
@@ -39,6 +39,13 @@ export interface LegalFormFields {
   euerBlocked: boolean;
   /** EÜR only with the §241a HGB confirmation (SET-039). */
   euerNeedsConfirmation: boolean;
+  /** OHG/KG: if no natural person is liable without limitation, the general partner's data are mandatory. */
+  generalPartnerIfNoNaturalPerson: boolean;
+  /**
+   * Rechtsformzusatz the Firma must contain (§5.2 "Name must contain"): abbreviations are matched case-sensitively,
+   * spelled-out forms case-insensitively. The first entry is quoted in the error message.
+   */
+  nameSuffix?: { abbreviations: readonly string[]; spelled: readonly string[] };
 }
 
 const NONE: LegalFormFields = {
@@ -48,6 +55,7 @@ const NONE: LegalFormFields = {
   hrRegistered: false,
   euerBlocked: false,
   euerNeedsConfirmation: false,
+  generalPartnerIfNoNaturalPerson: false,
 };
 
 const partners = { label: "representativesPartners", required: false } as const;
@@ -56,12 +64,55 @@ const directors = { label: "representatives", required: true } as const;
 export const LEGAL_FORM_FIELDS: Record<LegalForm, LegalFormFields> = {
   einzelunternehmen: NONE,
   freiberufler: NONE,
-  ek: { ...NONE, register: "HRA", seat: true, hrRegistered: true, euerNeedsConfirmation: true },
+  ek: {
+    ...NONE,
+    register: "HRA",
+    seat: true,
+    hrRegistered: true,
+    euerNeedsConfirmation: true,
+    nameSuffix: {
+      abbreviations: ["e.K.", "e.Kfm.", "e.Kfr."],
+      spelled: ["eingetragener Kaufmann", "eingetragene Kauffrau"],
+    },
+  },
   gbr: { ...NONE, representatives: partners },
-  egbr: { ...NONE, register: "GsR", representatives: partners, seat: true },
-  ohg: { ...NONE, register: "HRA", representatives: partners, seat: true, hrRegistered: true, euerBlocked: true },
-  kg: { ...NONE, register: "HRA", representatives: partners, seat: true, hrRegistered: true, euerBlocked: true },
-  gmbh_co_kg: { ...NONE, register: "HRA", seat: true, generalPartner: true, hrRegistered: true, euerBlocked: true },
+  // LEGAL-OPEN: MAIL-03 (01-compliance open items) — eGbR register data treated as blocking (README A15).
+  egbr: {
+    ...NONE,
+    register: "GsR",
+    representatives: partners,
+    seat: true,
+    nameSuffix: { abbreviations: ["eGbR"], spelled: [] },
+  },
+  ohg: {
+    ...NONE,
+    register: "HRA",
+    representatives: partners,
+    seat: true,
+    hrRegistered: true,
+    euerBlocked: true,
+    generalPartnerIfNoNaturalPerson: true,
+    nameSuffix: { abbreviations: ["OHG"], spelled: ["offene Handelsgesellschaft"] },
+  },
+  kg: {
+    ...NONE,
+    register: "HRA",
+    representatives: partners,
+    seat: true,
+    hrRegistered: true,
+    euerBlocked: true,
+    generalPartnerIfNoNaturalPerson: true,
+    nameSuffix: { abbreviations: ["KG"], spelled: ["Kommanditgesellschaft"] },
+  },
+  gmbh_co_kg: {
+    ...NONE,
+    register: "HRA",
+    seat: true,
+    generalPartner: true,
+    hrRegistered: true,
+    euerBlocked: true,
+    nameSuffix: { abbreviations: ["GmbH & Co. KG"], spelled: [] },
+  },
   gmbh: {
     ...NONE,
     register: "HRB",
@@ -70,6 +121,7 @@ export const LEGAL_FORM_FIELDS: Record<LegalForm, LegalFormFields> = {
     supervisoryBoard: true,
     hrRegistered: true,
     euerBlocked: true,
+    nameSuffix: { abbreviations: ["GmbH"], spelled: ["Gesellschaft mit beschränkter Haftung"] },
   },
   ug: {
     ...NONE,
@@ -79,6 +131,10 @@ export const LEGAL_FORM_FIELDS: Record<LegalForm, LegalFormFields> = {
     supervisoryBoard: true,
     hrRegistered: true,
     euerBlocked: true,
+    nameSuffix: {
+      abbreviations: ["UG (haftungsbeschränkt)"],
+      spelled: ["Unternehmergesellschaft (haftungsbeschränkt)"],
+    },
   },
   ag: {
     ...NONE,
@@ -88,8 +144,15 @@ export const LEGAL_FORM_FIELDS: Record<LegalForm, LegalFormFields> = {
     supervisoryBoard: true,
     hrRegistered: true,
     euerBlocked: true,
+    nameSuffix: { abbreviations: ["AG"], spelled: ["Aktiengesellschaft"] },
   },
-  partg: { ...NONE, register: "PR", representatives: { label: "representativesPartg", required: false }, seat: true },
+  partg: {
+    ...NONE,
+    register: "PR",
+    representatives: { label: "representativesPartg", required: false },
+    seat: true,
+    nameSuffix: { abbreviations: ["& Partner"], spelled: ["Partnerschaft", "und Partner"] },
+  },
   other: NONE,
 };
 

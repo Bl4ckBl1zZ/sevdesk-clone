@@ -1,17 +1,21 @@
 /**
- * Form schemas for the setup wizard and the company settings pages (F01 §5).
+ * Settings schemas (F01 SET-143): the single zod definition of every settings form, shared by the setup wizard,
+ * the settings pages, the Convex mutations (re-validated server-side), REST and MCP. Messages are the German
+ * texts of F01 §5 and are shown verbatim.
  *
- * TODO(domain): F01 SET-143 requires these to live in `src/domain/schemas/settings.ts`, shared by UI, Convex,
- * REST and MCP. They are kept here until the domain agent owns that module; then import from there and delete
- * this file. Messages are the German texts of F01 §5 (shown verbatim). Checks that need rule logic
- * (VAT-ID check digit, Steuernummer per Bundesland, IBAN country rules beyond mod-97, KU history, Geschäftsbrief
- * matrix) are NOT done here — they belong to src/domain and run on save.
+ * The values are the *form* shapes (strings for amounts/dates, as typed by the user). The mapping to the stored
+ * `companyProfile` lives in src/domain/settings (amounts via src/domain/money, Steuernummer normalised to ELSTER).
  */
 import { electronicFormatIBAN, isValidBIC, isValidIBAN } from "ibantools";
 import { z } from "zod";
-import { EU_EEA } from "./countries";
-import { fieldsFor, LEGAL_FORMS } from "./legal-forms";
-import { checkFormat } from "./number-format";
+import { fieldsFor, LEGAL_FORMS } from "../company/legal-forms";
+import { parseCents } from "../money/parse";
+import { MAX_START_VALUE, MIN_START_VALUE, RESET_POLICIES, validateFormat } from "../numbering/format";
+import { isEuEeaCountry } from "../rules/eu-eea";
+import { checkKuStart } from "../tax/kleinunternehmer";
+import { isBundesland, normalizeTaxNumber } from "../tax/tax-number";
+import { validateVatId } from "../tax/vat-id";
+import { isCalendarDate } from "../time/calendar-date";
 
 const trimmed = () => z.string().trim();
 const optionalText = (max: number, message?: string) => trimmed().max(max, message);
@@ -28,7 +32,7 @@ export const accessSchema = z
       .refine((v) => v, "Bitte bestätigen, dass die Anwendung nur im Tailnet erreichbar ist."),
   })
   .superRefine((v, ctx) => {
-    if (!(EU_EEA as readonly string[]).includes(v.countryCode) && !v.nonEuConfirmed) {
+    if (!isEuEeaCountry(v.countryCode) && !v.nonEuConfirmed) {
       ctx.addIssue({
         code: "custom",
         path: ["nonEuConfirmed"],
@@ -49,21 +53,30 @@ export type EmailStepValues = z.infer<typeof emailStepSchema>;
 const NAME_TWO_WORDS = /^\S+\s+\S+/;
 const ABBREVIATED_FIRST_NAME = /^\p{L}\.\s/u;
 
+/** §5.1 `representatives[i].name`: two words, first given name not abbreviated, ≤ 100 chars. */
+export function isWrittenOutName(name: string): boolean {
+  const n = name.trim();
+  return n.length <= 100 && NAME_TWO_WORDS.test(n) && !ABBREVIATED_FIRST_NAME.test(n);
+}
+
+export const REPRESENTATIVE_NAME_MESSAGE = "Bitte Vor- und Nachnamen ausschreiben (z. B. „Max Mustermann“).";
+
 export const representativeSchema = z.object({
-  name: trimmed()
-    .max(100, "Bitte Vor- und Nachnamen ausschreiben (z. B. „Max Mustermann“).")
-    .refine(
-      (n) => NAME_TWO_WORDS.test(n) && !ABBREVIATED_FIRST_NAME.test(n),
-      "Bitte Vor- und Nachnamen ausschreiben (z. B. „Max Mustermann“).",
-    ),
+  name: trimmed().max(100, REPRESENTATIVE_NAME_MESSAGE).refine(isWrittenOutName, REPRESENTATIVE_NAME_MESSAGE),
+  /** AG: Vorstandsvorsitz (§ 80 AktG). */
+  chair: z.boolean().optional(),
 });
 
-const REGISTER_NUMBER: Record<string, RegExp> = {
+export const REGISTER_NUMBER: Readonly<Record<string, RegExp>> = {
   HRA: /^\d+(\s?[A-Z])?$/,
   HRB: /^\d+(\s?[A-Z])?$/,
   PR: /^\d+$/,
   GsR: /^\d+$/,
 };
+
+export function isValidPostalCode(countryCode: string, postalCode: string): boolean {
+  return countryCode === "DE" ? /^\d{5}$/.test(postalCode) : /^[A-Z0-9 -]{2,10}$/i.test(postalCode);
+}
 
 export const companySchema = z
   .object({
@@ -87,14 +100,22 @@ export const companySchema = z
     representatives: z.array(representativeSchema).max(20),
     hasSupervisoryBoard: z.boolean(),
     supervisoryBoardChair: optionalText(100),
+    /** OHG/KG: no natural person is liable without limitation → general partner data are mandatory. */
+    noNaturalPersonLiable: z.boolean(),
     generalPartnerName: optionalText(160),
+    generalPartnerSeat: optionalText(80),
+    generalPartnerRegisterCourt: optionalText(80),
+    generalPartnerRegisterNumber: optionalText(20),
+    /** Managing directors of the general partner, comma-separated. */
+    generalPartnerManagingDirectors: optionalText(300),
   })
   .superRefine((v, ctx) => {
     if (!v.street && !v.poBox) {
       ctx.addIssue({ code: "custom", path: ["street"], message: "Straße oder Postfach fehlt." });
     }
-    const postalOk = v.countryCode === "DE" ? /^\d{5}$/.test(v.postalCode) : /^[A-Z0-9 -]{2,10}$/i.test(v.postalCode);
-    if (!postalOk) ctx.addIssue({ code: "custom", path: ["postalCode"], message: "Die Postleitzahl ist ungültig." });
+    if (!isValidPostalCode(v.countryCode, v.postalCode)) {
+      ctx.addIssue({ code: "custom", path: ["postalCode"], message: "Die Postleitzahl ist ungültig." });
+    }
     const register = fieldsFor(v.legalForm).register;
     if (register && v.registerNumber) {
       const re = REGISTER_NUMBER[register];
@@ -124,25 +145,32 @@ export const companyDefaults: CompanyValues = {
   representatives: [],
   hasSupervisoryBoard: false,
   supervisoryBoardChair: "",
+  noNaturalPersonLiable: false,
   generalPartnerName: "",
+  generalPartnerSeat: "",
+  generalPartnerRegisterCourt: "",
+  generalPartnerRegisterNumber: "",
+  generalPartnerManagingDirectors: "",
 };
 
 // ── Step 7: Steuern (SET-030…043) ────────────────────────────────────────────────────────────────────────
 export const USTVA_PERIODS = ["monthly", "quarterly", "annual_only"] as const;
+
+/** "24.500,00" → cents via src/domain/money (CLAUDE.md §4); "" → undefined. */
+export function parseTurnoverCents(input: string): number | undefined | null {
+  const v = input.trim();
+  if (v === "") return undefined;
+  const r = parseCents(v);
+  return r.ok && r.value >= 0 ? r.value : null;
+}
 
 export const taxSchema = z
   .object({
     /** Needed for the EÜR/fiscal-year rules; comes from the company step. */
     legalForm: z.enum(LEGAL_FORMS),
     taxNumberState: trimmed(),
-    taxNumber: trimmed().refine((v) => v === "" || /^[0-9 /]{10,16}$/.test(v), {
-      message: "Die Steuernummer passt nicht zum Format des gewählten Bundeslandes.",
-    }),
-    vatId: trimmed()
-      .transform((v) => v.replace(/\s+/g, "").toUpperCase())
-      .refine((v) => v === "" || /^DE\d{9}$/.test(v), {
-        message: "Die USt-IdNr ist ungültig (Format DE + 9 Ziffern).",
-      }),
+    taxNumber: trimmed(),
+    vatId: trimmed().transform((v) => v.replace(/\s+/g, "").toUpperCase()),
     isKleinunternehmer: z.enum(["yes", "no"]),
     kuValidFrom: trimmed(),
     taxationMethod: z.enum(["soll", "ist"]),
@@ -153,14 +181,11 @@ export const taxSchema = z
     euerConfirmed: z.boolean(),
     chartOfAccounts: z.enum(["SKR03", "SKR04"]),
     fiscalYearStartMonth: z.coerce.number().int().min(1).max(12),
-    foundedOn: trimmed(),
-    /** Raw German amount; parsed to cents by src/domain/money (TODO) before saving. */
-    priorYearTurnover: trimmed().refine(
-      (v) => v === "" || /^\d{1,3}(\.?\d{3})*(,\d{1,2})?$|^\d+([.,]\d{1,2})?$/.test(v),
-      {
-        message: "Bitte einen Betrag wie 24.500,00 eingeben.",
-      },
-    ),
+    foundedOn: trimmed().refine((v) => v === "" || isCalendarDate(v), "Bitte ein gültiges Datum angeben."),
+    /** Raw German amount; converted to `priorYearTotalTurnoverCents` with src/domain/money on save. */
+    priorYearTurnover: trimmed().refine((v) => parseTurnoverCents(v) !== null, {
+      message: "Bitte einen Betrag wie 24.500,00 eingeben.",
+    }),
   })
   .superRefine((v, ctx) => {
     if (!v.taxNumber && !v.vatId) {
@@ -170,11 +195,50 @@ export const taxSchema = z
         message: "Steuernummer oder USt-IdNr fehlt (Pflichtangabe auf Rechnungen).",
       });
     }
-    if (v.taxNumber && !v.taxNumberState && v.taxNumber.replace(/\D/g, "").length !== 13) {
-      ctx.addIssue({ code: "custom", path: ["taxNumberState"], message: "Bitte das Bundesland wählen." });
+    if (v.taxNumber) {
+      const digits = v.taxNumber.replace(/\D/g, "");
+      if (!v.taxNumberState && digits.length !== 13) {
+        ctx.addIssue({ code: "custom", path: ["taxNumberState"], message: "Bitte das Bundesland wählen." });
+      } else if (!normalizeTaxNumber(v.taxNumber, isBundesland(v.taxNumberState) ? v.taxNumberState : undefined).ok) {
+        ctx.addIssue({
+          code: "custom",
+          path: ["taxNumber"],
+          message: "Die Steuernummer passt nicht zum Format des gewählten Bundeslandes.",
+        });
+      }
     }
-    if (v.isKleinunternehmer === "yes" && !v.kuValidFrom) {
-      ctx.addIssue({ code: "custom", path: ["kuValidFrom"], message: "Bitte das Datum angeben." });
+    if (v.vatId) {
+      const r = validateVatId(v.vatId);
+      if (!r.ok || r.value.countryCode !== "DE") {
+        ctx.addIssue({
+          code: "custom",
+          path: ["vatId"],
+          message:
+            r.ok || r.error.code !== "vat_id_checksum"
+              ? "Die USt-IdNr ist ungültig (Format DE + 9 Ziffern)."
+              : "Die USt-IdNr ist ungültig (Prüfziffer stimmt nicht).",
+        });
+      }
+    }
+    if (v.isKleinunternehmer === "yes") {
+      if (!v.kuValidFrom) {
+        ctx.addIssue({ code: "custom", path: ["kuValidFrom"], message: "Bitte das Datum angeben." });
+      } else {
+        const turnover = parseTurnoverCents(v.priorYearTurnover);
+        const check = checkKuStart({
+          validFrom: v.kuValidFrom,
+          ...(v.foundedOn ? { foundedOn: v.foundedOn } : {}),
+          // The entered figure is the prior year of the current year; it applies to a KU start in the current year.
+          ...(typeof turnover === "number" ? { priorYearTurnoverCents: turnover } : {}),
+        });
+        for (const e of check.errors) {
+          ctx.addIssue({
+            code: "custom",
+            path: [e.code === "ku_prior_year_exceeded" ? "priorYearTurnover" : "kuValidFrom"],
+            message: e.message,
+          });
+        }
+      }
     }
     if (v.taxationMethod === "ist" && !v.istConfirmed) {
       ctx.addIssue({
@@ -251,6 +315,7 @@ export type BankValues = z.output<typeof bankSchema>;
 // ── Step 9: Layout (SET-071, SET-018) ────────────────────────────────────────────────────────────────────
 export const LOGO_TYPES = ["image/png", "image/jpeg", "image/svg+xml"] as const;
 export const LOGO_MAX_BYTES = 2 * 1024 * 1024;
+export const LOGO_INVALID_MESSAGE = "Logo muss PNG, JPG oder SVG sein, höchstens 2 MB, mindestens 300 px breit.";
 
 export const layoutSchema = z.object({
   template: z.enum(["classic", "modern", "minimal"]),
@@ -258,30 +323,37 @@ export const layoutSchema = z.object({
 });
 export type LayoutValues = z.infer<typeof layoutSchema>;
 
-export function validateLogo(file: File): string | null {
-  if (!(LOGO_TYPES as readonly string[]).includes(file.type) || file.size > LOGO_MAX_BYTES) {
-    return "Logo muss PNG, JPG oder SVG sein, höchstens 2 MB, mindestens 300 px breit.";
+/** SET-018 type and size (the ≥ 300 px width of raster images is checked where the image is decoded). */
+export function validateLogoFile(file: { type: string; size: number }): string | null {
+  if (!(LOGO_TYPES as readonly string[]).includes(file.type) || file.size > LOGO_MAX_BYTES || file.size === 0) {
+    return LOGO_INVALID_MESSAGE;
   }
   return null;
 }
 
-// ── Step 10: Nummernkreise (SET-055…058) ─────────────────────────────────────────────────────────────────
+// ── Step 10: Nummernkreise (SET-055…059) ─────────────────────────────────────────────────────────────────
+const START_VALUE_MESSAGE = "Startwert muss zwischen 1 und 10.000.000.000 liegen.";
+
 export const numberRangeSchema = z
   .object({
-    key: z.string(),
+    key: z.string().min(1),
     name: z.string(),
     format: trimmed().min(1, "Das Format muss genau einen Zähler wie {####} enthalten."),
-    resetPolicy: z.enum(["never", "yearly", "monthly"]),
+    resetPolicy: z.enum(RESET_POLICIES),
     next: z.coerce
-      .number("Startwert muss zwischen 1 und 10.000.000.000 liegen.")
-      .int("Startwert muss zwischen 1 und 10.000.000.000 liegen.")
-      .min(1, "Startwert muss zwischen 1 und 10.000.000.000 liegen.")
-      .max(10_000_000_000, "Startwert muss zwischen 1 und 10.000.000.000 liegen."),
+      .number(START_VALUE_MESSAGE)
+      .int(START_VALUE_MESSAGE)
+      .min(MIN_START_VALUE, START_VALUE_MESSAGE)
+      .max(MAX_START_VALUE, START_VALUE_MESSAGE),
   })
   .superRefine((r, ctx) => {
-    const check = checkFormat(r.format, r.resetPolicy);
-    if (!check.ok) ctx.addIssue({ code: "custom", path: ["format"], message: check.message ?? "" });
+    const check = validateFormat(r.format, r.resetPolicy);
+    if (!check.ok) ctx.addIssue({ code: "custom", path: ["format"], message: check.error.message });
   });
-export const numberRangesSchema = z.object({ ranges: z.array(numberRangeSchema) });
+export const numberRangesSchema = z.object({
+  ranges: z.array(numberRangeSchema),
+  /** SET-059: mandatory when a next value skips numbers that were already reachable (gap report). */
+  reason: optionalText(500).optional(),
+});
 export type NumberRangesFormValues = z.input<typeof numberRangesSchema>;
 export type NumberRangesValues = z.output<typeof numberRangesSchema>;

@@ -11,6 +11,7 @@ const EXPECTED: Record<Permission, readonly MemberRole[]> = {
   "invites.manage": ["owner"],
   "settings.read": ["owner", "bookkeeper", "viewer"],
   "settings.write": ["owner"],
+  "settings.ownerOnly": ["owner"],
   "integrations.manage": ["owner"],
   "audit.read": ["owner", "bookkeeper", "viewer", "auditor"],
   "integrity.read": ["owner", "bookkeeper", "auditor"],
@@ -33,7 +34,7 @@ describe("permission matrix (02 §4.3)", () => {
     }
   });
 
-  test("SEC-01 members, invites, integrations, API keys and integrity acknowledgement are never grantable via API", () => {
+  test("SEC-01 SET-142 members, invites, integrations, API keys, owner-only settings and integrity acknowledgement are never grantable via API", () => {
     for (const action of [
       "members.read",
       "members.manage",
@@ -42,6 +43,7 @@ describe("permission matrix (02 §4.3)", () => {
       "apiKeys.manage",
       "integrity.acknowledge",
       "session.self",
+      "settings.ownerOnly",
     ] as const) {
       expect(scopeFor(action)).toBeNull();
       expect(canKeyDo(["settings:write", "audit:read"], action)).toBe(false);

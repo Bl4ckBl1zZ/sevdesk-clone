@@ -27,6 +27,11 @@ export const PERMISSIONS = {
   "invites.manage": { roles: ["owner"], scope: null, write: true },
   "settings.read": { roles: STAFF_READ, scope: "settings:read", write: false },
   "settings.write": { roles: ["owner"], scope: "settings:write", write: true },
+  /**
+   * F01 SET-142 owner-only settings, never via REST/MCP: tax status (KU, Soll/Ist, UStVA period, profit method,
+   * chart, fiscal year), server location, access concept, completing the setup.
+   */
+  "settings.ownerOnly": { roles: ["owner"], scope: null, write: true },
   /** Integration credentials, auth-mail test, R2 tests (F01 SET-106/107/115). */
   "integrations.manage": { roles: ["owner"], scope: null, write: true },
   "audit.read": { roles: ALL, scope: "audit:read", write: false },
