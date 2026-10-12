@@ -6,6 +6,7 @@ import { SidebarProvider } from "@/components/ui/sidebar";
 import { AppSidebar, SidebarAutoCollapse } from "./app-sidebar";
 import { CommandPalette } from "./command-palette";
 import { CreateSheet } from "./create-menu";
+import { IntegrityBanner } from "./integrity-banner";
 import { MobileTabBar } from "./mobile-tab-bar";
 import { RouteFocus, SkipLink } from "./route-focus";
 import { ShellUiProvider } from "./shell-context";
@@ -27,6 +28,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         <AppSidebar />
         <div className="flex min-w-0 flex-1 flex-col" aria-hidden={expired || undefined}>
           <TopBar />
+          <IntegrityBanner />
           <main
             id="main"
             tabIndex={-1}
