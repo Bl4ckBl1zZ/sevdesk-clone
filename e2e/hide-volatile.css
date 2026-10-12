@@ -1,0 +1,4 @@
+/* Masks volatile content in visual snapshots (dates, live counters). Mark elements with data-volatile. */
+[data-volatile] {
+  visibility: hidden !important;
+}

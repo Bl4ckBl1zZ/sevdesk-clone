@@ -8,3 +8,11 @@ coverage/
 test-results/
 playwright-report/
 .convex/
+next-env.d.ts
+*.tsbuildinfo
+results/
+e2e/.auth/
+.stryker-tmp/
+reports/
+.vercel
+.DS_Store

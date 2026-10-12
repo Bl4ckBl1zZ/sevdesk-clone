@@ -1,0 +1,31 @@
+{
+  /* Environment Convex functions run in; used by `pnpm typecheck` (tsc -p convex) and `convex dev`.
+   * Settings below "required by Convex" must stay. */
+  "compilerOptions": {
+    "allowJs": false,
+    "strict": true,
+    "noUncheckedIndexedAccess": true,
+    "noImplicitOverride": true,
+    "noFallthroughCasesInSwitch": true,
+    "moduleResolution": "Bundler",
+    "jsx": "react-jsx",
+    "skipLibCheck": true,
+    "allowSyntheticDefaultImports": true,
+    "resolveJsonModule": true,
+    "types": ["node", "vite/client"],
+    "paths": {
+      "@/*": ["../src/*"],
+      "@test/*": ["../test/*"]
+    },
+
+    /* Required by Convex */
+    "target": "ESNext",
+    "lib": ["ES2023", "dom"],
+    "forceConsistentCasingInFileNames": true,
+    "module": "ESNext",
+    "isolatedModules": true,
+    "noEmit": true
+  },
+  "include": ["./**/*"],
+  "exclude": ["./_generated"]
+}

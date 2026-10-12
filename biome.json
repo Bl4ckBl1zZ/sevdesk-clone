@@ -1,0 +1,88 @@
+{
+  "$schema": "./node_modules/@biomejs/biome/configuration_schema.json",
+  "vcs": { "enabled": true, "clientKind": "git", "useIgnoreFile": true },
+  "files": {
+    "ignoreUnknown": true,
+    "includes": [
+      "**",
+      "!convex/_generated",
+      "!convex/betterAuth/_generated",
+      "!next-env.d.ts",
+      "!pnpm-lock.yaml",
+      "!test/golden/cases",
+      "!test/fixtures",
+      "!docs",
+      "!**/*.md",
+      "!**/*.svg"
+    ]
+  },
+  "formatter": {
+    "enabled": true,
+    "indentStyle": "space",
+    "indentWidth": 2,
+    "lineWidth": 120
+  },
+  "javascript": {
+    "formatter": { "quoteStyle": "double", "semicolons": "always", "trailingCommas": "all" }
+  },
+  "css": {
+    "parser": { "tailwindDirectives": true }
+  },
+  "assist": { "actions": { "source": { "organizeImports": "on" } } },
+  "linter": {
+    "enabled": true,
+    "rules": {
+      "preset": "recommended",
+      "suspicious": { "noConsole": { "level": "warn", "options": { "allow": ["error", "warn", "info"] } } },
+      "style": { "noNonNullAssertion": "error", "useImportType": "error" },
+      "correctness": { "noUnusedImports": "error", "noUnusedVariables": "error" }
+    }
+  },
+  "overrides": [
+    {
+      "includes": ["src/domain/**"],
+      "linter": {
+        "rules": {
+          "style": {
+            "noRestrictedImports": {
+              "level": "error",
+              "options": {
+                "paths": {
+                  "react": "src/domain is pure TS (02 §3): no React.",
+                  "react-dom": "src/domain is pure TS (02 §3): no React.",
+                  "next": "src/domain is pure TS (02 §3): no Next.js.",
+                  "convex": "src/domain must not import Convex (02 §3).",
+                  "fs": "src/domain has no I/O (02 §3).",
+                  "node:fs": "src/domain has no I/O (02 §3).",
+                  "node:fs/promises": "src/domain has no I/O (02 §3).",
+                  "node:child_process": "src/domain has no I/O (02 §3).",
+                  "node:http": "src/domain has no I/O (02 §3).",
+                  "node:https": "src/domain has no I/O (02 §3).",
+                  "node:net": "src/domain has no I/O (02 §3)."
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "includes": ["src/components/ui/**"],
+      "linter": {
+        "rules": {
+          "a11y": {
+            "useSemanticElements": "off",
+            "useFocusableInteractive": "off",
+            "useKeyWithClickEvents": "off",
+            "noLabelWithoutControl": "off"
+          },
+          "suspicious": { "noArrayIndexKey": "off" }
+        }
+      }
+    },
+    {
+      "includes": ["scripts/**", "e2e/**", "**/*.config.*", "test/**"],
+      "linter": { "rules": { "suspicious": { "noConsole": "off" }, "complexity": { "noImportantStyles": "off" } } }
+    }
+  ]
+}

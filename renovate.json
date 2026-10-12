@@ -1,0 +1,22 @@
+{
+  "$schema": "https://docs.renovatebot.com/renovate-schema.json",
+  "extends": ["config:recommended"],
+  "rangeStrategy": "pin",
+  "packageRules": [
+    {
+      "description": "better-auth 1.7 breaks the @convex-dev/better-auth component bundle (get-convex/better-auth#433, 02 §2, 08 §6)",
+      "matchPackageNames": ["better-auth", "@better-auth/**"],
+      "allowedVersions": "<1.7.0"
+    },
+    {
+      "description": "Vitest pinned to 4.1.x until convex-test documents Vitest 5 (ADR-013)",
+      "matchPackageNames": ["vitest", "@vitest/**"],
+      "allowedVersions": "<5.0.0"
+    },
+    {
+      "description": "Exact pin; upgrade only together with better-auth",
+      "matchPackageNames": ["@convex-dev/better-auth"],
+      "automerge": false
+    }
+  ]
+}

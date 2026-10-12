@@ -1,0 +1,134 @@
+# CI pipeline (07-testing §7). No secrets are needed for these jobs.
+# Later (needs the stack / secrets): einvoice-validate, e2e against compose.dev.yml, build-image, deploy.
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+env:
+  NEXT_TELEMETRY_DISABLED: "1"
+
+jobs:
+  lint-typecheck:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v5
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v5
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm lint # biome check + scripts/check-boundaries.ts
+      - run: pnpm typecheck
+      # TODO(P0): openapi:check once /api/openapi.json exists (05 §1).
+      # Report only for now; switch to `pnpm trace --phase P0 --gate` when the P0 gate applies (07 §6).
+      - run: pnpm trace
+
+  unit:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v5
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v5
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm test:coverage -p domain,server,ui,convex
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: coverage
+          path: coverage/
+          if-no-files-found: ignore
+
+  golden:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v5
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v5
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm golden
+      # TODO(P1): upload generated artifacts for the einvoice-validate job (KoSIT 1.6.3 + Mustang 2.26).
+
+  integration:
+    runs-on: ubuntu-24.04
+    env:
+      CONVEX_BACKEND_VERSION: precompiled-2026-10-10-72ce13c
+    steps:
+      - uses: actions/checkout@v5
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v5
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - uses: actions/cache@v4
+        with:
+          path: ~/.cache/rechnungen/convex-backend
+          key: convex-backend-${{ env.CONVEX_BACKEND_VERSION }}
+      # Precompiled self-hosted backend (no Docker); later: compose.dev.yml with Postgres 17 + einvoice-tools.
+      - name: Start self-hosted Convex backend
+        run: |
+          nohup scripts/convex-local-backend.sh > convex-backend.log 2>&1 &
+          for i in $(seq 1 60); do curl -fs http://127.0.0.1:3210/version >/dev/null && break; sleep 1; done
+          scripts/convex-local-backend.sh env >> "$GITHUB_ENV"
+      - run: pnpm convex deploy --yes --typecheck disable
+      - run: pnpm test -p integration
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: convex-backend-log
+          path: convex-backend.log
+
+  e2e:
+    runs-on: ubuntu-24.04
+    # Smoke only for now: Playwright starts `pnpm build && pnpm start` itself.
+    # TODO(P0): run against deploy/compose.dev.yml (Caddy *.localtest.me, Convex, einvoice-tools), 3 shards,
+    # inside mcr.microsoft.com/playwright:v1.64.0-noble for visual baselines.
+    steps:
+      - uses: actions/checkout@v5
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v5
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm exec playwright install --with-deps chromium webkit
+      - run: pnpm e2e
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: playwright-report
+          path: |
+            playwright-report/
+            results/
+          if-no-files-found: ignore
+
+  build:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v5
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v5
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm build
+      # TODO(P0): build-image (web, einvoice-tools, caddy → GHCR, main only) and deploy (convex deploy +
+      # Dokploy compose deploy over the tailnet, 08 §6) once the Dockerfiles and secrets exist.
