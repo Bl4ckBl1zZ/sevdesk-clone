@@ -25,6 +25,16 @@ export const ERRORS = {
   conflict: "Konflikt.",
   version_conflict: "Die Einstellungen wurden zwischenzeitlich geändert. Bitte neu laden.",
   setup_incomplete: "Die Einrichtung ist noch nicht abgeschlossen.",
+  // F08 journal
+  period_locked: "Der Zeitraum ist festgeschrieben.",
+  posting_rejected: "Die Buchung ist nicht möglich.",
+  role_unmapped: "Für diese Kontenrolle ist noch kein Konto zugeordnet.",
+  account_unknown: "Das Konto ist im Kontenrahmen nicht vorhanden.",
+  cash_negative: "Der Kassenbestand würde negativ werden.",
+  already_posted: "Für diesen Beleg wurde bereits gebucht.",
+  already_reversed: "Diese Buchung wurde bereits storniert.",
+  chart_locked: "Der Kontenrahmen kann erst zum Beginn des nächsten Wirtschaftsjahres gewechselt werden.",
+  bookkeeping_start_locked: "Der Buchungsbeginn kann nach der ersten Buchung nicht mehr geändert werden.",
 } as const;
 
 export type ErrorCode = keyof typeof ERRORS;

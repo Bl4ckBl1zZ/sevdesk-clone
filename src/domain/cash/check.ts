@@ -32,8 +32,8 @@ export function firstNegativeBalance(movements: readonly CashMovement[]): CashDi
   return null;
 }
 
-const de = (d: string) => `${d.slice(8, 10)}.${d.slice(5, 7)}.${d.slice(0, 4)}`;
-const money = (cents: number) => formatEuro(cents).replace("-", "−");
+export const de = (d: string) => `${d.slice(8, 10)}.${d.slice(5, 7)}.${d.slice(0, 4)}`;
+export const money = (cents: number) => formatEuro(cents).replace("-", "−");
 
 /** EC-CSH-01 / EC-CSH-02 / EC-CSH-04 messages. */
 export function cashNegativeIssue(dip: CashDip, postingDate: string, reversal: boolean): Issue<"cash_negative"> {

@@ -4,7 +4,7 @@
  * existing entry and nothing is reversed twice) and RI-11 (the `cash` account is ≥ 0 after every movement).
  * Pure; convex/model/invariants.ts feeds it the database.
  */
-import { firstNegativeBalance } from "../cash/check";
+import { de, firstNegativeBalance, money } from "../cash/check";
 import { checkBalanced } from "./post";
 
 export interface InvariantFinding {
@@ -117,7 +117,7 @@ export function checkCash(
         {
           id: "RI-11" as const,
           severity: "ERROR" as const,
-          message: `Kassenbestand am ${dip.date} negativ (${dip.balanceCents} Cent, Buchung ${dip.seq}).`,
+          message: `Kassenbestand am ${de(dip.date)} negativ (${money(dip.balanceCents)}, Buchung ${dip.seq}).`,
         },
       ]
     : [];

@@ -320,8 +320,11 @@ export function sourceOf(e: BusinessEvent): JournalSource {
 }
 
 /** One opening entry per fiscal year and part (E-ACC-13: entered twice → blocked). */
-export function openingSourceId(fiscalYear: number, part: OpeningBalancePart): string {
-  if (part.kind === "bank") return `${fiscalYear}:bank:${part.bankAccountId}`;
+export function openingSourceId(
+  fiscalYear: number,
+  part: { kind: OpeningBalancePart["kind"]; bankAccountId?: string },
+): string {
+  if (part.kind === "bank") return `${fiscalYear}:bank:${part.bankAccountId ?? ""}`;
   return `${fiscalYear}:${part.kind}`;
 }
 

@@ -104,3 +104,46 @@ export const vActorContext = v.object({
   client: v.optional(v.object({ name: v.string(), version: v.string() })),
   scopes: v.optional(v.array(v.string())),
 });
+
+// ── F08 journal (03 §8) ───────────────────────────────────────────────────────────────────────────────
+
+export const vChart = v.union(v.literal("SKR03"), v.literal("SKR04"));
+
+/** 03 §0.2 `FxRate` (MISC-08). */
+export const vFxRate = v.object({
+  rate: v.string(),
+  source: v.union(v.literal("bmf_monthly"), v.literal("ecb_daily"), v.literal("manual"), v.literal("transaction")),
+  sourceText: v.optional(v.string()),
+  date: v.string(),
+});
+
+/** 03 §8 `journalEntries.lines[]`. `contactId` is a string until the contacts table exists (F02). */
+export const vJournalLine = v.object({
+  account: v.string(),
+  role: v.optional(v.string()),
+  debitCents: v.number(),
+  creditCents: v.number(),
+  taxKey: v.optional(v.string()),
+  costCenterId: v.optional(v.string()),
+  contactId: v.optional(v.string()),
+  taxPointDate: v.optional(v.string()),
+  taxPeriod: v.optional(v.string()),
+  currency: v.optional(v.string()),
+  amountFx: v.optional(v.number()),
+  fxRate: v.optional(vFxRate),
+});
+
+/** 03 §8 `journalEntries.source.kind`. */
+export const vJournalSourceKind = v.union(
+  v.literal("salesDocument"),
+  v.literal("voucher"),
+  v.literal("payment"),
+  v.literal("bankTransaction"),
+  v.literal("cashTransfer"),
+  v.literal("asset_depreciation"),
+  v.literal("manual"),
+  v.literal("opening_balance"),
+  v.literal("tax"),
+  v.literal("fx"),
+  v.literal("period_close"),
+);

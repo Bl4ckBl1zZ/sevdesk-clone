@@ -51,6 +51,8 @@ export const IMMUTABILITY_MATRIX: Readonly<Record<string, TableRule>> = {
   depreciationRuns: APPEND_ONLY,
   bankTransactionRevisions: APPEND_ONLY,
   bankStatements: APPEND_ONLY,
+  // F08 read model of journal lines: written with its entry, never changed (03 §8, RI-12 consistency check).
+  journalLines: APPEND_ONLY,
 
   // ── guarded from insert ─────────────────────────────────────────────────────
   integrityCheckpoints: {
@@ -80,6 +82,8 @@ export const IMMUTABILITY_MATRIX: Readonly<Record<string, TableRule>> = {
     fields: { reversedById: "once", lockedAt: "once", reconciledTransactionId: "once", receiptFile: "once" },
   },
   journalEntries: { kind: "guarded", fields: { lockedAt: "once" } },
+  // F08 ACC-013 opening items: the reference data is frozen; payments maintain the open amount (like salesDocuments).
+  openingItems: { kind: "guarded", fields: { openAmountCents: "mutable", lockedAt: "once" } },
   cashTransfers: { kind: "guarded", fields: { bankTransactionId: "once" } },
   periods: {
     kind: "guarded",

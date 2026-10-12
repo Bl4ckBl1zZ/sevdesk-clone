@@ -97,7 +97,7 @@ describe("RI-12 journal invariants", () => {
         { date: "2026-01-01", seq: 2, debitCents: 0, creditCents: 50 },
       ]),
     ).toEqual([
-      { id: "RI-11", severity: "ERROR", message: "Kassenbestand am 2026-01-01 negativ (-50 Cent, Buchung 2)." },
+      { id: "RI-11", severity: "ERROR", message: "Kassenbestand am 01.01.2026 negativ (−0,50\u00a0€, Buchung 2)." },
     ]);
   });
 });

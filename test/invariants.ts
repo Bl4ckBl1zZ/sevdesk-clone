@@ -11,6 +11,7 @@ import { internal } from "../convex/_generated/api";
  *
  * Implemented (P0): RI-14 (audit chain complete, head contains the latest checkpoint), RI-15 (every state change
  * audited: replaying audit diffs reproduces every record — also catches changes to frozen records).
+ * P1: RI-11 (cash never negative in (date, seq) order), RI-12 (journal gapless, balanced, sourced, mirrored lines).
  */
 export type InvariantSeverity = "ERROR" | "WARN";
 

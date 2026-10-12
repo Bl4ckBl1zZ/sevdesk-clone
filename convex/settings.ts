@@ -43,6 +43,7 @@ import { getCompanyProfile, patchCompanyProfile } from "./model/companyProfile";
 import { datevExportCount, finalisedDocumentsForKu } from "./model/documentHistory";
 import { countDraftsUsingCompanyData } from "./model/files";
 import { getIntegration, recordIntegrationTest } from "./model/integrations";
+import { journalFiscalYears } from "./model/journal";
 import {
   createLayout,
   currentVersion,
@@ -278,8 +279,13 @@ export const saveTaxSettings = mutation({
       now,
       finalisedDocuments: await finalisedDocumentsForKu(ctx),
       datevExportCount: await datevExportCount(ctx),
+      journalFiscalYears: await journalFiscalYears(ctx, current?.fiscalYearStartMonth ?? 1),
     });
-    if (!res.ok) throw appError("invalid_input", res.error.message, { reason: res.error.code, ...res.error.params });
+    if (!res.ok) {
+      const code =
+        res.error.code === "CHART_LOCKED" || res.error.code === "FISCAL_YEAR_LOCKED" ? "chart_locked" : "invalid_input";
+      throw appError(code, res.error.message, { reason: res.error.code, ...res.error.params });
+    }
     return patchCompanyProfile(ctx, res.patch as never, {
       action: "settings.tax.update",
       ...(t.kuReason
