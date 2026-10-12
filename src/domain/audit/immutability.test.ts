@@ -113,4 +113,45 @@ describe("immutability matrix (03 §11)", () => {
       if (rule.kind === "guarded") expect(Object.keys(rule.fields ?? {}).length, table).toBeGreaterThan(0);
     }
   });
+  test("DOC-29 UST-30 T-DOC-019 a finalised sales document changes only along the 03 §11 whitelist", () => {
+    const draft = { _id: "d", _creationTime: 1, status: "draft", subject: "a" };
+    expect(() => assertMutable("salesDocuments", draft, { op: "patch", patch: { subject: "b" } })).not.toThrow();
+    expect(() => assertMutable("salesDocuments", draft, { op: "delete" })).not.toThrow();
+    const fin = { ...draft, status: "finalized", number: "RE-1", artifactStatus: "pending" };
+    expect(() => assertMutable("salesDocuments", fin, { op: "patch", patch: { subject: "b" } })).toThrow("frozen");
+    expect(() => assertMutable("salesDocuments", fin, { op: "patch", patch: { number: "RE-2" } })).toThrow("frozen");
+    expect(() => assertMutable("salesDocuments", fin, { op: "delete" })).toThrow("delete");
+    expect(() => assertMutable("salesDocuments", fin, { op: "patch", patch: { status: "draft" } })).toThrow(
+      "transition",
+    );
+    expect(() =>
+      assertMutable("salesDocuments", fin, { op: "patch", patch: { status: "sent", sentAt: 5, sentOn: "2026-10-12" } }),
+    ).not.toThrow();
+    expect(() =>
+      assertMutable("salesDocuments", fin, { op: "patch", patch: { artifactStatus: "ready" } }),
+    ).not.toThrow();
+    expect(() =>
+      assertMutable(
+        "salesDocuments",
+        { ...fin, artifactStatus: "ready" },
+        { op: "patch", patch: { artifactStatus: "pending" } },
+      ),
+    ).toThrow("transition");
+    expect(() =>
+      assertMutable("salesDocuments", { ...fin, firstExportedAt: 1 }, { op: "patch", patch: { firstExportedAt: 2 } }),
+    ).toThrow("once");
+  });
+
+  test("DOC-29 document lines are frozen with their parent", () => {
+    const line = { _id: "l", _creationTime: 1, name: "A", quantityMilli: 1000 };
+    expect(() =>
+      assertMutable("documentLines", { ...line, parentStatus: "draft" }, { op: "patch", patch: { name: "B" } }),
+    ).not.toThrow();
+    expect(() =>
+      assertMutable("documentLines", { ...line, parentStatus: "sent" }, { op: "patch", patch: { name: "B" } }),
+    ).toThrow("frozen");
+    expect(() => assertMutable("documentLines", { ...line, parentStatus: "finalized" }, { op: "delete" })).toThrow(
+      "delete",
+    );
+  });
 });

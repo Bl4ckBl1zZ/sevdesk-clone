@@ -65,6 +65,20 @@ export const PERMISSIONS = {
   /** F03 products, categories and customer prices (auditor: read-only master data for Z1, like contacts). */
   "products.read": { roles: ALL, scope: "products:read", write: false },
   "products.write": { roles: ["owner", "bookkeeper"], scope: "products:write", write: true },
+  /** F04 sales documents: lists, detail, preview (auditor: read-only, Z1 access to issued invoices). */
+  "documents.read": { roles: ALL, scope: "documents:read", write: false },
+  /** DOC-03 draft create/update/delete. */
+  "documents.write": { roles: ["owner", "bookkeeper"], scope: "documents:write", write: true },
+  /**
+   * SND-06/SND-22 export: the files leave the system and an audit entry is written (05 §2: exporting needs only
+   * `documents:read`); the auditor and viewer may download archived files as well. Not a business write: only the
+   * audit entry and the derived `firstExportedAt` cache are recorded.
+   */
+  "documents.export": { roles: ALL, scope: "documents:read", write: false },
+  /** DOC-24 finalise (⚠, irreversible number assignment; fresh session, 02 §4.2). */
+  "invoices.finalize": { roles: ["owner", "bookkeeper"], scope: "invoices:finalize", write: true, fresh: true },
+  /** SND-07/SND-18 mark as sent and retract (⚠; scope name kept, 05 §2). */
+  "invoices.send": { roles: ["owner", "bookkeeper"], scope: "invoices:send", write: true, fresh: true },
 } as const satisfies Record<string, PermissionRule>;
 
 export type Permission = keyof typeof PERMISSIONS;

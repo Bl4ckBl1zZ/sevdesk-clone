@@ -32,4 +32,11 @@ describe("fresh session for ⚠ actions (02 §4.2, 04 §4.9)", () => {
     }
     expect(requiresFreshSession("settings.write")).toBe(false);
   });
+
+  test("E-AUD-28 DOC-24 SND-07 finalising and marking as sent are ⚠ actions with a fresh session; drafts are not", () => {
+    expect(requiresFreshSession("invoices.finalize")).toBe(true);
+    expect(requiresFreshSession("invoices.send")).toBe(true);
+    expect(requiresFreshSession("documents.write")).toBe(false);
+    expect(requiresFreshSession("documents.export")).toBe(false);
+  });
 });

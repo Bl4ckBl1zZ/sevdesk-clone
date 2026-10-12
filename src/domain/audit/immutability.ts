@@ -10,8 +10,8 @@ import { canonicalize } from "./canonical";
  *   "removeOnce"   may be removed once (value → absent), never set again (contactKeys.wrappedKey)
  *   transitions    allowed value changes, e.g. numberRegister.status issued → cancelled_by_storno
  *
- * Tables owned by later features (salesDocuments, documentLines, vouchers, bankTransactions, taxFilings,
- * assets, timeEntries, …) add their rows together with their state machines.
+ * Tables owned by later features (vouchers, bankTransactions, taxFilings, assets, timeEntries, …) add their rows
+ * together with their state machines.
  */
 export type FieldRule =
   | "mutable"
@@ -85,6 +85,74 @@ export const IMMUTABILITY_MATRIX: Readonly<Record<string, TableRule>> = {
   // F08 ACC-013 opening items: the reference data is frozen; payments maintain the open amount (like salesDocuments).
   openingItems: { kind: "guarded", fields: { openAmountCents: "mutable", lockedAt: "once" } },
   cashTransfers: { kind: "guarded", fields: { bankTransactionId: "once" } },
+  // ── F04 sales documents (03 §11 row "salesDocuments", DOC-29) ───────────────────────────────────────────────
+  // Frozen from finalisation; `status` moves only along the lifecycle tables (src/domain/documents/lifecycle.ts —
+  // the model layer checks the per-type table, this row is the union of all allowed non-draft moves).
+  salesDocuments: {
+    kind: "guarded",
+    frozenWhen: (doc) => doc.status !== "draft",
+    fields: {
+      status: {
+        transitions: {
+          finalized: [
+            "sent",
+            "cancelled",
+            "accepted",
+            "rejected",
+            "expired",
+            "superseded",
+            "partially_invoiced",
+            "invoiced",
+          ],
+          sent: [
+            "finalized",
+            "cancelled",
+            "accepted",
+            "rejected",
+            "expired",
+            "superseded",
+            "partially_invoiced",
+            "invoiced",
+          ],
+          expired: ["accepted", "rejected", "superseded"],
+          rejected: ["sent", "superseded"],
+          accepted: ["cancelled", "partially_invoiced", "invoiced", "withdrawn"],
+          partially_invoiced: ["invoiced", "accepted", "sent"],
+          invoiced: ["partially_invoiced", "accepted", "sent"],
+        },
+      },
+      paymentStatus: "mutable",
+      openAmountCents: "mutable",
+      sentAt: "mutable",
+      sentOn: "mutable",
+      firstExportedAt: "once",
+      viewedAt: "mutable",
+      artifactStatus: { transitions: { pending: ["ready", "blocked"], blocked: ["pending", "ready"] } },
+      lockedAt: "once",
+      tags: "mutable",
+      internalNote: "mutable",
+      deductedInId: "mutable",
+      coverage: "mutable",
+      dunningBlocked: "mutable",
+      disputed: "mutable",
+      zugang: "mutable",
+      overdueNotifiedAt: "mutable",
+      collection: "mutable",
+      evidence: "mutable",
+      acceptance: "once",
+      rejection: "once",
+      received: "once",
+      cancellation: "once",
+      objection: "once",
+      datevBelegnummer: "once",
+    },
+  },
+  // Frozen with the parent: the guarded db passes the parent's status as `parentStatus` (convex/model/db.ts).
+  documentLines: {
+    kind: "guarded",
+    frozenWhen: (doc) => doc.parentStatus !== undefined && doc.parentStatus !== "draft",
+    fields: { invoicedQtyMilli: "mutable", deliveredQtyMilli: "mutable" },
+  },
   periods: {
     kind: "guarded",
     fields: {
