@@ -298,6 +298,7 @@ ruleOverrides:   { ruleSet: "basiszinssatz" | "taxRate" | "noteText" | "ustvaMap
 { kind: "organization" | "person";
   parentId?: Id<"contacts">;                 // person belonging to an organisation
   number: string;                            // customer/supplier number (shared range like sevdesk)
+  numberNormalized: string;                  // trim + upper case of `number`; unique key for the case-insensitive check (CON-003)
   roles: ("customer" | "supplier" | "partner" | "prospect")[];   // role = relationship type
   status: "lead" | "active" | "archived";    // status = lifecycle state (both kept; "lead" ≠ role "prospect")
   mergedIntoId?: Id<"contacts">;             // alias after merge (CON-133); loser is archived, never deleted; finalised records keep the loser's ID and are resolved through the alias, never rewritten
@@ -305,7 +306,7 @@ ruleOverrides:   { ruleSet: "basiszinssatz" | "taxRate" | "noteText" | "ustvaMap
   salutation?: "herr" | "frau" | "divers" | "none"; academicTitle?: string;
   firstName?: string; lastName?: string; position?: string; birthday?: string;
   displayName: string;                       // denormalised (org name or "Title First Last")
-  searchText: string;                        // denormalised: displayName + number + e-mails (Convex search field)
+  searchText: string;                        // denormalised, folded (umlauts, case): displayName, organizationName2, number, e-mails, phone digits, VAT ID, city, tags (CON-172; Convex search field)
   isConsumer: boolean;                       // B2C → gross prices, §286 note, ER-03 NOT_REQUIRED
   isPublicAuthority: boolean;                // B2G → Leitweg-ID mandatory (ER-20)
   vatId?: string; vatIdStatus?: { lastCheckId: Id<"vatIdChecks">; status: "valid" | "invalid" | "unavailable"; qualified: boolean; checkedAt: number };
@@ -331,23 +332,29 @@ ruleOverrides:   { ruleSet: "basiszinssatz" | "taxRate" | "noteText" | "ustvaMap
   notes?: string;
   dsgvo?: { restrictedAt?: number; deletionRequestedAt?: number; scheduledPurgeAt?: string };   // DSGVO-02
   version: number }
-// indexes: by_number (unique), by_vatId, by_status_name, by_mergedInto, by_debtorAccount, by_creditorAccount;
-//          search index "search" on searchText (filter fields: status, kind)
+// indexes: by_number (numberNormalized, unique), by_vatId, by_status_name, by_mergedInto, by_parent, by_debtorAccount,
+//          by_creditorAccount, by_iban (CON-130 hint); search index "search" on searchText (filter fields: status, kind)
+// `dunning` (F05) and `selfBillingAgreement` (P3) are added by their slices; the P1 schema omits them.
 ```
 
 ```ts
 contactAddresses:   { contactId; type: "billing" | "delivery" | "other"; address: PostalAddress; isDefault: boolean;
                       archivedAt?: number }                                   // CON-024
 contactChannels:    { contactId; type: "email" | "phone" | "mobile" | "fax" | "web";
-                      value: string; label?: string; isInvoiceEmail: boolean; isPrimary: boolean }
+                      value: string; e164?: string /* phone/mobile/fax when parseable, for tel: links (CON-032) */;
+                      label?: string; isInvoiceEmail: boolean; isPrimary: boolean }
+                    // indexes by_contact [contactId, type], by_type_value [type, value] (duplicate and import match, CON-141)
 contactActivities:  { contactId; kind: "note" | "call" | "meeting" | "task";   // manual only; derived timeline events are computed, not stored (CON-120)
-                      text?: string; dueAt?: number; doneAt?: number; documentId?: Id<"salesDocuments">;
+                      text?: string; dueAt?: number; doneAt?: number; documentId?: Id<"salesDocuments"> /* added with F04 */;
                       attachments: FileRef[]; actor: Actor; editedAt?: number }
 vatIdChecks:  🔒    { contactId?; vatId: string; provider: "bzst_evatr" | "eu_vies";
                       request: unknown; response: unknown;
                       status: "valid" | "invalid" | "unavailable";            // CON-055 (replaces valid: boolean)
                       qualified?: { name: "A"|"B"|"C"|"D"; street: "A"|"B"|"C"|"D"; postalCode: "A"|"B"|"C"|"D"; city: "A"|"B"|"C"|"D" };
-                      providerRequestId?: string; checkedAt: number; retentionUntil: string }   // MISC-04 evidence (10 y)
+                      providerRequestId?: string; checkedAt: number; retentionUntil: string;   // MISC-04 evidence (10 y)
+                      fingerprint?: string /* vatId|name|street|postcode|city of the request: 24-h reuse (CON-058) */;
+                      message?: string /* German result text for the history and the evidence page (CON-061) */ }
+                    // indexes by_contact [contactId, checkedAt], by_vatId [vatId, checkedAt]
 sepaMandates:       { contactId; reference: string /* ≤ 35 chars, unique */; signedOn: string; scheme: "CORE" | "B2B";
                       sequence: "FRST" | "RCUR" | "OOFF"; iban: string; bic?: string;
                       file?: FileRef; capturedVia: "portal" | "upload" | "manual";
@@ -358,11 +365,14 @@ contactKeys:        { contactId: Id<"contacts">; wrappedKey?: string /* AES-256 
                     // crypto-shredding of personal values in audit diffs (F02 §5.12, DSGVO-02 vs GOBD-06): purge deletes
                     // wrappedKey and sets shreddedAt; the hash chain covers the ciphertext and still verifies.
                     // index by_contact (unique)
-dismissedDuplicates: { a: Id<"contacts">; b: Id<"contacts"> /* a < b */; at: number; actor: Actor }   // CON-131
+dismissedDuplicates: { a: Id<"contacts">; b: Id<"contacts"> /* a < b */; at: number; actor: Actor }   // CON-131; index by_pair
 contactMerges:      { winnerId: Id<"contacts">; loserId: Id<"contacts">;
                       moved: { table: string; id: string }[];                 // drafts, addresses, channels, activities, prices, mandates…
                       fieldChoices: Record<string, "winner" | "loser">; at: number; actor: Actor;
+                      restore: { winner: Record<string, unknown> /* winner fields before the merge */;
+                                 loserStatus: "lead" | "active" | "archived" };
                       undoneAt?: number }                                     // CON-132/134 (undo while no moved draft was finalised)
+                    // indexes by_winner, by_loser
 contactAliases:     { contactId: Id<"contacts">; token: string /* normalised counterparty name/description token */;
                       source: "match_confirmed" | "manual"; createdAt: number }   // F07 BNK-048; index by_token
 ```
@@ -370,7 +380,9 @@ contactAliases:     { contactId: Id<"contacts">; token: string /* normalised cou
 ## 3. Products
 
 ```ts
-products: { number: string; name: string; description?: string;
+products: { number: string; numberNormalized: string /* trim + upper case, unique (PRD-002) */; name: string;
+  searchText: string;                        // folded name + number for the search index (PRD list search)
+  description?: string;
   internalNote?: string;                     // never printed (PRD-001)
   type: "service" | "good";
   unitCode: string;                          // Rec 20/21
@@ -389,10 +401,11 @@ products: { number: string; name: string; description?: string;
   extraUnits: { unitCode: string; factorMilli: number }[];
   tags: Id<"tags">[]; customFields: Record<string, unknown>;
   active: boolean; version: number }
-// indexes: by_number (unique case-insensitive, incl. archived), by_active_name; search index on name + number
+// indexes: by_number (numberNormalized, unique incl. archived), by_active_name, by_category;
+//          search index "search" on searchText (filter fields: active, type)
 productCategories: { name: string; parentId?: Id<"productCategories"> }
 customerPrices:    { productId; contactId; unitPriceMicros: number; priceMode: "net" | "gross"; validFrom?: string }
-                   // index by_product_contact_validFrom (unique, PRD-030)
+                   // indexes by_product_contact_validFrom (unique, PRD-030), by_contact (merge, delete)
 stockMovements:    { productId; quantityMilli: number /* +/- */; reason: "delivery_note" | "manual_in" | "manual_out" | "correction";
                      text?: string /* mandatory for manual_* and correction (PRD-094) */;
                      documentId?: Id<"salesDocuments">; at: number; actor: Actor }   // P4, append-only
@@ -1167,6 +1180,11 @@ Conflicts and naming differences resolved while merging the F01–F12 data-model
 | §13b certificate | F02 CON-072, delta | `reverseCharge13bCertificates[]` history with `FileRef` (sha256) | Evidence for documents issued while an older certificate was valid |
 | Contact merge | F02 CON-133, Q6; 10 EC-113; lead decision | `mergedIntoId` alias + `contactMerges` record (needed for CON-134 undo); finalised records are never re-pointed | Satisfies GOBD-06 and the 03 §11 matrix. 10 EC-113 wording ("re-pointed") to align |
 | Audit diffs with personal data | F02 §5.12, Q7, delta; F12; lead decision | Crypto-shredding: personal values encrypted per contact (`contactKeys`, `shreddedAt`); F02's `destroyedAt` renamed `shreddedAt`; "field names only" alternative rejected | DSGVO-02 erasure without breaking the hash chain (GOBD-06) |
+| Case-insensitive numbers | F02 CON-003, F03 PRD-002; P1 contacts/products slice | `numberNormalized` (trim + upper case) stored next to `number` on `contacts` and `products`; `by_number` indexes it | A Convex index cannot compare case-insensitively; the stored key makes the unique check one index read |
+| Automatic contact/product numbers | F01 SET-064, F02 CON-003; P1 slice | The register entry is written at creation without `documentId` (the row does not exist yet); the counter skips values already taken by a manual number | A manual number equal to a future counter value must not block or duplicate the next automatic number |
+| Merge audit | F02 CON-134 ("one audit entry"); RI-15; P1 slice | Every moved/patched row gets its own audited patch, plus one `contactMerges` insert (audited) carrying the full move list and `restore` | RI-15 replays audit diffs per row; one summary entry cannot reproduce the rows. CON-134 wording updated |
+| Contact/product CSV import | F02 CON-140…142, F03 PRD-080…084; F09 `imports`/`jobs`; P1 slice | Until F09: the browser parses and maps the file (domain functions), the server previews and commits batches of ≤ 100 rows, idempotent through the match keys (number → VAT ID → invoice e-mail; products: number) | F09 owns the import job tables; the batch API keeps the same validation and becomes the job worker later |
+| Phone E.164 | F02 CON-032 (`libphonenumber-js`); P1 slice | Own normaliser `toE164()` in `src/domain/contacts/channels.ts` (default calling code 49) | Keeps the domain dependency-free and small; covers the formats of the CON tests; the library can replace it behind the same function |
 | VAT-ID check result | F02 delta (`status`) | `status: "valid" \| "invalid" \| "unavailable"` replaces `valid: boolean`; `contacts.vatIdStatus.status` likewise | "Service unavailable" is not the same as "invalid" (CON-055) |
 | Send outcome | F04 SND-12, App. G; 03 v1.0 `sendLog.ok` | **Superseded (owner update 2026-10-12, B2):** `sendLog` is a dispatch record of manual marks (`kind`, `sentOn`, `channel`, `artifacts`); no outcome, SMTP or Message-ID | The app no longer sends anything |
 | Artifact variants | F04 9.8, App. G (variant vs new kinds) | `documentArtifacts.variant: original \| copy \| reading` on kind `pdf` | Keeps the kind list stable; hashes per variant serve MAIL-02 |
