@@ -364,8 +364,13 @@ export async function postOpeningBalance(
   return postJournalEntry(ctx, { kind: "opening_balance", fiscalYear, date, part: eventPart });
 }
 
-export async function openingStatus(ctx: ReadCtx, fiscalYear: number) {
+/** Wizard state; without `fiscalYear` the year of the Buchungsbeginn (or of today) is shown. */
+export async function openingStatus(ctx: ReadCtx, now: number, requestedYear?: number) {
   const profile = await profileOrThrow(ctx);
+  const start = profile.bookkeepingStartDate;
+  const fiscalYear =
+    requestedYear ??
+    fiscalYearOf(start && isCalendarDate(start) ? start : berlinCalendarDate(now), profile.fiscalYearStartMonth);
   const date = await openingDate(ctx, fiscalYear);
   const posted = async (part: OpeningBalancePart) => {
     for (const e of await entriesBySource(ctx, { kind: "opening_balance", id: openingSourceId(fiscalYear, part) })) {

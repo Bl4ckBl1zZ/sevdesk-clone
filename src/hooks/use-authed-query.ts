@@ -1,6 +1,12 @@
 "use client";
 
-import { useConvexAuth, useQuery } from "convex/react";
+import {
+  type PaginatedQueryArgs,
+  type PaginatedQueryReference,
+  useConvexAuth,
+  usePaginatedQuery,
+  useQuery,
+} from "convex/react";
 import type { FunctionArgs, FunctionReference, FunctionReturnType } from "convex/server";
 
 /**
@@ -14,4 +20,14 @@ export function useAuthedQuery<Q extends FunctionReference<"query">>(
 ): FunctionReturnType<Q> | undefined {
   const { isAuthenticated } = useConvexAuth();
   return useQuery(query, ...((isAuthenticated && enabled ? [args] : ["skip"]) as [FunctionArgs<Q> | "skip"]));
+}
+
+/** `usePaginatedQuery` with the same wait-for-JWT behaviour (journal, lists). */
+export function useAuthedPaginatedQuery<Q extends PaginatedQueryReference>(
+  query: Q,
+  args: PaginatedQueryArgs<Q>,
+  initialNumItems: number,
+) {
+  const { isAuthenticated } = useConvexAuth();
+  return usePaginatedQuery(query, isAuthenticated ? args : "skip", { initialNumItems });
 }

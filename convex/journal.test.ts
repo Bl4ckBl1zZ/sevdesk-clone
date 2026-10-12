@@ -231,6 +231,13 @@ describe("journal model (ACC-001…ACC-006)", () => {
       reason: "before_bookkeeping_start",
     });
     expect(await post(t, invoice("new", "2026-04-01"))).toMatchObject({ status: "posted" });
+    // the wizard defaults to the fiscal year of the Buchungsbeginn; opening entries are dated on it
+    expect(await owner.query(api.accounting.openingBalanceStatus, {})).toMatchObject({
+      fiscalYear: 2026,
+      date: "2026-04-01",
+      bookkeepingStartDate: "2026-04-01",
+      canChangeBookkeepingStart: false,
+    });
     const err = await owner.mutation(api.accounting.setBookkeepingStartDate, { date: "2026-01-01" }).catch((e) => e);
     expect(errorCode(err)).toBe("bookkeeping_start_locked");
     expect((err as { data: { message: string } }).data.message).toBe(

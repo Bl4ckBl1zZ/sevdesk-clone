@@ -68,8 +68,8 @@ export const setBookkeepingStartDate = mutation({
 /** Opening balance wizard state for a fiscal year (F08 §6 /buchhaltung/eroeffnung). */
 export const openingBalanceStatus = query({
   permission: "accounting.read",
-  args: { fiscalYear: v.number() },
-  handler: async (ctx, { fiscalYear }) => openingStatus(ctx, fiscalYear),
+  args: { fiscalYear: v.optional(v.number()) },
+  handler: async (ctx, { fiscalYear }) => openingStatus(ctx, ctx.now(), fiscalYear),
 });
 
 const vOpeningReceivable = v.object({
