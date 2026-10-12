@@ -2,6 +2,7 @@ import { api } from "@convex/_generated/api";
 import type { Route } from "next";
 import { headers } from "next/headers";
 import { redirect } from "next/navigation";
+import { FreshActionProvider } from "@/components/auth/fresh-action";
 import { SessionProvider } from "@/components/auth/session-provider";
 import { fetchAuthQuery, requireSession } from "@/lib/auth-server";
 
@@ -26,5 +27,9 @@ export default async function SignedInLayout({ children }: { children: React.Rea
     const status = await fetchAuthQuery(api.settings.setupStatus, {}).catch(() => null);
     if (status && !status.setupCompleted) redirect("/einrichtung" as Route);
   }
-  return <SessionProvider>{children}</SessionProvider>;
+  return (
+    <SessionProvider>
+      <FreshActionProvider>{children}</FreshActionProvider>
+    </SessionProvider>
+  );
 }

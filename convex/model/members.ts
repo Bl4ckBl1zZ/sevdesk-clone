@@ -1,4 +1,10 @@
 import {
+  EXPIRED_REASON,
+  MEMBER_MESSAGES_DE,
+  validateExtension,
+  validateRoleChange,
+} from "../../src/domain/access/members";
+import {
   DAY_MS,
   decideSignup,
   INVITE_MESSAGES_DE,
@@ -286,4 +292,92 @@ export async function memberAuthFacts(
     null,
   );
   return { passkeys: (await page("passkey")).length, lastSignInAt: last };
+}
+
+const memberError = (code: keyof typeof MEMBER_MESSAGES_DE) =>
+  appError("invalid_input", MEMBER_MESSAGES_DE[code], { reason: code });
+
+/**
+ * „Rolle ändern" (04 §4.10): audited `member.role_change`. The member's sessions are ended so the next sign-in
+ * runs with the new role (the wrappers read the role per request anyway; this also clears cached UI state).
+ */
+export async function changeMemberRole(
+  ctx: ModelCtx,
+  memberId: Id<"members">,
+  change: {
+    role: "bookkeeper" | "viewer" | "auditor";
+    expiresAt?: number;
+    auditor?: { organisation?: string; purpose: string; fiscalYears: number[] };
+  },
+): Promise<void> {
+  const member = await ctx.db.get(memberId);
+  if (!member) throw appError("not_found");
+  const error = validateRoleChange(member, change, ctx.now());
+  if (error) throw memberError(error);
+  const auditor =
+    change.role === "auditor"
+      ? {
+          ...(change.auditor ?? member.auditor ?? { purpose: "", fiscalYears: [] }),
+          extensions: member.auditor?.extensions ?? [],
+        }
+      : undefined;
+  await auditedPatch(
+    ctx,
+    "members",
+    memberId,
+    {
+      role: change.role,
+      ...(change.expiresAt !== undefined ? { expiresAt: change.expiresAt } : {}),
+      auditor,
+    },
+    { action: "member.role_change", label: member.email },
+  );
+  await revokeSessions(ctx, member.authUserId);
+}
+
+/** „Verlängern" (04 §4.10, F12 AUD-022): new expiry; auditor grants keep the extension history. */
+export async function extendMember(
+  ctx: ModelCtx,
+  memberId: Id<"members">,
+  change: { expiresAt: number | null; reason?: string },
+): Promise<void> {
+  const member = await ctx.db.get(memberId);
+  if (!member) throw appError("not_found");
+  const now = ctx.now();
+  const error = validateExtension(member, change, now);
+  if (error) throw memberError(error);
+  const reason = change.reason?.trim() || undefined;
+  const reactivate = member.disabledAt !== undefined && member.disabledReason === EXPIRED_REASON;
+  await auditedPatch(
+    ctx,
+    "members",
+    memberId,
+    {
+      expiresAt: change.expiresAt ?? undefined,
+      ...(reactivate ? { disabledAt: undefined, disabledReason: undefined } : {}),
+      ...(member.auditor && change.expiresAt !== null
+        ? {
+            auditor: {
+              ...member.auditor,
+              extensions: [
+                ...member.auditor.extensions,
+                { at: now, expiresAt: change.expiresAt, reason: reason ?? "" },
+              ],
+            },
+          }
+        : {}),
+    },
+    { action: "member.extend", label: member.email, ...(reason ? { reason } : {}) },
+  );
+}
+
+/** „Sitzungen abmelden" (04 §4.10): ends every session; the member stays active and can sign in again. */
+export async function revokeMemberSessions(ctx: ModelCtx, memberId: Id<"members">): Promise<void> {
+  const member = await ctx.db.get(memberId);
+  if (!member) throw appError("not_found");
+  await appendAudit(ctx, {
+    action: "member.revoke_sessions",
+    entity: { table: "members", id: memberId, label: member.email },
+  });
+  await revokeSessions(ctx, member.authUserId);
 }

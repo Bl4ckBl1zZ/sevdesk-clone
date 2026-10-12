@@ -1,5 +1,12 @@
+import { isSessionFresh, REAUTH_MESSAGE_DE } from "../../src/domain/access/fresh";
 import { resolveIdentity } from "../../src/domain/access/identity";
-import { canDo, canKeyDo, type Permission, ROLE_LABEL_DE } from "../../src/domain/access/permissions";
+import {
+  canDo,
+  canKeyDo,
+  type Permission,
+  ROLE_LABEL_DE,
+  requiresFreshSession,
+} from "../../src/domain/access/permissions";
 import { memberAccess } from "../../src/domain/access/signup";
 import { components } from "../_generated/api";
 import type { QueryCtx } from "../_generated/server";
@@ -14,7 +21,8 @@ import { appError } from "./errors";
  * revoked key, missing role or scope → error. The actor is never read from function arguments.
  *
  * `checkSession` (writes): the Better Auth session row must still exist and be unexpired — a bare JWT stays
- * valid up to 15 min after sign-out (02 §4.4 `safeGetAuthUser`).
+ * valid up to 15 min after sign-out (02 §4.4 `safeGetAuthUser`). Permissions marked `fresh` (⚠ actions) also need
+ * a session created within the last 10 minutes (`reauth_required`, E-AUD-28).
  */
 export async function resolveActor(
   ctx: QueryCtx,
@@ -47,6 +55,15 @@ export async function resolveActor(
         : null;
       if (!session || (session as { userId?: string }).userId !== resolved.authUserId)
         throw appError("session_invalid");
+      // ⚠ actions (02 §4.2 "Fresh session", E-AUD-28): the session must be younger than freshAge (10 min).
+      // Checked after the role so a forbidden role is never asked to re-authenticate first.
+      if (
+        canDo(member.role, permission) &&
+        requiresFreshSession(permission) &&
+        !isSessionFresh((session as { createdAt?: number }).createdAt, opts.now)
+      ) {
+        throw appError("reauth_required", REAUTH_MESSAGE_DE);
+      }
     }
     // E-AUD-30a / 02 §4.2: an e-mail-code sign-in of a member with TOTP creates no session (and therefore no JWT)
     // until twoFactor.verifyTotp succeeded (convex/auth.ts `totpForEmailCodeSignIns`) — nothing to check here.

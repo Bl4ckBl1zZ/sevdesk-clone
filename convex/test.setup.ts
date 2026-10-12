@@ -99,6 +99,10 @@ export interface SeedUserOptions {
   sessionExpired?: boolean;
   /** No member row (a Better Auth user that is not a member). */
   noMember?: boolean;
+  /** Age of the session at seed time (default 0 = fresh); E-AUD-28 tests use > 10 min. */
+  sessionAgeMs?: number;
+  /** Re-authentication: create only a new session for this existing user (no new user/member). */
+  existingUserId?: string;
 }
 
 export function makeT() {
@@ -111,12 +115,15 @@ export function makeT() {
   async function seedUser(role: MemberRole, opts: SeedUserOptions = {}) {
     const now = Date.now();
     const email = (opts.email ?? `${role}-${unique()}@example.test`).toLowerCase();
-    const user = (await t.mutation(components.betterAuth.adapter.create, {
-      input: {
-        model: "user",
-        data: { name: opts.name ?? role, email, emailVerified: true, createdAt: now, updatedAt: now },
-      },
-    })) as { _id: string };
+    const user = opts.existingUserId
+      ? { _id: opts.existingUserId }
+      : ((await t.mutation(components.betterAuth.adapter.create, {
+          input: {
+            model: "user",
+            data: { name: opts.name ?? role, email, emailVerified: true, createdAt: now, updatedAt: now },
+          },
+        })) as { _id: string });
+    const createdAt = now - (opts.sessionAgeMs ?? 0);
     const session = (await t.mutation(components.betterAuth.adapter.create, {
       input: {
         model: "session",
@@ -124,13 +131,23 @@ export function makeT() {
           token: `tok_${unique()}`,
           userId: user._id,
           expiresAt: opts.sessionExpired ? now - 1000 : now + 7 * 86_400_000,
-          createdAt: now,
-          updatedAt: now,
+          createdAt,
+          updatedAt: createdAt,
         },
       },
     })) as { _id: string };
     let memberId: Id<"members"> | undefined;
-    if (!opts.noMember) {
+    if (opts.existingUserId) {
+      memberId = await t.run(
+        async (ctx) =>
+          (
+            await ctx.db
+              .query("members")
+              .withIndex("by_authUserId", (q) => q.eq("authUserId", user._id))
+              .unique()
+          )?._id,
+      );
+    } else if (!opts.noMember) {
       memberId = await t.run((ctx) =>
         auditedInsert(
           modelCtx(ctx, SYSTEM_AUTH),

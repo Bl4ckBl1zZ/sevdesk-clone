@@ -4,11 +4,12 @@ import { api } from "@convex/_generated/api";
 import type { Id } from "@convex/_generated/dataModel";
 import { useMutation } from "convex/react";
 import type { FunctionReturnType } from "convex/server";
-import { CheckIcon, MailIcon, MinusIcon, UserPlusIcon } from "lucide-react";
+import { CheckIcon, MailIcon, MinusIcon, MoreHorizontalIcon, UserPlusIcon } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { useId, useState } from "react";
 import { Controller, type UseFormReturn, useWatch } from "react-hook-form";
 import { toast } from "sonner";
+import { useFreshAction } from "@/components/auth/fresh-action";
 import { ConvexGuard } from "@/components/convex/convex-provider";
 import { FormErrorSummary, SelectField, TextField } from "@/components/forms/fields";
 import { useZodForm } from "@/components/setup/use-zod-form";
@@ -23,6 +24,14 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Textarea } from "@/components/ui/textarea";
 import {
@@ -33,8 +42,8 @@ import {
   inviteSchema,
   selectableFiscalYears,
 } from "@/domain/schemas/members";
-import { berlinCalendarDate } from "@/domain/time/berlin";
-import { addDays } from "@/domain/time/calendar-date";
+import { berlinCalendarDate, berlinEndOfDay } from "@/domain/time/berlin";
+import { addDays, type CalendarDate } from "@/domain/time/calendar-date";
 import { useAdapterErrorToast } from "@/hooks/use-adapter-error-toast";
 import { useAuthedQuery } from "@/hooks/use-authed-query";
 import { formatTimestamp } from "@/i18n/format";
@@ -63,7 +72,7 @@ function MembersPanelInner() {
   const members = useAuthedQuery(api.members.list, {});
   const invites = useAuthedQuery(api.invites.list, {});
   const [inviteOpen, setInviteOpen] = useState(false);
-  const [disabling, setDisabling] = useState<Member | null>(null);
+  const [action, setAction] = useState<MemberAction | null>(null);
 
   if (members === undefined || invites === undefined) return loading;
   const open = invites.filter((i) => i.status === "open");
@@ -84,7 +93,8 @@ function MembersPanelInner() {
           </Button>
         </CardHeader>
         <CardContent>
-          <MemberTable members={members} onDisable={setDisabling} />
+          <p className="mb-3 text-muted-foreground text-sm">{t("freshHint")}</p>
+          <MemberTable members={members} onAction={setAction} />
         </CardContent>
       </Card>
 
@@ -109,7 +119,13 @@ function MembersPanelInner() {
       </Card>
 
       <InviteDialog open={inviteOpen} onOpenChange={setInviteOpen} />
-      <DisableDialog member={disabling} onClose={() => setDisabling(null)} />
+      <DisableDialog member={action?.kind === "disable" ? action.member : null} onClose={() => setAction(null)} />
+      <RoleDialog member={action?.kind === "role" ? action.member : null} onClose={() => setAction(null)} />
+      <ExtendDialog member={action?.kind === "extend" ? action.member : null} onClose={() => setAction(null)} />
+      <RevokeSessionsDialog
+        member={action?.kind === "sessions" ? action.member : null}
+        onClose={() => setAction(null)}
+      />
     </div>
   );
 }
@@ -136,19 +152,53 @@ function AccessBadge({ member }: { member: Member }) {
   return <Badge variant="secondary">{t(`access.${member.access}`)}</Badge>;
 }
 
-function MemberActions({ member, onDisable }: { member: Member; onDisable: (m: Member) => void }) {
+type MemberAction = { kind: "role" | "extend" | "sessions" | "disable"; member: Member };
+
+/** Row actions (04 §4.10): Rolle ändern, Verlängern, Sitzungen abmelden, Deaktivieren — all ⚠ (fresh session). */
+function MemberActions({ member, onAction }: { member: Member; onAction: (a: MemberAction) => void }) {
   const t = useTranslations("members");
   // The owner row cannot be changed or removed (04 §4.10).
-  if (member.role === "owner" || member.access !== "active") return null;
+  if (member.role === "owner") return null;
+  const active = member.access === "active";
+  // A member expired by the hourly job can be extended again (E-AUD-34); a deactivated one is re-invited.
+  const extendable = active || member.access === "expired";
   return (
-    <Button variant="outline" size="sm" className="h-11 md:h-8" onClick={() => onDisable(member)}>
-      {t("disable")}
-      <span className="sr-only"> ({member.email})</span>
-    </Button>
+    <DropdownMenu>
+      <DropdownMenuTrigger
+        render={
+          <Button
+            variant="outline"
+            size="icon"
+            className="size-11 md:size-8"
+            aria-label={t("actionsFor", { email: member.email })}
+          />
+        }
+      >
+        <MoreHorizontalIcon aria-hidden="true" />
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="end" className="w-56">
+        {active && (
+          <DropdownMenuItem onClick={() => onAction({ kind: "role", member })}>{t("changeRole")}</DropdownMenuItem>
+        )}
+        {extendable && (
+          <DropdownMenuItem onClick={() => onAction({ kind: "extend", member })}>{t("extend")}</DropdownMenuItem>
+        )}
+        {active && (
+          <DropdownMenuItem onClick={() => onAction({ kind: "sessions", member })}>
+            {t("revokeSessions")}
+          </DropdownMenuItem>
+        )}
+        {active && (
+          <DropdownMenuItem variant="destructive" onClick={() => onAction({ kind: "disable", member })}>
+            {t("disable")}
+          </DropdownMenuItem>
+        )}
+      </DropdownMenuContent>
+    </DropdownMenu>
   );
 }
 
-function MemberTable({ members, onDisable }: { members: Member[]; onDisable: (m: Member) => void }) {
+function MemberTable({ members, onAction }: { members: Member[]; onAction: (a: MemberAction) => void }) {
   const t = useTranslations("members");
   const date = (ms: number | null) => (ms === null ? "—" : formatTimestamp(ms));
   return (
@@ -194,7 +244,7 @@ function MemberTable({ members, onDisable }: { members: Member[]; onDisable: (m:
                   {m.lastSignInAt === null ? "—" : formatTimestamp(m.lastSignInAt, { withTime: true })}
                 </TableCell>
                 <TableCell className="text-right">
-                  <MemberActions member={m} onDisable={onDisable} />
+                  <MemberActions member={m} onAction={onAction} />
                 </TableCell>
               </TableRow>
             ))}
@@ -226,7 +276,7 @@ function MemberTable({ members, onDisable }: { members: Member[]; onDisable: (m:
               </dd>
             </dl>
             <div>
-              <MemberActions member={m} onDisable={onDisable} />
+              <MemberActions member={m} onAction={onAction} />
             </div>
           </li>
         ))}
@@ -240,11 +290,12 @@ function InviteRow({ invite }: { invite: Invite }) {
   const resend = useMutation(api.invites.resend);
   const revoke = useMutation(api.invites.revoke);
   const showError = useAdapterErrorToast();
+  const fresh = useFreshAction();
   const [busy, setBusy] = useState(false);
   const run = async (fn: () => Promise<unknown>, success: string) => {
     setBusy(true);
     try {
-      await fn();
+      await fresh(fn);
       toast.success(success);
     } catch (e) {
       showError(e);
@@ -351,6 +402,7 @@ function InviteDialog({ open, onOpenChange }: { open: boolean; onOpenChange: (op
   const formId = useId();
   const create = useMutation(api.invites.create);
   const showError = useAdapterErrorToast();
+  const fresh = useFreshAction();
   const form = useZodForm(inviteSchema, inviteDefaults) as InviteForm;
   const role = useWatch({ control: form.control, name: "role" });
   const today = berlinCalendarDate(Date.now());
@@ -358,7 +410,7 @@ function InviteDialog({ open, onOpenChange }: { open: boolean; onOpenChange: (op
 
   const submit = form.handleSubmit(async (values) => {
     try {
-      await create(inviteArgsFromForm(values));
+      await fresh(() => create(inviteArgsFromForm(values)));
       toast.success(t("invited", { email: values.email }));
       form.reset(inviteDefaults);
       onOpenChange(false);
@@ -423,13 +475,14 @@ function DisableDialog({ member, onClose }: { member: Member | null; onClose: ()
   const reasonId = useId();
   const disable = useMutation(api.members.disable);
   const showError = useAdapterErrorToast();
+  const fresh = useFreshAction();
   const [reason, setReason] = useState("");
   const [busy, setBusy] = useState(false);
 
   const confirm = async (memberId: Id<"members">) => {
     setBusy(true);
     try {
-      await disable({ memberId, reason });
+      await fresh(() => disable({ memberId, reason }));
       toast.success(t("disabled"));
       setReason("");
       onClose();
@@ -468,5 +521,217 @@ function DisableDialog({ member, onClose }: { member: Member | null; onClose: ()
         </DialogFooter>
       </DialogContent>
     </Dialog>
+  );
+}
+
+/** Shared confirm-dialog frame for the ⚠ member actions. */
+function ActionDialog({
+  open,
+  title,
+  description,
+  confirmLabel,
+  busy,
+  destructive,
+  onConfirm,
+  onClose,
+  children,
+}: {
+  open: boolean;
+  title: string;
+  description: string;
+  confirmLabel: string;
+  busy: boolean;
+  destructive?: boolean;
+  onConfirm: () => void;
+  onClose: () => void;
+  children?: React.ReactNode;
+}) {
+  const tCommon = useTranslations("common");
+  return (
+    <Dialog open={open} onOpenChange={(o) => !o && onClose()}>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>{title}</DialogTitle>
+          <DialogDescription>{description}</DialogDescription>
+        </DialogHeader>
+        {children}
+        <DialogFooter>
+          <Button variant="outline" className="h-11 md:h-9" onClick={onClose}>
+            {tCommon("cancel")}
+          </Button>
+          <Button
+            variant={destructive ? "destructive" : "default"}
+            className="h-11 md:h-9"
+            disabled={busy}
+            onClick={onConfirm}
+          >
+            {confirmLabel}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+function useMemberAction(onDone: () => void) {
+  const showError = useAdapterErrorToast();
+  const fresh = useFreshAction();
+  const [busy, setBusy] = useState(false);
+  const run = async (fn: () => Promise<unknown>, success: string) => {
+    setBusy(true);
+    try {
+      await fresh(fn);
+      toast.success(success);
+      onDone();
+    } catch (e) {
+      showError(e);
+    } finally {
+      setBusy(false);
+    }
+  };
+  return { busy, run };
+}
+
+const dateInput = (ms: number | null): string => (ms === null ? "" : berlinCalendarDate(ms));
+
+function RoleDialog({ member, onClose }: { member: Member | null; onClose: () => void }) {
+  const t = useTranslations("members");
+  const changeRole = useMutation(api.members.changeRole);
+  const { busy, run } = useMemberAction(onClose);
+  const roleId = useId();
+  const [role, setRole] = useState<"bookkeeper" | "viewer">("viewer");
+  if (!member) return null;
+  const options = (["bookkeeper", "viewer"] as const).filter((r) => r !== member.role);
+  const selected = options.includes(role) ? role : (options[0] ?? "viewer");
+  return (
+    <ActionDialog
+      open
+      title={t("changeRoleTitle", { email: member.email })}
+      description={t("changeRoleDescription")}
+      confirmLabel={t("changeRole")}
+      busy={busy}
+      onClose={onClose}
+      onConfirm={() => void run(() => changeRole({ memberId: member.memberId, role: selected }), t("roleChanged"))}
+    >
+      <div className="flex flex-col gap-1.5">
+        <Label htmlFor={roleId}>{t("newRole")}</Label>
+        <select
+          id={roleId}
+          className="h-11 rounded-md border bg-background px-3 text-sm md:h-9"
+          value={selected}
+          onChange={(e) => setRole(e.target.value as "bookkeeper" | "viewer")}
+        >
+          {options.map((r) => (
+            <option key={r} value={r}>
+              {t(`roles.${r}`)}
+            </option>
+          ))}
+        </select>
+        <p className="text-muted-foreground text-sm">{t(`roleHints.${selected}`)}</p>
+      </div>
+    </ActionDialog>
+  );
+}
+
+function ExtendDialog({ member, onClose }: { member: Member | null; onClose: () => void }) {
+  const t = useTranslations("members");
+  const extend = useMutation(api.members.extend);
+  const { busy, run } = useMemberAction(onClose);
+  const dateId = useId();
+  const reasonId = useId();
+  const unlimitedId = useId();
+  const today = berlinCalendarDate(Date.now()) as CalendarDate;
+  const [date, setDate] = useState("");
+  const [reason, setReason] = useState("");
+  const [unlimited, setUnlimited] = useState(false);
+  if (!member) return null;
+  const auditor = member.role === "auditor";
+  const value = date || dateInput(member.expiresAt) || addDays(today, 30);
+  return (
+    <ActionDialog
+      open
+      title={t("extendTitle", { email: member.email })}
+      description={auditor ? t("extendDescriptionAuditor") : t("extendDescription")}
+      confirmLabel={t("extend")}
+      busy={busy}
+      onClose={onClose}
+      onConfirm={() =>
+        void run(
+          () =>
+            extend({
+              memberId: member.memberId,
+              expiresAt: unlimited && !auditor ? null : berlinEndOfDay(value as CalendarDate),
+              ...(reason.trim() ? { reason } : {}),
+            }),
+          t("extended"),
+        )
+      }
+    >
+      <div className="flex flex-col gap-3">
+        {!auditor && (
+          <label htmlFor={unlimitedId} className="flex h-11 items-center gap-2 text-sm md:h-8">
+            <input
+              id={unlimitedId}
+              type="checkbox"
+              className="size-4 accent-primary"
+              checked={unlimited}
+              onChange={(e) => setUnlimited(e.target.checked)}
+            />
+            {t("unlimited")}
+          </label>
+        )}
+        {!(unlimited && !auditor) && (
+          <div className="flex flex-col gap-1.5">
+            <Label htmlFor={dateId}>{t("validUntil")}</Label>
+            <Input
+              id={dateId}
+              type="date"
+              className="h-11 md:h-9"
+              min={addDays(today, 1)}
+              {...(auditor ? { max: addDays(today, 30) } : {})}
+              value={value}
+              onChange={(e) => setDate(e.target.value)}
+            />
+          </div>
+        )}
+        <div className="flex flex-col gap-1.5">
+          <Label htmlFor={reasonId}>
+            {t("extendReason")}
+            {auditor && (
+              <span aria-hidden="true" className="text-danger">
+                {" "}
+                *
+              </span>
+            )}
+          </Label>
+          <Textarea
+            id={reasonId}
+            value={reason}
+            onChange={(e) => setReason(e.target.value)}
+            rows={2}
+            required={auditor}
+          />
+        </div>
+      </div>
+    </ActionDialog>
+  );
+}
+
+function RevokeSessionsDialog({ member, onClose }: { member: Member | null; onClose: () => void }) {
+  const t = useTranslations("members");
+  const revokeSessions = useMutation(api.members.revokeSessions);
+  const { busy, run } = useMemberAction(onClose);
+  if (!member) return null;
+  return (
+    <ActionDialog
+      open
+      destructive
+      title={t("revokeSessionsTitle", { email: member.email })}
+      description={t("revokeSessionsDescription")}
+      confirmLabel={t("revokeSessions")}
+      busy={busy}
+      onClose={onClose}
+      onConfirm={() => void run(() => revokeSessions({ memberId: member.memberId }), t("sessionsRevoked"))}
+    />
   );
 }

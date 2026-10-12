@@ -492,7 +492,10 @@
       "mailFailed": "Code konnte nicht gesendet werden — bitte später erneut versuchen.",
       "totpInvalid": "Der Code ist falsch. Bitte den aktuellen Code aus der Authenticator-App eingeben.",
       "totpExpired": "Die Anmeldung ist abgelaufen. Bitte erneut mit einem Code per E-Mail anmelden."
-    }
+    },
+    "reauthTitle": "Bestätigung erforderlich",
+    "reauthDescription": "Zur Bestätigung bitte erneut mit Passkey bestätigen.",
+    "reauthCancelled": "Aktion abgebrochen: Die Bestätigung wurde nicht abgeschlossen."
   },
   "account": {
     "title": "Mein Konto",
@@ -829,7 +832,25 @@
       "active": "aktiv",
       "expired": "abgelaufen",
       "disabled": "deaktiviert"
-    }
+    },
+    "changeRole": "Rolle ändern",
+    "changeRoleTitle": "Rolle von {email} ändern",
+    "changeRoleDescription": "Die neue Rolle gilt ab der nächsten Anmeldung; laufende Sitzungen werden abgemeldet. Die Änderung wird protokolliert.",
+    "newRole": "Neue Rolle",
+    "roleChanged": "Rolle geändert.",
+    "extend": "Verlängern",
+    "extendTitle": "Zugang von {email} verlängern",
+    "extendDescription": "Neues Ablaufdatum festlegen. Die Verlängerung wird protokolliert.",
+    "extendDescriptionAuditor": "Prüferzugänge gelten höchstens 30 Tage ab heute; bitte den Grund angeben (Prüfungsakte).",
+    "unlimited": "Unbefristet (kein Ablaufdatum)",
+    "extendReason": "Grund",
+    "extended": "Zugang verlängert.",
+    "revokeSessions": "Sitzungen abmelden",
+    "revokeSessionsTitle": "Alle Sitzungen von {email} abmelden?",
+    "revokeSessionsDescription": "Alle Geräte werden sofort abgemeldet. Der Zugang bleibt bestehen; die Person kann sich erneut anmelden.",
+    "sessionsRevoked": "Sitzungen abgemeldet.",
+    "actionsFor": "Aktionen für {email}",
+    "freshHint": "Rollenänderungen, Verlängerungen, Abmeldungen, Deaktivierungen und Einladungen sind bestätigungspflichtig: Ist Ihre Anmeldung älter als 10 Minuten, werden Sie zuerst um den Passkey gebeten."
   },
   "integrity": {
     "failed": "Integritätsprüfung fehlgeschlagen: {entity} (seq {seq}). Neue Rechnungen sind bis zur Bestätigung gesperrt.",

@@ -7,6 +7,7 @@ import { ConvexError, type Value } from "convex/values";
 export const ERRORS = {
   unauthenticated: "Bitte melden Sie sich an.",
   session_invalid: "Sitzung abgelaufen. Bitte melden Sie sich erneut an.",
+  reauth_required: "Zur Bestätigung bitte erneut mit Passkey bestätigen.",
   not_a_member: "Für dieses Konto besteht kein Zugang.",
   member_expired: "Ihr Zugang ist abgelaufen.",
   member_disabled: "Ihr Zugang wurde beendet.",

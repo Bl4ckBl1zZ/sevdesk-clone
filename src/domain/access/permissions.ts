@@ -14,6 +14,11 @@ export interface PermissionRule {
   scope: Scope | null;
   /** Writes are refused for roles that only read (viewer, auditor) — E-AUD-29/E-AUD-32. */
   write: boolean;
+  /**
+   * ⚠ action: the signed-in member's session must be younger than 10 minutes (02 §4.2 "Fresh session",
+   * E-AUD-28); otherwise the wrapper answers `reauth_required` and the UI asks for a passkey or a new code.
+   */
+  fresh?: true;
 }
 
 const ALL: readonly MemberRole[] = ["owner", "bookkeeper", "viewer", "auditor"];
@@ -23,8 +28,8 @@ export const PERMISSIONS = {
   /** The signed-in member's own record (role, expiry, TOTP state). */
   "session.self": { roles: ALL, scope: null, write: false },
   "members.read": { roles: ["owner"], scope: null, write: false },
-  "members.manage": { roles: ["owner"], scope: null, write: true },
-  "invites.manage": { roles: ["owner"], scope: null, write: true },
+  "members.manage": { roles: ["owner"], scope: null, write: true, fresh: true },
+  "invites.manage": { roles: ["owner"], scope: null, write: true, fresh: true },
   "settings.read": { roles: STAFF_READ, scope: "settings:read", write: false },
   "settings.write": { roles: ["owner"], scope: "settings:write", write: true },
   /**
@@ -37,7 +42,7 @@ export const PERMISSIONS = {
   "audit.read": { roles: ALL, scope: "audit:read", write: false },
   "integrity.read": { roles: ["owner", "bookkeeper", "auditor"], scope: "audit:read", write: false },
   "integrity.acknowledge": { roles: ["owner"], scope: null, write: true },
-  "apiKeys.manage": { roles: ["owner"], scope: null, write: true },
+  "apiKeys.manage": { roles: ["owner"], scope: null, write: true, fresh: true },
 } as const satisfies Record<string, PermissionRule>;
 
 export type Permission = keyof typeof PERMISSIONS;
@@ -51,6 +56,11 @@ export function permissionRule(action: Permission): PermissionRule {
 /** `canDo(role, action)` — the single role check (TST-AUD-29). */
 export function canDo(role: MemberRole, action: Permission): boolean {
   return (PERMISSIONS[action].roles as readonly MemberRole[]).includes(role);
+}
+
+/** ⚠ actions that need a session younger than 10 minutes (E-AUD-28). */
+export function requiresFreshSession(action: Permission): boolean {
+  return (PERMISSIONS[action] as PermissionRule).fresh === true;
 }
 
 /** Scope an API key needs for `action`, or null when the action is never grantable via API. */

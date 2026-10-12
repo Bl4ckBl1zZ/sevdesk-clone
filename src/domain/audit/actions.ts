@@ -38,7 +38,8 @@ const GROUPS: Record<string, readonly string[] | "*"> = {
   webhook: "*", // webhook.endpoint.*
   auth: ["sign_in", "sign_out", "passkey_add", "passkey_remove", "totp_enable", "totp_disable", "otp_mail_failed"],
   // F12 lists `expire`; 02 §7 (members.expire cron) writes `member.expired` — both accepted.
-  member: ["create", "role_change", "extend", "expire", "expired", "disable"],
+  // `revoke_sessions`: „Sitzungen abmelden" (04 §4.10) without deactivating the member.
+  member: ["create", "role_change", "extend", "expire", "expired", "disable", "revoke_sessions"],
   invite: ["create", "resend", "revoke", "accept"],
   export: ["datev", "gdpdu", "full", "csv"],
   import: ["create", "preview", "commit", "discard", "finish"],

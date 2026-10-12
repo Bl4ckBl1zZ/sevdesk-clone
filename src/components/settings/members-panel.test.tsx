@@ -71,11 +71,12 @@ beforeEach(() => {
 describe("/einstellungen/mitglieder (04 §4.10)", () => {
   test("SEC-01 the owner row has no actions; other members can be deactivated with a reason", async () => {
     renderWithIntl(<MembersPanel />);
-    const deactivate = screen.getAllByRole("button", { name: /Deaktivieren/ });
-    // Table and card layout both render the action for the bookkeeper only (CSS decides which is visible).
-    expect(deactivate.every((b) => b.textContent?.includes("buch@firma.de"))).toBe(true);
+    // Table and card layout both render the actions for the bookkeeper only (CSS decides which is visible).
+    const triggers = screen.getAllByRole("button", { name: /Aktionen für/ });
+    expect(triggers.every((b) => b.getAttribute("aria-label")?.includes("buch@firma.de"))).toBe(true);
     expect(screen.queryByRole("button", { name: /inhaber@firma\.de/ })).toBeNull();
-    await userEvent.click(deactivate[0] as HTMLElement);
+    await userEvent.click(triggers[0] as HTMLElement);
+    await userEvent.click(await screen.findByRole("menuitem", { name: "Deaktivieren" }));
     const dialog = await screen.findByRole("dialog");
     await userEvent.type(within(dialog).getByLabelText("Grund (optional)"), "ausgeschieden");
     await userEvent.click(within(dialog).getByRole("button", { name: "Deaktivieren" }));
@@ -84,6 +85,56 @@ describe("/einstellungen/mitglieder (04 §4.10)", () => {
         memberId: "m-buch@firma.de",
         reason: "ausgeschieden",
       }),
+    );
+  });
+
+  test("SEC-01 „Rolle ändern“ offers only the other staff role and calls members.changeRole", async () => {
+    renderWithIntl(<MembersPanel />);
+    await userEvent.click(screen.getAllByRole("button", { name: /Aktionen für buch@firma\.de/ })[0] as HTMLElement);
+    await userEvent.click(await screen.findByRole("menuitem", { name: "Rolle ändern" }));
+    const dialog = await screen.findByRole("dialog");
+    const select = within(dialog).getByLabelText("Neue Rolle");
+    expect(
+      within(select)
+        .getAllByRole("option")
+        .map((o) => o.textContent),
+    ).toEqual(["Lesezugriff"]);
+    await userEvent.click(within(dialog).getByRole("button", { name: "Rolle ändern" }));
+    await waitFor(() =>
+      expect(backend.mutations["members:changeRole"]).toHaveBeenCalledWith({
+        memberId: "m-buch@firma.de",
+        role: "viewer",
+      }),
+    );
+  });
+
+  test("AUD-022 „Verlängern“ of an auditor requires a reason field and sends the new expiry", async () => {
+    backend.data["members:list"] = [
+      member({ email: "pruefer@finanzamt.de", role: "auditor", expiresAt: NOW + 86_400_000 }),
+    ];
+    renderWithIntl(<MembersPanel />);
+    await userEvent.click(screen.getAllByRole("button", { name: /Aktionen für/ })[0] as HTMLElement);
+    await userEvent.click(await screen.findByRole("menuitem", { name: "Verlängern" }));
+    const dialog = await screen.findByRole("dialog");
+    expect(within(dialog).queryByLabelText(/Unbefristet/)).toBeNull();
+    expect(within(dialog).getByLabelText(/Grund/)).toBeRequired();
+    await userEvent.type(within(dialog).getByLabelText(/Grund/), "Prüfung dauert an");
+    await userEvent.click(within(dialog).getByRole("button", { name: "Verlängern" }));
+    await waitFor(() =>
+      expect(backend.mutations["members:extend"]).toHaveBeenCalledWith(
+        expect.objectContaining({ memberId: "m-pruefer@finanzamt.de", reason: "Prüfung dauert an" }),
+      ),
+    );
+  });
+
+  test("SEC-02 „Sitzungen abmelden“ confirms and calls members.revokeSessions", async () => {
+    renderWithIntl(<MembersPanel />);
+    await userEvent.click(screen.getAllByRole("button", { name: /Aktionen für buch@firma\.de/ })[0] as HTMLElement);
+    await userEvent.click(await screen.findByRole("menuitem", { name: "Sitzungen abmelden" }));
+    const dialog = await screen.findByRole("dialog");
+    await userEvent.click(within(dialog).getByRole("button", { name: "Sitzungen abmelden" }));
+    await waitFor(() =>
+      expect(backend.mutations["members:revokeSessions"]).toHaveBeenCalledWith({ memberId: "m-buch@firma.de" }),
     );
   });
 

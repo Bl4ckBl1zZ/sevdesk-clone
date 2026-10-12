@@ -175,6 +175,12 @@
     "wrapper": "mutation",
     "permission": "invites.manage"
   },
+  "members:changeRole": {
+    "kind": "mutation",
+    "visibility": "public",
+    "wrapper": "mutation",
+    "permission": "members.manage"
+  },
   "members:disable": {
     "kind": "mutation",
     "visibility": "public",
@@ -187,6 +193,12 @@
     "wrapper": "systemMutation",
     "job": "cron.members.expire"
   },
+  "members:extend": {
+    "kind": "mutation",
+    "visibility": "public",
+    "wrapper": "mutation",
+    "permission": "members.manage"
+  },
   "members:list": {
     "kind": "query",
     "visibility": "public",
@@ -198,6 +210,12 @@
     "visibility": "public",
     "wrapper": "query",
     "permission": "session.self"
+  },
+  "members:revokeSessions": {
+    "kind": "mutation",
+    "visibility": "public",
+    "wrapper": "mutation",
+    "permission": "members.manage"
   },
   "settings:completeSetup": {
     "kind": "mutation",

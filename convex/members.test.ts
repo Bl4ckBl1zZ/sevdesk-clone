@@ -120,3 +120,120 @@ describe("member lifecycle (02 §4.3, E-AUD-30/31)", () => {
     });
   });
 });
+
+describe("fresh session for ⚠ actions (02 §4.2, 04 §4.9, E-AUD-28)", () => {
+  test("E-AUD-28 TST-AUD-31 member and invite changes with a 15-minute-old session ask for re-authentication", async () => {
+    const t = makeT();
+    const stale = await t.asUser("owner", { sessionAgeMs: 15 * 60_000 });
+    const viewer = await t.seedUser("viewer");
+    if (!viewer.memberId) throw new Error("no member");
+    const err = await stale
+      .mutation(api.invites.create, { email: "neu@example.test", role: "viewer" })
+      .catch((e: unknown) => e);
+    expect(errorCode(err)).toBe("reauth_required");
+    expect((err as { data?: { message?: string } }).data?.message).toBe(
+      "Zur Bestätigung bitte erneut mit Passkey bestätigen.",
+    );
+    expect(await stale.mutation(api.members.disable, { memberId: viewer.memberId, reason: "x" }).catch(errorCode)).toBe(
+      "reauth_required",
+    );
+    // Reads and non-⚠ writes keep working with the older session.
+    expect(await stale.query(api.members.list, {})).toHaveLength(2);
+    // After re-authentication (a new session) the same action runs.
+    const fresh = await t.asUser("owner", { email: stale.email, existingUserId: stale.userId });
+    await fresh.mutation(api.invites.create, { email: "neu@example.test", role: "viewer" });
+  });
+});
+
+describe("member administration (04 §4.10: Rolle ändern, Verlängern, Sitzungen abmelden)", () => {
+  test("SEC-01 the owner changes a role (member.role_change, audited with before/after); the owner row is fixed", async () => {
+    const t = makeT();
+    const owner = await t.asUser("owner");
+    const member = await t.asUser("viewer");
+    if (!member.memberId || !owner.memberId) throw new Error("no member");
+    await owner.mutation(api.members.changeRole, { memberId: member.memberId, role: "bookkeeper" });
+    expect(await member.query(api.members.me, {})).toMatchObject({ role: "bookkeeper" });
+    const entry = await t.run((ctx) => ctx.db.query("auditLog").withIndex("by_seq").order("desc").first());
+    expect(entry).toMatchObject({
+      action: "member.role_change",
+      actor: owner.actor,
+      actorRole: "owner",
+      diff: { before: { role: "viewer" }, after: { role: "bookkeeper" } },
+    });
+    expect(
+      await owner.mutation(api.members.changeRole, { memberId: owner.memberId, role: "viewer" }).catch(reasonOf),
+    ).toBe("owner_immutable");
+    expect(
+      await owner.mutation(api.members.changeRole, { memberId: member.memberId, role: "auditor" }).catch(reasonOf),
+    ).toBe("auditor_expiry_required");
+  });
+
+  test("SEC-01 a role change ends the member's sessions so the new role applies at the next sign-in", async () => {
+    const t = makeT();
+    const owner = await t.asUser("owner");
+    const member = await t.asUser("bookkeeper");
+    if (!member.memberId) throw new Error("no member");
+    await owner.mutation(api.members.changeRole, { memberId: member.memberId, role: "viewer" });
+    expect(await sessionsOf(t, member.userId)).toHaveLength(0);
+  });
+
+  test("SEC-03 AUD-022 extending an auditor grant needs a reason and is recorded in auditor.extensions", async () => {
+    const t = makeT();
+    const owner = await t.asUser("owner");
+    const auditor = await t.asUser("auditor", {
+      expiresAt: Date.now() + 2 * DAY,
+      auditor: { purpose: "Az 3", fiscalYears: [2025] },
+    });
+    if (!auditor.memberId) throw new Error("no member");
+    const until = Date.now() + 20 * DAY;
+    expect(
+      await owner
+        .mutation(api.members.extend, { memberId: auditor.memberId, expiresAt: until, reason: " " })
+        .catch(reasonOf),
+    ).toBe("reason_required");
+    await owner.mutation(api.members.extend, {
+      memberId: auditor.memberId,
+      expiresAt: until,
+      reason: "Prüfung verlängert",
+    });
+    const row = await t.run((ctx) => ctx.db.get(auditor.memberId as never));
+    expect(row).toMatchObject({
+      expiresAt: until,
+      auditor: { extensions: [{ expiresAt: until, reason: "Prüfung verlängert", at: expect.any(Number) }] },
+    });
+    const entry = await t.run((ctx) => ctx.db.query("auditLog").withIndex("by_seq").order("desc").first());
+    expect(entry).toMatchObject({ action: "member.extend", reason: "Prüfung verlängert" });
+  });
+
+  test("SEC-01 extending a member expired by the cron reactivates the access", async () => {
+    const t = makeT();
+    const owner = await t.asUser("owner");
+    const viewer = await t.asUser("viewer", { expiresAt: Date.now() - 1 });
+    if (!viewer.memberId) throw new Error("no member");
+    await t.mutation(internal.members.expireCron, { force: true });
+    expect((await owner.query(api.members.list, {})).find((m) => m.memberId === viewer.memberId)?.access).toBe(
+      "disabled",
+    );
+    await owner.mutation(api.members.extend, { memberId: viewer.memberId, expiresAt: Date.now() + 30 * DAY });
+    expect((await owner.query(api.members.list, {})).find((m) => m.memberId === viewer.memberId)?.access).toBe(
+      "active",
+    );
+  });
+
+  test("SEC-02 „Sitzungen abmelden“ ends every session of the member and is audited", async () => {
+    const t = makeT();
+    const owner = await t.asUser("owner");
+    const viewer = await t.asUser("viewer");
+    if (!viewer.memberId) throw new Error("no member");
+    await owner.mutation(api.members.revokeSessions, { memberId: viewer.memberId });
+    expect(await sessionsOf(t, viewer.userId)).toHaveLength(0);
+    const actions = await t.run(async (ctx) =>
+      (await ctx.db.query("auditLog").collect()).map((e) => e.action).filter((a) => a.startsWith("member.")),
+    );
+    expect(actions).toContain("member.revoke_sessions");
+    // The member stays active: a new sign-in works (unlike „Deaktivieren").
+    expect((await owner.query(api.members.list, {})).find((m) => m.memberId === viewer.memberId)?.access).toBe(
+      "active",
+    );
+  });
+});
