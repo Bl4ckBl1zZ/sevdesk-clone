@@ -52,7 +52,7 @@ Why one compose: the fork publishes **every** compose service that declares `por
 | Validation | zod v4 (shared schemas: forms, Convex args via `zodToConvex`, REST, MCP) | 4.6.x |
 | PDF | `@react-pdf/renderer` with `conformance="PDF/A-3b"`, registered TTF fonts (Inter + Inter Tight; Noto Sans fallback) | 4.9.x |
 | PDF post-processing | `@cantoo/pdf-lib` (`embedFacturX`, attachments). **Not** `pdf-lib` (dead since 2021) | 2.11.x |
-| E-Rechnung XML | Own EN 16931 model (`src/domain/einvoice/model.ts`) → serializer adapter. Default serializer: `@e-invoice-eu/core` (UBL, CII, XRechnung, Factur-X). An own `xmlbuilder2` CII builder is the fallback if a gap appears (ADR-007) | 3.4.x |
+| E-Rechnung XML | Own EN 16931 model (`src/domain/einvoice/model.ts`) → serializer adapter. Serializer: own deterministic CII + UBL writers (`src/domain/einvoice/cii.ts`, `ubl.ts`) — the ADR-007 fallback, taken after P0 spike 5 found gaps in `@e-invoice-eu/core` (CII notes invalid against the Factur-X EN16931 XSD, runtime footprint; docs/adr/0004). The library stays pinned for the spike script and as a cross-check | own / 3.4.x |
 | E-Rechnung validation | KoSIT validator 1.6.3 + `xrechnung-3.0.2-validator-configuration-2026-08-31`; Mustang CLI 2.26.0 (includes veraPDF) | sidecar |
 | Inbound parsing | `@cantoo/pdf-lib` `getAttachments()` (fallback `pdfjs-dist`), `fast-xml-parser` 5.x (values kept as strings), `postal-mime` (raw `.eml` from the R2 receipt inbox, P2) | |
 | MCP | `mcp-handler` 2.x + `@modelcontextprotocol/server` 2.x (spec 2026-07-28, stateless) | 2.3.x |
@@ -416,7 +416,7 @@ Full ADRs live in `docs/adr/` (created in P0); this is the index:
 | 004 | Integer money, fixed-scale quantities and prices | No float errors; EN 16931 rounding |
 | 005 | Date-effective rule tables as data | Law changes = data changes; documents store the rule versions used |
 | 006 | react-pdf (PDF/A-3b) + @cantoo/pdf-lib `embedFacturX` | Pure JS, no Chromium in the hot path; PDF/A support since react-pdf 4.9 |
-| 007 | `@e-invoice-eu/core` behind our serializer interface; own CII builder as fallback | Mature, multi-syntax; the adapter keeps us independent |
+| 007 | `@e-invoice-eu/core` behind our serializer interface; own CII builder as fallback — **fallback taken** (own CII + UBL writers, docs/adr/0004) | Mature, multi-syntax; the adapter keeps us independent. Spike 5: library merges BT-22 notes into one CII note (Factur-X XSD invalid for final invoices) and pulls `child_process` into the bundle |
 | 008 | KoSIT + Mustang in a Java sidecar | Official validators; no reliable pure-JS alternative |
 | 009 | No direct ELSTER (ERiC) in v1 | Closed C library, registration, redistribution limits; Kennzahlen sheet + DATEV instead |
 | 010 | No POS/cash-register mode | Avoids §146a KassenSichV/TSE obligations |
