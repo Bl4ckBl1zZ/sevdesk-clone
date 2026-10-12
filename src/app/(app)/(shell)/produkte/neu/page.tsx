@@ -1,7 +1,12 @@
-import { PlaceholderPage, placeholderMetadata } from "@/components/layout/placeholder-page";
+import { CatalogPage, catalogMetadata } from "@/components/catalog/catalog-page";
+import { ProductForm } from "@/components/products/product-form";
 
-export const generateMetadata = () => placeholderMetadata("produkteNeu");
+export const generateMetadata = () => catalogMetadata("produkteNeu");
 
 export default function Page() {
-  return <PlaceholderPage page="produkteNeu" />;
+  return (
+    <CatalogPage page="produkteNeu" parent="produkte" permission="products.write">
+      <ProductForm />
+    </CatalogPage>
+  );
 }

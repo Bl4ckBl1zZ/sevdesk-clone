@@ -307,4 +307,31 @@ describe("PRD-072 PRD-080…085 list, archive, import and export", () => {
       "119,00",
     ]);
   });
+
+  test("PRD-062 products take tags and the product custom fields; contact fields are not accepted", async () => {
+    const t = makeT();
+    const owner = await seeded(t);
+    const tag = await owner.mutation(api.lookups.saveTag, { values: { name: "Saison", color: "green" } });
+    const field = (entity: "contact" | "product", key: string) => ({
+      entity,
+      key,
+      label: key,
+      type: "number" as const,
+      options: "",
+      printOnDocuments: false,
+      required: false,
+    });
+    await owner.mutation(api.lookups.createCustomField, { values: field("product", "gewicht_kg") });
+    await owner.mutation(api.lookups.createCustomField, { values: field("contact", "umsatzklasse") });
+    const p = await owner.mutation(api.products.create, {
+      values: productForm("Palette", { tags: [tag], customFields: { gewicht_kg: 12.5 } }),
+    });
+    expect(await product(t, p.id)).toMatchObject({ tags: [tag], customFields: { gewicht_kg: 12.5 } });
+    const wrongEntity = await owner
+      .mutation(api.products.create, { values: productForm("Kiste", { customFields: { umsatzklasse: 3 } }) })
+      .catch(reasonOf);
+    expect(wrongEntity).toBe("CUSTOM_FIELD_UNKNOWN");
+    await owner.mutation(api.lookups.deleteTag, { tagId: tag });
+    expect((await product(t, p.id)).tags).toEqual([]);
+  });
 });

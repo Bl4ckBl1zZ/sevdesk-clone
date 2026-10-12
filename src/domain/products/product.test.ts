@@ -48,7 +48,8 @@ describe("PRD-001…009 product master data", () => {
   });
 
   test("PRD-002 product number: 1–50 printable characters, compared case-insensitively", () => {
-    expect(PRODUCT_NUMBER_RE.test("ART-00001")).toBe(true);
+    const typical = "ART-00001";
+    expect(PRODUCT_NUMBER_RE.test(typical)).toBe(true);
     expect(PRODUCT_NUMBER_RE.test("x".repeat(51))).toBe(false);
     expect(PRODUCT_NUMBER_RE.test(" A")).toBe(false);
     expect(errs({ number: "a\u0001b" })).toContain("PRODUCT_NUMBER_INVALID");
