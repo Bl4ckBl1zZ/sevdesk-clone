@@ -1,0 +1,26 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<validation filename="invalid.xml" datetime="2026-10-12 18:53:08">
+  <xml>
+    <info>
+      <version>2</version>
+      <profile>urn:cen.eu:en16931:2017#compliant#urn:xeinkauf.de:kosit:xrechnung_3.0</profile>
+      <validator version="2.26.0"/>
+      <rules>
+        <fired>12</fired>
+        <failed>3</failed>
+      </rules>
+      <duration unit="ms">1398</duration>
+    </info>
+    <messages>
+      <error type="24" location="/*:Invoice[namespace-uri()='urn:oasis:names:specification:ubl:schema:xsd:Invoice-2'][1]/*:LegalMonetaryTotal[namespace-uri()='urn:oasis:names:specification:ubl:schema:xsd:CommonAggregateComponents-2'][1]" criterion="(exists(cbc:PrepaidAmount) and not(exists(cbc:PayableRoundingAmount)) and (xs:decimal(cbc:PayableAmount) = (round((xs:decimal(cbc:TaxInclusiveAmount) - xs:decimal(cbc:PrepaidAmount)) * 10 * 10) div 100))) or (not(exists(cbc:PrepaidAmount)) and not(exists(cbc:PayableRoundingAmount)) and xs:decimal(cbc:PayableAmount) = xs:decimal(cbc:TaxInclusiveAmount)) or (exists(cbc:PrepaidAmount) and exists(cbc:PayableRoundingAmount) and ((round((xs:decimal(cbc:PayableAmount) - xs:decimal(cbc:PayableRoundingAmount)) * 10 * 10) div 100) = (round((xs:decimal(cbc:TaxInclusiveAmount) - xs:decimal(cbc:PrepaidAmount)) * 10 * 10) div 100))) or (not(exists(cbc:PrepaidAmount)) and exists(cbc:PayableRoundingAmount) and ((round((xs:decimal(cbc:PayableAmount) - xs:decimal(cbc:PayableRoundingAmount)) * 10 * 10) div 100) = xs:decimal(cbc:TaxInclusiveAmount)))">[BR-CO-16]-Amount due for payment (BT-115) = Invoice total amount with VAT (BT-112) -Paid amount (BT-113) +Rounding amount (BT-114). [ID BR-CO-16] from /xslt/en16931schematron/EN16931-UBL-validation.xslt)</error>  
+      <error type="27" location="/ubl:Invoice" criterion="cbc:BuyerReference[boolean(normalize-space(.))]">[BR-DE-15] Das Element "Buyer reference" (BT-10) muss ?bermittelt werden. [ID BR-DE-15] from /xslt/XR_30/XRechnung-UBL-validation.xslt)</error>  
+      <notice type="27" location="/ubl:Invoice" criterion="cac:Delivery/cbc:ActualDeliveryDate or cac:InvoicePeriod or (every $line in (cac:InvoiceLine | cac:CreditNoteLine) satisfies $line/cac:InvoicePeriod)">[BR-DE-TMP-32] Eine Rechnung sollte zur Angabe des Liefer-/Leistungsdatums entweder BT-72 "Actual delivery date", BG-14 "Invoicing period" oder in jeder Rechnungsposition BG-26 "Invoice line period" enthalten. [ID BR-DE-TMP-32] from /xslt/XR_30/XRechnung-UBL-validation.xslt)</notice>  
+      <warning type="10">Arithmetical issue:Payable total in XML is 999.99, but calculated total is 336.90 with tax basis 314.86 and with positions 314.86 = 288.79 + 26.07</warning> 
+    </messages>
+    <summary status="invalid"/>
+  </xml>
+  <messages></messages>
+  <summary status="invalid"/>
+</validation>
+

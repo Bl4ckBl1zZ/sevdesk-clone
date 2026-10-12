@@ -10,10 +10,10 @@ playwright-report/
 .convex/
 next-env.d.ts
 *.tsbuildinfo
-results/
+/results/
 e2e/.auth/
 .stryker-tmp/
-reports/
+/reports/
 .vercel
 .DS_Store
 .claude/worktrees/

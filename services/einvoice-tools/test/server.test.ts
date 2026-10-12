@@ -21,8 +21,17 @@ async function listen(server: Server): Promise<string> {
   return `http://127.0.0.1:${(server.address() as AddressInfo).port}`;
 }
 
-/** Fake KoSIT daemon: answers like validator 1.6.3 in daemon mode, keyed by the fixture content. */
+/**
+ * Fake KoSIT daemon: answers like validator 1.6.3 in daemon mode, keyed by the fixture content. No Java involved —
+ * the bodies are reports captured from the real validator. They are read up front so a missing fixture fails the
+ * test immediately instead of hanging the request inside the server callback.
+ */
 async function fakeKosit(up = true): Promise<string> {
+  const reports = {
+    accept: report("kosit-accept.xml"),
+    reject: report("kosit-reject.xml"),
+    processingError: report("kosit-422.xml"),
+  };
   return listen(
     createServer((req, res) => {
       if (req.url === "/server/health") {
@@ -38,13 +47,13 @@ async function fakeKosit(up = true): Promise<string> {
       req.on("data", (c: Buffer) => chunks.push(c));
       req.on("end", () => {
         const body = Buffer.concat(chunks).toString("utf8");
-        const [status, file] = body.includes("BuyerReference")
-          ? [200, "kosit-accept.xml"]
+        const [status, xml] = body.includes("BuyerReference")
+          ? [200, reports.accept]
           : body.includes("<ubl:Invoice")
-            ? [406, "kosit-reject.xml"]
-            : [422, "kosit-422.xml"];
+            ? [406, reports.reject]
+            : [422, reports.processingError];
         res.writeHead(status, { "content-type": "application/xml" });
-        res.end(report(file));
+        res.end(xml);
       });
     }),
   );
