@@ -1,10 +1,27 @@
-import { readFileSync } from "node:fs";
+import { readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, test } from "vitest";
 import { decodeXml, parseKositReport, parseMustangReport } from "../src/reports.ts";
 
 // Real reports captured from KoSIT validator 1.6.3 (config 2026-08-31) and Mustang CLI 2.26.0 (see fixtures/NOTICE.md).
 const report = (name: string) => readFileSync(join(import.meta.dirname, "fixtures/reports", name), "utf8");
+
+test("all captured validator reports are present (committed fixtures, no Java needed)", () => {
+  const expected = [
+    "kosit-422.xml",
+    "kosit-accept.xml",
+    "kosit-no-scenario.xml",
+    "kosit-reject.xml",
+    "mustang-hybrid-valid.xml",
+    "mustang-pdf-without-xml.xml",
+    "mustang-xml-invalid.xml",
+  ];
+  const present = readdirSync(join(import.meta.dirname, "fixtures/reports")).sort();
+  expect(
+    expected.filter((f) => !present.includes(f)),
+    "missing fixture reports — check .gitignore",
+  ).toEqual([]);
+});
 
 describe("KoSIT report", () => {
   test("ER-12 an accepted XRechnung has no errors and names the matched scenario", () => {

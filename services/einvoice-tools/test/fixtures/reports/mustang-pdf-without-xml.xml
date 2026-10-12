@@ -1,0 +1,26 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<validation filename="valid.pdf" datetime="2026-10-12 18:53:16">
+  <pdf>ValidationResult [flavour=3b, totalAssertions=26245, assertions=[], isCompliant=true]
+    <info>
+      <signature>unknown</signature>
+      <duration unit="ms">888</duration>
+    </info>
+    <messages>
+      <error type="11">XMP Metadata: ConformanceLevel not found</error>  
+      <error type="12">XMP Metadata: ConformanceLevel contains invalid value</error>  
+      <error type="13">XMP Metadata: DocumentType not found</error>  
+      <error type="14">XMP Metadata: DocumentType invalid</error>  
+      <error type="21">XMP Metadata: DocumentFileName not found</error>  
+      <error type="19">XMP Metadata: DocumentFileName contains invalid value</error>  
+      <error type="15">XMP Metadata: Version not found</error>  
+      <error type="16">XMP Metadata: Version contains invalid value</error> 
+    </messages>
+    <summary status="invalid"/>
+  </pdf>  
+  <messages>
+    <exception type="17">XML could not be extracted</exception> 
+  </messages>
+  <summary status="invalid"/>
+</validation>
+
