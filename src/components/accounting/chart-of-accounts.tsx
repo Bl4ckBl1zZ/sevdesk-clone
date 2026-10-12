@@ -195,7 +195,15 @@ function RolesPanel({ roles, accounts, isOwner }: { roles: Role[]; accounts: Acc
             <span className="flex min-w-0 flex-1 flex-col gap-1">
               <span className="flex flex-wrap items-center gap-1.5 font-medium">
                 {r.label}
-                {r.unmapped && <Badge variant="destructive">{t("unmapped")}</Badge>}
+                {r.unmapped && (
+                  // solid red: the tinted destructive badge misses WCAG AA contrast at 12 px (axe color-contrast)
+                  <Badge
+                    variant="destructive"
+                    className="bg-destructive text-white dark:bg-destructive dark:text-black"
+                  >
+                    {t("unmapped")}
+                  </Badge>
+                )}
                 {r.uncertain && !r.unmapped && <Badge variant="outline">{t("uncertain")}</Badge>}
                 {r.source === "override" && <Badge variant="secondary">{t("override")}</Badge>}
               </span>
