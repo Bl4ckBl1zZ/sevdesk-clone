@@ -43,6 +43,8 @@ export const PERMISSIONS = {
   "integrity.read": { roles: ["owner", "bookkeeper", "auditor"], scope: "audit:read", write: false },
   "integrity.acknowledge": { roles: ["owner"], scope: null, write: true },
   "apiKeys.manage": { roles: ["owner"], scope: null, write: true, fresh: true },
+  /** F12 AUD-020 security status page (owner; never via REST/MCP). */
+  "system.security": { roles: ["owner"], scope: null, write: false },
 } as const satisfies Record<string, PermissionRule>;
 
 export type Permission = keyof typeof PERMISSIONS;

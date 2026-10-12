@@ -1,6 +1,7 @@
 import { ConstructionIcon, type LucideIcon } from "lucide-react";
 import type { Metadata, Route } from "next";
 import { getTranslations } from "next-intl/server";
+import type * as React from "react";
 import { findSectionOf, NAV_SECTIONS, type NavKey } from "@/components/shell/nav-config";
 import type messages from "@/i18n/messages/de.json";
 import { EmptyState } from "./empty-state";
@@ -41,7 +42,7 @@ export async function placeholderMetadata(page: PageKey): Promise<Metadata> {
 }
 
 /** Minimal P0 page: header + empty state, so navigation works end to end (04-ui-ux §3.4, §4.1). */
-export async function PlaceholderPage({ page }: { page: PageKey }) {
+export async function PlaceholderPage({ page, notice }: { page: PageKey; notice?: React.ReactNode }) {
   const t = await getTranslations("pages");
   const tNav = await getTranslations("nav");
   const tEmpty = await getTranslations("emptyState");
@@ -63,6 +64,7 @@ export async function PlaceholderPage({ page }: { page: PageKey }) {
     <>
       <PageHeader title={t(`${page}.title`)} description={t(`${page}.description`)} breadcrumbs={breadcrumbs} />
       <PageBody>
+        {notice}
         <EmptyState icon={icon} title={t(`${page}.empty`)} description={tEmpty("building")} action={action} />
       </PageBody>
     </>

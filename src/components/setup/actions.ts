@@ -28,6 +28,9 @@ export interface StatusCheck {
   status: CheckStatus;
   /** German result or remedy text. */
   detail?: string;
+  /** What to do about a warning/error (F12 AUD-020). */
+  remedy?: string;
+  latencyMs?: number;
 }
 
 /** Wizard progress and stored values (SET-003); live via `useAuthedQuery(api.settings.getSetupState, {})`. */

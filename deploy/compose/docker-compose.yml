@@ -53,6 +53,7 @@ services:
       - EINVOICE_TOOLS_URL=http://einvoice-tools:8080
       - LOG_LEVEL=${LOG_LEVEL:-info}
       - APP_VERSION=${WEB_TAG:?}
+      - CONVEX_SHA=${CONVEX_SHA:?}                                # SET-130 / AUD-020: shown and checked on the system pages
     healthcheck:
       test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:3000/api/health').then(r=>process.exit(r.ok?0:1),()=>process.exit(1))"]
       interval: 10s

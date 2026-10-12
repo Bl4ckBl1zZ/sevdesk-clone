@@ -16,6 +16,7 @@ import type { DataModel } from "./_generated/dataModel";
 import type { MutationCtx } from "./_generated/server";
 import authConfig from "./auth.config";
 import authSchema from "./betterAuth/schema";
+import { AUTH_HARDENING } from "./lib/authHardening";
 import { senderFromEnv } from "./lib/authMail";
 import { appName, assertAuthEnv, env, passkeyRpId, siteUrl } from "./lib/env";
 import { appError } from "./lib/errors";
@@ -135,12 +136,12 @@ export const createAuthOptions = (ctx: GenericCtx<DataModel>) => {
     trustedOrigins: site ? [site] : [],
     database: authComponent.adapter(ctx),
     emailAndPassword: { enabled: false },
-    rateLimit: { enabled: false }, // IP-based limits are meaningless behind the proxy; #432 (research 14 §2.2)
+    rateLimit: { enabled: AUTH_HARDENING.ipRateLimit }, // IP-based limits are meaningless behind the proxy; #432 (research 14 §2.2)
     session: {
       expiresIn: 60 * 60 * 24 * 7,
       updateAge: 60 * 60 * 24,
       freshAge: 600,
-      cookieCache: { enabled: false }, // #434: cookie cache mints JWTs for deleted sessions
+      cookieCache: { enabled: AUTH_HARDENING.cookieCache }, // #434: cookie cache mints JWTs for deleted sessions
     },
     advanced: { useSecureCookies: !site?.startsWith("http://") },
     hooks: {

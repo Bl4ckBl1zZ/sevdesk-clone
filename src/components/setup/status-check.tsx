@@ -34,7 +34,15 @@ export function StatusCheckList({ checks, label }: { checks: StatusCheck[]; labe
                 <span className="font-medium">{c.label}</span>
                 <span className={cn("ml-2", TONE[c.status])}>· {t(c.status)}</span>
               </span>
-              {c.detail && <span className="break-words text-muted-foreground text-sm">{c.detail}</span>}
+              {c.detail && (
+                <span className="break-words text-muted-foreground text-sm">
+                  {c.detail}
+                  {c.latencyMs !== undefined && ` · ${t("latency", { ms: c.latencyMs })}`}
+                </span>
+              )}
+              {c.remedy && c.status !== "ok" && (
+                <span className="break-words text-sm">{t("remedy", { text: c.remedy })}</span>
+              )}
             </div>
           </li>
         );

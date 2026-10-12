@@ -1,5 +1,5 @@
 import { SettingsIcon } from "lucide-react";
-import type { Metadata } from "next";
+import type { Metadata, Route } from "next";
 import { getTranslations } from "next-intl/server";
 import type * as React from "react";
 import { EmptyState } from "@/components/layout/empty-state";
@@ -15,20 +15,30 @@ export async function settingsMetadata(key: SettingsKey): Promise<Metadata> {
 /** Frame of a settings sub-page: header with breadcrumb and optional primary action. */
 export async function SettingsPage({
   item,
+  sub,
   actions,
   children,
 }: {
   item: SettingsKey;
+  /** A sub-page of `item` (e.g. System › Sicherheit). */
+  sub?: { title: string; description: string };
   actions?: React.ReactNode;
   children: React.ReactNode;
 }) {
   const t = await getTranslations("settings");
+  const crumbs = sub
+    ? [
+        { label: t("navLabel"), href: "/einstellungen" },
+        { label: t(`items.${item}`), href: `/einstellungen/${item}` as Route },
+        { label: sub.title },
+      ]
+    : [{ label: t("navLabel"), href: "/einstellungen" }, { label: t(`items.${item}`) }];
   return (
     <>
       <PageHeader
-        title={t(`items.${item}`)}
-        description={t(`descriptions.${item}`)}
-        breadcrumbs={[{ label: t("navLabel"), href: "/einstellungen" }, { label: t(`items.${item}`) }]}
+        title={sub?.title ?? t(`items.${item}`)}
+        description={sub?.description ?? t(`descriptions.${item}`)}
+        breadcrumbs={crumbs}
         actions={actions}
       />
       <PageBody>{children}</PageBody>

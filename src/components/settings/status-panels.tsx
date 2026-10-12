@@ -7,6 +7,7 @@ import { StatusCheckList } from "@/components/setup/status-check";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { useAdapterErrorToast } from "@/hooks/use-adapter-error-toast";
+import { AuthMailCard } from "./system-panels";
 
 function useRunner<T>(initial: T, run: () => Promise<T>) {
   const [value, setValue] = useState(initial);
@@ -54,6 +55,7 @@ export function IntegrationsPanel() {
           <CardDescription>{t("email.noCustomerMail")}</CardDescription>
         </CardHeader>
         <CardContent className="flex flex-col gap-3">
+          <AuthMailCard />
           <StatusCheckList checks={email.value} label={t("steps.email")} />
           <Button variant="outline" className="h-11 self-start md:h-9" disabled={email.pending} onClick={email.trigger}>
             {t("email.sendTest")}
@@ -81,16 +83,4 @@ export function IntegrationsPanel() {
       </Card>
     </div>
   );
-}
-
-/** /einstellungen/system status tiles (F01 SET-130/131) — values arrive with GET /api/health wiring. */
-export function SystemPanel() {
-  const t = useTranslations("settings.systemTiles");
-  const tSettings = useTranslations("settings");
-  const tiles = (["database", "validator", "email", "checkpoint", "access"] as const).map((k) => ({
-    id: k,
-    label: t(k),
-    status: "unknown" as const,
-  }));
-  return <StatusCheckList checks={tiles} label={tSettings("systemStatus")} />;
 }

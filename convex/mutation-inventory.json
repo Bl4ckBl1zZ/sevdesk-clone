@@ -564,5 +564,41 @@
     "visibility": "internal",
     "wrapper": "systemMutation",
     "job": "auth"
+  },
+  "system:authMailStatus": {
+    "kind": "query",
+    "visibility": "public",
+    "wrapper": "query",
+    "permission": "integrations.manage"
+  },
+  "system:overview": {
+    "kind": "query",
+    "visibility": "public",
+    "wrapper": "query",
+    "permission": "settings.read"
+  },
+  "system:recordRestoreDrill": {
+    "kind": "mutation",
+    "visibility": "public",
+    "wrapper": "mutation",
+    "permission": "settings.ownerOnly"
+  },
+  "system:securityInputs": {
+    "kind": "query",
+    "visibility": "public",
+    "wrapper": "query",
+    "permission": "system.security"
+  },
+  "system:verifyEmailToken": {
+    "kind": "action",
+    "visibility": "public",
+    "wrapper": "action",
+    "permission": "integrations.manage"
+  },
+  "system:zugriffskonzeptData": {
+    "kind": "query",
+    "visibility": "public",
+    "wrapper": "query",
+    "permission": "members.read"
   }
 }

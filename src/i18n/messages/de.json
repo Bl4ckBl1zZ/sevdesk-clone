@@ -237,7 +237,8 @@
     "kasse": {
       "title": "Kasse",
       "description": "Bargeldbestand und Bewegungen",
-      "empty": "Noch keine Barbewegungen erfasst."
+      "empty": "Noch keine Barbewegungen erfasst.",
+      "noPos": "Kassenbuch für Barbewegungen — keine Registrierkasse. Barzahlungen werden als Zahlung auf eine Rechnung gebucht; Barverkäufe ohne Rechnung gibt es nicht (§ 146a AO)."
     },
     "kontakte": {
       "title": "Kontakte",
@@ -426,13 +427,6 @@
     "defaultsHint": "Zahlungsziel, Preismodus, Sprache und Rückdatierung folgen mit den Dokumenten (Phase P1).",
     "datevHint": "Berater- und Mandantennummer werden für den DATEV-Export benötigt.",
     "umsaetzeHint": "Vorjahresumsätze werden für die Kleinunternehmer-Grenze und die E-Rechnungs-Pflicht benötigt.",
-    "systemTiles": {
-      "database": "Datenbank",
-      "validator": "E-Rechnung-Validator",
-      "email": "E-Mail-Versand",
-      "checkpoint": "Prüfpunkt-Speicher (R2)",
-      "access": "Zugriff/Zertifikat"
-    },
     "numberRanges": {
       "reasonTitle": "Nummern überspringen?",
       "reasonDescription": "Die nächste Nummer liegt über dem bisherigen Zähler. Die übersprungenen Nummern erscheinen im Lückenprotokoll — bitte den Grund angeben.",
@@ -698,6 +692,68 @@
         "datevHint": "DATEV KOST1",
         "empty": "Noch keine Kostenstellen."
       }
+    },
+    "system": {
+      "versionsTitle": "Versionen",
+      "appVersion": "App-Version",
+      "gitSha": "Git-Commit",
+      "buildDate": "Build-Datum",
+      "convexImage": "Convex-Backend (Image-SHA)",
+      "kosit": "KoSIT-Validator",
+      "xrechnungConfig": "XRechnung-Konfiguration",
+      "ruleTables": "Regeltabellen (Stand)",
+      "healthTitle": "Zustand",
+      "healthDescription": "Prüfungen des Web-Servers, höchstens 60 Sekunden alt.",
+      "servicesTitle": "Dienste",
+      "runServiceChecks": "E-Mail-Versand und R2 prüfen",
+      "operationsTitle": "Betrieb",
+      "operationsDescription": "Serverstandort, Zugriffskonzept und Wiederherstellungsproben (monatlich).",
+      "securityLink": "Sicherheit",
+      "serverLocation": "Serverstandort",
+      "accessConcept": "Zugriffskonzept",
+      "accessConceptValue": "Nur im Tailnet unter {domain}",
+      "notRecorded": "nicht erfasst",
+      "drillsTitle": "Letzte Wiederherstellungsproben",
+      "drillOk": "erfolgreich",
+      "drillFailed": "mit Befund",
+      "recordDrill": "Wiederherstellungsprobe erfassen",
+      "recordDrillDescription": "Nach dem Runbook „Wiederherstellung“: Sicherung in eine Testumgebung einspielen und Integrität sowie Prüfpunkt vergleichen.",
+      "drillDate": "Datum",
+      "drillBackup": "Sicherung (Objekt im Backup-Bucket)",
+      "drillTarget": "Zielumgebung",
+      "drillIntegrity": "Integritätsprüfung ohne Befund",
+      "drillCheckpoint": "Stand stimmt mit dem letzten Prüfpunkt überein",
+      "drillNotes": "Notizen",
+      "drillRecorded": "Wiederherstellungsprobe erfasst."
+    },
+    "security": {
+      "checksTitle": "Einrichtungsprüfungen",
+      "checksDescription": "Jede Prüfung mit Ergebnis und Abhilfe. Fertiggestellte Dokumente sind davon nicht betroffen.",
+      "probesTitle": "Live-Prüfung",
+      "probesDescription": "Hosts, TLS-Zertifikat, api.-Selbsttest, Dashboard-Schutz, Prüfpunkt-Bucket und Datensicherungen. Läuft nur auf dem Server unter BASE_DOMAIN.",
+      "runProbes": "Live-Prüfung starten"
+    },
+    "authMail": {
+      "title": "E-Mail-Versand (Anmeldung)",
+      "from": "Absender (AUTH_MAIL_FROM)",
+      "accountId": "Cloudflare-Konto",
+      "token": "API-Token",
+      "configured": "konfiguriert",
+      "missing": "fehlt",
+      "lastDelivery": "Letzter Versand",
+      "never": "noch nie",
+      "ok": "erfolgreich",
+      "failed": "fehlgeschlagen",
+      "purposes": "Zweck",
+      "purpose": {
+        "sign_in_codes": "Anmeldecodes",
+        "invitations": "Einladungen",
+        "owner_notifications": "Hinweise an den Inhaber"
+      }
+    },
+    "verfahrensdoku": {
+      "stand": "Stand: {date}. Erzeugt aus den erfassten Einstellungen.",
+      "download": "Als Markdown herunterladen"
     }
   },
   "auth": {
@@ -1045,7 +1101,9 @@
       "ok": "in Ordnung",
       "warning": "Hinweis",
       "error": "Fehler",
-      "unknown": "noch nicht geprüft"
+      "unknown": "noch nicht geprüft",
+      "latency": "{ms} ms",
+      "remedy": "Abhilfe: {text}"
     }
   },
   "members": {

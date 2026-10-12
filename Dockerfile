@@ -43,11 +43,16 @@ RUN pnpm build && mkdir -p public
 # ── runtime: standalone server only, non-root ───────────────────────────────────────────────────────────────────
 FROM node:${NODE_VERSION}-slim AS runtime
 ARG APP_VERSION=dev
+# SET-130: shown on /einstellungen/system (cd-deploy passes `git rev-parse HEAD` and the UTC build date).
+ARG GIT_SHA
+ARG BUILD_DATE
 ENV NODE_ENV=production \
     NEXT_TELEMETRY_DISABLED=1 \
     PORT=3000 \
     HOSTNAME=0.0.0.0 \
-    APP_VERSION=${APP_VERSION}
+    APP_VERSION=${APP_VERSION} \
+    GIT_SHA=${GIT_SHA} \
+    BUILD_DATE=${BUILD_DATE}
 WORKDIR /app
 # `node` (uid 1000) exists in the official image.
 COPY --from=build --chown=node:node /app/.next/standalone ./

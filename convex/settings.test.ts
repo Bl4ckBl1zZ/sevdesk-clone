@@ -11,6 +11,7 @@ import { errorCode } from "./lib/errors";
 import * as lookupsModule from "./lookups";
 import * as membersModule from "./members";
 import * as settingsModule from "./settings";
+import * as systemModule from "./system";
 import { makeT, type TestT } from "./test.setup";
 
 const DAY = 86_400_000;
@@ -147,11 +148,19 @@ const ARGS: Record<string, Record<string, unknown>> = {
   "lookups:archiveCustomField": { customFieldId: "placeholder" },
   "lookups:saveCostCenter": { values: { number: "100", name: "Vertrieb", isDefault: false } },
   "lookups:archiveCostCenter": { costCenterId: "placeholder" },
+  "system:recordRestoreDrill": {
+    date: "2026-01-01",
+    backupObject: "postgres/x",
+    targetEnvironment: "lokal",
+    integrityOk: true,
+    headMatchesCheckpoint: true,
+  },
 };
 
 const MODULES = {
   settings: settingsModule,
   lookups: lookupsModule,
+  system: systemModule,
   members: membersModule,
   invites: invitesModule,
   integrity: integrityModule,
@@ -349,6 +358,12 @@ describe("role matrix of the settings, members, invites and integrity functions 
         "lookups:listCostCenters",
         "lookups:saveCostCenter",
         "lookups:archiveCostCenter",
+        "system:securityInputs",
+        "system:overview",
+        "system:recordRestoreDrill",
+        "system:authMailStatus",
+        "system:zugriffskonzeptData",
+        "system:verifyEmailToken",
         "settings:runAccessChecks",
         "settings:testCheckpointStorage",
         "members:list",

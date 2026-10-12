@@ -433,6 +433,21 @@ export default defineSchema({
   }).index("by_at", ["at"]),
 
   // 03 §10 apiKeys (the key itself is stored as SHA-256 only; prefix = public key id in api-key:/mcp: actors)
+  // 03 §10 restoreDrills 🔒 (AUD-027, SEC-05): every restore drill and production restore is recorded, append-only.
+  restoreDrills: defineTable({
+    date: v.string(),
+    backupObject: v.string(),
+    targetEnvironment: v.string(),
+    integrityOk: v.boolean(),
+    headMatchesCheckpoint: v.boolean(),
+    notes: v.optional(v.string()),
+    kind: v.union(v.literal("drill"), v.literal("production_restore")),
+    restoredHeadSeq: v.optional(v.number()),
+    gapToCheckpoint: v.optional(v.number()),
+    actor: vActor,
+    at: v.number(),
+  }).index("by_date", ["date"]),
+
   apiKeys: defineTable({
     name: v.string(),
     prefix: v.string(),

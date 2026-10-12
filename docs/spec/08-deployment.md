@@ -342,6 +342,7 @@ dokploy schedule create --name r2-monthly-copy --scheduleType server --serverId 
 |---|---|---|
 | `NEXT_PUBLIC_CONVEX_URL` | `https://convex.buero.example.de` | Browser Convex client (inlined at build time → Docker build arg) |
 | `NEXT_PUBLIC_SITE_URL` | `https://app.buero.example.de` | Better Auth client `baseURL` |
+| `GIT_SHA` / `BUILD_DATE` | commit SHA / `2026-10-12` | Shown on /einstellungen/system (F01 SET-130) |
 
 ### 5.2 Environment variables
 
@@ -358,7 +359,7 @@ dokploy schedule create --name r2-monthly-copy --scheduleType server --serverId 
 | `JWT_PRIVATE_KEY_PEM` | web | ES256 PEM | Server JWT for `api-key:`/`mcp:` actors |
 | `APP_ENCRYPTION_KEY` | web (+ Convex env) | 32 bytes base64 | AES-GCM for secrets stored in Convex |
 | `EINVOICE_TOOLS_URL` | web | `http://einvoice-tools:8080` | Validators |
-| `INSTANCE_NAME`, `INSTANCE_SECRET`, `PG_PASSWORD`, `CONVEX_SHA` | backend/postgres/dashboard | | Convex instance |
+| `INSTANCE_NAME`, `INSTANCE_SECRET`, `PG_PASSWORD`, `CONVEX_SHA` | backend/postgres/dashboard (`CONVEX_SHA` also web) | | Convex instance; web shows and checks the pinned image SHA (SET-130, AUD-020) |
 | `CADDY_TAG`, `WEB_TAG`, `EIT_TAG` | — | git SHA | Image tags (CI updates them) |
 | `LOG_LEVEL` | web | `info` | |
 
@@ -383,6 +384,7 @@ dokploy schedule create --name r2-monthly-copy --scheduleType server --serverId 
 | `ENABLE_BANKING_APP_ID` / `ENABLE_BANKING_PRIVATE_KEY_PEM` | UUID / RSA PEM | Enable Banking bank sync (P2, F07) |
 | `APP_ENCRYPTION_KEY` | 32 bytes base64 | Same key as in `web` |
 | `EINVOICE_TOOLS_URL` | `http://einvoice-tools:8080` | Internal URL reachable from the backend container |
+| `SECRETS_ROTATED_ON` | `2026-10-12` | Date of the last secret rotation; the security page warns after 365 days (AUD-020) |
 | `IS_TEST` | `1` | **Never in production** |
 
 **Server-side script env** (`/opt/rechnungen/*.env`, root-only, on "Proxmox PVE"): `CONVEX_SELF_HOSTED_ADMIN_KEY`, `R2_BACKUP_WRITER_ACCESS_KEY_ID/SECRET` for `convex-export.sh` and `r2-monthly-copy.sh`.

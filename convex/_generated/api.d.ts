@@ -18,6 +18,7 @@ import type * as integrity from "../integrity.js";
 import type * as invariants from "../invariants.js";
 import type * as invites from "../invites.js";
 import type * as lib_actor from "../lib/actor.js";
+import type * as lib_authHardening from "../lib/authHardening.js";
 import type * as lib_authMail from "../lib/authMail.js";
 import type * as lib_checkpointStore from "../lib/checkpointStore.js";
 import type * as lib_env from "../lib/env.js";
@@ -34,6 +35,7 @@ import type * as model_companyProfile from "../model/companyProfile.js";
 import type * as model_contactKeys from "../model/contactKeys.js";
 import type * as model_db from "../model/db.js";
 import type * as model_devMailbox from "../model/devMailbox.js";
+import type * as model_documentHistory from "../model/documentHistory.js";
 import type * as model_files from "../model/files.js";
 import type * as model_finalizeGuard from "../model/finalizeGuard.js";
 import type * as model_integrations from "../model/integrations.js";
@@ -46,10 +48,12 @@ import type * as model_notificationSettings from "../model/notificationSettings.
 import type * as model_numberRanges from "../model/numberRanges.js";
 import type * as model_seeds from "../model/seeds.js";
 import type * as model_setup from "../model/setup.js";
+import type * as model_system from "../model/system.js";
 import type * as model_textTemplates from "../model/textTemplates.js";
 import type * as model_types from "../model/types.js";
 import type * as settings from "../settings.js";
 import type * as signup from "../signup.js";
+import type * as system from "../system.js";
 import type * as validators from "../validators.js";
 
 import type {
@@ -69,6 +73,7 @@ declare const fullApi: ApiFromModules<{
   invariants: typeof invariants;
   invites: typeof invites;
   "lib/actor": typeof lib_actor;
+  "lib/authHardening": typeof lib_authHardening;
   "lib/authMail": typeof lib_authMail;
   "lib/checkpointStore": typeof lib_checkpointStore;
   "lib/env": typeof lib_env;
@@ -85,6 +90,7 @@ declare const fullApi: ApiFromModules<{
   "model/contactKeys": typeof model_contactKeys;
   "model/db": typeof model_db;
   "model/devMailbox": typeof model_devMailbox;
+  "model/documentHistory": typeof model_documentHistory;
   "model/files": typeof model_files;
   "model/finalizeGuard": typeof model_finalizeGuard;
   "model/integrations": typeof model_integrations;
@@ -97,10 +103,12 @@ declare const fullApi: ApiFromModules<{
   "model/numberRanges": typeof model_numberRanges;
   "model/seeds": typeof model_seeds;
   "model/setup": typeof model_setup;
+  "model/system": typeof model_system;
   "model/textTemplates": typeof model_textTemplates;
   "model/types": typeof model_types;
   settings: typeof settings;
   signup: typeof signup;
+  system: typeof system;
   validators: typeof validators;
 }>;
 
