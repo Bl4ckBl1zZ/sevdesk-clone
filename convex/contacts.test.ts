@@ -464,3 +464,66 @@ describe("CON-140…143 import and export", () => {
     expect(rows[1]?.slice(0, 3)).toEqual(["10000", "Organisation", "Alpha GmbH"]);
   });
 });
+
+describe("CON-110…112 CON-174 tags, custom fields, notes and bulk actions", () => {
+  test("CON-110 tags must exist; custom fields follow their definitions (unknown key, wrong type, required)", async () => {
+    const t = makeT();
+    const owner = await setupCatalog(t);
+    const tag = await owner.mutation(api.lookups.saveTag, { values: { name: "Stammkunde", color: "green" } });
+    await owner.mutation(api.lookups.createCustomField, {
+      values: {
+        entity: "contact",
+        key: "branche",
+        label: "Branche",
+        type: "select",
+        options: "Bau\nIT",
+        printOnDocuments: false,
+        required: true,
+      },
+    });
+    const ok = await createOrg(owner, "Alpha GmbH", {}, { tags: [tag], customFields: { branche: "IT" } });
+    expect(await contact(t, ok.id)).toMatchObject({ tags: [tag], customFields: { branche: "IT" } });
+    const unknown = await createOrg(owner, "Beta GmbH", {}, { customFields: { branche: "IT", farbe: "rot" } }).catch(
+      reasonOf,
+    );
+    expect(unknown).toBe("CUSTOM_FIELD_UNKNOWN");
+    const wrong = await createOrg(owner, "Gamma GmbH", {}, { customFields: { branche: "Handel" } }).catch(reasonOf);
+    expect(wrong).toBe("CUSTOM_FIELD_VALUE_INVALID");
+    const missing = await createOrg(owner, "Delta GmbH").catch(reasonOf);
+    expect(missing).toBe("CUSTOM_FIELD_VALUE_INVALID");
+  });
+
+  test("CON-112 the internal note holds up to 10,000 characters; the audit trail keeps it encrypted", async () => {
+    const t = makeT();
+    const owner = await setupCatalog(t);
+    const long = "x".repeat(10_000);
+    const c = await createOrg(owner, "Alpha GmbH", {}, { notes: long });
+    expect((await owner.query(api.contacts.get, { id: c.id }))?.contact.notes).toBe(long);
+    const create = await t.run((ctx) =>
+      ctx.db
+        .query("auditLog")
+        .withIndex("by_entity", (q) => q.eq("entity.table", "contacts").eq("entity.id", c.id))
+        .first(),
+    );
+    expect(isEncryptedValue((create?.diff as { after?: Record<string, unknown> } | undefined)?.after?.notes)).toBe(
+      true,
+    );
+    const tooLong = await createOrg(owner, "Beta GmbH", {}, { notes: `${long}x` }).catch((e: unknown) => errorCode(e));
+    expect(tooLong).toBe("invalid_input");
+  });
+
+  test("CON-174 bulk tag add/remove and bulk archive apply to every selected contact", async () => {
+    const t = makeT();
+    const owner = await setupCatalog(t);
+    const tag = await owner.mutation(api.lookups.saveTag, { values: { name: "Newsletter", color: "blue" } });
+    const a = await createOrg(owner, "Alpha GmbH");
+    const b = await createOrg(owner, "Beta GmbH");
+    await owner.mutation(api.contacts.bulkTag, { ids: [a.id, b.id], tagId: tag, add: true });
+    expect((await contact(t, b.id)).tags).toEqual([tag]);
+    await owner.mutation(api.contacts.bulkTag, { ids: [a.id], tagId: tag, add: false });
+    expect((await contact(t, a.id)).tags).toEqual([]);
+    expect(await owner.mutation(api.contacts.bulkArchive, { ids: [a.id, b.id] })).toBe(2);
+    const open = await owner.query(api.contacts.list, { paginationOpts: page });
+    expect(open.page).toEqual([]);
+  });
+});

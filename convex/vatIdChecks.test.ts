@@ -113,6 +113,23 @@ describe("CON-051…058 VAT-ID check", () => {
     expect(del).toBe("immutable_record");
   });
 
+  test("CON-061 the evidence view returns the stored request and response; the history lists every check newest first", async () => {
+    const t = makeT();
+    const owner = await setup(t);
+    const c = await french(owner);
+    const first = await owner.action(api.vatIdChecks.check, { contactId: c.id });
+    const second = await owner.action(api.vatIdChecks.check, { contactId: c.id, force: true });
+    const history = await owner.query(api.vatIdChecks.list, { contactId: c.id });
+    expect(history.map((x) => x._id)).toEqual([second.checkId, first.checkId]);
+    const evidence = await owner.query(api.vatIdChecks.evidence, { checkId: first.checkId });
+    expect(evidence?.contact).toMatchObject({ displayName: "Dupont SA" });
+    expect(evidence?.check.request).toMatchObject({ angefragteUstid: "FR40303265045" });
+    expect(evidence?.check.response).toBeDefined();
+    expect(evidence?.check.message).toBeTruthy();
+    // The detail bundle shows the same history (Steuer & E-Rechnung tab).
+    expect((await owner.query(api.contacts.get, { id: c.id }))?.checks).toHaveLength(2);
+  });
+
   test("T-CON-035 CON-052 a German ID is checked via VIES with requester fields; requestIdentifier is stored", async () => {
     const t = makeT();
     const owner = await setup(t);

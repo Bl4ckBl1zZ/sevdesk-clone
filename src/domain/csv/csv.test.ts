@@ -64,7 +64,7 @@ describe("CON-140 PRD-080 CSV reading", () => {
 });
 
 describe("CON-143 PRD-085 CSV writing", () => {
-  test("T-CON-055 CON-143 UTF-8 with BOM, ';', quoting and formula guard", () => {
+  test("T-CON-055 CON-143 export as UTF-8 with BOM, ';', quoting and formula guard", () => {
     const csv = writeCsv(
       ["Name", "Notiz", "Betrag"],
       [
