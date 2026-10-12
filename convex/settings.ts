@@ -40,6 +40,7 @@ import {
   setDefaultInvoiceAccount,
 } from "./model/bankAccounts";
 import { getCompanyProfile, patchCompanyProfile } from "./model/companyProfile";
+import { datevExportCount, finalisedDocumentsForKu } from "./model/documentHistory";
 import { countDraftsUsingCompanyData } from "./model/files";
 import { getIntegration, recordIntegrationTest } from "./model/integrations";
 import {
@@ -272,13 +273,20 @@ export const saveTaxSettings = mutation({
       priorYearTotalTurnoverCents: [],
     };
     const now = ctx.now();
-    const res = taxPatchFromForm(t, current ?? empty, { today: berlinCalendarDate(now), now });
-    if (!res.ok) throw appError("invalid_input", res.error.message, { reason: res.error.code });
+    const res = taxPatchFromForm(t, current ?? empty, {
+      today: berlinCalendarDate(now),
+      now,
+      finalisedDocuments: await finalisedDocumentsForKu(ctx),
+      datevExportCount: await datevExportCount(ctx),
+    });
+    if (!res.ok) throw appError("invalid_input", res.error.message, { reason: res.error.code, ...res.error.params });
     return patchCompanyProfile(ctx, res.patch as never, {
       action: "settings.tax.update",
-      ...(t.taxationMethod === "ist"
-        ? { reason: "Genehmigung des Finanzamts für die Ist-Versteuerung liegt vor" }
-        : {}),
+      ...(t.kuReason
+        ? { reason: t.kuReason }
+        : t.taxationMethod === "ist"
+          ? { reason: "Genehmigung des Finanzamts für die Ist-Versteuerung liegt vor" }
+          : {}),
       ...(expectedVersion !== undefined ? { expectedVersion } : {}),
     });
   },

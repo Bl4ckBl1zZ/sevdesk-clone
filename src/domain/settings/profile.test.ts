@@ -93,6 +93,56 @@ describe("company profile mapping (F01 SET-010, 03 companyProfile)", () => {
   });
 });
 
+describe("SET-044 SET-034 tax form guards", () => {
+  const base = () => newCompanyProfile() as unknown as ProfileData;
+  const form = (over: Record<string, unknown>) =>
+    taxSchema.parse({ ...taxDefaults("gmbh"), taxNumberState: "BE", taxNumber: "27/815/08155", ...over });
+
+  test("SET-044 DATEV keys are validated in the form and stored as numbers; empty keys stay unset", () => {
+    const r = taxPatchFromForm(
+      form({ datevConsultantNumber: "12345", datevClientNumber: "42", datevAccountLength: "5" }),
+      base(),
+      ctx,
+    );
+    expect(r.ok && r.patch.datev).toEqual({
+      accountLength: 5,
+      personalAccounts: true,
+      consultantNumber: 12345,
+      clientNumber: 42,
+    });
+    const back = taxFormFromProfile({ ...base(), ...(r.ok ? r.patch : {}), legalForm: "gmbh" }, today);
+    expect(back).toMatchObject({ datevConsultantNumber: "12345", datevClientNumber: "42", datevAccountLength: 5 });
+    const invalid = taxSchema.safeParse({
+      ...taxDefaults("gmbh"),
+      taxNumberState: "BE",
+      taxNumber: "27/815/08155",
+      datevConsultantNumber: "999",
+      datevAccountLength: 3,
+    });
+    expect(invalid.error?.issues.map((i) => [i.path[0], i.message])).toEqual([
+      ["datevConsultantNumber", "Beraternummer: 1001 bis 9999999."],
+      ["datevAccountLength", "Sachkontenlänge: 4 bis 9 Stellen."],
+    ]);
+  });
+
+  test("SET-044 T-SET-088 after a DATEV export the account length is locked", () => {
+    const stored = { ...base(), datev: { accountLength: 4, personalAccounts: true, consultantNumber: 12345 } };
+    const r = taxPatchFromForm(form({ datevConsultantNumber: "12345", datevAccountLength: 5 }), stored, {
+      ...ctx,
+      datevExportCount: 1,
+    });
+    expect(r).toMatchObject({ ok: false, error: { code: "DATEV_ACCOUNT_LENGTH_LOCKED" } });
+  });
+
+  test("SET-034 T-SET-016 a KU switch that rewrites an entry used by a finalised invoice is refused", () => {
+    const stored = { ...base(), kleinunternehmer: [{ validFrom: "2026-01-01", isKU: true }] };
+    const docs = [{ id: "d1", number: "RE-2026-0001", date: "2026-03-01" }];
+    // Leaving the KU in 2026: the form writes a new entry from 1 Jan 2026 — replacing the used entry.
+    const r = taxPatchFromForm(form({ isKleinunternehmer: "no" }), stored, { ...ctx, finalisedDocuments: docs });
+    expect(r).toMatchObject({ ok: false, error: { code: "HISTORY_ENTRY_LOCKED" } });
+  });
+});
+
 describe("SET-013 live footer preview from the company form", () => {
   test("SET-013 the form values plus tax IDs produce the footer company of geschaeftsbriefFooter", async () => {
     const { footerCompanyFromForm } = await import("./profile");

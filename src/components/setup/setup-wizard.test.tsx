@@ -181,3 +181,28 @@ describe("company form (F01 §6.3)", () => {
     expect(within(preview).getByText("Registergericht: Amtsgericht Hamburg")).toBeInTheDocument();
   });
 });
+
+describe("tax settings DATEV section (F01 SET-044)", () => {
+  test("SET-044 DATEV-02 the debtor/creditor ranges follow the account length; an invalid consultant number is shown", async () => {
+    const { TaxForm } = await import("./forms/tax-form");
+    const { taxDefaults } = await import("@/domain/schemas/settings");
+    const onValid = vi.fn();
+    renderWithIntl(
+      <TaxForm
+        id="tax"
+        withSectionIds
+        currentYear={2026}
+        defaultValues={{ ...taxDefaults("gmbh"), taxNumberState: "BE", taxNumber: "27/815/08155" }}
+        onValid={onValid}
+      />,
+    );
+    expect(screen.getByTestId("datev-ranges")).toHaveTextContent("Debitoren 10000–69999, Kreditoren 70000–99999");
+    await userEvent.selectOptions(screen.getByLabelText("Sachkontenlänge"), "5");
+    expect(screen.getByTestId("datev-ranges")).toHaveTextContent("Debitoren 100000–699999");
+    await userEvent.type(screen.getByLabelText("Beraternummer"), "999");
+    const form = document.getElementById("tax") as HTMLFormElement;
+    form.requestSubmit();
+    expect((await screen.findAllByText("Beraternummer: 1001 bis 9999999.")).length).toBeGreaterThan(0);
+    expect(onValid).not.toHaveBeenCalled();
+  });
+});

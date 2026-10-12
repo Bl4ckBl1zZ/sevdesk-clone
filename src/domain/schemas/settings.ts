@@ -9,6 +9,7 @@
 import { electronicFormatIBAN, isValidBIC, isValidIBAN } from "ibantools";
 import { z } from "zod";
 import { fieldsFor, LEGAL_FORMS } from "../company/legal-forms";
+import { validateDatevKeys } from "../datev/keys";
 import { parseCents } from "../money/parse";
 import { MAX_START_VALUE, MIN_START_VALUE, RESET_POLICIES, SEEDED_RANGES, validateFormat } from "../numbering/format";
 import { isEuEeaCountry } from "../rules/eu-eea";
@@ -186,6 +187,12 @@ export const taxSchema = z
     priorYearTurnover: trimmed().refine((v) => parseTurnoverCents(v) !== null, {
       message: "Bitte einen Betrag wie 24.500,00 eingeben.",
     }),
+    /** SET-044: DATEV keys (digits; empty = not set yet) and the account length (4–9). */
+    datevConsultantNumber: trimmed().regex(/^\d*$/, "Beraternummer: 1001 bis 9999999.").default(""),
+    datevClientNumber: trimmed().regex(/^\d*$/, "Mandantennummer: 1 bis 99999.").default(""),
+    datevAccountLength: z.coerce.number("Sachkontenlänge: 4 bis 9 Stellen.").default(4),
+    /** SET-034: reason for a retroactive Kleinunternehmer entry that touches finalised documents. */
+    kuReason: optionalText(500).optional(),
   })
   .superRefine((v, ctx) => {
     if (!v.taxNumber && !v.vatId) {
@@ -239,6 +246,15 @@ export const taxSchema = z
           });
         }
       }
+    }
+    for (const e of validateDatevKeys(datevKeysFromForm(v))) {
+      const path =
+        e.code === "DATEV_CONSULTANT_INVALID"
+          ? "datevConsultantNumber"
+          : e.code === "DATEV_CLIENT_INVALID"
+            ? "datevClientNumber"
+            : "datevAccountLength";
+      ctx.addIssue({ code: "custom", path: [path], message: e.message });
     }
     if (v.taxationMethod === "ist" && !v.istConfirmed) {
       ctx.addIssue({
@@ -294,7 +310,23 @@ export const taxDefaults = (legalForm: CompanyValues["legalForm"]): TaxFormValue
   fiscalYearStartMonth: 1,
   foundedOn: "",
   priorYearTurnover: "",
+  datevConsultantNumber: "",
+  datevClientNumber: "",
+  datevAccountLength: 4,
 });
+
+/** SET-044: the DATEV keys of the tax form as numbers. */
+export function datevKeysFromForm(v: {
+  datevConsultantNumber?: string;
+  datevClientNumber?: string;
+  datevAccountLength?: number;
+}) {
+  return {
+    consultantNumber: v.datevConsultantNumber ? Number(v.datevConsultantNumber) : undefined,
+    clientNumber: v.datevClientNumber ? Number(v.datevClientNumber) : undefined,
+    accountLength: v.datevAccountLength ?? 4,
+  };
+}
 
 // ── Step 8: Bank (SET-050…052, §5.4) ─────────────────────────────────────────────────────────────────────
 export const bankSchema = z.object({

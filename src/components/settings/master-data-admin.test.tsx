@@ -32,11 +32,32 @@ beforeEach(() => {
   backend.data = {
     "lookups:listUnits": [
       { unitId: "u1", code: "HUR", labelDe: "Std.", labelEn: "h", isSystem: true, archivedAt: null },
-      { unitId: "u2", code: "XPP", labelDe: "Palettenplatz", labelEn: "pallet place", isSystem: false, archivedAt: null },
+      {
+        unitId: "u2",
+        code: "XPP",
+        labelDe: "Palettenplatz",
+        labelEn: "pallet place",
+        isSystem: false,
+        archivedAt: null,
+      },
     ],
     "lookups:listPaymentMethods": [
-      { paymentMethodId: "p1", name: "Überweisung", text: "Bitte überweisen", kind: "transfer", isDefault: true, active: true },
-      { paymentMethodId: "p2", name: "Barzahlung", text: "Betrag in bar erhalten.", kind: "cash", isDefault: false, active: true },
+      {
+        paymentMethodId: "p1",
+        name: "Überweisung",
+        text: "Bitte überweisen",
+        kind: "transfer",
+        isDefault: true,
+        active: true,
+      },
+      {
+        paymentMethodId: "p2",
+        name: "Barzahlung",
+        text: "Betrag in bar erhalten.",
+        kind: "cash",
+        isDefault: false,
+        active: true,
+      },
     ],
     "lookups:listTags": [{ tagId: "t1", name: "Wichtig", color: "red", usage: 0 }],
     "lookups:listCustomFields": [

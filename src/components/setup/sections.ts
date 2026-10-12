@@ -6,4 +6,5 @@ export const TAX_SECTIONS = [
   "versteuerung",
   "gewinnermittlung",
   "umsaetze",
+  "datev",
 ] as const;

@@ -5,6 +5,7 @@ import { useEffect } from "react";
 import { type UseFormReturn, useWatch } from "react-hook-form";
 import { CheckboxField, FormErrorSummary, RadioCardGroup, SelectField, TextField } from "@/components/forms/fields";
 import { fieldsFor } from "@/domain/company/legal-forms";
+import { personalAccountRanges } from "@/domain/datev/keys";
 import { type TaxFormValues, type TaxValues, taxSchema } from "@/domain/schemas/settings";
 import { BUNDESLAENDER } from "../countries";
 import type { TAX_SECTIONS } from "../sections";
@@ -42,6 +43,8 @@ export function TaxForm({
     name: ["isKleinunternehmer", "taxationMethod", "profitMethod", "legalForm"],
   });
   const f = fieldsFor(legalForm);
+  const accountLength = Number(useWatch({ control: form.control, name: "datevAccountLength" })) || 4;
+  const ranges = personalAccountRanges(Math.min(9, Math.max(4, accountLength)));
   const sectionId = (s: (typeof TAX_SECTIONS)[number]) => (withSectionIds ? `abschnitt-${s}` : undefined);
 
   // KU-05: Kleinunternehmer years have no UStVA (annual declaration only).
@@ -184,6 +187,36 @@ export function TaxForm({
           className="max-w-xs"
         />
       </Section>
+
+      {withSectionIds && (
+        <Section id={sectionId("datev")} title={tTabs("datev")}>
+          <p className="text-muted-foreground text-sm">{t("datevHint")}</p>
+          <div className="grid gap-4 @lg/form:grid-cols-3">
+            <TextField
+              form={form}
+              name="datevConsultantNumber"
+              label={t("datevConsultantNumber")}
+              inputMode="numeric"
+            />
+            <TextField form={form} name="datevClientNumber" label={t("datevClientNumber")} inputMode="numeric" />
+            <SelectField
+              form={form}
+              name="datevAccountLength"
+              label={t("datevAccountLength")}
+              options={[4, 5, 6, 7, 8, 9].map((n) => ({ value: String(n), label: String(n) }))}
+            />
+          </div>
+          <p className="text-muted-foreground text-sm" data-testid="datev-ranges">
+            {t("datevRanges", {
+              // Account numbers are identifiers: never digit-grouped.
+              debFrom: String(ranges.debtors.from),
+              debTo: String(ranges.debtors.to),
+              credFrom: String(ranges.creditors.from),
+              credTo: String(ranges.creditors.to),
+            })}
+          </p>
+        </Section>
+      )}
     </form>
   );
 }

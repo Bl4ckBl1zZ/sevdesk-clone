@@ -993,7 +993,12 @@
       "fiscalYearStart": "Beginn des Wirtschaftsjahres",
       "foundedOn": "Gründungsdatum",
       "priorYearTurnover": "Gesamtumsatz {year}",
-      "priorYearTurnoverHint": "Für die Kleinunternehmer-Grenze und die E-Rechnungs-Pflicht. Betrag in Euro, z. B. 24.500,00."
+      "priorYearTurnoverHint": "Für die Kleinunternehmer-Grenze und die E-Rechnungs-Pflicht. Betrag in Euro, z. B. 24.500,00.",
+      "datevHint": "Berater- und Mandantennummer stehen im Kopf jedes DATEV-Exports. Die Sachkontenlänge ist nach dem ersten Export fest.",
+      "datevConsultantNumber": "Beraternummer",
+      "datevClientNumber": "Mandantennummer",
+      "datevAccountLength": "Sachkontenlänge",
+      "datevRanges": "Personenkonten: Debitoren {debFrom}–{debTo}, Kreditoren {credFrom}–{credTo}"
     },
     "bank": {
       "iban": "IBAN",

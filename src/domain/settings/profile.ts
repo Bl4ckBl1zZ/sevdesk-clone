@@ -9,10 +9,17 @@
 import type { FooterCompany } from "../company/footer";
 import type { LegalForm } from "../company/legal-forms";
 import type { CompanyForValidation } from "../company/validate";
+import { checkDatevKeyChange } from "../datev/keys";
 import { formatCents } from "../money/format";
 import { type Issue, issue } from "../result";
-import type { CompanyValues, TaxFormValues, TaxValues } from "../schemas/settings";
-import { parseTurnoverCents } from "../schemas/settings";
+import {
+  type CompanyValues,
+  datevKeysFromForm,
+  parseTurnoverCents,
+  type TaxFormValues,
+  type TaxValues,
+} from "../schemas/settings";
+import { checkKuHistoryChange, type FinalisedDocRef } from "../tax/ku-history";
 import { isBundesland, normalizeTaxNumber } from "../tax/tax-number";
 import type { CalendarDate } from "../time/calendar-date";
 
@@ -66,6 +73,14 @@ export interface TaxSettingsData {
   fiscalYearStartMonth: number;
   foundedOn?: string;
   priorYearTotalTurnoverCents: { year: number; amountCents: number }[];
+  datev?: {
+    consultantNumber?: number;
+    clientNumber?: number;
+    accountLength: number;
+    formatVersion?: 12 | 13;
+    personalAccounts: boolean;
+    collectiveDebtorAccount?: string;
+  };
 }
 
 export type ProfileData = CompanySettingsData &
@@ -237,6 +252,10 @@ export interface TaxPatchContext {
   /** Business date of the save (Europe/Berlin). */
   today: CalendarDate;
   now: number;
+  /** SET-034: finalised documents with the supply date their KU status was resolved by (P1; empty before). */
+  finalisedDocuments?: readonly FinalisedDocRef[];
+  /** SET-E22: number of DATEV exports so far (locks the account length). */
+  datevExportCount?: number;
 }
 
 /** Appends a date-effective entry when the status on `validFrom` differs; replaces an entry with the same date. */
@@ -281,6 +300,26 @@ export function taxPatchFromForm(
           { validFrom: kuFrom, isKU: v.isKleinunternehmer === "yes" },
           (e) => e.isKU === (v.isKleinunternehmer === "yes"),
         );
+
+  const kuCheck = checkKuHistoryChange(
+    current.kleinunternehmer,
+    kleinunternehmer,
+    ctx.finalisedDocuments ?? [],
+    v.kuReason,
+  );
+  if (!kuCheck.ok) return { ok: false, error: kuCheck.error };
+
+  const datevBefore = current.datev ?? { accountLength: 4, personalAccounts: true };
+  const datevKeys = datevKeysFromForm(v);
+  const datevCheck = checkDatevKeyChange(datevBefore, datevKeys, ctx.datevExportCount ?? 0);
+  if (!datevCheck.ok) return { ok: false, error: datevCheck.error };
+  const { consultantNumber: _c, clientNumber: _n, ...datevRest } = datevBefore;
+  const datev = {
+    ...datevRest,
+    accountLength: datevKeys.accountLength,
+    ...(datevKeys.consultantNumber !== undefined ? { consultantNumber: datevKeys.consultantNumber } : {}),
+    ...(datevKeys.clientNumber !== undefined ? { clientNumber: datevKeys.clientNumber } : {}),
+  };
 
   const taxationMethod = upsertEffective(
     current.taxationMethod,
@@ -329,6 +368,7 @@ export function taxPatchFromForm(
       fiscalYearStartMonth: v.fiscalYearStartMonth,
       ...(v.foundedOn ? { foundedOn: v.foundedOn } : {}),
       priorYearTotalTurnoverCents,
+      datev,
     },
   };
 }
@@ -373,6 +413,9 @@ export function taxFormFromProfile(
     fiscalYearStartMonth: p.fiscalYearStartMonth,
     foundedOn: p.foundedOn ?? "",
     priorYearTurnover: turnover ? formatCents(turnover.amountCents) : "",
+    datevConsultantNumber: p.datev?.consultantNumber !== undefined ? String(p.datev.consultantNumber) : "",
+    datevClientNumber: p.datev?.clientNumber !== undefined ? String(p.datev.clientNumber) : "",
+    datevAccountLength: p.datev?.accountLength ?? 4,
   };
 }
 
