@@ -5,6 +5,7 @@
  */
 import { z } from "zod";
 import type { FieldIssue } from "../contacts/core";
+import { formatBasisPoints, formatMicros, formatMilli } from "../money/format";
 import { parseMilli } from "../money/parse";
 import { parseUnitPrice } from "../products/pricing";
 import {
@@ -159,6 +160,55 @@ export const emptyProductForm = (
     customFields: {},
   };
 };
+
+/** The stored fields of a product the form edits (structural subset of `Doc<"products">`). */
+export interface ProductRecord {
+  number: string;
+  name: string;
+  description?: string | undefined;
+  internalNote?: string | undefined;
+  type: ProductFormValues["type"];
+  unitCode: string;
+  gtin?: string | undefined;
+  priceMode: ProductFormValues["priceMode"];
+  unitPriceMicros: number;
+  purchasePriceMicros?: number | undefined;
+  vatRateKey: string;
+  exemptionReasonCode?: string | undefined;
+  placeOfSupplyRule?: string | undefined;
+  reverseCharge13b?: string | undefined;
+  laborCostShareBp?: number | undefined;
+  categoryId?: string | undefined;
+  extraUnits: readonly { unitCode: string; factorMilli: number }[];
+  tags: readonly string[];
+  customFields: Record<string, unknown>;
+}
+
+/** Form values of a stored product (prices back to German input strings); shared by the UI and REST/MCP PATCH. */
+export function productFormFromRecord(p: ProductRecord): ProductFormValues {
+  return {
+    ...emptyProductForm(),
+    number: p.number,
+    name: p.name,
+    description: p.description ?? "",
+    internalNote: p.internalNote ?? "",
+    type: p.type,
+    unitCode: p.unitCode,
+    gtin: p.gtin ?? "",
+    priceMode: p.priceMode,
+    price: formatMicros(p.unitPriceMicros),
+    purchasePrice: p.purchasePriceMicros !== undefined ? formatMicros(p.purchasePriceMicros) : "",
+    vatRateKey: p.vatRateKey,
+    exemptionReasonCode: p.exemptionReasonCode ?? "",
+    placeOfSupplyRule: (p.placeOfSupplyRule ?? "") as ProductFormValues["placeOfSupplyRule"],
+    reverseCharge13b: p.reverseCharge13b ?? "",
+    laborCostShare: p.laborCostShareBp !== undefined ? formatBasisPoints(p.laborCostShareBp) : "",
+    categoryId: p.categoryId ?? "",
+    extraUnits: p.extraUnits.map((u) => ({ unitCode: u.unitCode, factor: formatMilli(u.factorMilli) })),
+    tags: [...p.tags],
+    customFields: p.customFields as ProductFormValues["customFields"],
+  };
+}
 
 /** PRD-030: one customer price row; `validFrom` empty = from the start. */
 export const customerPriceSchema = z

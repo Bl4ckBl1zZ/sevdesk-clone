@@ -1,4 +1,5 @@
 import { ConvexError, type Value } from "convex/values";
+import { CONFIRM_TOKEN_MESSAGES } from "../../src/domain/api/confirm";
 
 /**
  * Structured application errors. Clients receive `{ code, message }` (German message for the UI); REST/MCP
@@ -35,6 +36,16 @@ export const ERRORS = {
   already_reversed: "Diese Buchung wurde bereits storniert.",
   chart_locked: "Der Kontenrahmen kann erst zum Beginn des nächsten Wirtschaftsjahres gewechselt werden.",
   bookkeeping_start_locked: "Der Buchungsbeginn kann nach der ersten Buchung nicht mehr geändert werden.",
+  // 05 §3 idempotency
+  idempotency_key_reused: "Dieser Idempotency-Key wurde bereits für eine andere Anfrage verwendet.",
+  idempotency_in_progress: "Eine Anfrage mit diesem Idempotency-Key wird gerade verarbeitet.",
+  // 06 §2.3 confirm tokens (messages: src/domain/api/confirm.ts)
+  confirm_token_required: CONFIRM_TOKEN_MESSAGES.confirm_token_required,
+  confirm_token_invalid: CONFIRM_TOKEN_MESSAGES.confirm_token_invalid,
+  confirm_token_expired: CONFIRM_TOKEN_MESSAGES.confirm_token_expired,
+  confirm_token_used: CONFIRM_TOKEN_MESSAGES.confirm_token_used,
+  confirm_token_intent_mismatch: CONFIRM_TOKEN_MESSAGES.confirm_token_intent_mismatch,
+  preview_outdated: CONFIRM_TOKEN_MESSAGES.preview_outdated,
 } as const;
 
 export type ErrorCode = keyof typeof ERRORS;

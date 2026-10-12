@@ -25,7 +25,7 @@ import { berlinCalendarDate } from "../src/domain/time/berlin";
 import { formatGermanDate } from "../src/domain/time/calendar-date";
 import type { Doc, Id } from "./_generated/dataModel";
 import type { QueryCtx } from "./_generated/server";
-import { mutation, query } from "./functions";
+import { mutation, query, vConfirmToken } from "./functions";
 import { appError } from "./lib/errors";
 import { parse } from "./lib/parse";
 import {
@@ -525,7 +525,7 @@ export const mergePreview = query({
 
 export const merge = mutation({
   permission: "contacts.merge",
-  args: { values: v.any() },
+  args: { values: v.any(), confirmToken: vConfirmToken },
   handler: async (ctx, { values }) => {
     const m = parse(mergeSchema, values);
     const id = (x: string) => {
@@ -543,7 +543,7 @@ export const merge = mutation({
 });
 
 export const undoMerge = mutation({
-  permission: "contacts.merge",
+  permission: "contacts.mergeUndo",
   args: { mergeId: v.id("contactMerges") },
   handler: async (ctx, { mergeId }) => undoMergeModel(ctx, mergeId),
 });

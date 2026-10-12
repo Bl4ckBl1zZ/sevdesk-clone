@@ -26,6 +26,7 @@ import {
   type ContactCreateFormValues,
   type ContactFormValues,
   contactCreateSchema,
+  contactFormFromRecord,
   emptyAddress,
   emptyContactForm,
 } from "@/domain/schemas/contacts";
@@ -44,52 +45,8 @@ const SCHEME_LABELS: Record<string, string> = {
   "9930": "USt-IdNr (9930)",
 };
 
-/** Form values of an existing contact (the Stammdaten tab edits these). */
-export function formFromContact(c: Doc<"contacts">): ContactFormValues {
-  const s = (v: string | undefined) => v ?? "";
-  const pct = (bp: number | undefined) => (bp === undefined ? "" : String(bp / 100).replace(".", ","));
-  return {
-    ...emptyContactForm(),
-    kind: c.kind,
-    parentId: s(c.parentId),
-    organizationName: s(c.organizationName),
-    organizationName2: s(c.organizationName2),
-    salutation: c.salutation ?? "",
-    academicTitle: s(c.academicTitle),
-    firstName: s(c.firstName),
-    lastName: s(c.lastName),
-    position: s(c.position),
-    birthday: s(c.birthday),
-    number: c.number,
-    roles: c.roles,
-    status: c.status === "lead" ? "lead" : "active",
-    isConsumer: c.isConsumer,
-    isPublicAuthority: c.isPublicAuthority,
-    vatId: s(c.vatId),
-    taxNumber: s(c.taxNumber),
-    defaultTaxCase: (c.defaultTaxCase ?? "") as ContactFormValues["defaultTaxCase"],
-    buyerReference: s(c.buyerReference),
-    electronicAddressScheme: c.electronicAddress?.scheme ?? "",
-    electronicAddressValue: s(c.electronicAddress?.value),
-    preferredFormat: c.einvoice.preferredFormat,
-    language: c.language,
-    currency: c.currency,
-    dueDays: c.paymentTerms ? String(c.paymentTerms.dueDays) : "",
-    skontoPercent: pct(c.paymentTerms?.skontoPercentBp),
-    skontoDays: c.paymentTerms?.skontoDays !== undefined ? String(c.paymentTerms.skontoDays) : "",
-    paymentTermsText: s(c.paymentTerms?.text),
-    defaultDiscount: pct(c.defaultDiscountBp),
-    paymentMethodId: s(c.paymentMethodId),
-    iban: s(c.iban),
-    bic: s(c.bic),
-    debtorAccount: s(c.debtorAccount),
-    creditorAccount: s(c.creditorAccount),
-    useCollectiveDebtor: c.useCollectiveDebtor ?? false,
-    tags: c.tags,
-    customFields: c.customFields as ContactFormValues["customFields"],
-    notes: s(c.notes),
-  };
-}
+/** Form values of an existing contact (the Stammdaten tab edits these; shared with REST/MCP). */
+export const formFromContact = (c: Doc<"contacts">): ContactFormValues => contactFormFromRecord(c);
 
 export function ContactForm(props: { contact?: Doc<"contacts">; defaultParentId?: string }) {
   return (

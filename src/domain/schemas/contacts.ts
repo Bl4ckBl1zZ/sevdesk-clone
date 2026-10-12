@@ -18,6 +18,7 @@ import {
   validateCoreFields,
 } from "../contacts/core";
 import { EINVOICE_FORMATS, ELECTRONIC_ADDRESS_SCHEMES, validateTaxFields } from "../contacts/tax";
+import { formatBasisPoints } from "../money/format";
 import { parseBasisPoints } from "../money/parse";
 import { type SelectableTaxCase, TAX_CASES } from "../tax/tax-case";
 import { calendarDate, isCalendarDate } from "../time/calendar-date";
@@ -364,6 +365,91 @@ export const emptyContactForm = (defaults: { language?: "de" | "en"; currency?: 
   customFields: {},
   notes: "",
 });
+
+/** The stored contact fields the edit form needs (structural: Convex `Doc<"contacts">` satisfies it). */
+export interface ContactRecord {
+  kind: ContactFormValues["kind"];
+  parentId?: string | undefined;
+  organizationName?: string | undefined;
+  organizationName2?: string | undefined;
+  salutation?: (typeof SALUTATIONS)[number] | undefined;
+  academicTitle?: string | undefined;
+  firstName?: string | undefined;
+  lastName?: string | undefined;
+  position?: string | undefined;
+  birthday?: string | undefined;
+  number: string;
+  roles: ContactFormValues["roles"];
+  status: "lead" | "active" | "archived";
+  isConsumer: boolean;
+  isPublicAuthority: boolean;
+  vatId?: string | undefined;
+  taxNumber?: string | undefined;
+  defaultTaxCase?: string | undefined;
+  buyerReference?: string | undefined;
+  electronicAddress?: { scheme: (typeof ELECTRONIC_ADDRESS_SCHEMES)[number]; value: string } | undefined;
+  einvoice: { preferredFormat: ContactFormValues["preferredFormat"] };
+  language: ContactFormValues["language"];
+  currency: string;
+  paymentTerms?: { dueDays: number; skontoPercentBp?: number; skontoDays?: number; text?: string } | undefined;
+  defaultDiscountBp?: number | undefined;
+  paymentMethodId?: string | undefined;
+  iban?: string | undefined;
+  bic?: string | undefined;
+  debtorAccount?: string | undefined;
+  creditorAccount?: string | undefined;
+  useCollectiveDebtor?: boolean | undefined;
+  tags: string[];
+  customFields: Record<string, unknown>;
+  notes?: string | undefined;
+}
+
+/** Form values of a stored contact (the Stammdaten tab, REST PATCH and MCP upsert edit these). */
+export function contactFormFromRecord(c: ContactRecord): ContactFormValues {
+  const s = (v: string | undefined) => v ?? "";
+  const pct = (bp: number | undefined) => (bp === undefined ? "" : formatBasisPoints(bp));
+  return {
+    ...emptyContactForm(),
+    kind: c.kind,
+    parentId: s(c.parentId),
+    organizationName: s(c.organizationName),
+    organizationName2: s(c.organizationName2),
+    salutation: c.salutation ?? "",
+    academicTitle: s(c.academicTitle),
+    firstName: s(c.firstName),
+    lastName: s(c.lastName),
+    position: s(c.position),
+    birthday: s(c.birthday),
+    number: c.number,
+    roles: c.roles,
+    status: c.status === "lead" ? "lead" : "active",
+    isConsumer: c.isConsumer,
+    isPublicAuthority: c.isPublicAuthority,
+    vatId: s(c.vatId),
+    taxNumber: s(c.taxNumber),
+    defaultTaxCase: (c.defaultTaxCase ?? "") as ContactFormValues["defaultTaxCase"],
+    buyerReference: s(c.buyerReference),
+    electronicAddressScheme: c.electronicAddress?.scheme ?? "",
+    electronicAddressValue: s(c.electronicAddress?.value),
+    preferredFormat: c.einvoice.preferredFormat,
+    language: c.language,
+    currency: c.currency,
+    dueDays: c.paymentTerms ? String(c.paymentTerms.dueDays) : "",
+    skontoPercent: pct(c.paymentTerms?.skontoPercentBp),
+    skontoDays: c.paymentTerms?.skontoDays !== undefined ? String(c.paymentTerms.skontoDays) : "",
+    paymentTermsText: s(c.paymentTerms?.text),
+    defaultDiscount: pct(c.defaultDiscountBp),
+    paymentMethodId: s(c.paymentMethodId),
+    iban: s(c.iban),
+    bic: s(c.bic),
+    debtorAccount: s(c.debtorAccount),
+    creditorAccount: s(c.creditorAccount),
+    useCollectiveDebtor: c.useCollectiveDebtor ?? false,
+    tags: c.tags,
+    customFields: c.customFields as ContactFormValues["customFields"],
+    notes: s(c.notes),
+  };
+}
 
 // ── consent, certificate, activities, merge ───────────────────────────────────────────────────────────
 export const pdfConsentSchema = z

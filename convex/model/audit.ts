@@ -85,6 +85,27 @@ const withoutSystem = (doc: Record<string, unknown>) => {
   return rest;
 };
 
+/**
+ * `updatedAt` sync stamps (05 §3 `updated_since`): a change of a contact, a product or one of their sub-records
+ * stamps the root record. Technical field (src/domain/audit/technical.ts): not part of the audit diff.
+ */
+const SYNC_ROOTS: Partial<Record<TableNames, { root: "contacts" | "products"; via?: string }>> = {
+  contacts: { root: "contacts" },
+  contactAddresses: { root: "contacts", via: "contactId" },
+  contactChannels: { root: "contacts", via: "contactId" },
+  products: { root: "products" },
+  customerPrices: { root: "products", via: "productId" },
+};
+
+async function touchSyncStamp(ctx: ModelCtx, table: TableNames, id: string, doc: Record<string, unknown> | null) {
+  const rule = SYNC_ROOTS[table];
+  if (!rule) return;
+  const rootId = (rule.via ? doc?.[rule.via] : id) as Id<"contacts" | "products"> | undefined;
+  if (!rootId) return;
+  if (!(await ctx.db.get(rootId))) return;
+  await ctx.db.patch(rule.root, rootId as never, { updatedAt: ctx.now() } as never);
+}
+
 /** Insert + audit entry with the full content (AUD-002: full content for creates). */
 export async function auditedInsert<T extends TableNames>(
   ctx: ModelCtx,
@@ -99,6 +120,7 @@ export async function auditedInsert<T extends TableNames>(
     diff: { after: value },
     ...(audit.reason ? { reason: audit.reason } : {}),
   });
+  await touchSyncStamp(ctx, table, id, value as Record<string, unknown>);
   return id as Id<T>;
 }
 
@@ -120,12 +142,14 @@ export async function auditedPatch<T extends TableNames>(
     diff.before[field] = from;
     diff.after[field] = to;
   }
-  return appendAudit(ctx, {
+  const entry = await appendAudit(ctx, {
     action: audit.action,
     entity: { table, id, ...(audit.label ? { label: audit.label } : {}) },
     diff,
     ...(audit.reason ? { reason: audit.reason } : {}),
   });
+  await touchSyncStamp(ctx, table, id, before);
+  return entry;
 }
 
 /** Delete + audit entry with the deleted content (AUD-002: full content for draft deletions). */
@@ -144,4 +168,5 @@ export async function auditedDelete<T extends TableNames>(
     diff: { before: withoutSystem(before) },
     ...(audit.reason ? { reason: audit.reason } : {}),
   });
+  if (SYNC_ROOTS[table]?.via) await touchSyncStamp(ctx, table, id, before);
 }

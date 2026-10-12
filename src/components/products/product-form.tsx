@@ -18,7 +18,7 @@ import { useZodForm } from "@/components/setup/use-zod-form";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import { formatBasisPoints, formatMicros, formatMilli } from "@/domain/money/format";
+import { formatBasisPoints, formatMicros } from "@/domain/money/format";
 import { parseMilli } from "@/domain/money/parse";
 import { convertPriceMode, extraUnitPriceMicros, parseUnitPrice, resolveRate } from "@/domain/products/pricing";
 import {
@@ -32,37 +32,19 @@ import {
 import { EXEMPTION_REASONS } from "@/domain/rules/exemption-reasons";
 import { RC13B_TYPE_KEYS, rc13bLabelDe } from "@/domain/rules/rc13b-types";
 import { VAT_RATE_KEY_LABELS, VAT_RATE_KEYS } from "@/domain/rules/vat-rates";
-import { emptyProductForm, type ProductFormValues, productSchema } from "@/domain/schemas/products";
+import {
+  emptyProductForm,
+  type ProductFormValues,
+  productFormFromRecord,
+  productSchema,
+} from "@/domain/schemas/products";
 import type { CalendarDate } from "@/domain/time/calendar-date";
 import { useAuthedQuery } from "@/hooks/use-authed-query";
 
 type Form = UseFormReturn<ProductFormValues>;
 
 /** Form values of a stored product (prices back to German input strings). */
-export function formFromProduct(p: Doc<"products">): ProductFormValues {
-  return {
-    ...emptyProductForm(),
-    number: p.number,
-    name: p.name,
-    description: p.description ?? "",
-    internalNote: p.internalNote ?? "",
-    type: p.type,
-    unitCode: p.unitCode,
-    gtin: p.gtin ?? "",
-    priceMode: p.priceMode,
-    price: formatMicros(p.unitPriceMicros),
-    purchasePrice: p.purchasePriceMicros !== undefined ? formatMicros(p.purchasePriceMicros) : "",
-    vatRateKey: p.vatRateKey,
-    exemptionReasonCode: p.exemptionReasonCode ?? "",
-    placeOfSupplyRule: (p.placeOfSupplyRule ?? "") as ProductFormValues["placeOfSupplyRule"],
-    reverseCharge13b: p.reverseCharge13b ?? "",
-    laborCostShare: p.laborCostShareBp !== undefined ? formatBasisPoints(p.laborCostShareBp) : "",
-    categoryId: p.categoryId ?? "",
-    extraUnits: p.extraUnits.map((u) => ({ unitCode: u.unitCode, factor: formatMilli(u.factorMilli) })),
-    tags: p.tags,
-    customFields: p.customFields as ProductFormValues["customFields"],
-  };
-}
+export const formFromProduct = (p: Doc<"products">): ProductFormValues => productFormFromRecord(p);
 
 const errorReason = (e: unknown): string | undefined => (e as { data?: { reason?: string } }).data?.reason;
 

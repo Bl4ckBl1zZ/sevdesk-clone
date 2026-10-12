@@ -4,6 +4,7 @@ import { canonicalize } from "../../src/domain/audit/canonical";
 import { genesisHash, verifyChainPage } from "../../src/domain/audit/chain";
 import { isEncryptedValue } from "../../src/domain/audit/personal";
 import { REDACTED } from "../../src/domain/audit/redact";
+import { TECHNICAL_TABLES, technicalFields } from "../../src/domain/audit/technical";
 import { ROLE_MAPPING_ROWS, seededAccount } from "../../src/domain/rules/accounting";
 import { isCalendarDate } from "../../src/domain/time/calendar-date";
 import type { Doc, TableNames } from "../_generated/dataModel";
@@ -31,7 +32,14 @@ export interface InvariantViolation {
  * each row instead must point (`auditSeq`) at that change's audit entry (checked below) — and `journalLines`, the
  * read model of the audited journal entries (RI-12 checks that it mirrors them).
  */
-const NOT_REPLAYED = new Set(["auditLog", "devMailbox", "contactKeys", "companyProfileVersions", "journalLines"]);
+const NOT_REPLAYED = new Set([
+  "auditLog",
+  "contactKeys",
+  "companyProfileVersions",
+  "journalLines",
+  // technical tables (access log, idempotency records, confirm tokens, dev mailbox): src/domain/audit/technical.ts
+  ...TECHNICAL_TABLES,
+]);
 
 export function replayedTables(): TableNames[] {
   return (Object.keys(schema.tables) as TableNames[]).filter((t) => !NOT_REPLAYED.has(t));
@@ -63,11 +71,12 @@ export function replayEntity(entries: Doc<"auditLog">[]): Record<string, unknown
   return state;
 }
 
-/** Fields whose audited value is redacted or encrypted cannot be compared. */
-function comparable(audited: Record<string, unknown>, actual: Record<string, unknown>) {
+/** Fields whose audited value is redacted or encrypted cannot be compared; technical fields are not audited. */
+function comparable(audited: Record<string, unknown>, actual: Record<string, unknown>, skip: readonly string[] = []) {
   const a: Record<string, unknown> = {};
   const b: Record<string, unknown> = {};
   for (const k of new Set([...Object.keys(audited), ...Object.keys(actual)])) {
+    if (skip.includes(k)) continue;
     const v = audited[k];
     if (v === REDACTED || isEncryptedValue(v)) continue;
     if (v !== undefined) a[k] = v;
@@ -111,7 +120,7 @@ export async function checkInvariants(ctx: ReadCtx): Promise<InvariantViolation[
         out.push({ id: "RI-15", severity: "ERROR", message: `${table}/${id} existiert ohne Protokolleintrag.` });
         continue;
       }
-      const [a, b] = comparable(audited, withoutSystem(doc as Record<string, unknown>));
+      const [a, b] = comparable(audited, withoutSystem(doc as Record<string, unknown>), technicalFields(table));
       if (a !== b) {
         out.push({ id: "RI-15", severity: "ERROR", message: `${table}/${id} weicht vom protokollierten Stand ab.` });
       }

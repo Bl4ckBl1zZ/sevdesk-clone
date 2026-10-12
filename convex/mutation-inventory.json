@@ -46,6 +46,54 @@
     "wrapper": "mutation",
     "permission": "accounting.roles"
   },
+  "apiKeys:authorize": {
+    "kind": "mutation",
+    "visibility": "public",
+    "wrapper": "mutation",
+    "permission": "apiKeys.self"
+  },
+  "apiKeys:cleanupCron": {
+    "kind": "mutation",
+    "visibility": "internal",
+    "wrapper": "systemMutation",
+    "job": "cron.api.cleanup"
+  },
+  "apiKeys:create": {
+    "kind": "action",
+    "visibility": "public",
+    "wrapper": "action",
+    "permission": "apiKeys.manage"
+  },
+  "apiKeys:insert": {
+    "kind": "mutation",
+    "visibility": "internal",
+    "wrapper": "actorMutation",
+    "permission": "apiKeys.manage"
+  },
+  "apiKeys:list": {
+    "kind": "query",
+    "visibility": "public",
+    "wrapper": "query",
+    "permission": "apiKeys.read"
+  },
+  "apiKeys:logRequest": {
+    "kind": "mutation",
+    "visibility": "public",
+    "wrapper": "mutation",
+    "permission": "apiKeys.self"
+  },
+  "apiKeys:requests": {
+    "kind": "query",
+    "visibility": "public",
+    "wrapper": "query",
+    "permission": "apiKeys.read"
+  },
+  "apiKeys:revoke": {
+    "kind": "mutation",
+    "visibility": "public",
+    "wrapper": "mutation",
+    "permission": "apiKeys.revoke"
+  },
   "auth:onCreate": {
     "kind": "mutation",
     "visibility": "internal",
@@ -96,6 +144,12 @@
     "visibility": "public",
     "wrapper": "action",
     "permission": "integrations.manage"
+  },
+  "confirmTokens:issue": {
+    "kind": "mutation",
+    "visibility": "public",
+    "wrapper": "mutation",
+    "permission": "apiKeys.self"
   },
   "contacts:addActivity": {
     "kind": "mutation",
@@ -275,7 +329,7 @@
     "kind": "mutation",
     "visibility": "public",
     "wrapper": "mutation",
-    "permission": "contacts.merge"
+    "permission": "contacts.mergeUndo"
   },
   "contacts:update": {
     "kind": "mutation",
@@ -288,6 +342,24 @@
     "visibility": "public",
     "wrapper": "mutation",
     "permission": "contacts.write"
+  },
+  "idempotency:begin": {
+    "kind": "mutation",
+    "visibility": "public",
+    "wrapper": "mutation",
+    "permission": "apiKeys.self"
+  },
+  "idempotency:complete": {
+    "kind": "mutation",
+    "visibility": "public",
+    "wrapper": "mutation",
+    "permission": "apiKeys.self"
+  },
+  "idempotency:release": {
+    "kind": "mutation",
+    "visibility": "public",
+    "wrapper": "mutation",
+    "permission": "apiKeys.self"
   },
   "integrity:acknowledge": {
     "kind": "mutation",

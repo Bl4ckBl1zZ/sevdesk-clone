@@ -3,6 +3,7 @@ import rateLimiterTest from "@convex-dev/rate-limiter/test";
 import { symmetricEncrypt } from "better-auth/crypto";
 import { convexTest } from "convex-test";
 import { exportJWK, exportPKCS8, generateKeyPair } from "jose";
+import { apiKeyFromBytes, hashApiKey, publicKeyId } from "../src/domain/api/keys";
 import type { MemberRole } from "../src/domain/schemas/actor";
 import type { Scope } from "../src/domain/schemas/scopes";
 import { type InvariantTarget, useInvariantTarget } from "../test/invariants";
@@ -170,13 +171,16 @@ export function makeT() {
     return { userId: user._id, sessionId: session._id, memberId, email };
   }
 
+  /** A real key (05 §2.1 format) stored with its SHA-256; returns the public id, the plaintext and the hash. */
   async function seedKey(
     scopes: readonly string[],
     channel: "api" | "mcp" | "both",
     name: string,
-    extra: { revokedAt?: number; expiresAt?: number } = {},
+    extra: { revokedAt?: number; expiresAt?: number; rateLimitPerMinute?: number } = {},
   ) {
-    const prefix = `key_${unique()}`;
+    const key = apiKeyFromBytes(crypto.getRandomValues(new Uint8Array(32)));
+    const prefix = publicKeyId(key);
+    const hash = await hashApiKey(key);
     await t.run((ctx) =>
       auditedInsert(
         modelCtx(ctx, { actor: "user:test-owner", role: "owner", channel: "ui" }),
@@ -184,8 +188,8 @@ export function makeT() {
         {
           name,
           prefix,
-          last4: "abcd",
-          hash: `sha256-${prefix}`,
+          last4: key.slice(-4),
+          hash,
           scopes: [...scopes],
           channel,
           createdAt: Date.now(),
@@ -195,7 +199,7 @@ export function makeT() {
         { action: "api_key.create", label: name },
       ),
     );
-    return prefix;
+    return { prefix, key, hash };
   }
 
   return Object.assign(t, {
@@ -213,35 +217,47 @@ export function makeT() {
       return Object.assign(accessor, { ...u, actor: `user:${u.userId}` as const, role });
     },
     /** REST caller with an API key: server JWT `sub = api-key:<prefix>`. */
+    seedKey,
     async asApiKey(
       scopes: readonly Scope[],
-      opts: { name?: string; revokedAt?: number; expiresAt?: number; tokenScopes?: readonly string[] } = {},
+      opts: {
+        name?: string;
+        revokedAt?: number;
+        expiresAt?: number;
+        rateLimitPerMinute?: number;
+        tokenScopes?: readonly string[];
+        /** Claim a different key hash than the stored one (API-006 tests). */
+        keyHash?: string;
+      } = {},
     ) {
       const name = opts.name ?? "website";
-      const prefix = await seedKey(scopes, "api", name, {
+      const { prefix, key, hash } = await seedKey(scopes, "api", name, {
         ...(opts.revokedAt !== undefined ? { revokedAt: opts.revokedAt } : {}),
         ...(opts.expiresAt !== undefined ? { expiresAt: opts.expiresAt } : {}),
+        ...(opts.rateLimitPerMinute !== undefined ? { rateLimitPerMinute: opts.rateLimitPerMinute } : {}),
       });
       const accessor = t.withIdentity({
         issuer: SERVER_ISSUER,
         subject: `api-key:${prefix}`,
         scopes: [...(opts.tokenScopes ?? scopes)],
         keyName: name,
+        keyHash: opts.keyHash ?? hash,
       } as never);
-      return Object.assign(accessor, { prefix, actor: `api-key:${prefix}` as const });
+      return Object.assign(accessor, { prefix, key, hash, actor: `api-key:${prefix}` as const });
     },
     /** MCP caller: server JWT `sub = mcp:<prefix>` with MCP client info. */
     async asMcp(scopes: readonly Scope[], opts: { name?: string; client?: { name: string; version: string } } = {}) {
       const name = opts.name ?? "Claude";
-      const prefix = await seedKey(scopes, "mcp", name);
+      const { prefix, key, hash } = await seedKey(scopes, "mcp", name);
       const accessor = t.withIdentity({
         issuer: SERVER_ISSUER,
         subject: `mcp:${prefix}`,
         scopes: [...scopes],
         keyName: name,
+        keyHash: hash,
         client: opts.client ?? { name: "claude-code", version: "test" },
       } as never);
-      return Object.assign(accessor, { prefix, actor: `mcp:${prefix}` as const });
+      return Object.assign(accessor, { prefix, key, hash, actor: `mcp:${prefix}` as const });
     },
     /** System job context: internal functions need no identity; `model()` runs model code as system:<job>. */
     asSystem(job: SystemJob) {

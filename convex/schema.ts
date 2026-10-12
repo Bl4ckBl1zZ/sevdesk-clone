@@ -459,8 +459,11 @@ export default defineSchema({
       }),
     ),
     version: v.number(),
+    /** Technical sync stamp for `updated_since` (05 §3): every change of the contact or its addresses/channels. */
+    updatedAt: v.optional(v.number()),
   })
     .index("by_number", ["numberNormalized"])
+    .index("by_updatedAt", ["updatedAt"])
     .index("by_vatId", ["vatId"])
     .index("by_status_name", ["status", "displayName"])
     .index("by_mergedInto", ["mergedIntoId"])
@@ -573,8 +576,11 @@ export default defineSchema({
     customFields: v.record(v.string(), v.any()),
     active: v.boolean(),
     version: v.number(),
+    /** Technical sync stamp for `updated_since` (05 §3): every change of the product or its customer prices. */
+    updatedAt: v.optional(v.number()),
   })
     .index("by_number", ["numberNormalized"])
+    .index("by_updatedAt", ["updatedAt"])
     .index("by_active_name", ["active", "name"])
     .index("by_category", ["categoryId"])
     .searchIndex("search", { searchField: "searchText", filterFields: ["active", "type"] }),
@@ -692,6 +698,50 @@ export default defineSchema({
   })
     .index("by_prefix", ["prefix"])
     .index("by_hash", ["hash"]),
+
+  // 03 §10 idempotencyKeys (05 §3, technical, 24 h): one row per (API key, Idempotency-Key). `status` 0 = the first
+  // request is still running; the stored response is replayed for the same request hash.
+  idempotencyKeys: defineTable({
+    apiKeyId: v.string(),
+    key: v.string(),
+    requestHash: v.string(),
+    status: v.number(),
+    responseBody: v.string(),
+    expiresAt: v.number(),
+  })
+    .index("by_apiKey_key", ["apiKeyId", "key"])
+    .index("by_expiresAt", ["expiresAt"]),
+
+  // 03 §10 apiRequestLog (05 §7 access log, technical, 90 days): one row per REST/MCP request — no bodies, no IP.
+  apiRequestLog: defineTable({
+    apiKeyId: v.string(),
+    channel: v.union(v.literal("api"), v.literal("mcp")),
+    method: v.string(),
+    /** REST path template (`/contacts/{id}`) or MCP method/tool (`tools/call contact_get`). */
+    target: v.string(),
+    status: v.number(),
+    durationMs: v.number(),
+    requestId: v.string(),
+    code: v.optional(v.string()),
+    client: v.optional(v.object({ name: v.string(), version: v.string() })),
+    at: v.number(),
+  })
+    .index("by_apiKey_at", ["apiKeyId", "at"])
+    .index("by_at", ["at"]),
+
+  // 03 §10 confirmTokens (06 §2.3, technical, 10 min): only the SHA-256 of the token is stored.
+  confirmTokens: defineTable({
+    tokenHash: v.string(),
+    apiKeyId: v.string(),
+    intent: v.string(),
+    paramsHash: v.string(),
+    entities: v.array(v.object({ table: v.string(), id: v.string(), version: v.union(v.number(), v.null()) })),
+    expiresAt: v.number(),
+    usedAt: v.optional(v.number()),
+    createdAt: v.number(),
+  })
+    .index("by_tokenHash", ["tokenHash"])
+    .index("by_expiresAt", ["expiresAt"]),
 
   // 03 §10 members / invites (02 §4.3)
   members: defineTable({

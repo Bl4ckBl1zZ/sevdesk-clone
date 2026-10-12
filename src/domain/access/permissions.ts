@@ -1,3 +1,4 @@
+import type { ConfirmIntent } from "../api/confirm";
 import type { MemberRole } from "../schemas/actor";
 import type { Scope } from "../schemas/scopes";
 
@@ -19,6 +20,15 @@ export interface PermissionRule {
    * E-AUD-28); otherwise the wrapper answers `reauth_required` and the UI asks for a passkey or a new code.
    */
   fresh?: true;
+  /** Further scopes that also grant the action (e.g. `settings:read` covers `company:public`). */
+  alsoScopes?: readonly Scope[];
+  /** Any valid API key may call it, without a scope (`GET /me`, the key's own rate limit and access log). */
+  anyKey?: true;
+  /**
+   * ⚠ action (06 §2, CLAUDE.md rule 8): an `mcp:` actor needs a valid `confirm_token` issued for this intent by a
+   * preview; the mutation wrapper consumes it in the same transaction (EC-188). REST and UI callers are unaffected.
+   */
+  confirm?: ConfirmIntent;
 }
 
 const ALL: readonly MemberRole[] = ["owner", "bookkeeper", "viewer", "auditor"];
@@ -32,6 +42,8 @@ export const PERMISSIONS = {
   "invites.manage": { roles: ["owner"], scope: null, write: true, fresh: true },
   "settings.read": { roles: STAFF_READ, scope: "settings:read", write: false },
   "settings.write": { roles: ["owner"], scope: "settings:write", write: true },
+  /** F01 SET-021 public company data for website footers (`company:public`, also covered by `settings:read`). */
+  "company.public": { roles: STAFF_READ, scope: "company:public", alsoScopes: ["settings:read"], write: false },
   /**
    * F01 SET-142 owner-only settings, never via REST/MCP: tax status (KU, Soll/Ist, UStVA period, profit method,
    * chart, fiscal year), server location, access concept, completing the setup.
@@ -42,7 +54,14 @@ export const PERMISSIONS = {
   "audit.read": { roles: ALL, scope: "audit:read", write: false },
   "integrity.read": { roles: ["owner", "bookkeeper", "auditor"], scope: "audit:read", write: false },
   "integrity.acknowledge": { roles: ["owner"], scope: null, write: true },
+  /** 05 §2.1 key list (owner; never via REST/MCP). */
+  "apiKeys.read": { roles: ["owner"], scope: null, write: false },
+  /** 05 §2.1 key creation: owner, fresh session (02 §4.2). */
   "apiKeys.manage": { roles: ["owner"], scope: null, write: true, fresh: true },
+  /** 05 §2.1 revocation: owner, without re-authentication so a leaked key is revoked at once (EC-186). */
+  "apiKeys.revoke": { roles: ["owner"], scope: null, write: true },
+  /** The calling key itself: `/me`, rate limit, access log, idempotency records (05 §3, §4.8). */
+  "apiKeys.self": { roles: [], scope: null, write: false, anyKey: true },
   /** F12 AUD-020 security status page (owner; never via REST/MCP). */
   "system.security": { roles: ["owner"], scope: null, write: false },
   /** F08 journal, chart of accounts, role mapping and opening balances — read (REST/MCP `accounting:read`). */
@@ -60,8 +79,13 @@ export const PERMISSIONS = {
    */
   "contacts.read": { roles: ALL, scope: "contacts:read", write: false },
   "contacts.write": { roles: ["owner", "bookkeeper"], scope: "contacts:write", write: true },
-  /** CON-132…134 merge and undo (⚠ for MCP, CLAUDE.md rule 8 — the MCP slice adds the confirm token). */
-  "contacts.merge": { roles: ["owner", "bookkeeper"], scope: "contacts:write", write: true },
+  /** CON-132…134 merge and undo (⚠ for MCP: confirm token from `preview_action {action: "contact_merge"}`). */
+  "contacts.merge": { roles: ["owner", "bookkeeper"], scope: "contacts:write", write: true, confirm: "contact_merge" },
+  /**
+   * F02 CON-134 undoing a merge (restores the losers). Not an MCP tool (06 §4.1 lists only `contact_merge`), so no
+   * confirm intent of its own; REST `POST /contacts/{id}/merge/undo` arrives with the remaining contact endpoints.
+   */
+  "contacts.mergeUndo": { roles: ["owner", "bookkeeper"], scope: "contacts:write", write: true },
   /** F03 products, categories and customer prices (auditor: read-only master data for Z1, like contacts). */
   "products.read": { roles: ALL, scope: "products:read", write: false },
   "products.write": { roles: ["owner", "bookkeeper"], scope: "products:write", write: true },
@@ -91,8 +115,15 @@ export function scopeFor(action: Permission): Scope | null {
 }
 
 export function canKeyDo(scopes: readonly string[], action: Permission): boolean {
-  const scope = scopeFor(action);
-  return scope !== null && scopes.includes(scope);
+  const rule = PERMISSIONS[action] as PermissionRule;
+  if (rule.anyKey) return true;
+  if (rule.scope === null) return false;
+  return [rule.scope, ...(rule.alsoScopes ?? [])].some((s) => scopes.includes(s));
+}
+
+/** The intent whose confirm token an `mcp:` actor needs for `action`, if it is a ⚠ action. */
+export function confirmIntentFor(action: Permission): ConfirmIntent | undefined {
+  return (PERMISSIONS[action] as PermissionRule).confirm;
 }
 
 /** German labels for roles (E-AUD-29 message „Ihre Rolle ({rolle}) erlaubt diese Aktion nicht."). */

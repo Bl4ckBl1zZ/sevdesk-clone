@@ -22,4 +22,7 @@ crons.cron("members.expire", "5 * * * *", internal.members.expireCron, {});
 crons.cron("products.applyScheduledPrices (CEST)", "5 22 * * *", internal.products.applyScheduledPricesCron, {});
 crons.cron("products.applyScheduledPrices (CET)", "5 23 * * *", internal.products.applyScheduledPricesCron, {});
 
+// api.cleanup — hourly: expired idempotency records (24 h) and confirm tokens (10 min), access log > 90 days (05 §3/§7)
+crons.cron("api.cleanup", "15 * * * *", internal.apiKeys.cleanupCron, {});
+
 export default crons;

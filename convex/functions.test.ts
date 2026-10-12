@@ -112,8 +112,23 @@ describe("wrappers: roles and scopes (02 §4.3, E-AUD-29)", () => {
       issuer: "https://api.test.local",
       subject: `mcp:${key.prefix}`,
       scopes: ["audit:read"],
+      keyHash: key.hash,
     } as never);
     expect(await codeOf(asMcpSubject.query(api.integrity.status, {}))).toBe("key_revoked");
+  });
+
+  test("API-006 a server JWT must carry the stored key's hash (a known public id alone is not enough)", async () => {
+    const t = makeT();
+    const forged = await t.asApiKey(["audit:read"], { keyHash: "00".repeat(32) });
+    expect(await codeOf(forged.query(api.integrity.status, {}))).toBe("key_revoked");
+    const key = await t.asApiKey(["audit:read"]);
+    const noHash = t.withIdentity({
+      issuer: "https://api.test.local",
+      subject: `api-key:${key.prefix}`,
+      scopes: ["audit:read"],
+    } as never);
+    expect(await codeOf(noHash.query(api.integrity.status, {}))).toBe("key_revoked");
+    await expect(key.query(api.integrity.status, {})).resolves.toBeDefined();
   });
 });
 

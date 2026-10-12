@@ -90,6 +90,8 @@ export async function resolveActor(
   if (!key || !channelOk || key.revokedAt !== undefined || (key.expiresAt !== undefined && key.expiresAt <= opts.now)) {
     throw appError("key_revoked");
   }
+  // 05 §2.1 / API-006: the token must have been minted for this very key (its SHA-256), not just for its public id.
+  if (!resolved.keyHash || !constantTimeEqual(resolved.keyHash, key.hash)) throw appError("key_revoked");
   // The stored key is authoritative: a token can never carry more scopes than the key has now.
   const scopes = resolved.scopes.filter((s) => key.scopes.includes(s));
   if (!canKeyDo(scopes, permission)) throw appError("forbidden_scope", undefined, { permission });
@@ -99,5 +101,14 @@ export async function resolveActor(
     channel: resolved.kind === "mcp" ? "mcp" : "api",
     scopes,
     ...(resolved.kind === "mcp" && resolved.client ? { client: resolved.client } : {}),
+    ...(resolved.requestId ? { requestId: resolved.requestId } : {}),
+    ...(resolved.userAgent ? { userAgent: resolved.userAgent } : {}),
   };
+}
+
+function constantTimeEqual(a: string, b: string): boolean {
+  if (a.length !== b.length) return false;
+  let diff = 0;
+  for (let i = 0; i < a.length; i++) diff |= a.charCodeAt(i) ^ b.charCodeAt(i);
+  return diff === 0;
 }

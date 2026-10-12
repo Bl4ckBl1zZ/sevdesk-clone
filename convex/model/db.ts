@@ -5,6 +5,7 @@ import {
   PROTECTED_TABLES,
   type WriteChange,
 } from "../../src/domain/audit/immutability";
+import { isTechnicalPatch, TECHNICAL_TABLES } from "../../src/domain/audit/technical";
 import type { DatabaseWriter } from "../_generated/server";
 import { appError } from "../lib/errors";
 
@@ -31,8 +32,8 @@ export function newWriteStats(): WriteStats {
 
 type AnyId = GenericId<string>;
 
-/** Technical tables whose writes need no audit entry (not business data, never exported). */
-const AUDIT_EXEMPT = new Set(["devMailbox"]);
+/** Technical tables/fields whose writes need no audit entry (src/domain/audit/technical.ts). */
+const AUDIT_EXEMPT = new Set(TECHNICAL_TABLES);
 
 export function guardedDb(db: DatabaseWriter, stats: WriteStats): DatabaseWriter {
   const raw = db as unknown as Record<string, (...args: unknown[]) => Promise<unknown>> & {
@@ -79,7 +80,7 @@ export function guardedDb(db: DatabaseWriter, stats: WriteStats): DatabaseWriter
     patch: async (...args: unknown[]) => {
       const { table, id, rest } = split(args, 2);
       await guard(table, id, { op: "patch", patch: rest[0] as Record<string, unknown> });
-      count(table);
+      if (!(table !== undefined && isTechnicalPatch(table, rest[0] as Record<string, unknown>))) count(table);
       return raw.patch?.apply(db, args);
     },
     replace: async (...args: unknown[]) => {

@@ -103,6 +103,8 @@ export const vActorContext = v.object({
   sessionId: v.optional(v.string()),
   client: v.optional(v.object({ name: v.string(), version: v.string() })),
   scopes: v.optional(v.array(v.string())),
+  userAgent: v.optional(v.string()),
+  requestId: v.optional(v.string()),
 });
 
 // ── F08 journal (03 §8) ───────────────────────────────────────────────────────────────────────────────

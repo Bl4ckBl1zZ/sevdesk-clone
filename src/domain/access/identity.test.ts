@@ -47,6 +47,22 @@ describe("identity → actor (02 §4.4)", () => {
     ).toMatchObject({ kind: "mcp", actor: "mcp:key_c1", client: { name: "claude-code", version: "3.1" } });
   });
 
+  test("API-006 API-008 server JWTs carry the key hash, the request id and the user agent", () => {
+    expect(
+      resolveIdentity(
+        {
+          issuer: issuers.server,
+          subject: "api-key:key_w1",
+          scopes: [],
+          keyHash: "ab".repeat(32),
+          requestId: "req_1",
+          ua: "website/1.0",
+        },
+        issuers,
+      ),
+    ).toMatchObject({ keyHash: "ab".repeat(32), requestId: "req_1", userAgent: "website/1.0" });
+  });
+
   test.each([
     [{ issuer: issuers.server, subject: "user:k57" }, "invalid_subject"],
     [{ issuer: issuers.server, subject: "system:cron.x" }, "invalid_subject"],

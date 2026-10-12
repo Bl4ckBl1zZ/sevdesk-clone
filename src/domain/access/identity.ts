@@ -35,6 +35,10 @@ export type ResolvedIdentity =
       scopes: Scope[];
       keyName?: string;
       client?: { name: string; version: string };
+      /** SHA-256 of the API key the request came with; Convex compares it with `apiKeys.hash` (05 §2.1). */
+      keyHash?: string;
+      requestId?: string;
+      userAgent?: string;
     };
 
 export type IdentityError = "unknown_issuer" | "invalid_subject";
@@ -71,6 +75,9 @@ export function resolveIdentity(
       keyId: id,
       scopes,
       ...(str(identity.keyName) ? { keyName: str(identity.keyName) } : {}),
+      ...(str(identity.keyHash) ? { keyHash: str(identity.keyHash) } : {}),
+      ...(str(identity.requestId) ? { requestId: str(identity.requestId)?.slice(0, 100) } : {}),
+      ...(str(identity.ua) ? { userAgent: str(identity.ua)?.slice(0, 200) } : {}),
       ...(kind === "mcp" && client && str(client.name)
         ? { client: { name: str(client.name) as string, version: str(client.version) ?? "" } }
         : {}),

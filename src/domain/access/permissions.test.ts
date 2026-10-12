@@ -1,7 +1,15 @@
 import { describe, expect, test } from "vitest";
 import { MEMBER_ROLES, type MemberRole } from "../schemas/actor";
 import { isScope, RESERVED_SCOPES } from "../schemas/scopes";
-import { ALL_PERMISSIONS, canDo, canKeyDo, PERMISSIONS, type Permission, scopeFor } from "./permissions";
+import {
+  ALL_PERMISSIONS,
+  canDo,
+  canKeyDo,
+  confirmIntentFor,
+  PERMISSIONS,
+  type Permission,
+  scopeFor,
+} from "./permissions";
 
 /** Expected matrix, written out by hand so a change to PERMISSIONS must be mirrored here (TST-AUD-29). */
 const EXPECTED: Record<Permission, readonly MemberRole[]> = {
@@ -11,12 +19,16 @@ const EXPECTED: Record<Permission, readonly MemberRole[]> = {
   "invites.manage": ["owner"],
   "settings.read": ["owner", "bookkeeper", "viewer"],
   "settings.write": ["owner"],
+  "company.public": ["owner", "bookkeeper", "viewer"],
   "settings.ownerOnly": ["owner"],
   "integrations.manage": ["owner"],
   "audit.read": ["owner", "bookkeeper", "viewer", "auditor"],
   "integrity.read": ["owner", "bookkeeper", "auditor"],
   "integrity.acknowledge": ["owner"],
+  "apiKeys.read": ["owner"],
   "apiKeys.manage": ["owner"],
+  "apiKeys.revoke": ["owner"],
+  "apiKeys.self": [],
   "system.security": ["owner"],
   "accounting.read": ["owner", "bookkeeper", "viewer", "auditor"],
   "accounting.openingBalance": ["owner", "bookkeeper"],
@@ -24,6 +36,7 @@ const EXPECTED: Record<Permission, readonly MemberRole[]> = {
   "contacts.read": ["owner", "bookkeeper", "viewer", "auditor"],
   "contacts.write": ["owner", "bookkeeper"],
   "contacts.merge": ["owner", "bookkeeper"],
+  "contacts.mergeUndo": ["owner", "bookkeeper"],
   "products.read": ["owner", "bookkeeper", "viewer", "auditor"],
   "products.write": ["owner", "bookkeeper"],
 };
@@ -57,7 +70,9 @@ describe("permission matrix (02 §4.3)", () => {
       "members.manage",
       "invites.manage",
       "integrations.manage",
+      "apiKeys.read",
       "apiKeys.manage",
+      "apiKeys.revoke",
       "integrity.acknowledge",
       "session.self",
       "settings.ownerOnly",
@@ -80,5 +95,27 @@ describe("permission matrix (02 §4.3)", () => {
       expect(isScope(scope)).toBe(true);
       expect(RESERVED_SCOPES).not.toContain(scope);
     }
+  });
+
+  test("API-005 apiKeys.self is open to any valid key and to no member role", () => {
+    expect(canKeyDo([], "apiKeys.self")).toBe(true);
+    for (const role of MEMBER_ROLES) expect(canDo(role, "apiKeys.self")).toBe(false);
+  });
+
+  test("SET-021 company.public is granted by company:public or settings:read", () => {
+    expect(canKeyDo(["company:public"], "company.public")).toBe(true);
+    expect(canKeyDo(["settings:read"], "company.public")).toBe(true);
+    expect(canKeyDo(["contacts:read"], "company.public")).toBe(false);
+    expect(canKeyDo(["company:public"], "settings.read")).toBe(false);
+  });
+
+  test("MCP-004 contacts.merge is a ⚠ action that needs a contact_merge confirm token", () => {
+    expect(confirmIntentFor("contacts.merge")).toBe("contact_merge");
+    expect(confirmIntentFor("contacts.write")).toBeUndefined();
+  });
+
+  test("API-002 key creation needs a fresh session, revocation does not (EC-186)", () => {
+    expect(PERMISSIONS["apiKeys.manage"]).toMatchObject({ fresh: true });
+    expect("fresh" in PERMISSIONS["apiKeys.revoke"]).toBe(false);
   });
 });

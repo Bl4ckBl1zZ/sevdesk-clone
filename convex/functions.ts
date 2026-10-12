@@ -1,6 +1,8 @@
+import { v } from "convex/values";
 import { customAction, customMutation, customQuery } from "convex-helpers/server/customFunctions";
 import type { Permission } from "../src/domain/access/permissions";
-import { PERMISSIONS } from "../src/domain/access/permissions";
+import { confirmIntentFor, PERMISSIONS } from "../src/domain/access/permissions";
+import type { ConfirmIntent } from "../src/domain/api/confirm";
 import type { Actor } from "../src/domain/schemas/actor";
 import { internal } from "./_generated/api";
 import {
@@ -13,8 +15,9 @@ import {
 } from "./_generated/server";
 import { resolveActor } from "./lib/actor";
 import { appError } from "./lib/errors";
+import { consumeConfirmToken } from "./model/confirmTokens";
 import { guardedDb, newWriteStats, type WriteStats } from "./model/db";
-import type { ActorContext } from "./model/types";
+import type { ActorContext, ModelCtx } from "./model/types";
 import { vActorContext } from "./validators";
 
 /**
@@ -43,6 +46,7 @@ export const SYSTEM_JOBS = [
   "cron.members.expire",
   "cron.invariants.check",
   "cron.products.applyScheduledPrices", // F03 PRD-031, 02 §7 products.applyScheduledPrices
+  "cron.api.cleanup", // 05 §3/§7, 06 §2.3: expired idempotency records and confirm tokens, access log > 90 days
   "auth", // member created by the sign-up trigger, OTP throttle, auth-mail failures
   "migration", // migrations:run — the runner then acts as system:migration.<name> (AUD-028)
 ] as const;
@@ -69,7 +73,11 @@ function tagged<B extends (def: any) => any>(meta: Omit<WrapperMeta, "permission
         `${meta.wrapper}: every function must declare a known permission (got ${String(def.permission)})`,
       );
     }
-    const fn = builder(def);
+    const intent = def.permission ? confirmIntentFor(def.permission) : undefined;
+    if (intent && (meta.wrapper === "action" || meta.wrapper === "actorMutation")) {
+      throw new Error(`${meta.wrapper}: the ⚠ permission ${def.permission} needs a public mutation (06 §2.3)`);
+    }
+    const fn = builder(intent && meta.wrapper === "mutation" ? withConfirmToken(def as ConfirmableDef, intent) : def);
     return Object.assign(fn, {
       [WRAPPER_TAG]: {
         ...meta,
@@ -78,6 +86,37 @@ function tagged<B extends (def: any) => any>(meta: Omit<WrapperMeta, "permission
       },
     });
   }) as B;
+}
+
+/**
+ * ⚠ actions (permission rule `confirm`, 06 §2.3, CLAUDE.md rule 8, EC-188): the mutation must declare
+ * `confirmToken: vConfirmToken` in its args (typed in the generated API; registration fails otherwise). For `mcp:`
+ * actors a valid token for the intent — bound to the key, the canonical arguments (without the token) and the
+ * previewed entity versions — is required and consumed in this transaction; UI and REST callers are unaffected.
+ * The handler never sees `confirmToken`.
+ */
+export const vConfirmToken = v.optional(v.string());
+
+interface ConfirmableDef {
+  permission: Permission;
+  args?: Record<string, unknown>;
+  handler: (ctx: ModelCtx, args: Record<string, unknown>) => unknown;
+}
+
+function withConfirmToken(def: ConfirmableDef, intent: ConfirmIntent): ConfirmableDef {
+  if (!def.args || "isConvexValidator" in def.args || !("confirmToken" in def.args)) {
+    throw new Error(`mutation: the ⚠ permission ${def.permission} needs \`confirmToken: vConfirmToken\` in its args`);
+  }
+  return {
+    ...def,
+    handler: async (ctx, args) => {
+      const { confirmToken, ...rest } = args;
+      if (ctx.actorContext.channel === "mcp") {
+        await consumeConfirmToken(ctx, intent, confirmToken as string | undefined, rest);
+      }
+      return def.handler(ctx, rest);
+    },
+  };
 }
 
 const auditCheck = (stats: WriteStats) => () => {
