@@ -7,8 +7,10 @@ import { type UseFormReturn, useFieldArray, useWatch } from "react-hook-form";
 import { CheckboxField, FormErrorSummary, SelectField, TextField } from "@/components/forms/fields";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { fieldsFor, footerDelta, LEGAL_FORMS } from "@/domain/company/legal-forms";
-import { type CompanyValues, companySchema } from "@/domain/schemas/settings";
+import { type FooterAccount, footerDeltaMessage, geschaeftsbriefFooter } from "@/domain/company/footer";
+import { fieldsFor, LEGAL_FORMS } from "@/domain/company/legal-forms";
+import { type CompanyValues, companyDefaults, companySchema } from "@/domain/schemas/settings";
+import { footerCompanyFromForm } from "@/domain/settings/profile";
 import { countryOptions } from "../countries";
 import { useZodForm } from "../use-zod-form";
 
@@ -25,12 +27,15 @@ export function CompanyForm({
   defaultValues,
   onValid,
   withSectionIds = false,
+  footerContext,
 }: {
   id: string;
   defaultValues: CompanyValues;
   onValid: (values: CompanyValues) => Promise<void> | void;
   /** Settings page: sections get ids for the in-page tab navigation. */
   withSectionIds?: boolean;
+  /** Settings page: tax IDs and invoice accounts complete the footer preview. */
+  footerContext?: FooterContext;
 }) {
   const t = useTranslations("setup.company");
   const tTabs = useTranslations("settings.tabs");
@@ -119,7 +124,7 @@ export function CompanyForm({
         </div>
       </section>
 
-      <FooterPreview form={form} />
+      <FooterPreview form={form} context={footerContext} />
     </form>
   );
 }
@@ -178,25 +183,33 @@ function Representatives({ form, label, required }: { form: CompanyForm; label: 
 /** Announces "Pflichtangaben im Fußtext: + …" when the legal form changes (F01 SET-013). */
 function LegalFormDelta({ legalForm }: { legalForm: string }) {
   const previous = useRef(legalForm);
-  const [delta, setDelta] = useState<string[]>([]);
+  const [message, setMessage] = useState<string | null>(null);
   useEffect(() => {
     if (previous.current !== legalForm) {
-      setDelta(footerDelta(previous.current, legalForm));
+      setMessage(footerDeltaMessage(previous.current, legalForm));
       previous.current = legalForm;
     }
   }, [legalForm]);
   return (
     <p
       aria-live="polite"
-      className={delta.length ? "rounded-md border border-info/30 bg-info/10 p-3 text-info text-sm" : "sr-only"}
+      className={message ? "rounded-md border border-info/30 bg-info/10 p-3 text-info text-sm" : "sr-only"}
     >
-      {delta.length ? `Pflichtangaben im Fußtext: ${delta.map((d) => `+ ${d}`).join(", ")}` : ""}
+      {message ?? ""}
     </p>
   );
 }
 
-/** Live Geschäftsbrief footer preview (3 columns, SET-013); the authoritative footer is rendered by the domain. */
-function FooterPreview({ form }: { form: CompanyForm }) {
+/** Tax IDs and invoice accounts for the footer preview (settings page; the wizard has none yet at step 6). */
+export interface FooterContext {
+  taxNumber?: string;
+  taxNumberState?: string;
+  vatId?: string;
+  accounts: FooterAccount[];
+}
+
+/** Live Geschäftsbrief footer preview (3 columns, SET-013), rendered by the same domain function as documents. */
+function FooterPreview({ form, context }: { form: CompanyForm; context?: FooterContext | undefined }) {
   const t = useTranslations("setup.company");
   const v = useWatch({ control: form.control }) as Partial<CompanyValues>;
   const f = fieldsFor(v.legalForm);
@@ -209,7 +222,16 @@ function FooterPreview({ form }: { form: CompanyForm }) {
   if ((v.legalForm === "ag" || v.hasSupervisoryBoard) && f.supervisoryBoard && !v.supervisoryBoardChair) {
     missing.push(t("supervisoryBoardChair"));
   }
-  const seat = v.seat || v.city;
+  const values: CompanyValues = {
+    ...companyDefaults,
+    ...v,
+    representatives: (v.representatives ?? []).map((r) => ({
+      name: r?.name ?? "",
+      ...(r?.chair ? { chair: true } : {}),
+    })),
+  } as CompanyValues;
+  const footer = geschaeftsbriefFooter(footerCompanyFromForm(values, context ?? {}), context?.accounts ?? []);
+  const empty = [t("footerColumnCompany"), t("footerColumnLegal"), t("footerColumnBank")];
 
   return (
     <Card size="sm" aria-labelledby="footer-preview-title">
@@ -218,35 +240,21 @@ function FooterPreview({ form }: { form: CompanyForm }) {
         <CardDescription>{t("footerPreviewHint")}</CardDescription>
       </CardHeader>
       <CardContent className="flex flex-col gap-3">
-        <div className="grid gap-3 text-xs @lg/form:grid-cols-3">
-          <div>
-            <p className="font-medium">{v.name || "—"}</p>
-            {v.tradeName && <p>{v.tradeName}</p>}
-            <p>{v.street || v.poBox}</p>
-            <p>{[v.postalCode, v.city].filter(Boolean).join(" ")}</p>
-            {v.phone && <p>Tel. {v.phone}</p>}
-            {v.email && <p>{v.email}</p>}
-            {v.website && <p>{v.website}</p>}
-          </div>
-          <div>
-            {v.legalForm && !["einzelunternehmen", "freiberufler", "other"].includes(v.legalForm) && (
-              <p>{t(`legalForms.${v.legalForm}`)}</p>
-            )}
-            {f.seat && seat && <p>Sitz: {seat}</p>}
-            {f.register && (v.registerCourt || v.registerNumber) && (
-              <p>
-                {v.registerCourt} {f.register} {v.registerNumber}
-              </p>
-            )}
-            {f.representatives && reps.length > 0 && (
-              <p>
-                {t(f.representatives.label)}: {reps.join(", ")}
-              </p>
-            )}
-            {v.supervisoryBoardChair && <p>Vorsitz AR: {v.supervisoryBoardChair}</p>}
-            {f.generalPartner && v.generalPartnerName && <p>Komplementärin: {v.generalPartnerName}</p>}
-          </div>
-          <div className="text-muted-foreground">Bankverbindung</div>
+        <div className="grid gap-3 text-xs @lg/form:grid-cols-3" data-testid="footer-preview">
+          {footer.columns.map((col, i) => (
+            <div key={empty[i]}>
+              {col.length ? (
+                <>
+                  <p className="sr-only">{empty[i]}</p>
+                  {col.map((line) => (
+                    <p key={line}>{line}</p>
+                  ))}
+                </>
+              ) : (
+                <p className="text-muted-foreground">{empty[i]}</p>
+              )}
+            </div>
+          ))}
         </div>
         {missing.length > 0 && (
           <p className="text-danger text-sm">{t("footerMissing", { fields: missing.join(", ") })}</p>

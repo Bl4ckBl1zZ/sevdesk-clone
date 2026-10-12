@@ -1,4 +1,5 @@
 import { getTranslations } from "next-intl/server";
+import { BankAccountsAdmin } from "@/components/settings/bank-accounts-admin";
 import { BankSettings, SaveButton } from "@/components/settings/settings-forms";
 import { SettingsPage, settingsMetadata } from "@/components/settings/settings-page";
 import { Card, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -9,7 +10,10 @@ export default async function Page() {
   const t = await getTranslations("settings");
   return (
     <SettingsPage item="bank" actions={<SaveButton />}>
-      <BankSettings />
+      <div className="flex flex-col gap-6">
+        <BankSettings />
+        <BankAccountsAdmin />
+      </div>
       <Card size="sm">
         <CardHeader>
           <CardTitle>

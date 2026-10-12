@@ -217,11 +217,35 @@
     "wrapper": "mutation",
     "permission": "members.manage"
   },
+  "settings:addBankAccount": {
+    "kind": "mutation",
+    "visibility": "public",
+    "wrapper": "mutation",
+    "permission": "settings.write"
+  },
+  "settings:archiveBankAccount": {
+    "kind": "mutation",
+    "visibility": "public",
+    "wrapper": "mutation",
+    "permission": "settings.write"
+  },
+  "settings:companyChangeImpact": {
+    "kind": "query",
+    "visibility": "public",
+    "wrapper": "query",
+    "permission": "settings.read"
+  },
   "settings:completeSetup": {
     "kind": "mutation",
     "visibility": "public",
     "wrapper": "mutation",
     "permission": "settings.ownerOnly"
+  },
+  "settings:createLayoutVariant": {
+    "kind": "mutation",
+    "visibility": "public",
+    "wrapper": "mutation",
+    "permission": "settings.write"
   },
   "settings:createNumberRange": {
     "kind": "mutation",
@@ -254,6 +278,24 @@
     "permission": "settings.read"
   },
   "settings:getSetupState": {
+    "kind": "query",
+    "visibility": "public",
+    "wrapper": "query",
+    "permission": "settings.read"
+  },
+  "settings:layoutPreviewData": {
+    "kind": "query",
+    "visibility": "public",
+    "wrapper": "query",
+    "permission": "settings.read"
+  },
+  "settings:listInvoiceAccounts": {
+    "kind": "query",
+    "visibility": "public",
+    "wrapper": "query",
+    "permission": "settings.read"
+  },
+  "settings:listLayoutsWithDefaults": {
     "kind": "query",
     "visibility": "public",
     "wrapper": "query",
@@ -318,6 +360,18 @@
     "visibility": "public",
     "wrapper": "mutation",
     "permission": "settings.ownerOnly"
+  },
+  "settings:setDefaultBankAccount": {
+    "kind": "mutation",
+    "visibility": "public",
+    "wrapper": "mutation",
+    "permission": "settings.write"
+  },
+  "settings:setLayoutDefaults": {
+    "kind": "mutation",
+    "visibility": "public",
+    "wrapper": "mutation",
+    "permission": "settings.write"
   },
   "settings:setupStatus": {
     "kind": "query",

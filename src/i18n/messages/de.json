@@ -463,6 +463,57 @@
       "next": "Nächste Nummer",
       "actionsFor": "Aktionen für {name}",
       "format": "Format"
+    },
+    "savedDrafts": "Gespeichert · {count, plural, one {# Entwurf übernimmt} other {# Entwürfe übernehmen}} die Änderung.",
+    "bankAccounts": {
+      "title": "Rechnungskonten",
+      "description": "Konten, die auf Rechnungen erscheinen. Das Standardkonto steht im Fuß und im Zahlungs-QR-Code.",
+      "add": "Konto hinzufügen",
+      "addTitle": "Rechnungskonto hinzufügen",
+      "addDescription": "Ein weiteres Konto von Hand anlegen. Die Bankanbindung folgt in Phase P2.",
+      "name": "Bezeichnung",
+      "default": "Standard",
+      "archived": "Archiviert",
+      "makeDefault": "Als Standard",
+      "archive": "Archivieren",
+      "added": "Konto angelegt.",
+      "defaultSet": "Standardkonto geändert.",
+      "archivedDone": "Konto archiviert.",
+      "empty": "Noch kein Rechnungskonto angelegt."
+    },
+    "layouts": {
+      "title": "Alle Layouts",
+      "description": "Jede Dokumentart hat genau ein Standardlayout; ein Entwurf kann ein anderes wählen.",
+      "create": "Layout anlegen",
+      "createTitle": "Layout anlegen",
+      "createDescription": "Das neue Layout übernimmt die aktuellen Einstellungen des Standardlayouts.",
+      "name": "Name",
+      "created": "Layout angelegt.",
+      "defaultsFor": "Standard für: {types}",
+      "noDefaults": "Für keine Dokumentart Standard",
+      "setDefaults": "Standard festlegen",
+      "defaultsTitle": "Standard für Dokumentarten",
+      "defaultsDescription": "Gewählte Dokumentarten verwenden künftig „{name}“. Fertiggestellte Dokumente bleiben unverändert.",
+      "defaultsSaved": "Standardlayouts gespeichert.",
+      "version": "Version {version}",
+      "previewTitle": "Vorschau",
+      "previewDescription": "Musterdokument als PDF mit Ihren Firmendaten und dem gewählten Layout. Es wird nichts gespeichert.",
+      "sampleType": "Dokument",
+      "customer": "Empfänger",
+      "b2b": "Geschäftskunde (B2B)",
+      "b2c": "Privatkunde (B2C)",
+      "taxation": "Besteuerung",
+      "kuCurrent": "Wie eingestellt",
+      "kuYes": "Kleinunternehmer",
+      "kuNo": "Regelbesteuerung",
+      "layout": "Layout",
+      "openPreview": "Vorschau öffnen",
+      "sample": {
+        "invoice": "Rechnung",
+        "quote": "Angebot",
+        "reminder": "Mahnung",
+        "delivery_note": "Lieferschein"
+      }
     }
   },
   "auth": {
@@ -719,7 +770,10 @@
         "ag": "AG",
         "partg": "PartG",
         "other": "Andere"
-      }
+      },
+      "footerColumnCompany": "Unternehmen und Kontakt",
+      "footerColumnLegal": "Register und Steuer",
+      "footerColumnBank": "Bankverbindung"
     },
     "tax": {
       "taxNumber": "Steuernummer",

@@ -6,6 +6,7 @@
  * profile allowed"): empty strings mean "not entered yet"; completeness is derived, never stored.
  */
 
+import type { FooterCompany } from "../company/footer";
 import type { LegalForm } from "../company/legal-forms";
 import type { CompanyForValidation } from "../company/validate";
 import { formatCents } from "../money/format";
@@ -391,5 +392,28 @@ export function companyForValidation(p: ProfileData): CompanyForValidation {
     ...(p.noNaturalPersonLiable !== undefined ? { noNaturalPersonLiable: p.noNaturalPersonLiable } : {}),
     ...opt("taxNumber", p.taxNumber),
     ...opt("vatId", p.vatId),
+  };
+}
+
+/** SET-013: the footer data of the (unsaved) company form for the live preview; tax IDs come from the tax step. */
+export function footerCompanyFromForm(
+  v: CompanyValues,
+  tax: { taxNumber?: string; taxNumberState?: string; vatId?: string } = {},
+): FooterCompany {
+  const p = companyPatchFromForm(v);
+  return {
+    legalForm: p.legalForm,
+    name: p.name,
+    ...(p.tradeName ? { tradeName: p.tradeName } : {}),
+    address: p.address,
+    ...(p.seat ? { seat: p.seat } : {}),
+    contact: p.contact,
+    ...(p.register ? { register: p.register } : {}),
+    representatives: p.representatives,
+    ...(p.generalPartner ? { generalPartner: p.generalPartner } : {}),
+    ...(p.supervisoryBoardChair ? { supervisoryBoardChair: p.supervisoryBoardChair } : {}),
+    ...(tax.taxNumber ? { taxNumber: tax.taxNumber } : {}),
+    ...(tax.taxNumberState ? { taxNumberState: tax.taxNumberState } : {}),
+    ...(tax.vatId ? { vatId: tax.vatId } : {}),
   };
 }

@@ -92,3 +92,26 @@ describe("company profile mapping (F01 SET-010, 03 companyProfile)", () => {
     expect(again.ok && again.patch.kleinunternehmer).toEqual(first.patch.kleinunternehmer);
   });
 });
+
+describe("SET-013 live footer preview from the company form", () => {
+  test("SET-013 the form values plus tax IDs produce the footer company of geschaeftsbriefFooter", async () => {
+    const { footerCompanyFromForm } = await import("./profile");
+    const { geschaeftsbriefFooter } = await import("../company/footer");
+    const company = footerCompanyFromForm(
+      { ...gmbh, representatives: [{ name: "Max Mustermann" }] },
+      { taxNumber: "27/815/08155", taxNumberState: "BE", vatId: "DE123456788" },
+    );
+    const footer = geschaeftsbriefFooter(company, [{ iban: "DE89370400440532013000", accountHolder: "Muster GmbH" }]);
+    expect(footer.columns[1]).toEqual([
+      "Sitz: Berlin",
+      "Registergericht: Amtsgericht Berlin-Charlottenburg",
+      "HRB 12345 B",
+      "Geschäftsführer: Max Mustermann",
+      "Steuernummer: 27/815/08155",
+      "USt-IdNr.: DE123456788",
+    ]);
+    expect(footer.columns[2]).toEqual(["IBAN: DE89 3704 0044 0532 0130 00"]);
+    // Without tax data (wizard step 6 before step 7) the tax lines are simply missing.
+    expect(geschaeftsbriefFooter(footerCompanyFromForm(gmbh), []).columns[1]).not.toContain("USt-IdNr.: DE123456788");
+  });
+});

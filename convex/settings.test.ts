@@ -94,6 +94,12 @@ const ARGS: Record<string, Record<string, unknown>> = {
   "invites:resend": { inviteId: "placeholder" },
   "invites:revoke": { inviteId: "placeholder" },
   "integrity:acknowledge": { runId: "placeholder", note: "geprüft" },
+  "settings:addBankAccount": { values: { ...BANK, name: "Zweitkonto", iban: "DE02 1203 0000 0000 2020 51" } },
+  "settings:setDefaultBankAccount": { bankAccountId: "placeholder" },
+  "settings:archiveBankAccount": { bankAccountId: "placeholder" },
+  "settings:createLayoutVariant": { values: { name: "Variante" } },
+  "settings:setLayoutDefaults": { layoutId: "placeholder", docTypes: ["quote"] },
+  "settings:layoutPreviewData": {},
 };
 
 const MODULES = {
@@ -133,6 +139,8 @@ async function callers(t: TestT): Promise<Record<string, { caller: Caller; role?
   };
 }
 
+const bankAccountOf = new WeakMap<TestT, string>();
+
 async function resolvePlaceholders(t: TestT, args: Record<string, unknown>): Promise<Record<string, unknown>> {
   const out = { ...args };
   if (out.memberId === "placeholder") {
@@ -156,6 +164,27 @@ async function resolvePlaceholders(t: TestT, args: Record<string, unknown>): Pro
         },
         { year: 2026, month: 10 },
       ),
+    );
+  }
+  if (out.bankAccountId === "placeholder") {
+    // One account per test (IBANs are unique); later callers reuse it.
+    const cached = bankAccountOf.get(t);
+    out.bankAccountId =
+      cached ??
+      (await t.model({ actor: "user:seed", role: "owner", channel: "ui" }, async (ctx) =>
+        (
+          await import("./model/bankAccounts")
+        ).addInvoiceAccount(
+          ctx,
+          { ...BANK, iban: "DE89370400440532013000", bic: "", currency: "EUR" as const, name: `K${Math.random()}` },
+          "SKR03",
+        ),
+      ));
+    bankAccountOf.set(t, out.bankAccountId as string);
+  }
+  if (out.layoutId === "placeholder") {
+    out.layoutId = await t.model({ actor: "user:seed", role: "owner", channel: "ui" }, async (ctx) =>
+      (await import("./model/layouts")).createLayout(ctx, `L${Math.random()}`),
     );
   }
   if (out.runId === "placeholder") {
@@ -192,6 +221,15 @@ describe("role matrix of the settings, members, invites and integrity functions 
         "settings:deactivateNumberRange",
         "settings:deleteNumberRange",
         "settings:completeSetup",
+        "settings:companyChangeImpact",
+        "settings:listInvoiceAccounts",
+        "settings:addBankAccount",
+        "settings:setDefaultBankAccount",
+        "settings:archiveBankAccount",
+        "settings:listLayoutsWithDefaults",
+        "settings:createLayoutVariant",
+        "settings:setLayoutDefaults",
+        "settings:layoutPreviewData",
         "settings:runAccessChecks",
         "settings:testCheckpointStorage",
         "members:list",

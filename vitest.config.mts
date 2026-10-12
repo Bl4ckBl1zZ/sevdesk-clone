@@ -42,6 +42,7 @@ export default defineConfig({
             "src/lib/**/*.test.ts",
             "src/emails/**/*.test.ts",
             "scripts/**/*.test.ts",
+            "src/pdf/**/*.test.{ts,tsx}",
           ],
           environment: "node",
           // `import "server-only"` throws outside the react-server condition; tests are server code.

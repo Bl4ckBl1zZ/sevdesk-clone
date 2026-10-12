@@ -3,10 +3,12 @@ import type { z } from "zod";
 import { isEuEeaCountry } from "../src/domain/rules/eu-eea";
 import {
   accessSchema,
+  bankAccountSchema,
   bankSchema,
   companySchema,
   emailStepSchema,
   LOGO_INVALID_MESSAGE,
+  layoutCreateSchema,
   layoutSchema,
   numberRangeCreateSchema,
   numberRangesSchema,
@@ -28,10 +30,26 @@ import { configuredTransport } from "./lib/authMail";
 import { checkpointStoreFromEnv, r2LatestObject } from "./lib/checkpointStore";
 import { baseDomain, env, passkeyRpId } from "./lib/env";
 import { appError } from "./lib/errors";
-import { defaultInvoiceAccount, saveDefaultInvoiceAccount } from "./model/bankAccounts";
+import {
+  addInvoiceAccount,
+  allBankAccounts,
+  archiveInvoiceAccount,
+  defaultInvoiceAccount,
+  listBankAccounts,
+  saveDefaultInvoiceAccount,
+  setDefaultInvoiceAccount,
+} from "./model/bankAccounts";
 import { getCompanyProfile, patchCompanyProfile } from "./model/companyProfile";
+import { countDraftsUsingCompanyData } from "./model/files";
 import { getIntegration, recordIntegrationTest } from "./model/integrations";
-import { defaultLayout, saveDefaultLayout } from "./model/layouts";
+import {
+  createLayout,
+  currentVersion,
+  defaultLayout,
+  listLayouts,
+  saveDefaultLayout,
+  setLayoutDefaults as setLayoutDefaultsModel,
+} from "./model/layouts";
 import { getNotificationSettings, saveNotificationAddress } from "./model/notificationSettings";
 import {
   createRange,
@@ -359,6 +377,152 @@ export const deleteNumberRange = mutation({
   permission: "settings.write",
   args: { rangeId: v.id("numberRanges") },
   handler: async (ctx, { rangeId }) => deleteRange(ctx, rangeId),
+});
+
+// ── company change impact (SET-020) ───────────────────────────────────────────────────────────────────
+/** SET-020: how many drafts pick up a company-profile change („Gespeichert · {n} Entwürfe übernehmen die Änderung“). */
+export const companyChangeImpact = query({
+  permission: "settings.read",
+  args: {},
+  handler: async (ctx) => ({ drafts: await countDraftsUsingCompanyData(ctx) }),
+});
+
+// ── bank accounts (SET-050…054) ───────────────────────────────────────────────────────────────────────
+export const listInvoiceAccounts = query({
+  permission: "settings.read",
+  args: {},
+  handler: async (ctx) =>
+    (await allBankAccounts(ctx))
+      .sort(
+        (a, b) => Number(b.isDefaultForInvoices) - Number(a.isDefaultForInvoices) || a._creationTime - b._creationTime,
+      )
+      .map((a) => ({
+        bankAccountId: a._id,
+        name: a.name,
+        currency: a.currency,
+        iban: a.iban ?? "",
+        bic: a.bic ?? "",
+        accountHolder: a.accountHolder,
+        ledgerAccount: a.ledgerAccount,
+        showOnInvoices: a.showOnInvoices,
+        isDefaultForInvoices: a.isDefaultForInvoices,
+        archivedAt: a.archivedAt ?? null,
+      })),
+});
+
+/** SET-050: a further manual invoice account. */
+export const addBankAccount = mutation({
+  permission: "settings.write",
+  args: { values: v.any() },
+  handler: async (ctx, { values }) => {
+    const b = parse(bankAccountSchema, values);
+    const profile = await getCompanyProfile(ctx);
+    return addInvoiceAccount(ctx, b, profile?.chartOfAccounts.at(-1)?.chart ?? "SKR03");
+  },
+});
+
+/** SET-051: make an account the default invoice account of its currency. */
+export const setDefaultBankAccount = mutation({
+  permission: "settings.write",
+  args: { bankAccountId: v.id("bankAccounts") },
+  handler: async (ctx, { bankAccountId }) => setDefaultInvoiceAccount(ctx, bankAccountId),
+});
+
+/** SET-054: archive an account (never the only invoice account). */
+export const archiveBankAccount = mutation({
+  permission: "settings.write",
+  args: { bankAccountId: v.id("bankAccounts") },
+  handler: async (ctx, { bankAccountId }) => archiveInvoiceAccount(ctx, bankAccountId),
+});
+
+// ── layouts (SET-070…074) ─────────────────────────────────────────────────────────────────────────────
+export const listLayoutsWithDefaults = query({
+  permission: "settings.read",
+  args: {},
+  handler: async (ctx) =>
+    Promise.all(
+      (await listLayouts(ctx)).map(async (l) => {
+        const version = await currentVersion(ctx, l);
+        return {
+          layoutId: l._id,
+          name: l.name,
+          isDefaultFor: l.isDefaultFor,
+          version: version?.version ?? 0,
+          template: version?.config.template ?? "classic",
+          accentColor: version?.config.accentColor ?? "#16a34a",
+        };
+      }),
+    ),
+});
+
+/** SET-070/074: a further layout (copy of the default layout's current version). */
+export const createLayoutVariant = mutation({
+  permission: "settings.write",
+  args: { values: v.any() },
+  handler: async (ctx, { values }) => createLayout(ctx, parse(layoutCreateSchema, values).name),
+});
+
+/** SET-074: default layout per document type. */
+export const setLayoutDefaults = mutation({
+  permission: "settings.write",
+  args: { layoutId: v.id("layouts"), docTypes: v.array(v.string()) },
+  handler: async (ctx, { layoutId, docTypes }) => setLayoutDefaultsModel(ctx, layoutId, docTypes),
+});
+
+/**
+ * SET-073: data for the server-rendered layout preview (route /einstellungen/layouts/vorschau): the layout's
+ * current config, the company data for the footer, the invoice accounts and the current KU status.
+ */
+export const layoutPreviewData = query({
+  permission: "settings.read",
+  args: { layoutId: v.optional(v.id("layouts")) },
+  handler: async (ctx, { layoutId }) => {
+    const layouts = await listLayouts(ctx);
+    const layout =
+      (layoutId ? layouts.find((l) => l._id === layoutId) : undefined) ?? (await defaultLayout(ctx))?.layout;
+    const version = layout ? await currentVersion(ctx, layout) : null;
+    const profile = (await getCompanyProfile(ctx)) as (Doc<"companyProfile"> & ProfileData) | null;
+    const today = berlinCalendarDate(ctx.now());
+    const ku = profile
+      ? [...profile.kleinunternehmer]
+          .filter((e) => e.validFrom <= today)
+          .sort((a, b) => a.validFrom.localeCompare(b.validFrom))
+          .at(-1)
+      : undefined;
+    return {
+      today,
+      layout: layout ? { name: layout.name, config: version?.config ?? null } : null,
+      company: profile
+        ? {
+            legalForm: profile.legalForm,
+            name: profile.name,
+            ...(profile.tradeName ? { tradeName: profile.tradeName } : {}),
+            address: profile.address,
+            ...(profile.seat ? { seat: profile.seat } : {}),
+            contact: profile.contact,
+            ...(profile.register ? { register: profile.register } : {}),
+            representatives: profile.representatives,
+            ...(profile.generalPartner ? { generalPartner: profile.generalPartner } : {}),
+            ...(profile.supervisoryBoardChair ? { supervisoryBoardChair: profile.supervisoryBoardChair } : {}),
+            ...(profile.shareCapital ? { shareCapital: profile.shareCapital } : {}),
+            ...(profile.taxNumber ? { taxNumber: profile.taxNumber } : {}),
+            ...(profile.taxNumberState ? { taxNumberState: profile.taxNumberState } : {}),
+            ...(profile.vatId ? { vatId: profile.vatId } : {}),
+          }
+        : null,
+      accounts: (await listBankAccounts(ctx))
+        .filter((a) => a.showOnInvoices)
+        .sort((a, b) => Number(b.isDefaultForInvoices) - Number(a.isDefaultForInvoices))
+        .map((a) => ({
+          name: a.name,
+          iban: a.iban ?? "",
+          ...(a.bic ? { bic: a.bic } : {}),
+          accountHolder: a.accountHolder,
+        })),
+      kleinunternehmer: ku?.isKU ?? false,
+      logoUrl: profile?.logoStorageId ? await ctx.storage.getUrl(profile.logoStorageId) : null,
+    };
+  },
 });
 
 /** Step 11: sets `setupCompletedAt` + audit entry; refused while blocking items exist (SET-004). */

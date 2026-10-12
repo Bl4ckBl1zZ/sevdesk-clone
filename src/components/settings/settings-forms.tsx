@@ -1,5 +1,6 @@
 "use client";
 
+import { api } from "@convex/_generated/api";
 import { useTranslations } from "next-intl";
 import { useId, useRef, useState } from "react";
 import { toast } from "sonner";
@@ -14,7 +15,7 @@ import {
   saveTaxSettings,
 } from "@/components/setup/actions";
 import { BankForm } from "@/components/setup/forms/bank-form";
-import { CompanyForm } from "@/components/setup/forms/company-form";
+import { CompanyForm, type FooterContext } from "@/components/setup/forms/company-form";
 import { LayoutForm } from "@/components/setup/forms/layout-form";
 import { NumberRangesForm } from "@/components/setup/forms/number-ranges-form";
 import { TaxForm } from "@/components/setup/forms/tax-form";
@@ -34,6 +35,7 @@ import { Textarea } from "@/components/ui/textarea";
 import type { NumberRangesValues } from "@/domain/schemas/settings";
 import { companyDefaults, taxDefaults } from "@/domain/schemas/settings";
 import { useAdapterErrorToast } from "@/hooks/use-adapter-error-toast";
+import { useAuthedQuery } from "@/hooks/use-authed-query";
 
 export const SETTINGS_FORM_ID = "einstellungen-formular";
 
@@ -65,11 +67,11 @@ function useLoadedVersion(state: SetupState | undefined) {
 function useSave() {
   const t = useTranslations("settings");
   const showAdapterError = useAdapterErrorToast();
-  return async (fn: () => Promise<void>) => {
+  return async (fn: () => Promise<void>, drafts?: number) => {
     try {
       await fn();
-      // F01 §6.3: "Gespeichert · {n} Entwürfe übernehmen die Änderung" once drafts can be counted.
-      toast.success(t("saved"));
+      // F01 §6.3 / SET-020: "Gespeichert · {n} Entwürfe übernehmen die Änderung" (finalised documents never change).
+      toast.success(drafts ? t("savedDrafts", { count: drafts }) : t("saved"));
     } catch (e) {
       // Errors a page already answers with its own dialog (e.g. SET-059 reason) are not toasted again.
       if ((e as { handled?: boolean }).handled) return;
@@ -103,16 +105,27 @@ function CompanySettingsInner() {
   const state = useSettingsState();
   const save = useSave();
   const version = useLoadedVersion(state);
+  const accounts = useAuthedQuery(api.settings.listInvoiceAccounts, {});
+  const impact = useAuthedQuery(api.settings.companyChangeImpact, {});
+  const footerContext: FooterContext = {
+    ...(state?.tax?.taxNumber ? { taxNumber: state.tax.taxNumber } : {}),
+    ...(state?.tax?.taxNumberState ? { taxNumberState: state.tax.taxNumberState } : {}),
+    ...(state?.tax?.vatId ? { vatId: state.tax.vatId } : {}),
+    accounts: (accounts ?? [])
+      .filter((a) => a.showOnInvoices && a.archivedAt === null)
+      .map((a) => ({ name: a.name, iban: a.iban, bic: a.bic, accountHolder: a.accountHolder })),
+  };
   return (
     <Frame state={state}>
       <CompanyForm
         id={SETTINGS_FORM_ID}
         withSectionIds
+        footerContext={footerContext}
         defaultValues={{ ...companyDefaults, ...state?.company }}
         onValid={(v) =>
           save(async () => {
             version.current = await saveCompanyProfile(v, version.current);
-          })
+          }, impact?.drafts)
         }
       />
     </Frame>

@@ -310,6 +310,12 @@ export const bankSchema = z.object({
   currency: z.literal("EUR"),
 });
 export type BankFormValues = z.input<typeof bankSchema>;
+
+/** SET-050: a further invoice account (same rules plus a display name). */
+export const bankAccountSchema = bankSchema.extend({
+  name: trimmed().min(1, "Bitte einen Namen angeben.").max(60, "Höchstens 60 Zeichen."),
+});
+export type BankAccountFormValues = z.input<typeof bankAccountSchema>;
 export type BankValues = z.output<typeof bankSchema>;
 
 // ── Step 9: Layout (SET-071, SET-018) ────────────────────────────────────────────────────────────────────
@@ -322,6 +328,11 @@ export const layoutSchema = z.object({
   accentColor: trimmed().regex(/^#[0-9a-fA-F]{6}$/, "Bitte eine Farbe im Format #RRGGBB angeben."),
 });
 export type LayoutValues = z.infer<typeof layoutSchema>;
+
+/** SET-070/074: a further layout. */
+export const layoutCreateSchema = z.object({
+  name: trimmed().min(1, "Bitte einen Namen angeben.").max(60, "Höchstens 60 Zeichen."),
+});
 
 /** SET-018 type and size (the ≥ 300 px width of raster images is checked where the image is decoded). */
 export function validateLogoFile(file: { type: string; size: number }): string | null {

@@ -147,4 +147,37 @@ describe("company form (F01 §6.3)", () => {
     ).toBeInTheDocument();
     expect(screen.getByText(/Fehlt: Registergericht, HRB-Registernummer, Geschäftsführer/)).toBeInTheDocument();
   });
+
+  test("SET-013 the live footer preview shows the three columns incl. tax IDs and the invoice account", async () => {
+    renderWithIntl(
+      <CompanyForm
+        id="f"
+        defaultValues={{
+          ...companyDefaults,
+          legalForm: "gmbh",
+          name: "Muster GmbH",
+          street: "Hauptstr. 1",
+          postalCode: "10115",
+          city: "Berlin",
+          registerCourt: "Amtsgericht Charlottenburg",
+          registerNumber: "123456 B",
+          representatives: [{ name: "Max Mustermann" }],
+        }}
+        footerContext={{
+          vatId: "DE123456788",
+          accounts: [{ iban: "DE89370400440532013000", bic: "COBADEFFXXX", accountHolder: "Muster GmbH" }],
+        }}
+        onValid={() => {}}
+      />,
+    );
+    const preview = screen.getByTestId("footer-preview");
+    expect(within(preview).getByText("Sitz: Berlin")).toBeInTheDocument();
+    expect(within(preview).getByText("HRB 123456 B")).toBeInTheDocument();
+    expect(within(preview).getByText("Geschäftsführer: Max Mustermann")).toBeInTheDocument();
+    expect(within(preview).getByText("USt-IdNr.: DE123456788")).toBeInTheDocument();
+    expect(within(preview).getByText("IBAN: DE89 3704 0044 0532 0130 00")).toBeInTheDocument();
+    await userEvent.clear(screen.getByLabelText(/^Registergericht/));
+    await userEvent.type(screen.getByLabelText(/^Registergericht/), "Amtsgericht Hamburg");
+    expect(within(preview).getByText("Registergericht: Amtsgericht Hamburg")).toBeInTheDocument();
+  });
 });
