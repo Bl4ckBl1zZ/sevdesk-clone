@@ -134,6 +134,33 @@ describe("SET-044 SET-034 tax form guards", () => {
     expect(r).toMatchObject({ ok: false, error: { code: "DATEV_ACCOUNT_LENGTH_LOCKED" } });
   });
 
+  test("SET-041 ACC-007 E-ACC-09 the chart is locked once the fiscal year has journal entries", () => {
+    const stored = { ...base(), chartOfAccounts: [{ validFromFiscalYear: 2026, chart: "SKR03" as const }] };
+    const locked = taxPatchFromForm(form({ chartOfAccounts: "SKR04" }), stored, { ...ctx, journalFiscalYears: [2026] });
+    expect(locked).toMatchObject({
+      ok: false,
+      error: {
+        code: "CHART_LOCKED",
+        message: "Der Kontenrahmen kann erst zum Beginn des nächsten Wirtschaftsjahres gewechselt werden.",
+      },
+    });
+    expect(
+      taxPatchFromForm(form({ chartOfAccounts: "SKR03" }), stored, { ...ctx, journalFiscalYears: [2026] }).ok,
+    ).toBe(true);
+    expect(
+      taxPatchFromForm(form({ chartOfAccounts: "SKR04" }), stored, { ...ctx, journalFiscalYears: [2025] }).ok,
+    ).toBe(true);
+  });
+
+  test("SET-042 the fiscal year start is locked after the first journal entry", () => {
+    const stored = { ...base(), fiscalYearStartMonth: 1 };
+    const r = taxPatchFromForm(form({ fiscalYearStartMonth: 7, profitMethod: "bilanz" }), stored, {
+      ...ctx,
+      journalFiscalYears: [2025],
+    });
+    expect(r).toMatchObject({ ok: false, error: { code: "FISCAL_YEAR_LOCKED" } });
+  });
+
   test("SET-034 T-SET-016 a KU switch that rewrites an entry used by a finalised invoice is refused", () => {
     const stored = { ...base(), kleinunternehmer: [{ validFrom: "2026-01-01", isKU: true }] };
     const docs = [{ id: "d1", number: "RE-2026-0001", date: "2026-03-01" }];

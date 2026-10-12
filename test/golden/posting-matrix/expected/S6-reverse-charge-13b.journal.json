@@ -1,0 +1,59 @@
+{
+  "case": "S6-reverse-charge-13b",
+  "covers": "S6, UST-22",
+  "ruleVersion": "posting-2026.1",
+  "SKR03": {
+    "date": "2026-03-10",
+    "text": "Rechnung RE-2026-0001 Muster GmbH",
+    "explanation": "S6",
+    "roleMappingVersion": "roles-2026.2",
+    "source": {
+      "kind": "salesDocument",
+      "id": "doc1"
+    },
+    "lines": [
+      {
+        "role": "receivable",
+        "debitCents": 80000,
+        "creditCents": 0,
+        "contactId": "contact1",
+        "account": "1400"
+      },
+      {
+        "role": "revenue.13b_domestic",
+        "debitCents": 0,
+        "creditCents": 80000,
+        "taxKey": "13b",
+        "taxPointDate": "2026-03-05",
+        "account": "8337"
+      }
+    ]
+  },
+  "SKR04": {
+    "date": "2026-03-10",
+    "text": "Rechnung RE-2026-0001 Muster GmbH",
+    "explanation": "S6",
+    "roleMappingVersion": "roles-2026.2",
+    "source": {
+      "kind": "salesDocument",
+      "id": "doc1"
+    },
+    "lines": [
+      {
+        "role": "receivable",
+        "debitCents": 80000,
+        "creditCents": 0,
+        "contactId": "contact1",
+        "account": "1200"
+      },
+      {
+        "role": "revenue.13b_domestic",
+        "debitCents": 0,
+        "creditCents": 80000,
+        "taxKey": "13b",
+        "taxPointDate": "2026-03-05",
+        "account": "4337"
+      }
+    ]
+  }
+}

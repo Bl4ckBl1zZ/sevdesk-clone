@@ -45,6 +45,15 @@ export const PERMISSIONS = {
   "apiKeys.manage": { roles: ["owner"], scope: null, write: true, fresh: true },
   /** F12 AUD-020 security status page (owner; never via REST/MCP). */
   "system.security": { roles: ["owner"], scope: null, write: false },
+  /** F08 journal, chart of accounts, role mapping and opening balances — read (REST/MCP `accounting:read`). */
+  "accounting.read": { roles: ALL, scope: "accounting:read", write: false },
+  /**
+   * F08 ACC-013 opening balances (owner, bookkeeper). Not via MCP (F08 §7: owner-only legal acts); REST
+   * `POST /opening-balances` gets its own key path when the API arrives, so no scope here.
+   */
+  "accounting.openingBalance": { roles: ["owner", "bookkeeper"], scope: null, write: true },
+  /** F08 ACC-008 role mapping overrides (audited, owner only, never via MCP). */
+  "accounting.roles": { roles: ["owner"], scope: null, write: true },
 } as const satisfies Record<string, PermissionRule>;
 
 export type Permission = keyof typeof PERMISSIONS;

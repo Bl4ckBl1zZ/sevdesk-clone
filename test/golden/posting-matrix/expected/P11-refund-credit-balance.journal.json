@@ -1,0 +1,55 @@
+{
+  "case": "P11-refund-credit-balance",
+  "covers": "P11",
+  "ruleVersion": "posting-2026.1",
+  "SKR03": {
+    "date": "2026-05-01",
+    "text": "Erstattung",
+    "explanation": "P11",
+    "roleMappingVersion": "roles-2026.2",
+    "source": {
+      "kind": "payment",
+      "id": "refund1"
+    },
+    "lines": [
+      {
+        "role": "receivable",
+        "debitCents": 1000,
+        "creditCents": 0,
+        "contactId": "contact1",
+        "account": "1400"
+      },
+      {
+        "role": "bank.bank1",
+        "debitCents": 0,
+        "creditCents": 1000,
+        "account": "1200"
+      }
+    ]
+  },
+  "SKR04": {
+    "date": "2026-05-01",
+    "text": "Erstattung",
+    "explanation": "P11",
+    "roleMappingVersion": "roles-2026.2",
+    "source": {
+      "kind": "payment",
+      "id": "refund1"
+    },
+    "lines": [
+      {
+        "role": "receivable",
+        "debitCents": 1000,
+        "creditCents": 0,
+        "contactId": "contact1",
+        "account": "1200"
+      },
+      {
+        "role": "bank.bank1",
+        "debitCents": 0,
+        "creditCents": 1000,
+        "account": "1800"
+      }
+    ]
+  }
+}

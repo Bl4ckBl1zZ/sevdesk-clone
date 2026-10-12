@@ -1,0 +1,95 @@
+{
+  "case": "S2-mixed-19-7-ist",
+  "covers": "S2 Ist",
+  "ruleVersion": "posting-2026.1",
+  "SKR03": {
+    "date": "2026-03-10",
+    "text": "Rechnung RE-2026-0001 Muster GmbH",
+    "explanation": "S2-ist",
+    "roleMappingVersion": "roles-2026.2",
+    "source": {
+      "kind": "salesDocument",
+      "id": "doc1"
+    },
+    "lines": [
+      {
+        "role": "receivable",
+        "debitCents": 172500,
+        "creditCents": 0,
+        "contactId": "contact1",
+        "account": "1400"
+      },
+      {
+        "role": "revenue.domestic.19",
+        "debitCents": 0,
+        "creditCents": 100000,
+        "taxKey": "USt19",
+        "account": "8400"
+      },
+      {
+        "role": "vat.output.notdue.19",
+        "debitCents": 0,
+        "creditCents": 19000,
+        "account": "1766"
+      },
+      {
+        "role": "revenue.domestic.7",
+        "debitCents": 0,
+        "creditCents": 50000,
+        "taxKey": "USt7",
+        "account": "8300"
+      },
+      {
+        "role": "vat.output.notdue.7",
+        "debitCents": 0,
+        "creditCents": 3500,
+        "account": "1761"
+      }
+    ]
+  },
+  "SKR04": {
+    "date": "2026-03-10",
+    "text": "Rechnung RE-2026-0001 Muster GmbH",
+    "explanation": "S2-ist",
+    "roleMappingVersion": "roles-2026.2",
+    "source": {
+      "kind": "salesDocument",
+      "id": "doc1"
+    },
+    "lines": [
+      {
+        "role": "receivable",
+        "debitCents": 172500,
+        "creditCents": 0,
+        "contactId": "contact1",
+        "account": "1200"
+      },
+      {
+        "role": "revenue.domestic.19",
+        "debitCents": 0,
+        "creditCents": 100000,
+        "taxKey": "USt19",
+        "account": "4400"
+      },
+      {
+        "role": "vat.output.notdue.19",
+        "debitCents": 0,
+        "creditCents": 19000,
+        "account": "3816"
+      },
+      {
+        "role": "revenue.domestic.7",
+        "debitCents": 0,
+        "creditCents": 50000,
+        "taxKey": "USt7",
+        "account": "4300"
+      },
+      {
+        "role": "vat.output.notdue.7",
+        "debitCents": 0,
+        "creditCents": 3500,
+        "account": "3811"
+      }
+    ]
+  }
+}

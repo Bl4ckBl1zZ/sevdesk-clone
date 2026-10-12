@@ -1,14 +1,18 @@
+import { checkCash, checkJournal } from "../../src/domain/accounting/invariants";
+import { chartAt } from "../../src/domain/accounting/period";
 import { canonicalize } from "../../src/domain/audit/canonical";
 import { genesisHash, verifyChainPage } from "../../src/domain/audit/chain";
 import { isEncryptedValue } from "../../src/domain/audit/personal";
 import { REDACTED } from "../../src/domain/audit/redact";
+import { ROLE_MAPPING_ROWS, seededAccount } from "../../src/domain/rules/accounting";
+import { isCalendarDate } from "../../src/domain/time/calendar-date";
 import type { Doc, TableNames } from "../_generated/dataModel";
 import { instanceName } from "../lib/env";
 import schema from "../schema";
 import type { ReadCtx } from "./types";
 
 /**
- * Regulatory invariants (10-edge-cases §2) evaluated over the whole database. P0 implements:
+ * Regulatory invariants (10-edge-cases §2) evaluated over the whole database. P0 implements (P1 adds RI-11/RI-12 below):
  *  - RI-14 audit chain complete: seq contiguous from 1, every hash recomputes, head contains the latest checkpoint.
  *  - RI-15 every state change is audited: replaying the audit diffs of each record reproduces its current state
  *    (detects writes that bypassed the model layer, incl. changes to frozen records, and unaudited inserts).
@@ -22,11 +26,12 @@ export interface InvariantViolation {
 }
 
 /**
- * Tables without own audit entries: the log itself, the dev mailbox, contact keys (written with the parent) and
+ * Tables without own audit entries: the log itself, the dev mailbox, contact keys (written with the parent),
  * `companyProfileVersions` — a snapshot written in the same transaction as the audited `companyProfile` change;
- * each row instead must point (`auditSeq`) at that change's audit entry (checked below).
+ * each row instead must point (`auditSeq`) at that change's audit entry (checked below) — and `journalLines`, the
+ * read model of the audited journal entries (RI-12 checks that it mirrors them).
  */
-const NOT_REPLAYED = new Set(["auditLog", "devMailbox", "contactKeys", "companyProfileVersions"]);
+const NOT_REPLAYED = new Set(["auditLog", "devMailbox", "contactKeys", "companyProfileVersions", "journalLines"]);
 
 export function replayedTables(): TableNames[] {
   return (Object.keys(schema.tables) as TableNames[]).filter((t) => !NOT_REPLAYED.has(t));
@@ -125,5 +130,38 @@ export async function checkInvariants(ctx: ReadCtx): Promise<InvariantViolation[
       });
     }
   }
+  out.push(...(await checkJournalInvariants(ctx)));
+  return out;
+}
+
+/** RI-11 and RI-12 (F08 journal) over the whole journal; the pure checks live in src/domain/accounting/invariants.ts. */
+export async function checkJournalInvariants(ctx: ReadCtx): Promise<InvariantViolation[]> {
+  const entries = await ctx.db.query("journalEntries").collect();
+  const lines = await ctx.db.query("journalLines").collect();
+  if (entries.length === 0 && lines.length === 0) return [];
+  const banks = await ctx.db.query("bankAccounts").collect();
+  const bankLedgers = new Set(banks.map((b) => b.ledgerAccount));
+  const profile = await ctx.db.query("companyProfile").first();
+  const chartOn = (date: string) => chartAt(profile?.chartOfAccounts ?? [], profile?.fiscalYearStartMonth ?? 1, date);
+  const accountExists = (account: string, date: string) =>
+    bankLedgers.has(account) || (isCalendarDate(date) && seededAccount(chartOn(date), date, account) !== null);
+  const out: InvariantViolation[] = checkJournal(
+    entries.map((e) => ({
+      id: String(e._id),
+      seq: e.seq,
+      date: e.date,
+      period: e.period,
+      lines: e.lines,
+      source: e.source,
+      ...(e.reversalOfId ? { reversalOfId: String(e.reversalOfId) } : {}),
+      attachmentsCount: e.attachments?.length ?? 0,
+    })),
+    lines.map((l) => ({ ...l, entryId: String(l.entryId) })),
+    accountExists,
+  );
+  // RI-11 for the cash account of every chart in use (a chart switch changes the number, EC-116).
+  const cashRow = ROLE_MAPPING_ROWS.find((r) => r.role === "cash");
+  const cashAccounts = new Set(entries.map((e) => cashRow?.[chartOn(e.date)]).filter((n): n is string => !!n));
+  for (const account of cashAccounts) out.push(...checkCash(lines.filter((l) => l.account === account)));
   return out;
 }

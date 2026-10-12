@@ -4,9 +4,12 @@ import {
   vActor,
   vAuditorScope,
   vChannel,
+  vChart,
   vFileRef,
   vIntegrityFinding,
   vInviteRole,
+  vJournalLine,
+  vJournalSourceKind,
   vMemberRole,
   vPaymentTerms,
   vPostalAddress,
@@ -507,6 +510,107 @@ export default defineSchema({
     acceptedUserId: v.optional(v.string()),
     revokedAt: v.optional(v.number()),
   }).index("by_email", ["email"]),
+
+  // ── 03 §8 bookkeeping (F08, P1) ──────────────────────────────────────────────────────────────────────
+  // journalEntries 🔒 — the single double-entry journal; append-only, written only by convex/model/journal.ts
+  // (ACC-002); `seq` gapless, assigned in the posting transaction (GOBD-05); corrections by reversal (ACC-004).
+  journalEntries: defineTable({
+    seq: v.number(),
+    date: v.string(),
+    period: v.string(),
+    originalDate: v.optional(v.string()),
+    latePosting: v.optional(v.object({ reason: v.string() })),
+    lines: v.array(vJournalLine),
+    text: v.string(),
+    longText: v.optional(v.string()),
+    source: v.object({ kind: vJournalSourceKind, id: v.string() }),
+    attachments: v.optional(v.array(vFileRef)),
+    ruleVersion: v.string(),
+    roleMappingVersion: v.string(),
+    explanation: v.string(),
+    reversalOfId: v.optional(v.id("journalEntries")),
+    recordedAt: v.number(),
+    lockedAt: v.optional(v.number()),
+    actor: vActor,
+  })
+    .index("by_seq", ["seq"])
+    .index("by_period", ["period", "seq"])
+    .index("by_source", ["source.kind", "source.id"])
+    .index("by_reversalOf", ["reversalOfId"]),
+
+  // journalLines 🔒 — derived read model (03 §8 "by_account via lines read model"): one row per entry line, written
+  // in the same transaction as its entry, never changed. Not audited separately: RI-12 checks that it mirrors the
+  // audited entries. Serves account balances, the Kontenblatt and the cash never-negative check (CSH-026).
+  journalLines: defineTable({
+    entryId: v.id("journalEntries"),
+    lineIndex: v.number(),
+    seq: v.number(),
+    date: v.string(),
+    period: v.string(),
+    account: v.string(),
+    role: v.optional(v.string()),
+    debitCents: v.number(),
+    creditCents: v.number(),
+    contactId: v.optional(v.string()),
+  })
+    .index("by_account_date_seq", ["account", "date", "seq"])
+    .index("by_entry", ["entryId", "lineIndex"])
+    .index("by_date", ["date", "seq"])
+    .index("by_contact", ["contactId", "date"]),
+
+  // accountRoleMappings 🔒 — owner overrides of the shipped mapping (rule data roles-2026.2 in
+  // src/domain/rules/accounting); append-only versions, resolution = latest validFrom ≤ posting date (ACC-008).
+  accountRoleMappings: defineTable({
+    chart: vChart,
+    role: v.string(),
+    account: v.string(),
+    validFrom: v.string(),
+    mappingVersion: v.string(),
+    source: v.union(v.literal("seed"), v.literal("override")),
+    sourceText: v.optional(v.string()),
+    confirmedByAdvisorOn: v.optional(v.string()),
+  }).index("by_chart_role_validFrom", ["chart", "role", "validFrom"]),
+
+  // periods (03 §8) — Festschreibung per month; the lock itself is P2 (ACC-015). P1 posting already honours it
+  // (ACC-006): user-dated postings into a locked/locking month are refused, external ones move forward.
+  periods: defineTable({
+    period: v.string(),
+    status: v.union(v.literal("open"), v.literal("locking"), v.literal("locked")),
+    lockedAt: v.optional(v.number()),
+    lockedBy: v.optional(vActor),
+    reason: v.optional(
+      v.union(
+        v.literal("ustva_submitted"),
+        v.literal("zm_submitted"),
+        v.literal("euer_submitted"),
+        v.literal("manual"),
+        v.literal("datev_export"),
+        v.literal("year_close"),
+      ),
+    ),
+  }).index("by_period", ["period"]),
+
+  // openingItems 🔒 — open receivables carried into the books by the opening balance (ACC-013, P1 subset): the
+  // original document reference and VAT split (Ist) so later payments (target kind "opening_item") clear them.
+  openingItems: defineTable({
+    fiscalYear: v.number(),
+    kind: v.literal("receivable"),
+    number: v.string(),
+    documentDate: v.string(),
+    dueDate: v.optional(v.string()),
+    contactId: v.optional(v.string()),
+    counterpartyName: v.string(),
+    grossCents: v.number(),
+    openCents: v.number(),
+    taxedAs: v.union(v.literal("soll"), v.literal("ist")),
+    notDueVat: v.optional(v.array(v.object({ rateBp: v.number(), vatCents: v.number() }))),
+    openAmountCents: v.number(),
+    recordedAt: v.number(),
+    lockedAt: v.optional(v.number()),
+    actor: vActor,
+  })
+    .index("by_fiscalYear", ["fiscalYear", "number"])
+    .index("by_contact", ["contactId"]),
 
   // Dev/test only (not in 03): the in-memory auth-mail transport (AUTH_MAIL_SENDER=memory) stores mails here so
   // integration and E2E tests can read sign-in codes (07 §3.2). Never written with the Cloudflare transport.

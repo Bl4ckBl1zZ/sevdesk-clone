@@ -1,0 +1,67 @@
+{
+  "case": "P9-recovery-after-write-off",
+  "covers": "P9, E-TAX-11",
+  "ruleVersion": "posting-2026.1",
+  "SKR03": {
+    "date": "2026-11-02",
+    "text": "Eingang abgeschr. Forderung RE-2026-0001",
+    "explanation": "P9",
+    "roleMappingVersion": "roles-2026.2",
+    "source": {
+      "kind": "payment",
+      "id": "pay-rec"
+    },
+    "lines": [
+      {
+        "role": "bank.bank1",
+        "debitCents": 59500,
+        "creditCents": 0,
+        "account": "1200"
+      },
+      {
+        "role": "writeoff.recovery",
+        "debitCents": 0,
+        "creditCents": 50000,
+        "account": "2732"
+      },
+      {
+        "role": "vat.output.19",
+        "debitCents": 0,
+        "creditCents": 9500,
+        "taxPointDate": "2026-11-02",
+        "account": "1776"
+      }
+    ]
+  },
+  "SKR04": {
+    "date": "2026-11-02",
+    "text": "Eingang abgeschr. Forderung RE-2026-0001",
+    "explanation": "P9",
+    "roleMappingVersion": "roles-2026.2",
+    "source": {
+      "kind": "payment",
+      "id": "pay-rec"
+    },
+    "lines": [
+      {
+        "role": "bank.bank1",
+        "debitCents": 59500,
+        "creditCents": 0,
+        "account": "1800"
+      },
+      {
+        "role": "writeoff.recovery",
+        "debitCents": 0,
+        "creditCents": 50000,
+        "account": "4925"
+      },
+      {
+        "role": "vat.output.19",
+        "debitCents": 0,
+        "creditCents": 9500,
+        "taxPointDate": "2026-11-02",
+        "account": "3806"
+      }
+    ]
+  }
+}

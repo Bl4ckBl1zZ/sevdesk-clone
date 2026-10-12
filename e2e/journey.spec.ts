@@ -147,6 +147,31 @@ test("MISC-10 the shell navigation works for the owner without axe violations", 
   }
 });
 
+test("ACC-013 ACC-001 ACC-003 ACC-008 the owner posts the opening cash balance and reads it in the journal", async () => {
+  await page.goto("/buchhaltung/eroeffnung");
+  await expect(page.getByRole("heading", { level: 1, name: "Eröffnungsbilanz" })).toBeVisible();
+  const cash = page.getByLabel("Anfangsbestand Kasse");
+  await expect(cash).toBeVisible({ timeout: 20_000 });
+  await noAxeViolations(page);
+  await cash.fill("250,00");
+  await page.getByRole("button", { name: "Anfangsbestand Kasse buchen" }).click();
+  await expect(page.getByText(/Gebucht \(Nr\. 1, 250,00/)).toBeVisible({ timeout: 20_000 });
+
+  await page.goto("/buchhaltung/journal");
+  await expect(page.getByRole("heading", { level: 1, name: "Journal" })).toBeVisible();
+  await page.getByRole("button", { name: "Buchung 1 öffnen" }).click();
+  const sheet = page.getByRole("dialog");
+  await expect(sheet.getByRole("heading", { name: "Warum dieses Konto?" })).toBeVisible();
+  await expect(sheet.getByText("1000", { exact: true })).toBeVisible();
+  await noAxeViolations(page);
+  await page.keyboard.press("Escape");
+
+  await page.goto("/buchhaltung/konten");
+  await page.getByRole("tab", { name: /Rollen & Standardkonten/ }).click();
+  await expect(page.getByText("nicht zugeordnet").first()).toBeVisible({ timeout: 20_000 });
+  await noAxeViolations(page);
+});
+
 test("SEC-01 04 §4.10 the owner invites a bookkeeper from /einstellungen/mitglieder", async () => {
   await page.goto("/einstellungen/mitglieder");
   await expect(page.getByText(OWNER_EMAIL).filter({ visible: true }).first()).toBeVisible({ timeout: 20_000 });

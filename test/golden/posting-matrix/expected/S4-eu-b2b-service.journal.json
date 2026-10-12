@@ -1,0 +1,59 @@
+{
+  "case": "S4-eu-b2b-service",
+  "covers": "S4, UST-20",
+  "ruleVersion": "posting-2026.1",
+  "SKR03": {
+    "date": "2026-03-10",
+    "text": "Rechnung RE-2026-0001 Muster GmbH",
+    "explanation": "S4",
+    "roleMappingVersion": "roles-2026.2",
+    "source": {
+      "kind": "salesDocument",
+      "id": "doc1"
+    },
+    "lines": [
+      {
+        "role": "receivable",
+        "debitCents": 200000,
+        "creditCents": 0,
+        "contactId": "contact1",
+        "account": "1400"
+      },
+      {
+        "role": "revenue.eu_service_rc",
+        "debitCents": 0,
+        "creditCents": 200000,
+        "taxKey": "EU-RC",
+        "taxPointDate": "2026-03-31",
+        "account": "8336"
+      }
+    ]
+  },
+  "SKR04": {
+    "date": "2026-03-10",
+    "text": "Rechnung RE-2026-0001 Muster GmbH",
+    "explanation": "S4",
+    "roleMappingVersion": "roles-2026.2",
+    "source": {
+      "kind": "salesDocument",
+      "id": "doc1"
+    },
+    "lines": [
+      {
+        "role": "receivable",
+        "debitCents": 200000,
+        "creditCents": 0,
+        "contactId": "contact1",
+        "account": "1200"
+      },
+      {
+        "role": "revenue.eu_service_rc",
+        "debitCents": 0,
+        "creditCents": 200000,
+        "taxKey": "EU-RC",
+        "taxPointDate": "2026-03-31",
+        "account": "4336"
+      }
+    ]
+  }
+}

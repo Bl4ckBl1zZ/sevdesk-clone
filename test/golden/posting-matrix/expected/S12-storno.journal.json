@@ -1,0 +1,73 @@
+{
+  "case": "S12-storno",
+  "covers": "S12, UST-30, ACC-004",
+  "ruleVersion": "posting-2026.1",
+  "SKR03": {
+    "date": "2026-10-05",
+    "text": "Storno ST-2026-0001",
+    "explanation": "S12",
+    "roleMappingVersion": "roles-2026.2",
+    "source": {
+      "kind": "salesDocument",
+      "id": "storno1"
+    },
+    "lines": [
+      {
+        "role": "receivable",
+        "debitCents": 0,
+        "creditCents": 119000,
+        "contactId": "contact1",
+        "account": "1400"
+      },
+      {
+        "role": "revenue.domestic.19",
+        "debitCents": 100000,
+        "creditCents": 0,
+        "taxKey": "USt19",
+        "taxPointDate": "2026-10-05",
+        "account": "8400"
+      },
+      {
+        "role": "vat.output.19",
+        "debitCents": 19000,
+        "creditCents": 0,
+        "taxPointDate": "2026-10-05",
+        "account": "1776"
+      }
+    ]
+  },
+  "SKR04": {
+    "date": "2026-10-05",
+    "text": "Storno ST-2026-0001",
+    "explanation": "S12",
+    "roleMappingVersion": "roles-2026.2",
+    "source": {
+      "kind": "salesDocument",
+      "id": "storno1"
+    },
+    "lines": [
+      {
+        "role": "receivable",
+        "debitCents": 0,
+        "creditCents": 119000,
+        "contactId": "contact1",
+        "account": "1200"
+      },
+      {
+        "role": "revenue.domestic.19",
+        "debitCents": 100000,
+        "creditCents": 0,
+        "taxKey": "USt19",
+        "taxPointDate": "2026-10-05",
+        "account": "4400"
+      },
+      {
+        "role": "vat.output.19",
+        "debitCents": 19000,
+        "creditCents": 0,
+        "taxPointDate": "2026-10-05",
+        "account": "3806"
+      }
+    ]
+  }
+}

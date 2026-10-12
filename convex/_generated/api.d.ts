@@ -9,6 +9,7 @@
  */
 
 import type * as access from "../access.js";
+import type * as accounting from "../accounting.js";
 import type * as auth from "../auth.js";
 import type * as authMail from "../authMail.js";
 import type * as crons from "../crons.js";
@@ -30,6 +31,7 @@ import type * as lib_time from "../lib/time.js";
 import type * as lookups from "../lookups.js";
 import type * as members from "../members.js";
 import type * as migrations from "../migrations.js";
+import type * as model_accounting from "../model/accounting.js";
 import type * as model_audit from "../model/audit.js";
 import type * as model_bankAccounts from "../model/bankAccounts.js";
 import type * as model_companyProfile from "../model/companyProfile.js";
@@ -42,6 +44,7 @@ import type * as model_finalizeGuard from "../model/finalizeGuard.js";
 import type * as model_integrations from "../model/integrations.js";
 import type * as model_integrity from "../model/integrity.js";
 import type * as model_invariants from "../model/invariants.js";
+import type * as model_journal from "../model/journal.js";
 import type * as model_layouts from "../model/layouts.js";
 import type * as model_lookups from "../model/lookups.js";
 import type * as model_members from "../model/members.js";
@@ -66,6 +69,7 @@ import type {
 
 declare const fullApi: ApiFromModules<{
   access: typeof access;
+  accounting: typeof accounting;
   auth: typeof auth;
   authMail: typeof authMail;
   crons: typeof crons;
@@ -87,6 +91,7 @@ declare const fullApi: ApiFromModules<{
   lookups: typeof lookups;
   members: typeof members;
   migrations: typeof migrations;
+  "model/accounting": typeof model_accounting;
   "model/audit": typeof model_audit;
   "model/bankAccounts": typeof model_bankAccounts;
   "model/companyProfile": typeof model_companyProfile;
@@ -99,6 +104,7 @@ declare const fullApi: ApiFromModules<{
   "model/integrations": typeof model_integrations;
   "model/integrity": typeof model_integrity;
   "model/invariants": typeof model_invariants;
+  "model/journal": typeof model_journal;
   "model/layouts": typeof model_layouts;
   "model/lookups": typeof model_lookups;
   "model/members": typeof model_members;

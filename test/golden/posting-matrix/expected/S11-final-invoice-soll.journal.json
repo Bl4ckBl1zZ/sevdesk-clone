@@ -1,0 +1,113 @@
+{
+  "case": "S11-final-invoice-soll",
+  "covers": "S11, UST-41 (10,000 € total, 3,000 € advance)",
+  "ruleVersion": "posting-2026.1",
+  "SKR03": {
+    "date": "2026-03-10",
+    "text": "Rechnung RE-2026-0001 Muster GmbH",
+    "explanation": "S11",
+    "roleMappingVersion": "roles-2026.2",
+    "source": {
+      "kind": "salesDocument",
+      "id": "doc1"
+    },
+    "lines": [
+      {
+        "role": "receivable",
+        "debitCents": 1190000,
+        "creditCents": 0,
+        "contactId": "contact1",
+        "account": "1400"
+      },
+      {
+        "role": "revenue.domestic.19",
+        "debitCents": 0,
+        "creditCents": 1000000,
+        "taxKey": "USt19",
+        "taxPointDate": "2026-03-05",
+        "account": "8400"
+      },
+      {
+        "role": "vat.output.19",
+        "debitCents": 0,
+        "creditCents": 190000,
+        "taxPointDate": "2026-03-05",
+        "account": "1776"
+      },
+      {
+        "role": "advance.received.19",
+        "debitCents": 300000,
+        "creditCents": 0,
+        "account": "1718"
+      },
+      {
+        "role": "vat.output.19",
+        "debitCents": 57000,
+        "creditCents": 0,
+        "taxPointDate": "2026-03-05",
+        "account": "1776"
+      },
+      {
+        "role": "receivable",
+        "debitCents": 0,
+        "creditCents": 357000,
+        "contactId": "contact1",
+        "account": "1400"
+      }
+    ]
+  },
+  "SKR04": {
+    "date": "2026-03-10",
+    "text": "Rechnung RE-2026-0001 Muster GmbH",
+    "explanation": "S11",
+    "roleMappingVersion": "roles-2026.2",
+    "source": {
+      "kind": "salesDocument",
+      "id": "doc1"
+    },
+    "lines": [
+      {
+        "role": "receivable",
+        "debitCents": 1190000,
+        "creditCents": 0,
+        "contactId": "contact1",
+        "account": "1200"
+      },
+      {
+        "role": "revenue.domestic.19",
+        "debitCents": 0,
+        "creditCents": 1000000,
+        "taxKey": "USt19",
+        "taxPointDate": "2026-03-05",
+        "account": "4400"
+      },
+      {
+        "role": "vat.output.19",
+        "debitCents": 0,
+        "creditCents": 190000,
+        "taxPointDate": "2026-03-05",
+        "account": "3806"
+      },
+      {
+        "role": "advance.received.19",
+        "debitCents": 300000,
+        "creditCents": 0,
+        "account": "3272"
+      },
+      {
+        "role": "vat.output.19",
+        "debitCents": 57000,
+        "creditCents": 0,
+        "taxPointDate": "2026-03-05",
+        "account": "3806"
+      },
+      {
+        "role": "receivable",
+        "debitCents": 0,
+        "creditCents": 357000,
+        "contactId": "contact1",
+        "account": "1200"
+      }
+    ]
+  }
+}

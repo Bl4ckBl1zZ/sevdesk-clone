@@ -21,6 +21,16 @@ const STATUS: Readonly<Record<string, number>> = {
   version_conflict: 409,
   immutable_record: 409,
   setup_incomplete: 409,
+  // F08 journal (ACC-006 409 period_locked, CSH-026 cash_negative, E-ACC-05/09/13/14)
+  period_locked: 409,
+  posting_rejected: 422,
+  role_unmapped: 409,
+  account_unknown: 422,
+  cash_negative: 409,
+  already_posted: 409,
+  already_reversed: 409,
+  chart_locked: 409,
+  bookkeeping_start_locked: 409,
   otp_throttled: 429,
   not_configured: 503,
 };

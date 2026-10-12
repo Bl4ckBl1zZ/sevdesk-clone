@@ -1,0 +1,53 @@
+{
+  "case": "T5-deposit-bank-leg",
+  "covers": "T5 bank leg, TST-ACC-32",
+  "ruleVersion": "posting-2026.1",
+  "SKR03": {
+    "date": "2026-03-03",
+    "text": "Gutschrift Bareinzahlung",
+    "explanation": "T5-bank",
+    "roleMappingVersion": "roles-2026.2",
+    "source": {
+      "kind": "cashTransfer",
+      "id": "ct1"
+    },
+    "lines": [
+      {
+        "role": "bank.bank1",
+        "debitCents": 50000,
+        "creditCents": 0,
+        "account": "1200"
+      },
+      {
+        "role": "transit",
+        "debitCents": 0,
+        "creditCents": 50000,
+        "account": "1360"
+      }
+    ]
+  },
+  "SKR04": {
+    "date": "2026-03-03",
+    "text": "Gutschrift Bareinzahlung",
+    "explanation": "T5-bank",
+    "roleMappingVersion": "roles-2026.2",
+    "source": {
+      "kind": "cashTransfer",
+      "id": "ct1"
+    },
+    "lines": [
+      {
+        "role": "bank.bank1",
+        "debitCents": 50000,
+        "creditCents": 0,
+        "account": "1800"
+      },
+      {
+        "role": "transit",
+        "debitCents": 0,
+        "creditCents": 50000,
+        "account": "1460"
+      }
+    ]
+  }
+}

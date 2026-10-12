@@ -256,6 +256,8 @@ export interface TaxPatchContext {
   finalisedDocuments?: readonly FinalisedDocRef[];
   /** SET-E22: number of DATEV exports so far (locks the account length). */
   datevExportCount?: number;
+  /** SET-041/042 (F08 ACC-007): fiscal years that already have journal entries. */
+  journalFiscalYears?: readonly number[];
 }
 
 /** Appends a date-effective entry when the status on `validFrom` differs; replaces an entry with the same date. */
@@ -345,6 +347,30 @@ export function taxPatchFromForm(
     ...current.chartOfAccounts.filter((c) => c.validFromFiscalYear !== year),
     { validFromFiscalYear: year, chart: v.chartOfAccounts },
   ].sort((a, b) => a.validFromFiscalYear - b.validFromFiscalYear);
+
+  // SET-041 / F08 ACC-007 (E-ACC-09, EC-116): once a fiscal year has journal entries its chart is fixed; the
+  // switch with an account mapping table effective at the next fiscal year start follows in P3.
+  const booked = ctx.journalFiscalYears ?? [];
+  const effectiveChart = latest(current.chartOfAccounts, (c) => c.validFromFiscalYear, year)?.chart ?? "SKR03";
+  if (booked.includes(year) && effectiveChart !== v.chartOfAccounts) {
+    return {
+      ok: false,
+      error: issue(
+        "CHART_LOCKED",
+        "Der Kontenrahmen kann erst zum Beginn des nächsten Wirtschaftsjahres gewechselt werden.",
+      ),
+    };
+  }
+  // SET-042: the fiscal year start is locked after the first journal entry.
+  if (booked.length > 0 && v.fiscalYearStartMonth !== current.fiscalYearStartMonth) {
+    return {
+      ok: false,
+      error: issue(
+        "FISCAL_YEAR_LOCKED",
+        "Das Wirtschaftsjahr kann nach der ersten Buchung nicht mehr geändert werden.",
+      ),
+    };
+  }
 
   const priorYear = year - 1;
   const priorYearTotalTurnoverCents = [

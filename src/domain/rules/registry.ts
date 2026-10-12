@@ -2,6 +2,7 @@
  * All shipped rule tables (F01 SET-120 shows them under /einstellungen/regeln with source and validity).
  * Importing this module validates every table (defineRuleTable throws on inconsistent data).
  */
+import { ACCOUNTING_RULE_TABLES } from "./accounting";
 import { BASISZINSSATZ } from "./basiszinssatz";
 import { EINVOICE_OBLIGATION } from "./einvoice-obligation";
 import { NOTE_TEXTS } from "./note-texts";
@@ -19,4 +20,5 @@ export const ALL_RULE_TABLES: readonly RuleTable<unknown>[] = [
   EINVOICE_OBLIGATION,
   ...Object.values(NOTE_TEXTS),
   ...Object.values(RC13B_TYPES),
+  ...ACCOUNTING_RULE_TABLES,
 ];

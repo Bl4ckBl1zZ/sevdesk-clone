@@ -1,0 +1,53 @@
+{
+  "case": "T10-cash-transfer-reversal",
+  "covers": "T10, CSH-027",
+  "ruleVersion": "posting-2026.1",
+  "SKR03": {
+    "date": "2026-03-06",
+    "text": "Storno: Privatentnahme aus der Kasse",
+    "explanation": "T10",
+    "roleMappingVersion": "roles-2026.2",
+    "source": {
+      "kind": "cashTransfer",
+      "id": "ct2-rev"
+    },
+    "lines": [
+      {
+        "role": "private.withdrawal",
+        "debitCents": 0,
+        "creditCents": 10000,
+        "account": "1800"
+      },
+      {
+        "role": "cash",
+        "debitCents": 10000,
+        "creditCents": 0,
+        "account": "1000"
+      }
+    ]
+  },
+  "SKR04": {
+    "date": "2026-03-06",
+    "text": "Storno: Privatentnahme aus der Kasse",
+    "explanation": "T10",
+    "roleMappingVersion": "roles-2026.2",
+    "source": {
+      "kind": "cashTransfer",
+      "id": "ct2-rev"
+    },
+    "lines": [
+      {
+        "role": "private.withdrawal",
+        "debitCents": 0,
+        "creditCents": 10000,
+        "account": "2100"
+      },
+      {
+        "role": "cash",
+        "debitCents": 10000,
+        "creditCents": 0,
+        "account": "1600"
+      }
+    ]
+  }
+}

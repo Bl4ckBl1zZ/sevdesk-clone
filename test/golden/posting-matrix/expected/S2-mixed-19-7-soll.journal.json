@@ -1,0 +1,103 @@
+{
+  "case": "S2-mixed-19-7-soll",
+  "covers": "S2, UST-10",
+  "ruleVersion": "posting-2026.1",
+  "SKR03": {
+    "date": "2026-03-10",
+    "text": "Rechnung RE-2026-0001 Muster GmbH",
+    "explanation": "S2",
+    "roleMappingVersion": "roles-2026.2",
+    "source": {
+      "kind": "salesDocument",
+      "id": "doc1"
+    },
+    "lines": [
+      {
+        "role": "receivable",
+        "debitCents": 172500,
+        "creditCents": 0,
+        "contactId": "contact1",
+        "account": "1400"
+      },
+      {
+        "role": "revenue.domestic.19",
+        "debitCents": 0,
+        "creditCents": 100000,
+        "taxKey": "USt19",
+        "taxPointDate": "2026-03-05",
+        "account": "8400"
+      },
+      {
+        "role": "vat.output.19",
+        "debitCents": 0,
+        "creditCents": 19000,
+        "taxPointDate": "2026-03-05",
+        "account": "1776"
+      },
+      {
+        "role": "revenue.domestic.7",
+        "debitCents": 0,
+        "creditCents": 50000,
+        "taxKey": "USt7",
+        "taxPointDate": "2026-03-05",
+        "account": "8300"
+      },
+      {
+        "role": "vat.output.7",
+        "debitCents": 0,
+        "creditCents": 3500,
+        "taxPointDate": "2026-03-05",
+        "account": "1771"
+      }
+    ]
+  },
+  "SKR04": {
+    "date": "2026-03-10",
+    "text": "Rechnung RE-2026-0001 Muster GmbH",
+    "explanation": "S2",
+    "roleMappingVersion": "roles-2026.2",
+    "source": {
+      "kind": "salesDocument",
+      "id": "doc1"
+    },
+    "lines": [
+      {
+        "role": "receivable",
+        "debitCents": 172500,
+        "creditCents": 0,
+        "contactId": "contact1",
+        "account": "1200"
+      },
+      {
+        "role": "revenue.domestic.19",
+        "debitCents": 0,
+        "creditCents": 100000,
+        "taxKey": "USt19",
+        "taxPointDate": "2026-03-05",
+        "account": "4400"
+      },
+      {
+        "role": "vat.output.19",
+        "debitCents": 0,
+        "creditCents": 19000,
+        "taxPointDate": "2026-03-05",
+        "account": "3806"
+      },
+      {
+        "role": "revenue.domestic.7",
+        "debitCents": 0,
+        "creditCents": 50000,
+        "taxKey": "USt7",
+        "taxPointDate": "2026-03-05",
+        "account": "4300"
+      },
+      {
+        "role": "vat.output.7",
+        "debitCents": 0,
+        "creditCents": 3500,
+        "taxPointDate": "2026-03-05",
+        "account": "3801"
+      }
+    ]
+  }
+}

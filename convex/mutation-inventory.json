@@ -4,6 +4,48 @@
     "visibility": "internal",
     "wrapper": "raw"
   },
+  "accounting:chartOfAccounts": {
+    "kind": "query",
+    "visibility": "public",
+    "wrapper": "query",
+    "permission": "accounting.read"
+  },
+  "accounting:getJournalEntry": {
+    "kind": "query",
+    "visibility": "public",
+    "wrapper": "query",
+    "permission": "accounting.read"
+  },
+  "accounting:listJournal": {
+    "kind": "query",
+    "visibility": "public",
+    "wrapper": "query",
+    "permission": "accounting.read"
+  },
+  "accounting:openingBalanceStatus": {
+    "kind": "query",
+    "visibility": "public",
+    "wrapper": "query",
+    "permission": "accounting.read"
+  },
+  "accounting:postOpeningBalancePart": {
+    "kind": "mutation",
+    "visibility": "public",
+    "wrapper": "mutation",
+    "permission": "accounting.openingBalance"
+  },
+  "accounting:setBookkeepingStartDate": {
+    "kind": "mutation",
+    "visibility": "public",
+    "wrapper": "mutation",
+    "permission": "settings.ownerOnly"
+  },
+  "accounting:setRoleMapping": {
+    "kind": "mutation",
+    "visibility": "public",
+    "wrapper": "mutation",
+    "permission": "accounting.roles"
+  },
   "auth:onCreate": {
     "kind": "mutation",
     "visibility": "internal",

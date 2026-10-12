@@ -1,0 +1,314 @@
+import { screen, within } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
+import { getFunctionName } from "convex/server";
+import { beforeEach, describe, expect, test, vi } from "vitest";
+import { renderWithIntl } from "@/i18n/test-utils";
+import { ChartOfAccounts } from "./chart-of-accounts";
+import { JournalViewer } from "./journal-viewer";
+import { OpeningBalanceWizard } from "./opening-balance-wizard";
+
+const backend = vi.hoisted(() => ({
+  data: {} as Record<string, unknown>,
+  paginatedArgs: [] as unknown[],
+  mutations: {} as Record<string, ReturnType<typeof vi.fn>>,
+}));
+vi.mock("@/components/convex/convex-provider", () => ({
+  ConvexGuard: ({ children }: { children: React.ReactNode }) => children,
+}));
+vi.mock("@/hooks/use-authed-query", () => ({
+  useAuthedQuery: (ref: unknown) => backend.data[getFunctionName(ref as never)],
+  useAuthedPaginatedQuery: (ref: unknown, args: unknown) => {
+    backend.paginatedArgs.push(args);
+    return { results: backend.data[getFunctionName(ref as never)] ?? [], status: "Exhausted", loadMore: vi.fn() };
+  },
+}));
+vi.mock("convex/react", () => ({
+  useMutation: (ref: unknown) => {
+    const name = getFunctionName(ref as never);
+    backend.mutations[name] ??= vi.fn().mockResolvedValue({ status: "posted", seq: 1 });
+    return backend.mutations[name];
+  },
+}));
+const toast = vi.hoisted(() => ({ success: vi.fn(), error: vi.fn() }));
+vi.mock("sonner", () => ({ toast }));
+
+const entry = {
+  id: "e1",
+  seq: 1,
+  date: "2026-03-10",
+  period: "2026-03",
+  text: "Rechnung RE-1001",
+  source: { kind: "salesDocument", id: "d1", label: "Verkaufsbeleg" },
+  ruleVersion: "posting-2026.1",
+  roleMappingVersion: "roles-2026.2",
+  explanation: "S1",
+  explanationText: "Rechnung (Soll-Versteuerung): Forderung an Erlöse und Umsatzsteuer.",
+  totalCents: 119000,
+  lines: [
+    {
+      account: "1400",
+      accountName: "Forderungen aus L+L",
+      role: "receivables",
+      roleLabel: "Forderungen",
+      debitCents: 119000,
+      creditCents: 0,
+    },
+    {
+      account: "8400",
+      accountName: "Erlöse 19 % USt",
+      role: "revenue.19",
+      roleLabel: "Erlöse 19 % USt",
+      debitCents: 0,
+      creditCents: 100000,
+      taxKey: "USt19",
+    },
+    {
+      account: "1776",
+      accountName: "Umsatzsteuer 19 %",
+      role: "vat.output.19",
+      roleLabel: "USt 19 %",
+      debitCents: 0,
+      creditCents: 19000,
+      taxPointDate: "2026-03-10",
+    },
+  ],
+  reversedBySeq: 2,
+  recordedAt: Date.UTC(2026, 2, 10, 9, 0),
+  actor: "user:owner",
+  locked: false,
+};
+
+beforeEach(() => {
+  backend.mutations = {};
+  backend.paginatedArgs = [];
+  toast.success.mockReset();
+  toast.error.mockReset();
+  backend.data = {
+    "accounting:listJournal": [entry],
+    "accounting:chartOfAccounts": {
+      fiscalYear: 2026,
+      from: "2026-01-01",
+      to: "2026-12-31",
+      chart: "SKR03",
+      journalEntries: true,
+      accounts: [
+        {
+          number: "1000",
+          name: "Kasse",
+          type: "asset",
+          automaticVatAccount: false,
+          euerKey: "NONE",
+          bwaGroup: "NONE",
+          verified: true,
+          debitCents: 0,
+          creditCents: 0,
+          balanceCents: 0,
+          used: false,
+          roles: ["cash"],
+        },
+        {
+          number: "8400",
+          name: "Erlöse 19 % USt",
+          type: "revenue",
+          automaticVatAccount: true,
+          euerKey: "BE.UMSATZ",
+          bwaGroup: "UMSATZ",
+          verified: true,
+          debitCents: 0,
+          creditCents: 100000,
+          balanceCents: -100000,
+          used: true,
+          roles: ["revenue.19"],
+        },
+        {
+          number: "8100",
+          name: "Steuerfreie Umsätze",
+          type: "revenue",
+          automaticVatAccount: false,
+          euerKey: "BE.UMSATZ",
+          bwaGroup: "UMSATZ",
+          verified: false,
+          debitCents: 0,
+          creditCents: 0,
+          balanceCents: 0,
+          used: false,
+          roles: [],
+        },
+      ],
+      roles: [
+        {
+          role: "revenue.19",
+          label: "Erlöse 19 % USt",
+          account: "8400",
+          accountName: "Erlöse 19 % USt",
+          source: "seed",
+          uncertain: false,
+          unmapped: false,
+        },
+        {
+          role: "revenue.zero_pv",
+          label: "Erlöse 0 % (Photovoltaik)",
+          account: null,
+          accountName: null,
+          source: "seed",
+          uncertain: false,
+          unmapped: true,
+        },
+        {
+          role: "vat.prior_year",
+          label: "USt Vorjahr",
+          account: "1790",
+          accountName: "USt Vorjahr",
+          source: "seed",
+          uncertain: true,
+          unmapped: false,
+        },
+      ],
+    },
+    "accounting:openingBalanceStatus": {
+      fiscalYear: 2026,
+      date: "2026-01-01",
+      bookkeepingStartDate: null,
+      canChangeBookkeepingStart: true,
+      cash: { seq: 1, totalCents: 25000 },
+      banks: [
+        {
+          id: "b1",
+          name: "Revolut EUR",
+          iban: "DE89370400440532013000",
+          currency: "EUR",
+          ledgerAccount: "1200",
+          posted: null,
+        },
+      ],
+      receivables: null,
+      openingItems: [],
+    },
+  };
+});
+
+describe("Journal (F08 §6)", () => {
+  test("ACC-001 ACC-003 lists entries and opens the side sheet with lines and „Warum dieses Konto?“", async () => {
+    renderWithIntl(<JournalViewer />);
+    const table = screen.getByRole("table", { name: "Buchungsjournal" });
+    expect(within(table).getByText("10.03.2026")).toBeInTheDocument();
+    expect(within(table).getByText("1.190,00 €")).toBeInTheDocument();
+    await userEvent.click(within(table).getByRole("button", { name: "Buchung 1 öffnen" }));
+    const sheet = await screen.findByRole("dialog");
+    expect(within(sheet).getByRole("heading", { name: "Warum dieses Konto?" })).toBeInTheDocument();
+    expect(within(sheet).getByText(entry.explanationText)).toBeInTheDocument();
+    expect(within(sheet).getByText("Storniert durch Nr. 2")).toBeInTheDocument();
+    expect(within(sheet).getByText(/posting-2026\.1/)).toBeInTheDocument();
+    expect(within(sheet).getByText(/Steuerzeitpunkt 10\.03\.2026/)).toBeInTheDocument();
+    // read-only: no edit or delete actions anywhere
+    expect(screen.queryByRole("button", { name: /Bearbeiten|Löschen/ })).toBeNull();
+  });
+
+  test("ACC-001 the month filter is passed to the query", async () => {
+    renderWithIntl(<JournalViewer />);
+    const month = screen.getByLabelText("Monat");
+    await userEvent.type(month, "2026-03");
+    expect(backend.paginatedArgs.at(-1)).toEqual({ period: "2026-03" });
+  });
+});
+
+describe("Kontenplan (F08 §6)", () => {
+  test("ACC-007 shows accounts with balances, the ⚠ for unverified accounts and filters to used accounts", async () => {
+    renderWithIntl(<ChartOfAccounts isOwner={false} />);
+    expect(screen.getByText("Kontenrahmen SKR03 · Wirtschaftsjahr 01.01.2026 – 31.12.2026")).toBeInTheDocument();
+    const table = screen.getByRole("table", { name: "Konten" });
+    expect(within(table).getByText("−1.000,00 €")).toBeInTheDocument();
+    expect(within(table).getAllByText(/⚠ ungeprüft/)).toHaveLength(1);
+    await userEvent.click(screen.getByLabelText("Nur bebuchte Konten"));
+    expect(within(table).queryByText("Kasse")).toBeNull();
+  });
+
+  test("ACC-008 TST-ACC-39 the roles tab flags unmapped and uncertain roles; only the owner may assign", async () => {
+    const { unmount } = renderWithIntl(<ChartOfAccounts isOwner={false} />);
+    await userEvent.click(screen.getByRole("tab", { name: /Rollen & Standardkonten/ }));
+    const list = screen.getByRole("list", { name: "Rollen und Standardkonten" });
+    expect(within(list).getByText("nicht zugeordnet")).toBeInTheDocument();
+    expect(within(list).getByText("⚠ prüfen")).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /Konto zuordnen/ })).toBeNull();
+    unmount();
+
+    renderWithIntl(<ChartOfAccounts isOwner />);
+    await userEvent.click(screen.getByRole("tab", { name: /Rollen & Standardkonten/ }));
+    await userEvent.click(screen.getByRole("button", { name: /Konto zuordnen.*Photovoltaik/ }));
+    const dialog = await screen.findByRole("dialog");
+    await userEvent.selectOptions(within(dialog).getByLabelText("Konto"), "8100");
+    await userEvent.clear(within(dialog).getByLabelText("Gültig ab"));
+    await userEvent.type(within(dialog).getByLabelText("Gültig ab"), "2026-01-01");
+    await userEvent.type(within(dialog).getByLabelText("Begründung oder Quelle"), "PV-Nullsatz geprüft");
+    await userEvent.click(within(dialog).getByRole("button", { name: "Speichern" }));
+    expect(backend.mutations["accounting:setRoleMapping"]).toHaveBeenCalledWith({
+      role: "revenue.zero_pv",
+      account: "8100",
+      validFrom: "2026-01-01",
+      sourceText: "PV-Nullsatz geprüft",
+    });
+  });
+});
+
+describe("Eröffnungsbilanz (F08 §6)", () => {
+  test("ACC-013 posted parts show their entry; a bank balance is parsed from German input and posted once", async () => {
+    renderWithIntl(<OpeningBalanceWizard canPost isOwner />);
+    expect(screen.getByText("Gebucht (Nr. 1, 250,00 €)")).toBeInTheDocument();
+    const input = screen.getByLabelText("Anfangssaldo Revolut EUR");
+    await userEvent.type(input, "abc");
+    await userEvent.click(screen.getByRole("button", { name: "Anfangssaldo Revolut EUR buchen" }));
+    expect(screen.getByText("Bitte einen gültigen Betrag eingeben, z. B. 1.234,56.")).toBeInTheDocument();
+    await userEvent.clear(input);
+    await userEvent.type(input, "2.500,10");
+    await userEvent.click(screen.getByRole("button", { name: "Anfangssaldo Revolut EUR buchen" }));
+    expect(backend.mutations["accounting:postOpeningBalancePart"]).toHaveBeenCalledWith({
+      fiscalYear: 2026,
+      part: { kind: "bank", bankAccountId: "b1", amountCents: 250010 },
+    });
+    expect(toast.success).toHaveBeenCalledWith("Eröffnungsbuchung erstellt.");
+  });
+
+  test("ACC-013 TST-ACC-09 open receivables (one Ist with not-yet-due VAT) are posted as one part", async () => {
+    renderWithIntl(<OpeningBalanceWizard canPost isOwner />);
+    await userEvent.click(screen.getByRole("button", { name: "Forderung hinzufügen" }));
+    const item = screen.getByRole("group", { name: "Forderung 1" });
+    await userEvent.type(within(item).getByLabelText("Rechnungsnr."), "SD-1002");
+    await userEvent.type(within(item).getByLabelText("Kunde"), "Kunde B");
+    await userEvent.type(within(item).getByLabelText("Rechnungsdatum"), "2025-12-20");
+    await userEvent.type(within(item).getByLabelText("Brutto"), "595,00");
+    await userEvent.selectOptions(within(item).getByLabelText("Umsatzsteuer"), "ist");
+    await userEvent.type(within(item).getByLabelText("Enthaltene, noch nicht abgeführte USt"), "95,00");
+    await userEvent.click(screen.getByRole("button", { name: "Offene Forderungen buchen" }));
+    expect(backend.mutations["accounting:postOpeningBalancePart"]).toHaveBeenCalledWith({
+      fiscalYear: 2026,
+      part: {
+        kind: "receivables",
+        items: [
+          {
+            number: "SD-1002",
+            counterpartyName: "Kunde B",
+            documentDate: "2025-12-20",
+            grossCents: 59500,
+            openCents: 59500,
+            taxedAs: "ist",
+            notDueVat: [{ rateBp: 1900, vatCents: 9500 }],
+          },
+        ],
+      },
+    });
+  });
+
+  test("ACC-014 ACC-008 viewers see the values read-only; the Buchungsbeginn is editable for the owner until the first posting", async () => {
+    renderWithIntl(<OpeningBalanceWizard canPost={false} isOwner={false} />);
+    expect(screen.queryByRole("button", { name: /buchen/ })).toBeNull();
+    expect(screen.queryByRole("button", { name: "Übernehmen" })).toBeNull();
+    expect(screen.getByText("Nicht gesetzt – die Buchhaltung beginnt mit dem Wirtschaftsjahr.")).toBeInTheDocument();
+  });
+
+  test("ACC-014 E-ACC-14 the owner sets the Buchungsbeginn", async () => {
+    renderWithIntl(<OpeningBalanceWizard canPost isOwner />);
+    await userEvent.type(screen.getByLabelText("Buchungsbeginn"), "2026-04-01");
+    await userEvent.click(screen.getByRole("button", { name: "Übernehmen" }));
+    expect(backend.mutations["accounting:setBookkeepingStartDate"]).toHaveBeenCalledWith({ date: "2026-04-01" });
+  });
+});

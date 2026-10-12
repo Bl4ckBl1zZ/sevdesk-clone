@@ -1,0 +1,77 @@
+{
+  "case": "T9-atm-withdrawal-to-till",
+  "covers": "T9, CSH-025, TST-ACC-34",
+  "ruleVersion": "posting-2026.1",
+  "SKR03": {
+    "date": "2026-03-05",
+    "text": "Bargeldabhebung in die Kasse",
+    "explanation": "T9",
+    "roleMappingVersion": "roles-2026.2",
+    "source": {
+      "kind": "cashTransfer",
+      "id": "ct4"
+    },
+    "lines": [
+      {
+        "role": "transit",
+        "debitCents": 20000,
+        "creditCents": 0,
+        "account": "1360"
+      },
+      {
+        "role": "bank.bank1",
+        "debitCents": 0,
+        "creditCents": 20000,
+        "account": "1200"
+      },
+      {
+        "role": "cash",
+        "debitCents": 20000,
+        "creditCents": 0,
+        "account": "1000"
+      },
+      {
+        "role": "transit",
+        "debitCents": 0,
+        "creditCents": 20000,
+        "account": "1360"
+      }
+    ]
+  },
+  "SKR04": {
+    "date": "2026-03-05",
+    "text": "Bargeldabhebung in die Kasse",
+    "explanation": "T9",
+    "roleMappingVersion": "roles-2026.2",
+    "source": {
+      "kind": "cashTransfer",
+      "id": "ct4"
+    },
+    "lines": [
+      {
+        "role": "transit",
+        "debitCents": 20000,
+        "creditCents": 0,
+        "account": "1460"
+      },
+      {
+        "role": "bank.bank1",
+        "debitCents": 0,
+        "creditCents": 20000,
+        "account": "1800"
+      },
+      {
+        "role": "cash",
+        "debitCents": 20000,
+        "creditCents": 0,
+        "account": "1600"
+      },
+      {
+        "role": "transit",
+        "debitCents": 0,
+        "creditCents": 20000,
+        "account": "1460"
+      }
+    ]
+  }
+}

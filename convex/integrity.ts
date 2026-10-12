@@ -24,6 +24,7 @@ import {
   recordCheckpointUpload,
   recordIntegrityRun,
 } from "./model/integrity";
+import { journalHead } from "./model/journal";
 import schema from "./schema";
 import { vIntegrityFinding } from "./validators";
 
@@ -78,6 +79,7 @@ export const state = systemQuery({
     const head = await chainHead(ctx);
     return {
       head: head ? { seq: head.seq, hash: head.hash } : null,
+      journalSeq: (await journalHead(ctx))?.seq ?? 0,
       lastRun: await latestRun(ctx),
       checkpoint: await latestCheckpoint(ctx),
     };
@@ -310,7 +312,7 @@ export async function runCheckpoint(
     lastHash: st.head?.hash ?? (await genesisHash(instanceName())),
     counts,
     artifactsCount: counts.documentArtifacts ?? 0,
-    journalSeq: 0, // journalEntries arrive with F08 (P1)
+    journalSeq: st.journalSeq,
     appVersion: env("APP_VERSION") ?? "0.0.0",
     schemaVersion: SCHEMA_VERSION,
     prevCheckpointHash: st.checkpoint ? await sha256Hex(st.checkpoint.jws) : "0".repeat(64),

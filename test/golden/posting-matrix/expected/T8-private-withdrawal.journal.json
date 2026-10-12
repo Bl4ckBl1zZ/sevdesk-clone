@@ -1,0 +1,53 @@
+{
+  "case": "T8-private-withdrawal",
+  "covers": "T8, CSH-024, TST-ACC-33",
+  "ruleVersion": "posting-2026.1",
+  "SKR03": {
+    "date": "2026-03-04",
+    "text": "Privatentnahme aus der Kasse",
+    "explanation": "T8",
+    "roleMappingVersion": "roles-2026.2",
+    "source": {
+      "kind": "cashTransfer",
+      "id": "ct2"
+    },
+    "lines": [
+      {
+        "role": "private.withdrawal",
+        "debitCents": 10000,
+        "creditCents": 0,
+        "account": "1800"
+      },
+      {
+        "role": "cash",
+        "debitCents": 0,
+        "creditCents": 10000,
+        "account": "1000"
+      }
+    ]
+  },
+  "SKR04": {
+    "date": "2026-03-04",
+    "text": "Privatentnahme aus der Kasse",
+    "explanation": "T8",
+    "roleMappingVersion": "roles-2026.2",
+    "source": {
+      "kind": "cashTransfer",
+      "id": "ct2"
+    },
+    "lines": [
+      {
+        "role": "private.withdrawal",
+        "debitCents": 10000,
+        "creditCents": 0,
+        "account": "2100"
+      },
+      {
+        "role": "cash",
+        "debitCents": 0,
+        "creditCents": 10000,
+        "account": "1600"
+      }
+    ]
+  }
+}

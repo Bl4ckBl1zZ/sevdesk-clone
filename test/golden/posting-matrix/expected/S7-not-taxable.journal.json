@@ -1,0 +1,59 @@
+{
+  "case": "S7-not-taxable",
+  "covers": "S7 (O), UST-23",
+  "ruleVersion": "posting-2026.1",
+  "SKR03": {
+    "date": "2026-03-10",
+    "text": "Rechnung RE-2026-0001 Muster GmbH",
+    "explanation": "S7",
+    "roleMappingVersion": "roles-2026.2",
+    "source": {
+      "kind": "salesDocument",
+      "id": "doc1"
+    },
+    "lines": [
+      {
+        "role": "receivable",
+        "debitCents": 40000,
+        "creditCents": 0,
+        "contactId": "contact1",
+        "account": "1400"
+      },
+      {
+        "role": "revenue.not_taxable",
+        "debitCents": 0,
+        "creditCents": 40000,
+        "taxKey": "nStb",
+        "taxPointDate": "2026-03-05",
+        "account": "8338"
+      }
+    ]
+  },
+  "SKR04": {
+    "date": "2026-03-10",
+    "text": "Rechnung RE-2026-0001 Muster GmbH",
+    "explanation": "S7",
+    "roleMappingVersion": "roles-2026.2",
+    "source": {
+      "kind": "salesDocument",
+      "id": "doc1"
+    },
+    "lines": [
+      {
+        "role": "receivable",
+        "debitCents": 40000,
+        "creditCents": 0,
+        "contactId": "contact1",
+        "account": "1200"
+      },
+      {
+        "role": "revenue.not_taxable",
+        "debitCents": 0,
+        "creditCents": 40000,
+        "taxKey": "nStb",
+        "taxPointDate": "2026-03-05",
+        "account": "4338"
+      }
+    ]
+  }
+}
