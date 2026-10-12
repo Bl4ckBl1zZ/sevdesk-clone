@@ -228,6 +228,24 @@ export default defineSchema({
     next: v.number(),
   }).index("by_range_period", ["rangeId", "periodKey"]),
 
+  // 03 §1 numberRegister 🔒 (UST-06, GOBD-02): every issued number; uniqueness via by_normalized (SET-060/064).
+  // `documentId` is the issuing record (sales document, contact, product, asset, voucher) — typed as a string
+  // until those tables exist (P1+). `periodKey`/`counter` feed SET-059 and the gap report (SET-063).
+  numberRegister: defineTable({
+    number: v.string(),
+    normalized: v.string(),
+    rangeId: v.optional(v.id("numberRanges")),
+    docType: v.string(),
+    documentId: v.optional(v.string()),
+    periodKey: v.optional(v.string()),
+    counter: v.optional(v.number()),
+    assignedAt: v.number(),
+    status: v.union(v.literal("issued"), v.literal("cancelled_by_storno"), v.literal("corrected")),
+    imported: v.optional(v.literal(true)),
+  })
+    .index("by_normalized", ["normalized"])
+    .index("by_range", ["rangeId", "periodKey"]),
+
   // 03 §1 layouts / layoutVersions 🔒 (append-only; documents reference a version, GOBD-06)
   layouts: defineTable({
     name: v.string(),

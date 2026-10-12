@@ -82,6 +82,11 @@ const ARGS: Record<string, Record<string, unknown>> = {
   "settings:saveLayout": { values: LAYOUT },
   "settings:saveNumberRanges": { values: RANGES },
   "members:disable": { memberId: "placeholder", reason: "test" },
+  "settings:createNumberRange": {
+    values: { name: "Extra", docTypes: ["proforma"], format: "PX-{YYYY}-{###}", resetPolicy: "yearly", startValue: 1 },
+  },
+  "settings:deactivateNumberRange": { rangeId: "placeholder" },
+  "settings:deleteNumberRange": { rangeId: "placeholder" },
   "members:changeRole": { memberId: "placeholder", role: "bookkeeper" },
   "members:extend": { memberId: "placeholder", expiresAt: Date.now() + 5 * DAY },
   "members:revokeSessions": { memberId: "placeholder" },
@@ -138,6 +143,21 @@ async function resolvePlaceholders(t: TestT, args: Record<string, unknown>): Pro
       (await import("./model/members")).createInvite(ctx, { email: `p-${Math.random()}@example.test`, role: "viewer" }),
     );
   }
+  if (out.rangeId === "placeholder") {
+    out.rangeId = await t.model({ actor: "user:seed", role: "owner", channel: "ui" }, async (ctx) =>
+      (await import("./model/numberRanges")).createRange(
+        ctx,
+        {
+          name: `R${Math.random()}`,
+          docTypes: ["proforma"],
+          format: "PR-{YYYY}-{###}",
+          resetPolicy: "yearly",
+          startValue: 1,
+        },
+        { year: 2026, month: 10 },
+      ),
+    );
+  }
   if (out.runId === "placeholder") {
     out.runId = await t.asSystem("cron.integrity.verify").model(async (ctx) =>
       (await import("./model/integrity")).recordIntegrityRun(ctx, {
@@ -167,6 +187,10 @@ describe("role matrix of the settings, members, invites and integrity functions 
         "settings:generateLogoUploadUrl",
         "settings:saveLayout",
         "settings:saveNumberRanges",
+        "settings:listNumberRanges",
+        "settings:createNumberRange",
+        "settings:deactivateNumberRange",
+        "settings:deleteNumberRange",
         "settings:completeSetup",
         "settings:runAccessChecks",
         "settings:testCheckpointStorage",

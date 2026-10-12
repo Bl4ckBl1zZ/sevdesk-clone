@@ -1,3 +1,4 @@
+import { NumberRangesAdmin } from "@/components/settings/number-ranges-admin";
 import { NumberRangesSettings, SaveButton } from "@/components/settings/settings-forms";
 import { SettingsPage, settingsMetadata } from "@/components/settings/settings-page";
 
@@ -6,7 +7,10 @@ export const generateMetadata = () => settingsMetadata("nummernkreise");
 export default async function Page() {
   return (
     <SettingsPage item="nummernkreise" actions={<SaveButton />}>
-      <NumberRangesSettings />
+      <div className="flex flex-col gap-6">
+        <NumberRangesSettings />
+        <NumberRangesAdmin />
+      </div>
     </SettingsPage>
   );
 }

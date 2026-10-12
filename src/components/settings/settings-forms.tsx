@@ -1,10 +1,11 @@
 "use client";
 
 import { useTranslations } from "next-intl";
-import { useRef } from "react";
+import { useId, useRef, useState } from "react";
 import { toast } from "sonner";
 import { ConvexGuard } from "@/components/convex/convex-provider";
 import {
+  adapterErrorReason,
   type SetupState,
   saveBankAccount,
   saveCompanyProfile,
@@ -20,6 +21,17 @@ import { TaxForm } from "@/components/setup/forms/tax-form";
 import { SEEDED_RANGES } from "@/components/setup/seed-ranges";
 import { useSetupState } from "@/components/setup/use-setup-state";
 import { Button } from "@/components/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
+import type { NumberRangesValues } from "@/domain/schemas/settings";
 import { companyDefaults, taxDefaults } from "@/domain/schemas/settings";
 import { useAdapterErrorToast } from "@/hooks/use-adapter-error-toast";
 
@@ -59,6 +71,8 @@ function useSave() {
       // F01 §6.3: "Gespeichert · {n} Entwürfe übernehmen die Änderung" once drafts can be counted.
       toast.success(t("saved"));
     } catch (e) {
+      // Errors a page already answers with its own dialog (e.g. SET-059 reason) are not toasted again.
+      if ((e as { handled?: boolean }).handled) return;
       showAdapterError(e);
     }
   };
@@ -169,13 +183,57 @@ export function NumberRangesSettings() {
 function NumberRangesSettingsInner() {
   const state = useSettingsState();
   const save = useSave();
+  const t = useTranslations("settings.numberRanges");
+  const tCommon = useTranslations("common");
+  const reasonId = useId();
+  // SET-059: raising „Nächste Nummer“ leaves a documented gap — the server asks for the reason (REASON_REQUIRED).
+  const [pending, setPending] = useState<NumberRangesValues | null>(null);
+  const [reason, setReason] = useState("");
+  const submit = (values: NumberRangesValues) =>
+    save(async () => {
+      try {
+        await saveNumberRanges(values);
+        setPending(null);
+        setReason("");
+      } catch (e) {
+        if (adapterErrorReason(e) === "REASON_REQUIRED" && !values.reason) {
+          setPending(values);
+          throw Object.assign(new Error(t("reasonNeeded")), { handled: true });
+        }
+        throw e;
+      }
+    });
   return (
     <Frame state={state}>
       <NumberRangesForm
         id={SETTINGS_FORM_ID}
         defaultValues={{ ranges: state?.numberRanges ?? SEEDED_RANGES }}
-        onValid={(v) => save(() => saveNumberRanges(v))}
+        onValid={submit}
       />
+      <Dialog open={pending !== null} onOpenChange={(open) => !open && setPending(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>{t("reasonTitle")}</DialogTitle>
+            <DialogDescription>{t("reasonDescription")}</DialogDescription>
+          </DialogHeader>
+          <div className="flex flex-col gap-1.5">
+            <Label htmlFor={reasonId}>{t("reasonLabel")}</Label>
+            <Textarea id={reasonId} rows={3} value={reason} onChange={(e) => setReason(e.target.value)} />
+          </div>
+          <DialogFooter>
+            <Button variant="outline" className="h-11 md:h-9" onClick={() => setPending(null)}>
+              {tCommon("cancel")}
+            </Button>
+            <Button
+              className="h-11 md:h-9"
+              disabled={reason.trim() === ""}
+              onClick={() => pending && void submit({ ...pending, reason })}
+            >
+              {tCommon("save")}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </Frame>
   );
 }

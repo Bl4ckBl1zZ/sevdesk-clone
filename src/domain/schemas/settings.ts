@@ -10,7 +10,7 @@ import { electronicFormatIBAN, isValidBIC, isValidIBAN } from "ibantools";
 import { z } from "zod";
 import { fieldsFor, LEGAL_FORMS } from "../company/legal-forms";
 import { parseCents } from "../money/parse";
-import { MAX_START_VALUE, MIN_START_VALUE, RESET_POLICIES, validateFormat } from "../numbering/format";
+import { MAX_START_VALUE, MIN_START_VALUE, RESET_POLICIES, SEEDED_RANGES, validateFormat } from "../numbering/format";
 import { isEuEeaCountry } from "../rules/eu-eea";
 import { checkKuStart } from "../tax/kleinunternehmer";
 import { isBundesland, normalizeTaxNumber } from "../tax/tax-number";
@@ -357,3 +357,25 @@ export const numberRangesSchema = z.object({
 });
 export type NumberRangesFormValues = z.input<typeof numberRangesSchema>;
 export type NumberRangesValues = z.output<typeof numberRangesSchema>;
+
+/** SET-055: an additional range (not the default) for one or more numbered document types. */
+export const NUMBERED_DOC_TYPES = [...new Set(SEEDED_RANGES.flatMap((r) => r.docTypes))] as [string, ...string[]];
+
+export const numberRangeCreateSchema = z
+  .object({
+    name: trimmed().min(1, "Bitte einen Namen angeben.").max(60, "Höchstens 60 Zeichen."),
+    docTypes: z.array(z.enum(NUMBERED_DOC_TYPES)).min(1, "Bitte mindestens eine Dokumentart wählen."),
+    format: trimmed().min(1, "Das Format muss genau einen Zähler wie {####} enthalten."),
+    resetPolicy: z.enum(RESET_POLICIES),
+    startValue: z.coerce
+      .number(START_VALUE_MESSAGE)
+      .int(START_VALUE_MESSAGE)
+      .min(MIN_START_VALUE, START_VALUE_MESSAGE)
+      .max(MAX_START_VALUE, START_VALUE_MESSAGE),
+  })
+  .superRefine((r, ctx) => {
+    const check = validateFormat(r.format, r.resetPolicy);
+    if (!check.ok) ctx.addIssue({ code: "custom", path: ["format"], message: check.error.message });
+  });
+export type NumberRangeCreateFormValues = z.input<typeof numberRangeCreateSchema>;
+export type NumberRangeCreateValues = z.output<typeof numberRangeCreateSchema>;

@@ -8,6 +8,7 @@ import {
   emailStepSchema,
   LOGO_INVALID_MESSAGE,
   layoutSchema,
+  numberRangeCreateSchema,
   numberRangesSchema,
   taxSchema,
   validateLogoFile,
@@ -32,7 +33,16 @@ import { getCompanyProfile, patchCompanyProfile } from "./model/companyProfile";
 import { getIntegration, recordIntegrationTest } from "./model/integrations";
 import { defaultLayout, saveDefaultLayout } from "./model/layouts";
 import { getNotificationSettings, saveNotificationAddress } from "./model/notificationSettings";
-import { listDefaultRanges, nextValue, saveRanges } from "./model/numberRanges";
+import {
+  createRange,
+  deactivateRange,
+  deleteRange,
+  issuedCount,
+  listDefaultRanges,
+  listRanges,
+  nextValue,
+  saveRanges,
+} from "./model/numberRanges";
 import { setupChecklist, setupFacts } from "./model/setup";
 
 /**
@@ -306,6 +316,49 @@ export const saveNumberRanges = mutation({
     const r = parse(numberRangesSchema, values);
     await saveRanges(ctx, r, yearMonth(ctx.now()));
   },
+});
+
+/** Einstellungen › Nummernkreise: every range with its next value and whether numbers were issued (SET-055/062). */
+export const listNumberRanges = query({
+  permission: "settings.read",
+  args: {},
+  handler: async (ctx) => {
+    const ym = yearMonth(ctx.now());
+    return Promise.all(
+      (await listRanges(ctx)).map(async (r) => ({
+        rangeId: r._id,
+        name: r.name,
+        docTypes: r.docTypes,
+        format: r.format,
+        resetPolicy: r.resetPolicy,
+        active: r.active,
+        isDefault: r.isDefault,
+        next: await nextValue(ctx, r, ym),
+        inUse: (await issuedCount(ctx, r._id)) > 0,
+      })),
+    );
+  },
+});
+
+/** SET-055: an additional range (collision-checked, SET-060). */
+export const createNumberRange = mutation({
+  permission: "settings.write",
+  args: { values: v.any() },
+  handler: async (ctx, { values }) => createRange(ctx, parse(numberRangeCreateSchema, values), yearMonth(ctx.now())),
+});
+
+/** SET-062: deactivate a range (never the only active default of a type). */
+export const deactivateNumberRange = mutation({
+  permission: "settings.write",
+  args: { rangeId: v.id("numberRanges") },
+  handler: async (ctx, { rangeId }) => deactivateRange(ctx, rangeId),
+});
+
+/** SET-062: delete an unused range (`RANGE_IN_USE` once numbers were issued). */
+export const deleteNumberRange = mutation({
+  permission: "settings.write",
+  args: { rangeId: v.id("numberRanges") },
+  handler: async (ctx, { rangeId }) => deleteRange(ctx, rangeId),
 });
 
 /** Step 11: sets `setupCompletedAt` + audit entry; refused while blocking items exist (SET-004). */

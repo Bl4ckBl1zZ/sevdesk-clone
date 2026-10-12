@@ -62,6 +62,15 @@ export function adapterErrorCode(error: unknown): string | undefined {
   return undefined;
 }
 
+/** The domain reason (`COUNTER_DECREASE`, `REASON_REQUIRED`, `FORMAT_COLLISION` …) of a ConvexError, if any. */
+export function adapterErrorReason(error: unknown): string | undefined {
+  if (error instanceof ConvexError && typeof error.data === "object" && error.data !== null) {
+    const reason = (error.data as { reason?: unknown }).reason;
+    return typeof reason === "string" ? reason : undefined;
+  }
+  return undefined;
+}
+
 /** The German message of a ConvexError from our wrappers (never English server text). */
 export function adapterErrorMessage(error: unknown): string | undefined {
   if (error instanceof ConvexError && typeof error.data === "object" && error.data !== null) {

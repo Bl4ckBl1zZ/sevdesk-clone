@@ -239,10 +239,12 @@ Assignment moments: sales documents at finalisation (SET-061); purchase vouchers
 ### `numberRegister` 🔒 (UST-06, GOBD-02)
 ```ts
 { number: string; normalized: string /* uppercase, trimmed */; rangeId?: Id<"numberRanges">; docType;
-  documentId: Id<"salesDocuments">;
+  documentId?: Id<"salesDocuments"> | Id<"contacts"> | Id<"products"> | Id<"assets"> | Id<"vouchers">;  // issuing record (SET-064)
+  periodKey?: string; counter?: number;   // counter period and value at assignment: SET-059 minimum and the SET-063 gap report
+                                          // without re-parsing numbers whose format changed mid-year (added P0)
   assignedAt: number; status: "issued" | "cancelled_by_storno" | "corrected";
   imported?: true }                 // historical sevdesk number (F09 IMP-004, SET-065, EC-014); counts for uniqueness, not for the gap report start
-// index by_normalized → uniqueness check inside the finalisation transaction
+// index by_normalized → uniqueness check inside the finalisation transaction and the SET-060 range scan; by_range (rangeId, periodKey)
 ```
 
 ### Templates and lookups

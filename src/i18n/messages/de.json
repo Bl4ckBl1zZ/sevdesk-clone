@@ -432,6 +432,37 @@
       "email": "E-Mail-Versand",
       "checkpoint": "Prüfpunkt-Speicher (R2)",
       "access": "Zugriff/Zertifikat"
+    },
+    "numberRanges": {
+      "reasonTitle": "Nummern überspringen?",
+      "reasonDescription": "Die nächste Nummer liegt über dem bisherigen Zähler. Die übersprungenen Nummern erscheinen im Lückenprotokoll — bitte den Grund angeben.",
+      "reasonLabel": "Begründung (Lückenprotokoll)",
+      "reasonNeeded": "Begründung erforderlich.",
+      "allTitle": "Alle Nummernkreise",
+      "allDescription": "Weitere Nummernkreise je Dokumentart, z. B. für eigene Stornonummern. Nummernkreise mit vergebenen Nummern können nur deaktiviert, nicht gelöscht werden.",
+      "create": "Nummernkreis anlegen",
+      "createTitle": "Nummernkreis anlegen",
+      "createDescription": "Der neue Nummernkreis wird gegen alle vergebenen Nummern geprüft (10.000 Nummern je Zeitraum).",
+      "name": "Name",
+      "docType": "Dokumentart",
+      "resetPolicy": "Neustart",
+      "startValue": "Startwert",
+      "reset": {
+        "never": "nie",
+        "yearly": "jährlich",
+        "monthly": "monatlich"
+      },
+      "default": "Standard",
+      "inactive": "inaktiv",
+      "inUse": "Nummern vergeben",
+      "deactivate": "Deaktivieren",
+      "delete": "Löschen",
+      "deactivated": "Nummernkreis deaktiviert.",
+      "deleted": "Nummernkreis gelöscht.",
+      "created": "Nummernkreis angelegt.",
+      "next": "Nächste Nummer",
+      "actionsFor": "Aktionen für {name}",
+      "format": "Format"
     }
   },
   "auth": {
