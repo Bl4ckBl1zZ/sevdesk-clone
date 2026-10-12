@@ -5,6 +5,7 @@
  */
 import { type FieldIssue, fieldIssue, foldSearch } from "../contacts/core";
 import { netToGrossMicros } from "../money/convert";
+import { formatBasisPoints, formatMicros, formatMilli } from "../money/format";
 import { UNIT_CODES } from "../rules/unit-codes";
 import { isVatRateKey } from "../rules/vat-rates";
 import { parseUnitPrice } from "./pricing";
@@ -275,3 +276,57 @@ export const PRODUCT_EXPORT_HEADERS = [
   "Zusatzeinheiten",
   "Beschreibung",
 ] as const;
+
+export interface ProductExportSource {
+  readonly number: string;
+  readonly name: string;
+  readonly type: "service" | "good";
+  readonly unitCode: string;
+  readonly priceMode: "net" | "gross";
+  readonly netMicros: number;
+  readonly grossMicros: number;
+  readonly vatRateKey: string;
+  readonly rateBp: number;
+  readonly exemptionReasonCode?: string | undefined;
+  readonly purchasePriceMicros?: number | undefined;
+  readonly marginBp?: number | null | undefined;
+  readonly categoryPath: string;
+  readonly laborCostShareBp?: number | undefined;
+  readonly gtin?: string | undefined;
+  readonly active: boolean;
+  readonly tagNames: readonly string[];
+  readonly customFields: Readonly<Record<string, unknown>>;
+  readonly extraUnits: readonly { unitCode: string; factorMilli: number }[];
+  readonly description?: string | undefined;
+}
+
+const bp = (v: number) => formatBasisPoints(v);
+
+/** PRD-085: one export row in the order of PRODUCT_EXPORT_HEADERS (German number format). */
+export function productExportRow(p: ProductExportSource): string[] {
+  return [
+    p.number,
+    p.name,
+    p.type === "good" ? "Ware" : "Dienstleistung",
+    p.unitCode,
+    p.priceMode === "gross" ? "brutto" : "netto",
+    formatMicros(p.netMicros),
+    formatMicros(p.grossMicros),
+    p.vatRateKey,
+    bp(p.rateBp),
+    p.exemptionReasonCode ?? "",
+    p.purchasePriceMicros !== undefined ? formatMicros(p.purchasePriceMicros) : "",
+    p.marginBp !== undefined && p.marginBp !== null ? bp(p.marginBp) : "",
+    p.categoryPath,
+    p.laborCostShareBp !== undefined ? bp(p.laborCostShareBp) : "",
+    p.gtin ?? "",
+    p.active ? "ja" : "nein",
+    p.tagNames.join(", "),
+    Object.entries(p.customFields)
+      .filter(([, v]) => v !== undefined && v !== "")
+      .map(([k, v]) => `${k}=${String(v)}`)
+      .join("; "),
+    p.extraUnits.map((u) => `${u.unitCode}=${formatMilli(u.factorMilli)}`).join("; "),
+    p.description ?? "",
+  ];
+}

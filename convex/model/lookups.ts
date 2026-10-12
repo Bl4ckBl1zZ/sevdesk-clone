@@ -19,6 +19,8 @@ import type { Doc, Id } from "../_generated/dataModel";
 import { appError } from "../lib/errors";
 import { auditedDelete, auditedInsert, auditedPatch } from "./audit";
 import { getCompanyProfile } from "./companyProfile";
+import { removeTagFromContacts } from "./contacts";
+import { productsUsingUnit, removeTagFromProducts } from "./products";
 import type { ModelCtx, ReadCtx } from "./types";
 
 /**
@@ -36,8 +38,9 @@ export async function listUnits(ctx: ReadCtx): Promise<Doc<"units">[]> {
   return ctx.db.query("units").collect();
 }
 
-export async function unitUsageCount(_ctx: ReadCtx, _code: string): Promise<number> {
-  return 0;
+/** SET-090: products using the unit (base or extra unit); document lines add their count with F04. */
+export async function unitUsageCount(ctx: ReadCtx, code: string): Promise<number> {
+  return productsUsingUnit(ctx, code);
 }
 
 export async function seedUnits(ctx: ModelCtx): Promise<number> {
@@ -214,6 +217,8 @@ export async function saveTag(ctx: ModelCtx, values: TagValues, tagId?: Id<"tags
 export async function deleteTag(ctx: ModelCtx, tagId: Id<"tags">): Promise<void> {
   const tag = await ctx.db.get(tagId);
   if (!tag) throw appError("not_found");
+  await removeTagFromContacts(ctx, tagId);
+  await removeTagFromProducts(ctx, tagId);
   await auditedDelete(ctx, "tags", tagId, { action: "settings.tag.delete", label: tag.name });
 }
 
@@ -222,7 +227,13 @@ export async function listCustomFieldDefs(ctx: ReadCtx): Promise<Doc<"customFiel
   return ctx.db.query("customFieldDefs").collect();
 }
 
-export async function customFieldValueCount(_ctx: ReadCtx, _def: Doc<"customFieldDefs">): Promise<number> {
+/** SET-095 type lock: contacts/products holding a value for the definition (documents add theirs with F04). */
+export async function customFieldValueCount(ctx: ReadCtx, def: Doc<"customFieldDefs">): Promise<number> {
+  const has = (values: Record<string, unknown>) => values[def.key] !== undefined && values[def.key] !== "";
+  if (def.entity === "contact")
+    return (await ctx.db.query("contacts").collect()).filter((c) => has(c.customFields)).length;
+  if (def.entity === "product")
+    return (await ctx.db.query("products").collect()).filter((p) => has(p.customFields)).length;
   return 0;
 }
 

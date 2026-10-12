@@ -20,7 +20,14 @@ import { percentToBp } from "./contacts";
 const trimmed = () => z.string().trim();
 
 function addIssues(ctx: z.RefinementCtx, issues: readonly FieldIssue[]) {
-  for (const i of issues) ctx.addIssue({ code: "custom", path: i.field ? i.field.split(".") : [], message: i.message });
+  for (const i of issues) {
+    ctx.addIssue({
+      code: "custom",
+      path: i.field ? i.field.split(".") : [],
+      message: i.message,
+      params: { code: i.code },
+    });
+  }
 }
 
 const priceOrNaN = (v: string): number => {

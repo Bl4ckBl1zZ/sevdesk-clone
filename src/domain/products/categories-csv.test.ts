@@ -10,7 +10,7 @@ import {
   resolveCategoryPath,
   validateCategory,
 } from "./categories";
-import { autoMapProductHeaders, mapUnit, mapVat, productRow } from "./csv-io";
+import { autoMapProductHeaders, mapUnit, mapVat, PRODUCT_EXPORT_HEADERS, productExportRow, productRow } from "./csv-io";
 import { rateChangeBanner, upcomingRateChanges } from "./rate-change";
 
 const tree: CategoryNode[] = [
@@ -130,5 +130,36 @@ describe("PRD-080…085 CSV import mapping", () => {
     expect(inconsistent.errors.map((e) => e.code)).toEqual(["PRICE_INCONSISTENT"]);
     const unit = productRow(["Kabel", "Fass", "1", "", "19"], mapping, 6, rate);
     expect(unit.errors.map((e) => e.code)).toEqual(["UNIT_INVALID"]);
+  });
+});
+
+describe("PRD-085 CSV export", () => {
+  test("T-PRD-042 PRD-085 net and gross at today's rate, key and current rate, margin in German notation", () => {
+    const row = productExportRow({
+      number: "ART-00001",
+      name: "Kabel Cat7",
+      type: "good",
+      unitCode: "MTR",
+      priceMode: "net",
+      netMicros: 12_345,
+      grossMicros: 14_691,
+      vatRateKey: "standard",
+      rateBp: 1900,
+      purchasePriceMicros: 8_000,
+      marginBp: 3520,
+      categoryPath: "Waren > Kabel",
+      active: true,
+      tagNames: [],
+      customFields: {},
+      extraUnits: [{ unitCode: "XRO", factorMilli: 100_000 }],
+    });
+    expect(row).toHaveLength(PRODUCT_EXPORT_HEADERS.length);
+    const at = (h: (typeof PRODUCT_EXPORT_HEADERS)[number]) => row[PRODUCT_EXPORT_HEADERS.indexOf(h)];
+    expect(at("VK netto")).toBe("1,2345");
+    expect(at("VK brutto")).toBe("1,4691");
+    expect(at("Steuersatz heute (%)")).toBe("19");
+    expect(at("Marge (%)")).toBe("35,2");
+    expect(at("Kategorie")).toBe("Waren > Kabel");
+    expect(at("Zusatzeinheiten")).toBe("XRO=100");
   });
 });
