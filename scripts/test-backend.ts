@@ -84,7 +84,10 @@ async function main() {
   const siteIdx = args.indexOf("--site-url");
   const siteUrl = siteIdx >= 0 ? (args[siteIdx + 1] as string) : `http://localhost:${port}`;
   const { url, adminKey } = backendEnv();
-  const siteActions = url.replace(/:3210\b/, ":3211");
+  // HTTP actions listen on CONVEX_SITE_PORT (default: API port + 1, i.e. 3211 for 3210) — see convex-local-backend.sh.
+  const apiPort = new URL(url).port || "3210";
+  const sitePort = process.env.CONVEX_SITE_PORT ?? String(Number(apiPort) + 1);
+  const siteActions = url.replace(new RegExp(`:${apiPort}\\b`), `:${sitePort}`);
   const k = await keys();
   const env: NodeJS.ProcessEnv = {
     ...process.env,
