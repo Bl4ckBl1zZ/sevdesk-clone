@@ -8,6 +8,7 @@ import { WRAPPER_TAG, type WrapperMeta } from "./functions";
 import * as integrityModule from "./integrity";
 import * as invitesModule from "./invites";
 import { errorCode } from "./lib/errors";
+import * as lookupsModule from "./lookups";
 import * as membersModule from "./members";
 import * as settingsModule from "./settings";
 import { makeT, type TestT } from "./test.setup";
@@ -100,10 +101,22 @@ const ARGS: Record<string, Record<string, unknown>> = {
   "settings:createLayoutVariant": { values: { name: "Variante" } },
   "settings:setLayoutDefaults": { layoutId: "placeholder", docTypes: ["quote"] },
   "settings:layoutPreviewData": {},
+  "lookups:saveTextTemplate": {
+    values: {
+      kind: "document_head",
+      docTypes: ["invoice"],
+      language: "de",
+      name: "T",
+      body: "<p>x</p>",
+      isDefault: false,
+    },
+  },
+  "lookups:deleteTextTemplate": { templateId: "placeholder" },
 };
 
 const MODULES = {
   settings: settingsModule,
+  lookups: lookupsModule,
   members: membersModule,
   invites: invitesModule,
   integrity: integrityModule,
@@ -187,6 +200,18 @@ async function resolvePlaceholders(t: TestT, args: Record<string, unknown>): Pro
       (await import("./model/layouts")).createLayout(ctx, `L${Math.random()}`),
     );
   }
+  if (out.templateId === "placeholder") {
+    out.templateId = await t.model({ actor: "user:seed", role: "owner", channel: "ui" }, async (ctx) =>
+      (await import("./model/textTemplates")).saveTextTemplate(ctx, {
+        kind: "document_head",
+        docTypes: ["invoice"],
+        language: "de",
+        name: `T${Math.random()}`,
+        body: "<p>x</p>",
+        isDefault: false,
+      }),
+    );
+  }
   if (out.runId === "placeholder") {
     out.runId = await t.asSystem("cron.integrity.verify").model(async (ctx) =>
       (await import("./model/integrity")).recordIntegrityRun(ctx, {
@@ -230,6 +255,10 @@ describe("role matrix of the settings, members, invites and integrity functions 
         "settings:createLayoutVariant",
         "settings:setLayoutDefaults",
         "settings:layoutPreviewData",
+        "lookups:listTextTemplates",
+        "lookups:saveTextTemplate",
+        "lookups:deleteTextTemplate",
+        "lookups:restoreDefaultTextTemplates",
         "settings:runAccessChecks",
         "settings:testCheckpointStorage",
         "members:list",

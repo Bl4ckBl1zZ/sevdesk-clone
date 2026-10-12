@@ -1,5 +1,4 @@
 import { v } from "convex/values";
-import type { z } from "zod";
 import { isEuEeaCountry } from "../src/domain/rules/eu-eea";
 import {
   accessSchema,
@@ -30,6 +29,7 @@ import { configuredTransport } from "./lib/authMail";
 import { checkpointStoreFromEnv, r2LatestObject } from "./lib/checkpointStore";
 import { baseDomain, env, passkeyRpId } from "./lib/env";
 import { appError } from "./lib/errors";
+import { parse } from "./lib/parse";
 import {
   addInvoiceAccount,
   allBankAccounts,
@@ -61,6 +61,7 @@ import {
   nextValue,
   saveRanges,
 } from "./model/numberRanges";
+import { seedSettingsDefaults } from "./model/seeds";
 import { setupChecklist, setupFacts } from "./model/setup";
 
 /**
@@ -78,12 +79,6 @@ interface StatusCheck {
 }
 
 /** Parses with the shared schema; zod issues → `invalid_input` with the first German message + all issues. */
-function parse<S extends z.ZodType>(schema: S, values: unknown): z.output<S> {
-  const r = schema.safeParse(values);
-  if (r.success) return r.data;
-  const issues = r.error.issues.map((i) => ({ path: i.path.map(String).join("."), message: i.message }));
-  throw appError("invalid_input", issues[0]?.message, { issues });
-}
 
 const yearMonth = (now: number) => {
   const d = berlinCalendarDate(now);
@@ -538,6 +533,7 @@ export const completeSetup = mutation({
     if (profile?.setupCompletedAt !== undefined) return profile.setupCompletedAt;
     const at = ctx.now();
     await patchCompanyProfile(ctx, { setupCompletedAt: at }, { action: "settings.setup.complete" });
+    await seedSettingsDefaults(ctx);
     return at;
   },
 });

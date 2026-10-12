@@ -58,7 +58,14 @@ beforeEach(() => {
         template: "classic",
         accentColor: "#16a34a",
       },
-      { layoutId: "l2", name: "Angebote modern", isDefaultFor: [], version: 1, template: "modern", accentColor: "#1F6FEB" },
+      {
+        layoutId: "l2",
+        name: "Angebote modern",
+        isDefaultFor: [],
+        version: 1,
+        template: "modern",
+        accentColor: "#1F6FEB",
+      },
     ],
   };
 });
@@ -96,7 +103,10 @@ describe("Layouts (F01 SET-073, SET-074)", () => {
     const dialog = await screen.findByRole("dialog");
     await userEvent.click(within(dialog).getByLabelText("Angebot"));
     await userEvent.click(within(dialog).getByRole("button", { name: "Speichern" }));
-    expect(backend.mutations["settings:setLayoutDefaults"]).toHaveBeenCalledWith({ layoutId: "l2", docTypes: ["quote"] });
+    expect(backend.mutations["settings:setLayoutDefaults"]).toHaveBeenCalledWith({
+      layoutId: "l2",
+      docTypes: ["quote"],
+    });
   });
 
   test("SET-073 the preview form opens the PDF route with sample type, recipient, KU switch and layout", () => {
@@ -105,7 +115,9 @@ describe("Layouts (F01 SET-073, SET-074)", () => {
     const form = button.closest("form") as HTMLFormElement;
     expect(form.getAttribute("action")).toBe("/einstellungen/layouts/vorschau");
     expect(form.getAttribute("target")).toBe("_blank");
-    const options = within(screen.getByLabelText("Dokument")).getAllByRole("option").map((o) => o.textContent);
+    const options = within(screen.getByLabelText("Dokument"))
+      .getAllByRole("option")
+      .map((o) => o.textContent);
     expect(options).toEqual(["Rechnung", "Angebot", "Mahnung", "Lieferschein"]);
     expect(screen.getByLabelText("Empfänger")).toHaveAttribute("name", "kunde");
     expect(screen.getByLabelText("Besteuerung")).toHaveAttribute("name", "ku");

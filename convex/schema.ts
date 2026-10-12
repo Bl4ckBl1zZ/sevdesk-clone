@@ -281,6 +281,58 @@ export default defineSchema({
     createdAt: v.number(),
   }).index("by_layout_version", ["layoutId", "version"]),
 
+  // 03 §1 templates and lookups (F01 SET-080…097). Mutable settings; every write is audited.
+  textTemplates: defineTable({
+    kind: v.union(v.literal("document_head"), v.literal("document_foot"), v.literal("message_text")),
+    docTypes: v.array(vSalesDocType),
+    name: v.string(),
+    /** message_text only: subject line of the copyable e-mail text (F04 SND-19). */
+    subject: v.optional(v.string()),
+    body: v.string(),
+    isDefault: v.boolean(),
+    language: v.union(v.literal("de"), v.literal("en")),
+    level: v.optional(v.number()),
+  }).index("by_kind", ["kind", "language"]),
+  units: defineTable({
+    code: v.string(),
+    label: v.object({ de: v.string(), en: v.string() }),
+    isSystem: v.boolean(),
+    archivedAt: v.optional(v.number()),
+  }).index("by_code", ["code"]),
+  paymentMethods: defineTable({
+    name: v.string(),
+    text: v.string(),
+    kind: v.union(
+      v.literal("transfer"),
+      v.literal("sepa_debit"),
+      v.literal("cash"),
+      v.literal("paypal"),
+      v.literal("card"),
+      v.literal("other"),
+    ),
+    isDefault: v.boolean(),
+    /** SET-092: sepa_debit stays inactive until a creditor ID exists. */
+    active: v.boolean(),
+  }),
+  tags: defineTable({ name: v.string(), color: v.optional(v.string()) }),
+  customFieldDefs: defineTable({
+    entity: v.union(v.literal("contact"), v.literal("product"), v.literal("document")),
+    key: v.string(),
+    label: v.string(),
+    type: v.union(v.literal("text"), v.literal("number"), v.literal("date"), v.literal("select"), v.literal("boolean")),
+    options: v.optional(v.array(v.string())),
+    printOnDocuments: v.boolean(),
+    required: v.optional(v.boolean()),
+    position: v.number(),
+    archivedAt: v.optional(v.number()),
+  }).index("by_entity", ["entity", "key"]),
+  costCenters: defineTable({
+    number: v.string(),
+    name: v.string(),
+    isDefault: v.boolean(),
+    archivedAt: v.optional(v.number()),
+  }).index("by_number", ["number"]),
+
   // 03 §10 notificationSettings (singleton; P0: the owner notification address, F01 SET-009a)
   notificationSettings: defineTable({
     email: v.optional(v.object({ address: v.string(), digest: v.boolean() })),

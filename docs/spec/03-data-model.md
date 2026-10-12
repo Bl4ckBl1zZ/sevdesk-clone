@@ -252,6 +252,7 @@ Assignment moments: sales documents at finalisation (SET-061); purchase vouchers
 textTemplates:   { kind: "document_head" | "document_foot" | "message_text";   // email_* kinds removed: the app never e-mails customers (02 §9);
                                                                 // message_text = subject + body for "E-Mail-Text kopieren" (F04 SND-19), copied by the owner
                    docTypes: SalesDocType[]; name: string; body: string /* sanitized rich text with {{placeholders}} */;
+                   subject?: string /* message_text only: subject line of the copyable e-mail text (added P0, SET-080 "subject + body") */;
                    isDefault: boolean /* ≤ 1 per (kind, docType, language) */; language: "de" | "en";
                    level?: number /* reminder level, F05 DUN-050 */ }
 layouts:         { name: string; currentVersionId: Id<"layoutVersions"> /* optional in the schema only: set in the
@@ -267,7 +268,8 @@ layoutVersions:  { layoutId; version: number; config: { template: "classic" | "m
                    createdAt: number }        // immutable; documents reference a version (GOBD-06.6)
 units:           { code: string /* UN/ECE Rec 20/21, e.g. C62, HUR, DAY, KGM */; label: { de: string; en: string };
                    isSystem: boolean; archivedAt?: number }          // SET-090/091
-paymentMethods:  { name: string; text: string; kind: "transfer" | "sepa_debit" | "cash" | "paypal" | "card" | "other"; isDefault: boolean }
+paymentMethods:  { name: string; text: string; kind: "transfer" | "sepa_debit" | "cash" | "paypal" | "card" | "other"; isDefault: boolean;
+                   active: boolean /* added P0: SET-092 "SEPA-Lastschrift inactive until a creditor ID exists"; inactive methods are hidden from pickers */ }
 tags:            { name: string; color?: string }
 customFieldDefs: { entity: "contact" | "product" | "document"; key: string; label: string;
                    type: "text" | "number" | "date" | "select" | "boolean"; options?: string[]; printOnDocuments: boolean;

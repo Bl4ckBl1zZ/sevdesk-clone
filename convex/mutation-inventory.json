@@ -175,6 +175,30 @@
     "wrapper": "mutation",
     "permission": "invites.manage"
   },
+  "lookups:deleteTextTemplate": {
+    "kind": "mutation",
+    "visibility": "public",
+    "wrapper": "mutation",
+    "permission": "settings.write"
+  },
+  "lookups:listTextTemplates": {
+    "kind": "query",
+    "visibility": "public",
+    "wrapper": "query",
+    "permission": "settings.read"
+  },
+  "lookups:restoreDefaultTextTemplates": {
+    "kind": "mutation",
+    "visibility": "public",
+    "wrapper": "mutation",
+    "permission": "settings.write"
+  },
+  "lookups:saveTextTemplate": {
+    "kind": "mutation",
+    "visibility": "public",
+    "wrapper": "mutation",
+    "permission": "settings.write"
+  },
   "members:changeRole": {
     "kind": "mutation",
     "visibility": "public",
