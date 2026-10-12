@@ -104,7 +104,8 @@ The local stack is `docker compose -f deploy/compose.dev.yml up` (hosts `*.local
 
 - **Factories** (`test/factories/*.ts`): `makeCompany({ legalForm, ku, soll })`, `makeContact({ b2c, eu, publicAuthority })`, `makeProduct()`, `makeInvoiceDraft()` with builder-style overrides. The same factories are used by domain, Convex and E2E seeds.
 - **Clock:** all domain functions receive `today`. Convex functions read "now" through `ctx.now()` (wrapper) so tests can freeze time. E2E sets the server clock via `TEST_NOW` (honoured only with `IS_TEST`).
-- **Reset:** `clearAll` internal mutation (only with `IS_TEST=true`, refuses otherwise) deletes all tables, scheduled functions and storage.
+- **Reset:** `clearAll` internal mutation (only with `IS_TEST=true`, refuses otherwise) deletes all tables, scheduled functions and storage. *P0 implementation:* the E2E journeys reset the test deployment with `convex import --replace-all` of an empty snapshot (e2e/backend.ts `resetBackend`, clears app and component tables incl. Better Auth; env and functions stay). A `clearAll` mutation would have to delete the append-only audit log through app code, which the guarded db forbids (CLAUDE.md rule 3).
+- **P0 backend runs (no Docker):** `scripts/convex-local-backend.sh` + `pnpm test:backend` (Convex env with `IS_TEST=true`, `AUTH_MAIL_SENDER=memory`, generated test keys; pushes functions; writes `.env.test.local`, read by the integration project and Playwright). The journeys (e2e/journey.spec.ts) run on desktop + pixel (Chromium, CDP virtual authenticator) with one worker; each project starts from an empty deployment and signs the owner up with an e-mail code. Specs that need a signed-in owner (shell, setup) sign in after the journey of the same project.
 - **Fixtures:**
   - `test/fixtures/kosit-testsuite/` (XRechnung test suite, pinned release)
   - `test/fixtures/ferd-samples/` (ZUGFeRD 2.5 samples for all profiles incl. MINIMUM/BASIC-WL)

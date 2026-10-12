@@ -45,8 +45,15 @@ that the session still exists (`session._id` from the JWT, `expiresAt > now`), t
 
 ## Open
 
-- **TOTP enforcement for OTP sessions** (02 §4.2 table): Better Auth 1.6 only gates password sign-ins with 2FA. The
-  per-session "factor" marker (OTP vs passkey) and the `totp_required` rejection in the wrappers and `requireRole()`
-  are not implemented yet (`TODO` in convex/lib/actor.ts and src/lib/auth-server.ts). TOTP setup works through the
-  plugin and is mirrored to `members.totpEnabled`.
-- Better Auth ≥ 1.7 is blocked by Renovate until the hook behaviour above is re-checked.
+- Better Auth ≥ 1.7 is blocked by Renovate until the hook behaviour above is re-checked (including workaround 8).
+
+## Resolved
+
+8. **TOTP for e-mail-code sign-ins** (02 §4.2): `totpForEmailCodeSignIns()` widens the matcher of the twoFactor
+   plugin's first after-hook to `/sign-in/email-otp`. For a user with TOTP the hook deletes the fresh session, sets
+   the two-factor cookie and answers `{ twoFactorRedirect: true }`; `twoFactor.verifyTotp` creates the session. No
+   pending-session marker is needed in the wrappers or `requireRole()`. It throws at start-up if the plugin ships
+   without after-hooks, so an upgrade cannot silently disable it (convex/auth.test.ts covers the flow).
+9. **First-run flag for `/anmelden`**: a Better Auth plugin endpoint `GET /api/auth/rechnungen/first-run` runs the
+   internal `signup.firstRun` query. Better Auth's HTTP surface is already public; no wrapper-less public Convex
+   function and no admin key in `web` are needed (src/lib/auth-server.ts `isFirstRun()`, fail-safe `false`).

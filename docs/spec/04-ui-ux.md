@@ -235,7 +235,7 @@ All auth pages are German, single-column, centred card (max 420 px), usable on p
 
 **`/anmelden/code`**: six single-digit inputs (`inputmode="numeric"`, `autocomplete="one-time-code"`, paste fills all), 10-minute validity shown as a countdown, „Neuen Code senden" (disabled for 60 s; per-address throttle 5/hour, message „Zu viele Codes angefordert — bitte in {n} Minuten erneut versuchen."). Wrong code → „Der Code ist falsch oder abgelaufen." (attempts limited by Better Auth).
 
-**`/anmelden/zwei-faktor`**: shown after an e-mail-code sign-in if the member enabled TOTP; 6-digit TOTP input; „Passkey verwenden" as alternative. Until verified, every other route redirects here (`totp_required`).
+**`/anmelden/zwei-faktor`**: shown after an e-mail-code sign-in if the member enabled TOTP; 6-digit TOTP input; „Passkey verwenden" as alternative. Until verified no session exists (02 §4.2), so every other route redirects to `/anmelden`.
 
 **`/anmelden/passkey-einrichten`**: shown after the first e-mail-code sign-in of a member without a passkey. For the **owner it is mandatory** (part of the setup wizard step „Inhaberkonto"); other roles may choose „Später" (reminded on the next three sign-ins). Explains in one sentence that the passkey works only on `<BASE_DOMAIN>` and that the e-mail code stays the recovery path.
 

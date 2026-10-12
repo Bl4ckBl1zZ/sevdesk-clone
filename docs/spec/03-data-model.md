@@ -176,6 +176,8 @@ type TimeRounding = { incrementMinutes: 0 | 1 | 5 | 6 | 10 | 15 | 30 | 60; mode:
   diff: { before?: unknown; after?: unknown }; validFrom: number /* instant */; actor: Actor; reason?: string;
   auditSeq: number }
 // index by_version (unique by convention). Documents resolve seller data from their snapshot, never from here.
+// Written in the same transaction as the audited companyProfile change; the row has no audit entry of its own,
+// RI-15 instead checks that `auditSeq` points at a companyProfile entry whose diff sets this `version`.
 ```
 
 ### `bankAccounts`
@@ -250,7 +252,9 @@ textTemplates:   { kind: "document_head" | "document_foot" | "message_text";   /
                    docTypes: SalesDocType[]; name: string; body: string /* sanitized rich text with {{placeholders}} */;
                    isDefault: boolean /* ≤ 1 per (kind, docType, language) */; language: "de" | "en";
                    level?: number /* reminder level, F05 DUN-050 */ }
-layouts:         { name: string; currentVersionId: Id<"layoutVersions">; isDefaultFor: SalesDocType[] }
+layouts:         { name: string; currentVersionId: Id<"layoutVersions"> /* optional in the schema only: set in the
+                   same transaction that creates the layout and its first version (circular reference) */;
+                   isDefaultFor: SalesDocType[] }
 layoutVersions:  { layoutId; version: number; config: { template: "classic" | "modern" | "minimal";
                    accentColor: string; font: "inter" | "noto" | "source-serif"; logoPosition: "left" | "right";
                    letterheadStorageId?: Id<"_storage">; letterheadPage2StorageId?: Id<"_storage">;
