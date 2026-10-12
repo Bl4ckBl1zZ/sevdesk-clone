@@ -1,3 +1,4 @@
+import { createHmac } from "node:crypto";
 import { createFunctionHandle } from "convex/server";
 import { afterEach, describe, expect, test } from "vitest";
 import { api, components, internal } from "./_generated/api";
@@ -39,6 +40,38 @@ async function signIn(t: TestT, email: string) {
   const otp = await lastCode(t, email);
   expect(otp).toMatch(/^\d{6}$/);
   return post(t, "/sign-in/email-otp", { email, otp });
+}
+
+/** `Set-Cookie` header → `Cookie` header (name=value pairs only). */
+const cookiesOf = (setCookie: string) =>
+  setCookie
+    .split(/,(?=\s*[\w.-]+=)/)
+    .map((c) => c.split(";")[0]?.trim())
+    .filter((c) => c && !/=$/.test(c))
+    .join("; ");
+
+/** RFC 6238 TOTP (SHA-1, 30 s, 6 digits) from the base32 secret of an otpauth:// URI — the authenticator app. */
+function totpNow(uri: string, at = Date.now()): string {
+  const secret = new URL(uri).searchParams.get("secret") ?? "";
+  const alphabet = "ABCDEFGHIJKLMNOPQRSTUVWXYZ234567";
+  let bits = "";
+  for (const ch of secret.replace(/=+$/, "").toUpperCase()) bits += alphabet.indexOf(ch).toString(2).padStart(5, "0");
+  const key = Buffer.from((bits.match(/.{8}/g) ?? []).map((b) => Number.parseInt(b, 2)));
+  const counter = Buffer.alloc(8);
+  counter.writeBigUInt64BE(BigInt(Math.floor(at / 1000 / 30)));
+  const h = createHmac("sha1", key).update(counter).digest();
+  const offset = (h[h.length - 1] ?? 0) & 0xf;
+  const code = (h.readUInt32BE(offset) & 0x7fffffff) % 1_000_000;
+  return String(code).padStart(6, "0");
+}
+
+async function sessionCount(t: TestT, userId: string) {
+  const res = (await t.query(components.betterAuth.adapter.findMany, {
+    model: "session",
+    where: [{ field: "userId", value: userId }],
+    paginationOpts: { numItems: 50, cursor: null },
+  })) as { page: unknown[] };
+  return res.page.length;
 }
 
 const auditActions = (t: TestT) =>
@@ -156,6 +189,84 @@ describe("sign-up gate via Better Auth (02 §4.3, TST-AUD-28)", () => {
   });
 });
 
+describe("TOTP for e-mail-code sign-ins (02 §4.2, E-AUD-30a)", () => {
+  test("SEC-01 with TOTP enabled an e-mail-code sign-in creates no session until the TOTP code is verified", async () => {
+    const t = makeT();
+    const first = await signIn(t, OWNER);
+    const cookie = cookiesOf(first.setCookie);
+    const enabled = await post(t, "/two-factor/enable", {}, cookie);
+    expect(enabled.status, JSON.stringify(enabled.json)).toBe(200);
+    const uri = String(enabled.json.totpURI);
+    expect(uri).toMatch(/^otpauth:\/\/totp\//);
+    expect(enabled.json.backupCodes).toHaveLength(10);
+    const confirm = await post(t, "/two-factor/verify-totp", { code: totpNow(uri) }, cookie);
+    expect(confirm.status, JSON.stringify(confirm.json)).toBe(200);
+    const member = await t.run((ctx) => ctx.db.query("members").first());
+    expect(member?.totpEnabled).toBe(true);
+
+    await post(t, "/sign-out", {}, cookiesOf(confirm.setCookie) || cookie);
+    const userId = member?.authUserId ?? "";
+    const before = await sessionCount(t, userId);
+
+    const second = await signIn(t, OWNER);
+    expect(second.status).toBe(200);
+    expect(second.json).toMatchObject({ twoFactorRedirect: true });
+    expect(second.setCookie).not.toMatch(/session_token=[^;]+/);
+    expect(await sessionCount(t, userId)).toBe(before);
+
+    const wrong = await post(t, "/two-factor/verify-totp", { code: "000000" }, cookiesOf(second.setCookie));
+    expect(wrong.status).toBe(401);
+    const verified = await post(t, "/two-factor/verify-totp", { code: totpNow(uri) }, cookiesOf(second.setCookie));
+    expect(verified.status, JSON.stringify(verified.json)).toBe(200);
+    expect(verified.setCookie).toContain("better-auth.session_token");
+    expect(await sessionCount(t, userId)).toBe(before + 1);
+  });
+
+  test("SEC-01 without TOTP the e-mail-code sign-in creates the session directly", async () => {
+    const t = makeT();
+    const res = await signIn(t, OWNER);
+    expect(res.json.twoFactorRedirect).toBeUndefined();
+    expect(res.setCookie).toContain("better-auth.session_token");
+  });
+});
+
+describe("first run and session revocation (02 §4.3, 04 §4.9)", () => {
+  test("SEC-01 GET /api/auth/rechnungen/first-run is true only while no member exists", async () => {
+    const t = makeT();
+    const before = await t.fetch("/api/auth/rechnungen/first-run", { headers: { origin: ORIGIN } });
+    expect(before.status).toBe(200);
+    expect(await before.json()).toEqual({ firstRun: true });
+    await signIn(t, OWNER);
+    const after = await t.fetch("/api/auth/rechnungen/first-run", { headers: { origin: ORIGIN } });
+    expect(await after.json()).toEqual({ firstRun: false });
+  });
+
+  test("SEC-02 after sign-out a still-valid Convex JWT of that session can no longer write (session_invalid)", async () => {
+    const t = makeT();
+    const res = await signIn(t, OWNER);
+    const member = await t.run((ctx) => ctx.db.query("members").first());
+    const sessions = (await t.query(components.betterAuth.adapter.findMany, {
+      model: "session",
+      where: [{ field: "userId", value: member?.authUserId ?? "" }],
+      paginationOpts: { numItems: 5, cursor: null },
+    })) as { page: { _id: string }[] };
+    const identity = t.withIdentity({
+      issuer: TEST_ENV.CONVEX_SITE_URL,
+      subject: member?.authUserId,
+      sessionId: sessions.page[0]?._id,
+    } as never);
+    await expect(
+      identity.mutation(api.settings.saveNotificationEmail, { values: { notificationEmail: OWNER } }),
+    ).resolves.toBeNull();
+    await post(t, "/sign-out", {}, cookiesOf(res.setCookie));
+    expect(
+      await identity
+        .mutation(api.settings.saveNotificationEmail, { values: { notificationEmail: OWNER } })
+        .catch(errorCode),
+    ).toBe("session_invalid");
+  });
+});
+
 describe("OTP throttle and auth mail (02 §4.2, §9)", () => {
   const saved = { ...process.env };
   afterEach(() => {
@@ -193,9 +304,18 @@ describe("OTP throttle and auth mail (02 §4.2, §9)", () => {
     const res = await requestCode(t, OWNER);
     expect(res.status).toBe(503);
     expect(res.json.message).toBe("Code konnte nicht gesendet werden — bitte später erneut versuchen.");
-    const entry = await t.run((ctx) => ctx.db.query("auditLog").withIndex("by_seq").order("desc").first());
+    const recent = await t.run((ctx) => ctx.db.query("auditLog").withIndex("by_seq").order("desc").take(5));
+    const entry = recent.find((e) => e.action === "auth.otp_mail_failed");
     expect(entry).toMatchObject({ action: "auth.otp_mail_failed", actor: "system:auth" });
     expect(entry?.reason).toMatch(/^EMAIL_NOT_CONFIGURED/);
+    // The mail step of the setup wizard shows the failure (SET-107).
+    const integration = await t.run((ctx) =>
+      ctx.db
+        .query("integrations")
+        .filter((q) => q.eq(q.field("kind"), "cloudflare_email"))
+        .first(),
+    );
+    expect(integration?.lastTestOk).toBe(false);
   });
 
   test("AUD-021 auth requests fail closed without BETTER_AUTH_SECRET", async () => {

@@ -48,8 +48,8 @@ export async function resolveActor(
       if (!session || (session as { userId?: string }).userId !== resolved.authUserId)
         throw appError("session_invalid");
     }
-    // TODO(P1, E-AUD-30a): sessions created by e-mail OTP for members with totpEnabled are `totp_required`
-    // until twoFactor.verifyTotp succeeded. Needs a per-session factor marker; see docs/adr/0002.
+    // E-AUD-30a / 02 §4.2: an e-mail-code sign-in of a member with TOTP creates no session (and therefore no JWT)
+    // until twoFactor.verifyTotp succeeded (convex/auth.ts `totpForEmailCodeSignIns`) — nothing to check here.
     if (!canDo(member.role, permission)) {
       throw appError("forbidden_role", `Ihre Rolle (${ROLE_LABEL_DE[member.role]}) erlaubt diese Aktion nicht.`, {
         role: member.role,

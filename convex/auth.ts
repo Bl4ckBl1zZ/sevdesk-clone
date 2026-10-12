@@ -2,7 +2,8 @@ import { passkey } from "@better-auth/passkey";
 import { type AuthFunctions, createClient, type GenericCtx } from "@convex-dev/better-auth";
 import { convex } from "@convex-dev/better-auth/plugins";
 import { requireRunMutationCtx } from "@convex-dev/better-auth/utils";
-import { APIError, createAuthMiddleware } from "better-auth/api";
+import type { BetterAuthPlugin } from "better-auth";
+import { APIError, createAuthEndpoint, createAuthMiddleware } from "better-auth/api";
 import { type BetterAuthOptions, betterAuth } from "better-auth/minimal";
 import { emailOTP } from "better-auth/plugins/email-otp";
 import { twoFactor } from "better-auth/plugins/two-factor";
@@ -216,7 +217,9 @@ export const createAuthOptions = (ctx: GenericCtx<DataModel>) => {
             kind: `otp.${type}`,
             ...otpMail({ code: otp, appName: appName() }),
           });
-          if (!result.ok) {
+          if (result.ok) {
+            await run.runMutation(internal.signup.recordAuthMailDelivered, { transport: result.transport });
+          } else {
             otpMailFailure = result.code;
             await run.runMutation(internal.signup.recordOtpMailFailed, {
               email,
@@ -226,10 +229,61 @@ export const createAuthOptions = (ctx: GenericCtx<DataModel>) => {
           }
         },
       }),
-      twoFactor({ issuer: appName(), allowPasswordless: true }),
+      totpForEmailCodeSignIns(twoFactor({ issuer: appName(), allowPasswordless: true })),
+      firstRunEndpoint(ctx),
       convex({ authConfig, jwks: env("JWKS") }),
     ],
   } satisfies BetterAuthOptions;
 };
 
 export const createAuth = (ctx: GenericCtx<DataModel>) => betterAuth(createAuthOptions(ctx));
+
+// ── TOTP for e-mail-code sign-ins (02 §4.2, F12 E-AUD-30a) ─────────────────────────────────────────────
+/** Paths whose successful response creates a session from an e-mail code. */
+export const EMAIL_CODE_SIGN_IN_PATHS = ["/sign-in/email-otp"] as const;
+
+/**
+ * Better Auth 1.6 applies the two-factor challenge only to password sign-ins. We extend the plugin's own after-hook
+ * matcher to the e-mail-code sign-in: for a user with TOTP enabled the session just created is deleted again and
+ * a short-lived two-factor cookie is set (`{ twoFactorRedirect: true }`); only `twoFactor.verifyTotp` then creates
+ * the session. A "TOTP-pending" session therefore never exists, so the wrappers (session check) and
+ * `requireRole()` reject such a sign-in by construction. Passkey sign-ins are exempt (already two factors).
+ */
+export function totpForEmailCodeSignIns<P extends BetterAuthPlugin>(plugin: P): P {
+  const after = plugin.hooks?.after ?? [];
+  if (after.length === 0) throw new Error("twoFactor plugin without after hooks — re-check on Better Auth upgrades");
+  return {
+    ...plugin,
+    hooks: {
+      ...plugin.hooks,
+      after: after.map((h, i) =>
+        i === 0
+          ? {
+              ...h,
+              matcher: (c: Parameters<typeof h.matcher>[0]) =>
+                h.matcher(c) || (EMAIL_CODE_SIGN_IN_PATHS as readonly string[]).includes(c.path ?? ""),
+            }
+          : h,
+      ),
+    },
+  } as P;
+}
+
+// ── first run (02 §4.3, 04 §4.9) ──────────────────────────────────────────────────────────────────────
+/**
+ * `GET /api/auth/rechnungen/first-run` → `{ firstRun: boolean }` (true while no user exists). Part of the Better
+ * Auth HTTP surface, which is the only public HTTP action (02 §4.1), so no public Convex function bypasses the
+ * wrappers. `/anmelden` (Server Component) reads it to show the „Ersteinrichtung“ notice; the sign-up gate itself
+ * stays authoritative in the user trigger.
+ */
+function firstRunEndpoint(ctx: GenericCtx<DataModel>) {
+  return {
+    id: "rechnungen-first-run",
+    endpoints: {
+      rechnungenFirstRun: createAuthEndpoint("/rechnungen/first-run", { method: "GET" }, async (c) => {
+        const firstRun = hasRun(ctx) ? await runner(ctx).runQuery(internal.signup.firstRun, {}) : false;
+        return c.json({ firstRun });
+      }),
+    },
+  } satisfies BetterAuthPlugin;
+}

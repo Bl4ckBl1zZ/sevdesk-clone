@@ -1,10 +1,10 @@
 "use client";
 
 import { KeyRoundIcon, LogOutIcon, MonitorSmartphoneIcon, PencilIcon, PlusIcon, Trash2Icon } from "lucide-react";
-import { useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { useCallback, useEffect, useId, useState } from "react";
 import { toast } from "sonner";
+import { navigation } from "@/components/auth/redirect";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import {
@@ -21,6 +21,7 @@ import { authClient } from "@/lib/auth-client";
 import { mapAuthError } from "./errors";
 import { usePasskeyRegistration } from "./passkey-enrol";
 import { useSessionState } from "./session-provider";
+import { TotpSetup } from "./totp-setup";
 
 interface PasskeyRow {
   id: string;
@@ -46,7 +47,6 @@ const ts = (d: Date | string) => new Date(d).getTime();
 export function AccountPanel() {
   const t = useTranslations("account");
   const tAuth = useTranslations("auth");
-  const router = useRouter();
   const { markSigningOut } = useSessionState();
   const { data: session } = authClient.useSession();
   const { data: passkeys, refetch } = authClient.useListPasskeys();
@@ -159,7 +159,7 @@ export function AccountPanel() {
           <CardDescription>{t("totpDescription")}</CardDescription>
         </CardHeader>
         <CardContent>
-          <p className="text-muted-foreground text-sm">{t("totpComingSoon")}</p>
+          <TotpSetup />
         </CardContent>
       </Card>
 
@@ -214,8 +214,7 @@ export function AccountPanel() {
                 markSigningOut();
                 try {
                   await authClient.signOut();
-                  router.replace("/anmelden");
-                  router.refresh();
+                  navigation.assign("/anmelden");
                 } catch (e) {
                   fail(e);
                 }

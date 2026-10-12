@@ -1,7 +1,11 @@
 import { vi } from "vitest";
+import { navigation } from "./redirect";
 
 /** Shared mocks for auth component tests (Better Auth client + Next router). */
 export const router = { push: vi.fn(), replace: vi.fn(), refresh: vi.fn(), back: vi.fn(), prefetch: vi.fn() };
+
+/** Full page loads after sign-in/out (`navigation.assign`); jsdom cannot navigate. */
+export const hardNavigate = vi.spyOn(navigation, "assign").mockImplementation(() => {});
 
 export const authClientMock = {
   signIn: { passkey: vi.fn(), emailOtp: vi.fn() },
@@ -22,6 +26,7 @@ export const authClientMock = {
 export function resetAuthMocks() {
   for (const fn of [
     ...Object.values(router),
+    hardNavigate,
     authClientMock.signIn.passkey,
     authClientMock.signIn.emailOtp,
     authClientMock.emailOtp.sendVerificationOtp,
@@ -32,6 +37,7 @@ export function resetAuthMocks() {
   ]) {
     fn.mockReset();
   }
+  hardNavigate.mockImplementation(() => {});
   authClientMock.signIn.passkey.mockResolvedValue({ data: null, error: { code: "AUTH_CANCELLED", status: 400 } });
   authClientMock.passkey.listUserPasskeys.mockResolvedValue({ data: [{ id: "pk1" }], error: null });
   sessionStorage.clear();

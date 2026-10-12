@@ -1,7 +1,9 @@
 import type { Metadata, Viewport } from "next";
 import { Inter } from "next/font/google";
+import { headers } from "next/headers";
 import { NextIntlClientProvider } from "next-intl";
 import { getLocale } from "next-intl/server";
+import { ConvexClientProvider } from "@/components/convex/convex-provider";
 import { ThemeProvider } from "@/components/theme-provider";
 import { Toaster } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -35,16 +37,19 @@ export const viewport: Viewport = {
 
 export default async function RootLayout({ children }: { children: React.ReactNode }) {
   const locale = await getLocale();
+  const nonce = (await headers()).get("x-nonce") ?? undefined;
   return (
     <html lang={locale} className={cn("font-sans antialiased", inter.variable)} suppressHydrationWarning>
       <body className="min-h-dvh bg-background text-foreground">
         <NextIntlClientProvider>
-          <ThemeProvider>
-            <TooltipProvider>
-              {children}
-              <Toaster richColors closeButton />
-            </TooltipProvider>
-          </ThemeProvider>
+          <ConvexClientProvider>
+            <ThemeProvider nonce={nonce}>
+              <TooltipProvider>
+                {children}
+                <Toaster richColors closeButton />
+              </TooltipProvider>
+            </ThemeProvider>
+          </ConvexClientProvider>
         </NextIntlClientProvider>
       </body>
     </html>

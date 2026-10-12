@@ -1,37 +1,28 @@
 "use client";
 
 import { FingerprintIcon } from "lucide-react";
-import { useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
-import { useAdapterErrorToast } from "@/hooks/use-adapter-error-toast";
 import { authClient } from "@/lib/auth-client";
-import { NotConnectedError } from "../not-connected";
 import { CODE_LENGTH, CodeInput } from "./code-input";
 import { type AuthErrorMessage, mapAuthError } from "./errors";
-import { safeRedirect } from "./redirect";
+import { navigation, safeRedirect } from "./redirect";
 
 /**
- * TODO(auth branch): verify with `authClient.twoFactor.verifyTotp({ code })` once `twoFactorClient` is part of
- * `src/lib/auth-client.ts` (02 §4.2: TOTP gates e-mail-code sessions, enforced by our wrappers).
+ * `/anmelden/zwei-faktor` (04-ui-ux §4.9): after an e-mail-code sign-in of a member with TOTP, Better Auth holds
+ * a short-lived two-factor cookie instead of a session (02 §4.2); `twoFactor.verifyTotp` creates the session.
+ * "Passkey verwenden" is the alternative (passkeys are already two factors).
  */
-async function verifyTotp(_code: string): Promise<void> {
-  throw new NotConnectedError("twoFactor.verifyTotp");
-}
-
-/** `/anmelden/zwei-faktor` (04-ui-ux §4.9): 6-digit TOTP, "Passkey verwenden" as the alternative. */
-export function TotpForm({ redirectTo }: { redirectTo?: string | null }) {
+export function TotpForm({ redirectTo, onSignedIn }: { redirectTo?: string | null; onSignedIn?: () => void }) {
   const t = useTranslations("auth");
-  const router = useRouter();
-  const showAdapterError = useAdapterErrorToast();
   const [code, setCode] = useState("");
   const [error, setError] = useState<AuthErrorMessage | null>(null);
   const [pending, setPending] = useState(false);
 
   const done = () => {
-    router.replace(safeRedirect(redirectTo));
-    router.refresh();
+    if (onSignedIn) return onSignedIn();
+    navigation.assign(safeRedirect(redirectTo));
   };
 
   return (
@@ -44,10 +35,11 @@ export function TotpForm({ redirectTo }: { redirectTo?: string | null }) {
         setError(null);
         setPending(true);
         try {
-          await verifyTotp(code);
-          done();
+          const res = await authClient.twoFactor.verifyTotp({ code });
+          if (res?.error) setError(mapAuthError(res.error, "totpInvalid"));
+          else done();
         } catch (err) {
-          showAdapterError(err);
+          setError(mapAuthError(err, "totpInvalid"));
         } finally {
           setPending(false);
         }

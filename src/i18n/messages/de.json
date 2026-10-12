@@ -487,7 +487,11 @@
       "passkeyRegistrationFailed": "Der Passkey konnte nicht eingerichtet werden. Bitte erneut versuchen.",
       "sessionRequired": "Bitte zuerst anmelden.",
       "network": "Der Server ist nicht erreichbar. Bitte Verbindung prüfen.",
-      "unknown": "Die Anmeldung ist fehlgeschlagen. Bitte erneut versuchen."
+      "unknown": "Die Anmeldung ist fehlgeschlagen. Bitte erneut versuchen.",
+      "serverMessage": "{message}",
+      "mailFailed": "Code konnte nicht gesendet werden — bitte später erneut versuchen.",
+      "totpInvalid": "Der Code ist falsch. Bitte den aktuellen Code aus der Authenticator-App eingeben.",
+      "totpExpired": "Die Anmeldung ist abgelaufen. Bitte erneut mit einem Code per E-Mail anmelden."
     }
   },
   "account": {
@@ -513,7 +517,6 @@
     "removed": "Passkey entfernt.",
     "totp": "Zwei-Faktor (TOTP)",
     "totpDescription": "Zusätzlicher Code aus einer Authenticator-App für die Anmeldung per E-Mail-Code.",
-    "totpComingSoon": "Die Einrichtung folgt mit der Anmeldung per Zwei-Faktor.",
     "sessions": "Aktive Sitzungen",
     "sessionsDescription": "Geräte, auf denen Sie gerade angemeldet sind.",
     "currentSession": "Diese Sitzung",
@@ -521,7 +524,17 @@
     "noSessions": "Keine weiteren Sitzungen.",
     "revokeOthers": "Andere Sitzungen abmelden",
     "revokedOthers": "Andere Sitzungen wurden abgemeldet.",
-    "signOut": "Abmelden"
+    "signOut": "Abmelden",
+    "totpActive": "Zwei-Faktor ist aktiv: Anmeldungen per E-Mail-Code verlangen zusätzlich den Code aus der Authenticator-App.",
+    "totpEnable": "Zwei-Faktor aktivieren",
+    "totpDisable": "Zwei-Faktor deaktivieren",
+    "totpScan": "QR-Code mit der Authenticator-App scannen und den angezeigten Code zur Bestätigung eingeben.",
+    "totpQrAlt": "QR-Code für die Authenticator-App",
+    "totpManualKey": "Schlüssel zur manuellen Eingabe",
+    "totpBackupCodes": "Wiederherstellungscodes anzeigen (sicher aufbewahren)",
+    "totpConfirm": "Code bestätigen",
+    "totpEnabled": "Zwei-Faktor wurde aktiviert.",
+    "totpDisabled": "Zwei-Faktor wurde deaktiviert."
   },
   "setup": {
     "title": "Einrichtung",
@@ -570,7 +583,7 @@
       "recommendSecond": "Empfohlen: einen zweiten Passkey auf einem weiteren Gerät (z. B. Smartphone) einrichten.",
       "passkeyRequired": "Bitte zuerst einen Passkey einrichten.",
       "totp": "Zwei-Faktor (TOTP) aktivieren",
-      "totpHint": "Optional — die Einrichtung folgt."
+      "totpHint": "Optional: zusätzlicher Code aus einer Authenticator-App für Anmeldungen per E-Mail-Code."
     },
     "access": {
       "country": "Serverstandort (Land)",
@@ -757,5 +770,74 @@
       "error": "Fehler",
       "unknown": "noch nicht geprüft"
     }
+  },
+  "members": {
+    "membersTitle": "Mitglieder",
+    "membersDescription": "Personen mit Zugang zu dieser Instanz. Das Inhaberkonto kann nicht geändert oder entfernt werden.",
+    "invite": "Person einladen",
+    "inviteTitle": "Person einladen",
+    "inviteDescription": "Die Einladung ist 7 Tage gültig. Die Person erhält eine E-Mail mit Anmeldehinweisen und meldet sich mit einem E-Mail-Code an.",
+    "email": "E-Mail-Adresse",
+    "role": "Rolle",
+    "validUntil": "Gültig bis",
+    "validUntilHint": "Optional. Ohne Datum gilt der Zugang unbefristet.",
+    "validUntilAuditor": "Pflicht für Prüfer: höchstens 30 Tage, bei Bedarf verlängern.",
+    "fiscalYears": "Wirtschaftsjahre",
+    "purpose": "Prüfungsanordnung / Aktenzeichen",
+    "organisation": "Organisation",
+    "tailnetHint": "Die eingeladene Person braucht ein Gerät im Tailnet: ein Gerät des Inhabers vor Ort oder eine Tailnet-Einladung (siehe Verfahrensdokumentation „Prüferzugang-Anleitung“).",
+    "sendInvite": "Einladung senden",
+    "invited": "Einladung an {email} erstellt.",
+    "openInvites": "Offene Einladungen",
+    "openInvitesDescription": "Noch nicht angenommene Einladungen.",
+    "noOpenInvites": "Keine offenen Einladungen.",
+    "notSentYet": "wird gesendet …",
+    "sentAt": "gesendet {date}",
+    "expiresAt": "läuft ab {date}",
+    "mailFailed": "Die Einladungs-E-Mail konnte nicht gesendet werden. Bitte „Erneut senden“ oder die E-Mail-Einstellungen prüfen.",
+    "resend": "Erneut senden",
+    "resent": "Einladung wird erneut gesendet.",
+    "revoke": "Zurückziehen",
+    "revoked": "Einladung zurückgezogen.",
+    "disable": "Deaktivieren",
+    "disableTitle": "{email} deaktivieren?",
+    "disableDescription": "Der Zugang endet sofort; alle Sitzungen werden abgemeldet. Der Vorgang wird protokolliert.",
+    "disableReason": "Grund (optional)",
+    "disableConfirm": "Deaktivieren",
+    "disabled": "Mitglied deaktiviert.",
+    "columns": {
+      "person": "Name / E-Mail",
+      "role": "Rolle",
+      "passkey": "Passkey",
+      "totp": "TOTP",
+      "validUntil": "Gültig bis",
+      "lastSignIn": "Letzte Anmeldung",
+      "actions": "Aktionen"
+    },
+    "roles": {
+      "owner": "Inhaber",
+      "bookkeeper": "Buchhaltung",
+      "viewer": "Lesezugriff",
+      "auditor": "Prüfer"
+    },
+    "roleHints": {
+      "bookkeeper": "Erfasst und bucht Belege, schreibt Rechnungen; keine Einstellungen.",
+      "viewer": "Sieht alles, ändert nichts.",
+      "auditor": "Betriebsprüfer: nur Lesen, nur die freigegebenen Wirtschaftsjahre, höchstens 30 Tage."
+    },
+    "access": {
+      "active": "aktiv",
+      "expired": "abgelaufen",
+      "disabled": "deaktiviert"
+    }
+  },
+  "integrity": {
+    "failed": "Integritätsprüfung fehlgeschlagen: {entity} (seq {seq}). Neue Rechnungen sind bis zur Bestätigung gesperrt.",
+    "acknowledge": "Bestätigen …",
+    "acknowledgeTitle": "Integritätsfehler bestätigen",
+    "acknowledgeDescription": "Beschreiben Sie Ursache und Maßnahmen. Die Bestätigung ändert keine Daten und wird protokolliert; danach ist das Fertigstellen wieder möglich.",
+    "note": "Notiz",
+    "acknowledgeConfirm": "Bestätigen",
+    "acknowledged": "Integritätsfehler bestätigt."
   }
 }

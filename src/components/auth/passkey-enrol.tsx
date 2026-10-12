@@ -2,7 +2,6 @@
 
 import { KeyRoundIcon } from "lucide-react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { useState } from "react";
 import { toast } from "sonner";
@@ -10,7 +9,7 @@ import { Button, buttonVariants } from "@/components/ui/button";
 import { authClient } from "@/lib/auth-client";
 import { cn } from "@/lib/utils";
 import { type AuthErrorMessage, mapAuthError } from "./errors";
-import { safeRedirect } from "./redirect";
+import { navigation, safeRedirect } from "./redirect";
 
 /** Registers a passkey for the signed-in member. Returns true on success; errors are German messages. */
 export function usePasskeyRegistration() {
@@ -42,7 +41,6 @@ export function usePasskeyRegistration() {
  */
 export function PasskeyEnrol({ mandatory, redirectTo }: { mandatory: boolean; redirectTo?: string | null }) {
   const t = useTranslations("auth");
-  const router = useRouter();
   const { register, pending, error } = usePasskeyRegistration();
   const target = safeRedirect(redirectTo);
 
@@ -60,8 +58,7 @@ export function PasskeyEnrol({ mandatory, redirectTo }: { mandatory: boolean; re
         onClick={async () => {
           if (await register()) {
             toast.success(t("enrolSuccess"));
-            router.replace(target);
-            router.refresh();
+            navigation.assign(target);
           }
         }}
       >

@@ -6,7 +6,8 @@ import { isTest } from "./lib/env";
 import { otpThrottleMessage, rateLimiter } from "./lib/rateLimits";
 import { appendAudit } from "./model/audit";
 import { latestDevMail, storeDevMail as storeDevMailRow } from "./model/devMailbox";
-import { getMemberByEmail, signupDecision } from "./model/members";
+import { getIntegration, recordIntegrationTest } from "./model/integrations";
+import { anyMemberExists, getMemberByEmail, signupDecision } from "./model/members";
 
 /**
  * Internal helpers for the Better Auth callbacks in convex/auth.ts (they run inside the auth HTTP action).
@@ -32,6 +33,27 @@ export const checkSignIn = systemQuery({
     return decision.allowed
       ? { allowed: true }
       : { allowed: false, reason: decision.reason, message: decision.message };
+  },
+});
+
+/**
+ * 02 §4.3 / 04 §4.9 first run: true while no user (= member) exists. Served to `/anmelden` through the Better Auth
+ * endpoint `GET /api/auth/rechnungen/first-run` (convex/auth.ts) — never as a public Convex function.
+ */
+export const firstRun = systemQuery({
+  job: "auth",
+  args: {},
+  handler: async (ctx): Promise<boolean> => !(await anyMemberExists(ctx)),
+});
+
+/** F01 SET-009a: a delivered sign-in code completes the e-mail step (recorded once, until a failure resets it). */
+export const recordAuthMailDelivered = systemMutation({
+  job: "auth",
+  args: { transport: v.string() },
+  handler: async (ctx, { transport }) => {
+    const current = await getIntegration(ctx, "cloudflare_email");
+    if (current?.lastTestOk === true) return;
+    await recordIntegrationTest(ctx, "cloudflare_email", { ok: true, detail: `Anmeldecode zugestellt (${transport})` });
   },
 });
 
@@ -88,6 +110,7 @@ export const recordOtpMailFailed = systemMutation({
       entity: { table: "members", id: `email-sha256:${hash}` },
       reason: `${code}: ${detail}`.slice(0, 500),
     });
+    await recordIntegrationTest(ctx, "cloudflare_email", { ok: false, detail: `${code}: ${detail}` });
   },
 });
 

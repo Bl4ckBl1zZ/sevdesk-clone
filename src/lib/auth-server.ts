@@ -19,10 +19,12 @@ import { type CurrentMember, checkAccess } from "./auth-access";
 type Helpers = ReturnType<typeof convexBetterAuthNextJs>;
 let helpers: Helpers | undefined;
 
+const siteUrlInternal = () => process.env.CONVEX_SITE_URL_INTERNAL ?? process.env.NEXT_PUBLIC_CONVEX_SITE_URL;
+
 function auth(): Helpers {
   if (!helpers) {
     const convexUrl = process.env.CONVEX_URL_INTERNAL ?? process.env.NEXT_PUBLIC_CONVEX_URL;
-    const convexSiteUrl = process.env.CONVEX_SITE_URL_INTERNAL;
+    const convexSiteUrl = siteUrlInternal();
     if (!convexUrl) throw new Error("CONVEX_URL_INTERNAL fehlt.");
     helpers = convexBetterAuthNextJs({ convexUrl, convexSiteUrl: convexSiteUrl ?? "" });
   }
@@ -75,11 +77,32 @@ export async function requireSession(weiter?: string): Promise<CurrentMember> {
 /**
  * Role/permission check for Server Components and every Server Action (replaces the former assertGate()).
  * Signed out → redirect to /anmelden; expired or forbidden → AccessError.
- * TODO(P0 follow-up, 02 §4.2): reject TOTP-pending sessions with `totp_required` (see docs/adr/0002).
+ * TOTP (02 §4.2): an e-mail-code sign-in of a member with TOTP creates no session until `twoFactor.verifyTotp`
+ * succeeded (convex/auth.ts `totpForEmailCodeSignIns`), so a "TOTP-pending" caller is simply signed out here.
  */
 export async function requireRole(permission: Permission): Promise<CurrentMember> {
   const decision = checkAccess(await currentMember(), permission, Date.now());
   if (decision.ok) return decision.member;
   if (decision.reason === "unauthenticated") redirect("/anmelden");
   throw new AccessError(decision.reason, decision.message);
+}
+
+/**
+ * 02 §4.3 / 04 §4.9: true while no user exists ("Ersteinrichtung" on /anmelden). Read from the Better Auth endpoint
+ * `GET /api/auth/rechnungen/first-run` on the internal site URL — no public Convex function, no admin key in `web`.
+ * Fails safe: unreachable backend → false (the notice is hidden; the sign-up gate is enforced server-side anyway).
+ */
+export async function isFirstRun(): Promise<boolean> {
+  const base = siteUrlInternal();
+  if (!base) return false;
+  try {
+    const res = await fetch(`${base.replace(/\/$/, "")}/api/auth/rechnungen/first-run`, {
+      cache: "no-store",
+      signal: AbortSignal.timeout(3_000),
+    });
+    if (!res.ok) return false;
+    return ((await res.json()) as { firstRun?: unknown }).firstRun === true;
+  } catch {
+    return false;
+  }
 }

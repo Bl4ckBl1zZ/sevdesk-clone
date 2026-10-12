@@ -3,7 +3,7 @@ import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, test, vi } from "vitest";
 import { renderWithIntl } from "@/i18n/test-utils";
 import { LoginForm } from "./login-form";
-import { authClientMock, resetAuthMocks, router } from "./test-mocks";
+import { authClientMock, hardNavigate, resetAuthMocks, router } from "./test-mocks";
 
 vi.mock("@/lib/auth-client", async () => ({ authClient: (await import("./test-mocks")).authClientMock }));
 vi.mock("next/navigation", async () => {
@@ -27,7 +27,7 @@ describe("/anmelden (04-ui-ux §4.9)", () => {
     authClientMock.signIn.passkey.mockResolvedValue({ data: { session: {}, user: {} }, error: null });
     renderWithIntl(<LoginForm redirectTo="/rechnungen" />);
     await userEvent.click(screen.getByRole("button", { name: "Mit Passkey anmelden" }));
-    await waitFor(() => expect(router.replace).toHaveBeenCalledWith("/rechnungen"));
+    await waitFor(() => expect(hardNavigate).toHaveBeenCalledWith("/rechnungen"));
   });
 
   test("SMOKE a cancelled passkey prompt shows a German error", async () => {
@@ -85,5 +85,19 @@ describe("/anmelden (04-ui-ux §4.9)", () => {
   test("SMOKE first run explains that only the owner e-mail address is accepted", () => {
     renderWithIntl(<LoginForm firstRun />);
     expect(screen.getByText(/Ersteinrichtung/)).toBeInTheDocument();
+  });
+
+  test("SEC-01 during first run a refused address sees the German gate message instead of the code step", async () => {
+    authClientMock.emailOtp.sendVerificationOtp.mockResolvedValue({
+      data: null,
+      error: { status: 403, message: "Die Ersteinrichtung ist nur mit der hinterlegten Inhaber-Adresse möglich." },
+    });
+    renderWithIntl(<LoginForm firstRun />);
+    await userEvent.type(screen.getByLabelText("E-Mail-Adresse"), "fremd@example.org");
+    await userEvent.click(screen.getByRole("button", { name: "Code per E-Mail senden" }));
+    expect(await screen.findByRole("alert")).toHaveTextContent(
+      "Die Ersteinrichtung ist nur mit der hinterlegten Inhaber-Adresse möglich.",
+    );
+    expect(router.push).not.toHaveBeenCalled();
   });
 });

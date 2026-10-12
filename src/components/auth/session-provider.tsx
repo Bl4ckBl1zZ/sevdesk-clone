@@ -4,10 +4,12 @@ import { useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
 import * as React from "react";
 import { toast } from "sonner";
+import { ConvexGuard, useBackendAuth } from "@/components/convex/convex-provider";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { authClient } from "@/lib/auth-client";
 import { LoginForm } from "./login-form";
 import { OtpForm } from "./otp-form";
+import { TotpForm } from "./totp-form";
 
 interface SessionState {
   /** True while the "Sitzung abgelaufen" dialog is shown; content behind it is blurred and inert. */
@@ -24,6 +26,11 @@ export function useSessionState(): SessionState {
   const ctx = React.useContext(SessionContext);
   if (!ctx) throw new Error("useSessionState must be used within SessionProvider");
   return ctx;
+}
+
+/** Like useSessionState, but `null` outside the signed-in area (auth pages). */
+export function useOptionalSessionState(): SessionState | null {
+  return React.useContext(SessionContext);
 }
 
 /**
@@ -62,6 +69,13 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
   return (
     <SessionContext.Provider value={value}>
       {children}
+      <ConvexGuard>
+        <ConvexSessionWatcher
+          onLost={() => {
+            if (hadSession.current && !signingOut.current) setExpired(true);
+          }}
+        />
+      </ConvexGuard>
       <SessionExpiredDialog
         open={expired}
         onReauthenticated={() => {
@@ -73,11 +87,37 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
   );
 }
 
+/**
+ * The Convex side of the session: when the Convex JWT can no longer be obtained (session revoked or expired,
+ * member disabled), Convex reports "not authenticated" — open the dialog (04 §4.9).
+ */
+function ConvexSessionWatcher({ onLost }: { onLost: () => void }) {
+  const { isLoading, isAuthenticated } = useBackendAuth();
+  const wasAuthenticated = React.useRef(false);
+  const onLostRef = React.useRef(onLost);
+  onLostRef.current = onLost;
+  React.useEffect(() => {
+    if (isLoading) return;
+    if (isAuthenticated) wasAuthenticated.current = true;
+    else if (wasAuthenticated.current) onLostRef.current();
+  }, [isLoading, isAuthenticated]);
+  return null;
+}
+
 /** Re-authentication inside the dialog: passkey or e-mail code, without navigation. */
 export function ReauthPanel({ onSuccess }: { onSuccess: () => void }) {
   const [codeEmail, setCodeEmail] = React.useState<string | null>(null);
+  const [totp, setTotp] = React.useState(false);
+  if (totp) return <TotpForm onSignedIn={onSuccess} />;
   if (codeEmail) {
-    return <OtpForm email={codeEmail} onSignedIn={onSuccess} onChangeEmail={() => setCodeEmail(null)} />;
+    return (
+      <OtpForm
+        email={codeEmail}
+        onSignedIn={onSuccess}
+        onChangeEmail={() => setCodeEmail(null)}
+        onTwoFactor={() => setTotp(true)}
+      />
+    );
   }
   return <LoginForm autoFill={false} onSignedIn={onSuccess} onCodeRequested={setCodeEmail} />;
 }

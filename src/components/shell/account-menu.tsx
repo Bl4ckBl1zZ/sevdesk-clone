@@ -4,6 +4,7 @@ import { LogOutIcon, SettingsIcon, UserRoundIcon } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { toast } from "sonner";
+import { navigation } from "@/components/auth/redirect";
 import { useSessionState } from "@/components/auth/session-provider";
 import { Button } from "@/components/ui/button";
 import {
@@ -29,8 +30,7 @@ export function AccountMenu() {
     markSigningOut();
     try {
       await authClient.signOut();
-      router.replace("/anmelden");
-      router.refresh();
+      navigation.assign("/anmelden");
     } catch {
       toast.error(t("signOutFailed"));
     }

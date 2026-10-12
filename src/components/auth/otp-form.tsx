@@ -9,9 +9,9 @@ import { Button, buttonVariants } from "@/components/ui/button";
 import { authClient } from "@/lib/auth-client";
 import { cn } from "@/lib/utils";
 import { CODE_LENGTH, CodeInput } from "./code-input";
-import { type AuthErrorMessage, mapAuthError } from "./errors";
+import { type AuthErrorMessage, blocksCodeStep, mapAuthError } from "./errors";
 import { clearPendingEmail } from "./pending-email";
-import { safeRedirect, withRedirect } from "./redirect";
+import { navigation, safeRedirect, withRedirect } from "./redirect";
 
 /** Better Auth emailOTP `expiresIn: 600` (02 §4.2). */
 export const CODE_VALIDITY_S = 600;
@@ -44,11 +44,14 @@ export function OtpForm({
   redirectTo,
   onSignedIn,
   onChangeEmail,
+  onTwoFactor,
 }: {
   email: string | null;
   redirectTo?: string | null;
   onSignedIn?: () => void;
   onChangeEmail?: () => void;
+  /** TOTP required (02 §4.2): the dialog shows the TOTP step in place; the page navigates to /anmelden/zwei-faktor. */
+  onTwoFactor?: () => void;
 }) {
   const t = useTranslations("auth");
   const router = useRouter();
@@ -71,8 +74,7 @@ export function OtpForm({
     } catch {
       // Unknown: continue to the target; the setup wizard enforces the owner passkey anyway (F01 SET-009).
     }
-    router.replace(hasPasskey ? safeRedirect(redirectTo) : withRedirect("/anmelden/passkey-einrichten", redirectTo));
-    router.refresh();
+    navigation.assign(hasPasskey ? safeRedirect(redirectTo) : withRedirect("/anmelden/passkey-einrichten", redirectTo));
   };
 
   const submit = async (otp: string) => {
@@ -87,7 +89,11 @@ export function OtpForm({
     try {
       const res = await authClient.signIn.emailOtp({ email, otp });
       if (res?.error) setError(mapAuthError(res.error, "codeInvalid"));
-      else await afterSignIn();
+      else if ((res?.data as { twoFactorRedirect?: boolean } | null)?.twoFactorRedirect) {
+        clearPendingEmail();
+        if (onTwoFactor) onTwoFactor();
+        else router.replace(withRedirect("/anmelden/zwei-faktor", redirectTo));
+      } else await afterSignIn();
     } catch (e) {
       setError(mapAuthError(e));
     } finally {
@@ -107,7 +113,7 @@ export function OtpForm({
     try {
       const res = await authClient.emailOtp.sendVerificationOtp({ email, type: "sign-in" });
       const mapped = res?.error ? mapAuthError(res.error) : null;
-      if (mapped && (mapped.key === "rateLimited" || mapped.key === "network")) {
+      if (blocksCodeStep(mapped)) {
         setError(mapped);
         return;
       }

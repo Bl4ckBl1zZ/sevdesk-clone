@@ -9,9 +9,9 @@ import { Button } from "@/components/ui/button";
 import { Field, FieldError, FieldLabel, FieldSeparator } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
 import { authClient } from "@/lib/auth-client";
-import { type AuthErrorMessage, mapAuthError } from "./errors";
+import { type AuthErrorMessage, blocksCodeStep, mapAuthError } from "./errors";
 import { storePendingEmail } from "./pending-email";
-import { safeRedirect, withRedirect } from "./redirect";
+import { navigation, safeRedirect, withRedirect } from "./redirect";
 
 const emailSchema = z.string().trim().pipe(z.email());
 
@@ -46,8 +46,7 @@ export function LoginForm({
 
   const signedIn = () => {
     if (onSignedIn) return onSignedIn();
-    router.replace(safeRedirect(redirectTo));
-    router.refresh();
+    navigation.assign(safeRedirect(redirectTo));
   };
   const signedInRef = useRef(signedIn);
   signedInRef.current = signedIn;
@@ -95,9 +94,12 @@ export function LoginForm({
     setPending("code");
     try {
       const res = await authClient.emailOtp.sendVerificationOtp({ email: parsed.data, type: "sign-in" });
-      const mapped = res?.error ? mapAuthError(res.error) : null;
-      // Throttling and network problems are shown; everything else gets the neutral answer (no enumeration).
-      if (mapped && (mapped.key === "rateLimited" || mapped.key === "network")) {
+      // 04 §4.9: an unknown or uninvited address (403 from the sign-up gate) gets the same neutral answer as a
+      // sent code — except during first run, where the German gate message explains that only OWNER_EMAIL works.
+      const neutral = res?.error?.status === 403 && !firstRun;
+      const mapped = res?.error && !neutral ? mapAuthError(res.error) : null;
+      // Throttle (429), failed mail (503) and network problems are shown with the German server message.
+      if (blocksCodeStep(mapped)) {
         setError(mapped);
         return;
       }

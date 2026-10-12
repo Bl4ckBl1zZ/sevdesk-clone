@@ -3,7 +3,7 @@ import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
 import { renderWithIntl } from "@/i18n/test-utils";
 import { OtpForm } from "./otp-form";
-import { authClientMock, resetAuthMocks, router } from "./test-mocks";
+import { authClientMock, hardNavigate, resetAuthMocks } from "./test-mocks";
 
 vi.mock("@/lib/auth-client", async () => ({ authClient: (await import("./test-mocks")).authClientMock }));
 vi.mock("next/navigation", async () => {
@@ -34,7 +34,7 @@ describe("/anmelden/code (04-ui-ux §4.9)", () => {
     await waitFor(() =>
       expect(authClientMock.signIn.emailOtp).toHaveBeenCalledWith({ email: "inhaber@firma.de", otp: "123456" }),
     );
-    await waitFor(() => expect(router.replace).toHaveBeenCalledWith("/kontakte"));
+    await waitFor(() => expect(hardNavigate).toHaveBeenCalledWith("/kontakte"));
   });
 
   test("SMOKE typing moves focus to the next digit", async () => {
@@ -70,7 +70,7 @@ describe("/anmelden/code (04-ui-ux §4.9)", () => {
     await userEvent.click(digits()[0] as HTMLElement);
     await userEvent.paste("123456");
     await waitFor(() =>
-      expect(router.replace).toHaveBeenCalledWith("/anmelden/passkey-einrichten?weiter=%2Feinrichtung"),
+      expect(hardNavigate).toHaveBeenCalledWith("/anmelden/passkey-einrichten?weiter=%2Feinrichtung"),
     );
   });
 

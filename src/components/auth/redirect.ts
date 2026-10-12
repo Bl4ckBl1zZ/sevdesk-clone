@@ -17,3 +17,14 @@ export function withRedirect(path: string, target: string | null | undefined): R
   const safe = safeRedirect(target);
   return (safe === "/" ? path : `${path}?weiter=${encodeURIComponent(safe)}`) as Route;
 }
+
+/**
+ * Full page load after the session changed (sign-in, passkey enrolment, sign-out). A client transition plus
+ * `router.refresh()` races with server redirects in the signed-in layout (setup redirect, F01 SET-001) and can loop;
+ * a document load re-renders every server component with the new cookies and drops cached data of the old session.
+ */
+export const navigation = {
+  assign(url: string): void {
+    window.location.assign(url);
+  },
+};
