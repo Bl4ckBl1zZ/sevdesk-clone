@@ -1,0 +1,15 @@
+{
+  "name": "@rechnungen/einvoice-tools",
+  "version": "2026.8.31-1",
+  "private": true,
+  "type": "module",
+  "description": "Internal sidecar: KoSIT validator 1.6.3 (XRechnung config 2026-08-31) + Mustang CLI 2.26.0 behind a tiny HTTP API (02 §8)",
+  "engines": {
+    "node": ">=24 <25"
+  },
+  "scripts": {
+    "start": "node --disable-warning=ExperimentalWarning src/main.ts",
+    "typecheck": "tsc --noEmit -p .",
+    "smoke": "bash scripts/smoke.sh"
+  }
+}

@@ -1,0 +1,103 @@
+# Local development stack (08 §10, 07 §4) — for machines WITH Docker. Not linted by lint:deploy (dev only binds
+# 127.0.0.1 ports; nothing here is ever deployed).
+#
+#   docker compose -f deploy/compose.dev.yml up -d                 # backend, dashboard, postgres, einvoice-tools, caddy
+#   docker compose -f deploy/compose.dev.yml exec backend ./generate_admin_key.sh
+#   # trust Caddy's local CA once (passkeys need a secure context):
+#   docker compose -f deploy/compose.dev.yml cp caddy:/data/caddy/pki/authorities/local/root.crt ./caddy-root.crt
+#   #   macOS:  sudo security add-trusted-cert -d -r trustRoot -k /Library/Keychains/System.keychain caddy-root.crt
+#   #   Linux:  sudo cp caddy-root.crt /usr/local/share/ca-certificates/caddy-local.crt && sudo update-ca-certificates
+#   #   (or `caddy trust` if Caddy is installed on the host)
+#   cp .env.example .env.local   # CONVEX_SELF_HOSTED_URL=http://127.0.0.1:3210 + admin key,
+#                                # NEXT_PUBLIC_CONVEX_URL=https://convex.localtest.me, NEXT_PUBLIC_SITE_URL=https://app.localtest.me
+#   pnpm convex dev              # push functions + codegen
+#   pnpm dev                     # next dev on the HOST :3000 → https://app.localtest.me via caddy
+#
+# WITHOUT Docker: scripts/convex-local-backend.sh (precompiled backend, SQLite) + `pnpm dev` on http://localhost:3000;
+# no Caddy/HTTPS (passkeys only work on localhost), no einvoice-tools (see services/einvoice-tools/README.md).
+
+name: rechnungen-dev
+
+services:
+  backend:
+    image: ghcr.io/get-convex/convex-backend:${CONVEX_SHA:-72ce13c379fe6dbdfc305bc8ad699c5663c68c2a}
+    stop_grace_period: 10s
+    stop_signal: SIGINT
+    ports: ["127.0.0.1:3210:3210", "127.0.0.1:3211:3211"]   # CLI (pnpm convex dev) talks to 127.0.0.1:3210 directly
+    volumes: [convex-data:/convex/data]
+    environment:
+      - INSTANCE_NAME=${INSTANCE_NAME:-rechnungen-dev}
+      # Dev-only default; never reuse it anywhere else.
+      - INSTANCE_SECRET=${INSTANCE_SECRET:-4361726c6f73206465762d6f6e6c7920696e7374616e63652d7365637265742121}
+      - CONVEX_CLOUD_ORIGIN=https://convex.localtest.me
+      - CONVEX_SITE_ORIGIN=https://convex-site.localtest.me
+      - POSTGRES_URL=postgresql://convex:convex@postgres:5432
+      - DO_NOT_REQUIRE_SSL=1
+      - DISABLE_BEACON=1
+      - RUST_LOG=info
+    healthcheck:
+      test: curl -f http://localhost:3210/version
+      interval: 5s
+      start_period: 15s
+    depends_on:
+      postgres: { condition: service_healthy }
+      pg-init: { condition: service_completed_successfully }
+
+  dashboard:
+    image: ghcr.io/get-convex/convex-dashboard:${CONVEX_SHA:-72ce13c379fe6dbdfc305bc8ad699c5663c68c2a}
+    ports: ["127.0.0.1:6791:6791"]
+    environment:
+      - NEXT_PUBLIC_DEPLOYMENT_URL=https://convex.localtest.me
+    depends_on:
+      backend: { condition: service_healthy }
+
+  postgres:
+    image: postgres:17.11
+    ports: ["127.0.0.1:5432:5432"]
+    environment:
+      - POSTGRES_USER=convex
+      - POSTGRES_PASSWORD=convex
+      - POSTGRES_DB=postgres
+    volumes: [pg-data:/var/lib/postgresql/data]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U convex -d postgres"]
+      interval: 5s
+
+  pg-init:
+    image: postgres:17.11
+    restart: "no"
+    environment:
+      - PGHOST=postgres
+      - PGUSER=convex
+      - PGPASSWORD=convex
+      - INSTANCE_NAME=${INSTANCE_NAME:-rechnungen-dev}
+    entrypoint: ["sh", "-c"]
+    command:
+      - |
+        set -eu
+        db=$$(printf '%s' "$$INSTANCE_NAME" | tr '-' '_')
+        psql -d postgres -tAc "SELECT 1 FROM pg_database WHERE datname = '$$db'" | grep -q 1 || createdb "$$db"
+    depends_on:
+      postgres: { condition: service_healthy }
+
+  einvoice-tools:
+    build: ../services/einvoice-tools
+    image: rechnungen-einvoice-tools:dev
+    ports: ["127.0.0.1:8080:8080"]                          # EINVOICE_TOOLS_URL=http://127.0.0.1:8080 for next dev
+
+  caddy:
+    image: caddy:2.11.7-alpine                              # stock image: `tls internal` needs no DNS module
+    ports: ["127.0.0.1:443:443", "127.0.0.1:8443:8443"]
+    extra_hosts: ["host.docker.internal:host-gateway"]      # next dev runs on the host
+    volumes:
+      - ./caddy/Caddyfile.dev:/etc/caddy/Caddyfile:ro
+      - caddy-data:/data
+    depends_on: [backend, dashboard]
+
+  # S3 stand-in for the R2 buckets (07 §4): deliberately not included yet — the official MinIO images are no longer
+  # published (Docker Hub repo gone as of 2026-10). Pick and pin a replacement with the e2e/inbox work (P2).
+
+volumes:
+  convex-data:
+  pg-data:
+  caddy-data:

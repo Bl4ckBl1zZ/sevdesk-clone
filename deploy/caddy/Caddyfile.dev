@@ -1,0 +1,96 @@
+# Local development edge (08 §10): same host routing as production (deploy/caddy/Caddyfile) under
+# BASE_DOMAIN=localtest.me (*.localtest.me resolves to 127.0.0.1), with Caddy's internal CA instead of Let's Encrypt.
+# Passkeys need a secure context → trust the local CA once (see deploy/compose.dev.yml header).
+#
+# `next dev` runs on the HOST (hot reload), so web is reached via host.docker.internal; Convex runs in compose.
+# Upstreams/ports are overridable for running Caddy without Docker.
+{
+	local_certs
+	auto_https disable_redirects
+	admin off
+	skip_install_trust
+}
+
+(security_headers) {
+	header {
+		defer
+		Strict-Transport-Security "max-age=31536000"
+		-Server
+		-Via
+	}
+	# One directive per default: `?` adds a "require absent" condition to its whole header block.
+	header ?X-Content-Type-Options "nosniff"
+	header ?Referrer-Policy "same-origin"
+	header ?X-Frame-Options "DENY"
+}
+
+*.localtest.me:{$CADDY_HTTPS_PORT:443} {
+	tls internal
+	import security_headers
+
+	@app host app.localtest.me
+	@api host api.localtest.me
+	@cvx host convex.localtest.me
+	@site host convex-site.localtest.me
+	@dash host convex-dash.localtest.me
+
+	handle @app {
+		@machine_api path /api/v1 /api/v1/* /api/mcp /api/mcp/*
+		handle @machine_api {
+			respond 404
+		}
+		handle {
+			reverse_proxy {$WEB_UPSTREAM:host.docker.internal:3000}
+		}
+	}
+	handle @api {
+		@api_allowed path /api/v1 /api/v1/* /api/mcp /api/mcp/* /api/docs /api/docs/* /api/openapi.json /api/health
+		handle @api_allowed {
+			request_header -Cookie
+			reverse_proxy {$WEB_UPSTREAM:host.docker.internal:3000} {
+				flush_interval -1
+			}
+		}
+		handle {
+			respond 404
+		}
+	}
+	handle @cvx {
+		reverse_proxy {$CONVEX_UPSTREAM:backend:3210}
+	}
+	handle @site {
+		@auth path /api/auth/* /.well-known/*
+		handle @auth {
+			reverse_proxy {$CONVEX_SITE_UPSTREAM:backend:3211} {
+				flush_interval -1
+			}
+		}
+		handle {
+			respond 404
+		}
+	}
+	# No basic auth in dev; the dashboard still asks for the admin key.
+	handle @dash {
+		reverse_proxy {$DASHBOARD_UPSTREAM:dashboard:6791}
+	}
+	handle {
+		respond 421
+	}
+}
+
+*.localtest.me:{$CADDY_WEBSITE_PORT:8443} {
+	tls internal
+	import security_headers
+
+	@v1 {
+		host api.localtest.me
+		path /api/v1 /api/v1/*
+	}
+	handle @v1 {
+		request_header -Cookie
+		reverse_proxy {$WEB_UPSTREAM:host.docker.internal:3000}
+	}
+	handle {
+		respond 404
+	}
+}

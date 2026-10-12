@@ -1,0 +1,31 @@
+# Build context of the web image (Dockerfile at the repo root). Keep secrets and bulky artefacts out.
+.git
+.github
+.next
+.convex
+.env
+.env.*
+!.env.example
+node_modules
+**/node_modules
+coverage
+reports
+results
+test-results
+playwright-report
+.stryker-tmp
+e2e/.auth
+*.log
+*.tsbuildinfo
+next-env.d.ts
+
+# Not needed to build the web app
+deploy
+docs
+services/einvoice-tools/src
+services/einvoice-tools/test
+services/einvoice-tools/scripts
+services/einvoice-tools/Dockerfile
+e2e
+**/*.test.ts
+**/*.test.tsx

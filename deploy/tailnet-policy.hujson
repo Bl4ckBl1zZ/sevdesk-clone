@@ -1,0 +1,51 @@
+// Tailnet policy SNIPPET for the rechnungen deployment (08 §2.1, §4; research 14 §4.1.3, §4.6).
+// Merge it into the tailnet policy (admin console → Access controls) BEFORE `tailscale.confirmRetag`
+// (deploy/scripts/tailscale-retag.sh). This is not a complete policy: keep your existing rules and add these.
+//
+// Placeholders:
+//   <CADDY_SVC>   Tailscale Service of the caddy edge as created by the Dokploy fork, e.g.
+//                 svc:dokploy-rechnungen-production-rechnungen-caddy-<8 chars>  (`dokploy tailscale list --json`,
+//                 .endpoints[] | select(.composeService=="caddy") | .serviceName) — exists after the first deploy.
+//   <DOKPLOY_PANEL_IP>  tailnet IP of the Dokploy panel host (CI calls the Dokploy API over the tailnet, 08 §6).
+//   <OWNER_LOGIN>  your Tailscale login (only needed if you prefer a user over autogroup:admin).
+{
+  "tagOwners": {
+    "tag:dokploy": ["autogroup:admin"], // deploy servers + the fork's panel gateway
+    "tag:website": ["autogroup:admin"], // the public website's server (REST /api/v1 on :8443 only)
+    "tag:ci": ["autogroup:admin"], // GitHub Actions runners (tailscale/github-action, OAuth client)
+  },
+
+  "hosts": {
+    "dokploy-panel": "<DOKPLOY_PANEL_IP>",
+  },
+
+  // Step 1 of 08 §2.1: SSH must keep working once "Proxmox PVE" becomes tag-owned. Dokploy reaches the server via
+  // its TAILNET IP (100.121.46.16 at the time of writing), so the second rule is REQUIRED if Tailscale SSH is on.
+  "ssh": [
+    {"action": "accept", "src": ["autogroup:admin"], "dst": ["tag:dokploy"], "users": ["root", "autogroup:nonroot"]},
+    {"action": "accept", "src": ["tag:dokploy"], "dst": ["tag:dokploy"], "users": ["root"]},
+  ],
+
+  "grants": [
+    // Admin devices and the Dokploy machines among themselves (08 §2.1).
+    {"src": ["autogroup:admin"], "dst": ["tag:dokploy"], "ip": ["*"]},
+    {"src": ["tag:dokploy"], "dst": ["tag:dokploy"], "ip": ["*"]},
+
+    // ── Added once the caddy Service exists (08 §4) ──────────────────────────────────────────────────────────────
+    // Owner devices: UI, API, MCP, Convex, dashboard.
+    {"src": ["autogroup:admin"], "dst": ["<CADDY_SVC>"], "ip": ["tcp:443", "tcp:8443"]},
+    // Invited members (bookkeeper, viewer, remote auditor): UI only. Add their user/device explicitly and REMOVE the
+    // entry when the member expires (02 §4.3). Example:
+    // {"src": ["bookkeeper@example.de"], "dst": ["<CADDY_SVC>"], "ip": ["tcp:443"]},
+    // Website server: REST /api/v1/** on the dedicated port only (05 §6.1).
+    {"src": ["tag:website"], "dst": ["<CADDY_SVC>"], "ip": ["tcp:8443"]},
+    // CI: `npx convex deploy` + smoke tests over the edge, Dokploy API on the panel (08 §6).
+    {"src": ["tag:ci"], "dst": ["<CADDY_SVC>"], "ip": ["tcp:443"]},
+    {"src": ["tag:ci"], "dst": ["dokploy-panel"], "ip": ["tcp:3000"]},
+  ],
+
+  // Tailscale Services must be approved for their hosts. The fork's API credential normally handles this; if the
+  // Service stays "pending approval" in the admin console, auto-approve tag:dokploy hosts for it
+  // (syntax per the Tailscale Services docs — UNSURE whether the fork needs it, check after the first deploy):
+  // "autoApprovers": { "services": { "<CADDY_SVC>": ["tag:dokploy"] } },
+}

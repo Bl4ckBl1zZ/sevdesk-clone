@@ -45,7 +45,7 @@ const specFiles = [
 ];
 const registry = mergeRegistry(specFiles.map((f) => parseSpec(relative(ROOT, f), readFileSync(f, "utf8"))));
 
-const testFiles = ["src", "convex", "test", "e2e", "scripts"].flatMap((d) =>
+const testFiles = ["src", "convex", "test", "e2e", "scripts", "deploy", "services"].flatMap((d) =>
   // scripts/trace/** is excluded: its own tests contain example titles as fixtures.
   walk(join(ROOT, d), (p) => /\.(test|spec)\.tsx?$/.test(p) && !p.includes(join("scripts", "trace"))),
 );

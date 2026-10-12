@@ -1,0 +1,133 @@
+# TLS edge (08 §3.2, 02 §4.1). The only published service: the Dokploy fork forwards tailnet tcp:443/8443 (plain L4
+# via socat) to this container, so TLS terminates here with ONE wildcard certificate for *.{$BASE_DOMAIN}, obtained via
+# the Cloudflare DNS-01 challenge (Let's Encrypt never needs to reach the server).
+#
+# Env (compose): BASE_DOMAIN, ACME_EMAIL, CLOUDFLARE_DNS_API_TOKEN (Zone → DNS → Edit, one zone),
+#                CONVEX_DASH_BASIC_AUTH (bcrypt hash from `caddy hash-password`).
+# Validated at image build time (deploy/caddy/Dockerfile runs `caddy validate` with dummy values).
+{
+	email {$ACME_EMAIL}
+	acme_dns cloudflare {$CLOUDFLARE_DNS_API_TOKEN}
+	# Port 80 is not published; HTTP→HTTPS redirects would only bind a useless listener.
+	auto_https disable_redirects
+	# Static config; no admin API inside the container.
+	admin off
+	servers {
+		# Client IPs are not available behind the fork's socat proxy (02 §4.1); no trusted_proxies.
+		protocols h1 h2
+	}
+}
+
+# Response headers for every host. `defer` = applied after the upstream answered (overrides), `?` = default only if
+# the upstream did not set it (proxy.ts sets the nonce-based CSP, frame and permissions policies for app./api.).
+(security_headers) {
+	header {
+		defer
+		Strict-Transport-Security "max-age=31536000"
+		-Server
+		-Via
+		-X-Powered-By
+	}
+	# One directive per default: `?` adds a "require absent" condition to its whole header block.
+	header ?X-Content-Type-Options "nosniff"
+	header ?Referrer-Policy "same-origin"
+	header ?X-Frame-Options "DENY"
+	header ?Cross-Origin-Opener-Policy "same-origin"
+}
+
+(access_log) {
+	log {
+		output stdout
+		format json
+	}
+}
+
+# ── :443 — all hosts (owner devices, members, CI; grants in deploy/tailnet-policy.hujson) ─────────────────────────
+*.{$BASE_DOMAIN}:443 {
+	import security_headers
+	import access_log
+	encode zstd gzip
+
+	@app host app.{$BASE_DOMAIN}
+	@api host api.{$BASE_DOMAIN}
+	@cvx host convex.{$BASE_DOMAIN}
+	@site host convex-site.{$BASE_DOMAIN}
+	@dash host convex-dash.{$BASE_DOMAIN}
+
+	# app.: UI, Server Actions, /api/health and /api/auth/* (Next proxies Better Auth to backend:3211 internally,
+	# so auth cookies stay first-party on app., 02 §4.2). REST and MCP live on api. only (02 §4.1).
+	handle @app {
+		@machine_api path /api/v1 /api/v1/* /api/mcp /api/mcp/*
+		handle @machine_api {
+			respond 404
+		}
+		handle {
+			reverse_proxy web:3000
+		}
+	}
+
+	# api.: path allowlist (defence in depth; proxy.ts enforces the same list, 02 §4.1). API keys only — cookies are
+	# stripped so a browser session can never authenticate a machine request.
+	handle @api {
+		@api_allowed path /api/v1 /api/v1/* /api/mcp /api/mcp/* /api/docs /api/docs/* /api/openapi.json /api/health
+		handle @api_allowed {
+			request_header -Cookie
+			reverse_proxy web:3000 {
+				# MCP (streamable HTTP) and large exports must not be buffered.
+				flush_interval -1
+			}
+		}
+		handle {
+			respond 404
+		}
+	}
+
+	# convex.: Convex API incl. the sync WebSocket (reverse_proxy upgrades automatically).
+	handle @cvx {
+		reverse_proxy backend:3210
+	}
+
+	# convex-site.: Convex HTTP actions — only Better Auth (02 §4.1: "no other HTTP actions are public").
+	handle @site {
+		@auth path /api/auth/* /.well-known/*
+		handle @auth {
+			reverse_proxy backend:3211 {
+				flush_interval -1
+			}
+		}
+		handle {
+			respond 404
+		}
+	}
+
+	# convex-dash.: Convex dashboard behind basic auth (+ the Convex admin key inside the dashboard).
+	handle @dash {
+		basic_auth {
+			owner {$CONVEX_DASH_BASIC_AUTH}
+		}
+		reverse_proxy dashboard:6791
+	}
+
+	# Unknown host under the wildcard (DNS-rebinding protection, SEC-06).
+	handle {
+		respond 421
+	}
+}
+
+# ── :8443 — website listener: tag:website is granted ONLY this port (05 §6.1, 02 §4.1) ─────────────────────────────
+*.{$BASE_DOMAIN}:8443 {
+	import security_headers
+	import access_log
+
+	@v1 {
+		host api.{$BASE_DOMAIN}
+		path /api/v1 /api/v1/*
+	}
+	handle @v1 {
+		request_header -Cookie
+		reverse_proxy web:3000
+	}
+	handle {
+		respond 404
+	}
+}

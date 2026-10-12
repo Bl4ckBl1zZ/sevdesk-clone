@@ -361,7 +361,7 @@ Crons check `IS_TEST` and skip in E2E unless invoked explicitly.
 
 ## 8. einvoice-tools sidecar
 
-A tiny Node HTTP server (Hono) in a `eclipse-temurin:17-jre` + Node 24 image:
+A tiny, dependency-free Node HTTP server (`node:http`; Hono was dropped in P0 — four routes need no framework and the image needs no package install, ADR 0003) in a `eclipse-temurin:17-jre` + Node 24 image:
 
 | Endpoint | Implementation | Response |
 |---|---|---|

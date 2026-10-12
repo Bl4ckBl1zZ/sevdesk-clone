@@ -1,11 +1,14 @@
-# CI pipeline (07-testing §7). No secrets are needed for these jobs.
-# Later (needs the stack / secrets): einvoice-validate, e2e against compose.dev.yml, build-image, deploy.
+# CI pipeline (07-testing §7). The test jobs need no secrets.
+# build-image + deploy (08 §6) run only on main / v* tags and only once the repository variables IMAGES_ENABLED /
+# DEPLOY_ENABLED=true are set (inputs: deploy/runbooks/go-live.md "CI/CD inputs"). Later: einvoice-validate (golden artifacts), e2e
+# against deploy/compose.dev.yml.
 name: CI
 
 on:
   pull_request:
   push:
     branches: [main]
+    tags: ["v*"]
 
 concurrency:
   group: ci-${{ github.ref }}
@@ -130,5 +133,171 @@ jobs:
           cache: pnpm
       - run: pnpm install --frozen-lockfile
       - run: pnpm build
-      # TODO(P0): build-image (web, einvoice-tools, caddy → GHCR, main only) and deploy (convex deploy +
-      # Dokploy compose deploy over the tailnet, 08 §6) once the Dockerfiles and secrets exist.
+
+  # ── Deployment tooling (08 §3) ──────────────────────────────────────────────────────────────────────────────────
+  deploy-lint:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v5
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v5
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      # Only caddy may declare expose/ports (the Dokploy fork publishes them to the tailnet), Convex flag gotchas, …
+      - run: pnpm lint:deploy
+      # Compose lint, Email Worker (INB-048) and einvoice-tools unit tests (no network, no Java).
+      - run: pnpm test -p deploy
+      - run: pnpm exec tsc --noEmit -p services/einvoice-tools
+      - name: shellcheck
+        run: |
+          shellcheck --version
+          shellcheck -x deploy/bootstrap.sh deploy/scripts/*.sh services/einvoice-tools/scripts/*.sh scripts/*.sh
+      - name: docker compose config (prod with dummy env, dev)
+        run: |
+          set -a
+          # every variable of the env template, dummy value
+          eval "$(sed -n 's/^\([A-Z_][A-Z0-9_]*\)=.*/\1=x/p' deploy/env/production.example)"
+          set +a
+          docker compose -f deploy/compose/docker-compose.yml config --quiet
+          docker compose -f deploy/compose.dev.yml config --quiet
+      - name: Caddyfile.dev validates (stock caddy)
+        run: |
+          docker run --rm -v "$PWD/deploy/caddy/Caddyfile.dev:/etc/caddy/Caddyfile:ro" caddy:2.11.7-alpine \
+            caddy validate --adapter caddyfile --config /etc/caddy/Caddyfile
+      # Builds caddy + caddy-dns/cloudflare and runs `caddy validate` on the production Caddyfile inside the image.
+      - uses: docker/setup-buildx-action@v4
+      - uses: docker/build-push-action@v7
+        with:
+          context: deploy/caddy
+          push: false
+          cache-from: type=gha,scope=rechnungen-caddy
+          cache-to: type=gha,mode=max,scope=rechnungen-caddy
+
+  # Builds the sidecar image and runs the real validators against the fixtures (02 §8, ER-12).
+  einvoice-tools:
+    name: einvoice-tools (KoSIT 1.6.3, XRechnung cfg 2026-08-31, Mustang 2.26.0)
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v5
+      - uses: docker/setup-buildx-action@v4
+      - uses: docker/build-push-action@v7
+        with:
+          context: services/einvoice-tools
+          load: true
+          tags: rechnungen-einvoice-tools:ci
+          cache-from: type=gha,scope=rechnungen-einvoice-tools
+          cache-to: type=gha,mode=max,scope=rechnungen-einvoice-tools
+      - name: Start the sidecar (published on localhost for the test only)
+        run: docker run -d --name eit -p 127.0.0.1:8080:8080 rechnungen-einvoice-tools:ci
+      - run: services/einvoice-tools/scripts/smoke.sh http://127.0.0.1:8080
+      - name: Container runs unprivileged and becomes healthy
+        run: |
+          test "$(docker inspect -f '{{.Config.User}}' eit)" = "10001:10001"
+          for i in $(seq 1 30); do
+            s="$(docker inspect -f '{{.State.Health.Status}}' eit)"; [ "$s" = healthy ] && exit 0; sleep 5
+          done
+          echo "health status: $s"; exit 1
+      - name: Container logs
+        if: always()
+        run: docker logs eit 2>&1 | tail -n 200
+
+  # ── Images + deploy (08 §6): main / v* tags only, opt-in via vars.DEPLOY_ENABLED ─────────────────────────────────
+  build-image:
+    # IMAGES_ENABLED alone = build + push only (the first bootstrap needs image tags before a compose exists).
+    if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/v')) && (vars.IMAGES_ENABLED == 'true' || vars.DEPLOY_ENABLED == 'true')
+    needs: [lint-typecheck, unit, golden, build, deploy-lint, einvoice-tools]
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+      packages: write
+    strategy:
+      fail-fast: true
+      matrix:
+        include:
+          - image: rechnungen-web
+            context: .
+          - image: rechnungen-caddy
+            context: deploy/caddy
+          - image: rechnungen-einvoice-tools
+            context: services/einvoice-tools
+    steps:
+      - uses: actions/checkout@v5
+      - name: Registry
+        id: reg
+        env:
+          REGISTRY: ${{ secrets.REGISTRY }}
+        run: |
+          # The owner's registry (secrets REGISTRY / REGISTRY_USER / REGISTRY_PASSWORD, e.g. the self-hosted
+          # registry or ghcr.io/<owner>); default: GHCR of the repository owner with the workflow token.
+          reg="${REGISTRY:-ghcr.io/${GITHUB_REPOSITORY_OWNER}}"
+          reg="$(echo "$reg" | tr '[:upper:]' '[:lower:]')"
+          echo "registry=$reg" >> "$GITHUB_OUTPUT"
+          echo "host=${reg%%/*}" >> "$GITHUB_OUTPUT"
+      - uses: docker/login-action@v4
+        with:
+          registry: ${{ steps.reg.outputs.host }}
+          username: ${{ secrets.REGISTRY_USER || github.actor }}
+          password: ${{ secrets.REGISTRY_PASSWORD || secrets.GITHUB_TOKEN }}
+      - uses: docker/setup-buildx-action@v4
+      - uses: docker/build-push-action@v7
+        with:
+          context: ${{ matrix.context }}
+          push: true
+          tags: |
+            ${{ steps.reg.outputs.registry }}/${{ matrix.image }}:${{ github.sha }}
+            ${{ steps.reg.outputs.registry }}/${{ matrix.image }}:${{ github.ref == 'refs/heads/main' && 'main' || github.ref_name }}
+          # NEXT_PUBLIC_* are inlined at build time (08 §5.1); unused build args are ignored by the other Dockerfiles.
+          build-args: |
+            NEXT_PUBLIC_CONVEX_URL=https://convex.${{ vars.BASE_DOMAIN }}
+            NEXT_PUBLIC_SITE_URL=https://app.${{ vars.BASE_DOMAIN }}
+            APP_VERSION=${{ github.sha }}
+            EINVOICE_TOOLS_VERSION=2026-08-31-1+${{ github.sha }}
+          labels: |
+            org.opencontainers.image.source=${{ github.server_url }}/${{ github.repository }}
+            org.opencontainers.image.revision=${{ github.sha }}
+          cache-from: type=gha,scope=${{ matrix.image }}
+          cache-to: type=gha,mode=max,scope=${{ matrix.image }}
+
+  deploy:
+    if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/v')) && vars.DEPLOY_ENABLED == 'true'
+    needs: [build-image, integration, e2e]
+    runs-on: ubuntu-24.04
+    environment: production
+    concurrency:
+      group: deploy-production
+      cancel-in-progress: false
+    steps:
+      - uses: actions/checkout@v5
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v5
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      # Join the tailnet as tag:ci (OAuth client with the auth_keys scope; grants in deploy/tailnet-policy.hujson).
+      - uses: tailscale/github-action@v4
+        with:
+          oauth-client-id: ${{ secrets.TS_OAUTH_CLIENT_ID }}
+          oauth-secret: ${{ secrets.TS_OAUTH_SECRET }}
+          tags: tag:ci
+          version: 1.102.4
+      # Convex functions first; they must stay backward compatible for one deploy (expand → migrate → contract).
+      - name: convex deploy
+        env:
+          CONVEX_SELF_HOSTED_URL: https://convex.${{ vars.BASE_DOMAIN }}
+          CONVEX_SELF_HOSTED_ADMIN_KEY: ${{ secrets.CONVEX_SELF_HOSTED_ADMIN_KEY }}
+        run: pnpm convex deploy --yes
+      - name: Dokploy compose deploy + smoke (rollback on failure)
+        env:
+          DOKPLOY_URL: ${{ secrets.DOKPLOY_URL }}
+          DOKPLOY_API_KEY: ${{ secrets.DOKPLOY_API_KEY }}
+          DOKPLOY_COMPOSE_ID: ${{ vars.DOKPLOY_COMPOSE_ID }}
+          BASE_DOMAIN: ${{ vars.BASE_DOMAIN }}
+          WEB_TAG: ${{ github.sha }}
+          CADDY_TAG: ${{ github.sha }}
+          EIT_TAG: ${{ github.sha }}
+          DEPLOY_TITLE: ci ${{ github.ref_name }} ${{ github.sha }} run ${{ github.run_id }}
+          SMOKE_EXTRA: ${{ vars.SMOKE_EXTRA }}
+        run: deploy/scripts/cd-deploy.sh

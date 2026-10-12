@@ -1,0 +1,69 @@
+# Template for the LOCAL, never-committed file `.env.production` read by deploy/bootstrap.sh (08 §5, §5.2).
+#   cp deploy/env/production.example .env.production && chmod 600 .env.production   (.gitignore covers .env.*)
+# Values with `$` (bcrypt hashes) must be single-quoted. Multi-line PEMs: paste them between double quotes, bootstrap
+# converts them to \n-escaped one-liners for the Dokploy env.
+#
+# Generate secrets:
+#   INSTANCE_SECRET        openssl rand -hex 32
+#   PG_PASSWORD            openssl rand -hex 24
+#   APP_ENCRYPTION_KEY     openssl rand -base64 32                       (same value goes into the Convex env)
+#   JWT_PRIVATE_KEY_PEM    openssl genpkey -algorithm EC -pkeyopt ec_paramgen_curve:P-256   (ES256; public key → SERVER_JWKS)
+#   CHECKPOINT_SIGNING_KEY_PEM  openssl ecparam -name prime256v1 -genkey -noout | openssl pkcs8 -topk8 -nocrypt
+#   BETTER_AUTH_SECRET     openssl rand -base64 32
+#   CONVEX_DASH_BASIC_AUTH docker run --rm caddy:2.11.7-alpine caddy hash-password --plaintext '<password>'
+
+# ── Bootstrap inputs (not stored in Dokploy) ──────────────────────────────────────────────────────────────────────
+DOKPLOY_PROJECT=rechnungen
+DOKPLOY_ENVIRONMENT=production
+DOKPLOY_SERVER_NAME="Proxmox PVE"
+COMPOSE_NAME=rechnungen
+R2_DESTINATION_NAME="Cloudflare R2 (dokploy)"
+OWNER_EMAIL=
+# Registry the CI pushes to and the server pulls from (ghcr.io/<owner> or the self-hosted registry), see ADR 0003.
+IMAGE_REGISTRY=
+REGISTRY_USERNAME=
+REGISTRY_PASSWORD=
+
+# ── Compose environment (Dokploy → compose "rechnungen") — 08 §5.2 ───────────────────────────────────────────────
+BASE_DOMAIN=
+ACME_EMAIL=
+CLOUDFLARE_DNS_API_TOKEN=
+CONVEX_DASH_BASIC_AUTH=''
+# Pilot first (08 §8.1): rechnungen-pilot → go-live switches to rechnungen (runbooks/go-live.md)
+INSTANCE_NAME=rechnungen-pilot
+INSTANCE_SECRET=
+PG_PASSWORD=
+JWT_PRIVATE_KEY_PEM=""
+APP_ENCRYPTION_KEY=
+CONVEX_SHA=72ce13c379fe6dbdfc305bc8ad699c5663c68c2a
+CADDY_TAG=
+WEB_TAG=
+EIT_TAG=
+LOG_LEVEL=info
+
+# ── Convex function env (bootstrap step 5: `npx convex env set`) — 08 §5.2 ───────────────────────────────────────
+# SITE_URL / PASSKEY_RP_ID / EINVOICE_TOOLS_URL are derived from BASE_DOMAIN; JWKS comes from `auth:rotateKeys`;
+# SERVER_JWKS is derived from JWT_PRIVATE_KEY_PEM.
+CONVEX_SELF_HOSTED_ADMIN_KEY=
+BETTER_AUTH_SECRET=
+CLOUDFLARE_ACCOUNT_ID=
+CLOUDFLARE_EMAIL_API_TOKEN=
+AUTH_MAIL_FROM=
+R2_ACCOUNT_ENDPOINT=
+R2_CHECKPOINT_BUCKET=
+R2_CHECKPOINT_ACCESS_KEY_ID=
+R2_CHECKPOINT_SECRET_ACCESS_KEY=
+R2_BACKUP_BUCKET=dokploy
+R2_BACKUP_READONLY_ACCESS_KEY_ID=
+R2_BACKUP_READONLY_SECRET_ACCESS_KEY=
+CHECKPOINT_SIGNING_KEY_PEM=""
+# P2
+R2_INBOX_BUCKET=
+R2_INBOX_ACCESS_KEY_ID=
+R2_INBOX_SECRET_ACCESS_KEY=
+ENABLE_BANKING_APP_ID=
+ENABLE_BANKING_PRIVATE_KEY_PEM=""
+
+# ── Server-side script env (/opt/rechnungen/backup.env on "Proxmox PVE", root-only) — 08 §5.2 ─────────────────────
+R2_BACKUP_WRITER_ACCESS_KEY_ID=
+R2_BACKUP_WRITER_SECRET_ACCESS_KEY=
