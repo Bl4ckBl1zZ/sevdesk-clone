@@ -1,4 +1,3 @@
-import AxeBuilder from "@axe-core/playwright";
 import type { BrowserContext, Page } from "@playwright/test";
 import {
   addVirtualAuthenticator,
@@ -8,7 +7,7 @@ import {
   resetBackend,
   signInWithCode,
 } from "./backend";
-import { expect, test } from "./fixtures";
+import { devServer, expect, expectNoAxeViolations as noAxeViolations, test, waitForAppOnNavigation } from "./fixtures";
 
 /**
  * P0 gate journey against the real self-hosted backend (07-testing §3.2): owner bootstrap with an e-mail code,
@@ -20,21 +19,10 @@ import { expect, test } from "./fixtures";
  */
 test.skip(!backendEnabled, "needs the local test backend (pnpm test:backend)");
 test.skip(({ browserName }) => browserName !== "chromium", "virtual WebAuthn authenticator needs Chromium (CDP)");
-test.describe.configure({ mode: "serial", timeout: 120_000 });
+test.describe.configure({ mode: "serial", timeout: devServer ? 240_000 : 120_000 });
 
 let context: BrowserContext;
 let page: Page;
-
-async function noAxeViolations(p: Page) {
-  await p.evaluate(() => new Promise<void>((r) => requestAnimationFrame(() => requestAnimationFrame(() => r()))));
-  await p
-    .waitForFunction(() => document.getAnimations().every((a) => a.playState !== "running"), undefined, {
-      timeout: 2_000,
-    })
-    .catch(() => {});
-  const results = await new AxeBuilder({ page: p }).withTags(["wcag2a", "wcag2aa", "wcag21a", "wcag21aa"]).analyze();
-  expect(results.violations).toEqual([]);
-}
 
 const weiter = (p: Page) => p.getByRole("button", { name: "Weiter", exact: true });
 
@@ -45,7 +33,7 @@ async function expectStep(p: Page, heading: string) {
 test.beforeAll(async ({ browser }, testInfo) => {
   resetBackend();
   context = await browser.newContext({ ...testInfo.project.use, baseURL: testInfo.project.use.baseURL });
-  page = await context.newPage();
+  page = waitForAppOnNavigation(await context.newPage());
   await addVirtualAuthenticator(context, page);
 });
 
@@ -187,7 +175,7 @@ test("SEC-01 the owner signs out and back in with the passkey", async () => {
 
 test("SEC-01 an uninvited address gets the neutral answer and no code (E-AUD-26)", async ({ browser }, testInfo) => {
   const other = await browser.newContext({ ...testInfo.project.use });
-  const p = await other.newPage();
+  const p = waitForAppOnNavigation(await other.newPage());
   await p.goto("/anmelden");
   await p.getByLabel("E-Mail-Adresse").fill("fremd@example.test");
   await p.getByRole("button", { name: "Code per E-Mail senden" }).click();
@@ -200,7 +188,7 @@ test("SEC-01 the invited bookkeeper signs in with a code and has no access to th
   browser,
 }, testInfo) => {
   const other = await browser.newContext({ ...testInfo.project.use });
-  const p = await other.newPage();
+  const p = waitForAppOnNavigation(await other.newPage());
   await signInWithCode(p, "buchhaltung@example.test");
   await expect(p).toHaveURL(/\/anmelden\/passkey-einrichten/, { timeout: 20_000 });
   await p.getByRole("link", { name: "Später" }).click();

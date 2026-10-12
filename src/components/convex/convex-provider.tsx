@@ -16,8 +16,8 @@ const providerAuthClient = authClient as unknown as React.ComponentProps<typeof 
 
 /**
  * Convex + Better Auth (02 §4.2): `ConvexBetterAuthProvider` keeps the Convex JWT of the Better Auth session on
- * the client and refreshes it (15 min). On the server and without NEXT_PUBLIC_CONVEX_URL the children render
- * without Convex; components that need it are wrapped in <ConvexGuard>.
+ * the client and refreshes it (15 min). Server and browser render the same tree (see getConvexClient); without
+ * NEXT_PUBLIC_CONVEX_URL the children render without Convex; components that need it are wrapped in <ConvexGuard>.
  */
 export function ConvexClientProvider({ children }: { children: React.ReactNode }) {
   const [client] = React.useState(() => getConvexClient());

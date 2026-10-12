@@ -5,7 +5,7 @@ import { join } from "node:path";
 import type { BrowserContext, Page } from "@playwright/test";
 import { ConvexHttpClient } from "convex/browser";
 import { internal } from "../convex/_generated/api";
-import { expect } from "./fixtures";
+import { expect, waitForAppOnNavigation } from "./fixtures";
 
 /**
  * Real-backend helpers for the E2E journeys (07-testing §3.2, P0 gate). Prerequisites:
@@ -115,7 +115,7 @@ export async function ownerStorageState(
 ): Promise<string | null> {
   if (!backendEnabled || !use.baseURL || (await isFirstRun(use.baseURL))) return null;
   const ctx = await browser.newContext({ ...use });
-  const page = await ctx.newPage();
+  const page = waitForAppOnNavigation(await ctx.newPage());
   await signInWithCode(page, OWNER_EMAIL);
   await page.waitForURL((url) => url.pathname === "/", { timeout: 30_000 });
   await ctx.storageState({ path: file });

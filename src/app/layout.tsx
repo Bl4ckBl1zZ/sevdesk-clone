@@ -4,6 +4,7 @@ import { headers } from "next/headers";
 import { NextIntlClientProvider } from "next-intl";
 import { getLocale } from "next-intl/server";
 import { ConvexClientProvider } from "@/components/convex/convex-provider";
+import { HydrationMarker } from "@/components/hydration-marker";
 import { ThemeProvider } from "@/components/theme-provider";
 import { Toaster } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -47,6 +48,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
               <TooltipProvider>
                 {children}
                 <Toaster richColors closeButton />
+                <HydrationMarker />
               </TooltipProvider>
             </ThemeProvider>
           </ConvexClientProvider>
