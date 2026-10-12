@@ -1,9 +1,11 @@
+import { readdirSync, readFileSync, statSync } from "node:fs";
+import { join, relative, sep } from "node:path";
 import { expect, test } from "vitest";
 import { checkSource } from "./boundaries";
 
 const rules = (file: string, src: string) => checkSource(file, src).map((v) => v.rule);
 
-test("SMOKE ctx.db writes are rejected outside convex/model/** and convex/betterAuth/**", () => {
+test("AUD-011 TST-AUD-07 ctx.db writes are rejected outside convex/model/** and convex/betterAuth/**", () => {
   const write = "export const f = async (ctx) => { await ctx.db.patch(id, { a: 1 }); };";
   expect(rules("convex/invoices.ts", write)).toEqual(["db-write-outside-model"]);
   expect(rules("convex/actions/pdf.ts", "const { db } = ctx; db.insert('x', {});")).toEqual(["db-write-outside-model"]);
@@ -43,4 +45,28 @@ test("SMOKE src/** may import only convex/_generated; convex/** only src/domain,
   expect(rules("convex/invoices.ts", 'import { Button } from "@/components/ui/button";')).toEqual([
     "convex-imports-src",
   ]);
+});
+
+test("AUD-011 the repository passes the db-write rule that `pnpm lint` (CI) enforces", () => {
+  const root = join(import.meta.dirname, "..");
+  const skip = new Set(["node_modules", "_generated", ".next", ".git", "coverage"]);
+  const walk = (dir: string, acc: string[] = []): string[] => {
+    for (const name of readdirSync(dir)) {
+      if (skip.has(name)) continue;
+      const p = join(dir, name);
+      if (statSync(p).isDirectory()) walk(p, acc);
+      else if (/\.(ts|tsx|mts|cts|js|mjs)$/.test(name)) acc.push(p);
+    }
+    return acc;
+  };
+  const files = walk(join(root, "convex"));
+  expect(files.length).toBeGreaterThan(20);
+  const offenders = files
+    .flatMap((f) => checkSource(relative(root, f).split(sep).join("/"), readFileSync(f, "utf8")))
+    .filter((v) => v.rule === "db-write-outside-model")
+    .map((v) => `${v.file}:${v.line}`);
+  expect(offenders).toEqual([]);
+  // The lint script really runs this check (CI fails otherwise).
+  const pkg = JSON.parse(readFileSync(join(root, "package.json"), "utf8")) as { scripts: Record<string, string> };
+  expect(pkg.scripts.lint).toContain("scripts/check-boundaries.ts");
 });

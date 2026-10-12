@@ -78,7 +78,7 @@ function registered(): Record<string, InventoryRow> {
 }
 
 describe("mutation inventory", () => {
-  test("GOBD-06 no Convex module outside convex/model/** writes to ctx.db", () => {
+  test("AUD-011 GOBD-06 no Convex module outside convex/model/** writes to ctx.db", () => {
     const offenders = Object.entries(sources)
       .filter(([path]) => !ALLOWED_WRITERS.some((re) => re.test(path)) && path !== "./test.setup.ts")
       .filter(([, src]) => WRITE_RE.test(src))
@@ -115,7 +115,7 @@ describe("mutation inventory", () => {
     await expect(`${JSON.stringify(registered(), null, 2)}\n`).toMatchFileSnapshot("./mutation-inventory.json");
   });
 
-  test("GOBD-06 the Better Auth component writes only its own tables", () => {
+  test("AUD-011 TST-AUD-32 GOBD-06 the Better Auth component writes only its own tables", () => {
     const authSources = Object.entries(sources).filter(([p]) => p.startsWith("./betterAuth/"));
     const appTables = [
       "auditLog",
@@ -130,6 +130,18 @@ describe("mutation inventory", () => {
     for (const [path, src] of authSources) {
       for (const table of appTables) expect(src.includes(`"${table}"`), `${path} references ${table}`).toBe(false);
     }
+  });
+
+  test("AUD-011 every mutation builder in convex/functions.ts installs the write guard and the audit check once", () => {
+    const src = sources["./functions.ts"] ?? "";
+    const builders = src.split(/(?=export const \w+ = tagged\()/).filter((b) => b.includes("customMutation("));
+    expect(builders.length).toBeGreaterThanOrEqual(3);
+    for (const b of builders) {
+      const name = /export const (\w+)/.exec(b)?.[1];
+      expect(b.match(/guardedDb\(ctx\.db, stats\)/g)?.length, name).toBe(1);
+      expect(b.match(/onSuccess: auditCheck\(stats\)/g)?.length, name).toBe(1);
+    }
+    // That every registered function is built with one of these wrappers is checked by the AUD-001 tests above.
   });
 
   test.todo("GOBD-06 every public mutation rejects changes to finalised records with immutable_record (P1)");
