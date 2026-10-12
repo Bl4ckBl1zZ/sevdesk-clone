@@ -1,10 +1,11 @@
 import { screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
+import { ConvexError } from "convex/values";
 import { beforeEach, describe, expect, test, vi } from "vitest";
 import { authClientMock, resetAuthMocks, router } from "@/components/auth/test-mocks";
+import { companyDefaults } from "@/domain/schemas/settings";
 import { renderWithIntl } from "@/i18n/test-utils";
 import { CompanyForm } from "./forms/company-form";
-import { companyDefaults } from "./schema";
 import { SetupWizard } from "./setup-wizard";
 
 vi.mock("@/lib/auth-client", async () => ({
@@ -17,9 +18,32 @@ vi.mock("next/navigation", async () => {
 const toast = vi.hoisted(() => ({ info: vi.fn(), error: vi.fn(), success: vi.fn() }));
 vi.mock("sonner", () => ({ toast }));
 
+// Live server state (settings.getSetupState) and the Convex adapters are replaced; the real ones need a backend.
+const setup = vi.hoisted(() => ({ state: undefined as unknown, saveNotificationEmail: vi.fn() }));
+vi.mock("./use-setup-state", () => ({
+  useSetupState: () => setup.state,
+  useSetupChecklist: () => undefined,
+}));
+vi.mock("./actions", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("./actions")>()),
+  saveNotificationEmail: setup.saveNotificationEmail,
+}));
+
+const serverState = (completedSteps: string[]) => ({
+  version: 1,
+  completedSteps,
+  ownerEmail: "inhaber@firma.de",
+  access: { baseDomain: "firma.de", hosts: [], checks: [] },
+  email: { sender: "noreply@firma.de", accountId: "acc", tokenConfigured: true, notificationEmail: "inhaber@firma.de" },
+  storage: { checks: [] },
+});
+
 beforeEach(() => {
   resetAuthMocks();
   toast.info.mockReset();
+  toast.error.mockReset();
+  setup.state = serverState([]);
+  setup.saveNotificationEmail.mockReset().mockResolvedValue(undefined);
   authClientMock.useSession.mockReturnValue({
     data: { user: { email: "inhaber@firma.de" }, session: {} },
     isPending: false,
@@ -59,9 +83,14 @@ describe("setup wizard (F01 §6.2)", () => {
     expect(within(steps).getByRole("link", { current: "step" })).toHaveTextContent("Steuern");
   });
 
-  test("SMOKE without a backend the wizard says so and never claims to have saved", async () => {
-    renderWithIntl(<SetupWizard stepSlug="start" />);
-    expect(await screen.findByText(/Noch nicht mit dem Server verbunden/)).toBeInTheDocument();
+  test("SET-003 without a step the wizard waits for the server state and resumes at the first open step", () => {
+    setup.state = undefined;
+    const { container, rerender } = renderWithIntl(<SetupWizard stepSlug={null} />);
+    expect(container.querySelector("[aria-busy=true]")).not.toBeNull();
+    expect(screen.queryByRole("heading", { level: 1 })).toBeNull();
+    setup.state = serverState(["inhaberkonto", "zugriff"]);
+    rerender(<SetupWizard stepSlug={null} />);
+    expect(screen.getByRole("heading", { level: 1, name: "E-Mail-Versand" })).toBeInTheDocument();
   });
 
   test("SMOKE invalid company data blocks „Weiter“ with linked German errors", async () => {
@@ -74,11 +103,24 @@ describe("setup wizard (F01 §6.2)", () => {
     expect(router.push).not.toHaveBeenCalled();
   });
 
-  test("SMOKE a valid step continues with the „Noch nicht verbunden“ notice", async () => {
+  test("SET-140 a valid step is saved on the server before the wizard continues", async () => {
     renderWithIntl(<SetupWizard stepSlug="e-mail" />);
     await userEvent.click(nextButton());
-    await waitFor(() => expect(toast.info).toHaveBeenCalledWith("Noch nicht verbunden", expect.anything()));
+    await waitFor(() =>
+      expect(setup.saveNotificationEmail).toHaveBeenCalledWith({ notificationEmail: "inhaber@firma.de" }),
+    );
     expect(router.push).toHaveBeenCalledWith("/einrichtung?schritt=speicher", { scroll: true });
+    expect(toast.info).not.toHaveBeenCalled();
+  });
+
+  test("SET-141 a refused save shows the German server message and stays on the step", async () => {
+    setup.saveNotificationEmail.mockRejectedValue(
+      new ConvexError({ code: "invalid_input", message: "Bitte eine gültige E-Mail-Adresse angeben." }),
+    );
+    renderWithIntl(<SetupWizard stepSlug="e-mail" />);
+    await userEvent.click(nextButton());
+    await waitFor(() => expect(toast.error).toHaveBeenCalledWith("Bitte eine gültige E-Mail-Adresse angeben."));
+    expect(router.push).not.toHaveBeenCalled();
   });
 
   test("SET-046 a server outside the EU shows the AO warning and requires the confirmation", async () => {

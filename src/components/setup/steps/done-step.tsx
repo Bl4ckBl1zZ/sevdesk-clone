@@ -2,14 +2,14 @@
 
 import { CircleAlertIcon, CircleXIcon } from "lucide-react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useState } from "react";
 import { toast } from "sonner";
-import { isNotConnected } from "@/components/not-connected";
+import { navigation } from "@/components/auth/redirect";
 import { Button } from "@/components/ui/button";
 import { useAdapterErrorToast } from "@/hooks/use-adapter-error-toast";
 import { type ChecklistItem, completeSetup, getSetupChecklist, type SetupChecklist } from "../actions";
+import { useSetupChecklist } from "../use-setup-state";
 import { useWizard } from "../wizard-context";
 
 /**
@@ -19,27 +19,20 @@ import { useWizard } from "../wizard-context";
  */
 export function DoneStep() {
   const t = useTranslations("setup.done");
-  const router = useRouter();
   const { formId } = useWizard();
   const showAdapterError = useAdapterErrorToast();
-  const [checklist, setChecklist] = useState<SetupChecklist | null>(null);
-  const [unavailable, setUnavailable] = useState(false);
+  const live = useSetupChecklist();
+  const [rechecked, setRechecked] = useState<SetupChecklist | null>(null);
   const [completing, setCompleting] = useState(false);
+  const checklist = live ?? rechecked ?? null;
 
-  const load = useCallback(async () => {
+  const recheck = useCallback(async () => {
     try {
-      setChecklist(await getSetupChecklist());
-      setUnavailable(false);
+      setRechecked(await getSetupChecklist());
     } catch (e) {
-      setChecklist(null);
-      setUnavailable(true);
-      if (!isNotConnected(e)) showAdapterError(e);
+      showAdapterError(e);
     }
   }, [showAdapterError]);
-
-  useEffect(() => {
-    void load();
-  }, [load]);
 
   const canComplete = !!checklist && checklist.blocking.length === 0;
 
@@ -55,7 +48,7 @@ export function DoneStep() {
         try {
           await completeSetup();
           toast.success(t("completed"));
-          router.push("/");
+          navigation.assign("/");
         } catch (err) {
           showAdapterError(err);
         } finally {
@@ -63,7 +56,7 @@ export function DoneStep() {
         }
       }}
     >
-      {unavailable && <p className="text-muted-foreground text-sm">{t("checklistUnavailable")}</p>}
+      {!checklist && <div className="h-24" aria-busy="true" />}
       {checklist && (
         <>
           <Group title={t("required")} items={checklist.blocking} tone="error" empty={t("noBlocking")} />
@@ -76,7 +69,7 @@ export function DoneStep() {
         <Button type="submit" className="h-11 md:h-9" disabled={!canComplete || completing}>
           {t("complete")}
         </Button>
-        <Button type="button" variant="outline" className="h-11 md:h-9" onClick={() => void load()}>
+        <Button type="button" variant="outline" className="h-11 md:h-9" onClick={() => void recheck()}>
           {t("recheck")}
         </Button>
       </div>

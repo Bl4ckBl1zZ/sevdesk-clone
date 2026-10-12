@@ -1,13 +1,13 @@
 "use client";
 
 import { useTranslations } from "next-intl";
+import { companyDefaults, taxDefaults } from "@/domain/schemas/settings";
 import { saveBankAccount, saveCompanyProfile, saveLayout, saveNumberRanges, saveTaxSettings } from "../actions";
 import { BankForm } from "../forms/bank-form";
 import { CompanyForm } from "../forms/company-form";
 import { LayoutForm } from "../forms/layout-form";
 import { NumberRangesForm } from "../forms/number-ranges-form";
 import { TaxForm } from "../forms/tax-form";
-import { companyDefaults, taxDefaults } from "../schema";
 import { SEEDED_RANGES } from "../seed-ranges";
 import { useStepSubmit, useWizard } from "../wizard-context";
 
@@ -21,7 +21,7 @@ export function CompanyStep() {
       defaultValues={{ ...companyDefaults, ...state?.company, ...drafts.company }}
       onValid={(values) => {
         setDrafts((d) => ({ ...d, company: values }));
-        return submit(() => saveCompanyProfile(values));
+        return submit(() => saveCompanyProfile(values, state?.version));
       }}
     />
   );
@@ -37,7 +37,7 @@ export function TaxStep() {
       id={formId}
       currentYear={new Date().getFullYear()}
       defaultValues={{ ...taxDefaults(legalForm), ...state?.tax, legalForm }}
-      onValid={(values) => submit(() => saveTaxSettings(values))}
+      onValid={(values) => submit(() => saveTaxSettings(values, state?.version))}
     />
   );
 }

@@ -22,6 +22,8 @@ export const ERRORS = {
   not_found: "Nicht gefunden.",
   not_configured: "Nicht eingerichtet.",
   conflict: "Konflikt.",
+  version_conflict: "Die Einstellungen wurden zwischenzeitlich geändert. Bitte neu laden.",
+  setup_incomplete: "Die Einrichtung ist noch nicht abgeschlossen.",
 } as const;
 
 export type ErrorCode = keyof typeof ERRORS;

@@ -3,7 +3,7 @@
 import { useTranslations } from "next-intl";
 import { type UseFormReturn, useWatch } from "react-hook-form";
 import { FormErrorSummary, TextField } from "@/components/forms/fields";
-import { type BankFormValues, type BankValues, bankSchema } from "../schema";
+import { type BankFormValues, type BankValues, bankSchema } from "@/domain/schemas/settings";
 import { useZodForm } from "../use-zod-form";
 
 type BankForm = UseFormReturn<BankFormValues, unknown, BankValues>;

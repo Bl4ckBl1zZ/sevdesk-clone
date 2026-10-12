@@ -32,10 +32,16 @@ export function stepIndex(slug: string | null | undefined): number {
 
 /**
  * Resume at the first incomplete step (F01 SET-003). Progress is derived from data by the server; the wizard only
- * receives the list of completed step keys.
+ * receives the list of completed step keys. A skipped optional step ("Später": Bank, Layout) counts as passed
+ * once a later step is complete.
  */
 export function resumeStep(completed: readonly StepKey[]): WizardStep {
-  return WIZARD_STEPS.find((s) => !completed.includes(s.key)) ?? (WIZARD_STEPS.at(-1) as WizardStep);
+  const done = new Set(completed);
+  const lastDone = WIZARD_STEPS.reduce((acc, s, i) => (done.has(s.key) ? i : acc), -1);
+  return (
+    WIZARD_STEPS.find((s, i) => !done.has(s.key) && !(s.skippable && i < lastDone)) ??
+    (WIZARD_STEPS.at(-1) as WizardStep)
+  );
 }
 
 export function stepHref(step: WizardStep) {

@@ -4,9 +4,9 @@ import { useTranslations } from "next-intl";
 import { useEffect } from "react";
 import { type UseFormReturn, useWatch } from "react-hook-form";
 import { CheckboxField, FormErrorSummary, RadioCardGroup, SelectField, TextField } from "@/components/forms/fields";
+import { fieldsFor } from "@/domain/company/legal-forms";
+import { type TaxFormValues, type TaxValues, taxSchema } from "@/domain/schemas/settings";
 import { BUNDESLAENDER } from "../countries";
-import { fieldsFor } from "../legal-forms";
-import { type TaxFormValues, type TaxValues, taxSchema } from "../schema";
 import type { TAX_SECTIONS } from "../sections";
 import { useZodForm } from "../use-zod-form";
 

@@ -4,6 +4,7 @@ import { KeyRoundIcon } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { useEffect, useId } from "react";
 import { usePasskeyRegistration } from "@/components/auth/passkey-enrol";
+import { TotpSetup } from "@/components/auth/totp-setup";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { formatTimestamp } from "@/i18n/format";
@@ -12,7 +13,7 @@ import { useWizard } from "../wizard-context";
 
 /**
  * Step 1 "Inhaberkonto" (F01 SET-009): e-mail read-only, passkey registration mandatory before "Weiter",
- * second passkey recommended, TOTP optional (follows with the twoFactor plugin).
+ * second passkey recommended, TOTP optional (twoFactor plugin; enforced for e-mail-code sign-ins, 02 §4.2).
  */
 export function OwnerStep() {
   const t = useTranslations("setup.owner");
@@ -92,6 +93,7 @@ export function OwnerStep() {
           {t("totp")}
         </h2>
         <p className="text-muted-foreground text-sm">{t("totpHint")}</p>
+        <TotpSetup />
       </section>
     </form>
   );

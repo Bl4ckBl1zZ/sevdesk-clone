@@ -3,8 +3,8 @@
 import { useTranslations } from "next-intl";
 import { type UseFormReturn, useFieldArray, useWatch } from "react-hook-form";
 import { FormErrorSummary, TextField } from "@/components/forms/fields";
-import { checkFormat, previewNumbers, type ResetPolicy } from "../number-format";
-import { type NumberRangesFormValues, type NumberRangesValues, numberRangesSchema } from "../schema";
+import { checkFormat, previewNumbers, type ResetPolicy } from "@/domain/numbering/format";
+import { type NumberRangesFormValues, type NumberRangesValues, numberRangesSchema } from "@/domain/schemas/settings";
 import { useZodForm } from "../use-zod-form";
 
 type RangesForm = UseFormReturn<NumberRangesFormValues, unknown, NumberRangesValues>;

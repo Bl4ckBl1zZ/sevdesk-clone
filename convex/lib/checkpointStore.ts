@@ -14,6 +14,9 @@ export interface CheckpointStore {
   location(key: string): string;
   put(key: string, body: string): Promise<{ ok: true } | { ok: false; detail: string }>;
   get(key: string): Promise<string | null>;
+  delete(key: string): Promise<{ ok: true } | { ok: false; detail: string }>;
+  /** F01 SET-115: is a bucket-lock retention rule visible to this token? (`unknown` when it cannot be read.) */
+  bucketLock(): Promise<"present" | "absent" | "unknown">;
 }
 
 export function checkpointKey(date: string): string {
@@ -57,7 +60,58 @@ export function r2CheckpointStore(config: {
       if (!res.ok) throw new Error(`R2 GET ${key}: HTTP ${res.status}`);
       return res.text();
     },
+    async delete(key) {
+      try {
+        const res = await send(new Request(url(key), { method: "DELETE" }));
+        if (res.ok || res.status === 404) return { ok: true };
+        return { ok: false, detail: `HTTP ${res.status}: ${(await res.text()).slice(0, 300)}` };
+      } catch (e) {
+        return { ok: false, detail: String(e).slice(0, 300) };
+      }
+    },
+    async bucketLock() {
+      // R2 exposes bucket locks through the Cloudflare API; a bucket-scoped S3 token usually cannot read them.
+      try {
+        const res = await send(new Request(`${url("").replace(/\/$/, "")}?object-lock`, { method: "GET" }));
+        if (!res.ok) return "unknown";
+        const body = await res.text();
+        return /<(Rule|ObjectLockEnabled)>/.test(body) ? "present" : "absent";
+      } catch {
+        return "unknown";
+      }
+    },
   };
+}
+
+/** Latest object under `prefix` (S3 ListObjectsV2) — used for "Dokploy backups seen" (F01 SET-009b). */
+export async function r2LatestObject(config: {
+  endpoint: string;
+  bucket: string;
+  accessKeyId: string;
+  secretAccessKey: string;
+  prefix: string;
+}): Promise<{ ok: true; latest: { key: string; lastModified: string } | null } | { ok: false; detail: string }> {
+  const client = new AwsClient({
+    accessKeyId: config.accessKeyId,
+    secretAccessKey: config.secretAccessKey,
+    service: "s3",
+    region: "auto",
+  });
+  const listUrl = `${config.endpoint.replace(/\/$/, "")}/${encodeURIComponent(config.bucket)}?list-type=2&prefix=${encodeURIComponent(config.prefix)}&max-keys=1000`;
+  try {
+    const res = await client.fetch(listUrl);
+    if (!res.ok) return { ok: false, detail: `HTTP ${res.status}` };
+    const xml = await res.text();
+    const items = [
+      ...xml.matchAll(
+        /<Contents>[\s\S]*?<Key>([^<]+)<\/Key>[\s\S]*?<LastModified>([^<]+)<\/LastModified>[\s\S]*?<\/Contents>/g,
+      ),
+    ].map((m) => ({ key: m[1] as string, lastModified: m[2] as string }));
+    items.sort((a, b) => a.lastModified.localeCompare(b.lastModified));
+    return { ok: true, latest: items.at(-1) ?? null };
+  } catch (e) {
+    return { ok: false, detail: String(e).slice(0, 300) };
+  }
 }
 
 /** In-memory fake (tests). Module state: shared by all actions of one convex-test process. */
@@ -77,6 +131,13 @@ export function memoryCheckpointStore(bucket = "test-checkpoints"): CheckpointSt
     },
     async get(key) {
       return memoryObjects.get(key) ?? null;
+    },
+    async delete(key) {
+      memoryObjects.delete(key);
+      return { ok: true };
+    },
+    async bucketLock() {
+      return "unknown";
     },
   };
 }

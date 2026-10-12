@@ -199,6 +199,96 @@
     "wrapper": "query",
     "permission": "session.self"
   },
+  "settings:completeSetup": {
+    "kind": "mutation",
+    "visibility": "public",
+    "wrapper": "mutation",
+    "permission": "settings.ownerOnly"
+  },
+  "settings:generateLogoUploadUrl": {
+    "kind": "mutation",
+    "visibility": "public",
+    "wrapper": "mutation",
+    "permission": "settings.write"
+  },
+  "settings:getSetupChecklist": {
+    "kind": "query",
+    "visibility": "public",
+    "wrapper": "query",
+    "permission": "settings.read"
+  },
+  "settings:getSetupState": {
+    "kind": "query",
+    "visibility": "public",
+    "wrapper": "query",
+    "permission": "settings.read"
+  },
+  "settings:recordStorageTest": {
+    "kind": "mutation",
+    "visibility": "internal",
+    "wrapper": "actorMutation",
+    "permission": "integrations.manage"
+  },
+  "settings:runAccessChecks": {
+    "kind": "action",
+    "visibility": "public",
+    "wrapper": "action",
+    "permission": "integrations.manage"
+  },
+  "settings:saveAccessConcept": {
+    "kind": "mutation",
+    "visibility": "public",
+    "wrapper": "mutation",
+    "permission": "settings.ownerOnly"
+  },
+  "settings:saveBankAccount": {
+    "kind": "mutation",
+    "visibility": "public",
+    "wrapper": "mutation",
+    "permission": "settings.write"
+  },
+  "settings:saveCompanyProfile": {
+    "kind": "mutation",
+    "visibility": "public",
+    "wrapper": "mutation",
+    "permission": "settings.write"
+  },
+  "settings:saveLayout": {
+    "kind": "mutation",
+    "visibility": "public",
+    "wrapper": "mutation",
+    "permission": "settings.write"
+  },
+  "settings:saveNotificationEmail": {
+    "kind": "mutation",
+    "visibility": "public",
+    "wrapper": "mutation",
+    "permission": "settings.write"
+  },
+  "settings:saveNumberRanges": {
+    "kind": "mutation",
+    "visibility": "public",
+    "wrapper": "mutation",
+    "permission": "settings.write"
+  },
+  "settings:saveTaxSettings": {
+    "kind": "mutation",
+    "visibility": "public",
+    "wrapper": "mutation",
+    "permission": "settings.ownerOnly"
+  },
+  "settings:setupStatus": {
+    "kind": "query",
+    "visibility": "public",
+    "wrapper": "query",
+    "permission": "session.self"
+  },
+  "settings:testCheckpointStorage": {
+    "kind": "action",
+    "visibility": "public",
+    "wrapper": "action",
+    "permission": "integrations.manage"
+  },
   "signup:checkSignIn": {
     "kind": "query",
     "visibility": "internal",
@@ -211,6 +301,12 @@
     "wrapper": "systemMutation",
     "job": "auth"
   },
+  "signup:firstRun": {
+    "kind": "query",
+    "visibility": "internal",
+    "wrapper": "systemQuery",
+    "job": "auth"
+  },
   "signup:latestMailFor": {
     "kind": "query",
     "visibility": "internal",
@@ -218,6 +314,12 @@
     "job": "auth"
   },
   "signup:recordAccessDenied": {
+    "kind": "mutation",
+    "visibility": "internal",
+    "wrapper": "systemMutation",
+    "job": "auth"
+  },
+  "signup:recordAuthMailDelivered": {
     "kind": "mutation",
     "visibility": "internal",
     "wrapper": "systemMutation",

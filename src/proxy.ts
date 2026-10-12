@@ -27,7 +27,14 @@ const API_PATHS = [
   /^\/api\/health$/,
 ];
 const API_8443_PATHS = [/^\/api\/v1(\/.*)?$/];
-const APP_PUBLIC = [/^\/anmelden(\/.*)?$/, /^\/api\/auth(\/.*)?$/, /^\/api\/health$/];
+/** Reachable without a session cookie (02 §4.1 step 3): sign-in pages, Better Auth, health, PWA manifest and icons. */
+const APP_PUBLIC = [
+  /^\/anmelden(\/.*)?$/,
+  /^\/api\/auth(\/.*)?$/,
+  /^\/api\/health$/,
+  /^\/manifest\.webmanifest$/,
+  /^\/icons\/[^/]+$/,
+];
 /** Paths of the api. host that must never be served on app. */
 const APP_FORBIDDEN = [/^\/api\/v1(\/.*)?$/, /^\/api\/mcp$/];
 
@@ -140,6 +147,8 @@ export function handleProxy(request: NextRequest, config: ProxyConfig = configFr
   const cspValue = csp(n, config);
   const headers = new Headers(request.headers);
   headers.set("x-nonce", n);
+  // Layouts cannot read the URL; the signed-in layout needs it for SET-001 (redirect to /einrichtung).
+  headers.set("x-pathname", `${path}${request.nextUrl.search}`);
   headers.set("Content-Security-Policy", cspValue);
   return withSecurityHeaders(NextResponse.next({ request: { headers } }), site, config, cspValue);
 }

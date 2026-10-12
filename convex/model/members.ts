@@ -1,6 +1,7 @@
 import {
   DAY_MS,
   decideSignup,
+  INVITE_MESSAGES_DE,
   INVITE_VALIDITY_DAYS,
   normalizeEmail,
   validateInviteInput,
@@ -126,10 +127,10 @@ export interface InviteInput {
 export async function createInvite(ctx: ModelCtx, input: InviteInput): Promise<Id<"invites">> {
   const now = ctx.now();
   const error = validateInviteInput(input, now);
-  if (error) throw appError("invalid_input", undefined, { reason: error });
+  if (error) throw appError("invalid_input", INVITE_MESSAGES_DE[error], { reason: error });
   const email = normalizeEmail(input.email);
   if (await getMemberByEmail(ctx, email))
-    throw appError("invalid_input", "Diese E-Mail-Adresse gehört bereits zu einem Mitglied.", {
+    throw appError("invalid_input", INVITE_MESSAGES_DE.already_member, {
       reason: "already_member",
     });
   for (const old of await invitesForEmail(ctx, email)) {
@@ -260,4 +261,29 @@ export async function auditAuthEvent(
 ): Promise<void> {
   const member = await getMemberByAuthUserId(ctx, authUserId);
   await appendAudit(ctx, { action, entity: { ...entity, ...(member ? { label: member.email } : {}) } });
+}
+
+/**
+ * Better Auth facts for the member table (04 §4.10): registered passkeys and the last sign-in (newest session).
+ * Read through the component adapter; sessions expire after 30 days, so `lastSignInAt` is null for members who
+ * have not signed in within that window.
+ */
+export async function memberAuthFacts(
+  ctx: ReadCtx,
+  authUserId: string,
+): Promise<{ passkeys: number; lastSignInAt: number | null }> {
+  const page = async (model: "passkey" | "session") =>
+    (
+      (await ctx.runQuery(components.betterAuth.adapter.findMany, {
+        model,
+        where: [{ field: "userId", value: authUserId }],
+        paginationOpts: { numItems: 100, cursor: null },
+      })) as { page: { createdAt?: number }[] }
+    ).page;
+  const sessions = await page("session");
+  const last = sessions.reduce<number | null>(
+    (max, s) => (s.createdAt && (max === null || s.createdAt > max) ? s.createdAt : max),
+    null,
+  );
+  return { passkeys: (await page("passkey")).length, lastSignInAt: last };
 }

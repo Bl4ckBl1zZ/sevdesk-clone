@@ -76,16 +76,31 @@ describe("proxy: optimistic session redirect on app. (02 §4.1 step 3)", () => {
     );
   });
 
-  test.each(["/anmelden", "/anmelden/code", "/api/auth/email-otp/send-verification-otp", "/api/health"])(
-    "SEC-02 %s is public on app.",
-    (path) => {
-      expect(handleProxy(req(`https://app.example.de${path}`), CONFIG).headers.get("x-middleware-next")).toBe("1");
-    },
-  );
+  test.each([
+    "/anmelden",
+    "/anmelden/code",
+    "/anmelden/zwei-faktor",
+    "/api/auth/email-otp/send-verification-otp",
+    "/api/auth/rechnungen/first-run",
+    "/api/health",
+    "/manifest.webmanifest",
+    "/icons/icon-192.png",
+  ])("SEC-02 %s is public on app.", (path) => {
+    expect(handleProxy(req(`https://app.example.de${path}`), CONFIG).headers.get("x-middleware-next")).toBe("1");
+  });
 
   test("SEC-02 with a session cookie the request passes (authoritative checks happen server-side)", () => {
     const res = handleProxy(req("https://app.example.de/rechnungen", { cookie: SESSION }), CONFIG);
     expect(res.headers.get("x-middleware-next")).toBe("1");
+  });
+
+  test("SEC-02 only direct icon files are public, not nested paths", () => {
+    expect(handleProxy(req("https://app.example.de/icons/a/b.png"), CONFIG).status).toBe(307);
+  });
+
+  test("SET-001 the signed-in layout receives the requested path (x-pathname) for the setup redirect", () => {
+    const res = handleProxy(req("https://app.example.de/rechnungen?status=offen", { cookie: SESSION }), CONFIG);
+    expect(res.headers.get("x-middleware-request-x-pathname")).toBe("/rechnungen?status=offen");
   });
 
   test("SEC-02 the REST API is not served on app.", () => {

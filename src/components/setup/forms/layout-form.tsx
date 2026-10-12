@@ -4,7 +4,7 @@ import { useTranslations } from "next-intl";
 import { useId, useState } from "react";
 import type { UseFormReturn } from "react-hook-form";
 import { FormErrorSummary, RadioCardGroup } from "@/components/forms/fields";
-import { type LayoutValues, LOGO_TYPES, layoutSchema, validateLogo } from "../schema";
+import { type LayoutValues, LOGO_TYPES, layoutSchema, validateLogoFile } from "@/domain/schemas/settings";
 import { useZodForm } from "../use-zod-form";
 
 type LayoutForm = UseFormReturn<LayoutValues, unknown, LayoutValues>;
@@ -49,7 +49,7 @@ export function LayoutForm({
           onChange={(e) => {
             const file = e.target.files?.[0] ?? null;
             setLogo(file);
-            setLogoError(file ? validateLogo(file) : null);
+            setLogoError(file ? validateLogoFile(file) : null);
           }}
         />
         <p id={`${logoId}-hint`} className="text-muted-foreground text-sm">

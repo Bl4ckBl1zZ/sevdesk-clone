@@ -17,11 +17,13 @@ export function StorageStep() {
   const { formId, next, state } = useWizard();
   const showAdapterError = useAdapterErrorToast();
   const [checks, setChecks] = useState<StatusCheck[]>(
-    state?.storage.checks ?? [
-      { id: "checkpoint", label: t("checkpoint"), status: "unknown" },
-      { id: "bucketLock", label: t("bucketLock"), status: "unknown", detail: t("bucketLockRecommended") },
-      { id: "backups", label: t("backups"), status: "unknown" },
-    ],
+    state?.storage.checks.length
+      ? state.storage.checks
+      : [
+          { id: "checkpoint", label: t("checkpoint"), status: "unknown" },
+          { id: "bucketLock", label: t("bucketLock"), status: "unknown", detail: t("bucketLockRecommended") },
+          { id: "backups", label: t("backups"), status: "unknown" },
+        ],
   );
   const [testing, setTesting] = useState(false);
 

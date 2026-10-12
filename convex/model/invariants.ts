@@ -21,8 +21,12 @@ export interface InvariantViolation {
   message: string;
 }
 
-/** Tables without own audit entries: the log itself, the dev mailbox, contact keys (written with the parent). */
-const NOT_REPLAYED = new Set(["auditLog", "devMailbox", "contactKeys"]);
+/**
+ * Tables without own audit entries: the log itself, the dev mailbox, contact keys (written with the parent) and
+ * `companyProfileVersions` — a snapshot written in the same transaction as the audited `companyProfile` change;
+ * each row instead must point (`auditSeq`) at that change's audit entry (checked below).
+ */
+const NOT_REPLAYED = new Set(["auditLog", "devMailbox", "contactKeys", "companyProfileVersions"]);
 
 export function replayedTables(): TableNames[] {
   return (Object.keys(schema.tables) as TableNames[]).filter((t) => !NOT_REPLAYED.has(t));
@@ -106,6 +110,19 @@ export async function checkInvariants(ctx: ReadCtx): Promise<InvariantViolation[
       if (a !== b) {
         out.push({ id: "RI-15", severity: "ERROR", message: `${table}/${id} weicht vom protokollierten Stand ab.` });
       }
+    }
+  }
+  // RI-15 — snapshots: every companyProfileVersions row belongs to an audited companyProfile change.
+  const bySeq = new Map(entries.map((e) => [e.seq, e]));
+  for (const v of await ctx.db.query("companyProfileVersions").collect()) {
+    const e = bySeq.get(v.auditSeq);
+    const after = (e?.diff as { after?: { version?: unknown } } | undefined)?.after;
+    if (e?.entity.table !== "companyProfile" || after?.version !== v.version) {
+      out.push({
+        id: "RI-15",
+        severity: "ERROR",
+        message: `companyProfileVersions/${String(v._id)} (Version ${v.version}) ohne passenden Protokolleintrag.`,
+      });
     }
   }
   return out;

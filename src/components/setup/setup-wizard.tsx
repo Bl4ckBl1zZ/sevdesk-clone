@@ -6,12 +6,10 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { type ComponentType, useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { isNotConnected } from "@/components/not-connected";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader } from "@/components/ui/card";
 import { Progress, ProgressLabel, ProgressValue } from "@/components/ui/progress";
 import { cn } from "@/lib/utils";
-import { getSetupState, type SetupState } from "./actions";
 import { resumeStep, type StepKey, stepHref, stepIndex, WIZARD_STEPS } from "./steps";
 import { AccessStep } from "./steps/access-step";
 import { DoneStep } from "./steps/done-step";
@@ -20,6 +18,7 @@ import { BankStep, CompanyStep, LayoutStep, NumberRangesStep, TaxStep } from "./
 import { OwnerStep } from "./steps/owner-step";
 import { StartStep } from "./steps/start-step";
 import { StorageStep } from "./steps/storage-step";
+import { useSetupState } from "./use-setup-state";
 import { WizardContext, type WizardDrafts } from "./wizard-context";
 
 const STEP_COMPONENTS: Record<StepKey, ComponentType> = {
@@ -47,24 +46,11 @@ export function SetupWizard({ stepSlug }: { stepSlug: string | null }) {
   const t = useTranslations("setup");
   const tCommon = useTranslations("common");
   const router = useRouter();
-  const [state, setState] = useState<SetupState | null>(null);
-  const [connected, setConnected] = useState(true);
+  const state = useSetupState() ?? null;
   const [drafts, setDrafts] = useState<WizardDrafts>({});
   const [nextDisabled, setNextDisabled] = useState(false);
   const headingRef = useRef<HTMLHeadingElement>(null);
   const firstRender = useRef(true);
-
-  useEffect(() => {
-    let cancelled = false;
-    getSetupState()
-      .then((s) => !cancelled && setState(s))
-      .catch((e: unknown) => {
-        if (!cancelled && isNotConnected(e)) setConnected(false);
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, []);
 
   const index = useMemo(() => {
     const i = stepIndex(stepSlug);
@@ -94,11 +80,13 @@ export function SetupWizard({ stepSlug }: { stepSlug: string | null }) {
   }, [index]);
 
   if (!step) return null;
+  // Without an explicit step the wizard waits for the server state to resume at the right step (SET-003).
+  if (!state && stepIndex(stepSlug) < 0) return <div className="mx-auto h-96 w-full max-w-5xl" aria-busy="true" />;
   const StepComponent = STEP_COMPONENTS[step.key];
   const isLast = index === total - 1;
 
   return (
-    <WizardContext.Provider value={{ formId: FORM_ID, state, connected, drafts, setDrafts, next, setNextDisabled }}>
+    <WizardContext.Provider value={{ formId: FORM_ID, state, drafts, setDrafts, next, setNextDisabled }}>
       <div className="mx-auto flex w-full max-w-5xl gap-8 px-4 pt-4 pb-28 md:pb-10 lg:pt-10">
         <nav aria-label={t("stepsLabel")} className="hidden w-56 shrink-0 lg:block">
           <ol className="flex flex-col gap-1">
@@ -144,12 +132,7 @@ export function SetupWizard({ stepSlug }: { stepSlug: string | null }) {
             <ProgressLabel>{t("progress", { current: index + 1, total })}</ProgressLabel>
             <ProgressValue />
           </Progress>
-          {!connected && (
-            <p role="status" className="rounded-md border border-warning bg-warning/10 p-3 text-sm text-warning">
-              {tCommon("notConnectedBanner")}
-            </p>
-          )}
-          <Card>
+          <Card key={state ? "loaded" : "loading"}>
             <CardHeader>
               <p className="text-muted-foreground text-xs uppercase tracking-wide">
                 {t("title")} · {t("progress", { current: index + 1, total })}

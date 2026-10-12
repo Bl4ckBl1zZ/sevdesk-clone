@@ -7,9 +7,9 @@ import { type UseFormReturn, useFieldArray, useWatch } from "react-hook-form";
 import { CheckboxField, FormErrorSummary, SelectField, TextField } from "@/components/forms/fields";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { fieldsFor, footerDelta, LEGAL_FORMS } from "@/domain/company/legal-forms";
+import { type CompanyValues, companySchema } from "@/domain/schemas/settings";
 import { countryOptions } from "../countries";
-import { fieldsFor, footerDelta, LEGAL_FORMS } from "../legal-forms";
-import { type CompanyValues, companySchema } from "../schema";
 import { useZodForm } from "../use-zod-form";
 
 type CompanyForm = UseFormReturn<CompanyValues, unknown, CompanyValues>;

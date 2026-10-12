@@ -1,11 +1,10 @@
 "use client";
 
 import { useTranslations } from "next-intl";
-import { useEffect, useState } from "react";
+import { useRef } from "react";
 import { toast } from "sonner";
-import { isNotConnected } from "@/components/not-connected";
+import { ConvexGuard } from "@/components/convex/convex-provider";
 import {
-  getSetupState,
   type SetupState,
   saveBankAccount,
   saveCompanyProfile,
@@ -18,9 +17,10 @@ import { CompanyForm } from "@/components/setup/forms/company-form";
 import { LayoutForm } from "@/components/setup/forms/layout-form";
 import { NumberRangesForm } from "@/components/setup/forms/number-ranges-form";
 import { TaxForm } from "@/components/setup/forms/tax-form";
-import { companyDefaults, taxDefaults } from "@/components/setup/schema";
 import { SEEDED_RANGES } from "@/components/setup/seed-ranges";
+import { useSetupState } from "@/components/setup/use-setup-state";
 import { Button } from "@/components/ui/button";
+import { companyDefaults, taxDefaults } from "@/domain/schemas/settings";
 import { useAdapterErrorToast } from "@/hooks/use-adapter-error-toast";
 
 export const SETTINGS_FORM_ID = "einstellungen-formular";
@@ -35,18 +35,19 @@ export function SaveButton() {
   );
 }
 
-/** Loads the current settings; `null` + banner while the backend is not connected. */
+/** Live settings state; `undefined` while loading. */
 function useSettingsState() {
-  const [state, setState] = useState<SetupState | null | undefined>(undefined);
-  useEffect(() => {
-    getSetupState()
-      .then(setState)
-      .catch((e: unknown) => {
-        setState(null);
-        if (!isNotConnected(e)) console.error(e);
-      });
-  }, []);
-  return state;
+  return useSetupState();
+}
+
+/**
+ * SET-141: the profile version the form was loaded with. A save sends it back; if another tab or device saved in
+ * between, the server answers `version_conflict` („… Bitte neu laden.") instead of overwriting.
+ */
+function useLoadedVersion(state: SetupState | undefined) {
+  const ref = useRef<number | undefined>(undefined);
+  if (ref.current === undefined && state) ref.current = state.version;
+  return ref;
 }
 
 function useSave() {
@@ -63,41 +64,59 @@ function useSave() {
   };
 }
 
-function Frame({ state, children }: { state: SetupState | null | undefined; children: React.ReactNode }) {
-  const tCommon = useTranslations("common");
+function Frame({ state, children }: { state: SetupState | undefined; children: React.ReactNode }) {
   const t = useTranslations("settings");
   if (state === undefined) return <div className="h-96" aria-busy="true" />;
   return (
     <div className="flex flex-col gap-6">
-      {state === null && (
-        <p role="status" className="rounded-md border border-warning bg-warning/10 p-3 text-sm text-warning">
-          {tCommon("notConnectedBanner")}
-        </p>
-      )}
       <p className="text-muted-foreground text-sm">{t("unchangedNotice")}</p>
       {children}
     </div>
   );
 }
 
+const loading = <div className="h-96" aria-busy="true" />;
+
 export function CompanySettings() {
+  return (
+    <ConvexGuard fallback={loading}>
+      <CompanySettingsInner />
+    </ConvexGuard>
+  );
+}
+
+function CompanySettingsInner() {
   const state = useSettingsState();
   const save = useSave();
+  const version = useLoadedVersion(state);
   return (
     <Frame state={state}>
       <CompanyForm
         id={SETTINGS_FORM_ID}
         withSectionIds
         defaultValues={{ ...companyDefaults, ...state?.company }}
-        onValid={(v) => save(() => saveCompanyProfile(v))}
+        onValid={(v) =>
+          save(async () => {
+            version.current = await saveCompanyProfile(v, version.current);
+          })
+        }
       />
     </Frame>
   );
 }
 
 export function TaxSettings() {
+  return (
+    <ConvexGuard fallback={loading}>
+      <TaxSettingsInner />
+    </ConvexGuard>
+  );
+}
+
+function TaxSettingsInner() {
   const state = useSettingsState();
   const save = useSave();
+  const version = useLoadedVersion(state);
   const legalForm = state?.company?.legalForm ?? "einzelunternehmen";
   return (
     <Frame state={state}>
@@ -106,13 +125,25 @@ export function TaxSettings() {
         withSectionIds
         currentYear={new Date().getFullYear()}
         defaultValues={{ ...taxDefaults(legalForm), ...state?.tax, legalForm }}
-        onValid={(v) => save(() => saveTaxSettings(v))}
+        onValid={(v) =>
+          save(async () => {
+            version.current = await saveTaxSettings(v, version.current);
+          })
+        }
       />
     </Frame>
   );
 }
 
 export function BankSettings() {
+  return (
+    <ConvexGuard fallback={loading}>
+      <BankSettingsInner />
+    </ConvexGuard>
+  );
+}
+
+function BankSettingsInner() {
   const state = useSettingsState();
   const save = useSave();
   return (
@@ -128,6 +159,14 @@ export function BankSettings() {
 }
 
 export function NumberRangesSettings() {
+  return (
+    <ConvexGuard fallback={loading}>
+      <NumberRangesSettingsInner />
+    </ConvexGuard>
+  );
+}
+
+function NumberRangesSettingsInner() {
   const state = useSettingsState();
   const save = useSave();
   return (
@@ -142,6 +181,14 @@ export function NumberRangesSettings() {
 }
 
 export function LayoutSettings() {
+  return (
+    <ConvexGuard fallback={loading}>
+      <LayoutSettingsInner />
+    </ConvexGuard>
+  );
+}
+
+function LayoutSettingsInner() {
   const state = useSettingsState();
   const save = useSave();
   return (

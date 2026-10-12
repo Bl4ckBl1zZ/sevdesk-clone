@@ -184,6 +184,94 @@ export default defineSchema({
     auditSeq: v.number(),
   }).index("by_version", ["version"]),
 
+  // 03 §1 bankAccounts (P0: manual invoice accounts, F01 SET-050…054; feed/fx/statement fields arrive with F07)
+  bankAccounts: defineTable({
+    kind: v.union(v.literal("bank"), v.literal("clearing"), v.literal("paypal")),
+    name: v.string(),
+    currency: v.string(),
+    iban: v.optional(v.string()),
+    bic: v.optional(v.string()),
+    accountHolder: v.string(),
+    bankDetails: v.optional(
+      v.object({
+        bankCountry: v.optional(v.string()),
+        accountNo: v.optional(v.string()),
+        sortCode: v.optional(v.string()),
+        routingNumber: v.optional(v.string()),
+        schemes: v.optional(v.array(v.string())),
+      }),
+    ),
+    ledgerAccount: v.string(),
+    showOnInvoices: v.boolean(),
+    isDefaultForInvoices: v.boolean(),
+    autoApplyMatches: v.boolean(),
+    openingBalance: v.optional(v.object({ date: v.string(), amountCents: v.number() })),
+    archivedAt: v.optional(v.number()),
+  })
+    .index("by_ledgerAccount", ["ledgerAccount"])
+    .index("by_currency_default", ["currency", "isDefaultForInvoices"])
+    .index("by_iban", ["iban"]),
+
+  // 03 §1 numberRanges / numberCounters (P0: configuration; assignment in the finalisation transaction is P1)
+  numberRanges: defineTable({
+    docTypes: v.array(v.string()),
+    name: v.string(),
+    format: v.string(),
+    resetPolicy: v.union(v.literal("never"), v.literal("yearly"), v.literal("monthly")),
+    startValue: v.number(),
+    active: v.boolean(),
+    isDefault: v.boolean(),
+  }),
+  numberCounters: defineTable({
+    rangeId: v.id("numberRanges"),
+    periodKey: v.string(),
+    next: v.number(),
+  }).index("by_range_period", ["rangeId", "periodKey"]),
+
+  // 03 §1 layouts / layoutVersions 🔒 (append-only; documents reference a version, GOBD-06)
+  layouts: defineTable({
+    name: v.string(),
+    // Set in the same transaction that creates the layout (the first version needs the layout id); never unset
+    // outside it.
+    currentVersionId: v.optional(v.id("layoutVersions")),
+    isDefaultFor: v.array(vSalesDocType),
+  }),
+  layoutVersions: defineTable({
+    layoutId: v.id("layouts"),
+    version: v.number(),
+    config: v.object({
+      template: v.union(v.literal("classic"), v.literal("modern"), v.literal("minimal")),
+      accentColor: v.string(),
+      font: v.union(v.literal("inter"), v.literal("noto"), v.literal("source-serif")),
+      logoPosition: v.union(v.literal("left"), v.literal("right")),
+      letterheadStorageId: v.optional(v.id("_storage")),
+      letterheadPage2StorageId: v.optional(v.id("_storage")),
+      printOptions: v.object({
+        foldMarks: v.boolean(),
+        pageNumbers: v.boolean(),
+        senderLine: v.boolean(),
+        vatPerLine: v.boolean(),
+        productNumbers: v.boolean(),
+        epcQr: v.boolean(),
+        portalQr: v.boolean(),
+        lineDescriptions: v.boolean(),
+        grossLineTotals: v.boolean(),
+        allInvoiceAccountsInFooter: v.boolean(),
+        footerInLetterhead: v.union(v.null(), v.object({ confirmedAt: v.number(), items: v.array(v.string()) })),
+      }),
+    }),
+    createdAt: v.number(),
+  }).index("by_layout_version", ["layoutId", "version"]),
+
+  // 03 §10 notificationSettings (singleton; P0: the owner notification address, F01 SET-009a)
+  notificationSettings: defineTable({
+    email: v.optional(v.object({ address: v.string(), digest: v.boolean() })),
+    channelsByKind: v.record(
+      v.string(),
+      v.object({ inApp: v.boolean(), email: v.boolean(), ntfy: v.boolean(), digest: v.boolean() }),
+    ),
+  }),
+
   // 03 §1 Templates and lookups — integrations (only the parts P0 uses: cloudflare_email, r2_checkpoint)
   integrations: defineTable({
     kind: v.union(

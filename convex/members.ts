@@ -2,7 +2,7 @@ import { v } from "convex/values";
 import { memberAccess } from "../src/domain/access/signup";
 import { mutation, query, systemMutation } from "./functions";
 import { isTest } from "./lib/env";
-import { disableMember, expireMembers, getMemberByAuthUserId } from "./model/members";
+import { disableMember, expireMembers, getMemberByAuthUserId, memberAuthFacts } from "./model/members";
 
 /**
  * Members (02 §4.3). Public functions for the UI; members are created only by the sign-up trigger.
@@ -41,8 +41,12 @@ export const list = query({
   args: {},
   handler: async (ctx) => {
     const now = ctx.now();
-    return (await ctx.db.query("members").collect()).map((m) => ({
+    const members = await ctx.db.query("members").collect();
+    const facts = await Promise.all(members.map((m) => memberAuthFacts(ctx, m.authUserId)));
+    return members.map((m, i) => ({
       memberId: m._id,
+      hasPasskey: (facts[i]?.passkeys ?? 0) > 0,
+      lastSignInAt: facts[i]?.lastSignInAt ?? null,
       email: m.email,
       name: m.name ?? null,
       role: m.role,

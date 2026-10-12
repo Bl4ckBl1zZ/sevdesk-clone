@@ -109,18 +109,18 @@ export async function auditedPatch<T extends TableNames>(
   id: Id<T>,
   patch: Partial<Omit<Doc<T>, "_id" | "_creationTime">>,
   audit: { action: string; label?: string; reason?: string },
-): Promise<void> {
+): Promise<Doc<"auditLog"> | null> {
   const before = (await ctx.db.get(id)) as Record<string, unknown> | null;
   if (!before) throw appError("not_found");
   const changed = changedFields(before, { op: "patch", patch: patch as Record<string, unknown> });
-  if (changed.size === 0) return;
+  if (changed.size === 0) return null;
   await ctx.db.patch(table, id, patch as never);
   const diff = { before: {} as Record<string, unknown>, after: {} as Record<string, unknown> };
   for (const [field, [from, to]] of changed) {
     diff.before[field] = from;
     diff.after[field] = to;
   }
-  await appendAudit(ctx, {
+  return appendAudit(ctx, {
     action: audit.action,
     entity: { table, id, ...(audit.label ? { label: audit.label } : {}) },
     diff,

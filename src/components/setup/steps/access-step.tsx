@@ -6,10 +6,10 @@ import { useState } from "react";
 import { type UseFormReturn, useWatch } from "react-hook-form";
 import { CheckboxField, FormErrorSummary, SelectField, TextField } from "@/components/forms/fields";
 import { Button } from "@/components/ui/button";
+import { type AccessValues, accessSchema } from "@/domain/schemas/settings";
 import { useAdapterErrorToast } from "@/hooks/use-adapter-error-toast";
 import { runAccessChecks, type StatusCheck, saveAccessConcept } from "../actions";
 import { countryOptions, isEuEea } from "../countries";
-import { type AccessValues, accessSchema } from "../schema";
 import { hasBlockingError, StatusCheckList } from "../status-check";
 import { useZodForm } from "../use-zod-form";
 import { useStepSubmit, useWizard } from "../wizard-context";
@@ -22,7 +22,7 @@ export function AccessStep() {
   const { formId, state } = useWizard();
   const submit = useStepSubmit();
   const showAdapterError = useAdapterErrorToast();
-  const [checks, setChecks] = useState<StatusCheck[] | null>(state?.access.checks ?? null);
+  const [checks, setChecks] = useState<StatusCheck[] | null>(state?.access.checks.length ? state.access.checks : null);
   const [checking, setChecking] = useState(false);
   const baseDomain = state?.access.baseDomain;
 

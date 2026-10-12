@@ -1,21 +1,19 @@
 "use client";
 
-import { useTranslations } from "next-intl";
 import * as React from "react";
-import { toast } from "sonner";
-import { isNotConnected } from "@/components/not-connected";
+import type { CompanyValues } from "@/domain/schemas/settings";
+import { useAdapterErrorToast } from "@/hooks/use-adapter-error-toast";
 import type { SetupState } from "./actions";
-import type { CompanyValues } from "./schema";
 
-/** Values entered in this browser session; NOT persisted (the adapter is not connected yet). */
+/** Values entered in this browser session before the server state has caught up (e.g. legal form for step 7). */
 export interface WizardDrafts {
   company?: CompanyValues;
 }
 
 interface WizardContextValue {
   formId: string;
+  /** Live server state; `null` while loading. */
   state: SetupState | null;
-  connected: boolean;
   drafts: WizardDrafts;
   setDrafts: React.Dispatch<React.SetStateAction<WizardDrafts>>;
   next: () => void;
@@ -31,28 +29,22 @@ export function useWizard(): WizardContextValue {
 }
 
 /**
- * Saves a step, then continues (F01 SET-003 "each step saves on Weiter"). While the backend is not connected the
- * adapter throws NotConnectedError: the toast says nothing was saved and the wizard still moves on so the steps
- * can be reviewed. Any other error keeps the user on the step.
+ * Saves a step, then continues (F01 SET-003 "each step saves on Weiter"). A failed save shows the German server
+ * message and keeps the user on the step; nothing pretends to be saved.
  */
 export function useStepSubmit() {
   const { next } = useWizard();
-  const t = useTranslations("common");
+  const showError = useAdapterErrorToast();
   return React.useCallback(
     async (save: () => Promise<unknown>) => {
       try {
         await save();
       } catch (error) {
-        if (isNotConnected(error)) {
-          toast.info(t("notConnected"), { description: t("notConnectedDescription") });
-        } else {
-          console.error(error);
-          toast.error(t("unknownError"));
-          return;
-        }
+        showError(error);
+        return;
       }
       next();
     },
-    [next, t],
+    [next, showError],
   );
 }
