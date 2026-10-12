@@ -405,3 +405,84 @@ export const CONTACT_EXPORT_HEADERS = [
   "Tags",
   "Eigene Felder",
 ] as const;
+
+export interface ContactExportSource {
+  readonly number: string;
+  readonly kind: "organization" | "person";
+  readonly displayName: string;
+  readonly organizationName?: string | undefined;
+  readonly organizationName2?: string | undefined;
+  readonly salutation?: string | undefined;
+  readonly academicTitle?: string | undefined;
+  readonly firstName?: string | undefined;
+  readonly lastName?: string | undefined;
+  readonly roles: readonly string[];
+  readonly status: string;
+  readonly billing?: { street: string; postalCode: string; city: string; countryCode: string } | undefined;
+  readonly primaryEmail?: string | undefined;
+  readonly primaryPhone?: string | undefined;
+  readonly invoiceEmails: readonly string[];
+  readonly vatId?: string | undefined;
+  readonly vatStatusText: string;
+  readonly taxNumber?: string | undefined;
+  readonly buyerReference?: string | undefined;
+  readonly isConsumer: boolean;
+  readonly isPublicAuthority: boolean;
+  readonly dueDays?: number | undefined;
+  readonly iban?: string | undefined;
+  readonly bic?: string | undefined;
+  readonly debtorAccount?: string | undefined;
+  readonly creditorAccount?: string | undefined;
+  readonly tagNames: readonly string[];
+  readonly customFields: Readonly<Record<string, unknown>>;
+}
+
+const ROLE_EXPORT: Readonly<Record<string, string>> = {
+  customer: "Kunde",
+  supplier: "Lieferant",
+  partner: "Partner",
+  prospect: "Interessent",
+};
+const STATUS_EXPORT: Readonly<Record<string, string>> = { lead: "Lead", active: "Aktiv", archived: "Archiviert" };
+const SALUTATION_EXPORT: Readonly<Record<string, string>> = { herr: "Herr", frau: "Frau", divers: "Divers" };
+
+/** CON-143: one export row in the order of CONTACT_EXPORT_HEADERS. */
+export function contactExportRow(c: ContactExportSource): string[] {
+  const yesNo = (b: boolean) => (b ? "ja" : "nein");
+  return [
+    c.number,
+    c.kind === "organization" ? "Organisation" : "Person",
+    c.displayName,
+    c.organizationName ?? "",
+    c.organizationName2 ?? "",
+    SALUTATION_EXPORT[c.salutation ?? ""] ?? "",
+    c.academicTitle ?? "",
+    c.firstName ?? "",
+    c.lastName ?? "",
+    c.roles.map((r) => ROLE_EXPORT[r] ?? r).join(", "),
+    STATUS_EXPORT[c.status] ?? c.status,
+    c.billing?.street ?? "",
+    c.billing?.postalCode ?? "",
+    c.billing?.city ?? "",
+    c.billing?.countryCode ?? "",
+    c.primaryEmail ?? "",
+    c.primaryPhone ?? "",
+    c.invoiceEmails.join(", "),
+    c.vatId ?? "",
+    c.vatStatusText,
+    c.taxNumber ?? "",
+    c.buyerReference ?? "",
+    yesNo(c.isConsumer),
+    yesNo(c.isPublicAuthority),
+    c.dueDays === undefined ? "" : String(c.dueDays),
+    c.iban ?? "",
+    c.bic ?? "",
+    c.debtorAccount ?? "",
+    c.creditorAccount ?? "",
+    c.tagNames.join(", "),
+    Object.entries(c.customFields)
+      .filter(([, v]) => v !== undefined && v !== "")
+      .map(([k, v]) => `${k}=${String(v)}`)
+      .join("; "),
+  ];
+}

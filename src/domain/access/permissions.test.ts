@@ -18,6 +18,11 @@ const EXPECTED: Record<Permission, readonly MemberRole[]> = {
   "integrity.acknowledge": ["owner"],
   "apiKeys.manage": ["owner"],
   "system.security": ["owner"],
+  "contacts.read": ["owner", "bookkeeper", "viewer"],
+  "contacts.write": ["owner", "bookkeeper"],
+  "contacts.merge": ["owner", "bookkeeper"],
+  "products.read": ["owner", "bookkeeper", "viewer"],
+  "products.write": ["owner", "bookkeeper"],
 };
 
 describe("permission matrix (02 §4.3)", () => {

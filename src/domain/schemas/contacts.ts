@@ -27,7 +27,12 @@ const text = (max: number) => trimmed().max(max, `Der Text ist zu lang (max. ${m
 
 function addIssues(ctx: z.RefinementCtx, issues: readonly FieldIssue[], prefix: (string | number)[] = []) {
   for (const i of issues)
-    ctx.addIssue({ code: "custom", path: [...prefix, ...(i.field ? [i.field] : [])], message: i.message });
+    ctx.addIssue({
+      code: "custom",
+      path: [...prefix, ...(i.field ? [i.field] : [])],
+      message: i.message,
+      params: { code: i.code },
+    });
 }
 
 /** "2,5" → 250 bp; "" → undefined; invalid → NaN (caught by the refinement). */

@@ -3,8 +3,10 @@ import { readCsv } from "../csv/csv";
 import { contactCreateSchema, emptyContactForm } from "../schemas/contacts";
 import {
   autoMapHeaders,
+  CONTACT_EXPORT_HEADERS,
   checkMapping,
   classifyRow,
+  contactExportRow,
   duplicateKeysInFile,
   parseCountry,
   parseDate,
@@ -115,5 +117,36 @@ describe("CON-140 CON-141 contact CSV import mapping", () => {
     expect(m.get(3)).toBe("Zeile 3 hat dieselbe E-Mail-Adresse wie Zeile 2.");
     expect(m.get(4)).toBe("Zeile 4 hat dieselbe Kontaktnummer wie Zeile 2.");
     expect(m.has(2)).toBe(false);
+  });
+});
+
+describe("CON-143 contact CSV export", () => {
+  test("CON-143 one row per contact in header order with German labels", () => {
+    const row = contactExportRow({
+      number: "10001",
+      kind: "organization",
+      displayName: "Müller GmbH",
+      organizationName: "Müller GmbH",
+      roles: ["customer", "supplier"],
+      status: "active",
+      billing: { street: "Hauptstr. 1", postalCode: "10115", city: "Berlin", countryCode: "DE" },
+      primaryEmail: "info@mueller.de",
+      invoiceEmails: ["rechnung@mueller.de", "buchhaltung@mueller.de"],
+      vatId: "DE123456788",
+      vatStatusText: "? nicht geprüft",
+      isConsumer: false,
+      isPublicAuthority: false,
+      dueDays: 14,
+      tagNames: ["VIP"],
+      customFields: { branche: "IT", leer: "" },
+    });
+    expect(row).toHaveLength(CONTACT_EXPORT_HEADERS.length);
+    const at = (h: (typeof CONTACT_EXPORT_HEADERS)[number]) => row[CONTACT_EXPORT_HEADERS.indexOf(h)];
+    expect(at("Rollen")).toBe("Kunde, Lieferant");
+    expect(at("Status")).toBe("Aktiv");
+    expect(at("Rechnungs-E-Mails")).toBe("rechnung@mueller.de, buchhaltung@mueller.de");
+    expect(at("Privatkunde")).toBe("nein");
+    expect(at("Zahlungsziel")).toBe("14");
+    expect(at("Eigene Felder")).toBe("branche=IT");
   });
 });

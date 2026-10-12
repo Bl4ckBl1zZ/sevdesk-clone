@@ -104,3 +104,16 @@ export const vActorContext = v.object({
   client: v.optional(v.object({ name: v.string(), version: v.string() })),
   scopes: v.optional(v.array(v.string())),
 });
+
+// ── contacts and products (03 §2, §3) ────────────────────────────────────────────────────────────────────
+export const vContactKind = v.union(v.literal("organization"), v.literal("person"));
+export const vContactRole = v.union(
+  v.literal("customer"),
+  v.literal("supplier"),
+  v.literal("partner"),
+  v.literal("prospect"),
+);
+export const vContactStatus = v.union(v.literal("lead"), v.literal("active"), v.literal("archived"));
+export const vVatCheckStatus = v.union(v.literal("valid"), v.literal("invalid"), v.literal("unavailable"));
+export const vQualifiedCode = v.union(v.literal("A"), v.literal("B"), v.literal("C"), v.literal("D"));
+export const vPriceMode = v.union(v.literal("net"), v.literal("gross"));

@@ -45,6 +45,14 @@ export const PERMISSIONS = {
   "apiKeys.manage": { roles: ["owner"], scope: null, write: true, fresh: true },
   /** F12 AUD-020 security status page (owner; never via REST/MCP). */
   "system.security": { roles: ["owner"], scope: null, write: false },
+  /** F02 contacts: master data is part of the bookkeeper's daily work (drafts need customers, 02 §4.3). */
+  "contacts.read": { roles: STAFF_READ, scope: "contacts:read", write: false },
+  "contacts.write": { roles: ["owner", "bookkeeper"], scope: "contacts:write", write: true },
+  /** CON-132…134 merge and undo (⚠ for MCP, CLAUDE.md rule 8 — the MCP slice adds the confirm token). */
+  "contacts.merge": { roles: ["owner", "bookkeeper"], scope: "contacts:write", write: true },
+  /** F03 products, categories and customer prices. */
+  "products.read": { roles: STAFF_READ, scope: "products:read", write: false },
+  "products.write": { roles: ["owner", "bookkeeper"], scope: "products:write", write: true },
 } as const satisfies Record<string, PermissionRule>;
 
 export type Permission = keyof typeof PERMISSIONS;
