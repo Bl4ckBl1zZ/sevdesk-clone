@@ -95,6 +95,16 @@ describe("TST-ACC-02 posting matrix golden cases (posting-2026.1 × SKR03/SKR04 
     await expect(`${JSON.stringify(golden, null, 2)}\n`).toMatchFileSnapshot(`./expected/${c.id}.journal.json`);
   });
 
+  test("ACC-024 ACC-026 the P1 bank-to-invoice matches (P1, P6, P11) and cash events (P3, T5, T8, T9, T10) have golden cases", () => {
+    const ids = GOLDEN_CASES.map((c) => c.id);
+    for (const row of ["P1-", "P6-", "P11-", "P3-", "T5-", "T8-", "T9-", "T10-"]) {
+      expect(
+        ids.some((id) => id.startsWith(row)),
+        row,
+      ).toBe(true);
+    }
+  });
+
   test("ACC-002 every event kind of the P1 matrix has at least one golden case", () => {
     const kinds = new Set(GOLDEN_CASES.map((c) => c.event.kind));
     expect([...kinds].sort()).toEqual(

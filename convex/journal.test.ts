@@ -81,7 +81,7 @@ const payment = (id: string, over: Partial<PaymentReceivedEvent>): PaymentReceiv
 const entries = (t: TestT) => t.run((ctx) => ctx.db.query("journalEntries").withIndex("by_seq").collect());
 
 describe("journal model (ACC-001…ACC-006)", () => {
-  test("ACC-001 ACC-002 ACC-003 GOBD-05 postings get a gapless seq, balanced lines, rule versions and an audit entry", async () => {
+  test("ACC-001 ACC-002 ACC-003 ACC-005 ACC-010 GOBD-05 postings get a gapless seq, balanced lines, source, contact, rule versions and an audit entry", async () => {
     const { t, bank } = await setup();
     const r1 = await post(t, invoice("doc1"));
     const r2 = await post(
@@ -119,6 +119,10 @@ describe("journal model (ACC-001…ACC-006)", () => {
     ]);
     const lineRows = await t.run((ctx) => ctx.db.query("journalLines").collect());
     expect(lineRows).toHaveLength(5);
+    // ACC-010: receivable lines carry the contact (OPOS, later DATEV personal accounts), in entry and read model
+    expect(all[0]?.lines[0]).toMatchObject({ account: "1400", contactId: "contact1" });
+    expect(lineRows.filter((l) => l.contactId === "contact1").map((l) => l.account)).toEqual(["1400", "1400"]);
+    expect(all[1]?.source).toEqual({ kind: "payment", id: "pay1" });
   });
 
   test("ACC-001 TST-ACC-27 RI-11 RI-12 random event sequences keep the journal balanced, gapless and the cash ≥ 0", async () => {
@@ -278,13 +282,18 @@ describe("journal model (ACC-001…ACC-006)", () => {
     );
   });
 
-  test("CSH-026 TST-ACC-35 EC-149 AO-05 the cash account never goes negative, also through backdating and reversals", async () => {
+  test("CSH-020 CSH-026 TST-ACC-35 EC-149 AO-05 one cash account with its opening balance never goes negative, also through backdating and reversals", async () => {
     const { t } = await setup();
     const owner = await t.asUser("owner");
     await owner.mutation(api.accounting.postOpeningBalancePart, {
       fiscalYear: 2026,
       part: { kind: "cash", amountCents: 10000 },
     });
+    const opening = (await entries(t))[0];
+    expect(opening?.lines.map((l) => [l.account, l.debitCents, l.creditCents])).toEqual([
+      ["1000", 10000, 0],
+      ["9000", 0, 10000],
+    ]);
     const w = (id: string, date: string, amountCents: number) =>
       post(t, { kind: "cash_transfer", cashTransferId: id, transferKind: "private_withdrawal", date, amountCents });
     const tooMuch = await w("w1", "2026-10-01", 15000).catch((e) => e);
