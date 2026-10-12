@@ -1,4 +1,4 @@
-/** Requirement IDs: UST-06, INV-012, EC-013, RI-02, EC-DOC-01, ER03-01, T07-151, BUG-123, … */
+/** Requirement IDs: UST-06, INV-012, EC-013, RI-02, EC-DOC-01, ER03-01, T07-151, T-SET-005, E-AUD-17, BUG-123, … */
 export const ID_SOURCE = String.raw`[A-Z][A-Z0-9]*(?:-[A-Z][A-Z0-9]*)*-\d+[a-z]?`;
 export const ID_RE = new RegExp(`^${ID_SOURCE}$`);
 
@@ -14,4 +14,12 @@ export function leadingIds(title: string): string[] {
 /** IDs that are allowed in test names without a spec entry (regression tests for issues). */
 export function isAdHocId(id: string): boolean {
   return id.startsWith("BUG-");
+}
+
+/**
+ * EN 16931 business terms and groups (BT-81, BG-16) name the semantic field a test is about. They are
+ * annotation tokens, not requirement IDs: they neither count as coverage nor as unknown IDs.
+ */
+export function isAnnotationId(id: string): boolean {
+  return /^B[TG]-\d+$/.test(id);
 }

@@ -1,4 +1,4 @@
-import { leadingIds } from "./ids";
+import { isAnnotationId, leadingIds } from "./ids";
 
 export interface TestRef {
   id: string;
@@ -16,7 +16,7 @@ export function scanTests(file: string, source: string): TestRef[] {
   for (const m of source.matchAll(TITLE_RE)) {
     const title = m[2] ?? "";
     const todo = /\.(?:todo|fixme)\b/.test(m[0]);
-    for (const id of leadingIds(title)) refs.push({ id, file, title, todo });
+    for (const id of leadingIds(title)) if (!isAnnotationId(id)) refs.push({ id, file, title, todo });
   }
   return refs;
 }

@@ -191,7 +191,8 @@ Rules:
 
 - `pnpm trace` scans the test names for requirement IDs and builds `docs/traceability.md` (a generated, committed file): requirement → tests → last CI result.
 - The requirement registry is parsed from the spec tables (`docs/spec/01-compliance.md` and `docs/spec/features/*.md` § 3) by `scripts/trace/parse-spec.ts`.
-- **The CI gate fails** if a `MUST` requirement whose phase ≤ the current release phase has zero tests, or if a test references an unknown ID.
+- Besides requirements, the registry holds the edge-case/error rows (`10-edge-cases.md`, feature § 5: `EC-…`, `E-AUD-…`) and the feature test-case rows (`T-SET-…`, `T05-…`, `TST-AUD-…`). A test named with a test-case ID also counts for the IDs in that row's "Covers" column. EN 16931 business terms and groups (`BT-81`, `BG-16`) are annotation tokens, not IDs; `BUG-…` is allowed for regression tests.
+- **The CI gate fails** if a `MUST` requirement whose phase ≤ the current release phase has zero tests, or if a test references an unknown ID (one that is in no spec table). CI runs `pnpm trace --phase P0 --gate`; later phases are report only until their gate applies.
 
 ## 7. CI pipeline (GitHub Actions)
 

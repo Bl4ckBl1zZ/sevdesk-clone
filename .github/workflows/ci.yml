@@ -34,7 +34,9 @@ jobs:
       - run: pnpm lint # biome check + scripts/check-boundaries.ts
       - run: pnpm typecheck
       # TODO(P0): openapi:check once /api/openapi.json exists (05 §1).
-      # Report only for now; switch to `pnpm trace --phase P0 --gate` when the P0 gate applies (07 §6).
+      # 07 §6: fails on an untested P0 MUST requirement or on a test naming an unknown ID.
+      - run: pnpm trace --phase P0 --gate
+      # Later phases are report only until their gate applies.
       - run: pnpm trace
 
   unit:

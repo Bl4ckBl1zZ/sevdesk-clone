@@ -8,7 +8,7 @@
  */
 import { readdirSync, readFileSync, statSync, writeFileSync } from "node:fs";
 import { join, relative } from "node:path";
-import { isAdHocId } from "./trace/ids";
+import { buildCoverage } from "./trace/coverage";
 import { mergeRegistry, parseSpec, type Requirement } from "./trace/parse-spec";
 import { scanTests, type TestRef } from "./trace/scan-tests";
 
@@ -51,12 +51,11 @@ const testFiles = ["src", "convex", "test", "e2e", "scripts", "deploy", "service
 );
 const refs: TestRef[] = testFiles.flatMap((f) => scanTests(relative(ROOT, f), readFileSync(f, "utf8")));
 
-const testsById = new Map<string, TestRef[]>();
-for (const r of refs) {
-  if (r.todo) continue;
-  testsById.set(r.id, [...(testsById.get(r.id) ?? []), r]);
-}
-const unknown = [...new Set(refs.map((r) => r.id))].filter((id) => !registry.has(id) && !isAdHocId(id));
+// Test-case IDs (T-SET-005, TST-AUD-07, T05-001) and edge cases (E-AUD-17) are spec rows too; a test-case ID also
+// counts for the requirements its row covers. EN 16931 terms (BT-81) are annotations; anything else is unknown.
+const { testsById, unknown } = buildCoverage(registry, refs);
+const requirements = [...registry.values()].filter((r) => r.kind !== "test-case");
+const testCaseCount = registry.size - requirements.length;
 
 const inScope = (r: Requirement) => targetPhase === null || (r.phase !== null && r.phase <= targetPhase);
 const gated = (r: Requirement) => r.priority === "MUST" && r.phase !== null && inScope(r);
@@ -64,7 +63,7 @@ const gated = (r: Requirement) => r.priority === "MUST" && r.phase !== null && i
 // ── report ────────────────────────────────────────────────────────────────────
 type Row = { group: string; total: number; tested: number };
 const byFile = new Map<string, Row>();
-for (const r of registry.values()) {
+for (const r of requirements) {
   if (!inScope(r) && targetPhase !== null) continue;
   const row = byFile.get(r.file) ?? { group: r.file, total: 0, tested: 0 };
   row.total++;
@@ -93,7 +92,7 @@ const missing = [...registry.values()].filter((r) => gated(r) && !testsById.has(
 
 console.log(`Traceability${targetPhase !== null ? ` (phase ≤ P${targetPhase})` : ""}`);
 console.log(
-  `${registry.size} requirement IDs in spec, ${refs.length} ID references in ${testFiles.length} test files\n`,
+  `${requirements.length} requirement/edge-case IDs and ${testCaseCount} test cases in spec, ${refs.length} ID references in ${testFiles.length} test files\n`,
 );
 console.log(lines.join("\n"));
 console.log(`\n${phaseLines.join("\n")}\n`);
@@ -112,7 +111,7 @@ if (flag("--write")) {
     "",
     "| Requirement | Priority | Phase | Tests |",
     "|---|---|---|---|",
-    ...[...registry.values()].map(
+    ...requirements.map(
       (r) =>
         `| ${r.id} | ${r.priority} | ${r.phase === null ? "–" : `P${r.phase}`} | ${(testsById.get(r.id) ?? []).map((t) => `\`${t.file}\``).join("<br>") || "—"} |`,
     ),
