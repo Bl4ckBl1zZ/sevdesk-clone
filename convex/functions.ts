@@ -43,6 +43,7 @@ export const SYSTEM_JOBS = [
   "cron.members.expire",
   "cron.invariants.check",
   "auth", // member created by the sign-up trigger, OTP throttle, auth-mail failures
+  "migration", // migrations:run — the runner then acts as system:migration.<name> (AUD-028)
 ] as const;
 export type SystemJob = (typeof SYSTEM_JOBS)[number];
 

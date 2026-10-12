@@ -343,6 +343,12 @@
     "wrapper": "mutation",
     "permission": "members.manage"
   },
+  "migrations:run": {
+    "kind": "mutation",
+    "visibility": "internal",
+    "wrapper": "systemMutation",
+    "job": "migration"
+  },
   "settings:addBankAccount": {
     "kind": "mutation",
     "visibility": "public",
