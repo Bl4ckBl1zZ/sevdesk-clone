@@ -112,6 +112,41 @@ const ARGS: Record<string, Record<string, unknown>> = {
     },
   },
   "lookups:deleteTextTemplate": { templateId: "placeholder" },
+  "lookups:createUnit": { values: { code: "XPP", labelDe: "Palettenplatz", labelEn: "pallet place" } },
+  "lookups:updateUnit": { unitId: "placeholder", values: { code: "XPP", labelDe: "Platz", labelEn: "place" } },
+  "lookups:archiveUnit": { unitId: "placeholder", archived: true },
+  "lookups:deleteUnit": { unitId: "placeholder" },
+  "lookups:savePaymentMethod": {
+    values: { name: "Scheck", text: "", kind: "other", isDefault: false, active: true },
+  },
+  "lookups:saveTag": { values: { name: "Tag" } },
+  "lookups:deleteTag": { tagId: "placeholder" },
+  "lookups:createCustomField": {
+    values: {
+      entity: "contact",
+      key: "feld",
+      label: "Feld",
+      type: "text",
+      options: "",
+      printOnDocuments: false,
+      required: false,
+    },
+  },
+  "lookups:updateCustomField": {
+    customFieldId: "placeholder",
+    values: {
+      entity: "contact",
+      key: "feld",
+      label: "Feld",
+      type: "text",
+      options: "",
+      printOnDocuments: false,
+      required: false,
+    },
+  },
+  "lookups:archiveCustomField": { customFieldId: "placeholder" },
+  "lookups:saveCostCenter": { values: { number: "100", name: "Vertrieb", isDefault: false } },
+  "lookups:archiveCostCenter": { costCenterId: "placeholder" },
 };
 
 const MODULES = {
@@ -153,6 +188,8 @@ async function callers(t: TestT): Promise<Record<string, { caller: Caller; role?
 }
 
 const bankAccountOf = new WeakMap<TestT, string>();
+const UNIT_PLACEHOLDER_CODES = ["XBA", "XBB", "XBC", "XBD", "XBE", "XBF", "XBG", "XBH", "XBI", "XBJ", "XBK", "XBL"];
+let unitPlaceholderCount = 0;
 
 async function resolvePlaceholders(t: TestT, args: Record<string, unknown>): Promise<Record<string, unknown>> {
   const out = { ...args };
@@ -212,6 +249,42 @@ async function resolvePlaceholders(t: TestT, args: Record<string, unknown>): Pro
       }),
     );
   }
+  const asSeed = { actor: "user:seed", role: "owner", channel: "ui" } as const;
+  const lookups = () => import("./model/lookups");
+  if (out.unitId === "placeholder") {
+    // Distinct valid Rec 21 codes per call (codes are unique).
+    const code = UNIT_PLACEHOLDER_CODES[unitPlaceholderCount++ % UNIT_PLACEHOLDER_CODES.length] ?? "XPP";
+    out.unitId = await t.model(asSeed, async (ctx) =>
+      (await lookups()).createUnit(ctx, { code, labelDe: "x", labelEn: "x" }),
+    );
+  }
+  if (out.tagId === "placeholder") {
+    out.tagId = await t.model(asSeed, async (ctx) => (await lookups()).saveTag(ctx, { name: `T${Math.random()}` }));
+  }
+  if (out.customFieldId === "placeholder") {
+    out.customFieldId = await t.model(asSeed, async (ctx) =>
+      (await lookups()).createCustomFieldDef(ctx, {
+        entity: "product",
+        key: `f${Math.floor(Math.random() * 1e9)}`,
+        label: "F",
+        type: "text",
+        options: [],
+        printOnDocuments: false,
+        required: false,
+      }),
+    );
+  }
+  if (out.costCenterId === "placeholder") {
+    out.costCenterId = await t.model(
+      asSeed,
+      async (ctx) =>
+        (
+          await (
+            await lookups()
+          ).saveCostCenter(ctx, { number: `K${Math.floor(Math.random() * 1e9)}`, name: "K", isDefault: false })
+        ).id,
+    );
+  }
   if (out.runId === "placeholder") {
     out.runId = await t.asSystem("cron.integrity.verify").model(async (ctx) =>
       (await import("./model/integrity")).recordIntegrityRun(ctx, {
@@ -259,6 +332,23 @@ describe("role matrix of the settings, members, invites and integrity functions 
         "lookups:saveTextTemplate",
         "lookups:deleteTextTemplate",
         "lookups:restoreDefaultTextTemplates",
+        "lookups:listUnits",
+        "lookups:createUnit",
+        "lookups:updateUnit",
+        "lookups:archiveUnit",
+        "lookups:deleteUnit",
+        "lookups:listPaymentMethods",
+        "lookups:savePaymentMethod",
+        "lookups:listTags",
+        "lookups:saveTag",
+        "lookups:deleteTag",
+        "lookups:listCustomFields",
+        "lookups:createCustomField",
+        "lookups:updateCustomField",
+        "lookups:archiveCustomField",
+        "lookups:listCostCenters",
+        "lookups:saveCostCenter",
+        "lookups:archiveCostCenter",
         "settings:runAccessChecks",
         "settings:testCheckpointStorage",
         "members:list",

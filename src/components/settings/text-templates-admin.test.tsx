@@ -89,9 +89,9 @@ describe("Textvorlagen (F01 SET-080…087)", () => {
   });
 
   test("SET-080 a refused save shows the server message in the dialog", async () => {
-    backend.mutations["lookups:saveTextTemplate"] = vi.fn().mockRejectedValue(
-      new ConvexError({ code: "invalid_input", message: "Höchstens 20.000 Zeichen." }),
-    );
+    backend.mutations["lookups:saveTextTemplate"] = vi
+      .fn()
+      .mockRejectedValue(new ConvexError({ code: "invalid_input", message: "Höchstens 20.000 Zeichen." }));
     const dialog = await openEditor();
     await userEvent.click(within(dialog).getByRole("button", { name: "Speichern" }));
     expect(await within(dialog).findByRole("alert")).toHaveTextContent("Höchstens 20.000 Zeichen.");

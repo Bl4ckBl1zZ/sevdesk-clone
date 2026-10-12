@@ -40,6 +40,7 @@ import type * as model_integrations from "../model/integrations.js";
 import type * as model_integrity from "../model/integrity.js";
 import type * as model_invariants from "../model/invariants.js";
 import type * as model_layouts from "../model/layouts.js";
+import type * as model_lookups from "../model/lookups.js";
 import type * as model_members from "../model/members.js";
 import type * as model_notificationSettings from "../model/notificationSettings.js";
 import type * as model_numberRanges from "../model/numberRanges.js";
@@ -90,6 +91,7 @@ declare const fullApi: ApiFromModules<{
   "model/integrity": typeof model_integrity;
   "model/invariants": typeof model_invariants;
   "model/layouts": typeof model_layouts;
+  "model/lookups": typeof model_lookups;
   "model/members": typeof model_members;
   "model/notificationSettings": typeof model_notificationSettings;
   "model/numberRanges": typeof model_numberRanges;

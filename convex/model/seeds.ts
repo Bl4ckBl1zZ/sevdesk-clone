@@ -1,3 +1,4 @@
+import { seedPaymentMethods, seedUnits } from "./lookups";
 import { seedTextTemplates } from "./textTemplates";
 import type { ModelCtx } from "./types";
 
@@ -7,4 +8,6 @@ import type { ModelCtx } from "./types";
  */
 export async function seedSettingsDefaults(ctx: ModelCtx): Promise<void> {
   await seedTextTemplates(ctx);
+  await seedUnits(ctx);
+  await seedPaymentMethods(ctx);
 }

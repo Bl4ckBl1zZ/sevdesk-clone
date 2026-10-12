@@ -1,7 +1,12 @@
-import { SettingsPlaceholder, settingsMetadata } from "@/components/settings/settings-page";
+import { MasterDataAdmin } from "@/components/settings/master-data-admin";
+import { SettingsPage, settingsMetadata } from "@/components/settings/settings-page";
 
 export const generateMetadata = () => settingsMetadata("stammdaten");
 
 export default function Page() {
-  return <SettingsPlaceholder item="stammdaten" />;
+  return (
+    <SettingsPage item="stammdaten">
+      <MasterDataAdmin />
+    </SettingsPage>
+  );
 }

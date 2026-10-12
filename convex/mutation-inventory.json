@@ -175,13 +175,85 @@
     "wrapper": "mutation",
     "permission": "invites.manage"
   },
+  "lookups:archiveCostCenter": {
+    "kind": "mutation",
+    "visibility": "public",
+    "wrapper": "mutation",
+    "permission": "settings.write"
+  },
+  "lookups:archiveCustomField": {
+    "kind": "mutation",
+    "visibility": "public",
+    "wrapper": "mutation",
+    "permission": "settings.write"
+  },
+  "lookups:archiveUnit": {
+    "kind": "mutation",
+    "visibility": "public",
+    "wrapper": "mutation",
+    "permission": "settings.write"
+  },
+  "lookups:createCustomField": {
+    "kind": "mutation",
+    "visibility": "public",
+    "wrapper": "mutation",
+    "permission": "settings.write"
+  },
+  "lookups:createUnit": {
+    "kind": "mutation",
+    "visibility": "public",
+    "wrapper": "mutation",
+    "permission": "settings.write"
+  },
+  "lookups:deleteTag": {
+    "kind": "mutation",
+    "visibility": "public",
+    "wrapper": "mutation",
+    "permission": "settings.write"
+  },
   "lookups:deleteTextTemplate": {
     "kind": "mutation",
     "visibility": "public",
     "wrapper": "mutation",
     "permission": "settings.write"
   },
+  "lookups:deleteUnit": {
+    "kind": "mutation",
+    "visibility": "public",
+    "wrapper": "mutation",
+    "permission": "settings.write"
+  },
+  "lookups:listCostCenters": {
+    "kind": "query",
+    "visibility": "public",
+    "wrapper": "query",
+    "permission": "settings.read"
+  },
+  "lookups:listCustomFields": {
+    "kind": "query",
+    "visibility": "public",
+    "wrapper": "query",
+    "permission": "settings.read"
+  },
+  "lookups:listPaymentMethods": {
+    "kind": "query",
+    "visibility": "public",
+    "wrapper": "query",
+    "permission": "settings.read"
+  },
+  "lookups:listTags": {
+    "kind": "query",
+    "visibility": "public",
+    "wrapper": "query",
+    "permission": "settings.read"
+  },
   "lookups:listTextTemplates": {
+    "kind": "query",
+    "visibility": "public",
+    "wrapper": "query",
+    "permission": "settings.read"
+  },
+  "lookups:listUnits": {
     "kind": "query",
     "visibility": "public",
     "wrapper": "query",
@@ -193,7 +265,37 @@
     "wrapper": "mutation",
     "permission": "settings.write"
   },
+  "lookups:saveCostCenter": {
+    "kind": "mutation",
+    "visibility": "public",
+    "wrapper": "mutation",
+    "permission": "settings.write"
+  },
+  "lookups:savePaymentMethod": {
+    "kind": "mutation",
+    "visibility": "public",
+    "wrapper": "mutation",
+    "permission": "settings.write"
+  },
+  "lookups:saveTag": {
+    "kind": "mutation",
+    "visibility": "public",
+    "wrapper": "mutation",
+    "permission": "settings.write"
+  },
   "lookups:saveTextTemplate": {
+    "kind": "mutation",
+    "visibility": "public",
+    "wrapper": "mutation",
+    "permission": "settings.write"
+  },
+  "lookups:updateCustomField": {
+    "kind": "mutation",
+    "visibility": "public",
+    "wrapper": "mutation",
+    "permission": "settings.write"
+  },
+  "lookups:updateUnit": {
     "kind": "mutation",
     "visibility": "public",
     "wrapper": "mutation",
