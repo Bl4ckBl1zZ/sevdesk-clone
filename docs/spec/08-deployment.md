@@ -56,7 +56,7 @@ Hostnames (all under the owner input `BASE_DOMAIN`, e.g. `buero.example.de`): `a
    ```
    The fork's API credential must be allowed to apply `tag:dokploy`. With the default allow-all policy nothing breaks; with a custom policy these entries are mandatory.
 2. **Verify out-of-band access** before touching anything: the Proxmox console of the VM/LXC works, and/or plain OpenSSH on the LAN address works. Check whether Dokploy's remote-server connection uses the LAN or the tailnet address; if tailnet, the second SSH rule above is required.
-3. **Confirm the retag for one server at a time:** `dokploy tailscale confirm-retag --gatewayId "$GW_ID"` (procedure `tailscale.confirmRetag`, permission `tailscale:update`; gateway IDs from the generated `dokploy tailscale` group, see `--help`) or the button in the Dokploy UI.
+3. **Confirm the retag for one server at a time:** `dokploy tailscale confirm-retag --tailscaleGatewayId "$GW_ID"` (flag verified in P0, ADR 0003; wrapper: `deploy/scripts/tailscale-retag.sh`) (procedure `tailscale.confirmRetag`, permission `tailscale:update`; gateway IDs from the generated `dokploy tailscale` group, see `--help`) or the button in the Dokploy UI.
 4. **Check immediately:** gateway status `adopted`; Dokploy can still reach the server; Tailscale SSH (if used) still works; the device IP is unchanged.
 5. **Disable key expiry** for the now-tagged device on the Machines page (whether the old expiry persists after an API retag is UNSURE).
 6. Only then deploy the compose (§5). **Rollback:** from the Proxmox console, `tailscale up --force-reauth` (re-login as the user).
@@ -137,7 +137,7 @@ services:
     environment:
       - POSTGRES_USER=convex
       - POSTGRES_PASSWORD=${PG_PASSWORD}
-      - POSTGRES_DB=rechnungen                                  # must equal INSTANCE_NAME (dashes → underscores)
+      - POSTGRES_DB=postgres                                    # instance DB is created by the one-shot `pg-init` service
     volumes: [pg-data:/var/lib/postgresql/data]
     healthcheck: { test: "pg_isready -U convex", interval: 5s }
   einvoice-tools:
@@ -152,7 +152,7 @@ volumes:
 Notes:
 - **No service other than `caddy` may get `expose:`/`ports:`** — a CI check (`deploy/compose` lint in `pnpm lint`) fails otherwise, because the fork would publish it to the tailnet.
 - The flags `DO_NOT_REQUIRE_SSL`, `REDACT_LOGS_TO_CLIENT` and `DISABLE_BEACON` are switched on by **any non-empty value**. Never set them to `false`; remove the line instead.
-- The Postgres database named after `INSTANCE_NAME` exists before the backend starts (`POSTGRES_DB`).
+- The Postgres database named after `INSTANCE_NAME` (dashes → underscores) is created before the backend starts by a one-shot `pg-init` service (idempotent `createdb`), not by `POSTGRES_DB`, which only applies on the first init and would break the pilot → go-live switch (§8.1, ADR 0003). The block above is abridged; the authoritative file is `deploy/compose/docker-compose.yml` (adds `pg-init`, internal networks `db`/`tools`, healthchecks, log rotation).
 - File storage stays on the `convex-data` volume (backed up by volume backups + `convex export --include-file-storage`). Moving to R2 storage later = export → new backend with the S3 bucket variables pointed at R2 → import.
 - The backend container needs **egress** to `api.cloudflare.com` (auth mail), `*.r2.cloudflarestorage.com` (checkpoints, inbox), `api.enablebanking.com` (P2), the eVatR/VIES endpoints and the Claude API. "Tailnet only" restricts inbound traffic only.
 
@@ -266,7 +266,7 @@ Tailscale Funnel is **not** used (no public exposure). Exact grant syntax for Se
 
 ## 5. Bootstrap procedure (`deploy/bootstrap.sh`)
 
-The script prompts for missing inputs, then runs these steps. Commands are shown in CLI syntax of the **generated** CLI; the script wraps each one with a lookup (`dokploy project all --json | jq …`) to stay idempotent.
+The script reads its inputs from a local, never-committed `.env.production` (template `deploy/env/production.example`), runs in **dry-run mode by default** (read-only lookups run, mutating commands are only printed with secrets redacted) and executes only with `--apply`. Commands are shown in CLI syntax of the **generated** CLI; the script wraps each one with a lookup (`dokploy project all --json | jq …`) to stay idempotent. **P0 verification (ADR 0003):** `compose create` has no `--sourceType` (the raw source is set with `compose update --sourceType raw --composeFile …`), `save-environment` has no `--createEnvFile`, `--enabled`/`--turnOff` are value-less switches (`--turnOff false` would enable it), and the retag flag is `--tailscaleGatewayId`; the block below is the original sketch, `deploy/bootstrap.sh` has the verified commands.
 
 ```bash
 # 0. CLI matching OUR server (fork procedures incl. tailscale.*)
@@ -334,7 +334,7 @@ dokploy schedule create --name r2-monthly-copy --scheduleType server --serverId 
   --cronExpression "0 5 1 * *" --command "/opt/rechnungen/r2-monthly-copy.sh"
 ```
 
-> **P0 spikes:** (1) confirm the compose-backup flags (`--backupType compose --serviceName postgres`) in the generated CLI; **fallback:** a Dokploy-managed Postgres whose auto-published tailnet endpoint is denied to everyone except `tag:dokploy` by the policy. (2) Confirm how the generated CLI exposes gateway status and the Service's TailVIP (`dokploy tailscale --help`). (3) Better Auth through Caddy: sign-in, passkey enrolment and `/api/auth/convex/token` against the self-hosted backend (Convex Cloud's proxy bug #422 should not apply; verify).
+> **P0 spikes:** (1) ~~confirm the compose-backup flags~~ **confirmed** (2026-10-12): `backup create` has `--backupType compose --composeId --serviceName`; fallback not needed. (2) ~~gateway status and TailVIP~~ **answered**: `dokploy tailscale list --json` returns gateways (`ownership`, `status`) and endpoints (`serviceName`, `fqdn`, `ownerKey`, `status`) but **no TailVIP** → `bootstrap.sh` resolves the Service FQDN via MagicDNS (`dig @100.100.100.100`). (3) Better Auth through Caddy: sign-in, passkey enrolment and `/api/auth/convex/token` against the self-hosted backend (Convex Cloud's proxy bug #422 should not apply; verify).
 
 ### 5.1 Build-time variables (`web` image, CI)
 

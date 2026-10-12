@@ -48,6 +48,15 @@ export default defineConfig({
         },
       },
       {
+        // Deploy tooling, the Email Worker and the einvoice-tools sidecar (08 §3, 02 §8). No network, no Docker.
+        extends: true,
+        test: {
+          name: "deploy",
+          include: ["deploy/**/*.test.ts", "services/**/*.test.ts"],
+          environment: "node",
+        },
+      },
+      {
         extends: true,
         test: {
           name: "integration",

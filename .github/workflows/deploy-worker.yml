@@ -1,0 +1,38 @@
+# deploy-worker (08 §3.4, §6; P2): `wrangler deploy` of the receipt-inbox Email Worker on changes under
+# deploy/cloudflare/**. Needs no tailnet. Opt-in: repository variable WORKER_DEPLOY_ENABLED=true, secret
+# CLOUDFLARE_WORKERS_API_TOKEN (Workers Scripts Edit + Workers R2 Storage Edit, this account only), variable
+# CLOUDFLARE_ACCOUNT_ID. Runbook: deploy/runbooks/email-in.md.
+name: Deploy Email Worker
+
+on:
+  push:
+    branches: [main]
+    paths: ["deploy/cloudflare/**"]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: deploy-worker
+  cancel-in-progress: false
+
+jobs:
+  deploy-worker:
+    if: vars.WORKER_DEPLOY_ENABLED == 'true'
+    runs-on: ubuntu-24.04
+    environment: production
+    steps:
+      - uses: actions/checkout@v5
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v5
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm exec vitest run --project deploy deploy/cloudflare
+      - name: wrangler deploy
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_WORKERS_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ vars.CLOUDFLARE_ACCOUNT_ID }}
+        run: pnpm dlx wrangler@4.149.0 deploy --config deploy/cloudflare/receipts-inbox/wrangler.toml

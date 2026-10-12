@@ -1,0 +1,2 @@
+# Keep fixtures byte-identical to their sources (CRLF in the KoSIT test-suite samples, binary PDFs).
+* -text

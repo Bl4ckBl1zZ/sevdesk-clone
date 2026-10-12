@@ -1,0 +1,18 @@
+# Email Worker for the e-mail-in receipt inbox (08 §3.4, F06 INB-048). Deploy: deploy/runbooks/email-in.md
+#   pnpm dlx wrangler@4.149.0 deploy --config deploy/cloudflare/receipts-inbox/wrangler.toml
+name = "receipts-inbox"
+main = "src/index.ts"
+compatibility_date = "2026-10-01"
+
+# No HTTP surface: the Worker only has an `email` handler. No workers.dev URL, no routes.
+workers_dev = false
+preview_urls = false
+
+[[r2_buckets]]
+binding = "INBOX"
+bucket_name = "rechnungen-inbox"
+jurisdiction = "eu"
+
+[observability]
+enabled = true
+head_sampling_rate = 1
