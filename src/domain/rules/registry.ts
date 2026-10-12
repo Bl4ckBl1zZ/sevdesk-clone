@@ -3,7 +3,9 @@
  * Importing this module validates every table (defineRuleTable throws on inconsistent data).
  */
 import { BASISZINSSATZ } from "./basiszinssatz";
+import { EINVOICE_OBLIGATION } from "./einvoice-obligation";
 import { NOTE_TEXTS } from "./note-texts";
+import { RC13B_TYPES } from "./rc13b-types";
 import type { RuleTable } from "./rule-table";
 import { KLEINBETRAG_LIMIT, KLEINUNTERNEHMER_LIMITS, VERZUG_SURCHARGES } from "./thresholds";
 import { VAT_RATE_KEYS } from "./vat-rates";
@@ -14,5 +16,7 @@ export const ALL_RULE_TABLES: readonly RuleTable<unknown>[] = [
   VERZUG_SURCHARGES,
   KLEINUNTERNEHMER_LIMITS,
   KLEINBETRAG_LIMIT,
+  EINVOICE_OBLIGATION,
   ...Object.values(NOTE_TEXTS),
+  ...Object.values(RC13B_TYPES),
 ];
