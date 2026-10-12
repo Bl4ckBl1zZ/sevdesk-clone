@@ -12,6 +12,8 @@
     "build": "next build",
     "start": "next start",
     "convex": "convex",
+    "auth:schema": "tsx scripts/generate-auth-schema.ts",
+    "auth:keys": "tsx scripts/generate-jwks.ts",
     "test": "node scripts/vitest.mjs",
     "test:watch": "vitest",
     "test:coverage": "node scripts/vitest.mjs --coverage",

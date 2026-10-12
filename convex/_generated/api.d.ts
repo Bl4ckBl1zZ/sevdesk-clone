@@ -8,13 +8,73 @@
  * @module
  */
 
+import type * as access from "../access.js";
+import type * as auth from "../auth.js";
+import type * as authMail from "../authMail.js";
+import type * as crons from "../crons.js";
+import type * as functions from "../functions.js";
+import type * as http from "../http.js";
+import type * as integrity from "../integrity.js";
+import type * as invariants from "../invariants.js";
+import type * as invites from "../invites.js";
+import type * as lib_actor from "../lib/actor.js";
+import type * as lib_authMail from "../lib/authMail.js";
+import type * as lib_checkpointStore from "../lib/checkpointStore.js";
+import type * as lib_env from "../lib/env.js";
+import type * as lib_errors from "../lib/errors.js";
+import type * as lib_jws from "../lib/jws.js";
+import type * as lib_rateLimits from "../lib/rateLimits.js";
+import type * as lib_time from "../lib/time.js";
+import type * as members from "../members.js";
+import type * as model_audit from "../model/audit.js";
+import type * as model_contactKeys from "../model/contactKeys.js";
+import type * as model_db from "../model/db.js";
+import type * as model_devMailbox from "../model/devMailbox.js";
+import type * as model_integrations from "../model/integrations.js";
+import type * as model_integrity from "../model/integrity.js";
+import type * as model_invariants from "../model/invariants.js";
+import type * as model_members from "../model/members.js";
+import type * as model_types from "../model/types.js";
+import type * as signup from "../signup.js";
+import type * as validators from "../validators.js";
+
 import type {
   ApiFromModules,
   FilterApi,
   FunctionReference,
 } from "convex/server";
 
-declare const fullApi: ApiFromModules<{}>;
+declare const fullApi: ApiFromModules<{
+  access: typeof access;
+  auth: typeof auth;
+  authMail: typeof authMail;
+  crons: typeof crons;
+  functions: typeof functions;
+  http: typeof http;
+  integrity: typeof integrity;
+  invariants: typeof invariants;
+  invites: typeof invites;
+  "lib/actor": typeof lib_actor;
+  "lib/authMail": typeof lib_authMail;
+  "lib/checkpointStore": typeof lib_checkpointStore;
+  "lib/env": typeof lib_env;
+  "lib/errors": typeof lib_errors;
+  "lib/jws": typeof lib_jws;
+  "lib/rateLimits": typeof lib_rateLimits;
+  "lib/time": typeof lib_time;
+  members: typeof members;
+  "model/audit": typeof model_audit;
+  "model/contactKeys": typeof model_contactKeys;
+  "model/db": typeof model_db;
+  "model/devMailbox": typeof model_devMailbox;
+  "model/integrations": typeof model_integrations;
+  "model/integrity": typeof model_integrity;
+  "model/invariants": typeof model_invariants;
+  "model/members": typeof model_members;
+  "model/types": typeof model_types;
+  signup: typeof signup;
+  validators: typeof validators;
+}>;
 
 /**
  * A utility for referencing Convex functions in your app's public API.
@@ -42,4 +102,7 @@ export declare const internal: FilterApi<
   FunctionReference<any, "internal">
 >;
 
-export declare const components: {};
+export declare const components: {
+  betterAuth: import("../betterAuth/_generated/component.js").ComponentApi<"betterAuth">;
+  rateLimiter: import("@convex-dev/rate-limiter/_generated/component.js").ComponentApi<"rateLimiter">;
+};

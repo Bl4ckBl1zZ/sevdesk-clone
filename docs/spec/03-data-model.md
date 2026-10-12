@@ -1107,7 +1107,7 @@ importedRecords: { importId; externalType: string; externalId: string; table: st
 | `documentSnapshots`, `documentArtifacts`, `sendLog` | none (append-only) | new artifact row; a wrong sent mark is corrected by a `retraction` row |
 | `numberRegister` | `status` only `issued → cancelled_by_storno` / `issued → corrected` | n/a |
 | `companyProfileVersions`, `layoutVersions`, `accountRoleMappings` | none (append-only versions) | new version row |
-| `vatIdChecks`, `auditLog`, `integrityCheckpoints`, `chainAnchors`, `restoreDrills`, `purgeTombstones`, `datevExports`, `dunningRuns`, `datevAcceptance` | none | n/a (auditLog: prefix purge with chain anchor only, PRV-008) |
+| `vatIdChecks`, `auditLog`, `chainAnchors`, `restoreDrills`, `purgeTombstones`, `datevExports`, `dunningRuns`, `datevAcceptance` | none | n/a (auditLog: prefix purge with chain anchor only, PRV-008) |
 | `contacts` (master data, not protected) | all, audited; merge sets `mergedIntoId` + `status: archived` | finalised records keep their `contactId` and resolve the alias; never rewritten |
 | `contactKeys` | `wrappedKey` removed and `shreddedAt` set, once (purge) | n/a |
 | `vouchers`, `voucherLines` | while booked and unlocked: correction with Generalumkehr + re-post, `version + 1`, reason (VOU-008); always: `status`, `openAmountCents`, `bookedAt`, `lockedAt`, `tags`, `checkedComplete` (once), `duplicateDismissals` (append), `rebilledLineId` (once), `originalFiles` (append; `replacedBy` on the old entry), `renditions` (append), `bewirtung.versions` (append); `internalNumber` set once at booking | after lock: `cancelled` with reversal journal + new voucher ("Duplizieren") |
@@ -1128,6 +1128,7 @@ importedRecords: { importId; externalType: string; externalId: string; table: st
 | `verfahrensdokuVersions` | `supersededAt`, `retentionUntil` (once, when the next version is released) | new version |
 | `purgeBatches` | `status`, `counts`, `offHostLogKey`, `finishedAt` | n/a |
 | `integrityRuns` | `acknowledgedAt`, `acknowledgedNote`, `acknowledgedBy` (once) | n/a |
+| `integrityCheckpoints` | `uploadStatus` only `pending → uploaded \| failed`, `failed → uploaded \| failed` (hourly retry); `exportedTo` set once on upload. The signed content (`date` … `jws`, `kid`) never changes | n/a (a broken checkpoint is reported, never rewritten) |
 
 Drafts (`status: "draft"`) of documents and vouchers can be deleted. Deletion is logged in `auditLog` with the draft content, so the deletion itself stays traceable. Records within `retentionUntil` cannot be deleted on any path (RI-20); unprotected tables (settings, lookups, `members`, `invites`, `apiKeys` (revocation via `revokedAt`, never deleted), `dismissedDuplicates`, `contactAliases`, `matchRejections`, `bankPendingTransactions`, `possibleDuplicates`, `plannedCashItems`, `runningTimer`, `notifications`, `clockChecks`) are freely mutable with audit. The Better Auth component tables (`convex/betterAuth/**`) are outside this matrix; sign-in/sign-out are audited through session triggers.
 
@@ -1190,6 +1191,7 @@ Conflicts and naming differences resolved while merging the F01–F12 data-model
 | `integrations.kind` | `imap`, `s3checkpoint` removed; `cloudflare_email`, `r2_checkpoint`, `r2_inbox` added; secrets for these come from the Convex env | D3/D4 (02 §4.5) |
 | `apiKeys.allowedIps` | **Removed**; `createdBy` added | Client IPs are invisible behind the tailnet edge; rate limits are per key |
 | `integrityCheckpoints.exportedTo` | Points to the R2 checkpoint bucket | D4 (02 §4.6) |
+| `integrityCheckpoints` matrix row | Moved out of the "none" row: `uploadStatus`/`exportedTo` change after insert (the row is stored before the R2 upload so a failed upload is visible and retried, E-AUD-10); the signed fields stay frozen | P0 implementation (convex/integrity.ts), 2026-10-12 |
 
 Still referencing removed shapes (owned by the parallel feature pass, to align): `recurringTemplates.automation.send/mailTemplateId/mailIdentityId` (§4), `sendLog.smtpResponse` and the e-mail send outcome (§4), `companyProfile.portal` (F10 deferred), `bankConnections` (Revolut-only fields → Enable Banking consent fields, F07). — **Resolved** by the owner-decisions update below; `companyProfile.portal` and the portal tables are marked reserved (F10 deferred).
 

@@ -1,0 +1,244 @@
+{
+  "access:resolveForAction": {
+    "kind": "query",
+    "visibility": "internal",
+    "wrapper": "raw"
+  },
+  "auth:onCreate": {
+    "kind": "mutation",
+    "visibility": "internal",
+    "wrapper": "raw"
+  },
+  "auth:onDelete": {
+    "kind": "mutation",
+    "visibility": "internal",
+    "wrapper": "raw"
+  },
+  "auth:onUpdate": {
+    "kind": "mutation",
+    "visibility": "internal",
+    "wrapper": "raw"
+  },
+  "authMail:companyName": {
+    "kind": "query",
+    "visibility": "internal",
+    "wrapper": "systemQuery",
+    "job": "auth"
+  },
+  "authMail:inviteForMail": {
+    "kind": "query",
+    "visibility": "internal",
+    "wrapper": "systemQuery",
+    "job": "auth"
+  },
+  "authMail:recordInviteOutcome": {
+    "kind": "mutation",
+    "visibility": "internal",
+    "wrapper": "systemMutation",
+    "job": "auth"
+  },
+  "authMail:recordMailTest": {
+    "kind": "mutation",
+    "visibility": "internal",
+    "wrapper": "actorMutation",
+    "permission": "integrations.manage"
+  },
+  "authMail:sendInvite": {
+    "kind": "action",
+    "visibility": "internal",
+    "wrapper": "systemAction",
+    "job": "auth"
+  },
+  "authMail:sendTest": {
+    "kind": "action",
+    "visibility": "public",
+    "wrapper": "action",
+    "permission": "integrations.manage"
+  },
+  "integrity:acknowledge": {
+    "kind": "mutation",
+    "visibility": "public",
+    "wrapper": "mutation",
+    "permission": "integrity.acknowledge"
+  },
+  "integrity:chainPage": {
+    "kind": "query",
+    "visibility": "internal",
+    "wrapper": "systemQuery",
+    "job": "cron.integrity.verify"
+  },
+  "integrity:checkpoint": {
+    "kind": "action",
+    "visibility": "internal",
+    "wrapper": "systemAction",
+    "job": "cron.integrity.checkpoint"
+  },
+  "integrity:checkpointCron": {
+    "kind": "action",
+    "visibility": "internal",
+    "wrapper": "systemAction",
+    "job": "cron.integrity.checkpoint"
+  },
+  "integrity:checkpointForDate": {
+    "kind": "query",
+    "visibility": "internal",
+    "wrapper": "systemQuery",
+    "job": "cron.integrity.checkpoint"
+  },
+  "integrity:checkpointsWithFailedUpload": {
+    "kind": "query",
+    "visibility": "internal",
+    "wrapper": "systemQuery",
+    "job": "cron.integrity.checkpoint"
+  },
+  "integrity:countTable": {
+    "kind": "query",
+    "visibility": "internal",
+    "wrapper": "systemQuery",
+    "job": "cron.integrity.checkpoint"
+  },
+  "integrity:entryAt": {
+    "kind": "query",
+    "visibility": "internal",
+    "wrapper": "systemQuery",
+    "job": "cron.integrity.verify"
+  },
+  "integrity:recordRun": {
+    "kind": "mutation",
+    "visibility": "internal",
+    "wrapper": "systemMutation",
+    "job": "cron.integrity.verify"
+  },
+  "integrity:recordUpload": {
+    "kind": "mutation",
+    "visibility": "internal",
+    "wrapper": "systemMutation",
+    "job": "cron.integrity.checkpoint"
+  },
+  "integrity:state": {
+    "kind": "query",
+    "visibility": "internal",
+    "wrapper": "systemQuery",
+    "job": "cron.integrity.verify"
+  },
+  "integrity:status": {
+    "kind": "query",
+    "visibility": "public",
+    "wrapper": "query",
+    "permission": "integrity.read"
+  },
+  "integrity:storeCheckpoint": {
+    "kind": "mutation",
+    "visibility": "internal",
+    "wrapper": "systemMutation",
+    "job": "cron.integrity.checkpoint"
+  },
+  "integrity:verify": {
+    "kind": "action",
+    "visibility": "internal",
+    "wrapper": "systemAction",
+    "job": "cron.integrity.verify"
+  },
+  "integrity:verifyCron": {
+    "kind": "action",
+    "visibility": "internal",
+    "wrapper": "systemAction",
+    "job": "cron.integrity.verify"
+  },
+  "invariants:check": {
+    "kind": "query",
+    "visibility": "internal",
+    "wrapper": "systemQuery",
+    "job": "cron.invariants.check"
+  },
+  "invites:create": {
+    "kind": "mutation",
+    "visibility": "public",
+    "wrapper": "mutation",
+    "permission": "invites.manage"
+  },
+  "invites:list": {
+    "kind": "query",
+    "visibility": "public",
+    "wrapper": "query",
+    "permission": "members.read"
+  },
+  "invites:resend": {
+    "kind": "mutation",
+    "visibility": "public",
+    "wrapper": "mutation",
+    "permission": "invites.manage"
+  },
+  "invites:revoke": {
+    "kind": "mutation",
+    "visibility": "public",
+    "wrapper": "mutation",
+    "permission": "invites.manage"
+  },
+  "members:disable": {
+    "kind": "mutation",
+    "visibility": "public",
+    "wrapper": "mutation",
+    "permission": "members.manage"
+  },
+  "members:expireCron": {
+    "kind": "mutation",
+    "visibility": "internal",
+    "wrapper": "systemMutation",
+    "job": "cron.members.expire"
+  },
+  "members:list": {
+    "kind": "query",
+    "visibility": "public",
+    "wrapper": "query",
+    "permission": "members.read"
+  },
+  "members:me": {
+    "kind": "query",
+    "visibility": "public",
+    "wrapper": "query",
+    "permission": "session.self"
+  },
+  "signup:checkSignIn": {
+    "kind": "query",
+    "visibility": "internal",
+    "wrapper": "systemQuery",
+    "job": "auth"
+  },
+  "signup:consumeOtpQuota": {
+    "kind": "mutation",
+    "visibility": "internal",
+    "wrapper": "systemMutation",
+    "job": "auth"
+  },
+  "signup:latestMailFor": {
+    "kind": "query",
+    "visibility": "internal",
+    "wrapper": "systemQuery",
+    "job": "auth"
+  },
+  "signup:recordAccessDenied": {
+    "kind": "mutation",
+    "visibility": "internal",
+    "wrapper": "systemMutation",
+    "job": "auth"
+  },
+  "signup:recordOtpMailFailed": {
+    "kind": "mutation",
+    "visibility": "internal",
+    "wrapper": "systemMutation",
+    "job": "auth"
+  },
+  "signup:resetOtpQuota": {
+    "kind": "mutation",
+    "visibility": "internal",
+    "wrapper": "systemMutation",
+    "job": "auth"
+  },
+  "signup:storeDevMail": {
+    "kind": "mutation",
+    "visibility": "internal",
+    "wrapper": "systemMutation",
+    "job": "auth"
+  }
+}
