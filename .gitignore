@@ -16,3 +16,4 @@ e2e/.auth/
 reports/
 .vercel
 .DS_Store
+.claude/worktrees/
