@@ -1,3 +1,4 @@
+import { fileURLToPath } from "node:url";
 import react from "@vitejs/plugin-react";
 import { defineConfig } from "vitest/config";
 
@@ -27,15 +28,24 @@ export default defineConfig({
           include: ["convex/**/*.test.ts"],
           environment: "edge-runtime",
           setupFiles: ["./test/setup-invariants.ts"],
-          server: { deps: { inline: ["convex-test"] } },
+          server: { deps: { inline: ["convex-test", "@convex-dev/rate-limiter", "@convex-dev/better-auth"] } },
         },
       },
       {
         extends: true,
         test: {
           name: "server",
-          include: ["src/*.test.ts", "src/app/api/**/*.test.ts", "src/server/**/*.test.ts", "scripts/**/*.test.ts"],
+          include: [
+            "src/*.test.ts",
+            "src/app/api/**/*.test.ts",
+            "src/server/**/*.test.ts",
+            "src/lib/**/*.test.ts",
+            "src/emails/**/*.test.ts",
+            "scripts/**/*.test.ts",
+          ],
           environment: "node",
+          // `import "server-only"` throws outside the react-server condition; tests are server code.
+          alias: { "server-only": fileURLToPath(new URL("./node_modules/server-only/empty.js", import.meta.url)) },
         },
       },
       {

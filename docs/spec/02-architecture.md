@@ -96,9 +96,11 @@ Why one compose: the fork publishes **every** compose service that declares `por
 │  │  └─ schemas/                # zod schemas shared by UI, Convex, REST and MCP
 │  ├─ emails/                    # German auth-mail texts (OTP, invite, owner notification) as plain functions
 │  ├─ pdf/                       # react-pdf document components (invoice, quote, reminder, …)
-│  ├─ server/                    # server-only Next helpers: auth-server (Better Auth Next helpers), server-JWT minting, api-key auth, mcp tools
+│  ├─ server/                    # server-only Next helpers: api-key auth, mcp tools
 │  ├─ components/                # UI components (shadcn + app components)
-│  └─ lib/                       # auth-client (passkeyClient, emailOTPClient, twoFactorClient, convexClient)
+│  └─ lib/                       # auth-client (passkeyClient, emailOTPClient, twoFactorClient, convexClient); server-only: auth-server
+│                                #   (Better Auth Next helpers, requireSession/requireRole), server-jwt (server-JWT minting) — P0 put all auth
+│                                #   helpers next to each other in src/lib (2026-10-12)
 ├─ convex/
 │  ├─ schema.ts
 │  ├─ auth.config.ts             # two customJwt providers: Better Auth (RS256, static JWKS) + server JWT (ES256) for api-key/mcp
@@ -382,7 +384,7 @@ The image tag includes the config bundle date (`einvoice-tools:2026-08-31-1`). U
 | Invitation | the invited person | owner creates an invite (§4.3) |
 | Owner notifications and digest (optional) | the owner's notification address | F12 NTF-003/005 |
 
-- **Transport:** Cloudflare Email Sending **REST API** (public beta since 2026-04-16): `POST https://api.cloudflare.com/client/v4/accounts/{CLOUDFLARE_ACCOUNT_ID}/email/sending/send` with `Authorization: Bearer {CLOUDFLARE_EMAIL_API_TOKEN}`, called with `fetch` from a Convex action (`convex/actions/authMail.ts`; Better Auth callbacks reach it via `requireActionCtx(ctx)`). No SDK, no Worker. The backend container needs egress to `api.cloudflare.com:443`.
+- **Transport:** Cloudflare Email Sending **REST API** (public beta since 2026-04-16): `POST https://api.cloudflare.com/client/v4/accounts/{CLOUDFLARE_ACCOUNT_ID}/email/sending/send` with `Authorization: Bearer {CLOUDFLARE_EMAIL_API_TOKEN}`, called with `fetch` from a Convex action (`convex/authMail.ts` for invite/test mails; the sign-in code is sent from the Better Auth `sendVerificationOTP` callback inside the HTTP action; transport in `convex/lib/authMail.ts`). Not under `convex/actions/`, because that folder is reserved for `"use node"` modules and the sender runs in the default runtime. No SDK, no Worker. The backend container needs egress to `api.cloudflare.com:443`.
 - **Sender:** `AUTH_MAIL_FROM` (e.g. `noreply@mail.example.de`) on a domain that uses **Cloudflare DNS**; onboarding the domain in Email Service adds SPF/DKIM/DMARC automatically (merge an existing DMARC record instead of duplicating it).
 - **Plan:** sending to arbitrary recipients probably needs **Workers Paid ($5/month, 3,000 mails included)**; sending to verified destination addresses may be free (docs contradict each other, UNSURE — test in P0).
 - **Robustness:** the sender is behind the `AuthMailSender` interface (beta service; Resend or SMTP could replace it). Error codes (`10004 throttled`, `10105 not_entitled`, `10203 sending_disabled`, `10102 forbidden`) map to German messages; a failed OTP mail shows „Code konnte nicht gesendet werden — bitte später erneut versuchen" and is audited. Texts are German plain functions in `src/emails/`.

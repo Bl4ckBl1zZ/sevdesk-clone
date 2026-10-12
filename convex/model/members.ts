@@ -1,0 +1,263 @@
+import {
+  DAY_MS,
+  decideSignup,
+  INVITE_VALIDITY_DAYS,
+  normalizeEmail,
+  validateInviteInput,
+} from "../../src/domain/access/signup";
+import { components } from "../_generated/api";
+import type { Doc, Id } from "../_generated/dataModel";
+import { env } from "../lib/env";
+import { appError } from "../lib/errors";
+import { appendAudit, auditedInsert, auditedPatch } from "./audit";
+import type { ModelCtx, ReadCtx } from "./types";
+
+/**
+ * Members and invites (03 §10, 02 §4.3). Written only here; every change is audited.
+ */
+
+export async function getMemberByAuthUserId(ctx: ReadCtx, authUserId: string): Promise<Doc<"members"> | null> {
+  return ctx.db
+    .query("members")
+    .withIndex("by_authUserId", (q) => q.eq("authUserId", authUserId))
+    .unique();
+}
+
+export async function getMemberByEmail(ctx: ReadCtx, email: string): Promise<Doc<"members"> | null> {
+  return ctx.db
+    .query("members")
+    .withIndex("by_email", (q) => q.eq("email", normalizeEmail(email)))
+    .first();
+}
+
+/** "No user exists" (02 §4.3 bootstrap). Users and members are created in one transaction (trigger), so the
+ *  members table is an exact proxy for the Better Auth user table. */
+export async function anyMemberExists(ctx: ReadCtx): Promise<boolean> {
+  return (await ctx.db.query("members").first()) !== null;
+}
+
+export async function invitesForEmail(ctx: ReadCtx, email: string): Promise<Doc<"invites">[]> {
+  return ctx.db
+    .query("invites")
+    .withIndex("by_email", (q) => q.eq("email", normalizeEmail(email)))
+    .collect();
+}
+
+/** The sign-up gate decision for `email` right now (used by the Better Auth hook and the trigger). */
+export async function signupDecision(ctx: ReadCtx, email: string, now: number) {
+  return decideSignup({
+    email,
+    ownerEmail: env("OWNER_EMAIL"),
+    anyUserExists: await anyMemberExists(ctx),
+    invites: await invitesForEmail(ctx, email),
+    now,
+  });
+}
+
+/**
+ * Called from the Better Auth `user.onCreate` trigger, in the same transaction as the user insert: re-checks the
+ * gate authoritatively, creates the member and consumes the invite. Throwing aborts the user creation too.
+ * Actor: `system:auth` (03 §0.1).
+ */
+export async function createMemberFromSignup(
+  ctx: ModelCtx,
+  user: { authUserId: string; email: string; name?: string },
+): Promise<Id<"members">> {
+  const now = ctx.now();
+  if (await getMemberByAuthUserId(ctx, user.authUserId)) throw appError("conflict", "Mitglied existiert bereits.");
+  const decision = await signupDecision(ctx, user.email, now);
+  if (!decision.allowed) throw appError("signup_forbidden", decision.message, { reason: decision.reason });
+
+  const email = normalizeEmail(user.email);
+  const name = user.name && user.name.trim() !== "" ? user.name : undefined;
+  if (decision.kind === "bootstrap") {
+    return auditedInsert(
+      ctx,
+      "members",
+      {
+        authUserId: user.authUserId,
+        email,
+        ...(name ? { name } : {}),
+        role: "owner",
+        totpEnabled: false,
+        createdAt: now,
+      },
+      { action: "member.create", label: email },
+    );
+  }
+
+  const invite = await ctx.db.get(decision.inviteId);
+  if (!invite) throw appError("signup_forbidden");
+  const memberId = await auditedInsert(
+    ctx,
+    "members",
+    {
+      authUserId: user.authUserId,
+      email,
+      ...(name ? { name } : {}),
+      role: invite.role,
+      ...(invite.memberExpiresAt !== undefined ? { expiresAt: invite.memberExpiresAt } : {}),
+      ...(invite.auditor ? { auditor: { ...invite.auditor, extensions: [] } } : {}),
+      totpEnabled: false,
+      invitedBy: invite.createdBy,
+      inviteId: invite._id,
+      createdAt: now,
+    },
+    { action: "member.create", label: email },
+  );
+  await auditedPatch(
+    ctx,
+    "invites",
+    invite._id,
+    { acceptedAt: now, acceptedUserId: user.authUserId },
+    { action: "invite.accept", label: email },
+  );
+  return memberId;
+}
+
+export interface InviteInput {
+  email: string;
+  role: "bookkeeper" | "viewer" | "auditor";
+  memberExpiresAt?: number;
+  auditor?: { organisation?: string; purpose: string; fiscalYears: number[] };
+}
+
+/** Owner creates an invite (02 §4.3). Older open invites for the same address are revoked. */
+export async function createInvite(ctx: ModelCtx, input: InviteInput): Promise<Id<"invites">> {
+  const now = ctx.now();
+  const error = validateInviteInput(input, now);
+  if (error) throw appError("invalid_input", undefined, { reason: error });
+  const email = normalizeEmail(input.email);
+  if (await getMemberByEmail(ctx, email))
+    throw appError("invalid_input", "Diese E-Mail-Adresse gehört bereits zu einem Mitglied.", {
+      reason: "already_member",
+    });
+  for (const old of await invitesForEmail(ctx, email)) {
+    if (old.acceptedAt === undefined && old.revokedAt === undefined) {
+      await auditedPatch(
+        ctx,
+        "invites",
+        old._id,
+        { revokedAt: now },
+        { action: "invite.revoke", label: email, reason: "superseded" },
+      );
+    }
+  }
+  return auditedInsert(
+    ctx,
+    "invites",
+    {
+      email,
+      role: input.role,
+      ...(input.memberExpiresAt !== undefined ? { memberExpiresAt: input.memberExpiresAt } : {}),
+      ...(input.auditor ? { auditor: input.auditor } : {}),
+      expiresAt: now + INVITE_VALIDITY_DAYS * DAY_MS,
+      createdBy: ctx.actor,
+      createdAt: now,
+    },
+    { action: "invite.create", label: email },
+  );
+}
+
+export async function revokeInvite(ctx: ModelCtx, inviteId: Id<"invites">): Promise<void> {
+  const invite = await ctx.db.get(inviteId);
+  if (!invite) throw appError("not_found");
+  if (invite.acceptedAt !== undefined) throw appError("conflict", "Die Einladung wurde bereits angenommen.");
+  if (invite.revokedAt !== undefined) return;
+  await auditedPatch(
+    ctx,
+    "invites",
+    inviteId,
+    { revokedAt: ctx.now() },
+    { action: "invite.revoke", label: invite.email },
+  );
+}
+
+export async function recordInviteMail(ctx: ModelCtx, inviteId: Id<"invites">, ok: boolean): Promise<void> {
+  const invite = await ctx.db.get(inviteId);
+  if (!invite) return;
+  await auditedPatch(
+    ctx,
+    "invites",
+    inviteId,
+    { sentAt: ctx.now(), mailOutcome: ok ? "ok" : "failed" },
+    { action: invite.sentAt === undefined ? "invite.create" : "invite.resend", label: invite.email },
+  );
+}
+
+/** Deletes every Better Auth session of the user (02 §4.3: removal/expiry revokes sessions immediately). */
+export async function revokeSessions(ctx: ModelCtx, authUserId: string): Promise<void> {
+  let cursor: string | null = null;
+  for (;;) {
+    const res: { isDone: boolean; continueCursor: string } = await ctx.runMutation(
+      components.betterAuth.adapter.deleteMany,
+      {
+        input: { model: "session", where: [{ field: "userId", value: authUserId }] },
+        paginationOpts: { numItems: 100, cursor },
+      },
+    );
+    if (res.isDone) return;
+    cursor = res.continueCursor;
+  }
+}
+
+export async function disableMember(ctx: ModelCtx, memberId: Id<"members">, reason: string): Promise<void> {
+  const member = await ctx.db.get(memberId);
+  if (!member) throw appError("not_found");
+  if (member.role === "owner") throw appError("invalid_input", "Der Inhaber kann nicht deaktiviert werden.");
+  if (member.disabledAt !== undefined) return;
+  await auditedPatch(
+    ctx,
+    "members",
+    memberId,
+    { disabledAt: ctx.now(), disabledReason: reason },
+    { action: "member.disable", label: member.email, reason },
+  );
+  await revokeSessions(ctx, member.authUserId);
+}
+
+/** `members.expire` cron (02 §7): members past `expiresAt` lose access and their sessions. */
+export async function expireMembers(ctx: ModelCtx): Promise<number> {
+  const now = ctx.now();
+  let n = 0;
+  for (const member of await ctx.db.query("members").collect()) {
+    if (member.disabledAt !== undefined || member.expiresAt === undefined || member.expiresAt > now) continue;
+    await auditedPatch(
+      ctx,
+      "members",
+      member._id,
+      { disabledAt: now, disabledReason: "expired" },
+      { action: "member.expired", label: member.email },
+    );
+    await revokeSessions(ctx, member.authUserId);
+    n++;
+  }
+  return n;
+}
+
+/** Mirror of the twoFactor plugin state (03 §10 `members.totpEnabled`). */
+export async function setTotpEnabled(ctx: ModelCtx, authUserId: string, enabled: boolean): Promise<void> {
+  const member = await getMemberByAuthUserId(ctx, authUserId);
+  if (!member || member.totpEnabled === enabled) return;
+  await auditedPatch(
+    ctx,
+    "members",
+    member._id,
+    { totpEnabled: enabled },
+    {
+      action: enabled ? "auth.totp_enable" : "auth.totp_disable",
+      label: member.email,
+    },
+  );
+}
+
+/** Sign-in / sign-out / passkey events from Better Auth triggers (02 §4.3). */
+export async function auditAuthEvent(
+  ctx: ModelCtx,
+  action: "auth.sign_in" | "auth.sign_out" | "auth.passkey_add" | "auth.passkey_remove",
+  authUserId: string,
+  entity: { table: string; id: string },
+): Promise<void> {
+  const member = await getMemberByAuthUserId(ctx, authUserId);
+  await appendAudit(ctx, { action, entity: { ...entity, ...(member ? { label: member.email } : {}) } });
+}

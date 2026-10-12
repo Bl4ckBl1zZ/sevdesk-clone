@@ -1,0 +1,80 @@
+import type { Doc, Id } from "../_generated/dataModel";
+import { appError } from "../lib/errors";
+import { auditedInsert, auditedPatch } from "./audit";
+import type { ModelCtx, ReadCtx } from "./types";
+
+/** integrityRuns / integrityCheckpoints writes (03 §10, F12 AUD-013/AUD-015/AUD-016). */
+
+export async function recordIntegrityRun(
+  ctx: ModelCtx,
+  run: {
+    scope: "incremental" | "full" | "startup";
+    lastVerifiedSeq: number;
+    findings: Doc<"integrityRuns">["findings"];
+  },
+): Promise<Id<"integrityRuns">> {
+  const ok = !run.findings.some((f) => f.severity === "error");
+  return auditedInsert(
+    ctx,
+    "integrityRuns",
+    { at: ctx.now(), ok, scope: run.scope, lastVerifiedSeq: run.lastVerifiedSeq, findings: run.findings },
+    { action: "integrity.run", label: ok ? "ok" : `${run.findings.length} Befund(e)` },
+  );
+}
+
+/** AUD-015 / E-AUD-16: acknowledging a failed run needs a note; it never alters data. */
+export async function acknowledgeIntegrityRun(ctx: ModelCtx, runId: Id<"integrityRuns">, note: string): Promise<void> {
+  const run = await ctx.db.get(runId);
+  if (!run) throw appError("not_found");
+  if (note.trim().length < 3) throw appError("invalid_input", "Bitte beschreiben Sie Ursache und Maßnahmen.");
+  if (run.ok) throw appError("invalid_input", "Dieser Prüflauf war erfolgreich; es gibt nichts zu bestätigen.");
+  await auditedPatch(
+    ctx,
+    "integrityRuns",
+    runId,
+    { acknowledgedAt: ctx.now(), acknowledgedNote: note.trim(), acknowledgedBy: ctx.actor },
+    { action: "integrity.acknowledge", reason: note.trim() },
+  );
+}
+
+export async function latestRun(ctx: ReadCtx): Promise<Doc<"integrityRuns"> | null> {
+  return ctx.db.query("integrityRuns").withIndex("by_at").order("desc").first();
+}
+
+/** Finalisation guard (AUD-015): blocked while an ERROR run is unacknowledged. Used by F04 in P1. */
+export async function unacknowledgedFailure(ctx: ReadCtx): Promise<Doc<"integrityRuns"> | null> {
+  const run = await latestRun(ctx);
+  return run && !run.ok && run.acknowledgedAt === undefined ? run : null;
+}
+
+export async function latestCheckpoint(ctx: ReadCtx): Promise<Doc<"integrityCheckpoints"> | null> {
+  return ctx.db.query("integrityCheckpoints").withIndex("by_at").order("desc").first();
+}
+
+export async function insertCheckpoint(
+  ctx: ModelCtx,
+  row: Omit<Doc<"integrityCheckpoints">, "_id" | "_creationTime" | "uploadStatus" | "at" | "exportedTo">,
+): Promise<Id<"integrityCheckpoints">> {
+  return auditedInsert(
+    ctx,
+    "integrityCheckpoints",
+    { ...row, uploadStatus: "pending", at: ctx.now() },
+    { action: "integrity.checkpoint", label: row.date },
+  );
+}
+
+export async function recordCheckpointUpload(
+  ctx: ModelCtx,
+  id: Id<"integrityCheckpoints">,
+  result: { ok: true; exportedTo: string } | { ok: false; detail: string },
+): Promise<void> {
+  const cp = await ctx.db.get(id);
+  if (!cp) throw appError("not_found");
+  await auditedPatch(
+    ctx,
+    "integrityCheckpoints",
+    id,
+    result.ok ? { uploadStatus: "uploaded", exportedTo: result.exportedTo } : { uploadStatus: "failed" },
+    { action: "integrity.checkpoint", label: cp.date, ...(result.ok ? {} : { reason: result.detail.slice(0, 300) }) },
+  );
+}
