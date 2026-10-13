@@ -147,7 +147,9 @@ describe("REST payments (05 §4.4, F05 §7.1)", () => {
       body: { targets: [{ kind: "invoice", id: inv, amount_cents: 119_000 }] },
     });
     expect(m.status).toBe(201);
-    expect(((await json(m)).data as Json[])[0]).toMatchObject({ source: { kind: "bank", transaction_id: `btx_${tx}` } });
+    expect(((await json(m)).data as Json[])[0]).toMatchObject({
+      source: { kind: "bank", transaction_id: `btx_${tx}` },
+    });
     const open = await json(await call("GET", "/open-items", { key }));
     expect(open.data).toEqual([]);
   });
@@ -206,7 +208,7 @@ describe("MCP payment and bank tools (06 §3.5, §3.7)", () => {
       arguments: { ...params, confirm_token: token },
     })) as ToolCall;
     expect(ok.isError).toBeFalsy();
-    const paymentId = (ok.structuredContent?.data as Json[])[0]?.id as string;
+    const paymentId = (ok.structuredContent?.data as Json[] | undefined)?.[0]?.id as string;
     const open = (await client.callTool({ name: "receivables_open_items", arguments: {} })) as ToolCall;
     expect(open.structuredContent?.data).toEqual([]);
 
@@ -240,7 +242,7 @@ describe("MCP payment and bank tools (06 §3.5, §3.7)", () => {
       name: "bank_match_suggestions",
       arguments: { transaction_id: `btx_${tx}` },
     })) as ToolCall;
-    expect((sugg.structuredContent?.candidates as Json[]).length).toBeGreaterThan(0);
+    expect((sugg.structuredContent?.candidates as Json[] | undefined)?.length).toBeGreaterThan(0);
     const params = { transaction_id: `btx_${tx}`, targets: [{ kind: "invoice", id: inv, amount_cents: 119_000 }] };
     const p = (await client.callTool({
       name: "preview_action",
@@ -285,7 +287,10 @@ describe("MCP payment and bank tools (06 §3.5, §3.7)", () => {
       name: "preview_action",
       arguments: { action: "cash_transfer_record", params: fine },
     })) as ToolCall;
-    expect(tp.structuredContent?.effect).toMatchObject({ cash_balance_cents: 119_000, cash_balance_after_cents: 69_000 });
+    expect(tp.structuredContent?.effect).toMatchObject({
+      cash_balance_cents: 119_000,
+      cash_balance_after_cents: 69_000,
+    });
     const done = (await client.callTool({
       name: "cash_transfer_record",
       arguments: { ...fine, confirm_token: tp.structuredContent?.confirm_token },
