@@ -1,12 +1,19 @@
 import "server-only";
 import { api } from "@convex/_generated/api";
 import { z } from "zod";
-import { CONFIRM_TOKEN_PREFIX, CONFIRM_TOKEN_TTL_MS, type ConfirmIntent } from "@/domain/api/confirm";
+import {
+  CONFIRM_TOKEN_PREFIX,
+  CONFIRM_TOKEN_TTL_MS,
+  type ConfirmIntent,
+  documentPreviewIntent,
+} from "@/domain/api/confirm";
 import { encodeId } from "@/domain/api/ids";
 import { sha256Hex } from "@/domain/audit/chain";
 import { contactMergeArgs, contactMergeWire } from "@/domain/schemas/api/contacts";
+import { cancelArgs, cancelWire, rawDocumentId } from "@/domain/schemas/api/corrections";
 import type { Scope } from "@/domain/schemas/scopes";
 import { ApiProblem } from "../../api/http";
+import { cancelPreviewWire } from "../../api/resources/corrections";
 import { defineTool, type ToolContext } from "../tool";
 
 /**
@@ -111,14 +118,35 @@ export const previewTools = [
     name: "document_preview",
     title: "Belegvorschau",
     description:
-      "Vorschau eines Belegentwurfs (Summen, Prüfungen, Steuerfall) mit confirm_token für document_finalize (intent finalize) bzw. invoice_cancel (intent cancel). Verfügbar mit den Verkaufsbelegen (F04).",
+      'Vorschau mit confirm_token. intent "cancel" (Storno einer Rechnung/Rechnungskorrektur): Spiegel-Vorschau (Positionen, Summen, Datum, E-Rechnungs-Prüfung, INV-10-Prüfung) und Token für invoice_cancel mit denselben reason/document_date. intent "finalize" folgt mit document_finalize. Zeige die Vorschau und frage den Nutzer, bevor du das ⚠ Tool aufrufst.',
     kind: "read",
     scopes: ["documents:read"],
-    input: z.object({ id: z.string(), intent: z.enum(["finalize", "cancel"]).optional() }),
-    handler: async () => {
-      throw new ApiProblem("not_implemented", {
-        detail: "Verkaufsbelege folgen mit F04; bis dahin gibt es keine Belegvorschau.",
-      });
+    input: z.object({
+      id: z.string(),
+      intent: z.enum(["finalize", "cancel"]).optional(),
+      reason: z.string().max(1000).optional(),
+      document_date: z.string().optional(),
+    }),
+    handler: async ({ id, intent, reason, document_date }, ctx) => {
+      if (intent !== "cancel") {
+        throw new ApiProblem("not_implemented", {
+          detail: 'Die Fertigstellungs-Vorschau (document_finalize) folgt; Storno-Vorschau: intent "cancel".',
+        });
+      }
+      if (!ctx.key.scopes.includes("invoices:cancel")) {
+        throw new ApiProblem("insufficient_scope", { extra: { required_scope: "invoices:cancel" } });
+      }
+      const raw = rawDocumentId(id);
+      if (!raw) throw new ApiProblem("not_found");
+      const w = cancelWire.parse({ ...(reason ? { reason } : {}), ...(document_date ? { document_date } : {}) });
+      const p = await cancelPreviewWire(ctx.convex, raw, w);
+      if (!p.wire.allowed) return { intent, ...p.wire };
+      const plan: PreviewPlan = {
+        args: cancelArgs(raw, w),
+        entities: [{ table: "salesDocuments", id: raw }],
+        effect: p.wire,
+      };
+      return { intent, ...p.wire, ...(await issueToken(documentPreviewIntent("cancel"), plan, ctx)) };
     },
   }),
   defineTool({

@@ -52,6 +52,8 @@ export interface EndpointDef<
   response: { status: number; schema?: z.ZodType; description: string };
   /** Problem codes this endpoint documents besides the generic ones (401/403/429/500). */
   errors?: readonly ProblemCode[];
+  /** `required`: POST without `Idempotency-Key` → 400 `idempotency_key_required` (finalize, cancel, … F04 §7.1). */
+  idempotency?: "required";
   /** Maps form issue paths from Convex validation to wire fields. */
   fieldMapper?: FieldMapper;
   handler: (ctx: HandlerContext<z.output<P>, z.output<Q>, z.output<B>>) => Promise<HandlerResult>;

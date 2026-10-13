@@ -31,6 +31,9 @@
     },
     {
       "name": "Einstellungen"
+    },
+    {
+      "name": "Rechnungen"
     }
   ],
   "paths": {
@@ -251,7 +254,7 @@
             "name": "tag",
             "schema": {
               "type": "string",
-              "pattern": "^tag_[0-9a-z]{16,64}$",
+              "pattern": "^tag_[0-9a-zA-Z]{16,64}$",
               "description": "ID (tag_…)",
               "example": "tag_k57f3x2m9q8w1e4r6t"
             }
@@ -550,7 +553,7 @@
             "name": "id",
             "schema": {
               "type": "string",
-              "pattern": "^con_[0-9a-z]{16,64}$",
+              "pattern": "^con_[0-9a-zA-Z]{16,64}$",
               "description": "ID (con_…)",
               "example": "con_k57f3x2m9q8w1e4r6t"
             },
@@ -685,7 +688,7 @@
             "name": "id",
             "schema": {
               "type": "string",
-              "pattern": "^con_[0-9a-z]{16,64}$",
+              "pattern": "^con_[0-9a-zA-Z]{16,64}$",
               "description": "ID (con_…)",
               "example": "con_k57f3x2m9q8w1e4r6t"
             },
@@ -862,7 +865,7 @@
             "name": "id",
             "schema": {
               "type": "string",
-              "pattern": "^con_[0-9a-z]{16,64}$",
+              "pattern": "^con_[0-9a-zA-Z]{16,64}$",
               "description": "ID (con_…)",
               "example": "con_k57f3x2m9q8w1e4r6t"
             },
@@ -989,7 +992,7 @@
             "name": "id",
             "schema": {
               "type": "string",
-              "pattern": "^con_[0-9a-z]{16,64}$",
+              "pattern": "^con_[0-9a-zA-Z]{16,64}$",
               "description": "ID (con_…)",
               "example": "con_k57f3x2m9q8w1e4r6t"
             },
@@ -1230,7 +1233,7 @@
             "name": "category_id",
             "schema": {
               "type": "string",
-              "pattern": "^pcat_[0-9a-z]{16,64}$",
+              "pattern": "^pcat_[0-9a-zA-Z]{16,64}$",
               "description": "ID (pcat_…)",
               "example": "pcat_k57f3x2m9q8w1e4r6t"
             }
@@ -1489,7 +1492,7 @@
             "name": "id",
             "schema": {
               "type": "string",
-              "pattern": "^prd_[0-9a-z]{16,64}$",
+              "pattern": "^prd_[0-9a-zA-Z]{16,64}$",
               "description": "ID (prd_…)",
               "example": "prd_k57f3x2m9q8w1e4r6t"
             },
@@ -1605,7 +1608,7 @@
             "name": "id",
             "schema": {
               "type": "string",
-              "pattern": "^prd_[0-9a-z]{16,64}$",
+              "pattern": "^prd_[0-9a-zA-Z]{16,64}$",
               "description": "ID (prd_…)",
               "example": "prd_k57f3x2m9q8w1e4r6t"
             },
@@ -1782,7 +1785,7 @@
             "name": "id",
             "schema": {
               "type": "string",
-              "pattern": "^prd_[0-9a-z]{16,64}$",
+              "pattern": "^prd_[0-9a-zA-Z]{16,64}$",
               "description": "ID (prd_…)",
               "example": "prd_k57f3x2m9q8w1e4r6t"
             },
@@ -1909,7 +1912,7 @@
             "name": "id",
             "schema": {
               "type": "string",
-              "pattern": "^prd_[0-9a-z]{16,64}$",
+              "pattern": "^prd_[0-9a-zA-Z]{16,64}$",
               "description": "ID (prd_…)",
               "example": "prd_k57f3x2m9q8w1e4r6t"
             },
@@ -1921,7 +1924,7 @@
             "name": "contact_id",
             "schema": {
               "type": "string",
-              "pattern": "^con_[0-9a-z]{16,64}$",
+              "pattern": "^con_[0-9a-zA-Z]{16,64}$",
               "description": "ID (con_…)",
               "example": "con_k57f3x2m9q8w1e4r6t"
             }
@@ -2958,6 +2961,689 @@
           }
         }
       }
+    },
+    "/api/v1/invoices/{id}/cancel": {
+      "post": {
+        "operationId": "cancelInvoice",
+        "summary": "Rechnung stornieren (Stornorechnung)",
+        "description": "Erstellt und stellt die Stornorechnung in einem Schritt fertig (vollständiger Spiegel, eigene Nummer, Bezug BT-25/26). Nur für unbezahlte Rechnungen; bezahlte → Rechnungskorrektur + Erstattung. `dry_run: true` liefert die Spiegel-Vorschau samt E-Rechnungs-Prüfung und schreibt nichts. Ohne `dry_run` ist `Idempotency-Key` Pflicht.\n\nScope: `invoices:cancel`.",
+        "tags": [
+          "Rechnungen"
+        ],
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "schema": {
+              "type": "string",
+              "pattern": "^inv_[0-9a-zA-Z]{16,64}$",
+              "description": "ID (inv_…)",
+              "example": "inv_k57f3x2m9q8w1e4r6t"
+            },
+            "required": true,
+            "description": "ID (inv_…)"
+          },
+          {
+            "in": "header",
+            "name": "Idempotency-Key",
+            "schema": {
+              "description": "24 h je Schlüssel; gleicher Body → gleiche Antwort (Idempotent-Replayed: true)",
+              "type": "string"
+            },
+            "description": "24 h je Schlüssel; gleicher Body → gleiche Antwort (Idempotent-Replayed: true)"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "reason": {
+                    "description": "Grund (wird auf der Stornorechnung gedruckt)",
+                    "type": "string",
+                    "maxLength": 1000
+                  },
+                  "document_date": {
+                    "description": "Datum der Stornorechnung (Standard: heute)",
+                    "type": "string",
+                    "pattern": "^\\d{4}-\\d{2}-\\d{2}$",
+                    "example": "2026-10-12"
+                  },
+                  "dry_run": {
+                    "description": "true = nur die Spiegel-Vorschau (nichts wird angelegt)",
+                    "type": "boolean"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Stornorechnung (201) oder Vorschau (200)",
+            "headers": {
+              "RateLimit-Limit": {
+                "required": true,
+                "description": "Bucket-Größe",
+                "schema": {
+                  "type": "string",
+                  "description": "Bucket-Größe"
+                }
+              },
+              "RateLimit-Remaining": {
+                "required": true,
+                "description": "Verbleibende Anfragen",
+                "schema": {
+                  "type": "string",
+                  "description": "Verbleibende Anfragen"
+                }
+              },
+              "RateLimit-Reset": {
+                "required": true,
+                "description": "Sekunden bis zum vollen Bucket",
+                "schema": {
+                  "type": "string",
+                  "description": "Sekunden bis zum vollen Bucket"
+                }
+              },
+              "X-Request-Id": {
+                "required": true,
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CancelResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "`bad_request` – Ungültige Anfrage.; `idempotency_key_required` – Für diese Aktion ist ein Idempotency-Key erforderlich.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "`unauthorized` – API-Schlüssel fehlt, ist ungültig, abgelaufen oder widerrufen.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "`insufficient_scope` – Der API-Schlüssel hat nicht die nötige Berechtigung.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "`not_found` – Nicht gefunden.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "`storno_paid_invoice` – Die Rechnung ist (teil)bezahlt und kann nicht storniert werden.; `already_cancelled` – Die Rechnung ist bereits storniert.; `storno_of_storno` – Eine Stornorechnung kann nicht storniert werden.; `storno_advance_deducted` – Die Abschlagsrechnung ist in einer Schlussrechnung verrechnet.; `storno_has_corrections` – Zur Rechnung gibt es Rechnungskorrekturen.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "415": {
+            "description": "`unsupported_media_type` – Bitte JSON senden (application/json).",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "`validation_failed` – Die Eingaben sind nicht gültig.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "`rate_limited` – Zu viele Anfragen – bitte später erneut versuchen.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "`internal_error` – Interner Fehler.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/corrections/{id}/cancel": {
+      "post": {
+        "operationId": "cancelCorrection",
+        "summary": "Rechnungskorrektur stornieren",
+        "description": "Storno einer Rechnungskorrektur, solange keine Erstattung/Verrechnung zugeordnet ist (INV-15); die korrigierte Rechnung erhält den gutgeschriebenen Betrag zurück.\n\nScope: `invoices:cancel`.",
+        "tags": [
+          "Rechnungen"
+        ],
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "schema": {
+              "type": "string",
+              "pattern": "^cor_[0-9a-zA-Z]{16,64}$",
+              "description": "ID (cor_…)",
+              "example": "cor_k57f3x2m9q8w1e4r6t"
+            },
+            "required": true,
+            "description": "ID (cor_…)"
+          },
+          {
+            "in": "header",
+            "name": "Idempotency-Key",
+            "schema": {
+              "description": "24 h je Schlüssel; gleicher Body → gleiche Antwort (Idempotent-Replayed: true)",
+              "type": "string"
+            },
+            "description": "24 h je Schlüssel; gleicher Body → gleiche Antwort (Idempotent-Replayed: true)"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "reason": {
+                    "description": "Grund (wird auf der Stornorechnung gedruckt)",
+                    "type": "string",
+                    "maxLength": 1000
+                  },
+                  "document_date": {
+                    "description": "Datum der Stornorechnung (Standard: heute)",
+                    "type": "string",
+                    "pattern": "^\\d{4}-\\d{2}-\\d{2}$",
+                    "example": "2026-10-12"
+                  },
+                  "dry_run": {
+                    "description": "true = nur die Spiegel-Vorschau (nichts wird angelegt)",
+                    "type": "boolean"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Stornorechnung (201) oder Vorschau (200)",
+            "headers": {
+              "RateLimit-Limit": {
+                "required": true,
+                "description": "Bucket-Größe",
+                "schema": {
+                  "type": "string",
+                  "description": "Bucket-Größe"
+                }
+              },
+              "RateLimit-Remaining": {
+                "required": true,
+                "description": "Verbleibende Anfragen",
+                "schema": {
+                  "type": "string",
+                  "description": "Verbleibende Anfragen"
+                }
+              },
+              "RateLimit-Reset": {
+                "required": true,
+                "description": "Sekunden bis zum vollen Bucket",
+                "schema": {
+                  "type": "string",
+                  "description": "Sekunden bis zum vollen Bucket"
+                }
+              },
+              "X-Request-Id": {
+                "required": true,
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CancelResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "`bad_request` – Ungültige Anfrage.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "`unauthorized` – API-Schlüssel fehlt, ist ungültig, abgelaufen oder widerrufen.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "`insufficient_scope` – Der API-Schlüssel hat nicht die nötige Berechtigung.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "`not_found` – Nicht gefunden.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "`correction_refund_allocated` – Die Rechnungskorrektur ist bereits erstattet oder verrechnet.; `already_cancelled` – Die Rechnung ist bereits storniert.; `illegal_transition` – Diese Aktion ist im aktuellen Status nicht möglich.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "415": {
+            "description": "`unsupported_media_type` – Bitte JSON senden (application/json).",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "`validation_failed` – Die Eingaben sind nicht gültig.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "`rate_limited` – Zu viele Anfragen – bitte später erneut versuchen.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "`internal_error` – Interner Fehler.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/invoices/{id}/correct": {
+      "post": {
+        "operationId": "correctInvoice",
+        "summary": "Korrekturentwurf anlegen",
+        "description": "`kind: credit` = Rechnungskorrektur (negative Differenz; `changes` mit neuer Menge/neuem Preis je Position, ohne `changes` der volle Betrag). `kind: rectification` = Rechnungsberichtigung (vollständige Wiederholung mit gleichen Beträgen; Anschrift, USt-IdNr usw. vorher am Kontakt bzw. im Entwurf ändern). Fertigstellen wie jeder Entwurf.\n\nScope: `documents:write`.",
+        "tags": [
+          "Rechnungen"
+        ],
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "schema": {
+              "type": "string",
+              "pattern": "^inv_[0-9a-zA-Z]{16,64}$",
+              "description": "ID (inv_…)",
+              "example": "inv_k57f3x2m9q8w1e4r6t"
+            },
+            "required": true,
+            "description": "ID (inv_…)"
+          },
+          {
+            "in": "header",
+            "name": "Idempotency-Key",
+            "schema": {
+              "description": "24 h je Schlüssel; gleicher Body → gleiche Antwort (Idempotent-Replayed: true)",
+              "type": "string"
+            },
+            "description": "24 h je Schlüssel; gleicher Body → gleiche Antwort (Idempotent-Replayed: true)"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CorrectRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Der Korrekturentwurf",
+            "headers": {
+              "RateLimit-Limit": {
+                "required": true,
+                "description": "Bucket-Größe",
+                "schema": {
+                  "type": "string",
+                  "description": "Bucket-Größe"
+                }
+              },
+              "RateLimit-Remaining": {
+                "required": true,
+                "description": "Verbleibende Anfragen",
+                "schema": {
+                  "type": "string",
+                  "description": "Verbleibende Anfragen"
+                }
+              },
+              "RateLimit-Reset": {
+                "required": true,
+                "description": "Sekunden bis zum vollen Bucket",
+                "schema": {
+                  "type": "string",
+                  "description": "Sekunden bis zum vollen Bucket"
+                }
+              },
+              "X-Request-Id": {
+                "required": true,
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CorrectionDraft"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "`bad_request` – Ungültige Anfrage.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "`unauthorized` – API-Schlüssel fehlt, ist ungültig, abgelaufen oder widerrufen.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "`insufficient_scope` – Der API-Schlüssel hat nicht die nötige Berechtigung.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "`not_found` – Nicht gefunden.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "`correction_target_invalid` – Korrekturen sind nur zu fertiggestellten Rechnungen möglich.; `already_cancelled` – Die Rechnung ist bereits storniert.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "415": {
+            "description": "`unsupported_media_type` – Bitte JSON senden (application/json).",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "`validation_failed` – Die Eingaben sind nicht gültig.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "`rate_limited` – Zu viele Anfragen – bitte später erneut versuchen.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "`internal_error` – Interner Fehler.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/invoices/{id}/chain": {
+      "get": {
+        "operationId": "getInvoiceChain",
+        "summary": "Abschlagskette abrufen",
+        "description": "Abschlags-/Teilrechnungen der Kette mit berechnetem, erhaltenem und offenem Betrag und der vor der Schlussrechnung nötigen Auflösung (EC-071), Schlussrechnung(en).\n\nScope: `documents:read`.",
+        "tags": [
+          "Rechnungen"
+        ],
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "schema": {
+              "type": "string",
+              "pattern": "^inv_[0-9a-zA-Z]{16,64}$",
+              "description": "ID (inv_…)",
+              "example": "inv_k57f3x2m9q8w1e4r6t"
+            },
+            "required": true,
+            "description": "ID (inv_…)"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Die Kette",
+            "headers": {
+              "RateLimit-Limit": {
+                "required": true,
+                "description": "Bucket-Größe",
+                "schema": {
+                  "type": "string",
+                  "description": "Bucket-Größe"
+                }
+              },
+              "RateLimit-Remaining": {
+                "required": true,
+                "description": "Verbleibende Anfragen",
+                "schema": {
+                  "type": "string",
+                  "description": "Verbleibende Anfragen"
+                }
+              },
+              "RateLimit-Reset": {
+                "required": true,
+                "description": "Sekunden bis zum vollen Bucket",
+                "schema": {
+                  "type": "string",
+                  "description": "Sekunden bis zum vollen Bucket"
+                }
+              },
+              "X-Request-Id": {
+                "required": true,
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/InvoiceChain"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "`unauthorized` – API-Schlüssel fehlt, ist ungültig, abgelaufen oder widerrufen.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "`insufficient_scope` – Der API-Schlüssel hat nicht die nötige Berechtigung.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "`not_found` – Nicht gefunden.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "`rate_limited` – Zu viele Anfragen – bitte später erneut versuchen.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "`internal_error` – Interner Fehler.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
     }
   },
   "components": {
@@ -2976,7 +3662,7 @@
             "anyOf": [
               {
                 "type": "string",
-                "pattern": "^con_[0-9a-z]{16,64}$",
+                "pattern": "^con_[0-9a-zA-Z]{16,64}$",
                 "description": "Übergeordnete Organisation (nur Personen)",
                 "example": "con_k57f3x2m9q8w1e4r6t"
               },
@@ -3196,7 +3882,7 @@
             "anyOf": [
               {
                 "type": "string",
-                "pattern": "^pmt_[0-9a-z]{16,64}$",
+                "pattern": "^pmt_[0-9a-zA-Z]{16,64}$",
                 "description": "ID (pmt_…)",
                 "example": "pmt_k57f3x2m9q8w1e4r6t"
               },
@@ -3228,7 +3914,7 @@
             "type": "array",
             "items": {
               "type": "string",
-              "pattern": "^tag_[0-9a-z]{16,64}$",
+              "pattern": "^tag_[0-9a-zA-Z]{16,64}$",
               "description": "ID (tag_…)",
               "example": "tag_k57f3x2m9q8w1e4r6t"
             }
@@ -3350,7 +4036,7 @@
             "anyOf": [
               {
                 "type": "string",
-                "pattern": "^con_[0-9a-z]{16,64}$",
+                "pattern": "^con_[0-9a-zA-Z]{16,64}$",
                 "description": "Übergeordnete Organisation (nur Personen)",
                 "example": "con_k57f3x2m9q8w1e4r6t"
               },
@@ -3570,7 +4256,7 @@
             "anyOf": [
               {
                 "type": "string",
-                "pattern": "^pmt_[0-9a-z]{16,64}$",
+                "pattern": "^pmt_[0-9a-zA-Z]{16,64}$",
                 "description": "ID (pmt_…)",
                 "example": "pmt_k57f3x2m9q8w1e4r6t"
               },
@@ -3602,7 +4288,7 @@
             "type": "array",
             "items": {
               "type": "string",
-              "pattern": "^tag_[0-9a-z]{16,64}$",
+              "pattern": "^tag_[0-9a-zA-Z]{16,64}$",
               "description": "ID (tag_…)",
               "example": "tag_k57f3x2m9q8w1e4r6t"
             }
@@ -3749,7 +4435,7 @@
             "anyOf": [
               {
                 "type": "string",
-                "pattern": "^pcat_[0-9a-z]{16,64}$",
+                "pattern": "^pcat_[0-9a-zA-Z]{16,64}$",
                 "description": "ID (pcat_…)",
                 "example": "pcat_k57f3x2m9q8w1e4r6t"
               },
@@ -3785,7 +4471,7 @@
             "type": "array",
             "items": {
               "type": "string",
-              "pattern": "^tag_[0-9a-z]{16,64}$",
+              "pattern": "^tag_[0-9a-zA-Z]{16,64}$",
               "description": "ID (tag_…)",
               "example": "tag_k57f3x2m9q8w1e4r6t"
             }
@@ -3917,7 +4603,7 @@
             "anyOf": [
               {
                 "type": "string",
-                "pattern": "^pcat_[0-9a-z]{16,64}$",
+                "pattern": "^pcat_[0-9a-zA-Z]{16,64}$",
                 "description": "ID (pcat_…)",
                 "example": "pcat_k57f3x2m9q8w1e4r6t"
               },
@@ -3953,7 +4639,7 @@
             "type": "array",
             "items": {
               "type": "string",
-              "pattern": "^tag_[0-9a-z]{16,64}$",
+              "pattern": "^tag_[0-9a-zA-Z]{16,64}$",
               "description": "ID (tag_…)",
               "example": "tag_k57f3x2m9q8w1e4r6t"
             }
@@ -3979,6 +4665,53 @@
           }
         },
         "additionalProperties": false
+      },
+      "CorrectRequest": {
+        "type": "object",
+        "properties": {
+          "kind": {
+            "type": "string",
+            "enum": [
+              "credit",
+              "rectification"
+            ],
+            "description": "credit = Rechnungskorrektur (mindert Beträge, TypeCode 381); rectification = Rechnungsberichtigung (nur formale Angaben, gleiche Beträge, 384)"
+          },
+          "changes": {
+            "description": "Nur credit: geänderte Positionen; ohne Angabe wird der volle Betrag korrigiert",
+            "maxItems": 2500,
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "position": {
+                  "type": "integer",
+                  "minimum": 1,
+                  "maximum": 9007199254740991,
+                  "description": "Position (1 = erste Artikelposition der Rechnung)"
+                },
+                "quantity": {
+                  "type": "string",
+                  "pattern": "^-?\\d{1,13}(\\.\\d{1,3})?$",
+                  "description": "Neue Menge (statt der berechneten)",
+                  "example": "8"
+                },
+                "unit_price": {
+                  "type": "string",
+                  "pattern": "^-?\\d{1,13}(\\.\\d{1,4})?$",
+                  "description": "Neuer Einzelpreis (statt des berechneten)",
+                  "example": "90.0000"
+                }
+              },
+              "required": [
+                "position"
+              ]
+            }
+          }
+        },
+        "required": [
+          "kind"
+        ]
       },
       "Health": {
         "type": "object",
@@ -4217,7 +4950,7 @@
         "properties": {
           "id": {
             "type": "string",
-            "pattern": "^con_[0-9a-z]{16,64}$",
+            "pattern": "^con_[0-9a-zA-Z]{16,64}$",
             "description": "ID (con_…)",
             "example": "con_k57f3x2m9q8w1e4r6t"
           },
@@ -4250,7 +4983,7 @@
             "anyOf": [
               {
                 "type": "string",
-                "pattern": "^con_[0-9a-z]{16,64}$",
+                "pattern": "^con_[0-9a-zA-Z]{16,64}$",
                 "description": "ID (con_…)",
                 "example": "con_k57f3x2m9q8w1e4r6t"
               },
@@ -4263,7 +4996,7 @@
             "anyOf": [
               {
                 "type": "string",
-                "pattern": "^con_[0-9a-z]{16,64}$",
+                "pattern": "^con_[0-9a-zA-Z]{16,64}$",
                 "description": "ID (con_…)",
                 "example": "con_k57f3x2m9q8w1e4r6t"
               },
@@ -4469,7 +5202,7 @@
             "anyOf": [
               {
                 "type": "string",
-                "pattern": "^pmt_[0-9a-z]{16,64}$",
+                "pattern": "^pmt_[0-9a-zA-Z]{16,64}$",
                 "description": "ID (pmt_…)",
                 "example": "pmt_k57f3x2m9q8w1e4r6t"
               },
@@ -4509,7 +5242,7 @@
             "type": "array",
             "items": {
               "type": "string",
-              "pattern": "^tag_[0-9a-z]{16,64}$",
+              "pattern": "^tag_[0-9a-zA-Z]{16,64}$",
               "description": "ID (tag_…)",
               "example": "tag_k57f3x2m9q8w1e4r6t"
             }
@@ -4562,7 +5295,7 @@
               "properties": {
                 "id": {
                   "type": "string",
-                  "pattern": "^con_[0-9a-z]{16,64}$",
+                  "pattern": "^con_[0-9a-zA-Z]{16,64}$",
                   "description": "ID (con_…)",
                   "example": "con_k57f3x2m9q8w1e4r6t"
                 },
@@ -4641,7 +5374,7 @@
         "properties": {
           "id": {
             "type": "string",
-            "pattern": "^adr_[0-9a-z]{16,64}$",
+            "pattern": "^adr_[0-9a-zA-Z]{16,64}$",
             "description": "ID (adr_…)",
             "example": "adr_k57f3x2m9q8w1e4r6t"
           },
@@ -4729,7 +5462,7 @@
         "properties": {
           "id": {
             "type": "string",
-            "pattern": "^chn_[0-9a-z]{16,64}$",
+            "pattern": "^chn_[0-9a-zA-Z]{16,64}$",
             "description": "ID (chn_…)",
             "example": "chn_k57f3x2m9q8w1e4r6t"
           },
@@ -4800,7 +5533,7 @@
             "anyOf": [
               {
                 "type": "string",
-                "pattern": "^vck_[0-9a-z]{16,64}$",
+                "pattern": "^vck_[0-9a-zA-Z]{16,64}$",
                 "description": "ID (vck_…)",
                 "example": "vck_k57f3x2m9q8w1e4r6t"
               },
@@ -4823,7 +5556,7 @@
         "properties": {
           "id": {
             "type": "string",
-            "pattern": "^con_[0-9a-z]{16,64}$",
+            "pattern": "^con_[0-9a-zA-Z]{16,64}$",
             "description": "ID (con_…)",
             "example": "con_k57f3x2m9q8w1e4r6t"
           },
@@ -4856,7 +5589,7 @@
             "anyOf": [
               {
                 "type": "string",
-                "pattern": "^con_[0-9a-z]{16,64}$",
+                "pattern": "^con_[0-9a-zA-Z]{16,64}$",
                 "description": "ID (con_…)",
                 "example": "con_k57f3x2m9q8w1e4r6t"
               },
@@ -4869,7 +5602,7 @@
             "anyOf": [
               {
                 "type": "string",
-                "pattern": "^con_[0-9a-z]{16,64}$",
+                "pattern": "^con_[0-9a-zA-Z]{16,64}$",
                 "description": "ID (con_…)",
                 "example": "con_k57f3x2m9q8w1e4r6t"
               },
@@ -5075,7 +5808,7 @@
             "anyOf": [
               {
                 "type": "string",
-                "pattern": "^pmt_[0-9a-z]{16,64}$",
+                "pattern": "^pmt_[0-9a-zA-Z]{16,64}$",
                 "description": "ID (pmt_…)",
                 "example": "pmt_k57f3x2m9q8w1e4r6t"
               },
@@ -5115,7 +5848,7 @@
             "type": "array",
             "items": {
               "type": "string",
-              "pattern": "^tag_[0-9a-z]{16,64}$",
+              "pattern": "^tag_[0-9a-zA-Z]{16,64}$",
               "description": "ID (tag_…)",
               "example": "tag_k57f3x2m9q8w1e4r6t"
             }
@@ -5168,7 +5901,7 @@
               "properties": {
                 "id": {
                   "type": "string",
-                  "pattern": "^con_[0-9a-z]{16,64}$",
+                  "pattern": "^con_[0-9a-zA-Z]{16,64}$",
                   "description": "ID (con_…)",
                   "example": "con_k57f3x2m9q8w1e4r6t"
                 },
@@ -5344,7 +6077,7 @@
         "properties": {
           "id": {
             "type": "string",
-            "pattern": "^prd_[0-9a-z]{16,64}$",
+            "pattern": "^prd_[0-9a-zA-Z]{16,64}$",
             "description": "ID (prd_…)",
             "example": "prd_k57f3x2m9q8w1e4r6t"
           },
@@ -5432,7 +6165,7 @@
             "anyOf": [
               {
                 "type": "string",
-                "pattern": "^pcat_[0-9a-z]{16,64}$",
+                "pattern": "^pcat_[0-9a-zA-Z]{16,64}$",
                 "description": "ID (pcat_…)",
                 "example": "pcat_k57f3x2m9q8w1e4r6t"
               },
@@ -5508,7 +6241,7 @@
             "type": "array",
             "items": {
               "type": "string",
-              "pattern": "^tag_[0-9a-z]{16,64}$",
+              "pattern": "^tag_[0-9a-zA-Z]{16,64}$",
               "description": "ID (tag_…)",
               "example": "tag_k57f3x2m9q8w1e4r6t"
             }
@@ -5619,7 +6352,7 @@
         "properties": {
           "id": {
             "type": "string",
-            "pattern": "^prd_[0-9a-z]{16,64}$",
+            "pattern": "^prd_[0-9a-zA-Z]{16,64}$",
             "description": "ID (prd_…)",
             "example": "prd_k57f3x2m9q8w1e4r6t"
           },
@@ -5707,7 +6440,7 @@
             "anyOf": [
               {
                 "type": "string",
-                "pattern": "^pcat_[0-9a-z]{16,64}$",
+                "pattern": "^pcat_[0-9a-zA-Z]{16,64}$",
                 "description": "ID (pcat_…)",
                 "example": "pcat_k57f3x2m9q8w1e4r6t"
               },
@@ -5783,7 +6516,7 @@
             "type": "array",
             "items": {
               "type": "string",
-              "pattern": "^tag_[0-9a-z]{16,64}$",
+              "pattern": "^tag_[0-9a-zA-Z]{16,64}$",
               "description": "ID (tag_…)",
               "example": "tag_k57f3x2m9q8w1e4r6t"
             }
@@ -5964,7 +6697,7 @@
         "properties": {
           "id": {
             "type": "string",
-            "pattern": "^pcat_[0-9a-z]{16,64}$",
+            "pattern": "^pcat_[0-9a-zA-Z]{16,64}$",
             "description": "ID (pcat_…)",
             "example": "pcat_k57f3x2m9q8w1e4r6t"
           },
@@ -5975,7 +6708,7 @@
             "anyOf": [
               {
                 "type": "string",
-                "pattern": "^pcat_[0-9a-z]{16,64}$",
+                "pattern": "^pcat_[0-9a-zA-Z]{16,64}$",
                 "description": "ID (pcat_…)",
                 "example": "pcat_k57f3x2m9q8w1e4r6t"
               },
@@ -6347,6 +7080,476 @@
           "category",
           "rule_row_id",
           "date"
+        ],
+        "additionalProperties": false
+      },
+      "CancelResponse": {
+        "anyOf": [
+          {
+            "$ref": "#/components/schemas/CancelResult"
+          },
+          {
+            "$ref": "#/components/schemas/CancelPreview"
+          }
+        ]
+      },
+      "CancelResult": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "number": {
+            "type": "string"
+          },
+          "original_id": {
+            "type": "string"
+          },
+          "artifact_status": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "number",
+          "original_id",
+          "artifact_status"
+        ],
+        "additionalProperties": false
+      },
+      "CancelPreview": {
+        "type": "object",
+        "properties": {
+          "original": {
+            "type": "object",
+            "properties": {
+              "id": {
+                "type": "string"
+              },
+              "number": {
+                "type": "string"
+              },
+              "document_date": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "id",
+              "number",
+              "document_date"
+            ],
+            "additionalProperties": false
+          },
+          "allowed": {
+            "type": "boolean"
+          },
+          "blocked": {
+            "anyOf": [
+              {
+                "type": "object",
+                "properties": {
+                  "code": {
+                    "type": "string"
+                  },
+                  "message": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "code",
+                  "message"
+                ],
+                "additionalProperties": false
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "notice": {
+            "type": "string"
+          },
+          "mirror": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/StornoMirror"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "einvoice_validation": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "original",
+          "allowed",
+          "blocked",
+          "notice",
+          "mirror",
+          "einvoice_validation"
+        ],
+        "additionalProperties": false
+      },
+      "StornoMirror": {
+        "type": "object",
+        "properties": {
+          "document_date": {
+            "type": "string",
+            "pattern": "^\\d{4}-\\d{2}-\\d{2}$",
+            "description": "Datum (YYYY-MM-DD)",
+            "example": "2026-10-12"
+          },
+          "currency": {
+            "type": "string"
+          },
+          "einvoice_format": {
+            "type": "string"
+          },
+          "lines": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "name": {
+                  "type": "string"
+                },
+                "quantity": {
+                  "type": "string"
+                },
+                "unit_code": {
+                  "type": "string"
+                },
+                "net_cents": {
+                  "type": "integer",
+                  "minimum": -9007199254740991,
+                  "maximum": 9007199254740991,
+                  "description": "Cent"
+                }
+              },
+              "required": [
+                "name",
+                "quantity",
+                "unit_code",
+                "net_cents"
+              ],
+              "additionalProperties": false
+            }
+          },
+          "totals": {
+            "type": "object",
+            "properties": {
+              "net_cents": {
+                "type": "integer",
+                "minimum": -9007199254740991,
+                "maximum": 9007199254740991,
+                "description": "Cent"
+              },
+              "vat_cents": {
+                "type": "integer",
+                "minimum": -9007199254740991,
+                "maximum": 9007199254740991,
+                "description": "Cent"
+              },
+              "gross_cents": {
+                "type": "integer",
+                "minimum": -9007199254740991,
+                "maximum": 9007199254740991,
+                "description": "Cent"
+              },
+              "payable_cents": {
+                "type": "integer",
+                "minimum": -9007199254740991,
+                "maximum": 9007199254740991,
+                "description": "Cent"
+              }
+            },
+            "required": [
+              "net_cents",
+              "vat_cents",
+              "gross_cents",
+              "payable_cents"
+            ],
+            "additionalProperties": false
+          },
+          "notes": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        },
+        "required": [
+          "document_date",
+          "currency",
+          "einvoice_format",
+          "lines",
+          "totals",
+          "notes"
+        ],
+        "additionalProperties": false
+      },
+      "CorrectionDraft": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "version": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          },
+          "correction_kind": {
+            "type": "string",
+            "enum": [
+              "credit",
+              "rectification"
+            ]
+          },
+          "corrects_id": {
+            "type": "string"
+          },
+          "totals": {
+            "type": "object",
+            "properties": {
+              "net_cents": {
+                "type": "integer",
+                "minimum": -9007199254740991,
+                "maximum": 9007199254740991,
+                "description": "Cent"
+              },
+              "vat_cents": {
+                "type": "integer",
+                "minimum": -9007199254740991,
+                "maximum": 9007199254740991,
+                "description": "Cent"
+              },
+              "gross_cents": {
+                "type": "integer",
+                "minimum": -9007199254740991,
+                "maximum": 9007199254740991,
+                "description": "Cent"
+              }
+            },
+            "required": [
+              "net_cents",
+              "vat_cents",
+              "gross_cents"
+            ],
+            "additionalProperties": false
+          },
+          "validation": {
+            "type": "object",
+            "properties": {
+              "errors": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "code",
+                    "message"
+                  ],
+                  "additionalProperties": false
+                }
+              },
+              "warnings": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "code",
+                    "message"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            },
+            "required": [
+              "errors",
+              "warnings"
+            ],
+            "additionalProperties": false
+          }
+        },
+        "required": [
+          "id",
+          "version",
+          "correction_kind",
+          "corrects_id",
+          "totals",
+          "validation"
+        ],
+        "additionalProperties": false
+      },
+      "InvoiceChain": {
+        "type": "object",
+        "properties": {
+          "root_id": {
+            "type": "string"
+          },
+          "order": {
+            "anyOf": [
+              {
+                "type": "object",
+                "properties": {
+                  "number": {
+                    "type": "string"
+                  },
+                  "date": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "number",
+                  "date"
+                ],
+                "additionalProperties": false
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "advances": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "id": {
+                  "type": "string"
+                },
+                "invoice_type": {
+                  "type": "string",
+                  "enum": [
+                    "advance",
+                    "partial"
+                  ]
+                },
+                "number": {
+                  "type": "string"
+                },
+                "document_date": {
+                  "type": "string"
+                },
+                "status": {
+                  "type": "string"
+                },
+                "invoiced_cents": {
+                  "type": "integer",
+                  "minimum": -9007199254740991,
+                  "maximum": 9007199254740991,
+                  "description": "Cent"
+                },
+                "received_cents": {
+                  "type": "integer",
+                  "minimum": -9007199254740991,
+                  "maximum": 9007199254740991,
+                  "description": "Cent"
+                },
+                "credited_cents": {
+                  "type": "integer",
+                  "minimum": -9007199254740991,
+                  "maximum": 9007199254740991,
+                  "description": "Cent"
+                },
+                "open_cents": {
+                  "type": "integer",
+                  "minimum": -9007199254740991,
+                  "maximum": 9007199254740991,
+                  "description": "Cent"
+                },
+                "deducted_in": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "resolution": {
+                  "type": "string",
+                  "enum": [
+                    "settled",
+                    "storno",
+                    "reduce",
+                    "cancelled",
+                    "deducted"
+                  ],
+                  "description": "Vor der Schlussrechnung: settled = abziehbar; storno = unbezahlt, stornieren; reduce = teilbezahlt, per Rechnungskorrektur auf den erhaltenen Betrag mindern (EC-071)"
+                }
+              },
+              "required": [
+                "id",
+                "invoice_type",
+                "number",
+                "document_date",
+                "status",
+                "invoiced_cents",
+                "received_cents",
+                "credited_cents",
+                "open_cents",
+                "deducted_in",
+                "resolution"
+              ],
+              "additionalProperties": false
+            }
+          },
+          "finals": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "id": {
+                  "type": "string"
+                },
+                "number": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "status": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "id",
+                "number",
+                "status"
+              ],
+              "additionalProperties": false
+            }
+          },
+          "can_create_final": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "root_id",
+          "order",
+          "advances",
+          "finals",
+          "can_create_final"
         ],
         "additionalProperties": false
       }
