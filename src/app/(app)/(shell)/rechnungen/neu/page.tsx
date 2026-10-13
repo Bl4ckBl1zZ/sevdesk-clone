@@ -1,7 +1,13 @@
-import { PlaceholderPage, placeholderMetadata } from "@/components/layout/placeholder-page";
+import { CatalogPage, catalogMetadata } from "@/components/catalog/catalog-page";
+import { NewInvoice } from "@/components/invoices/new-invoice";
 
-export const generateMetadata = () => placeholderMetadata("rechnungenNeu");
+export const generateMetadata = () => catalogMetadata("rechnungenNeu");
 
-export default function Page() {
-  return <PlaceholderPage page="rechnungenNeu" />;
+export default async function Page({ searchParams }: { searchParams: Promise<{ kontakt?: string }> }) {
+  const { kontakt } = await searchParams;
+  return (
+    <CatalogPage page="rechnungenNeu" parent="rechnungen" permission="documents.write">
+      <NewInvoice {...(kontakt ? { contactId: kontakt } : {})} />
+    </CatalogPage>
+  );
 }

@@ -16,6 +16,7 @@ export async function catalogMetadata(page: PageKey): Promise<Metadata> {
 const PARENTS = {
   kontakte: "/kontakte",
   produkte: "/produkte",
+  rechnungen: "/rechnungen",
 } as const satisfies Record<string, Route>;
 
 export async function CatalogPage({
