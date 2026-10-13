@@ -423,3 +423,62 @@ describe("INV-03 INV-06 INV-07 advance and final invoices", { timeout: 30_000 },
     await settle(t);
   });
 });
+
+// ── artifacts (INV-09, A.2 TypeCodes) ───────────────────────────────────────────────────────────────────────────
+
+const xmlOf = async (t: TestT, id: Id<"salesDocuments">) => {
+  const xml = await t.run(async (ctx) => {
+    const a = (
+      await ctx.db
+        .query("documentArtifacts")
+        .withIndex("by_document", (q) => q.eq("documentId", id))
+        .collect()
+    ).find((x) => x.kind === "xrechnung_xml");
+    const blob = a ? await ctx.storage.get(a.storageId) : null;
+    return blob ? await blob.text() : null;
+  });
+  if (!xml) throw new Error("xml missing");
+  return xml;
+};
+const typeCode = (xml: string) => /<rsm:ExchangedDocument>[\s\S]*?<ram:TypeCode>(\d+)<\/ram:TypeCode>/.exec(xml)?.[1];
+
+describe("A.2 INV-09 artifacts carry the TypeCode and the references", { timeout: 30_000 }, () => {
+  test("ER-01 Storno 381 with BT-25, Berichtigung 384, advance 326, final 380 with BG-3 and BT-113", async () => {
+    const t = makeT();
+    const { owner, id, number, advanceId, advanceNumber } = await finalizedAdvance(t);
+    const rect = await owner.mutation(api.corrections.createCorrection, { originalId: id, kind: "rectification" });
+    const rectDoc = await doc(t, rect.id);
+    await owner.mutation(api.invoices.updateDraft, {
+      id: rect.id,
+      version: rectDoc.version,
+      values: {
+        ...((await owner.query(api.invoices.get, { id: rect.id })) as unknown as { values: DraftValues }).values,
+        orderReference: "PO-2026-118",
+      },
+    });
+    await owner.action(api.invoices.finalize, { id: rect.id, version: (await doc(t, rect.id)).version });
+    await receive(t, owner, advanceId, 357_000);
+    const finalId = await finalDraft(t, owner, advanceId, 1_000_000);
+    await owner.action(api.invoices.finalize, { id: finalId, version: (await doc(t, finalId)).version });
+    await settle(t);
+    const advXml = await xmlOf(t, advanceId);
+    expect(typeCode(advXml)).toBe("326");
+    const rectXml = await xmlOf(t, rect.id);
+    expect(typeCode(rectXml)).toBe("384");
+    expect(rectXml).toContain(`<ram:IssuerAssignedID>${number}</ram:IssuerAssignedID>`);
+    expect((await doc(t, rect.id)).rectifiedFields).toEqual(["orderReference"]);
+    const finalXml = await xmlOf(t, finalId);
+    expect(typeCode(finalXml)).toBe("380");
+    expect(finalXml).toContain(`<ram:IssuerAssignedID>${advanceNumber}</ram:IssuerAssignedID>`);
+    expect(finalXml).toMatch(/<ram:TotalPrepaidAmount>3570\.00<\/ram:TotalPrepaidAmount>/);
+    expect(finalXml).toMatch(/<ram:DuePayableAmount>8330\.00<\/ram:DuePayableAmount>/);
+    // A Storno of an unpaid, undeducted invoice: 381 referencing the original.
+    const blocked = await owner.query(api.corrections.cancelPreview, { id });
+    expect(blocked.guard).toBeNull();
+    const s2 = await owner.mutation(api.corrections.cancel, { id });
+    await settle(t);
+    const stornoXml = await xmlOf(t, s2.id);
+    expect(typeCode(stornoXml)).toBe("381");
+    expect(stornoXml).toContain(`<ram:IssuerAssignedID>${number}</ram:IssuerAssignedID>`);
+  });
+});
