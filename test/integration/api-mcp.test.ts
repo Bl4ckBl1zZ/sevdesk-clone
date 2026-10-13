@@ -31,7 +31,8 @@ async function seedKey(channel: "api" | "mcp" | "both", scopes: readonly Scope[]
   const key = apiKeyFromBytes(crypto.getRandomValues(new Uint8Array(32)));
   const parsed = parseApiKey(key);
   if (!parsed) throw new Error("generated key does not parse");
-  await adminClient().mutation(internal.apiKeys.insert, {
+  // biome-ignore lint/suspicious/noExplicitAny: internal function via the admin key
+  await adminClient().mutation(internal.apiKeys.insert as any, {
     actorContext: { actor: "user:integration-owner", role: "owner", channel: "ui" },
     name: `integration ${channel}`,
     channel,
