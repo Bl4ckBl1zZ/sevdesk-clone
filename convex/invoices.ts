@@ -7,9 +7,11 @@ import type { DraftDocument } from "../src/domain/documents/draft";
 import { canonicalSnapshotJson, type DocumentSnapshot } from "../src/domain/documents/snapshot";
 import { blocking, type Finding, validateDocument } from "../src/domain/documents/validate";
 import { serializeEinvoice } from "../src/domain/einvoice/serialize";
+import { resolvePrice } from "../src/domain/products/pricing";
 import { draftSchema, markSentSchema, retractMarkSchema } from "../src/domain/schemas/documents";
 import { clockSkewBlocksFinalization } from "../src/domain/system/clock";
 import { berlinCalendarDate } from "../src/domain/time/berlin";
+import { type CalendarDate, isCalendarDate } from "../src/domain/time/calendar-date";
 import { internal } from "./_generated/api";
 import type { Doc, Id } from "./_generated/dataModel";
 import type { QueryCtx } from "./_generated/server";
@@ -31,6 +33,7 @@ import {
   displayStatusOf,
   documentArtifacts,
   documentLines,
+  draftFromDoc,
   type FinalizeOptions,
   finalizePreview,
   getDocument,
@@ -191,8 +194,10 @@ export const get = query({
     };
     if (doc.status === "draft") {
       const { result, loaded } = await validateStored(ctx, doc, now);
+      const { billingAddress: _b, ...values } = draftFromDoc(doc, lines);
       return {
         ...base,
+        values,
         findings: findingsValue(result.findings),
         canFinalize: blocking(result.findings).length === 0,
         resolved: {
@@ -396,6 +401,87 @@ export const draftDefaults = query({
             hasInvoiceEmail: !!(await readContact(ctx, contact._id)).context.buyer.invoiceEmail,
           }
         : null,
+    };
+  },
+});
+
+/**
+ * DOC-05/DOC-06: the values a picked product copies into a line — customer price (own, then parent organisation)
+ * → product price, converted to the document price mode at the rate of the reference date; contact discount.
+ */
+export const productLine = query({
+  permission: "documents.read",
+  args: {
+    productId: v.id("products"),
+    contactId: v.optional(v.id("contacts")),
+    referenceDate: v.string(),
+    priceMode: v.union(v.literal("net"), v.literal("gross")),
+    currency: v.string(),
+    fxRate: v.optional(v.string()),
+  },
+  handler: async (ctx, a) => {
+    const p = await ctx.db.get(a.productId);
+    if (!p) throw appError("not_found", "Produkt nicht gefunden.");
+    if (!isCalendarDate(a.referenceDate)) throw appError("invalid_input", "Ungültiges Datum.");
+    const contact = a.contactId ? await ctx.db.get(a.contactId) : null;
+    const profile = await getCompanyProfile(ctx);
+    const prices = await ctx.db
+      .query("customerPrices")
+      .withIndex("by_product_contact_validFrom", (q) => q.eq("productId", a.productId))
+      .collect();
+    const r = resolvePrice(
+      {
+        id: p._id,
+        active: p.active,
+        unitCode: p.unitCode,
+        priceMode: p.priceMode,
+        unitPriceMicros: p.unitPriceMicros,
+        ...(p.scheduledPrice ? { scheduledPrice: p.scheduledPrice } : {}),
+        ...(p.purchasePriceMicros !== undefined ? { purchasePriceMicros: p.purchasePriceMicros } : {}),
+        vatRateKey: p.vatRateKey,
+        extraUnits: p.extraUnits,
+      },
+      {
+        ...(contact ? { contactId: contact._id } : {}),
+        ...(contact?.parentId ? { parentContactId: contact.parentId } : {}),
+        customerPrices: prices.map((c) => ({
+          contactId: c.contactId,
+          unitPriceMicros: c.unitPriceMicros,
+          priceMode: c.priceMode,
+          ...(c.validFrom ? { validFrom: c.validFrom } : {}),
+        })),
+        referenceDate: a.referenceDate as CalendarDate,
+        documentPriceMode: a.priceMode,
+        documentCurrency: a.currency,
+        ...(a.fxRate ? { fxRate: a.fxRate } : {}),
+        ...(contact?.defaultDiscountBp ? { contactDiscountBp: contact.defaultDiscountBp } : {}),
+        discountOnCustomerPrices: profile?.defaults.discountOnCustomerPrices ?? false,
+      },
+    );
+    if (!r.ok) throw appError("invalid_input", r.error.message, { reason: r.error.code });
+    return {
+      line: {
+        kind: "item" as const,
+        productId: p._id,
+        productType: p.type,
+        productSyncedVersion: p.version,
+        name: p.name,
+        ...(p.description ? { description: p.description } : {}),
+        quantityMilli: 1_000,
+        unitCode: r.value.unitCode,
+        unitPriceMicros: r.value.unitPriceMicros,
+        ...(r.value.discountBp ? { discount: { kind: "percent" as const, valueBp: r.value.discountBp } } : {}),
+        vatRateKey: p.vatRateKey,
+        ...(p.exemptionReasonCode ? { exemptionReasonCode: p.exemptionReasonCode } : {}),
+        ...(p.placeOfSupplyRule ? { placeOfSupplyRule: p.placeOfSupplyRule } : {}),
+        ...(p.reverseCharge13b ? { reverseCharge13b: p.reverseCharge13b } : {}),
+        ...(p.laborCostShareBp ? { isLaborCost: true } : {}),
+        itemNumber: p.number,
+        ...(p.revenueAccountOverride ? { revenueAccount: p.revenueAccountOverride } : {}),
+      },
+      source: r.value.source,
+      purchasePriceMicros: p.purchasePriceMicros ?? null,
+      warnings: r.value.warnings.map((w) => w.message),
     };
   },
 });

@@ -499,6 +499,12 @@
     "wrapper": "systemQuery",
     "job": "documents.pipeline"
   },
+  "invoices:productLine": {
+    "kind": "query",
+    "visibility": "public",
+    "wrapper": "query",
+    "permission": "documents.read"
+  },
   "invoices:recordExportEntry": {
     "kind": "mutation",
     "visibility": "internal",

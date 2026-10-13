@@ -193,6 +193,50 @@ describe("F03 products × invoices", () => {
     return { ...setup, productId: p.id as Id<"products">, personId, line };
   }
 
+  test("DOC-05 DOC-06 picking a product copies its data; the customer price of the parent organisation wins", async () => {
+    const t = makeT();
+    const { owner, productId, personId } = await withProduct(t, { description: "Gestaltung je Stunde" });
+    const base = await owner.query(api.invoices.productLine, {
+      productId,
+      contactId: personId,
+      referenceDate: "2026-10-12",
+      priceMode: "gross",
+      currency: "EUR",
+    });
+    expect(base.line).toMatchObject({
+      productId,
+      name: "Webdesign Stunde",
+      description: "Gestaltung je Stunde",
+      unitCode: "HUR",
+      unitPriceMicros: 1_190_000,
+      vatRateKey: "standard",
+      itemNumber: "ART-00001",
+    });
+    expect(base.source).toBe("base");
+    const orgId = (await t.run((ctx) => ctx.db.get(personId)))?.parentId as Id<"contacts">;
+    await owner.mutation(api.products.saveCustomerPrice, {
+      productId,
+      values: { contactId: orgId, price: "80,00", priceMode: "net", validFrom: "" },
+    });
+    const customer = await owner.query(api.invoices.productLine, {
+      productId,
+      contactId: personId,
+      referenceDate: "2026-10-12",
+      priceMode: "net",
+      currency: "EUR",
+    });
+    expect(customer).toMatchObject({ source: "parent_customer", line: { unitPriceMicros: 800_000 } });
+  });
+
+  test("DOC-03 the detail of a draft returns its editable values", async () => {
+    const t = makeT();
+    const { owner, personId, line } = await withProduct(t);
+    const values = invoiceValues(personId, { lines: [line], subject: "Projekt Relaunch" });
+    const { id } = await owner.mutation(api.invoices.createDraft, { values });
+    const detail = await owner.query(api.invoices.get, { id });
+    expect(detail?.values).toMatchObject({ subject: "Projekt Relaunch", contactId: personId, lines: [line] });
+  });
+
   test("PRD-073 PRD-062 a product used on a document cannot be deleted, only archived", async () => {
     const t = makeT();
     const { owner, productId, personId, line } = await withProduct(t);
