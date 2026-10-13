@@ -1,4 +1,5 @@
 import { v } from "convex/values";
+import { canKeyDo } from "../src/domain/access/permissions";
 import { canonicalSnapshotJson, type DocumentSnapshot } from "../src/domain/documents/snapshot";
 import { serializeEinvoice } from "../src/domain/einvoice/serialize";
 import { internal } from "./_generated/api";
@@ -120,6 +121,11 @@ export const cancel = mutation({
   permission: "invoices.cancel",
   args: { id: v.id("salesDocuments"), ...vCancelOptions, confirmToken: vConfirmToken },
   handler: async (ctx, a) => {
+    // F04 §7.1, 05 §1: the Storno is created and finalised in one step, so a key also needs `invoices:finalize`.
+    const scopes = ctx.actorContext.scopes;
+    if (scopes && !canKeyDo(scopes, "invoices.finalize")) {
+      throw appError("forbidden_scope", undefined, { permission: "invoices.finalize" });
+    }
     const r = await cancelDocument(ctx, a.id, optionsOf(a));
     await ctx.scheduler.runAfter(0, internal.documentArtifacts.render, { id: r.id });
     return r;

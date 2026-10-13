@@ -999,13 +999,13 @@ Axe-clean on all pages (MISC-10); totals update < 50 ms; editor with 500 lines s
 | GET | `/{type}/{id}/artifacts[/{kind}]` | documents:read | `?original=true` audited; default PDF is the "Kopie" once the document is marked as sent; viewing only — does not count as an export for SND-21 |
 | POST | `/{type}/{id}/duplicate` | documents:write | New draft (DOC-35) |
 | POST | `/{type}/{id}/convert` | documents:write | `{ to, mode?: "full" \| "quantities" \| "percent" \| "net" \| "gross", value?, lines?: [{source_line_id, quantity}], optional_line_ids?, accept_source?: true, delivery_note_ids? }` → new draft |
-| POST | `/invoices/{id}/cancel` | invoices:cancel (+ invoices:finalize) | `{ reason?, document_date?, dry_run? }`; `dry_run: true` returns the mirror preview; otherwise creates + finalises atomically (INV-10) |
-| POST | `/invoices/{id}/correct` | documents:write | `{ kind: "credit" \| "rectification" }` → correction draft prefilled (INV-12/13) |
-| POST | `/corrections/{id}/cancel` | invoices:cancel | Storno of an unrefunded correction |
+| POST | `/invoices/{id}/cancel` | invoices:cancel (+ invoices:finalize) | `{ reason?, document_date?, dry_run? }`; `dry_run: true` returns the mirror preview incl. the KoSIT result of the mirror XML (`einvoice_validation`) and the guard (`allowed`, `blocked`); otherwise creates + finalises atomically (INV-10) and answers 201 `{ id, number, original_id, artifact_status }`. Without `dry_run` an `Idempotency-Key` is **required** (400 `idempotency_key_required`). 409 `storno_paid_invoice` / `already_cancelled` / `storno_of_storno` / `storno_advance_deducted` / `storno_has_corrections` |
+| POST | `/invoices/{id}/correct` | documents:write | `{ kind: "credit" \| "rectification", changes?: [{ position, quantity?, unit_price? }] }` → correction draft prefilled (INV-12/13): `credit` with `changes` = negative difference per changed line, without = the full amount; `rectification` = full copy with the same amounts. Response: draft id (`cor_`), version, totals, validation |
+| POST | `/corrections/{id}/cancel` | invoices:cancel (+ invoices:finalize) | Storno of an unrefunded correction (409 `correction_refund_allocated`); same body/idempotency rules as `/invoices/{id}/cancel` |
 | POST | `/quotes/{id}/mark-accepted` / `mark-rejected` / `revise` / `withdraw` | documents:write | QUO-05/06/15 |
 | POST | `/delivery-notes/{id}/mark-received` | documents:write | `{ date, received_by }` |
 | POST | `/invoices/{id}/retry-artifacts` | invoices:finalize | Re-render a `blocked` document from its snapshot |
-| GET | `/{type}/{id}/chain` | documents:read | Chain tree incl. invoicing progress |
+| GET | `/{type}/{id}/chain` | documents:read | Chain tree incl. invoicing progress. P1 implements `/invoices/{id}/chain` for advance/partial/final invoices: advances with invoiced/received/credited/open amount and the EC-071 `resolution` (`settled` \| `storno` \| `reduce` \| `cancelled` \| `deducted`), finals, `can_create_final` |
 | GET/POST/PATCH | `/recurring-invoices[/{id}]` | documents:write (+ invoices:finalize when automation is enabled, REC-14) | Template CRUD; `automation: { finalize: boolean }` only (REC-16) |
 | POST | `/recurring-invoices/{id}/run-now` · `/pause` · `/resume` (`{ catch_up: true \| false }`) | documents:write (+ automation scopes) | REC-10/12 |
 | GET | `/recurring-invoices/{id}/occurrences?count=12` | documents:read | REC-13 |
@@ -1033,8 +1033,8 @@ Conventions: snake_case, money `*_cents`, unit prices and quantities as decimal 
 | `document_send` | — | — | **Withdrawn (v1.1)** — B2: no send tool exists (EC-189). Replaced by `document_export` + `document_mark_sent` |
 | `document_export` | — (not readOnly: writes the `document.export` audit entry; not ⚠: it transmits nothing) | documents:read | Returns 5-min links (tailnet only) to the files of SND-16 for the owner to download; original while unmarked, Kopie afterwards (original re-export after the mark only in the UI); never sends anything to a third party (SND-24) |
 | `document_mark_sent` | ⚠ destructive, `requiresUserInteraction` | `invoices:send` (export / mark as sent, 05 §2) | Requires `confirm_token` from `preview_action { action: "document_mark_sent", params }`, which runs the §5.1.8 validation and returns the effect (status change, Zugang); params as REST `mark-sent`. Retraction is not exposed via MCP |
-| `invoice_cancel` | destructive, `requiresUserInteraction` | invoices:cancel | Requires `confirm_token` from `document_preview` with `intent: "cancel"` (returns the mirror preview) |
-| `invoice_create_correction` | — | documents:write | `kind: credit \| rectification` → draft; finalised via `document_finalize` |
+| `invoice_cancel` | destructive, `requiresUserInteraction` | invoices:cancel (+ invoices:finalize) | Requires `confirm_token` from `document_preview` with `intent: "cancel"` (returns the mirror preview; the token binds id + version + `reason` + `document_date`, a changed reason fails with `preview_outdated`). A blocked preview (e.g. `storno_paid_invoice`) issues no token |
+| `invoice_create_correction` | — | documents:write | `kind: credit \| rectification`, optional `changes` as REST `/correct` → draft; finalised via `document_finalize` |
 | `quote_mark_accepted` / `quote_mark_rejected` | — | documents:write | |
 | `document_get_pdf_link` | readOnly | documents:read | Signed 5-min link to a view copy (the "Kopie" once marked as sent); not an export for sending (use `document_export`) |
 | `recurring_invoice_upsert` | — | documents:write (+ invoices:finalize for automation, REC-14) | Automation (`finalize` only) stays inactive until confirmed once in the UI |

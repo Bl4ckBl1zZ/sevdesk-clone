@@ -282,11 +282,11 @@ Notation: **S** = debit (Soll), **H** = credit (Haben); amounts: N = net, V = VA
 | S6 | Domestic §13b supply (AE) | S `receivable` N · H `revenue.13b_domestic` N | same | Kz 60 | UST-22 |
 | S7 | Export (G) / not taxable (O) / exempt (E) | H `revenue.export` / `revenue.not_taxable` / `revenue.exempt_4` | same | Kz 43 / 45 / 48 | UST-23 |
 | S8 | PV zero rate (Z) | H `revenue.zero_pv` | same | Kz 87 | UST-15 |
-| S9 | Abschlagsrechnung finalised | **No journal entry** (memo open item in the subledger; shows in OPOS as "Anzahlungsanforderung") | same | none until payment | UST-40 |
+| S9 | Abschlagsrechnung (and amount-based Teilrechnung, treated as an Anzahlung, F04 §4.2.5) finalised | **No journal entry** (memo open item in the subledger; shows in OPOS as "Anzahlungsanforderung") | same | none until payment | UST-40 |
 | S10 | Payment on Abschlagsrechnung | S `bank` G · H `advance.received.19` N · H `vat.output.19` V | same (Mindest-Ist applies to both) | Kz 81 in the payment's period | UST-40 |
 | S11 | Schlussrechnung finalised | S `receivable` G(total) · H revenue N(total) · H `vat.output.*` V(total) (Ist: `notdue` only for the not-prepaid part); then clearing: S `advance.received.*` N(adv) · S `vat.output.*` V(adv) · H `receivable` G(adv) — per advance at the advance's rate (rate change handled per UST-41) | as left, but VAT for the remainder goes to `notdue` | Kz 81 for the remainder only (advance VAT already declared) | UST-41 |
 | S12 | Stornorechnung | Reversal of the original entry (mirrored lines) dated on the Storno date, `reversalOfId` = original entry, GU flag in DATEV | same incl. `notdue` lines | Negative Kz values in the Storno's tax period (§17) | UST-30 |
-| S13 | Rechnungskorrektur (partial credit) | S revenue N · S `vat.output.*` V · H `receivable` G | `notdue` instead | Negative values in the correction's period | UST-33 |
+| S13 | Rechnungskorrektur (partial credit) | S revenue N · S `vat.output.*` V · H `receivable` G. A credit of an Abschlags-/Teilrechnung posts nothing (S9: nothing was booked; e.g. the EC-071 reduction to the received amount); a Rechnungsberichtigung (384) posts nothing (same amounts) | `notdue` instead | Negative values in the correction's period | UST-33 |
 | S14 | Unentgeltliche Wertabgabe (goods withdrawal) | S `private.withdrawal` G · H `revenue.withdrawal.19` N · H `vat.output.19` V | same (no payment) | Kz 81 | Eigenbeleg required |
 
 #### 4.2.2 Payments and differences (sales side)

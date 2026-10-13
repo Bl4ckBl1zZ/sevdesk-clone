@@ -500,10 +500,12 @@ type PaymentStatus = "open" | "partially_paid" | "paid" | "credited" | "written_
   // relations
   originId?: Id<"salesDocuments">;       // quote → order → invoice chain; quote revision → previous revision
   sourceDocumentIds?: Id<"salesDocuments">[];   // many-to-one conversions (collective invoice from delivery notes, QUO-11)
-  chainRootId?: Id<"salesDocuments">;
+  chainRootId?: Id<"salesDocuments">;   // advance/partial/final: the chain root (quote/order, or the first advance of a standalone chain)
+  chainOrder?: { number: string; date: string };   // standalone chain (no quote/order in the app): the customer's order/contract the advances refer to (§14 Abs. 5 UStG, BT-13/BT-12 on advance and final; P1 2026-10-13)
   correctsId?: Id<"salesDocuments">;     // cancellation/correction → original (BT-25/26)
   correctionKind?: "credit" | "rectification";   // type "correction": Rechnungskorrektur (381) vs Rechnungsberichtigung (384); a Storno is type "cancellation"
   rectifiedFields?: string[];            // rectification: e.g. ["buyer.address"] → "Berichtigt: …" (INV-13)
+  creditAppliedCents?: number;           // credit correction: part of |credit| applied to the original's open amount at finalisation (set once); the rest is a refund owed (openAmountCents < 0). Lets a Storno of the credit restore exactly this amount (INV-15) and is the "credited" input of the settlement hook (convex/model/settlement.ts; P1 2026-10-13)
   deductions?: {                         // final_invoice: one row per deducted advance/partial (INV-06/07/09, UST-41, RI-08)
     advanceId: Id<"salesDocuments">;
     advanceNumber: string; advanceDate: string;       // BG-3: BT-25 / BT-26

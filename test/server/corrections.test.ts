@@ -63,7 +63,7 @@ async function withCorrectionRange(owner: Awaited<ReturnType<typeof finalizedInv
 }
 
 describe("REST Storno and corrections (F04 §7.1)", { timeout: 30_000 }, () => {
-  test("INV-10 POST /invoices/{id}/cancel: dry run, Idempotency-Key required, Storno with 201", async () => {
+  test("INV-10 POST /invoices/{id}/cancel: dry run, Idempotency-Key and invoices:finalize required, Storno with 201", async () => {
     const t = setup();
     const { id, number } = await finalizedInvoice(t);
     const key = (await t.asApiKey(["documents:read", "invoices:cancel", "invoices:finalize"])).key;
@@ -74,6 +74,14 @@ describe("REST Storno and corrections (F04 §7.1)", { timeout: 30_000 }, () => {
       original: { id: `inv_${id}`, number },
       mirror: { totals: { gross_cents: -119_000 } },
     });
+    const cancelOnly = (await t.asApiKey(["documents:read", "invoices:cancel"])).key;
+    const noFinalize = await call("POST", `/invoices/inv_${id}/cancel`, {
+      key: cancelOnly,
+      body: {},
+      headers: { "Idempotency-Key": "storno-0" },
+    });
+    expect(noFinalize.status).toBe(403); // the Storno is finalised in the same step (+ invoices:finalize)
+    expect((await json(noFinalize)).code).toBe("insufficient_scope");
     const noKey = await call("POST", `/invoices/inv_${id}/cancel`, { key, body: { reason: "Doppelt" } });
     expect(noKey.status).toBe(400);
     expect((await json(noKey)).code).toBe("idempotency_key_required");
@@ -101,7 +109,7 @@ describe("REST Storno and corrections (F04 §7.1)", { timeout: 30_000 }, () => {
     const { id, owner } = await finalizedInvoice(t);
     await withCorrectionRange(owner);
     await paid(t, id);
-    const key = (await t.asApiKey(["documents:read", "documents:write", "invoices:cancel"])).key;
+    const key = (await t.asApiKey(["documents:read", "documents:write", "invoices:cancel", "invoices:finalize"])).key;
     const res = await call("POST", `/invoices/inv_${id}/cancel`, {
       key,
       body: {},
