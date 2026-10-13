@@ -22,6 +22,7 @@ import type * as contactsApi from "../contactsApi.js";
 import type * as crons from "../crons.js";
 import type * as documentArtifacts from "../documentArtifacts.js";
 import type * as documentFlows from "../documentFlows.js";
+import type * as documentsApi from "../documentsApi.js";
 import type * as functions from "../functions.js";
 import type * as http from "../http.js";
 import type * as idempotency from "../idempotency.js";
@@ -113,6 +114,7 @@ declare const fullApi: ApiFromModules<{
   crons: typeof crons;
   documentArtifacts: typeof documentArtifacts;
   documentFlows: typeof documentFlows;
+  documentsApi: typeof documentsApi;
   functions: typeof functions;
   http: typeof http;
   idempotency: typeof idempotency;

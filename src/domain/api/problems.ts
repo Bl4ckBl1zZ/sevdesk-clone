@@ -14,6 +14,11 @@ interface ProblemDef {
 
 export const PROBLEMS = {
   bad_request: { status: 400, de: "Ungültige Anfrage.", en: "Bad request." },
+  idempotency_key_required: {
+    status: 400,
+    de: "Für diese Aktion ist ein Idempotency-Key erforderlich.",
+    en: "This action requires an Idempotency-Key.",
+  },
   key_in_query_not_allowed: {
     status: 400,
     de: "API-Schlüssel dürfen nicht in der URL übergeben werden.",
@@ -103,6 +108,29 @@ export const PROBLEMS = {
     status: 429,
     de: "Zu viele Anfragen – bitte später erneut versuchen.",
     en: "Too many requests – please retry later.",
+  },
+  // F04 sales documents (05 §4.3, F04 §5.1)
+  illegal_transition: {
+    status: 409,
+    de: "Diese Aktion ist im aktuellen Status nicht möglich.",
+    en: "This action is not possible in the current status.",
+  },
+  revalidation_failed: {
+    status: 409,
+    de: "Firmen- oder Kundendaten wurden während der Fertigstellung geändert.",
+    en: "Company or customer data changed during finalisation.",
+  },
+  number_conflict: { status: 409, de: "Die Nummer ist bereits vergeben.", en: "The number is already taken." },
+  integrity_alert_open: {
+    status: 409,
+    de: "Die Integritätsprüfung hat einen Fehler gemeldet.",
+    en: "The integrity check reported an error.",
+  },
+  artifacts_not_ready: { status: 409, de: "PDF/E-Rechnung wird noch erzeugt.", en: "The files are still rendering." },
+  einvoice_validation_failed: {
+    status: 422,
+    de: "Die E-Rechnung ist ungültig.",
+    en: "The e-invoice is invalid.",
   },
   internal_error: { status: 500, de: "Interner Fehler.", en: "Internal error." },
   /** A catalog entry whose feature has not shipped yet (e.g. document previews before F04). */
@@ -213,6 +241,17 @@ const APP_CODE_TO_PROBLEM: Readonly<Record<string, ProblemCode>> = {
   conflict: "conflict",
   not_configured: "dependency_unavailable",
   invalid_input: "validation_failed",
+  validation_failed: "validation_failed",
+  illegal_transition: "illegal_transition",
+  document_not_draft: "immutable_record",
+  revalidation_failed: "revalidation_failed",
+  number_conflict: "number_conflict",
+  integrity_alert_open: "integrity_alert_open",
+  artifacts_not_ready: "artifacts_not_ready",
+  artifacts_blocked: "conflict",
+  einvoice_validation_failed: "einvoice_validation_failed",
+  dependency_unavailable: "dependency_unavailable",
+  clock_skew: "dependency_unavailable",
   idempotency_key_reused: "idempotency_key_reused",
   idempotency_in_progress: "idempotency_in_progress",
 };
@@ -242,6 +281,13 @@ export const defaultFieldMapper: FieldMapper = (path) => {
     .replace(/\.\[/g, "[");
 };
 
+interface FindingLike {
+  code: string;
+  message: string;
+  rule?: string;
+  field?: string;
+}
+
 export function mapAppError(
   data: AppErrorData,
   opts: { fieldMapper?: FieldMapper; scopeForPermission?: (p: string) => string | null } = {},
@@ -257,8 +303,32 @@ export function mapAppError(
     const scope = opts.scopeForPermission(data.permission);
     if (scope) extra.required_scope = scope;
   }
+  // F04 §5.1: domain findings (finalisation) and spec-coded guards (conversions, withdrawal) are listed as errors.
+  const findings = Array.isArray(data.findings) ? (data.findings as FindingLike[]) : null;
+  if (findings && findings.length > 0) {
+    return {
+      code,
+      errors: findings.map((f) => {
+        const field = f.field ? fieldMapper(f.field) : undefined;
+        return {
+          code: f.code,
+          ...(field ? { field } : {}),
+          ...(f.rule ? { rule: f.rule } : {}),
+          message: f.message,
+        };
+      }),
+      ...(data.message ? { detail: data.message } : {}),
+      extra,
+    };
+  }
   if (code !== "validation_failed") {
-    return { code, errors: [], ...(data.message ? { detail: data.message } : {}), extra };
+    const guard = reason && /^[a-z][a-z0-9_]*$/.test(reason) && reason !== code;
+    return {
+      code,
+      errors: guard ? [{ code: reason, message: data.message ?? PROBLEMS[code].de }] : [],
+      ...(data.message ? { detail: data.message } : {}),
+      extra,
+    };
   }
   const errorCode = (reason ?? "invalid").toLowerCase();
   const errors: ProblemFieldError[] =
