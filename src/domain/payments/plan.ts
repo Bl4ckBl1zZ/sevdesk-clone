@@ -152,7 +152,8 @@ export type PaymentWarningCode =
   | "bank_fees_high"
   | "cash_daily_recording"
   | "write_off_ist"
-  | "taxation_method_changed";
+  | "taxation_method_changed"
+  | "reversal_period_locked";
 
 export interface PaymentWarning {
   code: PaymentWarningCode;
