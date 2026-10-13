@@ -1,0 +1,38 @@
+{
+  "id": "T-QUO-010",
+  "title": "QUO-09 delivery note with showPrices: prices, totals and VAT printed",
+  "input": {
+    "type": "delivery_note",
+    "number": "LS-2026-0020",
+    "supplyDate": {
+      "kind": "date",
+      "date": "2026-10-09"
+    },
+    "flags": {
+      "showPrices": true
+    },
+    "references": {
+      "orderReference": "PO-55812",
+      "salesOrderReference": "AB-2026-0007"
+    },
+    "lines": [
+      {
+        "kind": "item",
+        "name": "Bürostuhl ergonomisch",
+        "quantityMilli": 6000,
+        "unitCode": "C62",
+        "unitPriceMicros": 2490000,
+        "vatCategory": "S",
+        "vatRateBp": 1900,
+        "vatRuleRowId": "standard@2021-01-01"
+      }
+    ],
+    "einvoice": {
+      "format": "none",
+      "decision": "NOT_REQUIRED"
+    }
+  },
+  "paymentPatch": {
+    "showEpcQr": false
+  }
+}

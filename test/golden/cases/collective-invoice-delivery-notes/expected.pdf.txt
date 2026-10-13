@@ -1,0 +1,46 @@
+--- page 1 ---
+Muster Design GmbH
+Muster Design GmbH · Hauptstraße 1 · 10115 Berlin
+Nummer | RE-2026-0101
+Rechnungsdatum | 31.10.2026
+Beispiel Kunde GmbH
+Leistungszeitraum | 03.10.2026 – 17.10.2026
+z. Hd. Max Beispiel
+Kundennummer | K-10023
+Musterweg 5
+Ihre Bestellung | PO-55812
+50667 Köln
+Lieferschein(e)LS-2026-0012, LS-2026-0013, LS-2026-0014
+Ansprechpartner | Erika Musterfrau
+Telefon | +49 30 1234567
+E-Mail | rechnung@muster-design.de
+Rechnung RE-2026-0101
+Pos. | Bezeichnung | Menge Einheit | Einzelpreis netto | Gesamt netto
+Lieferschein LS-2026-0012 vom 03.10.2026
+1 | Bürostuhl ergonomisch | 2 Stk. | 249,00 € | 498,00 €
+Zeitraum: 03.10.2026 – 03.10.2026
+Lieferschein LS-2026-0013 vom 10.10.2026
+2 | Bürostuhl ergonomisch | 3 Stk. | 249,00 € | 747,00 €
+Zeitraum: 10.10.2026 – 10.10.2026
+Lieferschein LS-2026-0014 vom 17.10.2026
+3 | Bürostuhl ergonomisch | 1 Stk. | 249,00 € | 249,00 €
+Zeitraum: 17.10.2026 – 17.10.2026
+Summe netto | 1.494,00 €
+zzgl. 19 % USt auf 1.494,00 € | 283,86 €
+Gesamtbetrag | 1.777,86 €
+Zahlbar ohne Abzug bis zum 30.11.2026.
+Bitte geben Sie als Verwendungszweck ausschließlich an: RE-2026-0101
+Kontoinhaber: Muster Design GmbH
+IBAN: DE89 3704 0044 0532 0130 00
+BIC: COBADEFFXXX
+Bank: Commerzbank
+Diese Rechnung enthält eine E-Rechnung nach EN 16931 (ZUGFeRD 2.5).
+Muster Design GmbH | Sitz: Berlin | IBAN: DE89 3704 0044 0532 0130 00
+Hauptstraße 1 | Registergericht: Amtsgericht Charlottenburg | BIC: COBADEFFXXX
+10115 Berlin | HRB 123456 B
+Tel. +49 30 1234567 | Geschäftsführer: Max Mustermann, Erika
+rechnung@muster-design.de | Musterfrau
+www.muster-design.de | Stammkapital: 25.000,00 €
+Steuernummer: 21/815/08150
+USt-IdNr.: DE123456788
+Seite 1 von 1

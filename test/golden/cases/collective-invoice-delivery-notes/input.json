@@ -1,0 +1,79 @@
+{
+  "id": "T-QUO-006",
+  "title": "QUO-11 collective invoice from three delivery notes: heading per note, line dates, supply period, BT-14/BT-16",
+  "input": {
+    "type": "invoice",
+    "number": "RE-2026-0101",
+    "documentDate": "2026-10-31",
+    "supplyDate": {
+      "kind": "period",
+      "from": "2026-10-03",
+      "to": "2026-10-17"
+    },
+    "references": {
+      "orderReference": "PO-55812",
+      "salesOrderReference": "AB-2026-0007",
+      "deliveryNoteNumbers": [
+        "LS-2026-0012",
+        "LS-2026-0013",
+        "LS-2026-0014"
+      ]
+    },
+    "lines": [
+      {
+        "kind": "heading",
+        "text": "Lieferschein LS-2026-0012 vom 03.10.2026"
+      },
+      {
+        "kind": "item",
+        "name": "Bürostuhl ergonomisch",
+        "quantityMilli": 2000,
+        "unitCode": "C62",
+        "unitPriceMicros": 2490000,
+        "vatCategory": "S",
+        "vatRateBp": 1900,
+        "vatRuleRowId": "standard@2021-01-01",
+        "period": {
+          "from": "2026-10-03",
+          "to": "2026-10-03"
+        }
+      },
+      {
+        "kind": "heading",
+        "text": "Lieferschein LS-2026-0013 vom 10.10.2026"
+      },
+      {
+        "kind": "item",
+        "name": "Bürostuhl ergonomisch",
+        "quantityMilli": 3000,
+        "unitCode": "C62",
+        "unitPriceMicros": 2490000,
+        "vatCategory": "S",
+        "vatRateBp": 1900,
+        "vatRuleRowId": "standard@2021-01-01",
+        "period": {
+          "from": "2026-10-10",
+          "to": "2026-10-10"
+        }
+      },
+      {
+        "kind": "heading",
+        "text": "Lieferschein LS-2026-0014 vom 17.10.2026"
+      },
+      {
+        "kind": "item",
+        "name": "Bürostuhl ergonomisch",
+        "quantityMilli": 1000,
+        "unitCode": "C62",
+        "unitPriceMicros": 2490000,
+        "vatCategory": "S",
+        "vatRateBp": 1900,
+        "vatRuleRowId": "standard@2021-01-01",
+        "period": {
+          "from": "2026-10-17",
+          "to": "2026-10-17"
+        }
+      }
+    ]
+  }
+}
