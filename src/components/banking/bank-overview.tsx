@@ -2,7 +2,7 @@
 
 import { api } from "@convex/_generated/api";
 import { useMutation } from "convex/react";
-import { AlertTriangleIcon, InfoIcon, LandmarkIcon, PlusIcon, UploadIcon } from "lucide-react";
+import { AlertTriangleIcon, InfoIcon, LandmarkIcon, LinkIcon, PlusIcon, UploadIcon } from "lucide-react";
 import type { Route } from "next";
 import Link from "next/link";
 import { useTranslations } from "next-intl";
@@ -14,9 +14,10 @@ import { EmptyState } from "@/components/layout/empty-state";
 import { PageBody } from "@/components/layout/list-layout";
 import { useZodForm } from "@/components/setup/use-zod-form";
 import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
+import { Button, buttonVariants } from "@/components/ui/button";
 import { emptyStatementAccountForm, statementAccountSchema } from "@/domain/schemas/banking";
 import { useAuthedQuery } from "@/hooks/use-authed-query";
+import { cn } from "@/lib/utils";
 import { DuplicatesPanel } from "./duplicates-panel";
 import { ImportDialog } from "./import-dialog";
 import { money, ReconciledBadge } from "./shared";
@@ -51,6 +52,15 @@ function BankOverviewInner() {
             <UploadIcon aria-hidden="true" />
             {t("import")}
           </Button>
+        )}
+        {accounts.length > 0 && (
+          <Link
+            href={"/bank/zuordnungen" as Route}
+            className={cn(buttonVariants({ variant: "outline" }), "h-11 md:h-9")}
+          >
+            <LinkIcon aria-hidden="true" />
+            {t("matching")}
+          </Link>
         )}
         {canCreate && (
           <Button variant="outline" className="h-11 md:h-9" onClick={() => setCreating(true)}>

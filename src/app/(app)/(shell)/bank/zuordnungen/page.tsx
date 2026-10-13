@@ -1,7 +1,12 @@
-import { PlaceholderPage, placeholderMetadata } from "@/components/layout/placeholder-page";
+import { MatchingReview } from "@/components/banking/matching-review";
+import { CatalogPage, catalogMetadata } from "@/components/catalog/catalog-page";
 
-export const generateMetadata = () => placeholderMetadata("zuordnungen");
+export const generateMetadata = () => catalogMetadata("zuordnungen");
 
 export default function Page() {
-  return <PlaceholderPage page="zuordnungen" />;
+  return (
+    <CatalogPage page="zuordnungen" permission="banking.read" body={false}>
+      <MatchingReview />
+    </CatalogPage>
+  );
 }
