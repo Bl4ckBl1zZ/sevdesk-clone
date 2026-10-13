@@ -376,7 +376,8 @@ contactMerges:      { winnerId: Id<"contacts">; loserId: Id<"contacts">;
                       undoneAt?: number }                                     // CON-132/134 (undo while no moved draft was finalised)
                     // indexes by_winner, by_loser
 contactAliases:     { contactId: Id<"contacts">; token: string /* normalised counterparty name/description token */;
-                      source: "match_confirmed" | "manual"; createdAt: number }   // F07 BNK-048; index by_token
+                      iban?: string /* counterparty IBAN seen on the confirmed transaction */;
+                      source: "match_confirmed" | "manual"; createdAt: number }   // F07 BNK-048; indexes by_token, by_contact
 ```
 
 ## 3. Products
@@ -682,7 +683,9 @@ withdrawals: 🔒 { chainRootId: Id<"salesDocuments">; contractDocumentId: Id<"s
 One `payments` row per **allocation** (target). A combined payment (Sammelzahlung) is several rows sharing `allocationGroupId`. Every payment row and its journal entries, `allocations` rows, the target's `openAmountCents`/`paymentStatus`, the dunning case, the audit entry and the webhook outbox event are written in one transaction (PAY-016).
 
 ```ts
-payments: 🔒 { target: { kind: "salesDocument" | "voucher" | "contactCredit"; id: string };   // contactCredit: id = contactId (PAY-031)
+payments: 🔒 { target: { kind: "salesDocument" | "voucher" | "contactCredit" | "opening_item"; id: string };   // contactCredit: id = contactId (PAY-031); opening_item: ACC-013 (voucher: P2)
+  contactId?: Id<"contacts">;             // denormalised contact of the target (per-customer views, credit balance)
+  number?: string;                        // display cache: number of the target document
   date: string; amountCents: number; currency: string;
   eurAmountCents?: number;                // foreign currency: EUR actually received/paid (PAY-018)
   fxRate?: FxRate;
@@ -708,8 +711,10 @@ payments: 🔒 { target: { kind: "salesDocument" | "voucher" | "contactCredit"; 
   backdateReason?: string;                // cash: mandatory when the date is > 10 days in the past (CSH-021)
   note?: string;
   receiptFile?: FileRef;                  // Quittung PDF for a cash payment, archived on first generation (CSH-028; set once)
+  bankTransactionId?: Id<"bankTransactions">;   // denormalised from source (bank) for the transaction index
+  match?: { score: number; reasons: string[]; auto: boolean };   // bank match provenance (BNK-042/043)
   actor: Actor; recordedAt: number; lockedAt?: number }
-// indexes: by_target, by_source_transaction, by_allocationGroup, by_date
+// indexes: by_target, by_contact, by_bankTransaction, by_reconciled, by_allocationGroup, by_date
 ```
 Invariant per row: `amountCents + Σ differences.amountCents` = reduction of the target's open amount (RI-09). Overpayments become a `contactCredit` row (PAY-030), never a silent over-allocation.
 
@@ -1188,7 +1193,7 @@ importedRecords: { importId; externalType: string; externalId: string; table: st
 | `contacts` (master data, not protected) | all, audited; merge sets `mergedIntoId` + `status: archived` | finalised records keep their `contactId` and resolve the alias; never rewritten |
 | `contactKeys` | `wrappedKey` removed and `shreddedAt` set, once (purge) | n/a |
 | `vouchers`, `voucherLines` | while booked and unlocked: correction with Generalumkehr + re-post, `version + 1`, reason (VOU-008); always: `status`, `openAmountCents`, `bookedAt`, `lockedAt`, `tags`, `checkedComplete` (once), `duplicateDismissals` (append), `rebilledLineId` (once), `originalFiles` (append; `replacedBy` on the old entry), `renditions` (append), `bewirtung.versions` (append); `internalNumber` set once at booking | after lock: `cancelled` with reversal journal + new voucher ("Duplizieren") |
-| `payments` | `reversedById`, `lockedAt`, `reconciledTransactionId` (once), `receiptFile` (once) | reversal payment (`reversalOfId`) |
+| `payments` | `reversedById`, `lockedAt`, `reconciledTransactionId` (once), `receiptFile` (once), `journalEntryIds` (append) | reversal payment (`reversalOfId`) |
 | `allocations` | none | written by reversal payments |
 | `journalEntries` | `lockedAt`; `lines[].contactId` removed by staged purge (PRV-007) | reversal entry (Generalumkehr) |
 | `journalLines` | none (read model of `journalEntries`; the PRV-007 purge rewrites `contactId` together with the entry) | via the entry's reversal |
@@ -1327,6 +1332,20 @@ Still referencing removed shapes (owned by the parallel feature pass, to align):
 | `idempotencyKeys` | `apiKeyId` = the key's public id; `status: 0` while the request runs (`idempotency_in_progress`); `requestHash` over method, path, query and body | 05 §3 |
 | `apiKeys.lastUsedAt` | Technical field: debounced to once a minute, no audit entry | Avoids an audit row per request (the access log already records every request) |
 | `contacts.updatedAt`, `products.updatedAt` + `by_updatedAt` | Technical sync stamp set on every audited change of the record or its sub-records (addresses, channels, customer prices); not replayed by RI-15 | 05 §3 `updated_since` for website sync |
+
+### F05/F07 payments and matching slice (2026-10-13)
+
+| Item | Change | Reason / source |
+|---|---|---|
+| `payments` (new table, §5) | As specified plus `contactId`, `number` (display cache), `bankTransactionId` (index for unmatch/reversal), `match` (score, reasons, auto); target kind `opening_item` | Per-customer views and credit balance (PAY-004/031) without joins; BNK-047/EC-PAY-24 look up the payments of a transaction; the Zuordnungen page shows why a match was made |
+| §11 `payments` | `journalEntryIds` append-only | The journal entry references the payment row, so the id is appended after posting in the same transaction (like `cashTransfers`) |
+| `allocations` (cash-basis view) | **Not created in this slice** | The Ist basis of a payment is derived from the invoice journal lines (role `vat.output.notdue.*`) at posting time; the table follows with the EÜR/Ist-UStVA reports (F08 §4.4) |
+| Webhook outbox | Not written; `onSettlementChanged(ctx, change)` in `convex/model/payments.ts` is the in-transaction extension point (dunning case, webhooks) | No webhook feature yet (F10); the dunning slice hooks in here |
+| `matchRejections` (new) | As specified, index `by_transaction` | BNK-046 „Ablehnen“ |
+| `contactAliases` (new) | `iban` added, index `by_contact` | BNK-048 learns name token and IBAN on a confirmed match |
+| Match suggestions | Computed on read (`matching.review`, `matching.suggestions`), no stored suggestion rows | Suggestions depend on open amounts that change with every payment; storing them would go stale |
+| Auto-apply after import | Scheduled per imported row (`matching.autoApplyInternal`) | A failing auto-apply must not roll back the statement import; the row then stays a suggestion |
+| Bank reversal (BNK-121) | The counter-entry carries the F05 reversal row (allocated), the original stays matched | Both bank rows end balanced; the reversal row references the counter transaction |
 
 ### P1 invoices core update 2026-10-13 (F04 implementation)
 

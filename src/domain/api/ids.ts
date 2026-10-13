@@ -21,12 +21,19 @@ export const ID_PREFIXES = {
   costCenters: "cc_",
   bankAccounts: "bac_",
   contactMerges: "mrg_",
+  // Sales documents (05 §4.3): one table, a prefix per REST resource.
+  invoices: "inv_",
+  // F05/F07 (05 §3 „IDs“): payments, bank transactions, cash transfers, opening items of the opening balance.
+  payments: "pay_",
+  bankTransactions: "btx_",
+  cashTransfers: "csh_",
+  openingItems: "opi_",
 } as const;
 
 export type IdTable = keyof typeof ID_PREFIXES;
 
-/** Convex IDs are lower-case base32-like strings. */
-const RAW_ID_RE = /^[0-9a-z]{16,64}$/;
+/** Convex IDs are lower-case base32-like strings (convex-test ids end in the camel-case table name). */
+const RAW_ID_RE = /^[0-9a-zA-Z]{16,64}$/;
 
 export function encodeId(table: IdTable, id: string): string {
   return `${ID_PREFIXES[table]}${id}`;

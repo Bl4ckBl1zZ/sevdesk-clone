@@ -134,8 +134,8 @@ Legend: **R** = read-only (`readOnlyHint: true`), **W** = writes drafts or maste
 | `bank_accounts_list` | R | banking:read (incl. Enable Banking consent status and last poll; **no fetch/sync tool** — a fetch needs the signed-in owner, F07 BNK-107) |
 | `bank_transactions_search` | R | banking:read |
 | `bank_match_suggestions` | R | banking:read |
-| `bank_match_confirm` | ⚠ | banking:write; token from `preview_action` |
-| `bank_transaction_mark` (`private`/`transfer`/`ignored`) | ⚠ | banking:write; token from `preview_action` |
+| `bank_match_confirm` | ⚠ | banking:write. Same body as REST `POST /bank-transactions/{id}/match` plus `transaction_id`; token from `preview_action` (effect: transaction, targets and, for incoming payments, the F05 payment preview) |
+| `bank_transaction_mark` (`private`/`transfer`/`cash_withdrawal`/`ignored`) | ⚠ | banking:write; token from `preview_action` (effect: Eigenbeleg kind, date, amount). The token binds the caller-chosen arguments; the Eigenbeleg PDF is rendered by the server after the preview and is not part of the params hash (same for `cash_transfer_record`) |
 | `matching_rule_upsert` | W | banking:write |
 | `bank_statement_import` | W (dry run by default); commit ⚠ | banking:write. Statement file (CAMT.053/MT940/CSV + optional signed PDF) → dry run with counts, duplicates, continuity and reconciliation; the commit needs a token from `preview_action { action: "bank_statement_import" }` bound to the file hash (F07 §7). The fallback when Enable Banking is not connected |
 | `cash_transfer_record` | ⚠ | banking:write. `{ kind: deposit_to_bank \| private_withdrawal, date, amount_cents, note?, backdate_reason?, confirm_token }`; token from `preview_action` (projected cash balance, never negative, dating rules of F07 CSH-021/024/026). Cash receipts are `payment_record` with source `cash`; there is no free cash entry (no POS) |

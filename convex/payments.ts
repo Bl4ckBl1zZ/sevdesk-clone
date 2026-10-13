@@ -410,13 +410,21 @@ export const receipt = action({
   handler: async (
     ctx,
     { paymentId },
-  ): Promise<{ copy: boolean; url: string | null; pdfBase64?: string; name: string }> => {
+  ): Promise<{ copy: boolean; url: string | null; pdfBase64: string; name: string }> => {
     const c = await ctx.runQuery(api.payments.receiptContext, { paymentId });
-    if (c.archived) {
-      const bytes = await renderQuittung(c.content, { copy: true });
+    const base64 = (bytes: Uint8Array) => {
       let bin = "";
       for (const b of bytes) bin += String.fromCharCode(b);
-      return { copy: true, url: null, pdfBase64: btoa(bin), name: c.content.fileName.replace(/\.pdf$/, "-Kopie.pdf") };
+      return btoa(bin);
+    };
+    if (c.archived) {
+      const bytes = await renderQuittung(c.content, { copy: true });
+      return {
+        copy: true,
+        url: null,
+        pdfBase64: base64(bytes),
+        name: c.content.fileName.replace(/\.pdf$/, "-Kopie.pdf"),
+      };
     }
     const bytes = await renderQuittung(c.content, { copy: false });
     const storageId = await ctx.storage.store(new Blob([bytes as BlobPart], { type: "application/pdf" }));
@@ -436,6 +444,11 @@ export const receipt = action({
       await ctx.storage.delete(storageId);
       throw e;
     }
-    return { copy: false, url: await ctx.storage.getUrl(storageId), name: c.content.fileName };
+    return {
+      copy: false,
+      url: await ctx.storage.getUrl(storageId),
+      pdfBase64: base64(bytes),
+      name: c.content.fileName,
+    };
   },
 });

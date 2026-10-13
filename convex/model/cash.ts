@@ -15,7 +15,7 @@ import { appError } from "../lib/errors";
 import { auditedInsert, auditedPatch } from "./audit";
 import type { FileRefValue } from "./bankImport";
 import { getCompanyProfile } from "./companyProfile";
-import { cashLines, postJournalEntry, resolveContextAt } from "./journal";
+import { assertCashOutflowAllowed, cashLines, postJournalEntry, resolveContextAt } from "./journal";
 import type { ModelCtx, ReadCtx } from "./types";
 
 /**
@@ -92,6 +92,8 @@ export async function cashTransferEigenbelegInput(
   now: number,
 ): Promise<EigenbelegInput> {
   const { profile, account } = await checkCashTransfer(ctx, args, now);
+  // Fail before the Eigenbeleg is rendered (and in MCP previews); the posting re-checks in its transaction.
+  await assertCashOutflowAllowed(ctx, args.date, args.amountCents);
   const corp = isCorporation(profile.legalForm);
   const a = profile.address;
   return {

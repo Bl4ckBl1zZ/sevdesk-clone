@@ -8,6 +8,7 @@ import { contactMergeArgs, contactMergeWire } from "@/domain/schemas/api/contact
 import type { Scope } from "@/domain/schemas/scopes";
 import { ApiProblem } from "../../api/http";
 import { defineTool, type ToolContext } from "../tool";
+import { PAYMENT_PREVIEWS } from "./payment-previews";
 
 /**
  * Previews and confirmation tokens (06 §2.2/§2.3). A preview runs the same reads/validation as the act, returns the
@@ -33,6 +34,7 @@ interface ActionPreview {
 }
 
 export const ACTION_PREVIEWS: Partial<Record<ConfirmIntent, ActionPreview>> = {
+  ...(PAYMENT_PREVIEWS as Partial<Record<ConfirmIntent, ActionPreview>>),
   contact_merge: {
     scope: "contacts:write",
     params: contactMergeWire,

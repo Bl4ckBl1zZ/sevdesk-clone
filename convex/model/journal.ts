@@ -353,6 +353,22 @@ async function assertCashNeverNegative(
   if (dip) fail("cash_negative", cashNegativeIssue(dip, date, reversal));
 }
 
+/** CSH-026 dry run (previews, the Eigenbeleg step before the act): would an outflow on `date` dip the till? */
+export async function assertCashOutflowAllowed(ctx: ReadCtx, date: string, outflowCents: number): Promise<void> {
+  if (!isCalendarDate(date)) return;
+  const cash = resolveRole("cash", await resolveContextAt(ctx, date));
+  if (!cash.ok || !cash.value.account) return;
+  const dip = firstNegativeBalance([
+    ...(await cashLines(ctx, cash.value.account)).map((l) => ({
+      date: l.date,
+      seq: l.seq,
+      amountCents: l.debitCents - l.creditCents,
+    })),
+    { date, seq: Number.MAX_SAFE_INTEGER, amountCents: -outflowCents },
+  ]);
+  if (dip) fail("cash_negative", cashNegativeIssue(dip, date, false));
+}
+
 export async function cashLines(ctx: ReadCtx, account: string): Promise<Doc<"journalLines">[]> {
   return ctx.db
     .query("journalLines")
