@@ -479,7 +479,7 @@ type PaymentStatus = "open" | "partially_paid" | "paid" | "credited" | "written_
   buyerReference?: string;               // BT-10
   orderReference?: string;               // BT-13
   contractReference?: string;            // BT-12
-  deliveryTerms?: string;                // order confirmations (QUO-08)
+  deliveryTerms?: string;                // quotes and order confirmations (QUO-01/08)
   paymentTerms: PaymentTerms; paymentMethodId?: Id<"paymentMethods">; bankAccountId?: Id<"bankAccounts">;
   showEpcQr: boolean; portalEnabled: boolean;
   showPrices?: boolean;                  // delivery notes (QUO-09; default false: PDF hides prices/totals, lines keep them)
@@ -549,11 +549,12 @@ type PaymentStatus = "open" | "partially_paid" | "paid" | "credited" | "written_
   sentAt?: number; sentOn?: string;      // first "Als versendet markieren": instant + business date (F04 SND; no e-mail sending)
   firstExportedAt?: number;              // derived cache: first export (to-do "exportiert, nicht markiert", F04 SND-21)
   viewedAt?: number;                     // portal view (F10, deferred)
-  acceptance?: { at: number; byName: string; channel: "manual" | "portal" | "email" | "phone"; note?: string;
+  acceptance?: { at: number; date: string /* business date the customer accepted */; byName: string;
+                 channel: "manual" | "portal" | "email" | "phone"; note?: string;
                  signatureStorageId?: Id<"_storage">; ip?: string; ua?: string; portalTokenId?: Id<"portalTokens">;
                  selectedOptionalLineIds?: Id<"documentLines">[]; earlyPerformanceRequested?: boolean;
                  snapshotHash: string };                // QUO-05, POR-008, POR-012 (set once)
-  rejection?: { at: number; reason?: string; channel: "manual" | "portal" };   // QUO-05, POR-010
+  rejection?: { at: number; date: string; reason?: string; channel: "manual" | "portal" };   // QUO-05, POR-010
   received?: { date: string; byName: string };          // delivery note "Erhalten" (F04 §4.2.3)
   cancellation?: { at: number; reason: string; byDocumentId?: Id<"salesDocuments"> };   // withdraw / Storno / void reminder
   objection?: { date: string; text: string };           // self_billing Widerspruch (INV-16)
@@ -1347,3 +1348,14 @@ Still referencing removed shapes (owned by the parallel feature pass, to align):
 - F04 9.6/9.7: REST resource names for self-billing/proforma belong in 05, not here.
 - Process/cron/webhook deltas outside 03 (F05 D-11/D-12, F06 D-08, F07 D-08/D-09, F10 events) belong in 02 §7 / 05 §5.3; D-12 must be reworded per the `overdue` decision above.
 - Feature-spec wording to align with this file (owned by the parallel editing pass): F01 SET-064, SET-065, SET-050 (`revolut.currency`); F02 CON-081 (`pdfConsent`), CON-070 (`reverseCharge13bCertificate`), §9 `destroyedAt`; F03 PRD-009 enum, PRD-020 key list; F04 INV-07, §4.7, 9.14, App. G `decision`, §4.10.1 `ok`, REC-07 `system:recurring`; F05 PAY-044, §4.3, DUN-037 `system:dunning`; F07 BNK-020 `rev:` prefix; F10 POR-032; F12 AUD-002 `apiKey`; 10 EC-070, EC-113.
+
+### P1 quotes, orders, delivery notes, proforma 2026-10-13 (F04 QUO-*, DOC-33/34)
+
+| Item | Change | Reason / source |
+|---|---|---|
+| `salesDocuments` (implemented) | `revision`, `validUntil`, `deliveryTerms`, `showPrices`, `originId`, `sourceDocumentIds`, `chainRootId` (absent on the chain root itself), `coverage { prepaidByGroup[], coveredBp }`, `acceptance`, `rejection`, `received`, `cancellation`; index `by_chainRoot` — all optional, additive | F04 §3.2 QUO-01…15, §4.3 conversions, DOC-34 chain view |
+| `acceptance.date`, `rejection.date` (new) | Business date the customer accepted/rejected, next to the recording instant `at` | QUO-05 asks for the date of the acceptance, which may lie before the day it is recorded; `at` stays the audit instant |
+| `deliveryTerms` | Also on quotes (not only order confirmations) | QUO-01 „Lieferbedingungen“ on the quote; copied on conversion |
+| `documentLines` (implemented) | `optional` (quotes; excluded from totals and VAT) and `sourceLineId`; `invoicedQtyMilli`/`deliveredQtyMilli` are written only by the chain recompute (`document.progress`) | DOC-04/QUO-02; §4.3.3 progress caches, whitelisted in §11, excluded from the snapshot |
+| `rejection` | Set once (§11). After „Wieder öffnen“ a second rejection is recorded in the audit log only | The set-once rule of §11 wins over overwriting the first rejection |
+| `numberRegister` | A quote revision's number `<base>-V{n}` (setting `quoteRevisionNumbering: suffix`) is registered without consuming a counter value | UST-06/GOBD-02: every assigned number is in the register; the counter of the quote range is untouched |

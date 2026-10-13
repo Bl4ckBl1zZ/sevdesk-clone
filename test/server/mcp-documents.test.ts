@@ -70,7 +70,7 @@ describe("MCP document tools (06 §3.4)", () => {
     expect(names).not.toContain("document_finalize");
   });
 
-  test("QUO-05 DOC-33 quote_create_draft → finalised by the owner → quote_mark_accepted → document_convert → document_get", async () => {
+  test("MCP-011 QUO-05 DOC-33 quote_create_draft → finalised by the owner → quote_mark_accepted → document_convert → document_get", async () => {
     const { t, owner, contact } = await setup();
     const client = await connect((await t.asMcp(["documents:read", "documents:write"])).key);
     const call = async (name: string, args: Json) => (await client.callTool({ name, arguments: args })) as ToolCall;
@@ -119,7 +119,7 @@ describe("MCP document tools (06 §3.4)", () => {
     expect(audit.some((e) => e.action === "document.convert" && e.actor.startsWith("mcp:"))).toBe(true);
   });
 
-  test("DOC-25 invoice_create_draft creates a proforma; quote_mark_rejected refuses a non-quote id", async () => {
+  test("MCP-011 DOC-25 invoice_create_draft creates a proforma; quote_mark_rejected refuses a non-quote id", async () => {
     const { t, contact } = await setup();
     const client = await connect((await t.asMcp(["documents:read", "documents:write"])).key);
     const pf = (await client.callTool({

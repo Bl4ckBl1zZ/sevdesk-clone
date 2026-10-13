@@ -85,7 +85,7 @@ async function finalize(t: TestT, key: string, path: string, doc: Json) {
 }
 
 describe("REST sales documents (05 §4.3, F04 §7.1)", () => {
-  test("QUO-01 QUO-05 DOC-33 QUO-12 quote → mark-accepted → convert → finalised invoice; the chain shows 100 %", async () => {
+  test("API-021 QUO-01 QUO-05 DOC-33 QUO-12 quote → mark-accepted → convert → finalised invoice; the chain shows 100 %", async () => {
     const { t, key, contact } = await setup();
     const quote = await create(key, "quotes", { contact_id: contact, lines: [desk], delivery_terms: "frei Haus" });
     expect(quote).toMatchObject({
@@ -224,8 +224,8 @@ describe("REST sales documents (05 §4.3, F04 §7.1)", () => {
     expect((await json(withdrawn)).status).toBe("cancelled");
   });
 
-  test("API-011 DOC-03 wire validation: decimals, unknown prefixes and the quote-only fields", async () => {
-    const { key, contact } = await setup();
+  test("API-011 API-021 DOC-03 wire validation, prefixes, and documents:write for finalising letters", async () => {
+    const { t, key, contact } = await setup();
     const tooPrecise = await call("POST", "/quotes", {
       key,
       body: { contact_id: contact, lines: [{ ...desk, quantity: "1.2345" }] },
@@ -242,6 +242,14 @@ describe("REST sales documents (05 §4.3, F04 §7.1)", () => {
     expect(draft.id).toMatch(/^ord_/);
     expect((await call("GET", `/quotes/${draft.id}`, { key })).status).toBe(404);
     expect((await call("GET", `/order-confirmations/${draft.id.replace("ord_", "quo_")}`, { key })).status).toBe(404);
+    const finalizeOnly = (await t.asApiKey(["documents:read", "invoices:finalize"])).key;
+    const forbidden = await call("POST", `/order-confirmations/${draft.id}/finalize`, {
+      key: finalizeOnly,
+      body: { version: draft.version },
+      headers: { "Idempotency-Key": "fin-scope" },
+    });
+    expect(forbidden.status).toBe(403);
+    expect((await json(forbidden)).code).toBe("insufficient_scope");
     const del = await call("DELETE", `/order-confirmations/${draft.id}`, { key });
     expect(del.status).toBe(204);
     expect((await call("GET", `/order-confirmations/${draft.id}`, { key })).status).toBe(404);

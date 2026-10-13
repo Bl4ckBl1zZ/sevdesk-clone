@@ -280,7 +280,6 @@ export async function finalizeDocument(
   id: DocId,
   body: z.output<typeof finalizeWire>,
 ) {
-  await loadDocument(convex, id, res.types, res.singular);
   await convex.action(api.invoices.finalize, {
     id,
     version: body.version,
@@ -448,9 +447,17 @@ function sharedEndpoints(res: DocumentResourceDef): AnyEndpoint[] {
         "idempotency_key_required",
       ],
       fieldMapper: documentFieldMapper,
-      handler: async ({ convex, params: p, body }) => ({
-        body: await finalizeDocument(convex, res, rawDocId(res, p.id), body),
-      }),
+      handler: async ({ convex, key, params: p, body }) => {
+        const id = rawDocId(res, p.id);
+        const doc = await loadDocument(convex, id, res.types, res.singular);
+        // F04 §7.1: letters (quotes, orders, delivery notes, proforma) need documents:write as well.
+        if (doc.type !== "invoice" && !key.scopes.includes("documents:write")) {
+          throw new ApiProblem("insufficient_scope", {
+            extra: { required_scope: "documents:write invoices:finalize" },
+          });
+        }
+        return { body: await finalizeDocument(convex, res, id, body) };
+      },
     }),
     defineEndpoint({
       method: "POST",
