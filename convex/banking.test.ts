@@ -10,6 +10,7 @@ import { api } from "./_generated/api";
 import type { Doc, Id } from "./_generated/dataModel";
 import { errorCode } from "./lib/errors";
 import { patchCompanyProfile } from "./model/companyProfile";
+import { fileReferences } from "./model/files";
 import { makeT, type TestT } from "./test.setup";
 
 const OWNER = { actor: "user:test-owner", role: "owner", channel: "ui" } as const;
@@ -122,6 +123,9 @@ describe("F07 statement import pipeline (BNK-030…036)", () => {
     expect(st?.retentionUntil).toBe("2034-12-31");
     expect(st?.hasPdf).toBe(true);
     expect(st?.files.find((f) => f.kind === "pdf")?.sha256).toMatch(/^[0-9a-f]{64}$/);
+    // The archived files can never be deleted through the file cleanup (GOBD-20).
+    const pdfId = await s.t.run(async (ctx) => (await ctx.db.query("bankStatements").first())?.pdf?.storageId);
+    expect(await s.t.run((ctx) => fileReferences(ctx, pdfId as Id<"_storage">))).toHaveLength(1);
     const again = await importFile(s, s.eur, camtOct, "eur-2026-10.camt053.xml").catch((e) => e);
     expect(errorCode(again)).toBe("conflict");
     expect(messageOf(again)).toMatch(/^Dieser Kontoauszug wurde bereits hochgeladen \(\d\d\.\d\d\.\d{4}\)\.$/);
