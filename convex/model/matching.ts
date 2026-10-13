@@ -208,6 +208,21 @@ export async function targetLabels(ctx: ReadCtx, allocations: readonly MatchAllo
   return out;
 }
 
+/** Scorer allocations → confirm input (the scorer proposes only Skonto/bank-fee differences, BNK-045). */
+const confirmAllocations = (allocations: readonly MatchAllocation[]): ConfirmArgs["allocations"] =>
+  allocations.map((a) => ({
+    target: a.target,
+    amountCents: a.amountCents,
+    ...(a.differences?.length
+      ? {
+          differences: a.differences.map((d) => ({
+            reason: d.reason as DifferenceInput["reason"],
+            amountCents: d.amountCents,
+          })),
+        }
+      : {}),
+  }));
+
 export interface ConfirmArgs {
   transactionId: Id<"bankTransactions">;
   allocations: { target: { kind: string; id: string }; amountCents: number; differences?: DifferenceInput[] }[];
@@ -351,7 +366,7 @@ export async function autoApplyMatches(
     if (!best || !autoApplicable(best, DEFAULT_THRESHOLDS)) continue;
     await confirmMatch(ctx, {
       transactionId: tx.id as Id<"bankTransactions">,
-      allocations: best.allocations,
+      allocations: confirmAllocations(best.allocations),
       provenance: { score: best.score, reasons: best.reasons, auto: true },
     });
     applied.push(tx.id as Id<"bankTransactions">);
@@ -372,7 +387,7 @@ export async function confirmSafeMatches(ctx: ModelCtx, txIds: readonly Id<"bank
     if (!best || !isSafe(best) || best.allocations.some((a) => a.target.kind === "payment")) continue;
     await confirmMatch(ctx, {
       transactionId: tx.id as Id<"bankTransactions">,
-      allocations: best.allocations,
+      allocations: confirmAllocations(best.allocations),
       provenance: { score: best.score, reasons: best.reasons, auto: false },
     });
     confirmed.push(tx.id as Id<"bankTransactions">);
