@@ -28,15 +28,7 @@ import {
   lineFromValues,
   toDraftValues,
 } from "./editor-model";
-import { CompliancePanel, money, TotalsPanel } from "./invoice-shared";
-
-const FORMAT_LABELS: Record<string, string> = {
-  zugferd_en16931: "ZUGFeRD (EN 16931)",
-  zugferd_xrechnung: "ZUGFeRD (XRechnung-Profil)",
-  xrechnung_cii: "XRechnung (CII)",
-  xrechnung_ubl: "XRechnung (UBL)",
-  none: "Nur PDF",
-};
+import { CompliancePanel, FORMAT_LABELS, money, TotalsPanel } from "./invoice-shared";
 
 /** Debounced value for the live check (DOC-19: totals while typing, without a request per keystroke). */
 function useDebounced<T>(value: T, ms: number): T {

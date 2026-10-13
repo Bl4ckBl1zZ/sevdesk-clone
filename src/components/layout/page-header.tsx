@@ -25,11 +25,13 @@ export function PageHeader({
   actions?: React.ReactNode;
   className?: string;
 }) {
+  // The blur is desktop-only (where the header is sticky): `backdrop-filter` makes the header the containing block
+  // of the `position: fixed` phone action bar below, which then sat at the top of the page instead of the bottom.
   return (
     <header
       data-slot="page-header"
       className={cn(
-        "flex flex-col gap-3 border-b bg-background/95 px-4 py-4 backdrop-blur supports-backdrop-filter:bg-background/80 @3xl/main:flex-row @3xl/main:items-end @3xl/main:justify-between @3xl/main:px-6 md:sticky md:top-14 md:z-10",
+        "flex flex-col gap-3 border-b bg-background/95 px-4 py-4 md:backdrop-blur md:supports-backdrop-filter:bg-background/80 @3xl/main:flex-row @3xl/main:items-end @3xl/main:justify-between @3xl/main:px-6 md:sticky md:top-14 md:z-10",
         className,
       )}
     >

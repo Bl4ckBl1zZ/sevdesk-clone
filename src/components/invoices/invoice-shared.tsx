@@ -13,6 +13,22 @@ import { sha256Sums, zipStore } from "@/lib/zip";
 export const money = (cents: number | null | undefined, currency = "EUR"): string =>
   cents === null || cents === undefined ? "—" : `${formatCents(cents)} ${currency === "EUR" ? "€" : currency}`;
 
+export const FORMAT_LABELS: Record<string, string> = {
+  zugferd_en16931: "ZUGFeRD (EN 16931)",
+  zugferd_xrechnung: "ZUGFeRD (XRechnung-Profil)",
+  xrechnung_cii: "XRechnung (CII)",
+  xrechnung_ubl: "XRechnung (UBL)",
+  none: "Nur PDF",
+};
+
+/** ER-03 decisions (F04 App. D) in plain German. */
+export const DECISION_LABELS: Record<string, string> = {
+  MUST_E: "E-Rechnung Pflicht",
+  MAY_PAPER_OR_PDF: "Papier oder PDF zulässig",
+  PDF_NEEDS_CONSENT: "PDF nur mit Zustimmung des Kunden",
+  NOT_REQUIRED: "Keine E-Rechnungspflicht",
+};
+
 const TONES: Partial<Record<DisplayStatus, string>> = {
   draft: "border-border bg-muted text-foreground",
   unsent: "border-warning bg-transparent text-warning",

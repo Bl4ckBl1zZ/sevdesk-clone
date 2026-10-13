@@ -45,7 +45,7 @@ import { formatMicros, formatMilli } from "@/domain/money/format";
 import type { DraftValues } from "@/domain/schemas/documents";
 import { useAuthedQuery } from "@/hooks/use-authed-query";
 import { InvoiceEditor } from "./invoice-editor";
-import { downloadExport, InvoiceStatusBadge, money } from "./invoice-shared";
+import { DECISION_LABELS, downloadExport, FORMAT_LABELS, InvoiceStatusBadge, money } from "./invoice-shared";
 
 type Detail = NonNullable<FunctionReturnType<typeof api.invoices.get>>;
 
@@ -396,8 +396,8 @@ function Facts({ data }: { data: Detail }) {
           { label: t("documentDate"), value: formatDate(data.doc.documentDate) },
           { label: t("dueDate"), value: formatDate(data.doc.dueDate) },
           { label: t("gross"), value: money(data.doc.totals.grossCents, data.doc.currency), numeric: true },
-          { label: t("format"), value: s?.einvoice.format ?? "—" },
-          { label: t("decision"), value: data.doc.einvoice.decision ?? "—" },
+          { label: t("format"), value: FORMAT_LABELS[s?.einvoice.format ?? ""] ?? "—" },
+          { label: t("decision"), value: DECISION_LABELS[data.doc.einvoice.decision ?? ""] ?? "—" },
           { label: t("sentOn"), value: formatDate(data.doc.sentOn) },
           ...(data.register
             ? [{ label: t("register"), value: `${data.register.number} (${formatDateTime(data.register.assignedAt)})` }]
@@ -429,40 +429,62 @@ function SnapshotView({ snapshot }: { snapshot: DocumentSnapshot | null }) {
           </span>
         )}
       </address>
-      <div className="@container/lines overflow-x-auto">
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead>{t("pos")}</TableHead>
-              <TableHead>{t("item")}</TableHead>
-              <TableHead className="text-right">{t("qty")}</TableHead>
-              <TableHead className="text-right">{t("unitPrice")}</TableHead>
-              <TableHead className="text-right">{t("vat")}</TableHead>
-              <TableHead className="text-right">{t("net")}</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {items.map((l) =>
-              l.kind === "item" ? (
-                <TableRow key={l.position}>
-                  <TableCell className="tabular-nums">{l.position}</TableCell>
-                  <TableCell>
-                    {l.name}
-                    {l.description && <span className="block text-muted-foreground text-xs">{l.description}</span>}
-                  </TableCell>
-                  <TableCell className="text-right tabular-nums">
-                    {formatMilli(l.quantityMilli)} {l.unitLabel ?? l.unitCode}
-                  </TableCell>
-                  <TableCell className="text-right tabular-nums">{formatMicros(l.unitPriceMicros)}</TableCell>
-                  <TableCell className="text-right tabular-nums">
-                    {l.vatCategory} {(l.vatRateBp / 100).toLocaleString("de-DE")} %
-                  </TableCell>
-                  <TableCell className="text-right tabular-nums">{money(l.netCents, snapshot.currency)}</TableCell>
-                </TableRow>
-              ) : null,
-            )}
-          </TableBody>
-        </Table>
+      {/* Narrow containers (phones) get a stacked list instead of a horizontally scrolling table. */}
+      <div className="@container/lines">
+        <ul className="flex flex-col divide-y text-sm @xl/lines:hidden">
+          {items.map((l) =>
+            l.kind === "item" ? (
+              <li key={l.position} className="flex flex-col gap-0.5 py-2">
+                <span className="flex justify-between gap-3">
+                  <span className="min-w-0 font-medium">
+                    {l.position}. {l.name}
+                  </span>
+                  <span className="tabular-nums">{money(l.netCents, snapshot.currency)}</span>
+                </span>
+                {l.description && <span className="text-muted-foreground text-xs">{l.description}</span>}
+                <span className="text-muted-foreground text-xs tabular-nums">
+                  {formatMilli(l.quantityMilli)} {l.unitLabel ?? l.unitCode} × {formatMicros(l.unitPriceMicros)} ·{" "}
+                  {t("vat")} {l.vatCategory} {(l.vatRateBp / 100).toLocaleString("de-DE")} %
+                </span>
+              </li>
+            ) : null,
+          )}
+        </ul>
+        <div className="hidden @xl/lines:block">
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>{t("pos")}</TableHead>
+                <TableHead>{t("item")}</TableHead>
+                <TableHead className="text-right">{t("qty")}</TableHead>
+                <TableHead className="text-right">{t("unitPrice")}</TableHead>
+                <TableHead className="text-right">{t("vat")}</TableHead>
+                <TableHead className="text-right">{t("net")}</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {items.map((l) =>
+                l.kind === "item" ? (
+                  <TableRow key={l.position}>
+                    <TableCell className="tabular-nums">{l.position}</TableCell>
+                    <TableCell>
+                      {l.name}
+                      {l.description && <span className="block text-muted-foreground text-xs">{l.description}</span>}
+                    </TableCell>
+                    <TableCell className="text-right tabular-nums">
+                      {formatMilli(l.quantityMilli)} {l.unitLabel ?? l.unitCode}
+                    </TableCell>
+                    <TableCell className="text-right tabular-nums">{formatMicros(l.unitPriceMicros)}</TableCell>
+                    <TableCell className="text-right tabular-nums">
+                      {l.vatCategory} {(l.vatRateBp / 100).toLocaleString("de-DE")} %
+                    </TableCell>
+                    <TableCell className="text-right tabular-nums">{money(l.netCents, snapshot.currency)}</TableCell>
+                  </TableRow>
+                ) : null,
+              )}
+            </TableBody>
+          </Table>
+        </div>
       </div>
       <dl className="ml-auto grid w-full max-w-xs grid-cols-[1fr_auto] gap-x-4 gap-y-1 text-sm">
         <dt className="text-muted-foreground">{t("net")}</dt>

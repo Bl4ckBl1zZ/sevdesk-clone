@@ -128,7 +128,7 @@ test("UST-14 Kleinbetragsrechnung: a small invoice with the Kleinbetrag flag is 
   await page.getByLabel("Kleinbetragsrechnung (bis 250 € brutto)").check();
   await expect(page.getByTestId("gross")).toHaveText("119,00 €", { timeout: 20_000 });
   await saveAndFinalize(page);
-  await expect(page.getByText("Ersatzteil Thermostat")).toBeVisible();
+  await expect(page.getByText("Ersatzteil Thermostat").filter({ visible: true }).first()).toBeVisible();
 });
 
 test("UST-22 § 13b: construction work for a business customer shifts the VAT liability", async ({
@@ -153,7 +153,12 @@ test("UST-22 § 13b: construction work for a business customer shifts the VAT li
   await expect(page.getByTestId("gross")).toHaveText("1.000,00 €");
   await expectNoAxeViolations();
   await saveAndFinalize(page);
-  await expect(page.getByText(/Steuerschuldnerschaft des Leistungsempfängers/).first()).toBeVisible();
+  await expect(
+    page
+      .getByText(/Steuerschuldnerschaft des Leistungsempfängers/)
+      .filter({ visible: true })
+      .first(),
+  ).toBeVisible();
 });
 
 test("KU-02 Kleinunternehmer: the invoice shows no VAT and the § 19 note", async ({ page }) => {
@@ -167,5 +172,5 @@ test("KU-02 Kleinunternehmer: the invoice shows no VAT and the § 19 note", asyn
   await draftWithLine(page, { name: "Beratung Kleinunternehmer", price: "50,00" });
   await expect(page.getByTestId("gross")).toHaveText("50,00 €", { timeout: 20_000 });
   await saveAndFinalize(page);
-  await expect(page.getByText(/§ 19/).first()).toBeVisible();
+  await expect(page.getByText(/§ 19/).filter({ visible: true }).first()).toBeVisible();
 });
