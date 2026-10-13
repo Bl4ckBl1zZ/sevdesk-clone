@@ -4,3 +4,5 @@ allowBuilds:
   '@parcel/watcher': true
   '@swc/core': true
   esbuild: true
+patchedDependencies:
+  pdfkit@0.20.1: patches/pdfkit@0.20.1.patch
