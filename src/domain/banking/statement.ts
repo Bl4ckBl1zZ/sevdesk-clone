@@ -42,6 +42,12 @@ export function decodeStatement(bytes: Uint8Array): Result<string, UnreadableFil
   return { ok: true, value: text };
 }
 
+/**
+ * Retention of an archived bank statement (F07 BNK-030: class `vouchers8`, bank statements are Buchungsbelege;
+ * § 147 Abs. 3/4 AO: 8 years from the end of the calendar year of the period end).
+ */
+export const statementRetentionUntil = (periodTo: string): string => `${Number(periodTo.slice(0, 4)) + 8}-12-31`;
+
 export function detectStatementFormat(text: string, fileName = ""): StatementFormat | null {
   const head = text.slice(0, 4000).replace(/^﻿/, "");
   if (/camt\.053\.001\.\d{2}/.test(head) || /^\s*<\?xml/.test(head) || /\.xml$/i.test(fileName)) return "camt053";

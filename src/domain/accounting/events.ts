@@ -221,6 +221,8 @@ export interface CashTransferEvent {
   amountCents: number;
   /** Required for the T5 bank leg and T9. */
   bankAccountId?: string;
+  /** T9 only: an ATM fee contained in the bank debit → `expense.bank_fees` (R5, CSH-025); `amountCents` is the cash. */
+  feeCents?: number;
   /** Corporations (ACC-028, E-ACC-30): private withdrawals go to `shareholder.clearing` with shareholder + note. */
   shareholder?: { name: string; note: string };
 }
@@ -230,6 +232,33 @@ export interface CashTransferReversedEvent {
   kind: "cash_transfer_reversed";
   cashTransferId: string;
   originalCashTransferId: string;
+  date: string;
+  reason: string;
+}
+
+// ── marked bank transactions (F07 BNK-060/061, T1/T2/T4) ───────────────────────────────────────────────
+
+/**
+ * A booked bank transaction the owner marked „Privat“ (T1/T2) or „Geldtransit“ (T4 leg), posted on its Europe/Berlin
+ * booking date (externally dated, ACC-006 b). `amountCents` is the signed account movement in EUR; a fee contained in
+ * it (`feeCents`, BNK-023) is a separate `expense.bank_fees` line (R5, no VAT).
+ */
+export interface BankTransactionMarkedEvent {
+  kind: "bank_transaction_marked";
+  transactionId: string;
+  mark: "private" | "transfer";
+  date: string;
+  amountCents: number;
+  feeCents?: number;
+  bankAccountId: string;
+  /** Corporations (ACC-028): private marks go to `shareholder.clearing` with shareholder + note. */
+  shareholder?: { name: string; note: string };
+}
+
+/** „Markierung aufheben“: mirrors the entries of the mark (Generalumkehr, ACC-004). */
+export interface BankTransactionMarkReversedEvent {
+  kind: "bank_transaction_mark_reversed";
+  transactionId: string;
   date: string;
   reason: string;
 }
@@ -271,13 +300,22 @@ export type BusinessEvent =
   | WriteOffRecoveredEvent
   | CashTransferEvent
   | CashTransferReversedEvent
+  | BankTransactionMarkedEvent
+  | BankTransactionMarkReversedEvent
   | OpeningBalanceEvent;
 
 /** Events that mirror earlier entries instead of using the matrix. */
-export type ReversalEvent = InvoiceCancelledEvent | PaymentReversedEvent | CashTransferReversedEvent;
+export type ReversalEvent =
+  | InvoiceCancelledEvent
+  | PaymentReversedEvent
+  | CashTransferReversedEvent
+  | BankTransactionMarkReversedEvent;
 
 export const isReversalEvent = (e: BusinessEvent): e is ReversalEvent =>
-  e.kind === "invoice_cancelled" || e.kind === "payment_reversed" || e.kind === "cash_transfer_reversed";
+  e.kind === "invoice_cancelled" ||
+  e.kind === "payment_reversed" ||
+  e.kind === "cash_transfer_reversed" ||
+  e.kind === "bank_transaction_mark_reversed";
 
 /** 03 §8 `journalEntries.source.kind`. */
 export type JournalSourceKind =
@@ -314,6 +352,9 @@ export function sourceOf(e: BusinessEvent): JournalSource {
     case "cash_transfer":
     case "cash_transfer_reversed":
       return { kind: "cashTransfer", id: e.cashTransferId };
+    case "bank_transaction_marked":
+    case "bank_transaction_mark_reversed":
+      return { kind: "bankTransaction", id: e.transactionId };
     case "opening_balance":
       return { kind: "opening_balance", id: openingSourceId(e.fiscalYear, e.part) };
   }
@@ -337,5 +378,7 @@ export function reversedSourceOf(e: ReversalEvent): JournalSource {
       return { kind: "payment", id: e.originalPaymentId };
     case "cash_transfer_reversed":
       return { kind: "cashTransfer", id: e.originalCashTransferId };
+    case "bank_transaction_mark_reversed":
+      return { kind: "bankTransaction", id: e.transactionId };
   }
 }

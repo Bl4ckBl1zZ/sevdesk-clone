@@ -26,6 +26,10 @@ const EXPECTED: Record<Permission, readonly MemberRole[]> = {
   "contacts.merge": ["owner", "bookkeeper"],
   "products.read": ["owner", "bookkeeper", "viewer", "auditor"],
   "products.write": ["owner", "bookkeeper"],
+  "banking.read": ["owner", "bookkeeper", "viewer", "auditor"],
+  "banking.write": ["owner", "bookkeeper"],
+  "banking.mark": ["owner", "bookkeeper"],
+  "cash.write": ["owner", "bookkeeper"],
 };
 
 describe("permission matrix (02 §4.3)", () => {

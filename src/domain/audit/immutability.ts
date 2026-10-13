@@ -17,6 +17,8 @@ export type FieldRule =
   | "mutable"
   | "once"
   | "removeOnce"
+  /** arrays that may only grow; existing elements never change (bankTransactions.sources, F07 BNK-122) */
+  | "append"
   | { transitions: Readonly<Record<string, readonly string[]>> };
 
 export interface TableRule {
@@ -50,7 +52,6 @@ export const IMMUTABILITY_MATRIX: Readonly<Record<string, TableRule>> = {
   allocations: APPEND_ONLY,
   depreciationRuns: APPEND_ONLY,
   bankTransactionRevisions: APPEND_ONLY,
-  bankStatements: APPEND_ONLY,
   // F08 read model of journal lines: written with its entry, never changed (03 §8, RI-12 consistency check).
   journalLines: APPEND_ONLY,
 
@@ -84,7 +85,33 @@ export const IMMUTABILITY_MATRIX: Readonly<Record<string, TableRule>> = {
   journalEntries: { kind: "guarded", fields: { lockedAt: "once" } },
   // F08 ACC-013 opening items: the reference data is frozen; payments maintain the open amount (like salesDocuments).
   openingItems: { kind: "guarded", fields: { openAmountCents: "mutable", lockedAt: "once" } },
-  cashTransfers: { kind: "guarded", fields: { bankTransactionId: "once" } },
+  // journalEntryIds grows: the entry is posted after the row exists (it references the row), and the T5 bank leg of a
+  // deposit is posted when the bank credit is matched (03 §11 amended, F07 P1).
+  cashTransfers: { kind: "guarded", fields: { bankTransactionId: "once", journalEntryIds: "append" } },
+  // F07 BNK-122: booked bank data never changes; only the allocation/marking state, the source list (append) and a
+  // one-time fill of empty counterparty fields (BNK-031).
+  bankTransactions: {
+    kind: "guarded",
+    fields: {
+      status: "mutable",
+      ignoredReason: "mutable",
+      ignoredLinkId: "mutable",
+      allocatedCents: "mutable",
+      transferPeerId: "mutable",
+      bookedAt: "once",
+      lockedAt: "once",
+      sources: "append",
+      reversalOfId: "once",
+      counterpartyName: "once",
+      counterpartyIban: "once",
+      counterpartyBic: "once",
+      counterpartySource: "once",
+    },
+    message: "Gebuchte Bankumsätze sind unveränderbar (GoBD). Änderungen der Bank werden als Revision gespeichert.",
+  },
+  // F07 BNK-030/036: the official statement is archived as imported; the signed PDF can be attached once, a rolled
+  // back import flags its statement once (03 §11 amended).
+  bankStatements: { kind: "guarded", fields: { pdf: "once", rolledBack: "once" } },
   periods: {
     kind: "guarded",
     fields: {
@@ -166,6 +193,11 @@ export function assertMutable(table: string, before: Record<string, unknown>, ch
       if (from !== undefined) fail(`field ${field} may be set only once`);
     } else if (fieldRule === "removeOnce") {
       if (to !== undefined) fail(`field ${field} may only be removed`);
+    } else if (fieldRule === "append") {
+      const prev = Array.isArray(from) ? from : from === undefined ? [] : null;
+      if (prev === null || !Array.isArray(to) || to.length < prev.length || !same(to.slice(0, prev.length), prev)) {
+        fail(`field ${field} may only be appended to`);
+      }
     } else {
       const allowed = typeof from === "string" ? fieldRule.transitions[from] : undefined;
       if (typeof to !== "string" || !allowed?.includes(to)) fail(`transition ${field} ${String(from)} → ${String(to)}`);

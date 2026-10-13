@@ -65,6 +65,14 @@ export const PERMISSIONS = {
   /** F03 products, categories and customer prices (auditor: read-only master data for Z1, like contacts). */
   "products.read": { roles: ALL, scope: "products:read", write: false },
   "products.write": { roles: ["owner", "bookkeeper"], scope: "products:write", write: true },
+  /** F07 bank accounts, transactions, statements and the Kasse — read (auditor: Z1 access to bank data). */
+  "banking.read": { roles: ALL, scope: "banking:read", write: false },
+  /** F07 statement import, PDF archive, duplicate review, reversal link, rollback (BNK-030…036, BNK-110/121). */
+  "banking.write": { roles: ["owner", "bookkeeper"], scope: "banking:write", write: true },
+  /** F07 BNK-060/061/063, CSH-025 marking (⚠ legally relevant: MCP needs the confirm token, 06 §2). */
+  "banking.mark": { roles: ["owner", "bookkeeper"], scope: "banking:write", write: true },
+  /** F07 CSH-024/027 „Bargeld eingezahlt / entnommen“ and reversals (⚠, never-negative CSH-026). */
+  "cash.write": { roles: ["owner", "bookkeeper"], scope: "banking:write", write: true },
 } as const satisfies Record<string, PermissionRule>;
 
 export type Permission = keyof typeof PERMISSIONS;
