@@ -35,7 +35,8 @@ test.describe("desktop shell", () => {
     await expect(page).toHaveURL(/\/rechnungen$/);
     await expect(page.getByRole("heading", { level: 1, name: "Rechnungen" })).toBeFocused();
     await expect(nav.getByRole("link", { name: "Rechnungen" })).toHaveAttribute("aria-current", "page");
-    await expect(page.getByRole("link", { name: "Erste Rechnung erstellen" })).toBeVisible();
+    // e2e/rechnungen.spec.ts runs before this file, so the list may already hold invoices (no empty state).
+    await expect(page.getByRole("link", { name: "Neue Rechnung" })).toBeVisible();
     await expectNoAxeViolations();
 
     await nav.getByRole("link", { name: "UStVA" }).click();

@@ -10,6 +10,8 @@ const GROUPS: Record<string, readonly string[] | "*"> = {
     "finalize",
     "artifacts_ready",
     "artifacts_blocked",
+    "artifacts_retry",
+    "artifact_archived",
     "export",
     "mark_sent",
     "mark_sent_retracted",
@@ -65,6 +67,8 @@ const GROUPS: Record<string, readonly string[] | "*"> = {
   dsgvo: "*", // dsgvo.request.* | restrict | export
   retention: ["purge", "anchor"],
   system: ["startup", "migration", "restore", "restore_drill"],
+  // 03 §10 notifications / to-dos (F04 SND-21): created by `deadlines.notify`, closed by the resolving act.
+  notification: ["create", "resolve", "read"],
 };
 
 export function isAuditAction(action: string): boolean {

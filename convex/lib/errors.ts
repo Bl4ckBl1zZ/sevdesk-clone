@@ -46,6 +46,24 @@ export const ERRORS = {
   confirm_token_used: CONFIRM_TOKEN_MESSAGES.confirm_token_used,
   confirm_token_intent_mismatch: CONFIRM_TOKEN_MESSAGES.confirm_token_intent_mismatch,
   preview_outdated: CONFIRM_TOKEN_MESSAGES.preview_outdated,
+  // F04 sales documents (§5.1, §4.6)
+  illegal_transition: "Diese Aktion ist im aktuellen Status nicht möglich.",
+  document_not_draft: "Das Dokument ist fertiggestellt und kann nicht mehr geändert werden.",
+  validation_failed: "Das Dokument kann noch nicht fertiggestellt werden.",
+  revalidation_failed:
+    "Firmen- oder Kundendaten wurden während der Fertigstellung geändert. Bitte die Vorschau erneut prüfen.",
+  integrity_alert_open:
+    "Die Integritätsprüfung hat einen Fehler gemeldet. Bitte zuerst unter Einstellungen › System prüfen und bestätigen.",
+  number_conflict: "Die Nummer ist bereits vergeben. Bitte den Nummernkreis prüfen.",
+  einvoice_validation_failed: "Die E-Rechnung ist ungültig.",
+  dependency_unavailable:
+    "Die E-Rechnungs-Prüfung ist gerade nicht erreichbar. Fertigstellen ist erst nach erfolgreicher Prüfung möglich – bitte später erneut versuchen.",
+  artifacts_not_ready: "PDF/E-Rechnung wird noch erzeugt.",
+  artifacts_blocked: "Die E-Rechnung konnte nicht erzeugt werden – Export und Versand gesperrt.",
+  mark_sent_invalid: "Die Versandmarkierung ist nicht möglich.",
+  retraction_invalid: "Die Versandmarkierung kann nicht zurückgenommen werden.",
+  resend_original_reason: "Bitte begründen, warum das Original erneut exportiert wird (wird protokolliert).",
+  clock_skew: "Die Serveruhr weicht zu stark ab. Fertigstellen ist gesperrt, bis die Uhrzeit korrigiert ist.",
 } as const;
 
 export type ErrorCode = keyof typeof ERRORS;

@@ -44,6 +44,11 @@ const EXPECTED: Record<Permission, readonly MemberRole[]> = {
   "banking.write": ["owner", "bookkeeper"],
   "banking.mark": ["owner", "bookkeeper"],
   "cash.write": ["owner", "bookkeeper"],
+  "documents.read": ["owner", "bookkeeper", "viewer", "auditor"],
+  "documents.write": ["owner", "bookkeeper"],
+  "documents.export": ["owner", "bookkeeper", "viewer", "auditor"],
+  "invoices.finalize": ["owner", "bookkeeper"],
+  "invoices.send": ["owner", "bookkeeper"],
 };
 
 describe("permission matrix (02 §4.3)", () => {

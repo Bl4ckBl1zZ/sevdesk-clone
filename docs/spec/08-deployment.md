@@ -384,6 +384,7 @@ dokploy schedule create --name r2-monthly-copy --scheduleType server --serverId 
 | `ENABLE_BANKING_APP_ID` / `ENABLE_BANKING_PRIVATE_KEY_PEM` | UUID / RSA PEM | Enable Banking bank sync (P2, F07) |
 | `APP_ENCRYPTION_KEY` | 32 bytes base64 | Same key as in `web` |
 | `EINVOICE_TOOLS_URL` | `http://einvoice-tools:8080` | Internal URL reachable from the backend container |
+| `CLOCK_REFERENCE_URL` | e.g. `https://www.ptb.de/` | HTTPS URL whose `Date` header is the clock reference for the finalisation guard (F04 DOC-59, EC-027): offset > 60 s blocks finalisation. Unset or unreachable = offset unknown, finalisation not blocked (the integrity page shows the NTP status) |
 | `SECRETS_ROTATED_ON` | `2026-10-12` | Date of the last secret rotation; the security page warns after 365 days (AUD-020) |
 | `IS_TEST` | `1` | **Never in production** |
 

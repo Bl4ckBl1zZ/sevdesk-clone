@@ -47,6 +47,8 @@ export const SYSTEM_JOBS = [
   "cron.invariants.check",
   "cron.products.applyScheduledPrices", // F03 PRD-031, 02 §7 products.applyScheduledPrices
   "cron.api.cleanup", // 05 §3/§7, 06 §2.3: expired idempotency records and confirm tokens, access log > 90 days
+  "cron.deadlines.notify", // 02 §7 deadlines.notify (F04 SND-21 to-dos)
+  "documents.pipeline", // F04 §4.6 step 1 reads and step 3 renderArtifacts (scheduled, retried)
   "auth", // member created by the sign-up trigger, OTP throttle, auth-mail failures
   "migration", // migrations:run — the runner then acts as system:migration.<name> (AUD-028)
 ] as const;

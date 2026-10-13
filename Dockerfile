@@ -21,6 +21,8 @@ WORKDIR /app
 COPY package.json pnpm-lock.yaml pnpm-workspace.yaml .npmrc* ./
 # Workspace members must exist for a frozen install (their manifests only; the sidecar has no dependencies).
 COPY services/einvoice-tools/package.json services/einvoice-tools/package.json
+# pnpm patches (pdfkit: static standard-font imports so the Convex Node bundle contains the AFM data).
+COPY patches ./patches
 RUN --mount=type=cache,id=pnpm-store,target=/pnpm/store \
     pnpm config set store-dir /pnpm/store && \
     pnpm install --frozen-lockfile

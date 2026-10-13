@@ -86,8 +86,14 @@ export async function addVirtualAuthenticator(context: BrowserContext, page: Pag
   });
 }
 
-/** /anmelden → „Code per E-Mail senden“ → six digits from the dev mailbox. */
+/**
+ * /anmelden → „Code per E-Mail senden“ → six digits from the dev mailbox. Every spec file signs the owner in once
+ * per project, which exceeds the per-address OTP throttle (5/hour, E-AUD-27); the IS_TEST-only quota reset keeps the
+ * suite independent of the number of spec files.
+ */
 export async function signInWithCode(page: Page, email: string): Promise<void> {
+  // biome-ignore lint/suspicious/noExplicitAny: internal function via the admin key
+  await admin().mutation(internal.signup.resetOtpQuota as any, { email });
   await page.goto("/anmelden");
   await page.getByLabel("E-Mail-Adresse").fill(email);
   await page.getByRole("button", { name: "Code per E-Mail senden" }).click();

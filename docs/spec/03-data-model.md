@@ -311,6 +311,7 @@ ruleOverrides:   { ruleSet: "basiszinssatz" | "taxRate" | "noteText" | "ustvaMap
   isPublicAuthority: boolean;                // B2G → Leitweg-ID mandatory (ER-20)
   vatId?: string; vatIdStatus?: { lastCheckId: Id<"vatIdChecks">; status: "valid" | "invalid" | "unavailable"; qualified: boolean; checkedAt: number };
   taxNumber?: string;
+  registerNumber?: string;                   // BT-47, e.g. "HRB 4711 B" (F04 INV-29: BR-AE-02 fallback for §13b)
   buyerReference?: string;                   // BT-10 default (Leitweg-ID for B2G)
   electronicAddress?: { scheme: "EM" | "0204" | "9930"; value: string };   // BT-49
   defaultTaxCase?: TaxCase;                  // override of derivation (never "unknown_imported")
@@ -462,6 +463,8 @@ type PaymentStatus = "open" | "partially_paid" | "paid" | "credited" | "written_
   numberRangeId?: Id<"numberRanges">;
   revision?: number;                     // quotes: 1, 2, … (QUO-06); NOT the OCC counter `version`
   contactId: Id<"contacts">;             // as entered; resolve contacts.mergedIntoId for display, never rewritten
+                                         // (optional while a draft has no customer yet; required at finalisation)
+  contactName?: string;                  // display/search cache (name at the last draft save); the snapshot holds the frozen buyer
   billingAddressId?: Id<"contactAddresses">;
   billingAddress?: PostalAddress;        // draft copy of the address last confirmed (CON-023, EC-111); frozen in the snapshot
   deliveryAddress?: PostalAddress;
@@ -471,7 +474,7 @@ type PaymentStatus = "open" | "partially_paid" | "paid" | "credited" | "written_
   dueDate?: string; validUntil?: string; // quotes
   currency: string; fxRateToEur?: FxRate;   // mandatory at finalisation for non-EUR (DOC-15); source bmf_monthly | ecb_daily | manual
   priceMode: "net" | "gross";            // gross: "largest net that fits" per VAT group (App. E.3); deviation in totals.byGroup
-  taxCase: TaxCase; taxCaseOverridden?: { reason: string };
+  taxCase: TaxCase; taxCaseOverridden?: { reason: string; derived?: TaxCase /* the case the derivation proposed */ };
   subject?: string; headText?: string; footText?: string;
   buyerReference?: string;               // BT-10
   orderReference?: string;               // BT-13
@@ -488,7 +491,9 @@ type PaymentStatus = "open" | "partially_paid" | "paid" | "credited" | "written_
                        isSurcharge: boolean; reason?: string };
   language: "de" | "en"; layoutId: Id<"layouts">;
   einvoice: { format: "zugferd_en16931" | "zugferd_xrechnung" | "xrechnung_cii" | "xrechnung_ubl" | "none";
-              decision?: "MUST_E" | "MAY_PAPER_OR_PDF" | "PDF_NEEDS_CONSENT" | "NOT_REQUIRED"; decidedAt?: number };
+              decision?: "MUST_E" | "MAY_PAPER_OR_PDF" | "PDF_NEEDS_CONSENT" | "NOT_REQUIRED"; decidedAt?: number;
+              validation?: "passed" | "skipped" | "not_required" };   // INV-20 preview validation; "skipped" only with IS_TEST and no sidecar
+  overrides?: { vatCheck?: { reason: string }; rc13bCertificate?: { reason: string } };   // released at finalisation with an audited reason (EC-044, CON-071)
   attachments: { file: FileRef; embedInXml: boolean /* BG-24 */; includeInExport: boolean }[];   // DOC-18; ≤ 10; frozen at finalisation
   evidence: { file: FileRef; kind: "gelangensbestaetigung" | "cmr" | "ausfuhrnachweis" | "other";
               note?: string; addedAt: number; actor: Actor }[];   // INV-30 post-finalisation proofs; append-only; not part of the snapshot
@@ -537,7 +542,9 @@ type PaymentStatus = "open" | "partially_paid" | "paid" | "credited" | "written_
   // lifecycle
   snapshotId?: Id<"documentSnapshots">;
   artifactStatus?: "pending" | "ready" | "blocked";
+  artifactAttempts?: number; artifactError?: string;   // render retries (first attempt + 5 retries: 10 s, 1 min, 5 min, 30 min, 2 h), then blocked
   finalizedAt?: number; finalizedBy?: Actor;
+  finalizedFromVersion?: number;         // OCC version finalised from: an identical replay returns the result (F04 §4.6.4)
   backdateReason?: string;
   sentAt?: number; sentOn?: string;      // first "Als versendet markieren": instant + business date (F04 SND; no e-mail sending)
   firstExportedAt?: number;              // derived cache: first export (to-do "exportiert, nicht markiert", F04 SND-21)
@@ -558,7 +565,8 @@ type PaymentStatus = "open" | "partially_paid" | "paid" | "credited" | "written_
   createdBy: Actor; channel: Channel; version: number }
 // indexes: by_type_status_date, by_contact, by_number, by_chainRoot, by_paymentStatus_due, by_correctsId,
 //          by_recurringOccurrence (templateId, date) — unique by convention, enforced in model (REC-05),
-//          by_origin (source, externalId); search index (number, subject, contact name)
+//          by_origin (source, externalId), by_artifactStatus (retry/blocked sweep), by_firstExportedAt (status, firstExportedAt;
+//          SND-21 to-do); search index on contactName (filter type, status; an exact document number is matched via by_number)
 ```
 
 ### `documentLines` 🔒 (frozen with the parent)
@@ -566,6 +574,7 @@ type PaymentStatus = "open" | "partially_paid" | "paid" | "credited" | "written_
 { documentId; position: number;
   kind: "item" | "heading" | "text" | "subtotal";
   productId?: Id<"products">;
+  productType?: "good" | "service";                    // "Art": drives place of supply / igL vs §13b (UST-22, App. C); copied from the product or set on manual lines
   productSyncedVersion?: number;                       // product.version at insertion → "Produkt geändert" (PRD-071)
   sourceLineId?: Id<"documentLines">;                  // line it was converted from (quote/order/delivery note line, F04 §4.3.3)
   name?: string; description?: string;                 // sanitized rich text (bold/italic/lists)
@@ -573,6 +582,7 @@ type PaymentStatus = "open" | "partially_paid" | "paid" | "credited" | "written_
   unitPriceMicros?: number;                            // net or gross per salesDocuments.priceMode
   discount?: { kind: "percent" | "amount"; valueBp?: number; amountCents?: number };
   vatRateKey?: VatRateKey;                             // source key; rate re-resolved while draft (PRD-022)
+  vatCategoryOverride?: VatCategory;                   // explicit per-line category chosen in the editor (else derived from the tax case)
   vatCategory?: VatCategory; vatRateBp?: number; exemptionReasonCode?: string; exemptionReasonText?: string;
   placeOfSupplyRule?: PlaceOfSupplyRule;               // copied from the product (App. C)
   reverseCharge13b?: Rc13bType;                        // copied from the product (App. C)
@@ -597,8 +607,11 @@ documentSnapshots: { documentId; json: string /* canonical JSON of the full EN 1
 documentArtifacts: { documentId?: Id<"salesDocuments">; inboxItemId?: Id<"inboxItems">;   // exactly one; inboxItemId only for supplier correction letters (F06 INB-046)
                      kind: "pdf" | "zugferd_pdf" | "xrechnung_xml" | "validation_report_kosit"
                      | "validation_report_mustang" | "acceptance_pdf" | "timesheet_pdf" | "supplier_correction_letter" | "void_notice";   // no "eml" (no e-mail sending)
-                     variant?: "original" | "copy" | "reading";   // pdf only: archived original / "Kopie" stamp / XRechnung "Lesefassung" (DOC-32, SND-02, MAIL-02); absent = original
+                     variant?: "original" | "copy" | "reading";   // pdf/zugferd_pdf: archived original / "Kopie" stamp / XRechnung "Lesefassung" (DOC-32, SND-02, MAIL-02); absent = original
+                                                                  // the "Kopie" of a hybrid ZUGFeRD PDF is a zugferd_pdf with variant "copy", file name "{number}_Kopie.pdf"
+                                                                  // xrechnung_xml also holds the standalone CII of a ZUGFeRD invoice (byte-identical to the embedded factur-x.xml, INV-21)
                      storageId: Id<"_storage">; sha256: string; bytes: number; mime: string;
+                     name: string;                                // download file name, e.g. "RE-2026-0001.pdf" ("/" in numbers replaced by "-")
                      tool?: { name: string /* incl. "sevdesk-import" */; version: string; config?: string }; createdAt: number;
                      retentionUntil: string }
 sendLog:           { documentId?: Id<"salesDocuments">; voucherId?: Id<"vouchers">; inboxItemId?: Id<"inboxItems">;   // exactly one
@@ -611,7 +624,9 @@ sendLog:           { documentId?: Id<"salesDocuments">; voucherId?: Id<"vouchers
                      artifacts: { artifactId: Id<"documentArtifacts">; sha256: string }[];   // what was handed over = archived artifacts (RI-19)
                      einvoiceHandedOverElectronically?: boolean; // MUST_E evidence (ER-03, MAIL-04)
                      at: number; actor: Actor }
-// indexes: by_document_at, by_voucher, by_inboxItem. Every export additionally writes an audit entry "document.export" (artifact IDs + sha256).
+// indexes: by_document_at, by_voucher, by_inboxItem. Every export additionally writes an audit entry "document.export" (artifact IDs + sha256)
+// — or "document.download_original" for a re-export of the original after the first mark (reason mandatory, SND-05) — under the
+// pseudo-entity table "documentExports" keyed by the document id, so the document's own frozen row is never touched for it.
 ```
 
 ### Recurring, dunning, portal
@@ -1119,7 +1134,9 @@ datevAcceptance: { /* pre-condition for the first real handover to an advisor, n
 notifications: { kind: string; severity: "info" | "warning" | "error" | "critical"; title: string; body?: string;
   link?: string; entity?: { table: string; id: string };
   dedupeKey: string /* kind + entity + day */; count: number; escalatedAt?: number;
-  readAt?: number; createdAt: number }    // NTF-001/006; read ones purged after 90 days
+  readAt?: number; resolvedAt?: number;   // to-dos: closed by the resolving act (F04 SND-21: the sent mark, a Storno, a withdrawal)
+  createdAt: number }    // NTF-001/006; read ones purged after 90 days
+// indexes: by_dedupe, by_open (resolvedAt, createdAt), by_entity (entity.table, entity.id)
 notificationSettings: { email?: { address: string; digest: boolean };   // sent via Cloudflare Email Sending (02 §9)
   ntfy?: { serverUrl: string; topic: string; encryptedToken?: string; sendDetails: boolean; quietHours: { from: string; to: string } };
   channelsByKind: Record<string, { inApp: boolean; email: boolean; ntfy: boolean; digest: boolean }> }   // singleton (NTF-002…005)
@@ -1162,7 +1179,7 @@ importedRecords: { importId; externalType: string; externalId: string; table: st
 
 | Table | Mutable fields after finalisation/lock (frozen otherwise) | How it is corrected |
 |---|---|---|
-| `salesDocuments` | `status` (only along allowed transitions, incl. `superseded`, `withdrawn`), `paymentStatus`, `openAmountCents`, `sentAt`, `sentOn`, `firstExportedAt`, `viewedAt`, `artifactStatus`, `lockedAt`, `tags`, `internalNote`, `deductedInId` (set by the final's finalisation, cleared by its Storno), `coverage` (derived cache), `dunningBlocked`, `disputed`, `zugang`, `overdueNotifiedAt`, `collection`, `evidence` (append-only); set once: `acceptance`, `rejection`, `received`, `cancellation`, `objection`, `datevBelegnummer` | Storno (`cancellation`) / Rechnungskorrektur / Rechnungsberichtigung (`correction`) document |
+| `salesDocuments` | `status` (only along allowed transitions, incl. `superseded`, `withdrawn`), `paymentStatus`, `openAmountCents`, `sentAt`, `sentOn`, `firstExportedAt`, `viewedAt`, `artifactStatus`, `artifactAttempts`, `artifactError` (artifact retry bookkeeping of the pipeline step 3, F04 §4.6.4), `lockedAt`, `tags`, `internalNote`, `deductedInId` (set by the final's finalisation, cleared by its Storno), `coverage` (derived cache), `dunningBlocked`, `disputed`, `zugang`, `overdueNotifiedAt`, `collection`, `evidence` (append-only); set once: `acceptance`, `rejection`, `received`, `cancellation`, `objection`, `datevBelegnummer` | Storno (`cancellation`) / Rechnungskorrektur / Rechnungsberichtigung (`correction`) document |
 | `documentLines` | derived caches `invoicedQtyMilli`, `deliveredQtyMilli` only (not in the snapshot) | via the parent |
 | `documentSnapshots`, `documentArtifacts`, `sendLog` | none (append-only) | new artifact row; a wrong sent mark is corrected by a `retraction` row |
 | `numberRegister` | `status` only `issued → cancelled_by_storno` / `issued → corrected` | n/a |
@@ -1266,20 +1283,6 @@ Conflicts and naming differences resolved while merging the F01–F12 data-model
 
 Still referencing removed shapes (owned by the parallel feature pass, to align): `recurringTemplates.automation.send/mailTemplateId/mailIdentityId` (§4), `sendLog.smtpResponse` and the e-mail send outcome (§4), `companyProfile.portal` (F10 deferred), `bankConnections` (Revolut-only fields → Enable Banking consent fields, F07). — **Resolved** by the owner-decisions update below; `companyProfile.portal` and the portal tables are marked reserved (F10 deferred).
 
-### F07 P1 statement-import slice (2026-10-13)
-
-| Item | Change | Reason / source |
-|---|---|---|
-| `bankStatements` mutability | Guarded (was append-only): `pdf` and `rolledBack` may be set once | The signed PDF often arrives after the CAMT file (EC-BNK-52 to-do „PDF fehlt“); BNK-036 flags rolled-back statements „zurückgenommen“ |
-| `bankStatements.format`, `statementRef`, `continuity` | Added | The archive shows the delivered format and the bank's statement ID; the continuity result (BNK-035) is kept with the statement |
-| `bankImports.fileName`, `counts.conflicts/rejected`, `statementId`, `rowIds` | Added | Import history in the UI; BNK-113 conflicts and unreadable rows are counted; `rowIds` lets the statement view recompute the reconciliation after the duplicate review without re-parsing the file |
-| `bankTransactions.reversal`, `transferPeerId`, `source.line`, index `by_account_status`, `by_import` | Added | RvslInd/RC hint for the BNK-121 link; Geldtransit pair; file line for traceability; account list filters and BNK-036 rollback |
-| `bankTransactionRevisions.importId/line/changedFields` | Added | EC-BNK-15 finding shows which fields differ and where they came from |
-| `possibleDuplicates.reason`, `resolvedTransactionId`, `createdAt` | Added | Review list shows why a row is held back; „Eigener Umsatz“ links the inserted row |
-| `cashTransfers.eigenbelegFile` optional, `shareholder`, `journalEntryIds` append | Changed | Reversal rows have no Eigenbeleg of their own; corporations need the shareholder (ACC-028); the journal entry references the row, so its id is appended after posting |
-| Monthly statement to-do | Derived query (`banking.todos`), no job or table | Nothing to store: the to-do is a function of accounts, statements and today (EC-156, EC-BNK-52); a stored to-do could go stale |
-| IBAN uniqueness | Unique per (IBAN, currency) for statement accounts (`banking.createAccount`) | Revolut pockets share one IBAN across currencies (research 13 §2); `settings.addBankAccount` (EUR invoice accounts) keeps its global check |
-
 ### Owner-decisions update 2026-10-12 (B1–B6: bank, sending, cash, sevdesk import, tax, inbox)
 
 | Item | Change | Reason / source |
@@ -1301,6 +1304,20 @@ Still referencing removed shapes (owned by the parallel feature pass, to align):
 | `taxFilings`, `periods.reason` | `kind` += `euer`; `submittedVia`, `submittedOn`, `sheetHash`, ELSTER cross-check and "abweichend übermittelt" fields; Transferticket mandatory; lock reasons `zm_submitted`, `euer_submitted`; `journalEntries.source.kind` `cash` → `cashTransfer` | B5: the owner files via Mein ELSTER with the app's instructions (F08) |
 | `datevAcceptance` | Not a go-live gate; pre-condition for the first advisor handover | B5 (F09 EXP-016) |
 
+### F07 P1 statement-import slice (2026-10-13)
+
+| Item | Change | Reason / source |
+|---|---|---|
+| `bankStatements` mutability | Guarded (was append-only): `pdf` and `rolledBack` may be set once | The signed PDF often arrives after the CAMT file (EC-BNK-52 to-do „PDF fehlt“); BNK-036 flags rolled-back statements „zurückgenommen“ |
+| `bankStatements.format`, `statementRef`, `continuity` | Added | The archive shows the delivered format and the bank's statement ID; the continuity result (BNK-035) is kept with the statement |
+| `bankImports.fileName`, `counts.conflicts/rejected`, `statementId`, `rowIds` | Added | Import history in the UI; BNK-113 conflicts and unreadable rows are counted; `rowIds` lets the statement view recompute the reconciliation after the duplicate review without re-parsing the file |
+| `bankTransactions.reversal`, `transferPeerId`, `source.line`, index `by_account_status`, `by_import` | Added | RvslInd/RC hint for the BNK-121 link; Geldtransit pair; file line for traceability; account list filters and BNK-036 rollback |
+| `bankTransactionRevisions.importId/line/changedFields` | Added | EC-BNK-15 finding shows which fields differ and where they came from |
+| `possibleDuplicates.reason`, `resolvedTransactionId`, `createdAt` | Added | Review list shows why a row is held back; „Eigener Umsatz“ links the inserted row |
+| `cashTransfers.eigenbelegFile` optional, `shareholder`, `journalEntryIds` append | Changed | Reversal rows have no Eigenbeleg of their own; corporations need the shareholder (ACC-028); the journal entry references the row, so its id is appended after posting |
+| Monthly statement to-do | Derived query (`banking.todos`), no job or table | Nothing to store: the to-do is a function of accounts, statements and today (EC-156, EC-BNK-52); a stored to-do could go stale |
+| IBAN uniqueness | Unique per (IBAN, currency) for statement accounts (`banking.createAccount`) | Revolut pockets share one IBAN across currencies (research 13 §2); `settings.addBankAccount` (EUR invoice accounts) keeps its global check |
+
 ### REST/MCP slice 2026-10-13 (05, 06)
 
 | Item | Change | Reason / source |
@@ -1310,6 +1327,18 @@ Still referencing removed shapes (owned by the parallel feature pass, to align):
 | `idempotencyKeys` | `apiKeyId` = the key's public id; `status: 0` while the request runs (`idempotency_in_progress`); `requestHash` over method, path, query and body | 05 §3 |
 | `apiKeys.lastUsedAt` | Technical field: debounced to once a minute, no audit entry | Avoids an audit row per request (the access log already records every request) |
 | `contacts.updatedAt`, `products.updatedAt` + `by_updatedAt` | Technical sync stamp set on every audited change of the record or its sub-records (addresses, channels, customer prices); not replayed by RI-15 | 05 §3 `updated_since` for website sync |
+
+### P1 invoices core update 2026-10-13 (F04 implementation)
+
+| Item | Change | Reason / source |
+|---|---|---|
+| `salesDocuments` | `contactName` (display/search cache), `contactId` optional while drafting; `einvoice.validation`; `overrides { vatCheck, rc13bCertificate }`; `taxCaseOverridden.derived`; `artifactAttempts`, `artifactError`; `finalizedFromVersion`; indexes `by_artifactStatus`, `by_firstExportedAt`; search index on `contactName` | Live list search without joins; INV-20 result on the record; audited releases (EC-044, CON-071); artifact retry/blocked bookkeeping (§4.6.4 step 3); idempotent finalisation replay; SND-21 to-do sweep |
+| §11 `salesDocuments` row | `artifactAttempts`, `artifactError` added to the mutable whitelist | Retry bookkeeping changes after finalisation; neither is part of the snapshot or the hash |
+| `documentLines` | `productType`, `vatCategoryOverride`; frozen with the parent via the guarded db passing `parentStatus` to the matrix | UST-22 (goods vs services for igL/§13b); explicit line category; lines carry no status of their own |
+| `documentArtifacts` | `name`; `variant` also on `zugferd_pdf` (the hybrid "Kopie"); `xrechnung_xml` also stores the standalone CII of a ZUGFeRD invoice | DOC-32/SND-05 "Kopie" of the hybrid PDF; INV-21 compares it byte-for-byte with the embedded XML |
+| `sendLog` / exports | Export audit entries (`document.export`, `document.download_original`) under the pseudo-entity `documentExports` | The frozen document row is not touched by an export; `firstExportedAt` remains the only whitelisted cache |
+| `notifications` | `resolvedAt`; indexes `by_open`, `by_entity` | To-dos are closed by the resolving act (SND-21) instead of being deleted |
+| `contacts` | `registerNumber` (BT-47) | F04 INV-29: BR-AE-02 needs a buyer identifier for §13b when no VAT ID exists |
 
 **Open items (not resolved here):**
 - F01 Q2: whether `profitMethod` really needs date-effective history. Modelled date-effective (LEGAL-OPEN); confirm with the Steuerberater.

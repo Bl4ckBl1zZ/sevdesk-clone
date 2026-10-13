@@ -15,6 +15,10 @@ import {
   vContactKind,
   vContactRole,
   vContactStatus,
+  vDiscount,
+  vDocumentTotals,
+  vEinvoiceFormat,
+  vEr03Decision,
   vFileRef,
   vFxRate,
   vIntegrityFinding,
@@ -22,12 +26,18 @@ import {
   vJournalLine,
   vJournalSourceKind,
   vMemberRole,
+  vPaymentStatus,
   vPaymentTerms,
   vPostalAddress,
   vPriceMode,
   vQualifiedCode,
+  vSalesDocStatus,
   vSalesDocType,
+  vSendChannel,
+  vSupplyDate,
+  vTaxCase,
   vTimeRounding,
+  vVatCategory,
   vVatCheckStatus,
 } from "./validators";
 
@@ -580,6 +590,8 @@ export default defineSchema({
       }),
     ),
     taxNumber: v.optional(v.string()),
+    /** BT-47 register number, e.g. "HRB 4711 B" (03/F02 delta, F04 INV-29: BR-AE-02 fallback for §13b). */
+    registerNumber: v.optional(v.string()),
     buyerReference: v.optional(v.string()),
     electronicAddress: v.optional(
       v.object({ scheme: v.union(v.literal("EM"), v.literal("0204"), v.literal("9930")), value: v.string() }),
@@ -1060,6 +1072,211 @@ export default defineSchema({
   })
     .index("by_fiscalYear", ["fiscalYear", "number"])
     .index("by_contact", ["contactId"]),
+
+  // 03 §4 salesDocuments 🔒 (F04). P1 invoices core: the fields plain invoices use; quotes/advances/Storno/
+  // corrections/reminders add theirs with their slices (the matrix row in src/domain/audit/immutability.ts already
+  // covers the 03 §11 whitelist). Drafts carry the live contact; finalisation freezes the snapshot (DOC-22/27).
+  salesDocuments: defineTable({
+    type: vSalesDocType,
+    status: vSalesDocStatus,
+    paymentStatus: v.optional(vPaymentStatus),
+    number: v.optional(v.string()),
+    numberRangeId: v.optional(v.id("numberRanges")),
+    contactId: v.optional(v.id("contacts")),
+    /** Display cache for lists/search (contact name at the last draft save; the snapshot holds the frozen buyer). */
+    contactName: v.optional(v.string()),
+    billingAddressId: v.optional(v.id("contactAddresses")),
+    billingAddress: v.optional(vPostalAddress),
+    deliveryAddress: v.optional(vPostalAddress),
+    documentDate: v.optional(v.string()),
+    supplyDate: v.optional(vSupplyDate),
+    supplyDateMode: v.union(v.literal("explicit"), v.literal("document_date")),
+    dueDate: v.optional(v.string()),
+    currency: v.string(),
+    fxRateToEur: v.optional(vFxRate),
+    priceMode: vPriceMode,
+    taxCase: vTaxCase,
+    taxCaseOverridden: v.optional(v.object({ reason: v.string(), derived: v.optional(vTaxCase) })),
+    subject: v.optional(v.string()),
+    headText: v.optional(v.string()),
+    footText: v.optional(v.string()),
+    buyerReference: v.optional(v.string()),
+    orderReference: v.optional(v.string()),
+    contractReference: v.optional(v.string()),
+    paymentTerms: vPaymentTerms,
+    paymentMethodId: v.optional(v.id("paymentMethods")),
+    bankAccountId: v.optional(v.id("bankAccounts")),
+    showEpcQr: v.boolean(),
+    propertyRelated: v.optional(v.boolean()),
+    kleinbetrag: v.optional(v.boolean()),
+    constructionWork: v.optional(v.boolean()),
+    documentDiscount: v.optional(
+      v.object({
+        kind: v.union(v.literal("percent"), v.literal("amount")),
+        valueBp: v.optional(v.number()),
+        amountCents: v.optional(v.number()),
+        isSurcharge: v.boolean(),
+        reason: v.optional(v.string()),
+      }),
+    ),
+    language: v.union(v.literal("de"), v.literal("en")),
+    layoutId: v.optional(v.id("layouts")),
+    einvoice: v.object({
+      /** Chosen format; absent on drafts = the §4.6.3 default. Set at finalisation. */
+      format: v.optional(vEinvoiceFormat),
+      decision: v.optional(vEr03Decision),
+      decidedAt: v.optional(v.number()),
+      /** INV-20 preview validation result (`skipped` only with IS_TEST and no sidecar). */
+      validation: v.optional(v.union(v.literal("passed"), v.literal("skipped"), v.literal("not_required"))),
+    }),
+    /** Overrides released at finalisation with an audited reason (EC-044 VAT-ID check, CON-071 §13b). */
+    overrides: v.optional(
+      v.object({
+        vatCheck: v.optional(v.object({ reason: v.string() })),
+        rc13bCertificate: v.optional(v.object({ reason: v.string() })),
+      }),
+    ),
+    totals: vDocumentTotals,
+    openAmountCents: v.optional(v.number()),
+    zugang: v.optional(
+      v.object({
+        date: v.string(),
+        basis: v.union(vSendChannel, v.literal("manual")),
+        reason: v.optional(v.string()),
+      }),
+    ),
+    snapshotId: v.optional(v.id("documentSnapshots")),
+    artifactStatus: v.optional(v.union(v.literal("pending"), v.literal("ready"), v.literal("blocked"))),
+    artifactAttempts: v.optional(v.number()),
+    artifactError: v.optional(v.string()),
+    finalizedAt: v.optional(v.number()),
+    finalizedBy: v.optional(vActor),
+    /** OCC version the document was finalised from (§4.6.4 idempotent replay). */
+    finalizedFromVersion: v.optional(v.number()),
+    backdateReason: v.optional(v.string()),
+    sentAt: v.optional(v.number()),
+    sentOn: v.optional(v.string()),
+    firstExportedAt: v.optional(v.number()),
+    lockedAt: v.optional(v.number()),
+    retentionClass: v.union(v.literal("vouchers8"), v.literal("letters6")),
+    retentionUntil: v.optional(v.string()),
+    tags: v.array(v.id("tags")),
+    customFields: v.record(v.string(), v.any()),
+    internalNote: v.optional(v.string()),
+    createdBy: vActor,
+    channel: vChannel,
+    version: v.number(),
+  })
+    .index("by_type_status_date", ["type", "status", "documentDate"])
+    .index("by_contact", ["contactId", "type"])
+    .index("by_number", ["number"])
+    .index("by_artifactStatus", ["artifactStatus"])
+    .index("by_firstExportedAt", ["status", "firstExportedAt"])
+    .index("by_paymentStatus_due", ["paymentStatus", "dueDate"])
+    .searchIndex("search", { searchField: "contactName", filterFields: ["type", "status"] }),
+
+  // 03 §4 documentLines 🔒 (frozen with the parent; the guarded db passes the parent status to the matrix).
+  documentLines: defineTable({
+    documentId: v.id("salesDocuments"),
+    position: v.number(),
+    kind: v.union(v.literal("item"), v.literal("heading"), v.literal("text"), v.literal("subtotal")),
+    productId: v.optional(v.id("products")),
+    productType: v.optional(v.union(v.literal("good"), v.literal("service"))),
+    productSyncedVersion: v.optional(v.number()),
+    name: v.optional(v.string()),
+    description: v.optional(v.string()),
+    quantityMilli: v.optional(v.number()),
+    unitCode: v.optional(v.string()),
+    unitPriceMicros: v.optional(v.number()),
+    discount: v.optional(vDiscount),
+    vatRateKey: v.optional(v.string()),
+    vatCategoryOverride: v.optional(vVatCategory),
+    vatCategory: v.optional(vVatCategory),
+    vatRateBp: v.optional(v.number()),
+    exemptionReasonCode: v.optional(v.string()),
+    exemptionReasonText: v.optional(v.string()),
+    placeOfSupplyRule: v.optional(v.string()),
+    reverseCharge13b: v.optional(v.string()),
+    linePeriod: v.optional(v.object({ from: v.string(), to: v.string() })),
+    lineNetCents: v.optional(v.number()),
+    isLaborCost: v.optional(v.boolean()),
+    revenueAccount: v.optional(v.string()),
+    itemNumber: v.optional(v.string()),
+    invoicedQtyMilli: v.optional(v.number()),
+    deliveredQtyMilli: v.optional(v.number()),
+  })
+    .index("by_document", ["documentId", "position"])
+    .index("by_product", ["productId"]),
+
+  // 03 §4 documentSnapshots 🔒 (append-only, DOC-27, RI-01)
+  documentSnapshots: defineTable({
+    documentId: v.id("salesDocuments"),
+    json: v.string(),
+    snapshotHash: v.string(),
+    ruleVersions: v.record(v.string(), v.string()),
+    layoutVersionId: v.string(),
+    createdAt: v.number(),
+  }).index("by_document", ["documentId"]),
+
+  // 03 §4 documentArtifacts 🔒 (append-only, DOC-28/32, SND-02). `variant` also marks the "Kopie" of a hybrid PDF.
+  documentArtifacts: defineTable({
+    documentId: v.optional(v.id("salesDocuments")),
+    kind: v.union(
+      v.literal("pdf"),
+      v.literal("zugferd_pdf"),
+      v.literal("xrechnung_xml"),
+      v.literal("validation_report_kosit"),
+      v.literal("validation_report_mustang"),
+    ),
+    variant: v.optional(v.union(v.literal("original"), v.literal("copy"), v.literal("reading"))),
+    storageId: v.id("_storage"),
+    sha256: v.string(),
+    bytes: v.number(),
+    mime: v.string(),
+    name: v.string(),
+    tool: v.optional(v.object({ name: v.string(), version: v.string(), config: v.optional(v.string()) })),
+    createdAt: v.number(),
+    retentionUntil: v.string(),
+  }).index("by_document", ["documentId", "kind"]),
+
+  // 03 §4 sendLog 🔒 (append-only dispatch record, SND-07/18/22; the app never sends)
+  sendLog: defineTable({
+    documentId: v.optional(v.id("salesDocuments")),
+    purpose: v.union(
+      v.literal("document"),
+      v.literal("reminder_void_notice"),
+      v.literal("supplier_correction_request"),
+    ),
+    kind: v.union(v.literal("mark_sent"), v.literal("retraction")),
+    retractsId: v.optional(v.id("sendLog")),
+    sentOn: v.string(),
+    channel: vSendChannel,
+    note: v.optional(v.string()),
+    artifacts: v.array(v.object({ artifactId: v.id("documentArtifacts"), sha256: v.string() })),
+    einvoiceHandedOverElectronically: v.optional(v.boolean()),
+    at: v.number(),
+    actor: vActor,
+  }).index("by_document_at", ["documentId", "at"]),
+
+  // 03 §10 notifications (in-app to-dos; unprotected, audited). `resolvedAt` (03 delta): closed by the resolving
+  // act (SND-21: the sent mark, a Storno or a withdrawal) — open to-dos have no `resolvedAt`.
+  notifications: defineTable({
+    kind: v.string(),
+    severity: v.union(v.literal("info"), v.literal("warning"), v.literal("error"), v.literal("critical")),
+    title: v.string(),
+    body: v.optional(v.string()),
+    link: v.optional(v.string()),
+    entity: v.optional(v.object({ table: v.string(), id: v.string() })),
+    dedupeKey: v.string(),
+    count: v.number(),
+    escalatedAt: v.optional(v.number()),
+    readAt: v.optional(v.number()),
+    resolvedAt: v.optional(v.number()),
+    createdAt: v.number(),
+  })
+    .index("by_dedupe", ["dedupeKey"])
+    .index("by_open", ["resolvedAt", "createdAt"])
+    .index("by_entity", ["entity.table", "entity.id"]),
 
   // Dev/test only (not in 03): the in-memory auth-mail transport (AUTH_MAIL_SENDER=memory) stores mails here so
   // integration and E2E tests can read sign-in codes (07 §3.2). Never written with the Cloudflare transport.

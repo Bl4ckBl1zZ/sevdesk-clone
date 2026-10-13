@@ -1,11 +1,22 @@
 import { checkCash, checkJournal } from "../../src/domain/accounting/invariants";
 import { chartAt } from "../../src/domain/accounting/period";
 import { canonicalize } from "../../src/domain/audit/canonical";
-import { genesisHash, verifyChainPage } from "../../src/domain/audit/chain";
+import { genesisHash, sha256Hex, verifyChainPage } from "../../src/domain/audit/chain";
 import { isEncryptedValue } from "../../src/domain/audit/personal";
 import { REDACTED } from "../../src/domain/audit/redact";
 import { TECHNICAL_TABLES, technicalFields } from "../../src/domain/audit/technical";
+import {
+  type ArtifactInvariantRow,
+  checkDocumentNumbers,
+  checkFinalisedDocument,
+  checkSentMarks,
+  checkTotals,
+  type DocumentInvariantRow,
+} from "../../src/domain/documents/invariants";
+import { type LayoutDocType, SALES_DOC_TYPES } from "../../src/domain/documents/layout";
+import type { DocumentSnapshot } from "../../src/domain/documents/snapshot";
 import { ROLE_MAPPING_ROWS, seededAccount } from "../../src/domain/rules/accounting";
+import { berlinCalendarDate } from "../../src/domain/time/berlin";
 import { isCalendarDate } from "../../src/domain/time/calendar-date";
 import type { Doc, TableNames } from "../_generated/dataModel";
 import { instanceName } from "../lib/env";
@@ -140,6 +151,108 @@ export async function checkInvariants(ctx: ReadCtx): Promise<InvariantViolation[
     }
   }
   out.push(...(await checkJournalInvariants(ctx)));
+  out.push(...(await checkDocumentInvariants(ctx)));
+  return out;
+}
+
+const hexToBase64 = (hex: string): string => {
+  let s = "";
+  for (let i = 0; i < hex.length; i += 2) s += String.fromCharCode(Number.parseInt(hex.slice(i, i + 2), 16));
+  return btoa(s);
+};
+
+/** RI-01, RI-02, RI-05 and RI-19 (F04 sales documents); the pure checks live in src/domain/documents/invariants.ts. */
+export async function checkDocumentInvariants(ctx: ReadCtx): Promise<InvariantViolation[]> {
+  const docs = await ctx.db.query("salesDocuments").collect();
+  const register = await ctx.db.query("numberRegister").collect();
+  if (docs.length === 0) return [];
+  const out: InvariantViolation[] = [];
+  const rows = [];
+  for (const d of docs) {
+    const artifacts: ArtifactInvariantRow[] = [];
+    for (const a of await ctx.db
+      .query("documentArtifacts")
+      .withIndex("by_document", (q) => q.eq("documentId", d._id))
+      .collect()) {
+      const file = await ctx.db.system.get(a.storageId);
+      artifacts.push({
+        id: String(a._id),
+        sha256: a.sha256,
+        storedSha256: file ? (file.sha256 === hexToBase64(a.sha256) ? a.sha256 : file.sha256) : null,
+      });
+    }
+    const snap = d.snapshotId ? await ctx.db.get(d.snapshotId) : null;
+    let parsed: DocumentSnapshot | null = null;
+    if (snap) parsed = JSON.parse(snap.json) as DocumentSnapshot;
+    const row: DocumentInvariantRow = {
+      id: String(d._id),
+      type: d.type,
+      status: d.status,
+      ...(d.number ? { number: d.number } : {}),
+      ...(d.documentDate ? { documentDate: d.documentDate } : {}),
+      hasSupplyDate: d.supplyDate !== undefined,
+      ...(d.retentionUntil ? { retentionUntil: d.retentionUntil } : {}),
+      ...(d.artifactStatus ? { artifactStatus: d.artifactStatus } : {}),
+      ...(d.status === "draft"
+        ? {}
+        : {
+            snapshot: snap
+              ? {
+                  present: true,
+                  hashMatches: (await sha256Hex(snap.json)) === snap.snapshotHash,
+                  ...(parsed ? { number: parsed.number } : {}),
+                }
+              : { present: false, hashMatches: false },
+          }),
+      artifacts,
+    };
+    rows.push(row);
+    out.push(...checkFinalisedDocument(row));
+    if (parsed) {
+      const nets = parsed.lines.flatMap((l) => (l.kind === "item" && !l.optional ? [l.netCents] : []));
+      out.push(...checkTotals(row.number ?? row.id, nets, parsed.totals));
+    }
+    const marks = await ctx.db
+      .query("sendLog")
+      .withIndex("by_document_at", (q) => q.eq("documentId", d._id))
+      .collect();
+    out.push(
+      ...checkSentMarks(
+        {
+          id: row.id,
+          status: d.status,
+          ...(d.number ? { number: d.number } : {}),
+          ...(d.finalizedAt ? { finalizedOn: berlinCalendarDate(d.finalizedAt) } : {}),
+        },
+        marks.map((m) => ({
+          id: String(m._id),
+          kind: m.kind,
+          ...(m.retractsId ? { retractsId: String(m.retractsId) } : {}),
+          sentOn: m.sentOn,
+          recordedOn: berlinCalendarDate(m.at),
+          at: m.at,
+          artifacts: m.artifacts.map((a) => ({ artifactId: String(a.artifactId), sha256: a.sha256 })),
+        })),
+        artifacts,
+      ),
+    );
+  }
+  const docIds = new Set(rows.map((r) => r.id));
+  out.push(
+    ...checkDocumentNumbers(
+      rows,
+      register
+        .filter(
+          (r) => SALES_DOC_TYPES.includes(r.docType as LayoutDocType) || (r.documentId && docIds.has(r.documentId)),
+        )
+        .map((r) => ({
+          number: r.number,
+          normalized: r.normalized,
+          ...(r.documentId ? { documentId: r.documentId } : {}),
+          ...(r.imported ? { imported: true } : {}),
+        })),
+    ),
+  );
   return out;
 }
 

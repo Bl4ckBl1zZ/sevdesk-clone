@@ -53,8 +53,14 @@ export function guardedDb(db: DatabaseWriter, stats: WriteStats): DatabaseWriter
 
   const guard = async (table: string | undefined, id: AnyId, change: WriteChange) => {
     if (table === undefined || !PROTECTED_TABLES.includes(table)) return;
-    const before = await raw.get(table, id);
-    if (!before) return; // the underlying call reports the missing document
+    const stored = await raw.get(table, id);
+    if (!stored) return; // the underlying call reports the missing document
+    // documentLines are frozen with their parent (03 §11): the matrix sees the parent's status.
+    let before = stored;
+    if (table === "documentLines" && typeof stored.documentId === "string") {
+      const parent = await raw.get("salesDocuments", stored.documentId as AnyId);
+      before = { ...stored, parentStatus: parent?.status ?? "draft" };
+    }
     try {
       assertMutable(table, before, change);
     } catch (e) {

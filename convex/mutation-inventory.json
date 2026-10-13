@@ -565,6 +565,18 @@
     "wrapper": "mutation",
     "permission": "contacts.write"
   },
+  "documentArtifacts:exportFiles": {
+    "kind": "action",
+    "visibility": "public",
+    "wrapper": "action",
+    "permission": "documents.export"
+  },
+  "documentArtifacts:render": {
+    "kind": "action",
+    "visibility": "internal",
+    "wrapper": "systemAction",
+    "job": "documents.pipeline"
+  },
   "idempotency:begin": {
     "kind": "mutation",
     "visibility": "public",
@@ -702,6 +714,144 @@
     "visibility": "public",
     "wrapper": "mutation",
     "permission": "invites.manage"
+  },
+  "invoices:artifactFailure": {
+    "kind": "mutation",
+    "visibility": "internal",
+    "wrapper": "systemMutation",
+    "job": "documents.pipeline"
+  },
+  "invoices:artifactsWatchdog": {
+    "kind": "mutation",
+    "visibility": "internal",
+    "wrapper": "systemMutation",
+    "job": "documents.pipeline"
+  },
+  "invoices:check": {
+    "kind": "query",
+    "visibility": "public",
+    "wrapper": "query",
+    "permission": "documents.read"
+  },
+  "invoices:commit": {
+    "kind": "mutation",
+    "visibility": "internal",
+    "wrapper": "actorMutation",
+    "permission": "invoices.finalize"
+  },
+  "invoices:createDraft": {
+    "kind": "mutation",
+    "visibility": "public",
+    "wrapper": "mutation",
+    "permission": "documents.write"
+  },
+  "invoices:deleteDraft": {
+    "kind": "mutation",
+    "visibility": "public",
+    "wrapper": "mutation",
+    "permission": "documents.write"
+  },
+  "invoices:draftDefaults": {
+    "kind": "query",
+    "visibility": "public",
+    "wrapper": "query",
+    "permission": "documents.read"
+  },
+  "invoices:exportInput": {
+    "kind": "query",
+    "visibility": "internal",
+    "wrapper": "systemQuery",
+    "job": "documents.pipeline"
+  },
+  "invoices:finalize": {
+    "kind": "action",
+    "visibility": "public",
+    "wrapper": "action",
+    "permission": "invoices.finalize"
+  },
+  "invoices:get": {
+    "kind": "query",
+    "visibility": "public",
+    "wrapper": "query",
+    "permission": "documents.read"
+  },
+  "invoices:list": {
+    "kind": "query",
+    "visibility": "public",
+    "wrapper": "query",
+    "permission": "documents.read"
+  },
+  "invoices:markSent": {
+    "kind": "mutation",
+    "visibility": "public",
+    "wrapper": "mutation",
+    "permission": "invoices.send"
+  },
+  "invoices:notifyDeadlinesCron": {
+    "kind": "mutation",
+    "visibility": "internal",
+    "wrapper": "systemMutation",
+    "job": "cron.deadlines.notify"
+  },
+  "invoices:pipelinePreview": {
+    "kind": "query",
+    "visibility": "internal",
+    "wrapper": "systemQuery",
+    "job": "documents.pipeline"
+  },
+  "invoices:productLine": {
+    "kind": "query",
+    "visibility": "public",
+    "wrapper": "query",
+    "permission": "documents.read"
+  },
+  "invoices:recordExportEntry": {
+    "kind": "mutation",
+    "visibility": "internal",
+    "wrapper": "actorMutation",
+    "permission": "documents.export"
+  },
+  "invoices:renderInput": {
+    "kind": "query",
+    "visibility": "internal",
+    "wrapper": "systemQuery",
+    "job": "documents.pipeline"
+  },
+  "invoices:retractMark": {
+    "kind": "mutation",
+    "visibility": "public",
+    "wrapper": "mutation",
+    "permission": "invoices.send"
+  },
+  "invoices:retryArtifacts": {
+    "kind": "mutation",
+    "visibility": "public",
+    "wrapper": "mutation",
+    "permission": "invoices.finalize"
+  },
+  "invoices:storeArtifacts": {
+    "kind": "mutation",
+    "visibility": "internal",
+    "wrapper": "systemMutation",
+    "job": "documents.pipeline"
+  },
+  "invoices:storeVariant": {
+    "kind": "mutation",
+    "visibility": "internal",
+    "wrapper": "actorMutation",
+    "permission": "documents.export"
+  },
+  "invoices:todos": {
+    "kind": "query",
+    "visibility": "public",
+    "wrapper": "query",
+    "permission": "documents.read"
+  },
+  "invoices:updateDraft": {
+    "kind": "mutation",
+    "visibility": "public",
+    "wrapper": "mutation",
+    "permission": "documents.write"
   },
   "lookups:archiveCostCenter": {
     "kind": "mutation",

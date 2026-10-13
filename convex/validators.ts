@@ -162,3 +162,94 @@ export const vContactStatus = v.union(v.literal("lead"), v.literal("active"), v.
 export const vVatCheckStatus = v.union(v.literal("valid"), v.literal("invalid"), v.literal("unavailable"));
 export const vQualifiedCode = v.union(v.literal("A"), v.literal("B"), v.literal("C"), v.literal("D"));
 export const vPriceMode = v.union(v.literal("net"), v.literal("gross"));
+
+// ── F04 sales documents (03 §0.2, §4) ─────────────────────────────────────────────────────────────────
+export const vSupplyDate = v.union(
+  v.object({ kind: v.literal("date"), date: v.string() }),
+  v.object({ kind: v.literal("period"), from: v.string(), to: v.string() }),
+  v.object({ kind: v.literal("month"), month: v.string() }),
+);
+export const vVatCategory = v.union(
+  v.literal("S"),
+  v.literal("Z"),
+  v.literal("E"),
+  v.literal("AE"),
+  v.literal("K"),
+  v.literal("G"),
+  v.literal("O"),
+  v.literal("KU"),
+);
+export const vTaxCase = v.union(
+  v.literal("domestic"),
+  v.literal("kleinunternehmer"),
+  v.literal("eu_b2b_service"),
+  v.literal("intra_community_supply"),
+  v.literal("export"),
+  v.literal("not_taxable_domestic"),
+  v.literal("reverse_charge_13b"),
+  v.literal("exempt_4"),
+  v.literal("unknown_imported"),
+);
+export const vEinvoiceFormat = v.union(
+  v.literal("zugferd_en16931"),
+  v.literal("zugferd_xrechnung"),
+  v.literal("xrechnung_cii"),
+  v.literal("xrechnung_ubl"),
+  v.literal("none"),
+);
+export const vEr03Decision = v.union(
+  v.literal("MUST_E"),
+  v.literal("PDF_NEEDS_CONSENT"),
+  v.literal("MAY_PAPER_OR_PDF"),
+  v.literal("NOT_REQUIRED"),
+);
+export const vSalesDocStatus = v.union(
+  v.literal("draft"),
+  v.literal("finalized"),
+  v.literal("sent"),
+  v.literal("cancelled"),
+  v.literal("accepted"),
+  v.literal("rejected"),
+  v.literal("expired"),
+  v.literal("superseded"),
+  v.literal("partially_invoiced"),
+  v.literal("invoiced"),
+  v.literal("withdrawn"),
+);
+export const vPaymentStatus = v.union(
+  v.literal("open"),
+  v.literal("partially_paid"),
+  v.literal("paid"),
+  v.literal("credited"),
+  v.literal("written_off"),
+);
+export const vSendChannel = v.union(
+  v.literal("email_manual"),
+  v.literal("post"),
+  v.literal("hand"),
+  v.literal("upload_portal"),
+  v.literal("other"),
+);
+export const vDiscount = v.object({
+  kind: v.union(v.literal("percent"), v.literal("amount")),
+  valueBp: v.optional(v.number()),
+  amountCents: v.optional(v.number()),
+});
+export const vVatGroupTotals = v.object({
+  category: vVatCategory,
+  rateBp: v.number(),
+  netCents: v.number(),
+  vatCents: v.number(),
+  enteredGrossCents: v.optional(v.number()),
+  grossDeviationCents: v.optional(v.number()),
+});
+export const vDocumentTotals = v.object({
+  netCents: v.number(),
+  vatCents: v.number(),
+  grossCents: v.number(),
+  advancesDeductedGrossCents: v.number(),
+  payableCents: v.number(),
+  byGroup: v.array(vVatGroupTotals),
+  vatEurCents: v.optional(v.number()),
+  laborNetCents: v.optional(v.number()),
+});

@@ -229,5 +229,7 @@ export function useUrlState() {
   return { get, hrefWith, set: (patch: Record<string, string>) => router.replace(hrefWith(patch), { scroll: false }) };
 }
 
+// `max-w-full min-w-0`: a native select is as wide as its longest option (e.g. the § 13b types) unless capped, and
+// would widen the phone layout viewport.
 export const selectClass =
-  "h-11 rounded-md border border-input bg-background px-2.5 text-base shadow-xs outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 md:h-9 md:text-sm dark:bg-input/30";
+  "h-11 min-w-0 max-w-full rounded-md border border-input bg-background px-2.5 text-base shadow-xs outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 md:h-9 md:text-sm dark:bg-input/30";

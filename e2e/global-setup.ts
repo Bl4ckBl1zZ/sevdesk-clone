@@ -21,6 +21,8 @@ export const WARM_UP_ROUTES = [
   "/",
   "/rechnungen",
   "/rechnungen/neu",
+  "/rechnungen/e2e-warm-up",
+  "/einstellungen/bank",
   "/angebote/neu",
   "/kontakte",
   "/kontakte/neu",
