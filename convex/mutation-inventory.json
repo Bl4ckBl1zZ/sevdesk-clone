@@ -1513,6 +1513,12 @@
     "wrapper": "query",
     "permission": "members.read"
   },
+  "testFixtures:recordPayment": {
+    "kind": "mutation",
+    "visibility": "internal",
+    "wrapper": "systemMutation",
+    "job": "test"
+  },
   "vatIdChecks:check": {
     "kind": "action",
     "visibility": "public",

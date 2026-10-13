@@ -90,6 +90,7 @@ import type * as settings from "../settings.js";
 import type * as settingsApi from "../settingsApi.js";
 import type * as signup from "../signup.js";
 import type * as system from "../system.js";
+import type * as testFixtures from "../testFixtures.js";
 import type * as validators from "../validators.js";
 import type * as vatIdChecks from "../vatIdChecks.js";
 
@@ -182,6 +183,7 @@ declare const fullApi: ApiFromModules<{
   settingsApi: typeof settingsApi;
   signup: typeof signup;
   system: typeof system;
+  testFixtures: typeof testFixtures;
   validators: typeof validators;
   vatIdChecks: typeof vatIdChecks;
 }>;

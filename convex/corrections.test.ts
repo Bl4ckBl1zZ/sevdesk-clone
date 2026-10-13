@@ -2,12 +2,12 @@ import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
 import type { DocumentSnapshot } from "../src/domain/documents/snapshot";
 import type { DraftValues } from "../src/domain/schemas/documents";
 import type { CalendarDate } from "../src/domain/time/calendar-date";
-import { api } from "./_generated/api";
+import { api, internal } from "./_generated/api";
 import type { Doc, Id } from "./_generated/dataModel";
 import { orgForm } from "./catalog.fixtures";
 import { finalizedInvoice, INVOICE_RANGE, invoiceValues, settle } from "./invoices.fixtures";
 import { errorCode } from "./lib/errors";
-import { auditedPatch } from "./model/audit";
+import { recordStandInPayment } from "./model/settlement";
 import { makeT, type TestT } from "./test.setup";
 
 const NOW = new Date("2026-10-12T10:00:00Z");
@@ -47,17 +47,7 @@ const dataOf = (e: unknown) => (e as { data?: Record<string, unknown> }).data ??
 
 /** Stand-in for the payments slice: an allocation sets open amount and payment status (03 §4, F05 §4.3). */
 async function receive(t: TestT, owner: Owner, id: Id<"salesDocuments">, cents: number) {
-  const d = await doc(t, id);
-  const open = (d.openAmountCents ?? d.totals.payableCents) - cents;
-  await t.model({ actor: owner.actor, role: "owner", channel: "ui" }, (ctx) =>
-    auditedPatch(
-      ctx,
-      "salesDocuments",
-      id,
-      { openAmountCents: open, paymentStatus: open === 0 ? "paid" : "partially_paid" },
-      { action: "payment.record" },
-    ),
-  );
+  await t.model({ actor: owner.actor, role: "owner", channel: "ui" }, (ctx) => recordStandInPayment(ctx, id, cents));
 }
 
 async function withCorrectionRange(owner: Owner) {
@@ -480,5 +470,25 @@ describe("A.2 INV-09 artifacts carry the TypeCode and the references", { timeout
     const stornoXml = await xmlOf(t, s2.id);
     expect(typeCode(stornoXml)).toBe("381");
     expect(stornoXml).toContain(`<ram:IssuerAssignedID>${number}</ram:IssuerAssignedID>`);
+  });
+});
+
+describe("E2E payment stand-in (IS_TEST only)", { timeout: 30_000 }, () => {
+  test("INV-11 testFixtures.recordPayment moves the open amount only on a test deployment", async () => {
+    const t = makeT();
+    const { number, id } = await finalizedInvoice(t);
+    process.env.IS_TEST = "";
+    try {
+      expect(await t.mutation(internal.testFixtures.recordPayment, { number, amountCents: 100 })).toBeNull();
+    } finally {
+      process.env.IS_TEST = "true";
+    }
+    expect((await doc(t, id)).paymentStatus).not.toBe("partially_paid");
+    expect(await t.mutation(internal.testFixtures.recordPayment, { number, amountCents: 19_000 })).toEqual({
+      openCents: 100_000,
+      receivedCents: 19_000,
+    });
+    expect((await doc(t, id)).paymentStatus).toBe("partially_paid");
+    await settle(t);
   });
 });

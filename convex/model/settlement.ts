@@ -1,5 +1,6 @@
-import type { Doc } from "../_generated/dataModel";
-import type { ReadCtx } from "./types";
+import type { Doc, Id } from "../_generated/dataModel";
+import { auditedPatch } from "./audit";
+import type { ModelCtx, ReadCtx } from "./types";
 
 /**
  * Payment state of an invoice-family document or a credit correction as the Storno, correction and final-invoice
@@ -69,4 +70,26 @@ export async function settlementOf(ctx: ReadCtx, doc: SalesDoc): Promise<Settlem
     receivedCents: received,
     hasPayments: received > 0,
   };
+}
+
+/**
+ * Stand-in for the payments slice (F05) in tests and E2E only: records `amountCents` as received on an invoice by
+ * moving `openAmountCents`/`paymentStatus` (the fields this module reads). Callers guard with IS_TEST.
+ */
+export async function recordStandInPayment(
+  ctx: ModelCtx,
+  id: Id<"salesDocuments">,
+  amountCents: number,
+): Promise<Settlement> {
+  const doc = await ctx.db.get(id);
+  if (!doc || doc.status === "draft" || doc.status === "cancelled") throw new Error("stand_in_payment_target");
+  const open = Math.max(0, (doc.openAmountCents ?? doc.totals.payableCents) - amountCents);
+  await auditedPatch(
+    ctx,
+    "salesDocuments",
+    id,
+    { openAmountCents: open, paymentStatus: open === 0 ? "paid" : "partially_paid" },
+    { action: "payment.record" },
+  );
+  return settlementOf(ctx, (await ctx.db.get(id)) as SalesDoc);
 }

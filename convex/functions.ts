@@ -50,6 +50,7 @@ export const SYSTEM_JOBS = [
   "cron.deadlines.notify", // 02 §7 deadlines.notify (F04 SND-21 to-dos)
   "documents.pipeline", // F04 §4.6 step 1 reads and step 3 renderArtifacts (scheduled, retried)
   "auth", // member created by the sign-up trigger, OTP throttle, auth-mail failures
+  "test", // IS_TEST-only fixtures for the E2E journeys (convex/testFixtures.ts); refuse to run otherwise
   "migration", // migrations:run — the runner then acts as system:migration.<name> (AUD-028)
 ] as const;
 export type SystemJob = (typeof SYSTEM_JOBS)[number];
