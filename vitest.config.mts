@@ -85,6 +85,8 @@ export default defineConfig({
           setupFiles: ["./test/load-test-env.ts", "./test/setup-invariants.ts"],
           fileParallelism: false,
           testTimeout: 60_000,
+          // The REST/MCP pipelines import "server-only" (see the server project).
+          alias: { "server-only": fileURLToPath(new URL("./node_modules/server-only/empty.js", import.meta.url)) },
         },
       },
     ],
