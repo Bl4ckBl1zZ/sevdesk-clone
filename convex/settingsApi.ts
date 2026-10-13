@@ -1,4 +1,5 @@
 import { v } from "convex/values";
+import { taxationMethodAt } from "../src/domain/accounting/period";
 import { resolveRate } from "../src/domain/products/pricing";
 import { VAT_RATE_KEY_LABELS, VAT_RATE_KEYS } from "../src/domain/rules/vat-rates";
 import { berlinCalendarDate } from "../src/domain/time/berlin";
@@ -6,6 +7,8 @@ import { isCalendarDate } from "../src/domain/time/calendar-date";
 import { query } from "./functions";
 import { appError } from "./lib/errors";
 import { getCompanyProfile } from "./model/companyProfile";
+import { companyContext } from "./model/contacts";
+import { setupChecklist } from "./model/setup";
 
 /**
  * Settings reads for REST and MCP (05 §4.8, F01 §7.1). Writes stay UI-only in this slice; tax status, server
@@ -82,5 +85,47 @@ export const taxRates = query({
         },
       ];
     });
+  },
+});
+
+/**
+ * MCP `workspace_overview` (06 §3.1): the best first call. Receivables, drafts and tax deadlines arrive with
+ * F04/F05/F08; until then the overview reports the company, its tax status, the master-data counts and setup gaps.
+ */
+export const workspaceOverview = query({
+  permission: "workspace.overview",
+  args: {},
+  handler: async (ctx) => {
+    const p = await getCompanyProfile(ctx);
+    const cc = await companyContext(ctx, ctx.now());
+    const { blocking, warnings } = await setupChecklist(ctx, ctx.now());
+    const contacts = await ctx.db
+      .query("contacts")
+      .withIndex("by_status_name", (q) => q.eq("status", "active"))
+      .collect();
+    const products = await ctx.db
+      .query("products")
+      .withIndex("by_active_name", (q) => q.eq("active", true))
+      .collect();
+    return {
+      today: cc.today,
+      company: p
+        ? {
+            name: p.name,
+            legalForm: p.legalForm,
+            kleinunternehmer: cc.kleinunternehmer,
+            taxationMethod: p.taxationMethod.length > 0 ? taxationMethodAt(p.taxationMethod, cc.today) : null,
+            setupCompleted: p.setupCompletedAt !== undefined,
+          }
+        : null,
+      counts: {
+        activeContacts: contacts.filter((c) => !c.mergedIntoId && c.dsgvo?.restrictedAt === undefined).length,
+        activeProducts: products.length,
+      },
+      setup: {
+        blocking: blocking.map((b) => ({ code: b.code, message: b.message })),
+        warnings: warnings.map((w) => ({ code: w.code, message: w.message })),
+      },
+    };
   },
 });

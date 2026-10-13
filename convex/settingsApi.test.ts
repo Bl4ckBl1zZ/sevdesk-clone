@@ -55,4 +55,17 @@ describe("settings reads via REST/MCP (05 §4.8, F01 §7.1)", () => {
     expect(rates.find((r) => r.key === "reduced")).toMatchObject({ rateBp: 700 });
     expect(await codeOf(reader.query(api.settingsApi.taxRates, { date: "12.10.2026" }))).toBe("invalid_input");
   });
+
+  test("MCP-007 workspace_overview reports the company, tax status, counts and setup gaps for any read key", async () => {
+    const t = makeT();
+    const owner = await t.asUser("owner");
+    await owner.mutation(api.settings.saveCompanyProfile, { values: COMPANY });
+    const key = await t.asMcp(["contacts:read"]);
+    const o = await key.query(api.settingsApi.workspaceOverview, {});
+    expect(o.company).toMatchObject({ name: "Muster GmbH", legalForm: "gmbh", kleinunternehmer: false });
+    expect(o.counts).toEqual({ activeContacts: 0, activeProducts: 0 });
+    expect(o.setup.blocking.length).toBeGreaterThan(0);
+    const writer = await t.asMcp(["contacts:write"]);
+    expect(await codeOf(writer.query(api.settingsApi.workspaceOverview, {}))).toBe("forbidden_scope");
+  });
 });

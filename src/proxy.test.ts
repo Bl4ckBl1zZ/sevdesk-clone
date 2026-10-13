@@ -52,6 +52,30 @@ describe("proxy: api. path allowlist (02 §4.1)", () => {
     expect(handleProxy(req(`https://api.example.de${path}`), CONFIG).status).toBe(404);
   });
 
+  test.each(["/api/mcp", "/api/docs", "/api/openapi.json", "/api/health", "/"])(
+    "API-020 the website port 8443 serves only /api/v1/** (refuses %s)",
+    (path) => {
+      expect(handleProxy(req(`https://api.example.de:8443${path}`), CONFIG).status).toBe(404);
+    },
+  );
+
+  test.each(["/api/docs", "/api/openapi.json", "/api/mcp", "/api/v1/contacts"])(
+    "API-020 app. never serves the API path %s",
+    (path) => {
+      expect(handleProxy(req(`https://app.example.de${path}`, { cookie: SESSION }), CONFIG).status).toBe(404);
+    },
+  );
+
+  test("API-014 the Scalar docs page on api. may load its bundle from jsdelivr; other api. paths stay default-src 'none'", () => {
+    const docs = handleProxy(req("https://api.example.de/api/docs"), CONFIG).headers.get("content-security-policy");
+    expect(docs).toContain("https://cdn.jsdelivr.net");
+    expect(docs).toContain("frame-ancestors 'none'");
+    const api = handleProxy(req("https://api.example.de/api/v1/contacts"), CONFIG).headers.get(
+      "content-security-policy",
+    );
+    expect(api).toBe("default-src 'none'; frame-ancestors 'none'");
+  });
+
   test("SEC-06 cookies are not forwarded on api. (API keys only)", () => {
     const res = handleProxy(req("https://api.example.de/api/v1/invoices", { cookie: SESSION }), CONFIG);
     const forwarded = (res.headers.get("x-middleware-override-headers") ?? "").split(",");

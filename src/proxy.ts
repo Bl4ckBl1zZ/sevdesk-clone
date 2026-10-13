@@ -36,7 +36,22 @@ const APP_PUBLIC = [
   /^\/icons\/[^/]+$/,
 ];
 /** Paths of the api. host that must never be served on app. */
-const APP_FORBIDDEN = [/^\/api\/v1(\/.*)?$/, /^\/api\/mcp$/];
+const APP_FORBIDDEN = [/^\/api\/v1(\/.*)?$/, /^\/api\/mcp$/, /^\/api\/docs(\/.*)?$/, /^\/api\/openapi\.json$/];
+/**
+ * 05 §7 Scalar API reference on api.: the page loads the Scalar bundle from jsdelivr and boots it with an inline
+ * script; it shows only the public OpenAPI document (no secrets, no cookies on api.), so it gets its own CSP.
+ */
+const DOCS_CSP = [
+  "default-src 'none'",
+  "script-src 'unsafe-inline' https://cdn.jsdelivr.net",
+  "style-src 'unsafe-inline' https://cdn.jsdelivr.net https://fonts.googleapis.com",
+  "font-src data: https://cdn.jsdelivr.net https://fonts.gstatic.com",
+  "img-src 'self' data: https:",
+  "connect-src 'self'",
+  "base-uri 'none'",
+  "form-action 'none'",
+  "frame-ancestors 'none'",
+].join("; ");
 
 function configFromEnv(): ProxyConfig {
   return {
@@ -130,7 +145,8 @@ export function handleProxy(request: NextRequest, config: ProxyConfig = configFr
     if (!allowed) return withSecurityHeaders(new NextResponse("Not Found", { status: 404 }), site, config);
     const headers = new Headers(request.headers);
     headers.delete("cookie");
-    return withSecurityHeaders(NextResponse.next({ request: { headers } }), site, config);
+    const docs = site === "api" && /^\/api\/docs(\/.*)?$/.test(path) ? DOCS_CSP : undefined;
+    return withSecurityHeaders(NextResponse.next({ request: { headers } }), site, config, docs);
   }
 
   // app.

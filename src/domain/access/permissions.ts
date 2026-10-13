@@ -1,6 +1,6 @@
 import type { ConfirmIntent } from "../api/confirm";
 import type { MemberRole } from "../schemas/actor";
-import type { Scope } from "../schemas/scopes";
+import { SCOPES, type Scope } from "../schemas/scopes";
 
 /**
  * Permission matrix (02 §4.3). Shared by the UI (hide/disable), Server Actions (`requireRole`) and the
@@ -33,6 +33,8 @@ export interface PermissionRule {
 
 const ALL: readonly MemberRole[] = ["owner", "bookkeeper", "viewer", "auditor"];
 const STAFF_READ: readonly MemberRole[] = ["owner", "bookkeeper", "viewer"];
+/** Every `:read` scope (05 §2.2) — „any read" in the MCP catalog (06 §3.1). */
+const READ_SCOPES: readonly Scope[] = SCOPES.filter((s): s is Scope => s.endsWith(":read"));
 
 export const PERMISSIONS = {
   /** The signed-in member's own record (role, expiry, TOTP state). */
@@ -44,6 +46,13 @@ export const PERMISSIONS = {
   "settings.write": { roles: ["owner"], scope: "settings:write", write: true },
   /** F01 SET-021 public company data for website footers (`company:public`, also covered by `settings:read`). */
   "company.public": { roles: STAFF_READ, scope: "company:public", alsoScopes: ["settings:read"], write: false },
+  /** 06 §3.1 `workspace_overview`: the first call of every MCP session — any read scope grants it. */
+  "workspace.overview": {
+    roles: STAFF_READ,
+    scope: "settings:read",
+    alsoScopes: READ_SCOPES,
+    write: false,
+  },
   /**
    * F01 SET-142 owner-only settings, never via REST/MCP: tax status (KU, Soll/Ist, UStVA period, profit method,
    * chart, fiscal year), server location, access concept, completing the setup.

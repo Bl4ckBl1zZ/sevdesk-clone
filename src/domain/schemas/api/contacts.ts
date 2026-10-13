@@ -31,7 +31,7 @@ const str = (max: number, description?: string) =>
     .max(max)
     .meta(description ? { description } : {});
 
-const addressWire = z
+export const addressWire = z
   .object({
     name: str(160).optional(),
     name2: str(160).optional(),
@@ -45,7 +45,7 @@ const addressWire = z
   })
   .meta({ id: "PostalAddressInput" });
 
-const channelWire = z
+export const channelWire = z
   .object({
     type: z.enum(CHANNEL_TYPES),
     value: str(320),
@@ -182,7 +182,10 @@ export function contactPatchToForm(w: ContactPatchWire): Partial<ContactFormValu
   return out;
 }
 
-function addressToForm(a: z.infer<typeof addressWire> | undefined, countryCode: string): PostalAddressFormValues {
+export function addressToForm(
+  a: z.infer<typeof addressWire> | undefined,
+  countryCode: string,
+): PostalAddressFormValues {
   const base = emptyAddress(countryCode);
   if (!a) return base;
   return {
@@ -198,7 +201,7 @@ function addressToForm(a: z.infer<typeof addressWire> | undefined, countryCode: 
   };
 }
 
-function channelToForm(c: z.infer<typeof channelWire>): ChannelFormValues {
+export function channelToForm(c: z.infer<typeof channelWire>): ChannelFormValues {
   return {
     type: c.type,
     value: c.value,
@@ -553,5 +556,42 @@ export function contactSearchRow(c: ContactWireRecord, extra: { city?: string | 
     email: extra.email ?? null,
     vat_id: c.vatId ?? null,
     vat_status: c.vatIdStatus?.status ?? (c.vatId ? "unchecked" : null),
+  };
+}
+
+// ── merge (⚠ contact_merge, 06 §3.2) ──────────────────────────────────────────────────────────────────
+export const contactMergeWire = z
+  .object({
+    winner_id: prefixedId("contacts", "Der Kontakt, der bleibt"),
+    loser_ids: z.array(prefixedId("contacts")).min(1).max(10),
+    field_choices: z
+      .record(z.string(), prefixedId("contacts"))
+      .optional()
+      .meta({ description: "Feld → Kontakt, dessen Wert übernommen wird (Standard: der bleibende Kontakt)" }),
+    confirm_vat_conflict: z.boolean().optional(),
+  })
+  .strict();
+export type ContactMergeWire = z.infer<typeof contactMergeWire>;
+
+export type ContactMergeArgs = {
+  values: { winnerId: string; loserIds: string[]; fieldChoices: Record<string, string>; confirmVatConflict: boolean };
+};
+
+/**
+ * Wire → the exact arguments of `contacts.merge` (without `confirmToken`). preview_action and contact_merge both use
+ * this mapping, so the confirm token's params hash is computed over identical, fully defaulted arguments.
+ */
+export function contactMergeArgs(w: ContactMergeWire): ContactMergeArgs | null {
+  const winnerId = decodeId("contacts", w.winner_id);
+  const loserIds = w.loser_ids.map((id) => decodeId("contacts", id));
+  const choices = Object.entries(w.field_choices ?? {}).map(([k, id]) => [k, decodeId("contacts", id)] as const);
+  if (!winnerId || loserIds.some((x) => !x) || choices.some(([, x]) => !x)) return null;
+  return {
+    values: {
+      winnerId,
+      loserIds: loserIds as string[],
+      fieldChoices: Object.fromEntries(choices) as Record<string, string>,
+      confirmVatConflict: w.confirm_vat_conflict ?? false,
+    },
   };
 }

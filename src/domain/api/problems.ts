@@ -105,6 +105,12 @@ export const PROBLEMS = {
     en: "Too many requests – please retry later.",
   },
   internal_error: { status: 500, de: "Interner Fehler.", en: "Internal error." },
+  /** A catalog entry whose feature has not shipped yet (e.g. document previews before F04). */
+  not_implemented: {
+    status: 501,
+    de: "Diese Funktion ist in dieser Version noch nicht verfügbar.",
+    en: "This function is not available in this version yet.",
+  },
   dependency_unavailable: {
     status: 503,
     de: "Ein benötigter Dienst ist nicht erreichbar.",

@@ -1027,6 +1027,12 @@
     "wrapper": "query",
     "permission": "settings.read"
   },
+  "settingsApi:workspaceOverview": {
+    "kind": "query",
+    "visibility": "public",
+    "wrapper": "query",
+    "permission": "workspace.overview"
+  },
   "signup:checkSignIn": {
     "kind": "query",
     "visibility": "internal",

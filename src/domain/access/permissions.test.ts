@@ -20,6 +20,7 @@ const EXPECTED: Record<Permission, readonly MemberRole[]> = {
   "settings.read": ["owner", "bookkeeper", "viewer"],
   "settings.write": ["owner"],
   "company.public": ["owner", "bookkeeper", "viewer"],
+  "workspace.overview": ["owner", "bookkeeper", "viewer"],
   "settings.ownerOnly": ["owner"],
   "integrations.manage": ["owner"],
   "audit.read": ["owner", "bookkeeper", "viewer", "auditor"],
@@ -107,6 +108,13 @@ describe("permission matrix (02 §4.3)", () => {
     expect(canKeyDo(["settings:read"], "company.public")).toBe(true);
     expect(canKeyDo(["contacts:read"], "company.public")).toBe(false);
     expect(canKeyDo(["company:public"], "settings.read")).toBe(false);
+  });
+
+  test("MCP-007 workspace_overview is granted by any read scope, not by write or company:public alone", () => {
+    expect(canKeyDo(["contacts:read"], "workspace.overview")).toBe(true);
+    expect(canKeyDo(["audit:read"], "workspace.overview")).toBe(true);
+    expect(canKeyDo(["contacts:write"], "workspace.overview")).toBe(false);
+    expect(canKeyDo(["company:public"], "workspace.overview")).toBe(false);
   });
 
   test("MCP-004 contacts.merge is a ⚠ action that needs a contact_merge confirm token", () => {
