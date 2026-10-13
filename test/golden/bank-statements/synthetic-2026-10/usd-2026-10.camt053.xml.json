@@ -1,0 +1,54 @@
+{
+  "format": "camt053",
+  "statementId": "SYNTH-USD-2026-10",
+  "iban": "LT443250010000000101",
+  "currency": "USD",
+  "periodFrom": "2026-10-01",
+  "periodTo": "2026-10-31",
+  "periodStartUtc": "2026-10-01T00:00:00Z",
+  "periodEndUtc": "2026-10-31T23:59:59Z",
+  "openingBalanceCents": 0,
+  "closingBalanceCents": 88000,
+  "balanceSource": "statement",
+  "issues": [],
+  "skipped": [],
+  "arithmetic": {
+    "status": "ok"
+  },
+  "transactions": [
+    {
+      "line": 32,
+      "bookingDate": "2026-10-12",
+      "bookedAtRaw": "2026-10-12T11:00:00Z",
+      "valueDate": "2026-10-12",
+      "amountCents": 100000,
+      "currency": "USD",
+      "purpose": "Exchanged from EUR",
+      "bankRef": "6a1f0c2e-0007-4c3b-9d10-00000000000u",
+      "entryReference": "6a1f0c2e-0007-4c3b-9d10-00000000000u",
+      "bankTransactionCode": "FORX-SPOT-OTHR",
+      "proprietaryCode": "EXCHANGE",
+      "exchangeRate": "0.9200",
+      "instructedAmount": {
+        "amountMinor": 92000,
+        "currency": "EUR"
+      }
+    },
+    {
+      "line": 56,
+      "bookingDate": "2026-10-25",
+      "bookedAtRaw": "2026-10-25T18:05:00Z",
+      "valueDate": "2026-10-25",
+      "amountCents": -12000,
+      "currency": "USD",
+      "counterpartyName": "Amazon Web Services",
+      "counterpartySource": "statement",
+      "purpose": "Amazon Web Services",
+      "bankRef": "6a1f0c2e-0020-4c3b-9d10-000000000020",
+      "entryReference": "6a1f0c2e-0020-4c3b-9d10-000000000020",
+      "bankTransactionCode": "PMNT-CCRD-POSD",
+      "proprietaryCode": "CARD_PAYMENT",
+      "merchantName": "Amazon Web Services"
+    }
+  ]
+}

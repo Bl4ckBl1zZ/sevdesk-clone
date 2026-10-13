@@ -1,0 +1,79 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- SYNTHETIC TEST DATA - not a real bank statement. Generated for the F07 statement import fixtures
+     (docs/spec/07-testing.md 3.3). Element choices for Revolut are UNSURE until the owner's real export exists. -->
+<Document xmlns="urn:iso:std:iso:20022:tech:xsd:camt.053.001.08">
+  <BkToCstmrStmt>
+    <GrpHdr>
+      <MsgId>MSG-SYNTH-USD-2026-10</MsgId>
+      <CreDtTm>2026-11-01T06:00:00Z</CreDtTm>
+    </GrpHdr>
+    <Stmt>
+      <Id>SYNTH-USD-2026-10</Id>
+      <CreDtTm>2026-11-01T06:00:00Z</CreDtTm>
+      <FrToDt><FrDtTm>2026-10-01T00:00:00Z</FrDtTm><ToDtTm>2026-10-31T23:59:59Z</ToDtTm></FrToDt>
+      <Acct>
+        <Id><IBAN>LT443250010000000101</IBAN></Id>
+        <Ccy>USD</Ccy>
+        <Ownr><Nm>Muster Consulting e.K.</Nm></Ownr>
+        <Svcr><FinInstnId><BICFI>REVOLT21</BICFI></FinInstnId></Svcr>
+      </Acct>
+      <Bal>
+        <Tp><CdOrPrtry><Cd>OPBD</Cd></CdOrPrtry></Tp>
+        <Amt Ccy="USD">0.00</Amt>
+        <CdtDbtInd>CRDT</CdtDbtInd>
+        <Dt><Dt>2026-10-01</Dt></Dt>
+      </Bal>
+      <Bal>
+        <Tp><CdOrPrtry><Cd>CLBD</Cd></CdOrPrtry></Tp>
+        <Amt Ccy="USD">880.00</Amt>
+        <CdtDbtInd>CRDT</CdtDbtInd>
+        <Dt><Dt>2026-10-31</Dt></Dt>
+      </Bal>
+      <Ntry>
+        <NtryRef>7</NtryRef>
+        <Amt Ccy="USD">1000.00</Amt>
+        <CdtDbtInd>CRDT</CdtDbtInd>
+        <Sts><Cd>BOOK</Cd></Sts>
+        <BookgDt><DtTm>2026-10-12T11:00:00Z</DtTm></BookgDt>
+        <ValDt><Dt>2026-10-12</Dt></ValDt>
+        <AcctSvcrRef>6a1f0c2e-0007-4c3b-9d10-00000000000u</AcctSvcrRef>
+        <BkTxCd>
+          <Domn><Cd>FORX</Cd><Fmly><Cd>SPOT</Cd><SubFmlyCd>OTHR</SubFmlyCd></Fmly></Domn>
+          <Prtry><Cd>EXCHANGE</Cd></Prtry>
+        </BkTxCd>
+        <NtryDtls>
+          <TxDtls>
+            <Refs><AcctSvcrRef>6a1f0c2e-0007-4c3b-9d10-00000000000u</AcctSvcrRef></Refs>
+            <AmtDtls>
+              <InstdAmt><Amt Ccy="EUR">920.00</Amt></InstdAmt>
+              <TxAmt><Amt Ccy="USD">1000.00</Amt><CcyXchg><SrcCcy>EUR</SrcCcy><TrgtCcy>USD</TrgtCcy><XchgRate>0.9200</XchgRate></CcyXchg></TxAmt>
+            </AmtDtls>
+            <AddtlTxInf>Exchanged from EUR</AddtlTxInf>
+          </TxDtls>
+        </NtryDtls>
+        <AddtlNtryInf>Exchanged from EUR</AddtlNtryInf>
+      </Ntry>
+      <Ntry>
+        <NtryRef>20</NtryRef>
+        <Amt Ccy="USD">120.00</Amt>
+        <CdtDbtInd>DBIT</CdtDbtInd>
+        <Sts><Cd>BOOK</Cd></Sts>
+        <BookgDt><DtTm>2026-10-25T18:05:00Z</DtTm></BookgDt>
+        <ValDt><Dt>2026-10-25</Dt></ValDt>
+        <AcctSvcrRef>6a1f0c2e-0020-4c3b-9d10-000000000020</AcctSvcrRef>
+        <BkTxCd>
+          <Domn><Cd>PMNT</Cd><Fmly><Cd>CCRD</Cd><SubFmlyCd>POSD</SubFmlyCd></Fmly></Domn>
+          <Prtry><Cd>CARD_PAYMENT</Cd></Prtry>
+        </BkTxCd>
+        <NtryDtls>
+          <TxDtls>
+            <Refs><AcctSvcrRef>6a1f0c2e-0020-4c3b-9d10-000000000020</AcctSvcrRef></Refs>
+            <RltdPties><Cdtr><Pty><Nm>Amazon Web Services</Nm></Pty></Cdtr></RltdPties>
+            <AddtlTxInf>Amazon Web Services</AddtlTxInf>
+          </TxDtls>
+        </NtryDtls>
+        <AddtlNtryInf>Amazon Web Services</AddtlNtryInf>
+      </Ntry>
+    </Stmt>
+  </BkToCstmrStmt>
+</Document>

@@ -1,8 +1,12 @@
-import { NoPosNotice } from "@/components/layout/no-pos-notice";
-import { PlaceholderPage, placeholderMetadata } from "@/components/layout/placeholder-page";
+import { CashPage } from "@/components/cash/cash-page";
+import { CatalogPage, catalogMetadata } from "@/components/catalog/catalog-page";
 
-export const generateMetadata = () => placeholderMetadata("kasse");
+export const generateMetadata = () => catalogMetadata("kasse");
 
 export default function Page() {
-  return <PlaceholderPage page="kasse" notice={<NoPosNotice />} />;
+  return (
+    <CatalogPage page="kasse" permission="banking.read" body={false}>
+      <CashPage />
+    </CatalogPage>
+  );
 }

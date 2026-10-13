@@ -19,6 +19,7 @@ import type { CalendarDate } from "../time/calendar-date";
 import { calendarDate } from "../time/calendar-date";
 import type {
   AdvancePaymentReceivedEvent,
+  BankTransactionMarkedEvent,
   BusinessEvent,
   CashTransferEvent,
   CustomerRefundEvent,
@@ -133,6 +134,14 @@ export const EXPLANATIONS: Readonly<Record<string, string>> = {
     "Entnahme aus der Kasse über das Verrechnungskonto Gesellschafter (Kapitalgesellschaft, keine Privatentnahme).",
   T9: "Bargeldabhebung in die Kasse: Bank an Geldtransit an Kasse.",
   T10: "Storno einer Barbewegung: Generalumkehr der ursprünglichen Buchung.",
+  T1: "Privatentnahme laut Kontoauszug: Privatentnahmen an Bank (der Kontoauszug ist der Beleg).",
+  "T1-corp":
+    "Entnahme laut Kontoauszug über das Verrechnungskonto Gesellschafter (Kapitalgesellschaft, keine Privatentnahme).",
+  T2: "Privateinlage laut Kontoauszug: Bank an Privateinlagen.",
+  "T2-corp": "Einlage laut Kontoauszug über das Verrechnungskonto Gesellschafter (Kapitalgesellschaft).",
+  "T4-out": "Geldtransit: Abgang vom Bankkonto auf ein eigenes Konto (Gegenbuchung im Zielkonto).",
+  "T4-in": "Geldtransit: Zugang von einem eigenen Konto (Gegenbuchung im Ursprungskonto).",
+  "BNK-mark-reversal": "Markierung aufgehoben: Generalumkehr der Buchung des Bankumsatzes.",
   "ACC-013-cash": "Eröffnungsbilanz: Anfangsbestand der Kasse gegen Saldenvorträge Sachkonten.",
   "ACC-013-bank": "Eröffnungsbilanz: Anfangsbestand des Bankkontos gegen Saldenvorträge Sachkonten.",
   "ACC-013-receivables": "Eröffnungsbilanz: offene Forderungen je Rechnung gegen Saldenvorträge Debitoren.",
@@ -667,13 +676,16 @@ function postCashTransfer(e: CashTransferEvent, ctx: PostingContext): Result<Pos
     case "bank_withdrawal_to_cash": {
       const bank = needBank();
       if (!bank.ok) return bank;
+      const fee = e.feeCents ?? 0;
+      if (!isInt(fee) || fee < 0) return err(invalid("Die Gebühr ist ungültig."));
       return entry(e, ctx, {
         date: e.date,
         text: "Bargeldabhebung in die Kasse",
         explanation: "T9",
         lines: [
           ...debit(R("transit"), amount),
-          ...credit(R(bank.value), amount),
+          ...debit(R("expense.bank_fees"), fee),
+          ...credit(R(bank.value), amount + fee),
           ...debit(R("cash"), amount),
           ...credit(R("transit"), amount),
         ],
@@ -681,6 +693,54 @@ function postCashTransfer(e: CashTransferEvent, ctx: PostingContext): Result<Pos
       });
     }
   }
+}
+
+// ── marked bank transactions (T1/T2/T4) ─────────────────────────────────────────────────────────────────
+
+function postBankMark(e: BankTransactionMarkedEvent, ctx: PostingContext): Result<PostingOutcome, PostingIssue> {
+  const fee = e.feeCents ?? 0;
+  if (
+    !isInt(e.amountCents) ||
+    e.amountCents === 0 ||
+    !isInt(fee) ||
+    fee < 0 ||
+    (e.amountCents < 0 && fee >= -e.amountCents)
+  ) {
+    return err(invalid("Der Betrag des Bankumsatzes ist ungültig."));
+  }
+  const bank = R(bankRole(e.bankAccountId));
+  const out = e.amountCents < 0;
+  // Principal = what left/reached the counter account; the fee is always borne by the business (R5).
+  const principal = out ? -e.amountCents - fee : e.amountCents + fee;
+  const feeLines = debit(R("expense.bank_fees"), fee);
+  let counter: AccountRole;
+  let explanation: string;
+  let text: string;
+  if (e.mark === "transfer") {
+    counter = "transit";
+    explanation = out ? "T4-out" : "T4-in";
+    text = out ? "Geldtransit an eigenes Konto" : "Geldtransit von eigenem Konto";
+  } else if (isCorporation(ctx.legalForm)) {
+    if (!e.shareholder?.name.trim() || !e.shareholder.note.trim()) {
+      return err(
+        issue(
+          "private_withdrawal_corporation",
+          `Bei einer ${LEGAL_FORM_DE[ctx.legalForm] ?? "Kapitalgesellschaft"} gibt es keine Privatentnahmen. Die Buchung erfolgt über das Verrechnungskonto Gesellschafter.`,
+        ),
+      );
+    }
+    counter = "shareholder.clearing";
+    explanation = out ? "T1-corp" : "T2-corp";
+    text = textWith(out ? "Entnahme Verrechnung" : "Einlage Verrechnung", e.shareholder.name);
+  } else {
+    counter = out ? "private.withdrawal" : "private.deposit";
+    explanation = out ? "T1" : "T2";
+    text = out ? "Privatentnahme laut Kontoauszug" : "Privateinlage laut Kontoauszug";
+  }
+  const lines = out
+    ? [...debit(R(counter), principal), ...feeLines, ...credit(bank, -e.amountCents)]
+    : [...debit(bank, e.amountCents), ...feeLines, ...credit(R(counter), principal)];
+  return entry(e, ctx, { date: e.date, text, explanation, lines, dating: "external" });
 }
 
 // ── opening balances ────────────────────────────────────────────────────────────────────────────────────
@@ -772,6 +832,8 @@ export function postEvent(
       return postRecovery(e, ctx);
     case "cash_transfer":
       return postCashTransfer(e, ctx);
+    case "bank_transaction_marked":
+      return postBankMark(e, ctx);
     case "opening_balance":
       return postOpening(e, ctx);
   }
@@ -783,6 +845,7 @@ const REVERSAL_EXPLANATION: Record<ReversalEvent["kind"], string> = {
   invoice_cancelled: "S12",
   payment_reversed: "P10",
   cash_transfer_reversed: "T10",
+  bank_transaction_mark_reversed: "BNK-mark-reversal",
 };
 
 /** Mirrored lines: same accounts, sides swapped; VAT lines are reported in the reversal's period (§17 UStG). */

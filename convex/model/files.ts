@@ -23,6 +23,20 @@ export async function fileReferences(ctx: ReadCtx, storageId: Id<"_storage">): P
       refs.push(`layoutVersions ${String(v.layoutId)} v${v.version}`);
     }
   }
+  // F07: archived statement files and Eigenbelege are Buchungsbelege (GOBD-20, retention vouchers8).
+  for (const s of await ctx.db.query("bankStatements").collect()) {
+    const files = [s.pdf, s.camt, ...(s.other ?? [])];
+    if (files.some((f) => f?.storageId === storageId)) refs.push(`bankStatements ${String(s._id)}`);
+  }
+  for (const i of await ctx.db.query("bankImports").collect()) {
+    if (i.fileStorageId === storageId) refs.push(`bankImports ${String(i._id)}`);
+  }
+  for (const c of await ctx.db.query("cashTransfers").collect()) {
+    if (c.eigenbelegFile?.storageId === storageId) refs.push(`cashTransfers ${String(c._id)}`);
+  }
+  for (const e of await ctx.db.query("journalEntries").collect()) {
+    if (e.attachments?.some((f) => f.storageId === storageId)) refs.push(`journalEntries ${e.seq}`);
+  }
   return refs;
 }
 

@@ -1,5 +1,6 @@
 import { type Chart, defaultBankLedgerAccount } from "../../src/domain/accounting/bank-ledger";
 import { checkArchiveAccount } from "../../src/domain/banking/accounts";
+import type { StatementAccountValues } from "../../src/domain/schemas/banking";
 import type { BankValues } from "../../src/domain/schemas/settings";
 import type { Doc, Id } from "../_generated/dataModel";
 import { appError } from "../lib/errors";
@@ -156,5 +157,50 @@ export async function archiveInvoiceAccount(ctx: ModelCtx, accountId: Id<"bankAc
     accountId,
     { archivedAt: ctx.now(), showOnInvoices: false },
     { action: "settings.bank_account.archive", label: account.name },
+  );
+}
+
+/**
+ * F07 BNK-020 (P1 statement accounts): one account per currency pocket. Revolut pockets share one IBAN, so the IBAN
+ * is unique per currency (03 §7 `bankAccounts.by_iban` is not unique). An account with an IBAN may be printed on
+ * invoices; the first of its currency becomes the default (SET-050/051).
+ */
+export async function addStatementAccount(
+  ctx: ModelCtx,
+  values: StatementAccountValues,
+  chart: Chart,
+): Promise<Id<"bankAccounts">> {
+  const all = await allBankAccounts(ctx);
+  if (
+    values.iban &&
+    all.some((a) => a.iban === values.iban && a.currency === values.currency && a.archivedAt === undefined)
+  ) {
+    throw appError("invalid_input", "Für diese IBAN und Währung ist bereits ein Konto angelegt.", {
+      reason: "IBAN_DUPLICATE",
+    });
+  }
+  const ledgerAccount = defaultBankLedgerAccount(
+    chart,
+    all.map((a) => a.ledgerAccount),
+  );
+  if (!ledgerAccount) throw appError("invalid_input", "Kein freies Bankkonto im Kontenrahmen.");
+  const showOnInvoices = values.showOnInvoices && values.iban !== "";
+  const first = showOnInvoices && !(await defaultInvoiceAccount(ctx, values.currency));
+  return auditedInsert(
+    ctx,
+    "bankAccounts",
+    {
+      kind: "bank",
+      name: values.name,
+      currency: values.currency,
+      ...(values.iban ? { iban: values.iban } : {}),
+      ...(values.bic ? { bic: values.bic } : {}),
+      accountHolder: values.accountHolder,
+      ledgerAccount,
+      showOnInvoices,
+      isDefaultForInvoices: first,
+      autoApplyMatches: true,
+    },
+    { action: "settings.bank_account.create", label: values.name },
   );
 }

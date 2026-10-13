@@ -1,6 +1,13 @@
 import { defineSchema, defineTable } from "convex/server";
 import { v } from "convex/values";
 import {
+  vBankSourceKind,
+  vBankSourceRef,
+  vBankTransactionSource,
+  vBankTransactionStatus,
+  vStatementFormat,
+} from "./bankValidators";
+import {
   vActor,
   vAuditorScope,
   vChannel,
@@ -9,6 +16,7 @@ import {
   vContactRole,
   vContactStatus,
   vFileRef,
+  vFxRate,
   vIntegrityFinding,
   vInviteRole,
   vJournalLine,
@@ -220,6 +228,172 @@ export default defineSchema({
     .index("by_ledgerAccount", ["ledgerAccount"])
     .index("by_currency_default", ["currency", "isDefaultForInvoices"])
     .index("by_iban", ["iban"]),
+
+  // ── 03 §7 banking (F07 P1: statement import; the Enable Banking feed tables follow in P2) ────────────────
+  // bankTransactions 🔒 — booked rows only, immutable except the BNK-122 whitelist (src/domain/audit/immutability.ts)
+  bankTransactions: defineTable({
+    accountId: v.id("bankAccounts"),
+    bookingDate: v.string(),
+    valueDate: v.optional(v.string()),
+    amountCents: v.number(),
+    currency: v.string(),
+    amountEurCents: v.optional(v.number()),
+    fxRate: v.optional(vFxRate),
+    counterpartyName: v.optional(v.string()),
+    counterpartyIban: v.optional(v.string()),
+    counterpartyBic: v.optional(v.string()),
+    counterpartySource: v.optional(v.union(v.literal("provider"), v.literal("description"), v.literal("statement"))),
+    purpose: v.string(),
+    reference: v.optional(v.string()),
+    endToEndId: v.optional(v.string()),
+    mandateRef: v.optional(v.string()),
+    creditorId: v.optional(v.string()),
+    bankRef: v.optional(v.string()),
+    source: vBankTransactionSource,
+    sources: v.array(vBankSourceRef),
+    dedupeKey: v.string(),
+    contentHash: v.string(),
+    importId: v.optional(v.id("bankImports")),
+    status: vBankTransactionStatus,
+    ignoredReason: v.optional(
+      v.union(
+        v.literal("duplicate_of_file_import"),
+        v.literal("neutralised_pair"),
+        v.literal("test_or_zero"),
+        v.literal("import_rolled_back"),
+      ),
+    ),
+    ignoredLinkId: v.optional(v.id("bankTransactions")),
+    reversalOfId: v.optional(v.id("bankTransactions")),
+    /** The source flagged the row as a bank counter-entry (CAMT `RvslInd`, MT940 `RC/RD`; BNK-121). */
+    reversal: v.optional(v.boolean()),
+    /** BNK-061: the other leg of a Geldtransit pair. */
+    transferPeerId: v.optional(v.id("bankTransactions")),
+    allocatedCents: v.number(),
+    recordedAt: v.number(),
+    bookedAt: v.optional(v.number()),
+    lockedAt: v.optional(v.number()),
+  })
+    .index("by_dedupeKey", ["dedupeKey"])
+    .index("by_account_contentHash", ["accountId", "contentHash"])
+    .index("by_account_bookingDate", ["accountId", "bookingDate"])
+    .index("by_status", ["status", "bookingDate"])
+    .index("by_account_status", ["accountId", "status", "bookingDate"])
+    .index("by_account_entryReference", ["accountId", "source.entryReference"])
+    .index("by_import", ["importId"]),
+
+  // bankTransactionRevisions 🔒 — append-only raw rows per delivery (BNK-113); applied:false = differing re-delivery
+  bankTransactionRevisions: defineTable({
+    transactionId: v.id("bankTransactions"),
+    sourceKind: v.string(),
+    rawSha256: v.string(),
+    rawJson: v.string(),
+    fetchedAt: v.number(),
+    applied: v.boolean(),
+    importId: v.optional(v.id("bankImports")),
+    line: v.optional(v.number()),
+    changedFields: v.optional(v.array(v.string())),
+  }).index("by_transaction", ["transactionId", "rawSha256"]),
+
+  // bankImports — one row per statement file import (BNK-030/034/036)
+  bankImports: defineTable({
+    accountId: v.id("bankAccounts"),
+    source: vBankSourceKind,
+    fileStorageId: v.optional(v.id("_storage")),
+    fileSha256: v.optional(v.string()),
+    fileName: v.optional(v.string()),
+    periodFrom: v.string(),
+    periodTo: v.string(),
+    openingBalanceCents: v.optional(v.number()),
+    closingBalanceCents: v.optional(v.number()),
+    continuityOk: v.optional(v.boolean()),
+    counts: v.object({
+      total: v.number(),
+      inserted: v.number(),
+      duplicates: v.number(),
+      mergedCrossSource: v.number(),
+      possibleDuplicates: v.number(),
+      conflicts: v.number(),
+      rejected: v.number(),
+    }),
+    statementId: v.optional(v.id("bankStatements")),
+    /** Rows the file delivered (new, merged, duplicate or conflicting) — the live reconciliation base (BNK-030). */
+    rowIds: v.optional(v.array(v.id("bankTransactions"))),
+    rolledBackAt: v.optional(v.number()),
+    at: v.number(),
+    actor: vActor,
+  })
+    .index("by_account", ["accountId", "at"])
+    .index("by_fileSha256", ["fileSha256"]),
+
+  // bankStatements 🔒 — the official Kontoauszug per currency account and period (BNK-030, GOBD-07/20)
+  bankStatements: defineTable({
+    accountId: v.id("bankAccounts"),
+    periodFrom: v.string(),
+    periodTo: v.string(),
+    periodStartUtc: v.number(),
+    periodEndUtc: v.number(),
+    format: vStatementFormat,
+    statementRef: v.optional(v.string()),
+    pdf: v.optional(vFileRef),
+    camt: v.optional(vFileRef),
+    other: v.optional(v.array(vFileRef)),
+    openingBalanceCents: v.optional(v.number()),
+    closingBalanceCents: v.optional(v.number()),
+    importId: v.optional(v.id("bankImports")),
+    reconciled: v.boolean(),
+    differences: v.optional(
+      v.array(
+        v.object({
+          kind: v.union(v.literal("missing"), v.literal("extra"), v.literal("amount")),
+          detail: v.string(),
+          transactionId: v.optional(v.id("bankTransactions")),
+          amountCents: v.optional(v.number()),
+        }),
+      ),
+    ),
+    continuity: v.optional(
+      v.object({ status: v.string(), message: v.optional(v.string()), diffCents: v.optional(v.number()) }),
+    ),
+    rolledBack: v.optional(v.boolean()),
+    uploadedAt: v.number(),
+    retentionUntil: v.string(),
+  }).index("by_account_period", ["accountId", "periodFrom"]),
+
+  // possibleDuplicates — review list „Mögliche Dubletten“ (BNK-034/110, RI-29); not protected, audited
+  possibleDuplicates: defineTable({
+    accountId: v.id("bankAccounts"),
+    candidate: v.any(),
+    existingIds: v.array(v.id("bankTransactions")),
+    importId: v.optional(v.id("bankImports")),
+    reason: v.string(),
+    status: v.union(v.literal("open"), v.literal("same"), v.literal("separate")),
+    resolvedAt: v.optional(v.number()),
+    resolvedTransactionId: v.optional(v.id("bankTransactions")),
+    actor: v.optional(vActor),
+    createdAt: v.number(),
+  }).index("by_account_status", ["accountId", "status"]),
+
+  // cashTransfers 🔒 — „Bargeld eingezahlt / entnommen“ and ATM withdrawals into the till (CSH-024/025/027)
+  cashTransfers: defineTable({
+    date: v.string(),
+    kind: v.union(v.literal("deposit_to_bank"), v.literal("private_withdrawal"), v.literal("bank_withdrawal_to_cash")),
+    amountCents: v.number(),
+    bankAccountId: v.optional(v.id("bankAccounts")),
+    bankTransactionId: v.optional(v.id("bankTransactions")),
+    note: v.optional(v.string()),
+    backdateReason: v.optional(v.string()),
+    shareholder: v.optional(v.object({ name: v.string(), note: v.string() })),
+    eigenbelegFile: v.optional(vFileRef),
+    journalEntryIds: v.array(v.id("journalEntries")),
+    reversalOfId: v.optional(v.id("cashTransfers")),
+    reason: v.optional(v.string()),
+    recordedAt: v.number(),
+    actor: vActor,
+  })
+    .index("by_date", ["date"])
+    .index("by_bankTransaction", ["bankTransactionId"])
+    .index("by_reversalOf", ["reversalOfId"]),
 
   // 03 §1 numberRanges / numberCounters (P0: configuration; assignment in the finalisation transaction is P1)
   numberRanges: defineTable({

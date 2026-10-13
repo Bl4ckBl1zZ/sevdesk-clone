@@ -1,0 +1,93 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- SYNTHETIC TEST DATA - not a real bank statement. A generic German bank's camt.053.001.08 with a batch entry
+     (three credit transfers booked as one entry), a pending entry (Sts PDNG, must be skipped) and a structured
+     ISO 11649 creditor reference (F07 BNK-033, T07-046). -->
+<Document xmlns="urn:iso:std:iso:20022:tech:xsd:camt.053.001.08" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
+  <BkToCstmrStmt>
+    <GrpHdr><MsgId>GEN-0001</MsgId><CreDtTm>2026-10-02T05:00:00+02:00</CreDtTm></GrpHdr>
+    <Stmt>
+      <Id>GEN-2026-10-01</Id>
+      <ElctrncSeqNb>186</ElctrncSeqNb>
+      <CreDtTm>2026-10-02T05:00:00+02:00</CreDtTm>
+      <Acct>
+        <Id><IBAN>DE89370400440532013000</IBAN></Id>
+        <Ccy>EUR</Ccy>
+      </Acct>
+      <Bal>
+        <Tp><CdOrPrtry><Cd>PRCD</Cd></CdOrPrtry></Tp>
+        <Amt Ccy="EUR">1000.00</Amt>
+        <CdtDbtInd>CRDT</CdtDbtInd>
+        <Dt><Dt>2026-09-30</Dt></Dt>
+      </Bal>
+      <Bal>
+        <Tp><CdOrPrtry><Cd>CLBD</Cd></CdOrPrtry></Tp>
+        <Amt Ccy="EUR">1384.50</Amt>
+        <CdtDbtInd>CRDT</CdtDbtInd>
+        <Dt><Dt>2026-10-01</Dt></Dt>
+      </Bal>
+      <Ntry>
+        <NtryRef>A1</NtryRef>
+        <Amt Ccy="EUR">450.00</Amt>
+        <CdtDbtInd>CRDT</CdtDbtInd>
+        <Sts><Cd>BOOK</Cd></Sts>
+        <BookgDt><Dt>2026-10-01</Dt></BookgDt>
+        <ValDt><Dt>2026-10-01</Dt></ValDt>
+        <AcctSvcrRef>BATCH-7781</AcctSvcrRef>
+        <BkTxCd><Domn><Cd>PMNT</Cd><Fmly><Cd>RCDT</Cd><SubFmlyCd>ESCT</SubFmlyCd></Fmly></Domn></BkTxCd>
+        <NtryDtls>
+          <Btch><NbOfTxs>3</NbOfTxs></Btch>
+          <TxDtls>
+            <Refs><AcctSvcrRef>BATCH-7781-1</AcctSvcrRef><EndToEndId>E2E-A-1</EndToEndId></Refs>
+            <Amt Ccy="EUR">100.00</Amt>
+            <CdtDbtInd>CRDT</CdtDbtInd>
+            <RltdPties><Dbtr><Pty><Nm>Kunde Eins GmbH</Nm></Pty></Dbtr><DbtrAcct><Id><IBAN>DE44500105175407324931</IBAN></Id></DbtrAcct></RltdPties>
+            <RmtInf><Ustrd>Rechnung RE-2026-0101</Ustrd></RmtInf>
+          </TxDtls>
+          <TxDtls>
+            <Refs><AcctSvcrRef>BATCH-7781-2</AcctSvcrRef><EndToEndId>NOTPROVIDED</EndToEndId></Refs>
+            <Amt Ccy="EUR">150.00</Amt>
+            <CdtDbtInd>CRDT</CdtDbtInd>
+            <RltdPties><Dbtr><Pty><Nm>Kunde Zwei</Nm></Pty></Dbtr></RltdPties>
+            <RmtInf><Strd><CdtrRefInf><Tp><CdOrPrtry><Cd>SCOR</Cd></CdOrPrtry></Tp><Ref>RF18539007547034</Ref></CdtrRefInf></Strd></RmtInf>
+          </TxDtls>
+          <TxDtls>
+            <Refs><AcctSvcrRef>BATCH-7781-3</AcctSvcrRef></Refs>
+            <Amt Ccy="EUR">200.00</Amt>
+            <CdtDbtInd>CRDT</CdtDbtInd>
+            <RltdPties><Dbtr><Pty><Nm>Kunde Drei KG</Nm></Pty></Dbtr><DbtrAcct><Id><IBAN>DE15760260001122334455</IBAN></Id></DbtrAcct></RltdPties>
+            <RmtInf><Ustrd>RE-2026-0102</Ustrd><Ustrd>und RE-2026-0103</Ustrd></RmtInf>
+          </TxDtls>
+        </NtryDtls>
+      </Ntry>
+      <Ntry>
+        <NtryRef>A2</NtryRef>
+        <Amt Ccy="EUR">65.50</Amt>
+        <CdtDbtInd>DBIT</CdtDbtInd>
+        <Sts><Cd>BOOK</Cd></Sts>
+        <BookgDt><Dt>2026-10-01</Dt></BookgDt>
+        <ValDt><Dt>2026-10-01</Dt></ValDt>
+        <AcctSvcrRef>DD-5521</AcctSvcrRef>
+        <BkTxCd><Domn><Cd>PMNT</Cd><Fmly><Cd>IDDT</Cd><SubFmlyCd>ESDD</SubFmlyCd></Fmly></Domn></BkTxCd>
+        <NtryDtls>
+          <TxDtls>
+            <Refs><EndToEndId>INV-778899</EndToEndId><MndtId>MANDAT-42</MndtId></Refs>
+            <RltdPties>
+              <Cdtr><Pty><Nm>Telefon AG</Nm><Id><PrvtId><Othr><Id>DE98ZZZ09999999999</Id><SchmeNm><Prtry>SEPA</Prtry></SchmeNm></Othr></PrvtId></Id></Pty></Cdtr>
+              <CdtrAcct><Id><IBAN>DE65200411330987654321</IBAN></Id></CdtrAcct>
+            </RltdPties>
+            <RmtInf><Ustrd>Rechnung 778899 Mobilfunk</Ustrd></RmtInf>
+          </TxDtls>
+        </NtryDtls>
+      </Ntry>
+      <Ntry>
+        <NtryRef>A3</NtryRef>
+        <Amt Ccy="EUR">999.00</Amt>
+        <CdtDbtInd>CRDT</CdtDbtInd>
+        <Sts><Cd>PDNG</Cd></Sts>
+        <BookgDt><Dt>2026-10-01</Dt></BookgDt>
+        <ValDt><Dt>2026-10-02</Dt></ValDt>
+        <AcctSvcrRef>PEND-1</AcctSvcrRef>
+      </Ntry>
+    </Stmt>
+  </BkToCstmrStmt>
+</Document>
