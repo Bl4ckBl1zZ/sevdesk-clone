@@ -2531,6 +2531,7 @@
   "invoiceCorrections": {
     "correct": "Korrigieren …",
     "cancel": "Stornieren",
+    "more": "Weitere Aktionen",
     "types": {
       "invoice": "Rechnung",
       "advance_invoice": "Abschlagsrechnung",

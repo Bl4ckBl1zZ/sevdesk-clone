@@ -4,7 +4,7 @@ import { api } from "@convex/_generated/api";
 import type { Id } from "@convex/_generated/dataModel";
 import { useAction, useMutation } from "convex/react";
 import type { FunctionReturnType } from "convex/server";
-import { FileMinusIcon, FilePlusIcon, Undo2Icon, WrenchIcon } from "lucide-react";
+import { ChevronDownIcon, FileMinusIcon, FilePlusIcon, MoreHorizontalIcon, Undo2Icon, WrenchIcon } from "lucide-react";
 import type { Route } from "next";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -13,6 +13,12 @@ import { useId, useState } from "react";
 import { toast } from "sonner";
 import { ConfirmDialog, formatDate, useCan, useRun } from "@/components/catalog/shared";
 import { Button } from "@/components/ui/button";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { Input } from "@/components/ui/input";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Textarea } from "@/components/ui/textarea";
@@ -72,41 +78,40 @@ export function CorrectionActions({
   const isFamily = INVOICE_FAMILY.includes(doc.type);
   const isCredit = doc.type === "correction" && doc.correctionKind === "credit";
   const isAdvance = doc.type === "advance_invoice" || doc.type === "partial_invoice";
+  const nextAdvance = async () => {
+    const r = await run(
+      () => createChainDraft({ fromId: doc._id, type: "advance_invoice" }),
+      t("chain.advanceCreated"),
+    );
+    if (r.ok) router.push(href(r.value.id));
+  };
+  const items = [
+    isFamily && canWrite && { key: "correct", icon: WrenchIcon, label: t("correct"), run: () => setAssistant(true) },
+    isCredit && canCancel && { key: "cancel", icon: Undo2Icon, label: t("cancel"), run: () => setStorno(true) },
+    isAdvance &&
+      canWrite && { key: "advance", icon: FilePlusIcon, label: t("chain.nextAdvance"), run: () => void nextAdvance() },
+    isAdvance &&
+      canWrite && { key: "final", icon: FilePlusIcon, label: t("chain.createFinal"), run: () => setFinal(true) },
+  ].filter((i) => i !== false);
+  // One menu keeps the phone action bar (04 §1.2) at three buttons next to „Exportieren“ and „Als versendet markieren“.
   return (
     <>
-      {isFamily && canWrite && (
-        <Button variant="outline" className="h-11 md:h-9" onClick={() => setAssistant(true)}>
-          <WrenchIcon aria-hidden="true" />
-          {t("correct")}
-        </Button>
-      )}
-      {isCredit && canCancel && (
-        <Button variant="outline" className="h-11 md:h-9" onClick={() => setStorno(true)}>
-          <Undo2Icon aria-hidden="true" />
-          {t("cancel")}
-        </Button>
-      )}
-      {isAdvance && canWrite && (
-        <>
-          <Button
-            variant="outline"
-            className="h-11 md:h-9"
-            onClick={async () => {
-              const r = await run(
-                () => createChainDraft({ fromId: doc._id, type: "advance_invoice" }),
-                t("chain.advanceCreated"),
-              );
-              if (r.ok) router.push(href(r.value.id));
-            }}
-          >
-            <FilePlusIcon aria-hidden="true" />
-            {t("chain.nextAdvance")}
-          </Button>
-          <Button className="h-11 md:h-9" onClick={() => setFinal(true)}>
-            <FilePlusIcon aria-hidden="true" />
-            {t("chain.createFinal")}
-          </Button>
-        </>
+      {items.length > 0 && (
+        <DropdownMenu>
+          <DropdownMenuTrigger render={<Button variant="outline" className="h-11 md:h-9" />}>
+            <MoreHorizontalIcon aria-hidden="true" />
+            {t("more")}
+            <ChevronDownIcon aria-hidden="true" />
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end" className="w-64">
+            {items.map((i) => (
+              <DropdownMenuItem key={i.key} onClick={i.run}>
+                <i.icon aria-hidden="true" />
+                {i.label}
+              </DropdownMenuItem>
+            ))}
+          </DropdownMenuContent>
+        </DropdownMenu>
       )}
       {assistant && (
         <CorrectionAssistant
