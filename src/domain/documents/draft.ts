@@ -16,6 +16,7 @@ import { type Issue, issue } from "../result";
 import { lookupVatRate, lookupVatRateForPeriod } from "../rules/vat-rates";
 import type { VatCategory } from "../tax/vat-category";
 import type { CalendarDate } from "../time/calendar-date";
+import type { DocumentRelations } from "./relations";
 import {
   type EinvoiceFormat,
   monthBounds,
@@ -71,6 +72,8 @@ export interface DraftLine {
 
 export interface DraftDocument {
   readonly type: SalesDocType;
+  /** `correction` only: Rechnungskorrektur (credit, 381) or Rechnungsberichtigung (rectification, 384). */
+  readonly correctionKind?: "credit" | "rectification" | undefined;
   readonly contactId?: string | undefined;
   readonly billingAddress?: SnapshotAddress | undefined;
   readonly deliveryAddress?: SnapshotAddress | undefined;
@@ -174,6 +177,8 @@ export interface DocumentContext {
   }[];
   /** KU companies: current calendar year turnover of finalised invoices (EUR cents, KU-01). */
   readonly kuYearTurnoverCents?: number | undefined;
+  /** Chain (advance/partial/final) and original (Storno/correction) of the draft (F04 §5.1.6). */
+  readonly relations?: DocumentRelations | undefined;
 }
 
 // ── helpers ────────────────────────────────────────────────────────────────────────────────────────────────────
@@ -308,8 +313,12 @@ export function resolveDraft(draft: DraftDocument, ctx: DocumentContext): Resolv
     derivedTaxCase = without.kind === "ok" ? without.taxCase : undefined;
   }
 
+  const rateAtDocumentDate = draft.type === "advance_invoice" || draft.type === "partial_invoice";
   const lines: ResolvedLine[] = items.map(([l, index], k) => {
-    const range = lineSupplyRange(l, supplyDate) ?? { from: documentDate, to: documentDate };
+    // §4.7: advances/partials resolve rates at their document date (the final invoice corrects it).
+    const range = rateAtDocumentDate
+      ? { from: documentDate, to: documentDate }
+      : (lineSupplyRange(l, supplyDate) ?? { from: documentDate, to: documentDate });
     const key = l.vatRateKey ?? "standard";
     const lookup =
       range.from === range.to

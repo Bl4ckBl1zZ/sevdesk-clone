@@ -7,7 +7,7 @@ import { decideEinvoiceFormat, type FormatDecision } from "../../einvoice/format
 import { lookupExemptionReason } from "../../rules/exemption-reasons";
 import type { CalendarDate } from "../../time/calendar-date";
 import type { DocumentContext, DraftDocument, ResolvedDraft } from "../draft";
-import type { EinvoiceFormat } from "../snapshot";
+import { type EinvoiceFormat, supplyEnd } from "../snapshot";
 
 export interface EinvoicePlan {
   readonly er03: Er03Result;
@@ -31,6 +31,9 @@ export function planEinvoice(draft: DraftDocument, ctx: DocumentContext, resolve
     documentDate: resolved.documentDate,
     supplyDate: resolved.supplyDate,
   });
+  const original = ctx.relations?.original;
+  const isAdvance = draft.type === "advance_invoice" || draft.type === "partial_invoice";
+  const expectedSupplyEnd = isAdvance && resolved.supplyDate ? supplyEnd(resolved.supplyDate) : undefined;
   const priorYear = Number(refDate.slice(0, 4)) - 1;
   const turnover = ctx.company.priorYearTurnover.find((t) => t.year === priorYear);
   const c = ctx.contact;
@@ -57,8 +60,11 @@ export function planEinvoice(draft: DraftDocument, ctx: DocumentContext, resolve
       isPublicAuthority: c?.isPublicAuthority ?? false,
     },
     refDate,
-    grossEurCents: resolved.grossEurCents ?? 0,
+    grossEurCents: Math.abs(resolved.grossEurCents ?? 0),
     allExempt4Nr8to29,
+    // LEGAL-OPEN: 01 open item 11 — advances use the stricter of document date and expected supply date.
+    ...(expectedSupplyEnd ? { expectedSupplyEnd } : {}),
+    ...(original ? { original: { hadXml: original.hadXml, refDate: original.er03RefDate } } : {}),
   });
   const formatDecision = decideEinvoiceFormat({
     docType: draft.type,
@@ -66,6 +72,7 @@ export function planEinvoice(draft: DraftDocument, ctx: DocumentContext, resolve
     preferredFormat: c?.preferredFormat,
     isPublicAuthority: c?.isPublicAuthority ?? false,
     isKleinunternehmer: resolved.kleinunternehmer,
+    ...(original ? { originalFormat: original.format } : {}),
   });
   const chosen = draft.einvoiceFormat;
   const allowed = formatDecision.allowed.length === 0 ? [formatDecision.format] : formatDecision.allowed;

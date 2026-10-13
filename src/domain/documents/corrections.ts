@@ -137,8 +137,8 @@ export function cancellationSnapshotInput(
   },
 ): SnapshotInput {
   const lines: SnapshotInputLine[] = original.lines.map((l) => {
-    if (l.kind === "heading" || l.kind === "text") return { kind: l.kind, text: l.text };
     if (l.kind === "subtotal") return { kind: "subtotal", text: l.text };
+    if (l.kind !== "item") return { kind: l.kind, text: l.text };
     return {
       kind: "item",
       name: l.name,
