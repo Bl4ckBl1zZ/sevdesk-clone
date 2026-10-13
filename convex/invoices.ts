@@ -3,6 +3,7 @@ import { type Value, v } from "convex/values";
 import { filter } from "convex-helpers/server/filter";
 import { normalizeSearchQuery } from "../src/domain/contacts/core";
 import { defaultMarkSelection, effectiveMark, exportEntriesFor } from "../src/domain/documents/dispatch";
+import { DRAFT_TYPES, type DraftType } from "../src/domain/documents/doc-types";
 import type { DraftDocument } from "../src/domain/documents/draft";
 import { canonicalSnapshotJson, type DocumentSnapshot } from "../src/domain/documents/snapshot";
 import { blocking, type Finding, validateDocument } from "../src/domain/documents/validate";
@@ -24,6 +25,7 @@ import { parse } from "./lib/parse";
 import { defaultInvoiceAccount } from "./model/bankAccounts";
 import { getCompanyProfile } from "./model/companyProfile";
 import { getContact } from "./model/contacts";
+import { runQuoteDeadlines } from "./model/documentFlows";
 import { listPaymentMethods } from "./model/lookups";
 import {
   archivedArtifacts,
@@ -97,14 +99,41 @@ const findingsValue = (fs: readonly Finding[]) =>
 
 // ── list (DOC-37) ────────────────────────────────────────────────────────────────────────────────────────
 
-const TABS = ["all", "draft", "unsent", "open", "overdue", "paid", "exported_not_marked"] as const;
+const TABS = [
+  "all",
+  "draft",
+  "unsent",
+  "open",
+  "overdue",
+  "paid",
+  "exported_not_marked",
+  // quotes, orders, delivery notes (F04 §6.1)
+  "accepted",
+  "rejected",
+  "expired",
+  "partially_invoiced",
+  "invoiced",
+  "received",
+] as const;
 type Tab = (typeof TABS)[number];
+
+const vListType = v.union(...DRAFT_TYPES.map((t) => v.literal(t)));
 
 function tabMatches(d: Doc<"salesDocuments">, tab: Tab, today: string): boolean {
   const s = displayStatusOf(d, today).token;
+  if (d.type !== "invoice" && tab === "open") return d.status === "finalized" || d.status === "sent";
   switch (tab) {
     case "draft":
       return d.status === "draft";
+    case "accepted":
+      return d.status === "accepted" && d.type === "quote";
+    case "received":
+      return d.status === "accepted" && d.type === "delivery_note";
+    case "rejected":
+    case "expired":
+    case "partially_invoiced":
+    case "invoiced":
+      return d.status === tab;
     case "unsent":
       return s === "unsent";
     case "open":
@@ -120,21 +149,26 @@ function tabMatches(d: Doc<"salesDocuments">, tab: Tab, today: string): boolean 
   }
 }
 
-function baseQuery(ctx: QueryCtx, q: string) {
+function baseQuery(ctx: QueryCtx, q: string, type: DraftType) {
   if (q)
-    return ctx.db
-      .query("salesDocuments")
-      .withSearchIndex("search", (s) => s.search("contactName", q).eq("type", "invoice"));
+    return ctx.db.query("salesDocuments").withSearchIndex("search", (s) => s.search("contactName", q).eq("type", type));
   return ctx.db
     .query("salesDocuments")
-    .withIndex("by_type_status_date", (i) => i.eq("type", "invoice"))
+    .withIndex("by_type_status_date", (i) => i.eq("type", type))
     .order("desc");
 }
 
+/** DOC-37 list of one document type (default: invoices; quotes, orders, delivery notes and proforma, F04 §6.1). */
 export const list = query({
   permission: "documents.read",
-  args: { paginationOpts: paginationOptsValidator, tab: v.optional(v.string()), q: v.optional(v.string()) },
-  handler: async (ctx, { paginationOpts, tab, q }) => {
+  args: {
+    paginationOpts: paginationOptsValidator,
+    tab: v.optional(v.string()),
+    q: v.optional(v.string()),
+    type: v.optional(vListType),
+  },
+  handler: async (ctx, { paginationOpts, tab, q, type: typeArg }) => {
+    const type = typeArg ?? "invoice";
     const today = berlinCalendarDate(ctx.now());
     const t = (TABS as readonly string[]).includes(tab ?? "") ? (tab as Tab) : "all";
     const query = q?.trim() ?? "";
@@ -144,13 +178,11 @@ export const list = query({
           .withIndex("by_number", (i) => i.eq("number", query.toUpperCase()))
           .first()
       : null;
-    const page = await filter(baseQuery(ctx, query ? normalizeSearchQuery(query) : ""), (d) =>
+    const page = await filter(baseQuery(ctx, query ? normalizeSearchQuery(query) : "", type), (d) =>
       tabMatches(d, t, today),
     ).paginate(paginationOpts);
-    const rows = [
-      ...(numberHit && !page.page.some((d) => d._id === numberHit._id) ? [numberHit] : []),
-      ...page.page,
-    ].map((d) => ({
+    const hit = numberHit?.type === type ? numberHit : null;
+    const rows = [...(hit && !page.page.some((d) => d._id === hit._id) ? [hit] : []), ...page.page].map((d) => ({
       _id: d._id,
       number: d.number ?? null,
       contactName: d.contactName ?? null,
@@ -163,6 +195,11 @@ export const list = query({
       displayStatus: displayStatusOf(d, today),
       exported: d.firstExportedAt !== undefined,
       artifactStatus: d.artifactStatus ?? null,
+      type: d.type,
+      validUntil: d.validUntil ?? null,
+      supplyDate: d.supplyDate ?? null,
+      orderReference: d.orderReference ?? null,
+      coveredBp: d.coverage?.coveredBp ?? null,
       updatedAt: d._creationTime,
     }));
     return { ...page, page: rows };
@@ -176,7 +213,7 @@ export const get = query({
   args: { id: v.id("salesDocuments") },
   handler: async (ctx, { id }) => {
     const doc = await ctx.db.get(id);
-    if (doc?.type !== "invoice") return null;
+    if (!doc || !(DRAFT_TYPES as readonly string[]).includes(doc.type)) return null;
     const now = ctx.now();
     const today = berlinCalendarDate(now);
     const lines = (await documentLines(ctx, id)).sort((a, b) => a.position - b.position);
@@ -225,7 +262,7 @@ export const get = query({
                   baseCents: g.baseCents,
                   vatCents: g.vatCents,
                 })),
-                lineNets: result.resolved.totals.lines.map((l) => l.netCents),
+                lineNets: result.resolved.itemNetCents.map((n) => n ?? null),
               }
             : null,
         },
@@ -317,7 +354,7 @@ export const check = query({
     const probe = {
       ...(id ? await getDocument(ctx, id) : {}),
       _id: id ?? ("new" as Id<"salesDocuments">),
-      type: "invoice",
+      type: draftValues.type,
       status: "draft",
       ...(draftValues.contactId ? { contactId: draftValues.contactId as Id<"contacts"> } : { contactId: undefined }),
       ...(draftValues.bankAccountId
@@ -353,7 +390,7 @@ export const check = query({
               baseCents: g.baseCents,
               vatCents: g.vatCents,
             })),
-            lineNets: t.lines.map((l) => l.netCents),
+            lineNets: r.resolved.itemNetCents.map((n) => n ?? null),
           }
         : null,
       einvoice: {
@@ -658,7 +695,9 @@ export const notifyDeadlinesCron = systemMutation({
   args: { force: v.optional(v.boolean()) },
   handler: async (ctx, { force }) => {
     if (isTest() && !force) return { created: 0 };
-    return { created: await notifyExportedNotMarked(ctx) };
+    const exported = await notifyExportedNotMarked(ctx);
+    const quotes = await runQuoteDeadlines(ctx);
+    return { created: exported + quotes.expired + quotes.reminded };
   },
 });
 

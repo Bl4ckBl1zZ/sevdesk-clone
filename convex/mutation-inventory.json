@@ -577,6 +577,72 @@
     "wrapper": "systemAction",
     "job": "documents.pipeline"
   },
+  "documentFlows:accept": {
+    "kind": "mutation",
+    "visibility": "public",
+    "wrapper": "mutation",
+    "permission": "documents.write"
+  },
+  "documentFlows:chain": {
+    "kind": "query",
+    "visibility": "public",
+    "wrapper": "query",
+    "permission": "documents.read"
+  },
+  "documentFlows:collectiveInvoice": {
+    "kind": "mutation",
+    "visibility": "public",
+    "wrapper": "mutation",
+    "permission": "documents.write"
+  },
+  "documentFlows:convert": {
+    "kind": "mutation",
+    "visibility": "public",
+    "wrapper": "mutation",
+    "permission": "documents.write"
+  },
+  "documentFlows:markReceived": {
+    "kind": "mutation",
+    "visibility": "public",
+    "wrapper": "mutation",
+    "permission": "documents.write"
+  },
+  "documentFlows:openDeliveryNotes": {
+    "kind": "query",
+    "visibility": "public",
+    "wrapper": "query",
+    "permission": "documents.read"
+  },
+  "documentFlows:proposal": {
+    "kind": "query",
+    "visibility": "public",
+    "wrapper": "query",
+    "permission": "documents.read"
+  },
+  "documentFlows:reject": {
+    "kind": "mutation",
+    "visibility": "public",
+    "wrapper": "mutation",
+    "permission": "documents.write"
+  },
+  "documentFlows:reopen": {
+    "kind": "mutation",
+    "visibility": "public",
+    "wrapper": "mutation",
+    "permission": "documents.write"
+  },
+  "documentFlows:revise": {
+    "kind": "mutation",
+    "visibility": "public",
+    "wrapper": "mutation",
+    "permission": "documents.write"
+  },
+  "documentFlows:withdraw": {
+    "kind": "mutation",
+    "visibility": "public",
+    "wrapper": "mutation",
+    "permission": "documents.write"
+  },
   "idempotency:begin": {
     "kind": "mutation",
     "visibility": "public",

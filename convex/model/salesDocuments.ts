@@ -688,9 +688,10 @@ export async function createDraft(
   ctx: ModelCtx,
   input: DraftValues,
   relations: DraftRelations = {},
-  opts: { action?: string } = {},
+  opts: { action?: string; reason?: string; billingAddressId?: Id<"contactAddresses"> } = {},
 ): Promise<Id<"salesDocuments">> {
   const action = opts.action ?? "document.create_draft";
+  const reason = opts.reason?.trim() ? { reason: opts.reason.trim() } : {};
   await assertContactUsable(ctx, input.contactId);
   const values = await withPaymentDefaults(ctx, input);
   const { lines } = await syncProductRateKeys(ctx, values.lines);
@@ -715,8 +716,9 @@ export async function createDraft(
     ...(relations.sourceDocumentIds?.length ? { sourceDocumentIds: relations.sourceDocumentIds } : {}),
     ...(relations.chainRootId ? { chainRootId: relations.chainRootId } : {}),
     ...(relations.revision ? { revision: relations.revision } : {}),
+    ...(opts.billingAddressId ? { billingAddressId: opts.billingAddressId } : {}),
   };
-  const id = await auditedInsert(ctx, "salesDocuments", base, { action, label: "Entwurf" });
+  const id = await auditedInsert(ctx, "salesDocuments", base, { action, label: "Entwurf", ...reason });
   const doc = await getDocument(ctx, id);
   const { resolved, loaded } = await resolveForSave(ctx, doc, { ...values, lines }, ctx.now());
   let k = 0;
@@ -1055,11 +1057,11 @@ export async function commitFinalization(
       "salesDocuments",
       predecessor._id,
       { status: nextStatus(predecessor, "supersede") },
-      { action: "quote.superseded", label: label(predecessor), reason: `Ersetzt durch ${assigned.number}` },
+      { action: "document.supersede", label: label(predecessor), reason: `Ersetzt durch ${assigned.number}` },
     );
   }
   const finalized = await getDocument(ctx, id);
-  if (await inChain(ctx, finalized)) await recomputeChainOf(ctx, finalized, "document.finalize");
+  if (await inChain(ctx, finalized)) await recomputeChainOf(ctx, finalized, "document.progress");
   return { status: "finalized", number: assigned.number, idempotentReplay: false };
 }
 

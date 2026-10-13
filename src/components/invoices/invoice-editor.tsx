@@ -354,7 +354,7 @@ export function InvoiceEditor({
                     count={state.lines.length}
                     units={units.filter((u) => !u.archivedAt).map((u) => ({ code: u.code, label: u.labelDe }))}
                     vatLabel={check?.lines.find((x) => x.index === i)}
-                    lineNet={check?.totals?.lineNets[state.lines.slice(0, i).filter((x) => x.kind === "item").length]}
+                    lineNet={check?.totals?.lineNets[state.lines.slice(0, i).filter((x) => x.kind === "item").length] ?? undefined}
                     currency={state.currency}
                     onChange={(patch) => setLine(l.key, patch)}
                     onRemove={() => set({ lines: state.lines.filter((x) => x.key !== l.key) })}

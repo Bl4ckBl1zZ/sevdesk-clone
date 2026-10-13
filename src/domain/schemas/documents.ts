@@ -174,6 +174,8 @@ export const convertSchema = z.object({
   /** Quantity per source line id (quantity mode, or overrides in full mode). */
   quantities: z.record(z.string(), int().min(0).max(999_999_999_999)).optional(),
   optionalLineIds: z.array(z.string()).max(2500).optional(),
+  /** Converting a finalised/sent/expired quote into an order or invoice records the acceptance first (§4.2.1). */
+  acceptSource: z.boolean().optional(),
 });
 
 export type ConvertValues = z.infer<typeof convertSchema>;
@@ -205,6 +207,12 @@ export type RejectQuoteValues = z.infer<typeof rejectQuoteSchema>;
 
 /** Withdraw a quote/order/delivery note/proforma (§4.2: `withdraw` → cancelled, number stays used). */
 export const withdrawSchema = z.object({ reason: z.string().trim().min(3).max(2000) });
+
+/** „Wieder öffnen“ of a rejected quote (§4.2.1: reason). */
+export const reopenSchema = z.object({ reason: z.string().trim().min(3).max(2000) });
+
+/** „Neue Version“ (QUO-06, §6.3): optional reason, recorded in the audit log. */
+export const reviseSchema = z.object({ reason: optionalText(2000) });
 
 /** „Erhalten“ of a delivery note (QUO-09). */
 export const markReceivedSchema = z.object({ date: calendarDate, byName: z.string().trim().min(1).max(250) });
