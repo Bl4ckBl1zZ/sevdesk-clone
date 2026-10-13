@@ -2,6 +2,7 @@ import type { InvoiceFinalisedEvent } from "../../src/domain/accounting/events";
 import { validateCompanyForDocuments } from "../../src/domain/company/validate";
 import { ADDRESS_REMOVED_WARNING, attentionLine } from "../../src/domain/contacts/snapshot";
 import { buildSnapshot } from "../../src/domain/documents/build-snapshot";
+import { revisionNumber } from "../../src/domain/documents/conversion";
 import {
   type ArchivedArtifact,
   effectiveMark,
@@ -13,6 +14,7 @@ import {
   validateRetraction,
 } from "../../src/domain/documents/dispatch";
 import { displayStatus } from "../../src/domain/documents/display-status";
+import { carriesReceivable, DRAFT_TYPES, documentPath } from "../../src/domain/documents/doc-types";
 import type {
   CompanyContext,
   ContactContext,
@@ -46,11 +48,12 @@ import { appendAudit, auditedDelete, auditedInsert, auditedPatch } from "./audit
 import { defaultInvoiceAccount } from "./bankAccounts";
 import { getCompanyProfile } from "./companyProfile";
 import { contactAddresses, contactChannels, defaultAddressOf, getContact } from "./contacts";
+import { chainContextFor, chainReferencesFor, inChain, recomputeChainOf } from "./documentChains";
 import { unacknowledgedFailure } from "./integrity";
 import { postJournalEntry } from "./journal";
 import { defaultLayout } from "./layouts";
 import { listCustomFieldDefs, listPaymentMethods, listUnits } from "./lookups";
-import { assignCounterNumber, listDefaultRanges } from "./numberRanges";
+import { assignCounterNumber, listDefaultRanges, registerDerivedNumber } from "./numberRanges";
 import type { ModelCtx, ReadCtx } from "./types";
 import { contactChecks } from "./vatChecks";
 
@@ -158,6 +161,8 @@ const LINE_FIELDS = [
   "isLaborCost",
   "itemNumber",
   "revenueAccount",
+  "optional",
+  "sourceLineId",
 ] as const;
 
 function lineFromDoc(l: DocumentLineDoc): DraftLine {
@@ -200,6 +205,9 @@ export function draftFromDoc(
     ...(d.documentDiscount ? { documentDiscount: d.documentDiscount } : {}),
     language: d.language,
     ...(d.einvoice.format ? { einvoiceFormat: d.einvoice.format } : {}),
+    ...(d.validUntil ? { validUntil: d.validUntil } : {}),
+    ...(d.deliveryTerms ? { deliveryTerms: d.deliveryTerms } : {}),
+    ...(d.showPrices ? { showPrices: true } : {}),
     lines: [...lines].sort((a, b) => a.position - b.position).map(lineFromDoc),
   };
 }
@@ -358,7 +366,12 @@ export interface LoadedContext {
 }
 
 /** Everything `validateDocument` needs, read in the current transaction. */
-export async function loadDocumentContext(ctx: ReadCtx, doc: SalesDocumentDoc, now: number): Promise<LoadedContext> {
+export async function loadDocumentContext(
+  ctx: ReadCtx,
+  doc: SalesDocumentDoc,
+  now: number,
+  draftLines?: readonly { readonly sourceLineId?: string | undefined }[],
+): Promise<LoadedContext> {
   const profile = await getCompanyProfile(ctx);
   const today = berlinCalendarDate(now);
   const contact = doc.contactId ? await readContact(ctx, doc.contactId, doc.billingAddressId) : null;
@@ -371,6 +384,7 @@ export async function loadDocumentContext(ctx: ReadCtx, doc: SalesDocumentDoc, n
         priorYearTurnover: profile.priorYearTotalTurnoverCents,
         ...(profile.foundedOn ? { foundedOn: profile.foundedOn } : {}),
         backdateWindowDays: profile.defaults.backdateWindowDays,
+        quoteValidityDays: profile.defaults.quoteValidityDays,
         ...(profile.defaults.paymentReferencePrefix
           ? { paymentReferencePrefix: profile.defaults.paymentReferencePrefix }
           : {}),
@@ -430,8 +444,10 @@ export async function loadDocumentContext(ctx: ReadCtx, doc: SalesDocumentDoc, n
       kuYearTurnoverCents += d.totals.grossCents;
     }
   }
+  const chain = await chainContextFor(ctx, doc, draftLines ?? []);
   return {
     ctx: {
+      ...chain,
       today,
       setupComplete: profile?.setupCompletedAt !== undefined,
       integrityAlertOpen: (await unacknowledgedFailure(ctx)) !== null,
@@ -472,7 +488,7 @@ export async function validateStored(
   opts: ValidateOptions = {},
 ): Promise<{ loaded: LoadedContext; draft: DraftDocument; result: ValidationResult }> {
   const lines = await documentLines(ctx, doc._id);
-  const loaded = await loadDocumentContext(ctx, doc, now);
+  const loaded = await loadDocumentContext(ctx, doc, now, lines);
   const draft = draftFromDoc(doc, lines, loaded.contact?.context.buyer.address);
   const result = validateDocument(draft, loaded.ctx, opts);
   const extra = loaded.contact?.warnings ?? [];
@@ -526,6 +542,11 @@ function headerFrom(values: DraftValues) {
     ...(values.documentDiscount ? { documentDiscount: values.documentDiscount } : {}),
     language: values.language,
     ...(values.internalNote ? { internalNote: values.internalNote } : {}),
+    ...(values.validUntil && values.type === "quote" ? { validUntil: values.validUntil } : {}),
+    ...(values.deliveryTerms?.trim() && (values.type === "quote" || values.type === "order_confirmation")
+      ? { deliveryTerms: values.deliveryTerms.trim() }
+      : {}),
+    ...(values.showPrices && values.type === "delivery_note" ? { showPrices: true } : {}),
   };
 }
 
@@ -552,6 +573,9 @@ const CLEARABLE = [
   "internalNote",
   "taxCaseOverridden",
   "billingAddressId",
+  "validUntil",
+  "deliveryTerms",
+  "showPrices",
 ] as const;
 
 function lineRow(
@@ -644,7 +668,7 @@ async function syncProductRateKeys(
 
 /** Resolves the draft (tax case, rates, totals) against the live context for the cached fields. */
 async function resolveForSave(ctx: ReadCtx, doc: SalesDocumentDoc, values: DraftValues, now: number) {
-  const loaded = await loadDocumentContext(ctx, doc, now);
+  const loaded = await loadDocumentContext(ctx, doc, now, values.lines);
   const draft: DraftDocument = {
     ...(values as unknown as DraftDocument),
     ...(loaded.contact?.context.buyer.address ? { billingAddress: loaded.contact.context.buyer.address } : {}),
@@ -652,7 +676,21 @@ async function resolveForSave(ctx: ReadCtx, doc: SalesDocumentDoc, values: Draft
   return { loaded, resolved: resolveDraft(draft, loaded.ctx) };
 }
 
-export async function createDraft(ctx: ModelCtx, input: DraftValues): Promise<Id<"salesDocuments">> {
+/** Chain relations a conversion or revision sets on the new draft (DOC-33/34, QUO-06/11). */
+export interface DraftRelations {
+  originId?: Id<"salesDocuments">;
+  sourceDocumentIds?: Id<"salesDocuments">[];
+  chainRootId?: Id<"salesDocuments">;
+  revision?: number;
+}
+
+export async function createDraft(
+  ctx: ModelCtx,
+  input: DraftValues,
+  relations: DraftRelations = {},
+  opts: { action?: string } = {},
+): Promise<Id<"salesDocuments">> {
+  const action = opts.action ?? "document.create_draft";
   await assertContactUsable(ctx, input.contactId);
   const values = await withPaymentDefaults(ctx, input);
   const { lines } = await syncProductRateKeys(ctx, values.lines);
@@ -673,16 +711,20 @@ export async function createDraft(ctx: ModelCtx, input: DraftValues): Promise<Id
     createdBy: ctx.actor,
     channel: ctx.actorContext.channel === "cron" ? ("system" as const) : ctx.actorContext.channel,
     version: 1,
+    ...(relations.originId ? { originId: relations.originId } : {}),
+    ...(relations.sourceDocumentIds?.length ? { sourceDocumentIds: relations.sourceDocumentIds } : {}),
+    ...(relations.chainRootId ? { chainRootId: relations.chainRootId } : {}),
+    ...(relations.revision ? { revision: relations.revision } : {}),
   };
-  const id = await auditedInsert(ctx, "salesDocuments", base, { action: "document.create_draft", label: "Entwurf" });
+  const id = await auditedInsert(ctx, "salesDocuments", base, { action, label: "Entwurf" });
   const doc = await getDocument(ctx, id);
   const { resolved, loaded } = await resolveForSave(ctx, doc, { ...values, lines }, ctx.now());
   let k = 0;
   for (const [i, l] of lines.entries()) {
     const r = l.kind === "item" ? resolved.lines[k] : undefined;
-    const net = l.kind === "item" ? resolved.totals?.lines[k++]?.netCents : undefined;
+    const net = l.kind === "item" ? resolved.itemNetCents[k++] : undefined;
     await auditedInsert(ctx, "documentLines", { documentId: id, ...lineRow(l, i + 1, r, net) } as never, {
-      action: "document.create_draft",
+      action,
     });
   }
   await auditedPatch(
@@ -702,7 +744,7 @@ export async function createDraft(ctx: ModelCtx, input: DraftValues): Promise<Id
       ...(loaded.contact?.billingAddressId ? { billingAddressId: loaded.contact.billingAddressId } : {}),
       totals: totalsCache(resolved),
     },
-    { action: "document.create_draft" },
+    { action },
   );
   return id;
 }
@@ -715,6 +757,11 @@ export async function updateDraft(
   opts: { billingAddressId?: Id<"contactAddresses"> } = {},
 ): Promise<{ version: number; notices: string[] }> {
   const doc = await assertDraft(ctx, id, version);
+  if (input.type !== doc.type) {
+    throw appError("invalid_input", "Der Dokumenttyp eines Entwurfs kann nicht geändert werden.", {
+      reason: "type_immutable",
+    });
+  }
   await assertContactUsable(ctx, input.contactId);
   const values = await withPaymentDefaults(ctx, input);
   const { lines, notices } = await syncProductRateKeys(ctx, values.lines);
@@ -748,7 +795,7 @@ export async function updateDraft(
   let k = 0;
   for (const [i, l] of lines.entries()) {
     const r = l.kind === "item" ? resolved.lines[k] : undefined;
-    const net = l.kind === "item" ? resolved.totals?.lines[k++]?.netCents : undefined;
+    const net = l.kind === "item" ? resolved.itemNetCents[k++] : undefined;
     const row = lineRow(l, i + 1, r, net);
     const old = existing[i];
     if (old) {
@@ -920,22 +967,19 @@ export async function commitFinalization(
   const errors = blocking(result.findings);
   if (errors.length > 0) return { status: "invalid", findings: errors };
   const documentDate = result.resolved.documentDate;
-  const [year, month] = documentDate.split("-").map(Number) as [number, number];
-  const assigned = await assignCounterNumber(ctx, {
-    docType: doc.type,
-    date: { year, month },
-    documentId: id,
-    action: "document.finalize",
-  }).catch((e: unknown) => {
+  const predecessor = await revisedQuoteOf(ctx, stored);
+  const assigned = await assignDocumentNumber(ctx, stored, documentDate, predecessor).catch((e: unknown) => {
     const reason = (e as { data?: { reason?: string } }).data?.reason;
     if (reason === "NUMBER_COLLISION") throw appError("number_conflict", (e as Error).message);
     throw e;
   });
+  const chainReferences = await chainReferencesFor(ctx, stored);
   const input = buildSnapshotInput(draft, loaded.ctx, result.resolved, {
     number: assigned.number,
     documentDate,
     layoutVersionId: loaded.layoutVersionId,
     plan: result.einvoice,
+    ...(Object.keys(chainReferences).length ? { chainReferences } : {}),
   });
   const built = buildSnapshot({
     ...input,
@@ -970,7 +1014,7 @@ export async function commitFinalization(
     {
       status,
       number: assigned.number,
-      numberRangeId: assigned.rangeId,
+      ...(assigned.rangeId ? { numberRangeId: assigned.rangeId } : {}),
       documentDate,
       ...(snapshot.supplyDate ? { supplyDate: snapshot.supplyDate } : {}),
       ...(snapshot.dueDate ? { dueDate: snapshot.dueDate } : {}),
@@ -986,8 +1030,11 @@ export async function commitFinalization(
       },
       ...(o.overrides ? { overrides: o.overrides } : {}),
       totals: totalsCache(result.resolved),
-      paymentStatus: payable <= 0 ? "paid" : "open",
-      openAmountCents: payable,
+      // Only the invoice family opens a receivable (03 §4); quotes, orders, delivery notes and proforma never do.
+      ...(carriesReceivable(stored.type)
+        ? { paymentStatus: payable <= 0 ? ("paid" as const) : ("open" as const), openAmountCents: payable }
+        : {}),
+      ...(snapshot.validUntil ? { validUntil: snapshot.validUntil } : {}),
       snapshotId,
       artifactStatus: "pending",
       artifactAttempts: 0,
@@ -1001,7 +1048,72 @@ export async function commitFinalization(
   );
   const event = journalEventFor(stored, snapshot);
   if (event) await postJournalEntry(ctx, event);
+  if (predecessor) {
+    // QUO-06: finalising the new version replaces the previous one (T-QUO-004).
+    await auditedPatch(
+      ctx,
+      "salesDocuments",
+      predecessor._id,
+      { status: nextStatus(predecessor, "supersede") },
+      { action: "quote.superseded", label: label(predecessor), reason: `Ersetzt durch ${assigned.number}` },
+    );
+  }
+  const finalized = await getDocument(ctx, id);
+  if (await inChain(ctx, finalized)) await recomputeChainOf(ctx, finalized, "document.finalize");
   return { status: "finalized", number: assigned.number, idempotentReplay: false };
+}
+
+/** The previous quote version a revision draft replaces (QUO-06); it must still be replaceable at the commit. */
+async function revisedQuoteOf(ctx: ReadCtx, doc: SalesDocumentDoc): Promise<SalesDocumentDoc | null> {
+  if (doc.type !== "quote" || !doc.originId || (doc.revision ?? 1) < 2) return null;
+  const prev = await ctx.db.get(doc.originId);
+  if (prev?.type !== "quote") return null;
+  const t = transition(prev.type, prev.status, "supersede");
+  if (!t.ok || t.value === null) {
+    throw appError(
+      "conflict",
+      `${label(prev)} ist ${prev.status === "accepted" ? "angenommen" : "nicht mehr ersetzbar"}; die neue Version kann nicht fertiggestellt werden.`,
+      { reason: prev.status === "accepted" ? "quote_accepted_frozen" : "illegal_transition" },
+    );
+  }
+  return prev;
+}
+
+/**
+ * DOC-25 number: the next number of the type's default range — except a quote revision in `suffix` mode
+ * (`quoteRevisionNumbering`, QUO-06), which takes `{number of version 1}-V{n}`.
+ */
+async function assignDocumentNumber(
+  ctx: ModelCtx,
+  doc: SalesDocumentDoc,
+  documentDate: string,
+  predecessor: SalesDocumentDoc | null,
+): Promise<{ number: string; rangeId?: Id<"numberRanges"> }> {
+  const profile = await getCompanyProfile(ctx);
+  if (predecessor && (profile?.defaults.quoteRevisionNumbering ?? "suffix") === "suffix") {
+    let first: SalesDocumentDoc = predecessor;
+    for (let i = 0; i < 100 && first.originId && (first.revision ?? 1) > 1; i++) {
+      const prev = await ctx.db.get(first.originId);
+      if (prev?.type !== "quote") break;
+      first = prev;
+    }
+    const number = revisionNumber(first.number ?? "", doc.revision ?? 2);
+    await registerDerivedNumber(ctx, {
+      number,
+      ...(first.numberRangeId ? { rangeId: first.numberRangeId } : {}),
+      docType: doc.type,
+      documentId: doc._id,
+      action: "document.finalize",
+    });
+    return { number, ...(first.numberRangeId ? { rangeId: first.numberRangeId } : {}) };
+  }
+  const [year, month] = documentDate.split("-").map(Number) as [number, number];
+  return assignCounterNumber(ctx, {
+    docType: doc.type,
+    date: { year, month },
+    documentId: doc._id,
+    action: "document.finalize",
+  });
 }
 
 // ── artifacts (DOC-28, §4.6.5) ──────────────────────────────────────────────────────────────────────────────
@@ -1086,7 +1198,7 @@ export async function recordArtifactFailure(
     severity: "error",
     title: `E-Rechnung konnte nicht erzeugt werden: ${label(doc)}`,
     body: error.slice(0, 500),
-    link: `/rechnungen/${id}`,
+    link: documentPath(doc.type, id),
     entity: { table: "salesDocuments", id },
     dedupeKey: `artifacts_blocked:${id}`,
   });
@@ -1402,7 +1514,7 @@ export async function notifyExportedNotMarked(ctx: ModelCtx): Promise<number> {
       kind: "exported_not_marked",
       severity: "warning",
       title: exportedNotMarkedTitle(d.number),
-      link: `/rechnungen/${d._id}`,
+      link: documentPath(d.type, d._id),
       entity: { table: "salesDocuments", id: d._id },
       dedupeKey: key,
     });
@@ -1430,7 +1542,7 @@ export async function documentsOfContact(ctx: ReadCtx, contactId: Id<"contacts">
 
 export async function countDrafts(ctx: ReadCtx): Promise<number> {
   let n = 0;
-  for (const type of ["invoice"] as const) {
+  for (const type of DRAFT_TYPES) {
     n += (
       await ctx.db
         .query("salesDocuments")
