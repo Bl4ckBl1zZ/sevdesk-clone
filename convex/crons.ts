@@ -22,4 +22,9 @@ crons.cron("members.expire", "5 * * * *", internal.members.expireCron, {});
 crons.cron("products.applyScheduledPrices (CEST)", "5 22 * * *", internal.products.applyScheduledPricesCron, {});
 crons.cron("products.applyScheduledPrices (CET)", "5 23 * * *", internal.products.applyScheduledPricesCron, {});
 
+// deadlines.notify — daily 08:00 Europe/Berlin (06:00 UTC in summer, 07:00 UTC in winter); P1: the
+// "exported, not marked as sent" to-dos (F04 SND-21). The job is idempotent per document (dedupe key).
+crons.cron("deadlines.notify (CEST)", "0 6 * * *", internal.invoices.notifyDeadlinesCron, {});
+crons.cron("deadlines.notify (CET)", "0 7 * * *", internal.invoices.notifyDeadlinesCron, {});
+
 export default crons;

@@ -128,6 +128,9 @@ export const IMMUTABILITY_MATRIX: Readonly<Record<string, TableRule>> = {
       firstExportedAt: "once",
       viewedAt: "mutable",
       artifactStatus: { transitions: { pending: ["ready", "blocked"], blocked: ["pending", "ready"] } },
+      // Pipeline bookkeeping of step 3 (02 §6): attempt counter and last error of the artifact rendering.
+      artifactAttempts: "mutable",
+      artifactError: "mutable",
       lockedAt: "once",
       tags: "mutable",
       internalNote: "mutable",

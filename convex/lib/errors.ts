@@ -52,6 +52,7 @@ export const ERRORS = {
   mark_sent_invalid: "Die Versandmarkierung ist nicht möglich.",
   retraction_invalid: "Die Versandmarkierung kann nicht zurückgenommen werden.",
   resend_original_reason: "Bitte begründen, warum das Original erneut exportiert wird (wird protokolliert).",
+  clock_skew: "Die Serveruhr weicht zu stark ab. Fertigstellen ist gesperrt, bis die Uhrzeit korrigiert ist.",
 } as const;
 
 export type ErrorCode = keyof typeof ERRORS;

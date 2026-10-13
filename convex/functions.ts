@@ -43,6 +43,8 @@ export const SYSTEM_JOBS = [
   "cron.members.expire",
   "cron.invariants.check",
   "cron.products.applyScheduledPrices", // F03 PRD-031, 02 §7 products.applyScheduledPrices
+  "cron.deadlines.notify", // 02 §7 deadlines.notify (F04 SND-21 to-dos)
+  "documents.pipeline", // F04 §4.6 step 1 reads and step 3 renderArtifacts (scheduled, retried)
   "auth", // member created by the sign-up trigger, OTP throttle, auth-mail failures
   "migration", // migrations:run — the runner then acts as system:migration.<name> (AUD-028)
 ] as const;
