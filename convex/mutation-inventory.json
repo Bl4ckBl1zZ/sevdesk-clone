@@ -343,6 +343,36 @@
     "wrapper": "mutation",
     "permission": "contacts.write"
   },
+  "contactsApi:archive": {
+    "kind": "mutation",
+    "visibility": "public",
+    "wrapper": "mutation",
+    "permission": "contacts.write"
+  },
+  "contactsApi:get": {
+    "kind": "query",
+    "visibility": "public",
+    "wrapper": "query",
+    "permission": "contacts.read"
+  },
+  "contactsApi:list": {
+    "kind": "query",
+    "visibility": "public",
+    "wrapper": "query",
+    "permission": "contacts.read"
+  },
+  "contactsApi:patch": {
+    "kind": "mutation",
+    "visibility": "public",
+    "wrapper": "mutation",
+    "permission": "contacts.write"
+  },
+  "contactsApi:upsert": {
+    "kind": "mutation",
+    "visibility": "public",
+    "wrapper": "mutation",
+    "permission": "contacts.write"
+  },
   "idempotency:begin": {
     "kind": "mutation",
     "visibility": "public",
@@ -775,6 +805,42 @@
     "wrapper": "mutation",
     "permission": "products.write"
   },
+  "productsApi:archive": {
+    "kind": "mutation",
+    "visibility": "public",
+    "wrapper": "mutation",
+    "permission": "products.write"
+  },
+  "productsApi:categories": {
+    "kind": "query",
+    "visibility": "public",
+    "wrapper": "query",
+    "permission": "products.read"
+  },
+  "productsApi:get": {
+    "kind": "query",
+    "visibility": "public",
+    "wrapper": "query",
+    "permission": "products.read"
+  },
+  "productsApi:list": {
+    "kind": "query",
+    "visibility": "public",
+    "wrapper": "query",
+    "permission": "products.read"
+  },
+  "productsApi:patch": {
+    "kind": "mutation",
+    "visibility": "public",
+    "wrapper": "mutation",
+    "permission": "products.write"
+  },
+  "productsApi:resolvePrice": {
+    "kind": "query",
+    "visibility": "public",
+    "wrapper": "query",
+    "permission": "products.read"
+  },
   "settings:addBankAccount": {
     "kind": "mutation",
     "visibility": "public",
@@ -942,6 +1008,24 @@
     "visibility": "public",
     "wrapper": "action",
     "permission": "integrations.manage"
+  },
+  "settingsApi:company": {
+    "kind": "query",
+    "visibility": "public",
+    "wrapper": "query",
+    "permission": "settings.read"
+  },
+  "settingsApi:companyPublic": {
+    "kind": "query",
+    "visibility": "public",
+    "wrapper": "query",
+    "permission": "company.public"
+  },
+  "settingsApi:taxRates": {
+    "kind": "query",
+    "visibility": "public",
+    "wrapper": "query",
+    "permission": "settings.read"
   },
   "signup:checkSignIn": {
     "kind": "query",

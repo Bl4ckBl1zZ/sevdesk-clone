@@ -22,6 +22,8 @@
     "golden:update": "vitest run --project domain --passWithNoTests test/golden --update",
     "e2e": "playwright test",
     "trace": "tsx scripts/trace.ts",
+    "openapi:check": "vitest run --project server src/server/openapi.test.ts",
+    "mcp:eval": "tsx scripts/mcp-eval.ts",
     "lint": "biome check . && tsx scripts/check-boundaries.ts",
     "lint:deploy": "tsx deploy/scripts/check-compose.ts",
     "lint:fix": "biome check --write .",

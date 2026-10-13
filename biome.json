@@ -12,6 +12,7 @@
       "!test/golden/cases",
       "!test/fixtures",
       "!src/pdf/fonts/data.generated.ts",
+      "!src/server/openapi.snapshot.json",
       "!docs",
       "!**/*.md",
       "!**/*.svg"

@@ -24,6 +24,10 @@ export interface ServerJwtClaims {
   client?: { name: string; version: string };
   /** Request id for log correlation. */
   requestId?: string;
+  /** SHA-256 of the presented key: Convex refuses the token unless it equals the stored hash (API-006). */
+  keyHash?: string;
+  /** The caller's User-Agent for the access log and audit (claim `ua`, truncated to 200 chars). */
+  userAgent?: string;
 }
 
 export interface ServerJwtOptions {
@@ -62,6 +66,8 @@ export async function mintServerJwt(claims: ServerJwtClaims, opts: ServerJwtOpti
     ...(claims.keyName ? { keyName: claims.keyName } : {}),
     ...(claims.client ? { client: claims.client } : {}),
     ...(claims.requestId ? { requestId: claims.requestId } : {}),
+    ...(claims.keyHash ? { keyHash: claims.keyHash } : {}),
+    ...(claims.userAgent ? { ua: claims.userAgent.slice(0, 200) } : {}),
   })
     .setProtectedHeader({ alg: "ES256", kid, typ: "JWT" })
     .setSubject(claims.actor)

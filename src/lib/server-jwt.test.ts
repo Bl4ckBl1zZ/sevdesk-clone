@@ -71,6 +71,29 @@ describe("server JWT for REST/MCP callers (02 §4.4)", () => {
     });
   });
 
+  test("API-006 API-008 the token carries the key hash, the request id and the user agent", async () => {
+    const token = await mintServerJwt(
+      {
+        actor: "api-key:key_abc",
+        scopes: ["contacts:read"],
+        keyHash: "ab".repeat(32),
+        requestId: "req_1",
+        userAgent: "website/1.0",
+      },
+      { privateKeyPem: pem, apiOrigin: API_ORIGIN },
+    );
+    const { payload } = await jwtVerify(token, createLocalJWKSet(jwks as never), {
+      issuer: API_ORIGIN,
+      audience: SERVER_JWT_AUDIENCE,
+    });
+    expect(payload).toMatchObject({ keyHash: "ab".repeat(32), requestId: "req_1", ua: "website/1.0" });
+    const resolved = resolveIdentity(
+      { ...payload, issuer: API_ORIGIN, subject: payload.sub as string },
+      { user: "https://convex", server: API_ORIGIN },
+    );
+    expect(resolved).toMatchObject({ keyHash: "ab".repeat(32), requestId: "req_1", userAgent: "website/1.0" });
+  });
+
   test("AUD-001 only api-key and mcp actors can be minted", async () => {
     await expect(
       mintServerJwt({ actor: "user:u1" as never, scopes: [] }, { privateKeyPem: pem, apiOrigin: API_ORIGIN }),

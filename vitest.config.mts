@@ -43,8 +43,12 @@ export default defineConfig({
             "src/emails/**/*.test.ts",
             "scripts/**/*.test.ts",
             "src/pdf/**/*.test.{ts,tsx}",
+            // REST/MCP route-handler tests against convex-test (outside src/: they import convex/test.setup).
+            "test/server/**/*.test.ts",
           ],
           environment: "node",
+          setupFiles: ["./test/setup-invariants.ts"],
+          server: { deps: { inline: ["convex-test", "@convex-dev/rate-limiter", "@convex-dev/better-auth"] } },
           // `import "server-only"` throws outside the react-server condition; tests are server code.
           alias: { "server-only": fileURLToPath(new URL("./node_modules/server-only/empty.js", import.meta.url)) },
         },
