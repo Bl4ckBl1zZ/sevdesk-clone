@@ -386,12 +386,12 @@ Mobile: single column, sticky bottom bar `[Abbrechen] [Speichern]`, numeric inpu
 
 | Method & path | Scope | Notes |
 |---|---|---|
-| `GET /products?q=&active=&type=&categoryId=&tag=&updatedSince=&limit=&cursor=` | products:read | Each item includes `price: { mode, unitPriceMicros, netMicrosToday, grossMicrosToday, rateBpToday }` |
+| `GET /products?q=&active=&type=&category_id=&tag=&updated_since=&limit=&cursor=` | products:read | Each item includes `price: { mode, unit_price, unit_price_micros, net_micros_today, gross_micros_today, rate_bp_today }` |
 | `POST /products` | products:write | `Idempotency-Key` supported |
 | `GET /products/{id}`, `PATCH /products/{id}` | read / write | PATCH requires `version` |
 | `DELETE /products/{id}` | products:write | 409 `PRODUCT_IN_USE` if referenced |
 | `POST /products/{id}/archive`, `POST /products/{id}/unarchive` | products:write | |
-| `GET /products/{id}/price?contactId=&date=&unitCode=&quantity=&priceMode=&currency=` | products:read | `resolvePrice` result (PRD-032) |
+| `GET /products/{id}/price?contact_id=&date=&unit_code=&quantity=&price_mode=&currency=` | products:read | `resolvePrice` result (PRD-032); P1 slice: `contact_id`, `date`, `unit_code`, `price_mode` (EUR) |
 | `GET/POST /products/{id}/customer-prices`, `PATCH/DELETE /products/{id}/customer-prices/{priceId}` | read / write | IDs `cpr_…` |
 | `POST /products/{id}/scheduled-price` | products:write | PRD-031 |
 | `GET/POST /product-categories`, `PATCH/DELETE /product-categories/{id}` | read / write | IDs `pcat_…` |
@@ -400,7 +400,7 @@ Mobile: single column, sticky bottom bar `[Abbrechen] [Speichern]`, numeric inpu
 | `POST /exports/products` | products:read | Job → CSV |
 | `GET /products/{id}/stock-movements`, `POST /products/{id}/stock-adjustments` | products:read / products:write | P4; IDs `stm_…` |
 
-Prices in API payloads are integers (`unitPriceMicros`) plus a formatted string for convenience (`"95.0000"`); rates in basis points. Webhook events: `product.created`, `product.updated`, `product.archived`, `product.deleted`, `product.price_scheduled`, `product.stock_low` (P4).
+Prices in API payloads are integers (`unit_price_micros`) plus the decimal string (`unit_price: "95.0000"`, the writable field); rates in basis points. Field and parameter names follow 05 §3 (snake_case; changed 2026-10-13 from the camelCase draft). Webhook events: `product.created`, `product.updated`, `product.archived`, `product.deleted`, `product.price_scheduled`, `product.stock_low` (P4).
 
 ### 7.2 MCP tools
 

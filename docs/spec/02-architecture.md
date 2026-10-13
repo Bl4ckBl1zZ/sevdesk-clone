@@ -220,8 +220,8 @@ Every Convex call carries a JWT from one of **two providers** registered in `con
 | Actor | When | Identity source | Extra |
 |---|---|---|---|
 | `user:<betterAuthUserId>` | Signed-in browser on `app.` (UI, Server Actions) | Better Auth JWT `sub`; writes also call `authComponent.safeGetAuthUser(ctx)` (session row exists and is not expired — a bare JWT stays valid up to 15 min after sign-out) and load the `members` row | `actorRole` = `owner \| bookkeeper \| viewer \| auditor`, channel `ui` |
-| `api-key:<keyId>` | REST request with a valid API key (`<keyId>` = the key's public ID `apiKeys.prefix`) | Server JWT `sub` | `scopes`, `chan: "api"`, `keyName` |
-| `mcp:<keyId>` | MCP request with a valid API key | Server JWT `sub` | `scopes`, `chan: "mcp"`, `keyName`, `client` (from MCP client info) |
+| `api-key:<keyId>` | REST request with a valid API key (`<keyId>` = the key's public ID `apiKeys.prefix`) | Server JWT `sub` | `scopes`, `keyName`, `keyHash`, `requestId`, `ua` |
+| `mcp:<keyId>` | MCP request with a valid API key | Server JWT `sub` | `scopes`, `keyName`, `keyHash`, `requestId`, `ua`, `client` (from MCP client info) |
 | `system:<job>` | Convex crons/scheduler (no JWT; internal functions) | job registry | Scheduled jobs: `system:cron.<job>` with the §7 job name (e.g. `system:cron.dunning.run`, `system:cron.recurring.generate`); other internal processes: `system:ku-monitor`, `system:migration.<name>`, `system:restore`, `system:auth` (member created by the sign-up trigger) (03 §0.1) |
 | `portal:<tokenId>` | **Reserved** (F10 deferred) | — | — |
 
@@ -235,6 +235,7 @@ Every Convex call carries a JWT from one of **two providers** registered in `con
     },
   });
   ```
+- Server-JWT claims (2026-10-13): `keyHash` is the SHA-256 of the presented key — Convex refuses the token unless it equals the stored `apiKeys.hash`, so a known public id alone never yields an identity and a rotated key fails at once (API-006); `requestId` and `ua` (User-Agent, ≤ 200 chars) are copied into the actor context for audit correlation. `web` mints the token with every scope; Convex intersects it with the stored key's scopes (authoritative). The channel is derived from the actor kind (`api-key` → `api`, `mcp` → `mcp`); there is no `chan` claim.
 - Scopes (keys) and roles (users) are checked in Next (fail fast) **and** in Convex (authoritative). Scope list: [05-api.md §2](05-api.md#2-api-keys-and-scopes). API keys are created only by the owner and are never tied to a user session.
 
 ### 4.5 Secrets

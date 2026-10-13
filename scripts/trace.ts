@@ -41,6 +41,8 @@ function walk(dir: string, match: (p: string) => boolean, acc: string[] = []): s
 const specFiles = [
   join(ROOT, "docs/spec/01-compliance.md"),
   join(ROOT, "docs/spec/10-edge-cases.md"),
+  join(ROOT, "docs/spec/05-api.md"),
+  join(ROOT, "docs/spec/06-mcp.md"),
   ...walk(join(ROOT, "docs/spec/features"), (p) => p.endsWith(".md")).sort(),
 ];
 const registry = mergeRegistry(specFiles.map((f) => parseSpec(relative(ROOT, f), readFileSync(f, "utf8"))));

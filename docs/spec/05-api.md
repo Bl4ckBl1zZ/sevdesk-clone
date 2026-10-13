@@ -1,6 +1,6 @@
 # 05 — REST API (tailnet-only), API Keys, Webhooks
 
-> **Status:** v1.1 · 2026-10-12 (platform update: tailnet-only `api.` host, website access via `tag:website` on port 8443, no inbound webhooks, rate limits per key, no IP allowlists, no e-mail sending; endpoints aligned with F04–F09 v1.1: export/mark-sent, cash payments and transfers, voucher payment methods, `/imports` lifecycle, ELSTER guides and submission records, dunning never sends) · Research: [`../research/14-auth-email-tailscale.md`](../research/14-auth-email-tailscale.md) §4.6, [`../research/05-nextjs-mcp-api.md`](../research/05-nextjs-mcp-api.md) §C
+> **Status:** v1.2 · 2026-10-13 (P1 REST slice: requirement table §8, lower-case problem codes, `idempotency_in_progress`, PATCH version rule, webhooks not yet phased) · v1.1 · 2026-10-12 (platform update: tailnet-only `api.` host, website access via `tag:website` on port 8443, no inbound webhooks, rate limits per key, no IP allowlists, no e-mail sending; endpoints aligned with F04–F09 v1.1: export/mark-sent, cash payments and transfers, voucher payment methods, `/imports` lifecycle, ELSTER guides and submission records, dunning never sends) · Research: [`../research/14-auth-email-tailscale.md`](../research/14-auth-email-tailscale.md) §4.6, [`../research/05-nextjs-mcp-api.md`](../research/05-nextjs-mcp-api.md) §C
 > **Goal:** integrate the business website and other tools (n8n, scripts) with everything the UI can do, under the same compliance rules. sevdesk only offers its API in the top plan and has no webhooks (research 02); we offer both.
 
 ## 1. Principles
@@ -18,7 +18,7 @@
 - Create (**owner only**, fresh session, 02 §4.3): name, channel (`api` / `mcp` / `both`), scopes (checkboxes grouped by area, plus presets), optional expiry, optional rate limit. There is **no IP allowlist**: behind the tailnet edge every request arrives from the fork's proxy address (02 §4.1); network restriction is done with tailnet grants instead (§6.1).
 - The key is shown **once**: `sk_live_<43 chars base64url>`. The list shows `prefix…last4`, scopes, created, last used, expiry.
 - Storage: `sha256(key)` hex with an index; the plaintext is never stored (SEC-02).
-- Revoke takes effect immediately (no caching longer than 10 s).
+- Revoke takes effect immediately: every request re-checks the stored key in Convex, nothing is cached (EC-186). Revoking needs **no** fresh session, so a leaked key can be revoked at once; creating one does.
 - Rotation: create the new key, switch the client, revoke the old one. Two keys may be active at the same time.
 - Every request updates `lastUsedAt` (debounced: at most once a minute).
 
@@ -72,8 +72,8 @@
 | Money | `{ "amount_cents": 119000, "currency": "EUR" }`, or `*_cents` fields next to a document-level `currency` |
 | Unit prices | `unit_price` as a decimal **string** with ≤ 4 decimals (`"12.3450"`) to avoid float issues; quantities as a decimal string with ≤ 3 decimals |
 | Dates | `YYYY-MM-DD`; instants RFC 3339 UTC |
-| Idempotency | `Idempotency-Key: <uuid>` on POST. Stored 24 h per key and API key. Same key + same body → same response replayed (`Idempotent-Replayed: true`). Same key + different body → 422 |
-| Concurrency | Drafts carry `version`. `PATCH` requires `If-Match: <version>` (or a `version` field); mismatch → 409 `version_conflict` |
+| Idempotency | `Idempotency-Key: <uuid>` on POST (1–255 visible ASCII characters). Stored 24 h per key and API key. Same key + same method/path/query/body → same response replayed (`Idempotent-Replayed: true`). Same key + different request → 422 `idempotency_key_reused`. Same key while the first request still runs → 409 `idempotency_in_progress`. 5xx answers are not stored (the key is released for a retry) |
+| Concurrency | Drafts and master data carry `version`. `PATCH` requires `If-Match: <version>` (or a `version` field); missing → 422 with `errors[].field = "version"`; mismatch → 409 `version_conflict` |
 | Rate limits | **Per API key only** (client IPs are not visible behind the tailnet edge): default 120 requests/min per key (token bucket, burst 30), configurable per key. Headers `RateLimit-Limit`, `RateLimit-Remaining`, `RateLimit-Reset`; 429 with `Retry-After` |
 | Request ID | `X-Request-Id` echoed or generated. Written to the audit log |
 | Versioning | URL major version (`/v1`). Additive changes only within v1. Deprecations are announced with a `Deprecation` and `Sunset` header ≥ 6 months ahead |
@@ -100,14 +100,19 @@
 
 | HTTP | `code` examples |
 |---|---|
-| 400 | `bad_request`, `key_in_query_not_allowed` |
-| 401 | `unauthorized` (missing/invalid/expired/revoked key) |
-| 403 | `insufficient_scope` (includes `required_scope`) |
-| 404 | `not_found` |
-| 409 | `document_not_draft`, `version_conflict`, `period_locked`, `number_conflict`, `immutable_record` |
+| 400 | `bad_request`, `key_in_query_not_allowed`, `invalid_expand` |
+| 401 | `unauthorized` (missing/invalid/expired/revoked key; `WWW-Authenticate: Bearer`) |
+| 403 | `insufficient_scope` (includes `required_scope`), `owner_only` |
+| 404 | `not_found` (also for an ID with another resource's prefix) |
+| 405 | `method_not_allowed` (with `Allow`) |
+| 409 | `document_not_draft`, `version_conflict`, `period_locked`, `number_conflict`, `number_collision`, `immutable_record`, `upsert_ambiguous`, `contact_in_use`, `contact_merged`, `product_in_use`, `setup_incomplete`, `idempotency_in_progress` |
+| 415 | `unsupported_media_type` (body not JSON) |
 | 422 | `validation_failed`, `idempotency_key_reused`, `einvoice_validation_failed` (includes the KoSIT report summary) |
-| 429 | `rate_limited` |
+| 429 | `rate_limited` (with `Retry-After`) |
+| 501 | `not_implemented` (catalog entry of a feature that has not shipped yet; MCP stubs) |
 | 503 | `dependency_unavailable` (e.g. einvoice-tools down; finalisation is not attempted) |
+
+`code` values are always lower-case `snake_case`. Upper-case names used elsewhere in the specs (`UPSERT_AMBIGUOUS`, `CONTACT_IN_USE`, `PRODUCT_IN_USE`, `OWNER_ONLY`, `FIELD_MANAGED_BY_BANK`, …) denote the same codes in lower case (`upsert_ambiguous`, …). `title` is German by default and English with `Accept-Language: en`; `errors[].field` uses the wire names (`payment_terms.due_days`, `channels[0].value`).
 
 Every rule violation carries the compliance requirement ID (`rule`), so integrators can see *why*.
 
@@ -306,6 +311,8 @@ The feature files are normative for these endpoints (request/response details th
 
 ## 5. Webhooks
 
+> **Phase:** not scheduled yet. The roadmap's P1 step 12 lists only "REST API + keys" and the MCP server (09); webhooks need an outbox, a delivery worker and an Einstellungen › Webhooks page and are built in a later slice. Until then no events are emitted; requirements that mention webhook events (AUD-015, EC-186 `api_key.revoked`) apply once webhooks ship. The scope `webhooks:manage` exists but grants nothing yet.
+
 ### 5.1 Endpoints (Einstellungen › Webhooks or `/webhook-endpoints`)
 
 - Webhooks are **outbound only** (the server calls the receiver over the internet or the tailnet; nothing calls in). There are no inbound webhook routes (no bank or payment-provider webhooks).
@@ -387,7 +394,33 @@ The API has no public host. The website's **server** joins the owner's tailnet (
 
 ## 7. Implementation notes
 
-- Route handlers live in `src/app/api/v1/**/route.ts`. A shared wrapper `withApi({ scope, schema }, handler)` handles: key lookup (hash → Convex action `apiKeys.verify`), per-key rate limits, idempotency, parsing with zod, server-JWT minting (`api-key:<keyId>`, 02 §4.4), the error mapping to problem+json, `X-Request-Id`, and the access log (no bodies; no client IP is available behind the tailnet edge).
-- The OpenAPI document is built in `src/server/openapi.ts` from the zod schemas with `.meta({ id, description, example })` and served at `/api/openapi.json`. `pnpm openapi:check` runs in CI.
-- **Contract tests** (Vitest) call every endpoint against convex-test-backed handlers and validate responses against the OpenAPI schema. Every documented error code has at least one test.
+- One catch-all route `src/app/api/v1/[...path]/route.ts` dispatches to an **endpoint registry** (`src/server/api/resources/*`, `defineResource` + `defineEndpoint({ method, path, scope, params, query, body, response, handler })`). The pipeline (`src/server/api/dispatch.ts`) handles: request id, key extraction (header only), server-JWT minting (`api-key:<keyId>` with the key hash, 02 §4.4), `apiKeys.authorize` (verifies hash/channel/expiry/revocation, takes a token from the key's bucket, stamps last use), `RateLimit-*` headers and 429, the fail-fast scope check, zod parsing, `Idempotency-Key`, the error mapping to problem+json, `X-Request-Id`, and the access log `apiRequestLog` (no bodies; no client IP is available behind the tailnet edge).
+- Wire schemas live in `src/domain/schemas/api/*` and map 1:1 onto the form schemas the UI uses; Convex adapters (`convex/contactsApi.ts`, `productsApi.ts`, `settingsApi.ts`) call the same model functions. Handlers contain no business rules.
+- The OpenAPI document is built in `src/server/openapi.ts` from the registry and the zod schemas with `.meta({ id, description, example })` and served at `/api/openapi.json` (Scalar at `/api/docs`). `pnpm openapi:check` compares it with the committed `src/server/openapi.snapshot.json`.
+- **Contract tests** (Vitest, `test/server/**`, server project) call the real pipeline with the Convex calls running in convex-test under the identity the server JWT would carry.
 - **E2E** (Playwright `request` fixture) covers the 4 website recipes against a real Convex backend.
+
+## 8. Requirements
+
+| ID | Requirement | Priority | Phase |
+|---|---|---|---|
+| API-001 | Keys are `sk_live_` + 43 base64url characters from 32 random bytes; only the SHA-256 is stored; the public id `key_<8>` is the actor id; the key is shown once | MUST | P1 |
+| API-002 | Scopes (§2.2) and presets (Website, Claude safe, Claude full, Read-only); creation only by the owner with a fresh session; reserved and never-grantable scopes are refused | MUST | P1 |
+| API-003 | Expiry and revocation take effect on the key's next request; revocation needs no fresh session and is audited (EC-186) | MUST | P1 |
+| API-004 | The key is read from `Authorization: Bearer` or `X-API-Key`; a credential in the query string is refused with 400 `key_in_query_not_allowed` | MUST | P1 |
+| API-005 | Scope check in Next (fail fast, 403 `insufficient_scope` with `required_scope`) and in Convex (authoritative, intersected with the stored key) | MUST | P1 |
+| API-006 | `web` exchanges the key for a 60 s server JWT (`api-key:<id>` / `mcp:<id>`) carrying the key hash; Convex refuses tokens whose hash differs from the stored key | MUST | P1 |
+| API-007 | Rate limit per key only (token bucket, default 120/min, burst = rate/4, configurable); `RateLimit-*` headers on every response, 429 with `Retry-After` | MUST | P1 |
+| API-008 | Every REST and MCP request is written to the access log (method, target, status, duration, request id, code; no bodies, no IP); `lastUsedAt` debounced to once a minute | MUST | P1 |
+| API-009 | Errors are RFC 9457 problem+json with lower-case codes, German/English titles, `request_id` and wire-named `errors[].field` | MUST | P1 |
+| API-010 | `Idempotency-Key` on POST: stored 24 h per API key, replay with `Idempotent-Replayed`, 422 on reuse with another request, 409 while in progress | MUST | P1 |
+| API-011 | Wire conventions: snake_case, prefixed opaque IDs, ISO dates, RFC 3339 instants, unit prices/factors as decimal strings, integer minor units | MUST | P1 |
+| API-012 | Cursor pagination (`limit` 1–100, `next_cursor`), per-resource filters and `updated_since` for sync | MUST | P1 |
+| API-013 | `expand` is whitelisted per resource; unknown values → 400 `invalid_expand` | MUST | P1 |
+| API-014 | OpenAPI 3.1 generated from the zod schemas at `/api/openapi.json`, Scalar docs at `/api/docs`, snapshot-checked in CI | MUST | P1 |
+| API-015 | Concurrency and conflicts: PATCH needs `version`/`If-Match` (409 `version_conflict`); state conflicts map to 409 codes | MUST | P1 |
+| API-016 | `GET /health` without a key (`{ status, version }` only); `GET /me` with any key (name, scopes, rate limit, server time, version) | MUST | P1 |
+| API-017 | Contacts: list/get/create/update/archive, `?match=` upsert by e-mail/VAT ID/number (409 `upsert_ambiguous`), `vat-id-checks`; restricted contacts are invisible | MUST | P1 |
+| API-018 | Products: list/get/create/update/archive, price resolution (PRD-032) and categories, with today's price block on every product | MUST | P1 |
+| API-019 | Settings reads: company, public company subset (`company:public` or `settings:read`), number ranges, text templates, layouts, units, payment methods, tax rates on a date | MUST | P1 |
+| API-020 | Host separation: `api.` serves only the allowlisted paths, port 8443 only `/api/v1/**`, `app.` never serves API paths (02 §4.1) | MUST | P1 |
