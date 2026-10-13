@@ -1935,5 +1935,128 @@
       },
       "onlyErrors": "nur Fehler"
     }
+  },
+  "apiKeys": {
+    "title": "API-Schlüssel",
+    "description": "Schlüssel für die REST-API und für Claude (MCP). Nur die Inhaberin bzw. der Inhaber legt sie an und widerruft sie.",
+    "create": "Neuer Schlüssel",
+    "empty": "Noch keine API-Schlüssel angelegt.",
+    "columns": {
+      "name": "Name",
+      "key": "Schlüssel",
+      "preset": "Vorlage",
+      "channel": "Kanal",
+      "scopes": "Berechtigungen",
+      "created": "Erstellt",
+      "lastUsed": "Zuletzt verwendet",
+      "expires": "Läuft ab",
+      "rateLimit": "Limit",
+      "status": "Status",
+      "actions": "Aktionen"
+    },
+    "custom": "Benutzerdefiniert",
+    "scopesCount": "{count, plural, one {# Berechtigung} other {# Berechtigungen}}",
+    "never": "noch nie",
+    "noExpiry": "unbefristet",
+    "rateLimit": "{rate}/min",
+    "rateLimitDefault": "{rate}/min (Standard)",
+    "status": {
+      "active": "Aktiv",
+      "revoked": "Widerrufen",
+      "expired": "Abgelaufen"
+    },
+    "revoke": "Widerrufen",
+    "revokeTitle": "Schlüssel „{name}“ widerrufen?",
+    "revokeDescription": "Der Widerruf wirkt ab der nächsten Anfrage dieses Schlüssels und lässt sich nicht rückgängig machen. Programme, die ihn nutzen, erhalten danach keinen Zugriff mehr.",
+    "revokeReason": "Grund (optional)",
+    "revokeConfirm": "Schlüssel widerrufen",
+    "revoked": "Schlüssel widerrufen.",
+    "requests": "Letzte Zugriffe",
+    "requestsTitle": "Letzte Zugriffe – {name}",
+    "requestsDescription": "Die letzten 50 Anfragen dieses Schlüssels. Gespeichert werden nur technische Angaben (keine Inhalte, keine IP-Adressen), 90 Tage lang.",
+    "noRequests": "Mit diesem Schlüssel gab es noch keine Zugriffe.",
+    "requestColumns": {
+      "at": "Zeitpunkt",
+      "channel": "Kanal",
+      "request": "Anfrage",
+      "status": "Status",
+      "duration": "Dauer"
+    },
+    "durationMs": "{ms} ms",
+    "channelShort": {
+      "api": "REST",
+      "mcp": "MCP"
+    },
+    "info": {
+      "title": "So funktioniert der Zugriff",
+      "tailnet": "Die API ist nur von Geräten in Ihrem Tailnet erreichbar, nicht aus dem öffentlichen Internet.",
+      "header": "Den Schlüssel bei jeder Anfrage im Header mitsenden:",
+      "noUrlKeys": "Schlüssel in der Adresse (z. B. ?api_key=…) werden abgelehnt.",
+      "rateLimit": "Jeder Schlüssel hat ein eigenes Limit (Standard: {rate} Anfragen pro Minute).",
+      "docs": "Dokumentation der API:"
+    },
+    "createTitle": "Neuer API-Schlüssel",
+    "createDescription": "Wählen Sie eine Vorlage und passen Sie die Berechtigungen bei Bedarf an. Zum Erstellen ist eine frische Anmeldung nötig.",
+    "name": "Name",
+    "nameHint": "z. B. „Website“ oder „Claude auf dem Laptop“",
+    "preset": "Vorlage",
+    "presetHints": {
+      "website": "Kontakte anlegen und Entwürfe aus dem Web-Formular",
+      "claude_safe": "Alles lesen, Entwürfe und Belege anlegen – nichts Unumkehrbares",
+      "claude_full": "Zusätzlich fertigstellen, versenden, stornieren, Zahlungen und Mahnungen – jeweils mit Vorschau und Ihrer Freigabe",
+      "read_only": "Nur lesender Zugriff",
+      "custom": "Berechtigungen einzeln gewählt"
+    },
+    "channel": "Kanal",
+    "channelHint": "Über welchen Weg der Schlüssel genutzt werden darf.",
+    "scopes": "Berechtigungen",
+    "scopesHint": "Mitglieder, Rollen, Anmeldung, API-Schlüssel, endgültiges Löschen und Wiederherstellen sind über die API nie möglich.",
+    "expiresOn": "Ablaufdatum (optional)",
+    "expiresOnHint": "Gilt bis zum Ende dieses Tages. Leer bedeutet unbefristet.",
+    "rateLimitField": "Limit pro Minute (optional)",
+    "rateLimitHint": "Leer bedeutet Standard ({rate} Anfragen pro Minute).",
+    "submit": "Schlüssel erstellen",
+    "createdToast": "Schlüssel erstellt.",
+    "createdTitle": "Ihr neuer API-Schlüssel",
+    "createdDescription": "Kopieren Sie den Schlüssel jetzt und bewahren Sie ihn sicher auf, z. B. in einem Passwort-Manager.",
+    "onceWarning": "Wird nur einmal angezeigt. Danach ist nur noch die Kurzform {display} sichtbar.",
+    "keyLabel": "API-Schlüssel",
+    "copyKey": "Schlüssel kopieren",
+    "copied": "In die Zwischenablage kopiert.",
+    "copyFailed": "Kopieren nicht möglich. Bitte den Text markieren und manuell kopieren.",
+    "done": "Fertig"
+  },
+  "mcpConnect": {
+    "intro": "Claude greift über das Model Context Protocol (MCP) mit einem eigenen API-Schlüssel auf Ihre Buchhaltung zu.",
+    "endpoint": "Adresse des MCP-Servers",
+    "endpointFallback": "Die Adresse lässt sich hier nicht ermitteln. Bitte den Platzhalter in den Beispielen durch die Domain Ihrer Installation ersetzen.",
+    "clientsTitle": "Unterstützte Clients",
+    "claudeCode": "Claude Code auf einem Gerät im Tailnet: verbindet sich direkt (empfohlen).",
+    "claudeDesktop": "Claude Desktop: nur über die lokale Brücke „mcp-remote“ (benötigt Node.js auf dem Gerät).",
+    "notSupportedTitle": "Nicht unterstützt",
+    "notSupported": "claude.ai im Browser oder in der Mobil-App sowie benutzerdefinierte Connectors (Einstellungen › Connectors) werden nicht unterstützt. Diese Verbindungen laufen über die Server von Anthropic und erreichen Ihr Tailnet nicht.",
+    "prerequisites": "Voraussetzung: Tailscale ist auf dem Gerät verbunden. Unter Linux mit Tailscale bis Version 1.93 zusätzlich „tailscale set --accept-routes“ ausführen.",
+    "keyTitle": "Schlüssel für Claude",
+    "keyDescription": "Legt einen Schlüssel mit der Vorlage „Claude (MCP), sicher“ an. Hinterlegen Sie ihn auf dem Gerät als Umgebungsvariable RECHNUNG_MCP_KEY.",
+    "createKey": "Schlüssel für Claude erstellen",
+    "manageKeys": "Alle Schlüssel verwalten",
+    "snippetsTitle": "Einrichtung",
+    "claudeCodeSnippet": "Claude Code (Terminal)",
+    "mcpJsonSnippet": "Claude Code (Projektdatei .mcp.json)",
+    "desktopSnippet": "Claude Desktop (claude_desktop_config.json)",
+    "desktopHint": "Ersetzen Sie „sk_live_…“ durch Ihren Schlüssel und starten Sie Claude Desktop neu.",
+    "copySnippet": "{title} kopieren",
+    "canTitle": "Was Claude kann",
+    "can": {
+      "read": "Kontakte, Produkte, Dokumente, Zahlungen und Auswertungen lesen (je nach Berechtigung).",
+      "drafts": "Kontakte, Produkte und Entwürfe für Angebote und Rechnungen anlegen und ändern, Belege erfassen.",
+      "legal": "Rechtlich relevante Schritte (⚠) wie Fertigstellen, Als-versendet-Markieren, Stornieren, Zahlungen und Mahnlauf: nur mit der Vorlage „Claude (MCP), voll“, nur nach einer Vorschau und nur mit Ihrer Freigabe im Client."
+    },
+    "cannotTitle": "Was Claude nicht kann",
+    "cannot": {
+      "delete": "Nichts löschen: Korrekturen sind immer neue Belege (Storno, Rechnungskorrektur).",
+      "keys": "Keine API-Schlüssel, Mitglieder, Rollen oder Anmeldeeinstellungen verwalten.",
+      "purge": "Keine Daten endgültig entfernen (Purge) und keine Sicherungen wiederherstellen."
+    }
   }
 }

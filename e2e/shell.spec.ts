@@ -87,6 +87,8 @@ test.describe("desktop shell", () => {
       "/einstellungen/unternehmen",
       "/einstellungen/steuern",
       "/einstellungen/nummernkreise",
+      "/einstellungen/api",
+      "/einstellungen/mcp",
       "/konto",
     ]) {
       await page.goto(path);
