@@ -1,5 +1,6 @@
 import fc from "fast-check";
 import { describe, expect, test } from "vitest";
+import { vatCents } from "../money/vat";
 import {
   advanceGroups,
   type ChainAdvance,
@@ -115,11 +116,9 @@ describe("final invoice deductions (F04 App. E.4, UST-41, RI-08)", () => {
   test("RI-08 property: deduction gross = invoiced gross − remainder correction gross whenever the gross is reachable", () => {
     fc.assert(
       fc.property(fc.integer({ min: 100, max: 5_000_000 }), fc.integer({ min: 1, max: 99 }), (net, pct) => {
-        const groups = [g(1900, net, Math.round((net * 19) / 100))].map((x) => ({
-          ...x,
-          vatCents: Number((BigInt(x.netCents) * 1900n + 5000n) / 10_000n),
-        }));
-        const gross = groups[0]!.netCents + groups[0]!.vatCents;
+        const vat = vatCents(net, 1900);
+        const groups = [g(1900, net, vat)];
+        const gross = net + vat;
         const open = Math.floor((gross * pct) / 100);
         const corr = remainderCorrectionGroups(groups, open);
         const d = deductionOf(advance({ groups, corrections: corr }));
