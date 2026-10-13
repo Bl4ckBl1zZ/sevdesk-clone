@@ -14,37 +14,58 @@ import { ListSearch } from "@/components/layout/list-search";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import type { DisplayStatus } from "@/domain/documents/display-status";
+import { type DraftType, documentPath, documentRoute } from "@/domain/documents/doc-types";
 import { useAuthedQuery } from "@/hooks/use-authed-query";
 import { cn } from "@/lib/utils";
 import { InvoiceStatusBadge, money } from "./invoice-shared";
 
-/** Rechnungen list (DOC-37, F04 §6.1): status tabs and search in the URL; table on desktop, cards on phones. */
-const TABS = ["all", "draft", "unsent", "open", "overdue", "paid", "exported_not_marked"] as const;
+/**
+ * Document lists (DOC-37, F04 §6.1) for Rechnungen (incl. the Proforma tab), Angebote, Auftragsbestätigungen and
+ * Lieferscheine: status tabs and search in the URL; table on desktop, cards on phones.
+ */
+type ListType = Exclude<DraftType, "proforma">;
 
-export function InvoicesList() {
+const TABS: Record<ListType, readonly string[]> = {
+  invoice: ["all", "draft", "unsent", "open", "overdue", "paid", "exported_not_marked", "proforma"],
+  quote: ["all", "draft", "open", "accepted", "rejected", "expired", "invoiced"],
+  order_confirmation: ["all", "draft", "open", "partially_invoiced", "invoiced"],
+  delivery_note: ["all", "draft", "open", "received", "invoiced"],
+};
+
+export function InvoicesList({ type = "invoice" }: { type?: ListType }) {
   return (
     <ConvexGuard fallback={<div className="h-96" aria-busy="true" />}>
-      <InvoicesListInner />
+      <InvoicesListInner listType={type} />
     </ConvexGuard>
   );
 }
 
-function InvoicesListInner() {
-  const t = useTranslations("invoices.list");
+const percent = (bp: number | null) => (bp === null ? "—" : `${Math.floor(bp / 100).toLocaleString("de-DE")} %`);
+
+function InvoicesListInner({ listType }: { listType: ListType }) {
+  const tAll = useTranslations("invoices.list");
+  const tType = useTranslations(`invoices.list.byType.${listType}`);
   const url = useUrlState();
-  const tab = (TABS as readonly string[]).includes(url.get("status")) ? url.get("status") : "all";
+  const tabs = TABS[listType];
+  const tab = tabs.includes(url.get("status")) ? url.get("status") : "all";
   const q = url.get("q");
-  const args = useMemo(() => ({ tab, ...(q ? { q } : {}) }), [tab, q]);
+  // Proforma lives under /rechnungen with its own tab (F04 §6.1).
+  const type: DraftType = listType === "invoice" && tab === "proforma" ? "proforma" : listType;
+  const args = useMemo(() => ({ type, tab: tab === "proforma" ? "all" : tab, ...(q ? { q } : {}) }), [type, tab, q]);
   const { results, status, loadMore } = useAuthedPaginatedQuery(api.invoices.list, args, 50);
   const canWrite = useCan("documents.write");
+  const base = documentRoute(listType);
+  const newHref = (type === "proforma" ? `${base}/neu?typ=proforma` : `${base}/neu`) as Route;
+  const t = (key: "search" | "searchPlaceholder" | "new" | "empty" | "noResults" | "action") =>
+    type === "proforma" ? tAll(`byType.proforma.${key}`) : tType(key);
 
   const filters = (
     <StatusFilter
-      label={t("tabsLabel")}
+      label={tAll("tabsLabel")}
       current={tab}
-      options={TABS.map((s) => ({
+      options={tabs.map((s) => ({
         value: s,
-        label: t(`tabs.${s}`),
+        label: tAll(`tabs.${s}` as "tabs.all"),
         href: url.hrefWith({ status: s === "all" ? "" : s }),
       }))}
     />
@@ -58,7 +79,7 @@ function InvoicesListInner() {
         onSearch={(v) => url.set({ q: v })}
       />
       {canWrite && (
-        <Link href="/rechnungen/neu" className={cn(buttonVariants(), "hidden h-9 md:ml-auto md:inline-flex")}>
+        <Link href={newHref} className={cn(buttonVariants(), "hidden h-9 md:ml-auto md:inline-flex")}>
           <PlusIcon aria-hidden="true" />
           {t("new")}
         </Link>
@@ -67,7 +88,7 @@ function InvoicesListInner() {
   );
   const fab = canWrite && (
     <Link
-      href="/rechnungen/neu"
+      href={newHref}
       className={cn(
         buttonVariants(),
         "fixed right-4 bottom-[calc(5rem+env(safe-area-inset-bottom))] z-20 h-12 rounded-full shadow-lg md:hidden",
@@ -92,13 +113,15 @@ function InvoicesListInner() {
         <EmptyState
           icon={ReceiptIcon}
           title={pristine ? t("empty") : t("noResults")}
-          action={pristine && canWrite ? { label: t("action"), href: "/rechnungen/neu" } : undefined}
+          action={pristine && canWrite ? { label: t("action"), href: newHref } : undefined}
         />
         {fab}
       </ListLayout>
     );
   }
-  const label = (r: (typeof results)[number]) => r.number ?? t("draft");
+  const label = (r: (typeof results)[number]) => r.number ?? tAll("draft");
+  const href = (r: (typeof results)[number]) => documentPath(r.type, r._id) as Route;
+  const priced = listType !== "delivery_note";
   return (
     <ListLayout
       filters={filters}
@@ -107,12 +130,19 @@ function InvoicesListInner() {
         <Table>
           <TableHeader>
             <TableRow>
-              <TableHead>{t("columns.status")}</TableHead>
-              <TableHead>{t("columns.number")}</TableHead>
-              <TableHead>{t("columns.customer")}</TableHead>
-              <TableHead>{t("columns.date")}</TableHead>
-              <TableHead>{t("columns.due")}</TableHead>
-              <TableHead className="text-right">{t("columns.gross")}</TableHead>
+              <TableHead>{tAll("columns.status")}</TableHead>
+              <TableHead>{tAll("columns.number")}</TableHead>
+              <TableHead>{tAll("columns.customer")}</TableHead>
+              <TableHead>
+                {listType === "delivery_note" ? tAll("columns.deliveryDate") : tAll("columns.date")}
+              </TableHead>
+              {listType === "invoice" && <TableHead>{tAll("columns.due")}</TableHead>}
+              {listType === "quote" && <TableHead>{tAll("columns.validUntil")}</TableHead>}
+              {listType === "order_confirmation" && <TableHead>{tAll("columns.orderReference")}</TableHead>}
+              {listType === "order_confirmation" && (
+                <TableHead className="text-right">{tAll("columns.invoiced")}</TableHead>
+              )}
+              {priced && <TableHead className="text-right">{tAll("columns.gross")}</TableHead>}
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -122,14 +152,21 @@ function InvoicesListInner() {
                   <InvoiceStatusBadge token={r.displayStatus.token as DisplayStatus} label={r.displayStatus.label} />
                 </TableCell>
                 <TableCell className="tabular-nums">
-                  <Link href={`/rechnungen/${r._id}` as Route} className="font-medium hover:underline">
+                  <Link href={href(r)} className="font-medium hover:underline">
                     {label(r)}
                   </Link>
                 </TableCell>
                 <TableCell>{r.contactName ?? "—"}</TableCell>
-                <TableCell className="tabular-nums">{formatDate(r.documentDate)}</TableCell>
-                <TableCell className="tabular-nums">{formatDate(r.dueDate)}</TableCell>
-                <TableCell className="text-right tabular-nums">{money(r.grossCents, r.currency)}</TableCell>
+                <TableCell className="tabular-nums">
+                  {formatDate(listType === "delivery_note" ? supplyDay(r.supplyDate) : r.documentDate)}
+                </TableCell>
+                {listType === "invoice" && <TableCell className="tabular-nums">{formatDate(r.dueDate)}</TableCell>}
+                {listType === "quote" && <TableCell className="tabular-nums">{formatDate(r.validUntil)}</TableCell>}
+                {listType === "order_confirmation" && <TableCell>{r.orderReference ?? "—"}</TableCell>}
+                {listType === "order_confirmation" && (
+                  <TableCell className="text-right tabular-nums">{percent(r.coveredBp)}</TableCell>
+                )}
+                {priced && <TableCell className="text-right tabular-nums">{money(r.grossCents, r.currency)}</TableCell>}
               </TableRow>
             ))}
           </TableBody>
@@ -138,26 +175,33 @@ function InvoicesListInner() {
       cards={results.map((r) => (
         <article key={r._id} className="flex items-start justify-between gap-3 rounded-lg border p-3">
           <div className="flex min-w-0 flex-col gap-1">
-            <Link href={`/rechnungen/${r._id}` as Route} className="font-medium hover:underline">
+            <Link href={href(r)} className="font-medium hover:underline">
               {label(r)}
             </Link>
             <span className="text-muted-foreground text-sm">
-              {r.contactName ?? "—"} · {formatDate(r.documentDate)}
+              {r.contactName ?? "—"} ·{" "}
+              {formatDate(listType === "delivery_note" ? supplyDay(r.supplyDate) : r.documentDate)}
             </span>
             <InvoiceStatusBadge token={r.displayStatus.token as DisplayStatus} label={r.displayStatus.label} />
           </div>
-          <span className="font-medium text-sm tabular-nums">{money(r.grossCents, r.currency)}</span>
+          {priced && <span className="font-medium text-sm tabular-nums">{money(r.grossCents, r.currency)}</span>}
         </article>
       ))}
     >
       {status === "CanLoadMore" && (
         <Button variant="outline" className="h-11 self-center md:h-9" onClick={() => loadMore(50)}>
-          {t("loadMore")}
+          {tAll("loadMore")}
         </Button>
       )}
       {fab}
     </ListLayout>
   );
+}
+
+/** Delivery date of a delivery note (supply `date`, else the end of the period). */
+function supplyDay(s: { kind: string; date?: string; to?: string; month?: string } | null): string | null {
+  if (!s) return null;
+  return s.date ?? s.to ?? null;
 }
 
 /** Dashboard „Aufgaben“ (SND-21): open to-dos such as exported but unmarked invoices. */

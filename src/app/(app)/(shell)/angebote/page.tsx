@@ -1,7 +1,12 @@
-import { PlaceholderPage, placeholderMetadata } from "@/components/layout/placeholder-page";
+import { CatalogPage, catalogMetadata } from "@/components/catalog/catalog-page";
+import { InvoicesList } from "@/components/invoices/invoices-list";
 
-export const generateMetadata = () => placeholderMetadata("angebote");
+export const generateMetadata = () => catalogMetadata("angebote");
 
 export default function Page() {
-  return <PlaceholderPage page="angebote" />;
+  return (
+    <CatalogPage page="angebote" permission="documents.read" body={false}>
+      <InvoicesList type="quote" />
+    </CatalogPage>
+  );
 }

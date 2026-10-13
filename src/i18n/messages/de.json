@@ -178,18 +178,20 @@
     },
     "angeboteNeu": {
       "title": "Neues Angebot",
-      "description": "Angebotseditor",
-      "empty": "Der Editor für Angebote folgt in Phase P1."
+      "description": "Angebot erfassen, prüfen und fertigstellen",
+      "empty": "Noch kein Angebot erfasst."
     },
     "auftraege": {
       "title": "Auftragsbestätigungen",
       "description": "Aufträge bestätigen und in Rechnungen überführen",
-      "empty": "Noch keine Auftragsbestätigungen vorhanden."
+      "empty": "Noch keine Auftragsbestätigungen vorhanden.",
+      "action": "Erste Auftragsbestätigung erstellen"
     },
     "lieferscheine": {
       "title": "Lieferscheine",
       "description": "Lieferungen dokumentieren",
-      "empty": "Noch keine Lieferscheine vorhanden."
+      "empty": "Noch keine Lieferscheine vorhanden.",
+      "action": "Ersten Lieferschein erstellen"
     },
     "rechnungen": {
       "title": "Rechnungen",
@@ -371,6 +373,21 @@
       "title": "Produkte importieren",
       "description": "CSV-Datei mit Produkten einlesen",
       "empty": "CSV-Import"
+    },
+    "auftraegeNeu": {
+      "title": "Neue Auftragsbestätigung",
+      "description": "Auftragsbestätigung erfassen, prüfen und fertigstellen",
+      "empty": "Noch keine Auftragsbestätigung erfasst."
+    },
+    "lieferscheineNeu": {
+      "title": "Neuer Lieferschein",
+      "description": "Lieferschein erfassen, prüfen und fertigstellen",
+      "empty": "Noch kein Lieferschein erfasst."
+    },
+    "proformaNeu": {
+      "title": "Neue Proforma-Rechnung",
+      "description": "Proforma-Rechnung – keine Rechnung im Sinne des § 14 UStG",
+      "empty": "Noch keine Proforma-Rechnung erfasst."
     }
   },
   "settings": {
@@ -2328,7 +2345,14 @@
         "open": "Offen",
         "overdue": "Überfällig",
         "paid": "Bezahlt",
-        "exported_not_marked": "Exportiert, nicht markiert"
+        "exported_not_marked": "Exportiert, nicht markiert",
+        "proforma": "Proforma",
+        "accepted": "Angenommen",
+        "rejected": "Abgelehnt",
+        "expired": "Abgelaufen",
+        "partially_invoiced": "Teilberechnet",
+        "invoiced": "Berechnet",
+        "received": "Erhalten"
       },
       "search": "Rechnungen durchsuchen",
       "searchPlaceholder": "Kunde oder Rechnungsnummer",
@@ -2344,7 +2368,53 @@
         "customer": "Kunde",
         "date": "Datum",
         "due": "Fällig",
-        "gross": "Brutto"
+        "gross": "Brutto",
+        "validUntil": "Gültig bis",
+        "orderReference": "Bestellnr.",
+        "invoiced": "Berechnet",
+        "deliveryDate": "Lieferdatum"
+      },
+      "byType": {
+        "invoice": {
+          "search": "Rechnungen durchsuchen",
+          "searchPlaceholder": "Kunde oder Rechnungsnummer",
+          "new": "Neue Rechnung",
+          "empty": "Noch keine Rechnungen vorhanden.",
+          "noResults": "Keine Rechnungen gefunden.",
+          "action": "Erste Rechnung erstellen"
+        },
+        "proforma": {
+          "search": "Proforma-Rechnungen durchsuchen",
+          "searchPlaceholder": "Kunde oder Nummer",
+          "new": "Neue Proforma",
+          "empty": "Noch keine Proforma-Rechnungen vorhanden.",
+          "noResults": "Keine Proforma-Rechnungen gefunden.",
+          "action": "Erste Proforma erstellen"
+        },
+        "quote": {
+          "search": "Angebote durchsuchen",
+          "searchPlaceholder": "Kunde oder Angebotsnummer",
+          "new": "Neues Angebot",
+          "empty": "Noch keine Angebote vorhanden.",
+          "noResults": "Keine Angebote gefunden.",
+          "action": "Erstes Angebot erstellen"
+        },
+        "order_confirmation": {
+          "search": "Auftragsbestätigungen durchsuchen",
+          "searchPlaceholder": "Kunde oder Nummer",
+          "new": "Neue Auftragsbestätigung",
+          "empty": "Noch keine Auftragsbestätigungen vorhanden.",
+          "noResults": "Keine Auftragsbestätigungen gefunden.",
+          "action": "Erste Auftragsbestätigung erstellen"
+        },
+        "delivery_note": {
+          "search": "Lieferscheine durchsuchen",
+          "searchPlaceholder": "Kunde oder Lieferscheinnummer",
+          "new": "Neuer Lieferschein",
+          "empty": "Noch keine Lieferscheine vorhanden.",
+          "noResults": "Keine Lieferscheine gefunden.",
+          "action": "Ersten Lieferschein erstellen"
+        }
       }
     },
     "todos": {
@@ -2463,8 +2533,22 @@
         "laborCost": "Arbeitskosten (§ 35a EStG)",
         "up": "Position {n} nach oben",
         "down": "Position {n} nach unten",
-        "remove": "Position {n} entfernen"
-      }
+        "remove": "Position {n} entfernen",
+        "optional": "Optionale Position (nicht in der Summe)"
+      },
+      "deliveryDate": "Lieferdatum",
+      "supplyIsDocumentDateLetter": "Leistungsdatum = Belegdatum",
+      "supplyDateExpected": "Leistungsdatum (voraussichtlich, optional)",
+      "validUntil": "Gültig bis",
+      "validUntilHint": "Leer lassen: Belegdatum + Standard-Gültigkeit aus den Einstellungen.",
+      "documentDateHintLetter": "Datum und Nummer der/des {label} werden beim Fertigstellen vergeben (voraussichtlich {date}).",
+      "deliveryTerms": "Lieferbedingungen",
+      "orderReference": "Bestellnummer des Kunden",
+      "showPrices": "Preise und Summen auf dem Lieferschein drucken",
+      "pricesHidden": "Der Lieferschein wird ohne Preise gedruckt; die Preise bleiben für die Rechnung erhalten.",
+      "finalizeTitleDoc": "{label} fertigstellen?",
+      "finalizeDescriptionLetter": "Der Beleg erhält seine Nummer und das heutige Datum und kann danach nicht mehr geändert werden (GoBD). Änderungen erfolgen über eine neue Version oder einen neuen Beleg.",
+      "finalizedDoc": "{label} {number} fertiggestellt."
     },
     "detail": {
       "notFound": "Rechnung nicht gefunden.",
@@ -2526,6 +2610,79 @@
       "electronic": "Elektronisch übermittelt",
       "note": "Hinweis",
       "files": "Übergebene Dateien"
+    }
+  },
+  "documents": {
+    "actions": {
+      "title": "Nächste Schritte",
+      "accept": "Angenommen",
+      "reject": "Abgelehnt",
+      "reopen": "Wieder öffnen",
+      "revise": "Neue Version",
+      "received": "Als erhalten markieren",
+      "convert": "Umwandeln",
+      "convertTo": {
+        "order_confirmation": "In Auftragsbestätigung umwandeln",
+        "delivery_note": "Lieferschein erstellen",
+        "proforma": "Proforma erstellen",
+        "invoice": "Rechnung erstellen"
+      },
+      "withdraw": "Zurückziehen",
+      "save": "Speichern",
+      "date": "Datum",
+      "byName": "Angenommen von",
+      "channel": "Weg",
+      "note": "Notiz",
+      "acceptTitle": "Angebot als angenommen markieren",
+      "acceptHint": "Die angenommene Fassung wird mit ihrer Prüfsumme festgehalten und kann danach nicht mehr geändert werden.",
+      "acceptLate": "Das Angebot ist am {date} abgelaufen – trotzdem annehmen",
+      "accepted": "Angebot als angenommen markiert.",
+      "rejectTitle": "Angebot als abgelehnt markieren",
+      "rejectReason": "Grund (optional)",
+      "rejected": "Angebot als abgelehnt markiert.",
+      "reopenTitle": "Abgelehntes Angebot wieder öffnen?",
+      "reopened": "Angebot wieder geöffnet.",
+      "withdrawTitle": "{label} zurückziehen?",
+      "withdrawHint": "Die Nummer bleibt vergeben, der Beleg wird als zurückgezogen gekennzeichnet. Das ist nur möglich, solange keine fertiggestellte Rechnung daraus entstanden ist.",
+      "withdrawn": "Beleg zurückgezogen.",
+      "reason": "Begründung",
+      "reasonOptional": "Grund (optional)",
+      "reviseTitle": "Neue Version anlegen",
+      "reviseHint": "Es entsteht ein Entwurf mit dem Inhalt von {number}. Sobald die neue Version fertiggestellt ist, wird {number} als „Ersetzt“ gekennzeichnet.",
+      "reviseConfirm": "Version anlegen",
+      "revised": "Neue Version als Entwurf angelegt.",
+      "receivedTitle": "Lieferschein als erhalten markieren",
+      "receivedBy": "Empfangen von",
+      "receivedDone": "Lieferschein als erhalten markiert.",
+      "convertTitle": "{label} {number} umwandeln",
+      "convertConfirm": "Entwurf erstellen",
+      "converted": "Entwurf {label} erstellt.",
+      "target": "Neuer Beleg",
+      "acceptSource": "Angebot als angenommen markieren",
+      "acceptSourceExpired": "Angebot ist abgelaufen – trotzdem annehmen und umwandeln",
+      "lines": "Positionen und Mengen",
+      "optionalLine": "Optionale Position übernehmen: {name}",
+      "ofQuantity": "von {qty}"
+    },
+    "chain": {
+      "title": "Verknüpft",
+      "draft": "(Entwurf)",
+      "invoiced": "{percent} % berechnet"
+    },
+    "detail": {
+      "draftTitle": "{label} (Entwurf)",
+      "title": "{label} {number}",
+      "notFound": "Beleg nicht gefunden.",
+      "documentDate": "Datum",
+      "validUntil": "Gültig bis",
+      "acceptance": "Angenommen",
+      "acceptanceValue": "{date} von {name}",
+      "rejection": "Abgelehnt am",
+      "received": "Erhalten",
+      "receivedValue": "{date} von {name}",
+      "cancellation": "Zurückgezogen",
+      "revision": "Version",
+      "optional": "Optional"
     }
   }
 }

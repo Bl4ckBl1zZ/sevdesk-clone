@@ -1,7 +1,12 @@
-import { PlaceholderPage, placeholderMetadata } from "@/components/layout/placeholder-page";
+import { CatalogPage, catalogMetadata } from "@/components/catalog/catalog-page";
+import { InvoicesList } from "@/components/invoices/invoices-list";
 
-export const generateMetadata = () => placeholderMetadata("lieferscheine");
+export const generateMetadata = () => catalogMetadata("lieferscheine");
 
 export default function Page() {
-  return <PlaceholderPage page="lieferscheine" />;
+  return (
+    <CatalogPage page="lieferscheine" permission="documents.read" body={false}>
+      <InvoicesList type="delivery_note" />
+    </CatalogPage>
+  );
 }

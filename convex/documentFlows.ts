@@ -2,6 +2,7 @@ import { v } from "convex/values";
 import { CONVERSION_MATRIX } from "../src/domain/documents/conversion";
 import {
   acceptQuoteSchema,
+  CONVERSION_TARGETS,
   collectiveSchema,
   convertSchema,
   markReceivedSchema,
@@ -121,14 +122,16 @@ export const chain = query({
   permission: "documents.read",
   args: { id: vId },
   handler: async (ctx, { id }) => {
-    const doc = await getDocument(ctx, id);
+    const doc = await ctx.db.get(id);
+    if (!doc) return null;
     const { progress } = await progressOf(ctx, doc);
     const own = progress.get(id);
+    const targets = (CONVERSION_MATRIX[doc.type] ?? []).filter((t): t is (typeof CONVERSION_TARGETS)[number] =>
+      (CONVERSION_TARGETS as readonly string[]).includes(t),
+    );
     return {
       documents: await chainOverview(ctx, doc),
-      targets: (CONVERSION_MATRIX[doc.type] ?? []).filter((t) =>
-        ["order_confirmation", "delivery_note", "proforma", "invoice"].includes(t),
-      ),
+      targets,
       invoicedBy: own?.invoicedBy ?? [],
       coveredBp: own?.coveredBp ?? 0,
     };

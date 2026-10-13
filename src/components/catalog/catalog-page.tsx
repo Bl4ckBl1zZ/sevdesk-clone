@@ -17,6 +17,9 @@ const PARENTS = {
   kontakte: "/kontakte",
   produkte: "/produkte",
   rechnungen: "/rechnungen",
+  angebote: "/angebote",
+  auftraege: "/auftraege",
+  lieferscheine: "/lieferscheine",
 } as const satisfies Record<string, Route>;
 
 export async function CatalogPage({

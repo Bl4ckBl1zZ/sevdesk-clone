@@ -40,10 +40,12 @@ import {
   type SendChannel,
 } from "@/domain/documents/dispatch";
 import type { DisplayStatus } from "@/domain/documents/display-status";
+import { DOC_TYPE_LABEL_DE, type DraftType, documentRoute } from "@/domain/documents/doc-types";
 import type { DocumentSnapshot } from "@/domain/documents/snapshot";
 import { formatMicros, formatMilli } from "@/domain/money/format";
 import type { DraftValues } from "@/domain/schemas/documents";
 import { useAuthedQuery } from "@/hooks/use-authed-query";
+import { ChainCard, DocumentFlowActions } from "./document-actions";
 import { InvoiceEditor } from "./invoice-editor";
 import { DECISION_LABELS, downloadExport, FORMAT_LABELS, InvoiceStatusBadge, money } from "./invoice-shared";
 
@@ -58,7 +60,16 @@ const ARTIFACT_LABELS: Record<string, string> = {
 };
 const VARIANT_LABELS: Record<string, string> = { original: "Original", copy: "Kopie", reading: "Lesefassung" };
 
-/** Rechnung: the draft editor, or the finalised document with export, sent mark and dispatch history (F04 §6.3). */
+const NAV_KEY: Partial<Record<string, "angebote" | "auftraege" | "lieferscheine">> = {
+  quote: "angebote",
+  order_confirmation: "auftraege",
+  delivery_note: "lieferscheine",
+};
+
+/**
+ * Beleg detail (F04 §6.3/§6.4) for invoices, proforma, quotes, order confirmations and delivery notes: the draft
+ * editor, or the finalised document with next steps, chain, export, sent mark and dispatch history.
+ */
 export function InvoiceDetail({ id }: { id: string }) {
   return (
     <ConvexGuard fallback={<div className="h-96" aria-busy="true" />}>
@@ -69,36 +80,43 @@ export function InvoiceDetail({ id }: { id: string }) {
 
 function InvoiceDetailInner({ id }: { id: Id<"salesDocuments"> }) {
   const t = useTranslations("invoices.detail");
+  const tDoc = useTranslations("documents.detail");
   const tNav = useTranslations("nav");
   const data = useAuthedQuery(api.invoices.get, { id });
+  const chain = useAuthedQuery(api.documentFlows.chain, { id });
   const canWrite = useCan("documents.write");
   if (data === undefined) return <div className="h-96" aria-busy="true" />;
-  const crumbs = [{ label: tNav("items.rechnungen"), href: "/rechnungen" as Route }];
+  const type = (data?.doc.type ?? "invoice") as DraftType;
+  const navKey = NAV_KEY[type] ?? "rechnungen";
+  const crumbs = [{ label: tNav(`items.${navKey}`), href: documentRoute(type) as Route }];
   if (data === null) {
     return (
       <>
-        <PageHeader title={t("notFound")} breadcrumbs={crumbs} />
+        <PageHeader title={tDoc("notFound")} breadcrumbs={crumbs} />
         <PageBody>
-          <p role="alert">{t("notFound")}</p>
+          <p role="alert">{tDoc("notFound")}</p>
         </PageBody>
       </>
     );
   }
   const status = data.displayStatus as { token: DisplayStatus; label: string };
+  const typeLabel = DOC_TYPE_LABEL_DE[type];
   if (data.doc.status === "draft") {
+    const draftTitle = type === "invoice" ? t("draftTitle") : tDoc("draftTitle", { label: typeLabel });
     return (
       <>
         <PageHeader
-          title={t("draftTitle")}
+          title={draftTitle}
           description={data.doc.contactName ?? t("noCustomer")}
-          breadcrumbs={[...crumbs, { label: t("draftTitle") }]}
+          breadcrumbs={[...crumbs, { label: draftTitle }]}
         />
         <PageBody>
           {canWrite && "values" in data && data.values ? (
-            <InvoiceEditor id={id} initial={data.values as DraftValues} version={data.doc.version} />
+            <InvoiceEditor id={id} initial={data.values as DraftValues} version={data.doc.version} type={type} />
           ) : (
             <p>{t("readOnlyDraft")}</p>
           )}
+          <ChainCard chain={chain} />
         </PageBody>
       </>
     );
@@ -107,7 +125,7 @@ function InvoiceDetailInner({ id }: { id: Id<"salesDocuments"> }) {
   return (
     <>
       <PageHeader
-        title={t("title", { number })}
+        title={type === "invoice" ? t("title", { number }) : tDoc("title", { label: typeLabel, number })}
         description={`${data.doc.contactName ?? ""} · ${status.label}`}
         breadcrumbs={[...crumbs, { label: number }]}
         actions={<FinalActions data={data} />}
@@ -121,6 +139,8 @@ function InvoiceDetailInner({ id }: { id: Id<"salesDocuments"> }) {
           </span>
         </div>
         <ArtifactState data={data} />
+        <DocumentFlowActions doc={data.doc} targets={chain?.targets ?? []} />
+        <ChainCard chain={chain} />
         <SnapshotView snapshot={data.snapshot as DocumentSnapshot | null} />
         <Files data={data} />
         <SendLog data={data} />
@@ -387,18 +407,49 @@ function MarkSentDialog({ data, onClose }: { data: Detail; onClose: () => void }
 
 function Facts({ data }: { data: Detail }) {
   const t = useTranslations("invoices.detail");
+  const tDoc = useTranslations("documents.detail");
   const s = data.snapshot as DocumentSnapshot | null;
+  const d = data.doc;
+  const invoice = d.type === "invoice";
   return (
     <section className="flex flex-col gap-3 rounded-xl border p-4" aria-label={t("facts")}>
       <FactList
         items={[
-          { label: t("number"), value: data.doc.number ?? "—" },
-          { label: t("documentDate"), value: formatDate(data.doc.documentDate) },
-          { label: t("dueDate"), value: formatDate(data.doc.dueDate) },
-          { label: t("gross"), value: money(data.doc.totals.grossCents, data.doc.currency), numeric: true },
-          { label: t("format"), value: FORMAT_LABELS[s?.einvoice.format ?? ""] ?? "—" },
-          { label: t("decision"), value: DECISION_LABELS[data.doc.einvoice.decision ?? ""] ?? "—" },
-          { label: t("sentOn"), value: formatDate(data.doc.sentOn) },
+          { label: t("number"), value: d.number ?? "—" },
+          ...(d.revision && d.revision > 1 ? [{ label: tDoc("revision"), value: String(d.revision) }] : []),
+          { label: invoice ? t("documentDate") : tDoc("documentDate"), value: formatDate(d.documentDate) },
+          ...(d.dueDate ? [{ label: t("dueDate"), value: formatDate(d.dueDate) }] : []),
+          ...(d.validUntil ? [{ label: tDoc("validUntil"), value: formatDate(d.validUntil) }] : []),
+          ...(d.type !== "delivery_note" || d.showPrices
+            ? [{ label: t("gross"), value: money(d.totals.grossCents, d.currency), numeric: true }]
+            : []),
+          ...(invoice
+            ? [
+                { label: t("format"), value: FORMAT_LABELS[s?.einvoice.format ?? ""] ?? "—" },
+                { label: t("decision"), value: DECISION_LABELS[d.einvoice.decision ?? ""] ?? "—" },
+              ]
+            : []),
+          ...(d.acceptance
+            ? [
+                {
+                  label: tDoc("acceptance"),
+                  value: tDoc("acceptanceValue", { date: formatDate(d.acceptance.date), name: d.acceptance.byName }),
+                },
+              ]
+            : []),
+          ...(d.rejection ? [{ label: tDoc("rejection"), value: formatDate(d.rejection.date) }] : []),
+          ...(d.received
+            ? [
+                {
+                  label: tDoc("received"),
+                  value: tDoc("receivedValue", { date: formatDate(d.received.date), name: d.received.byName }),
+                },
+              ]
+            : []),
+          ...(d.cancellation && d.type !== "invoice"
+            ? [{ label: tDoc("cancellation"), value: d.cancellation.reason }]
+            : []),
+          { label: t("sentOn"), value: formatDate(d.sentOn) },
           ...(data.register
             ? [{ label: t("register"), value: `${data.register.number} (${formatDateTime(data.register.assignedAt)})` }]
             : []),
@@ -415,7 +466,10 @@ function Facts({ data }: { data: Detail }) {
 
 function SnapshotView({ snapshot }: { snapshot: DocumentSnapshot | null }) {
   const t = useTranslations("invoices.detail");
+  const tDoc = useTranslations("documents.detail");
   if (!snapshot) return null;
+  const priced = snapshot.type !== "delivery_note" || snapshot.flags.showPrices === true;
+  const optionalMark = (l: { optional?: boolean }) => (l.optional ? ` (${tDoc("optional")})` : "");
   const items = snapshot.lines.filter((l) => l.kind === "item");
   const b = snapshot.buyer;
   return (
@@ -438,8 +492,9 @@ function SnapshotView({ snapshot }: { snapshot: DocumentSnapshot | null }) {
                 <span className="flex justify-between gap-3">
                   <span className="min-w-0 font-medium">
                     {l.position}. {l.name}
+                    {optionalMark(l)}
                   </span>
-                  <span className="tabular-nums">{money(l.netCents, snapshot.currency)}</span>
+                  {priced && <span className="tabular-nums">{money(l.netCents, snapshot.currency)}</span>}
                 </span>
                 {l.description && <span className="text-muted-foreground text-xs">{l.description}</span>}
                 <span className="text-muted-foreground text-xs tabular-nums">
@@ -469,6 +524,7 @@ function SnapshotView({ snapshot }: { snapshot: DocumentSnapshot | null }) {
                     <TableCell className="tabular-nums">{l.position}</TableCell>
                     <TableCell>
                       {l.name}
+                      {optionalMark(l)}
                       {l.description && <span className="block text-muted-foreground text-xs">{l.description}</span>}
                     </TableCell>
                     <TableCell className="text-right tabular-nums">
@@ -486,16 +542,18 @@ function SnapshotView({ snapshot }: { snapshot: DocumentSnapshot | null }) {
           </Table>
         </div>
       </div>
-      <dl className="ml-auto grid w-full max-w-xs grid-cols-[1fr_auto] gap-x-4 gap-y-1 text-sm">
-        <dt className="text-muted-foreground">{t("net")}</dt>
-        <dd className="text-right tabular-nums">{money(snapshot.totals.netCents, snapshot.currency)}</dd>
-        <dt className="text-muted-foreground">{t("vatTotal")}</dt>
-        <dd className="text-right tabular-nums">{money(snapshot.totals.vatCents, snapshot.currency)}</dd>
-        <dt className="font-semibold">{t("gross")}</dt>
-        <dd className="text-right font-semibold tabular-nums">
-          {money(snapshot.totals.grossCents, snapshot.currency)}
-        </dd>
-      </dl>
+      {priced && (
+        <dl className="ml-auto grid w-full max-w-xs grid-cols-[1fr_auto] gap-x-4 gap-y-1 text-sm">
+          <dt className="text-muted-foreground">{t("net")}</dt>
+          <dd className="text-right tabular-nums">{money(snapshot.totals.netCents, snapshot.currency)}</dd>
+          <dt className="text-muted-foreground">{t("vatTotal")}</dt>
+          <dd className="text-right tabular-nums">{money(snapshot.totals.vatCents, snapshot.currency)}</dd>
+          <dt className="font-semibold">{t("gross")}</dt>
+          <dd className="text-right font-semibold tabular-nums">
+            {money(snapshot.totals.grossCents, snapshot.currency)}
+          </dd>
+        </dl>
+      )}
       {snapshot.notes.length > 0 && (
         <ul className="flex flex-col gap-1 text-muted-foreground text-sm">
           {snapshot.notes.map((n) => (

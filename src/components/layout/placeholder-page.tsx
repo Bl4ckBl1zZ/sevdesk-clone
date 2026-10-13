@@ -25,7 +25,10 @@ const ACTIONS: Partial<Record<PagesWithAction, Route>> = {
 /** Pages that are not a nav item themselves but belong to one (for breadcrumb + icon). */
 const PARENT: Partial<Record<PageKey, NavKey>> = {
   angeboteNeu: "angebote",
+  auftraegeNeu: "auftraege",
+  lieferscheineNeu: "lieferscheine",
   rechnungenNeu: "rechnungen",
+  proformaNeu: "rechnungen",
   kontakteNeu: "kontakte",
   produkteNeu: "produkte",
 };

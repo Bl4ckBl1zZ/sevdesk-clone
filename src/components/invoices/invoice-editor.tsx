@@ -14,6 +14,7 @@ import { ConfirmDialog, selectClass, todayBerlin, useRun } from "@/components/ca
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
+import { DOC_TYPE_LABEL_DE, type DraftType, documentPath, documentRoute } from "@/domain/documents/doc-types";
 import { RC13B_TYPE_KEYS, rc13bLabelDe } from "@/domain/rules/rc13b-types";
 import { VAT_RATE_KEY_LABELS } from "@/domain/rules/vat-rates";
 import type { DraftValues } from "@/domain/schemas/documents";
@@ -27,6 +28,7 @@ import {
   emptyLine,
   lineFromValues,
   toDraftValues,
+  typeFeatures,
 } from "./editor-model";
 import { CompliancePanel, FORMAT_LABELS, money, TotalsPanel } from "./invoice-shared";
 
@@ -41,21 +43,27 @@ function useDebounced<T>(value: T, ms: number): T {
 }
 
 /**
- * Rechnungseditor (F04 §6.2, DOC-19/20): header, positions with product picker, live totals and the compliance
- * panel from `invoices.check`, „Entwurf speichern“ and „Fertigstellen“ (finalise dialog).
+ * Belegeditor (F04 §6.2, DOC-19/20) for every draft type — Rechnung, Angebot, Auftragsbestätigung, Lieferschein,
+ * Proforma: header, positions with product picker, live totals and the compliance panel from `invoices.check`,
+ * „Entwurf speichern“ and „Fertigstellen“ (finalise dialog). Type-specific fields follow `typeFeatures()`.
  */
 export function InvoiceEditor({
   id,
   initial,
   version,
   presetContactId,
+  type: typeProp,
 }: {
   id?: Id<"salesDocuments">;
   initial?: DraftValues;
   version?: number;
   presetContactId?: string;
+  type?: DraftType;
 }) {
   const t = useTranslations("invoices.editor");
+  const type: DraftType = (initial?.type as DraftType | undefined) ?? typeProp ?? "invoice";
+  const features = typeFeatures(type);
+  const typeLabel = DOC_TYPE_LABEL_DE[type];
   const router = useRouter();
   const run = useRun();
   const convex = useConvex();
@@ -64,7 +72,13 @@ export function InvoiceEditor({
   const deleteDraft = useMutation(api.invoices.deleteDraft);
   const finalize = useAction(api.invoices.finalize);
   const [state, setState] = useState<EditorState>(() =>
-    initial ? editorFromValues(initial) : emptyEditor(todayBerlin(), { contactId: presetContactId ?? "" }),
+    initial
+      ? editorFromValues(initial)
+      : emptyEditor(todayBerlin(), {
+          type,
+          contactId: presetContactId ?? "",
+          ...(features.supplyOptional ? { supplyDate: "" } : {}),
+        }),
   );
   const [dirty, setDirty] = useState(!id);
   const [ver, setVer] = useState(version);
@@ -124,7 +138,7 @@ export function InvoiceEditor({
         const r = await run(() => createDraft({ values }), t("saved"));
         if (!r.ok) return null;
         setDirty(false);
-        router.replace(`/rechnungen/${r.value.id}` as Route);
+        router.replace(documentPath(type, r.value.id) as Route);
         return r.value.id;
       }
       if (!dirty) return id;
@@ -145,7 +159,7 @@ export function InvoiceEditor({
     const r = await run(() => finalize({ id, version: ver }));
     setSaving(false);
     setConfirmFinalize(false);
-    if (r.ok) toast.success(t("finalized", { number: r.value.number }));
+    if (r.ok) toast.success(t("finalizedDoc", { label: typeLabel, number: r.value.number }));
   };
 
   const addProduct = async (productId: string) => {
@@ -192,6 +206,8 @@ export function InvoiceEditor({
     format: useId(),
     priceMode: useId(),
     product: useId(),
+    validUntil: useId(),
+    deliveryTerms: useId(),
   };
 
   return (
@@ -275,15 +291,21 @@ export function InvoiceEditor({
                       : set({ supplyDateMode: "explicit", supplyKind: e.target.value as "date" | "period" })
                   }
                 >
-                  <option value="date">{t("supplyDate")}</option>
+                  <option value="date">{type === "delivery_note" ? t("deliveryDate") : t("supplyDate")}</option>
                   <option value="period">{t("supplyPeriod")}</option>
-                  <option value="document_date">{t("supplyIsDocumentDate")}</option>
+                  <option value="document_date">
+                    {type === "invoice" ? t("supplyIsDocumentDate") : t("supplyIsDocumentDateLetter")}
+                  </option>
                 </select>
               </div>
               {state.supplyDateMode === "explicit" && state.supplyKind === "date" && (
                 <div className="flex flex-col gap-1.5">
                   <label htmlFor={ids.supplyDate} className="font-medium text-sm">
-                    {t("supplyDateLabel")}
+                    {type === "delivery_note"
+                      ? t("deliveryDate")
+                      : features.supplyOptional
+                        ? t("supplyDateExpected")
+                        : t("supplyDateLabel")}
                   </label>
                   <Input
                     id={ids.supplyDate}
@@ -322,8 +344,28 @@ export function InvoiceEditor({
                   </div>
                 </>
               )}
+              {features.validUntil && (
+                <div className="flex flex-col gap-1.5">
+                  <label htmlFor={ids.validUntil} className="font-medium text-sm">
+                    {t("validUntil")}
+                  </label>
+                  <Input
+                    id={ids.validUntil}
+                    type="date"
+                    value={state.validUntil}
+                    onChange={(e) => set({ validUntil: e.target.value })}
+                    className="h-11 md:h-9"
+                    aria-describedby={`${ids.validUntil}-hint`}
+                  />
+                  <span id={`${ids.validUntil}-hint`} className="text-muted-foreground text-xs">
+                    {t("validUntilHint")}
+                  </span>
+                </div>
+              )}
               <p className="text-muted-foreground text-sm @lg/editor:col-span-3">
-                {t("documentDateHint", { date: check?.documentDate ?? todayBerlin() })}
+                {type === "invoice"
+                  ? t("documentDateHint", { date: check?.documentDate ?? todayBerlin() })
+                  : t("documentDateHintLetter", { label: typeLabel, date: check?.documentDate ?? todayBerlin() })}
               </p>
             </section>
 
@@ -353,8 +395,12 @@ export function InvoiceEditor({
                     index={i}
                     count={state.lines.length}
                     units={units.filter((u) => !u.archivedAt).map((u) => ({ code: u.code, label: u.labelDe }))}
+                    optionalAllowed={features.optionalLines}
                     vatLabel={check?.lines.find((x) => x.index === i)}
-                    lineNet={check?.totals?.lineNets[state.lines.slice(0, i).filter((x) => x.kind === "item").length] ?? undefined}
+                    lineNet={
+                      check?.totals?.lineNets[state.lines.slice(0, i).filter((x) => x.kind === "item").length] ??
+                      undefined
+                    }
                     currency={state.currency}
                     onChange={(patch) => setLine(l.key, patch)}
                     onRemove={() => set({ lines: state.lines.filter((x) => x.key !== l.key) })}
@@ -401,47 +447,49 @@ export function InvoiceEditor({
               </div>
             </section>
 
-            <section
-              aria-label={t("sections.payment")}
-              className="grid grid-cols-1 gap-4 rounded-xl border p-4 @lg/editor:grid-cols-3"
-            >
-              <div className="flex flex-col gap-1.5">
-                <label htmlFor={ids.dueDays} className="font-medium text-sm">
-                  {t("dueDays")}
-                </label>
-                <Input
-                  id={ids.dueDays}
-                  inputMode="numeric"
-                  value={state.dueDays}
-                  onChange={(e) => set({ dueDays: e.target.value })}
-                  className="h-11 md:h-9"
-                />
-              </div>
-              <div className="flex flex-col gap-1.5">
-                <label htmlFor={ids.skonto} className="font-medium text-sm">
-                  {t("skontoPercent")}
-                </label>
-                <Input
-                  id={ids.skonto}
-                  inputMode="decimal"
-                  value={state.skontoPercent}
-                  onChange={(e) => set({ skontoPercent: e.target.value })}
-                  className="h-11 md:h-9"
-                />
-              </div>
-              <div className="flex flex-col gap-1.5">
-                <label htmlFor={ids.skontoDays} className="font-medium text-sm">
-                  {t("skontoDays")}
-                </label>
-                <Input
-                  id={ids.skontoDays}
-                  inputMode="numeric"
-                  value={state.skontoDays}
-                  onChange={(e) => set({ skontoDays: e.target.value })}
-                  className="h-11 md:h-9"
-                />
-              </div>
-            </section>
+            {features.payment && (
+              <section
+                aria-label={t("sections.payment")}
+                className="grid grid-cols-1 gap-4 rounded-xl border p-4 @lg/editor:grid-cols-3"
+              >
+                <div className="flex flex-col gap-1.5">
+                  <label htmlFor={ids.dueDays} className="font-medium text-sm">
+                    {t("dueDays")}
+                  </label>
+                  <Input
+                    id={ids.dueDays}
+                    inputMode="numeric"
+                    value={state.dueDays}
+                    onChange={(e) => set({ dueDays: e.target.value })}
+                    className="h-11 md:h-9"
+                  />
+                </div>
+                <div className="flex flex-col gap-1.5">
+                  <label htmlFor={ids.skonto} className="font-medium text-sm">
+                    {t("skontoPercent")}
+                  </label>
+                  <Input
+                    id={ids.skonto}
+                    inputMode="decimal"
+                    value={state.skontoPercent}
+                    onChange={(e) => set({ skontoPercent: e.target.value })}
+                    className="h-11 md:h-9"
+                  />
+                </div>
+                <div className="flex flex-col gap-1.5">
+                  <label htmlFor={ids.skontoDays} className="font-medium text-sm">
+                    {t("skontoDays")}
+                  </label>
+                  <Input
+                    id={ids.skontoDays}
+                    inputMode="numeric"
+                    value={state.skontoDays}
+                    onChange={(e) => set({ skontoDays: e.target.value })}
+                    className="h-11 md:h-9"
+                  />
+                </div>
+              </section>
+            )}
 
             <section
               aria-label={t("sections.texts")}
@@ -481,56 +529,102 @@ export function InvoiceEditor({
                   className="h-11 md:h-9"
                 />
               </div>
-              <div className="flex flex-col gap-1.5">
-                <label htmlFor={ids.format} className="font-medium text-sm">
-                  {t("einvoiceFormat")}
-                </label>
-                <select
-                  id={ids.format}
-                  className={selectClass}
-                  value={state.einvoiceFormat}
-                  onChange={(e) => set({ einvoiceFormat: e.target.value })}
-                >
-                  <option value="">
-                    {t("formatAuto", { format: FORMAT_LABELS[check?.einvoice.format ?? ""] ?? "—" })}
-                  </option>
-                  {(check?.einvoice.allowed ?? []).map((f) => (
-                    <option key={f} value={f}>
-                      {FORMAT_LABELS[f] ?? f}
+              {features.deliveryTerms && (
+                <div className="flex flex-col gap-1.5 @lg/editor:col-span-2">
+                  <label htmlFor={ids.deliveryTerms} className="font-medium text-sm">
+                    {t("deliveryTerms")}
+                  </label>
+                  <Textarea
+                    id={ids.deliveryTerms}
+                    value={state.deliveryTerms}
+                    onChange={(e) => set({ deliveryTerms: e.target.value })}
+                  />
+                </div>
+              )}
+              {type === "order_confirmation" && (
+                <div className="flex flex-col gap-1.5">
+                  <label htmlFor={`${ids.buyerRef}-order`} className="font-medium text-sm">
+                    {t("orderReference")}
+                  </label>
+                  <Input
+                    id={`${ids.buyerRef}-order`}
+                    value={state.orderReference}
+                    onChange={(e) => set({ orderReference: e.target.value })}
+                    className="h-11 md:h-9"
+                  />
+                </div>
+              )}
+              {features.einvoice && (
+                <div className="flex flex-col gap-1.5">
+                  <label htmlFor={ids.format} className="font-medium text-sm">
+                    {t("einvoiceFormat")}
+                  </label>
+                  <select
+                    id={ids.format}
+                    className={selectClass}
+                    value={state.einvoiceFormat}
+                    onChange={(e) => set({ einvoiceFormat: e.target.value })}
+                  >
+                    <option value="">
+                      {t("formatAuto", { format: FORMAT_LABELS[check?.einvoice.format ?? ""] ?? "—" })}
                     </option>
-                  ))}
-                </select>
-              </div>
-              <fieldset className="flex flex-col gap-2 @lg/editor:col-span-2">
-                <legend className="mb-1 font-medium text-sm">{t("flags")}</legend>
-                <label className="flex min-h-11 items-center gap-2 text-sm md:min-h-9">
-                  <input
-                    type="checkbox"
-                    className="size-5 accent-primary md:size-4"
-                    checked={state.kleinbetrag}
-                    onChange={(e) => set({ kleinbetrag: e.target.checked })}
-                  />
-                  {t("kleinbetrag")}
-                </label>
-                <label className="flex min-h-11 items-center gap-2 text-sm md:min-h-9">
-                  <input
-                    type="checkbox"
-                    className="size-5 accent-primary md:size-4"
-                    checked={state.constructionWork}
-                    onChange={(e) => set({ constructionWork: e.target.checked })}
-                  />
-                  {t("constructionWork")}
-                </label>
-                <label className="flex min-h-11 items-center gap-2 text-sm md:min-h-9">
-                  <input
-                    type="checkbox"
-                    className="size-5 accent-primary md:size-4"
-                    checked={state.showEpcQr}
-                    onChange={(e) => set({ showEpcQr: e.target.checked })}
-                  />
-                  {t("showEpcQr")}
-                </label>
-              </fieldset>
+                    {(check?.einvoice.allowed ?? []).map((f) => (
+                      <option key={f} value={f}>
+                        {FORMAT_LABELS[f] ?? f}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              )}
+              {(features.invoiceFlags || features.epcQr || features.showPrices) && (
+                <fieldset className="flex flex-col gap-2 @lg/editor:col-span-2">
+                  <legend className="mb-1 font-medium text-sm">{t("flags")}</legend>
+                  {features.invoiceFlags && (
+                    <label className="flex min-h-11 items-center gap-2 text-sm md:min-h-9">
+                      <input
+                        type="checkbox"
+                        className="size-5 accent-primary md:size-4"
+                        checked={state.kleinbetrag}
+                        onChange={(e) => set({ kleinbetrag: e.target.checked })}
+                      />
+                      {t("kleinbetrag")}
+                    </label>
+                  )}
+                  {features.invoiceFlags && (
+                    <label className="flex min-h-11 items-center gap-2 text-sm md:min-h-9">
+                      <input
+                        type="checkbox"
+                        className="size-5 accent-primary md:size-4"
+                        checked={state.constructionWork}
+                        onChange={(e) => set({ constructionWork: e.target.checked })}
+                      />
+                      {t("constructionWork")}
+                    </label>
+                  )}
+                  {features.epcQr && (
+                    <label className="flex min-h-11 items-center gap-2 text-sm md:min-h-9">
+                      <input
+                        type="checkbox"
+                        className="size-5 accent-primary md:size-4"
+                        checked={state.showEpcQr}
+                        onChange={(e) => set({ showEpcQr: e.target.checked })}
+                      />
+                      {t("showEpcQr")}
+                    </label>
+                  )}
+                  {features.showPrices && (
+                    <label className="flex min-h-11 items-center gap-2 text-sm md:min-h-9">
+                      <input
+                        type="checkbox"
+                        className="size-5 accent-primary md:size-4"
+                        checked={state.showPrices}
+                        onChange={(e) => set({ showPrices: e.target.checked })}
+                      />
+                      {t("showPrices")}
+                    </label>
+                  )}
+                </fieldset>
+              )}
             </section>
           </div>
 
@@ -541,8 +635,11 @@ export function InvoiceEditor({
               {check && (
                 <p className="text-muted-foreground text-xs">
                   {t("taxCase")}: {check.taxCase}
-                  {check.einvoice.decision ? ` · ${t("er03")}: ${check.einvoice.decision}` : ""}
+                  {features.einvoice && check.einvoice.decision ? ` · ${t("er03")}: ${check.einvoice.decision}` : ""}
                 </p>
+              )}
+              {type === "delivery_note" && !state.showPrices && (
+                <p className="text-muted-foreground text-xs">{t("pricesHidden")}</p>
               )}
             </section>
             <CompliancePanel
@@ -590,8 +687,8 @@ export function InvoiceEditor({
 
       {confirmFinalize && (
         <ConfirmDialog
-          title={t("finalizeTitle")}
-          description={t("finalizeDescription")}
+          title={type === "invoice" ? t("finalizeTitle") : t("finalizeTitleDoc", { label: typeLabel })}
+          description={type === "invoice" ? t("finalizeDescription") : t("finalizeDescriptionLetter")}
           confirmLabel={t("finalizeConfirm")}
           confirmDisabled={saving || !canFinalize}
           onConfirm={doFinalize}
@@ -602,8 +699,12 @@ export function InvoiceEditor({
             <dd className="text-right">{check?.buyer?.name ?? "—"}</dd>
             <dt className="text-muted-foreground">{t("finalizeGross")}</dt>
             <dd className="text-right tabular-nums">{money(check?.totals?.grossCents, state.currency)}</dd>
-            <dt className="text-muted-foreground">{t("finalizeFormat")}</dt>
-            <dd className="text-right">{FORMAT_LABELS[check?.einvoice.format ?? ""] ?? "—"}</dd>
+            {features.einvoice && (
+              <>
+                <dt className="text-muted-foreground">{t("finalizeFormat")}</dt>
+                <dd className="text-right">{FORMAT_LABELS[check?.einvoice.format ?? ""] ?? "—"}</dd>
+              </>
+            )}
           </dl>
           {findings.some((f) => f.severity === "W") && (
             <ul className="flex flex-col gap-1 text-sm text-warning">
@@ -624,7 +725,7 @@ export function InvoiceEditor({
           destructive
           onConfirm={async () => {
             const r = await run(() => deleteDraft({ id }), t("deleted"));
-            if (r.ok) router.push("/rechnungen");
+            if (r.ok) router.push(documentRoute(type) as Route);
           }}
           onClose={() => setConfirmDelete(false)}
         />
@@ -638,6 +739,7 @@ function LineEditor({
   index,
   count,
   units,
+  optionalAllowed,
   vatLabel,
   lineNet,
   currency,
@@ -649,6 +751,7 @@ function LineEditor({
   index: number;
   count: number;
   units: { code: string; label: string }[];
+  optionalAllowed: boolean;
   vatLabel?: { vatCategory: string; vatRateBp: number };
   lineNet?: number;
   currency: string;
@@ -824,10 +927,26 @@ function LineEditor({
           />
           {t("laborCost")}
         </label>
+        {optionalAllowed && (
+          <label className="flex min-h-11 items-center gap-2 text-sm md:min-h-9">
+            <input
+              type="checkbox"
+              className="size-5 accent-primary md:size-4"
+              checked={line.optional}
+              onChange={(e) => onChange({ optional: e.target.checked })}
+            />
+            {t("optional")}
+          </label>
+        )}
         <div className="flex items-center gap-1">
-          <span className={cn("mr-2 text-sm tabular-nums", lineNet === undefined && "text-muted-foreground")}>
+          <span
+            className={cn(
+              "mr-2 text-sm tabular-nums",
+              (lineNet === undefined || line.optional) && "text-muted-foreground",
+            )}
+          >
             {vatLabel ? `${vatLabel.vatCategory} ${(vatLabel.vatRateBp / 100).toLocaleString("de-DE")} % · ` : ""}
-            {money(lineNet, currency)}
+            {line.optional ? `(${money(lineNet, currency)})` : money(lineNet, currency)}
           </span>
           <Button
             variant="ghost"

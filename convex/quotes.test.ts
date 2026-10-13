@@ -362,7 +362,7 @@ describe("DOC-33 QUO-08…13 conversions and invoicing progress", () => {
     expect((await doc(t, quote)).status).toBe("invoiced");
     expect((await doc(t, quote)).coverage?.coveredBp).toBe(10_000);
     const chain = await owner.query(api.documentFlows.chain, { id: r.id });
-    expect(chain.documents.map((d) => d.number)).toEqual([number, invNumber]);
+    expect(chain?.documents.map((d) => d.number)).toEqual([number, invNumber]);
   });
 
   test("QUO-08 QUO-10 T-QUO-005 an order of 10 units with a delivery note of 4 proposes 6 for the next note", async () => {
@@ -587,14 +587,14 @@ describe("DOC-33 QUO-08…13 conversions and invoicing progress", () => {
     const inv = await owner.mutation(api.documentFlows.collectiveInvoice, { values: { deliveryNoteIds: notes } });
     await finalizeDraft(t, owner, inv.id);
     const chain = await owner.query(api.documentFlows.chain, { id: order.id });
-    expect(chain.documents.map((d) => d.type)).toEqual([
+    expect(chain?.documents.map((d) => d.type)).toEqual([
       "quote",
       "order_confirmation",
       "delivery_note",
       "delivery_note",
       "invoice",
     ]);
-    expect(chain.coveredBp).toBe(10_000);
+    expect(chain?.coveredBp).toBe(10_000);
     expect((await doc(t, order.id)).status).toBe("invoiced");
     expect((await doc(t, quote.id)).status).toBe("invoiced");
     const invSnap = await snapshotOf(t, inv.id);

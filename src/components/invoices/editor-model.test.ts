@@ -67,4 +67,38 @@ describe("DOC-19 invoice editor model", () => {
     expect(again.lines[0]).toMatchObject({ productId: "p1", productSyncedVersion: 3, itemNumber: "ART-1" });
     expect(again.supplyDate).toEqual({ kind: "period", from: "2026-09-01", to: "2026-09-30" });
   });
+
+  test("QUO-01 QUO-02 QUO-09 type-specific fields: validity, delivery terms, optional lines, unpriced delivery notes", () => {
+    const quote = toDraftValues(
+      emptyEditor("2026-10-12", {
+        type: "quote",
+        supplyDateMode: "explicit",
+        supplyDate: "",
+        validUntil: "2026-11-30",
+        deliveryTerms: "frei Haus",
+        lines: [
+          { ...emptyLine(), name: "Schreibtisch", price: "500" },
+          { ...emptyLine(), name: "Montage", price: "200", optional: true, extra: { sourceLineId: "l1" } },
+        ],
+      }),
+    ).values;
+    expect(draftSchema.safeParse(quote).success).toBe(true);
+    expect(quote).toMatchObject({ type: "quote", validUntil: "2026-11-30", deliveryTerms: "frei Haus" });
+    expect(quote.supplyDate).toBeUndefined();
+    expect(quote.lines[1]).toMatchObject({ optional: true, sourceLineId: "l1" });
+    expect(toDraftValues(editorFromValues(quote)).values).toEqual(quote);
+    // Optional lines exist only on quotes; delivery terms only on quotes and order confirmations.
+    const invoice = toDraftValues(editorFromValues({ ...quote, type: "invoice" })).values;
+    expect(invoice.lines[1]).not.toHaveProperty("optional");
+    expect(invoice).not.toHaveProperty("deliveryTerms");
+    expect(invoice).not.toHaveProperty("validUntil");
+    const note = toDraftValues(
+      emptyEditor("2026-10-12", {
+        type: "delivery_note",
+        showPrices: true,
+        lines: [{ ...emptyLine(), name: "Palette" }],
+      }),
+    ).values;
+    expect(note).toMatchObject({ type: "delivery_note", showPrices: true });
+  });
 });
