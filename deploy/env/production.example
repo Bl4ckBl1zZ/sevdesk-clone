@@ -25,7 +25,7 @@ REGISTRY_USERNAME=
 REGISTRY_PASSWORD=
 
 # ── Compose environment (Dokploy → compose "rechnungen") — 08 §5.2 ───────────────────────────────────────────────
-BASE_DOMAIN=
+BASE_DOMAIN=buero.8u9yhy8fewf.org
 ACME_EMAIL=
 CLOUDFLARE_DNS_API_TOKEN=
 CONVEX_DASH_BASIC_AUTH=''
