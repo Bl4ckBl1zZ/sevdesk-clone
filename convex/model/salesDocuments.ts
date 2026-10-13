@@ -1093,6 +1093,35 @@ export async function recordArtifactFailure(
   return { retryInMs: null };
 }
 
+/** Step-3 action in `_scheduled_functions` (the backend records "documentArtifacts.js:render"). */
+const isRenderJob = (name: string) => name.replace(/\.js:/, ":") === "documentArtifacts:render";
+
+/**
+ * EC-005 watchdog: a render whose process died (e.g. an unhandled rejection inside a dependency ends the Node action
+ * before it reaches `artifactFailure`) leaves the document `pending` with no job. Each such document gets a failed
+ * attempt recorded; the returned ids are re-rendered by the caller (or end `blocked` after the last retry).
+ */
+export async function orphanedArtifactRenders(ctx: ModelCtx): Promise<Id<"salesDocuments">[]> {
+  const pending = await ctx.db
+    .query("salesDocuments")
+    .withIndex("by_artifactStatus", (q) => q.eq("artifactStatus", "pending"))
+    .collect();
+  if (pending.length === 0) return [];
+  const running = new Set<string>();
+  for (const j of await ctx.db.system.query("_scheduled_functions").collect()) {
+    if (!isRenderJob(j.name) || (j.state.kind !== "pending" && j.state.kind !== "inProgress")) continue;
+    const arg = j.args[0] as { id?: string } | undefined;
+    if (arg?.id) running.add(arg.id);
+  }
+  const restart: Id<"salesDocuments">[] = [];
+  for (const d of pending) {
+    if (running.has(d._id)) continue;
+    const r = await recordArtifactFailure(ctx, d._id, "Erzeugung abgebrochen (Prozess beendet)");
+    if (r.retryInMs !== null) restart.push(d._id);
+  }
+  return restart;
+}
+
 /** „Erneut erzeugen“ (§4.6.5): back to `pending` from `blocked`, re-rendered from the unchanged snapshot. */
 export async function restartArtifacts(ctx: ModelCtx, id: Id<"salesDocuments">): Promise<void> {
   const doc = await getDocument(ctx, id);

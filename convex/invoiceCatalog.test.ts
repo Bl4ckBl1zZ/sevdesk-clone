@@ -234,7 +234,11 @@ describe("F03 products × invoices", () => {
     const values = invoiceValues(personId, { lines: [line], subject: "Projekt Relaunch" });
     const { id } = await owner.mutation(api.invoices.createDraft, { values });
     const detail = await owner.query(api.invoices.get, { id });
-    expect(detail && "values" in detail ? detail.values : null).toMatchObject({ subject: "Projekt Relaunch", contactId: personId, lines: [line] });
+    expect(detail && "values" in detail ? detail.values : null).toMatchObject({
+      subject: "Projekt Relaunch",
+      contactId: personId,
+      lines: [line],
+    });
   });
 
   test("PRD-073 PRD-062 a product used on a document cannot be deleted, only archived", async () => {

@@ -42,6 +42,7 @@ import {
   markSent as markSentModel,
   notifyExportedNotMarked,
   openTodos,
+  orphanedArtifactRenders,
   readContact,
   recordArtifactFailure,
   recordArtifacts,
@@ -743,6 +744,17 @@ export const artifactFailure = systemMutation({
     if (r.retryInMs !== null && !isTest())
       await ctx.scheduler.runAfter(r.retryInMs, internal.documentArtifacts.render, { id });
     return r;
+  },
+});
+
+/** EC-005 watchdog (cron every 10 min): renders that died with their process count as failed and restart. */
+export const artifactsWatchdog = systemMutation({
+  job: "documents.pipeline",
+  args: {},
+  handler: async (ctx) => {
+    const restart = await orphanedArtifactRenders(ctx);
+    for (const id of restart) await ctx.scheduler.runAfter(0, internal.documentArtifacts.render, { id });
+    return { restarted: restart.length };
   },
 });
 

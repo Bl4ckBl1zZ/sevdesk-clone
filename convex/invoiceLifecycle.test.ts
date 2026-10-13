@@ -377,6 +377,29 @@ describe("DOC-28 ER-11 ER-13 INV-21 artifacts", () => {
     expect((await doc(t, id)).artifactStatus).toBe("ready");
     expect((await owner.query(api.invoices.todos, {})).some((n) => n.kind === "artifacts_blocked")).toBe(false);
   });
+
+  test("DOC-28 EC-005 a render that died with its process counts as a failed attempt and is restarted by the watchdog", async () => {
+    const t = makeT();
+    const { owner } = await setupInvoicing(t);
+    const { personId } = await b2bBuyer(owner);
+    const { id } = await owner.mutation(api.invoices.createDraft, { values: invoiceValues(personId) });
+    await owner.action(api.invoices.finalize, { id, version: 1 });
+    // An unhandled rejection inside a dependency ends the Node process: the action never reaches artifactFailure.
+    await t.run(async (ctx) => {
+      for (const j of await ctx.db.system.query("_scheduled_functions").collect())
+        if (j.state.kind === "pending") await ctx.scheduler.cancel(j._id);
+    });
+    expect(await doc(t, id)).toMatchObject({ artifactStatus: "pending" });
+    expect(await t.mutation(internal.invoices.artifactsWatchdog, {})).toEqual({ restarted: 1 });
+    const d = await doc(t, id);
+    expect(d).toMatchObject({ artifactStatus: "pending", artifactAttempts: 1 });
+    expect(d.artifactError).toMatch(/abgebrochen/);
+    // The restart is scheduled: a second run while it is pending does nothing.
+    expect(await t.mutation(internal.invoices.artifactsWatchdog, {})).toEqual({ restarted: 0 });
+    await settle(t);
+    expect((await doc(t, id)).artifactStatus).toBe("ready");
+    expect(await t.mutation(internal.invoices.artifactsWatchdog, {})).toEqual({ restarted: 0 });
+  });
 });
 
 // ── export and sent mark ─────────────────────────────────────────────────────────────────────────────────

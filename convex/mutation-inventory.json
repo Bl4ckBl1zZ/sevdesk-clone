@@ -427,6 +427,12 @@
     "wrapper": "systemMutation",
     "job": "documents.pipeline"
   },
+  "invoices:artifactsWatchdog": {
+    "kind": "mutation",
+    "visibility": "internal",
+    "wrapper": "systemMutation",
+    "job": "documents.pipeline"
+  },
   "invoices:check": {
     "kind": "query",
     "visibility": "public",
