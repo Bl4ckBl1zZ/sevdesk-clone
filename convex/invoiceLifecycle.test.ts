@@ -5,7 +5,7 @@ import { readEmbeddedFiles } from "../src/pdf/embedded-files";
 import { checkInvariants, clearInvariantTarget } from "../test/invariants";
 import { api, internal } from "./_generated/api";
 import type { Id } from "./_generated/dataModel";
-import { createValues, orgForm } from "./catalog.fixtures";
+import { BERLIN, createValues, orgForm } from "./catalog.fixtures";
 import { b2bBuyer, finalizedInvoice, invoiceValues, settle, setupInvoicing } from "./invoices.fixtures";
 import { errorCode } from "./lib/errors";
 import { auditedPatch } from "./model/audit";
@@ -279,6 +279,52 @@ describe("DOC-24 finalisation (02 §6)", () => {
       values: orgForm("Neuer Name GmbH", { number: "K-10023", vatId: "DE811907980" }),
     });
     expect((await owner.query(api.invoices.get, { id }))?.snapshot).toEqual(before);
+  });
+
+  test("UST-22 § 13b construction work for a domestic business: no VAT, AE category and the § 13b note", async () => {
+    const t = makeT();
+    const { owner } = await setupInvoicing(t);
+    const { id: contactId } = await owner.mutation(api.contacts.create, {
+      values: createValues(orgForm("Muster Handwerk GmbH"), {
+        address: { ...BERLIN },
+        email: "rechnung@muster-handwerk.de",
+      }),
+    });
+    const values = invoiceValues(contactId as string, {
+      constructionWork: true,
+      lines: [
+        {
+          kind: "item",
+          productType: "service",
+          name: "Estricharbeiten Erdgeschoss",
+          quantityMilli: 1_000,
+          unitCode: "C62",
+          unitPriceMicros: 10_000_000,
+          vatRateKey: "standard",
+          reverseCharge13b: "construction",
+        },
+      ],
+    });
+    // BR-AE-02: the E-Rechnung needs the buyer's VAT ID or register number.
+    const errors = async () =>
+      (await owner.query(api.invoices.check, { values }))?.findings
+        .filter((f) => f.severity === "E")
+        .map((f) => f.code);
+    expect(await errors()).toEqual(["rc_buyer_id_missing_xml"]);
+    const c = await owner.query(api.contacts.get, { id: contactId as Id<"contacts"> });
+    await owner.mutation(api.contacts.update, {
+      id: contactId,
+      version: c?.contact.version ?? 1,
+      values: orgForm("Muster Handwerk GmbH", { number: c?.contact.number, vatId: "DE811907980" }),
+    });
+    expect(await errors()).toEqual([]);
+    const { id } = await owner.mutation(api.invoices.createDraft, { values });
+    await owner.action(api.invoices.finalize, { id, version: 1 });
+    await settle(t);
+    const snap = (await owner.query(api.invoices.get, { id }))?.snapshot as DocumentSnapshot;
+    expect(snap.totals).toMatchObject({ netCents: 100_000, vatCents: 0, grossCents: 100_000 });
+    expect(snap.lines[0]).toMatchObject({ vatCategory: "AE", vatRateBp: 0 });
+    expect(JSON.stringify(snap.notes)).toMatch(/Steuerschuldnerschaft des Leistungsempfängers/);
   });
 });
 
