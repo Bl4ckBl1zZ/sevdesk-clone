@@ -221,7 +221,7 @@
     "kind": "mutation",
     "visibility": "public",
     "wrapper": "mutation",
-    "permission": "banking.write"
+    "permission": "payments.reverse"
   },
   "banking:mark": {
     "kind": "action",
@@ -978,6 +978,54 @@
     "visibility": "public",
     "wrapper": "mutation",
     "permission": "settings.write"
+  },
+  "matching:autoApplyInternal": {
+    "kind": "mutation",
+    "visibility": "internal",
+    "wrapper": "actorMutation",
+    "permission": "banking.write"
+  },
+  "matching:confirm": {
+    "kind": "mutation",
+    "visibility": "public",
+    "wrapper": "mutation",
+    "permission": "banking.match"
+  },
+  "matching:confirmSafe": {
+    "kind": "mutation",
+    "visibility": "public",
+    "wrapper": "mutation",
+    "permission": "banking.match"
+  },
+  "matching:openTargets": {
+    "kind": "query",
+    "visibility": "public",
+    "wrapper": "query",
+    "permission": "banking.read"
+  },
+  "matching:reject": {
+    "kind": "mutation",
+    "visibility": "public",
+    "wrapper": "mutation",
+    "permission": "banking.write"
+  },
+  "matching:review": {
+    "kind": "query",
+    "visibility": "public",
+    "wrapper": "query",
+    "permission": "banking.read"
+  },
+  "matching:suggestions": {
+    "kind": "query",
+    "visibility": "public",
+    "wrapper": "query",
+    "permission": "banking.read"
+  },
+  "matching:unmatch": {
+    "kind": "mutation",
+    "visibility": "public",
+    "wrapper": "mutation",
+    "permission": "payments.reverse"
   },
   "members:changeRole": {
     "kind": "mutation",

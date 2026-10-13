@@ -588,7 +588,13 @@ export async function recordPayment(ctx: ModelCtx, args: RecordArgs): Promise<Re
  */
 export async function reversePayment(
   ctx: ModelCtx,
-  args: { paymentId: Id<"payments">; reason: string; preferredDate?: string },
+  args: {
+    paymentId: Id<"payments">;
+    reason: string;
+    preferredDate?: string;
+    /** BNK-121 / EC-PAY-24: the bank counter-entry that carries the reversal (allocated instead of a release). */
+    counterTransactionId?: Id<"bankTransactions">;
+  },
 ): Promise<{ reversalIds: Id<"payments">[]; date: string; warnings: PaymentWarning[] }> {
   const row = await requirePayment(ctx, args.paymentId);
   const today = berlinCalendarDate(ctx.now());
@@ -638,8 +644,12 @@ export async function reversePayment(
         date: plan.value.date,
         amountCents: -r.amountCents,
         currency: r.currency,
-        source: r.source,
-        ...(r.bankTransactionId ? { bankTransactionId: r.bankTransactionId } : {}),
+        ...(args.counterTransactionId && r.bankTransactionId
+          ? {
+              source: { kind: "bank" as const, transactionId: args.counterTransactionId },
+              bankTransactionId: args.counterTransactionId,
+            }
+          : { source: r.source, ...(r.bankTransactionId ? { bankTransactionId: r.bankTransactionId } : {}) }),
         differences: r.differences.map((d) => ({
           ...d,
           amountCents: -d.amountCents,
@@ -681,7 +691,12 @@ export async function reversePayment(
     }
     await refreshTarget(ctx, r, -settlesOf(r), "payment.reverse");
     if (r.bankTransactionId && r.amountCents !== 0) {
-      await applyAllocation(ctx, { transactionId: r.bankTransactionId, deltaCents: -Math.abs(r.amountCents) });
+      await applyAllocation(
+        ctx,
+        args.counterTransactionId
+          ? { transactionId: args.counterTransactionId, deltaCents: Math.abs(r.amountCents) }
+          : { transactionId: r.bankTransactionId, deltaCents: -Math.abs(r.amountCents) },
+      );
     }
     ids.push(reversalId);
   }
@@ -691,7 +706,12 @@ export async function reversePayment(
 /** BNK-047 „Zuordnung aufheben“ / BNK-121 bank reversal: reverses every active allocation of a transaction. */
 export async function reverseTransactionPayments(
   ctx: ModelCtx,
-  args: { transactionId: Id<"bankTransactions">; reason: string; preferredDate?: string },
+  args: {
+    transactionId: Id<"bankTransactions">;
+    reason: string;
+    preferredDate?: string;
+    counterTransactionId?: Id<"bankTransactions">;
+  },
 ): Promise<{ reversalIds: Id<"payments">[]; warnings: PaymentWarning[] }> {
   const rows = (await paymentsOfTransaction(ctx, args.transactionId)).filter((r) => !r.reversedById && !r.reversalOfId);
   const reconciled = await ctx.db
@@ -717,6 +737,7 @@ export async function reverseTransactionPayments(
       paymentId: r._id,
       reason: args.reason,
       ...(args.preferredDate ? { preferredDate: args.preferredDate } : {}),
+      ...(args.counterTransactionId ? { counterTransactionId: args.counterTransactionId } : {}),
     });
     ids.push(...res.reversalIds);
     for (const w of res.warnings) if (!warnings.some((x) => x.code === w.code)) warnings.push(w);
