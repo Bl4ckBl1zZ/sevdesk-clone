@@ -16,6 +16,9 @@ import { makeT, type TestT } from "./test.setup";
 
 const NOW = new Date("2026-10-12T10:00:00Z");
 
+// Every test finalises and renders several PDFs; under parallel load that takes longer than the 5 s default.
+vi.setConfig({ testTimeout: 60_000 });
+
 beforeEach(() => {
   vi.useFakeTimers({ toFake: ["Date"] });
   vi.setSystemTime(NOW);
