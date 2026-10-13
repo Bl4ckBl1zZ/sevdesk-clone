@@ -644,6 +644,9 @@ export async function blockingReferences(ctx: ReadCtx, id: Id<"contacts">): Prom
     .withIndex("by_contact", (q) => q.eq("contactId", id))
     .first();
   if (checks) out.push("USt-IdNr-Prüfnachweise");
+  // F04: every sales document (drafts included) keeps its contact.
+  const docs = await salesDocumentsOf(ctx, id);
+  if (docs.length > 0) out.push(`${docs.length} Dokument${docs.length === 1 ? "" : "e"}`);
   // F08 ACC-010: journal lines and opening items keep the contact (GoBD: booked data stays resolvable).
   const booked = await ctx.db
     .query("journalLines")
@@ -760,15 +763,39 @@ async function promoteDefault(ctx: ModelCtx, c: ContactDoc, type: AddressType, r
   }
 }
 
+/** Sales documents of a contact (F04). Read here directly so the contact model does not import the document model. */
+async function salesDocumentsOf(ctx: ReadCtx, contactId: Id<"contacts">) {
+  return ctx.db
+    .query("salesDocuments")
+    .withIndex("by_contact", (q) => q.eq("contactId", contactId))
+    .collect();
+}
+
 /**
- * CON-024: an address referenced by a document is archived instead of deleted. Document references arrive with
- * F04 (`salesDocuments.addressId`); until then every address can be deleted.
+ * CON-024: an address referenced by a document (`salesDocuments.billingAddressId`, any status) is archived instead
+ * of deleted — hidden from pickers; drafts fall back to the default billing address with a warning (F04 readContact).
  */
 export async function removeAddress(ctx: ModelCtx, addressId: Id<"contactAddresses">): Promise<void> {
   const row = await ctx.db.get(addressId);
   if (!row) throw appError("not_found", "Adresse nicht gefunden.");
   const c = await getContact(ctx, row.contactId);
-  await auditedDelete(ctx, "contactAddresses", addressId, { action: "contact.address.delete", label: c.number });
+  const people = await childPersons(ctx, c._id);
+  const owners = [c._id, ...people.map((p) => p._id)];
+  let referenced = false;
+  for (const owner of owners) {
+    if ((await salesDocumentsOf(ctx, owner)).some((d) => d.billingAddressId === addressId)) referenced = true;
+  }
+  if (referenced) {
+    await auditedPatch(
+      ctx,
+      "contactAddresses",
+      addressId,
+      { archivedAt: ctx.now(), isDefault: false },
+      { action: "contact.address.archive", label: c.number },
+    );
+  } else {
+    await auditedDelete(ctx, "contactAddresses", addressId, { action: "contact.address.delete", label: c.number });
+  }
   if (row.isDefault) await promoteDefault(ctx, c, row.type, addressId);
   await refreshSearchText(ctx, c._id, "contact.address.delete");
 }
@@ -1122,6 +1149,8 @@ async function movableRows(ctx: ReadCtx, contactId: Id<"contacts">) {
       .withIndex("by_contact", (q) => q.eq("contactId", contactId))
       .collect(),
     persons: await childPersons(ctx, contactId),
+    // CON-132: drafts move to the winner; finalised documents keep the loser's ID (GOBD-06, CON-181).
+    drafts: (await salesDocumentsOf(ctx, contactId)).filter((d) => d.status === "draft"),
   };
 }
 
@@ -1256,6 +1285,16 @@ export async function mergeContacts(
       );
       moved.push({ table: "contacts", id: person._id });
     }
+    for (const d of rows.drafts) {
+      await auditedPatch(
+        ctx,
+        "salesDocuments",
+        d._id,
+        { contactId: winner._id, contactName: winner.displayName, billingAddressId: undefined, version: d.version + 1 },
+        { action: "contact.merge", label: winner.number },
+      );
+      moved.push({ table: "salesDocuments", id: d._id });
+    }
     await auditedPatch(
       ctx,
       "contacts",
@@ -1293,7 +1332,14 @@ export async function mergeContacts(
 export async function undoMerge(ctx: ModelCtx, mergeId: Id<"contactMerges">): Promise<void> {
   const m = await ctx.db.get(mergeId);
   if (!m) throw appError("not_found", "Zusammenführung nicht gefunden.");
-  const issue = checkUndo(0, m.undoneAt !== undefined);
+  // CON-134: undo is impossible once a moved draft has been finalised.
+  let finalised = 0;
+  for (const item of m.moved) {
+    if (item.table !== "salesDocuments") continue;
+    const d = await ctx.db.get(item.id as Id<"salesDocuments">);
+    if (d && d.status !== "draft") finalised++;
+  }
+  const issue = checkUndo(finalised, m.undoneAt !== undefined);
   if (issue) fail(issue);
   const loser = await getContact(ctx, m.loserId);
   const winner = await getContact(ctx, m.winnerId);
@@ -1311,6 +1357,18 @@ export async function undoMerge(ctx: ModelCtx, mergeId: Id<"contactMerges">): Pr
           label: loser.number,
         },
       );
+    } else if (item.table === "salesDocuments") {
+      const id = item.id as Id<"salesDocuments">;
+      const d = await ctx.db.get(id);
+      if (d?.status === "draft") {
+        await auditedPatch(
+          ctx,
+          "salesDocuments",
+          id,
+          { contactId: loser._id, contactName: loser.displayName, version: d.version + 1 },
+          { action: "contact.merge_undo", label: loser.number },
+        );
+      }
     } else if (
       item.table === "contactAddresses" ||
       item.table === "contactChannels" ||

@@ -5,7 +5,7 @@ import { invoiceRecipients, primaryOf } from "../src/domain/contacts/channels";
 import { currentCertificate } from "../src/domain/contacts/consent";
 import { normalizeContactNumber, normalizeSearchQuery } from "../src/domain/contacts/core";
 import { CONTACT_EXPORT_HEADERS, classifyRow, contactExportRow } from "../src/domain/contacts/csv-io";
-import { EMPTY_STATS } from "../src/domain/contacts/stats";
+import { computeContactStats, type StatsDocType, type StatsDocument } from "../src/domain/contacts/stats";
 import { effectiveElectronicAddress } from "../src/domain/contacts/tax";
 import { deriveTaxProfile } from "../src/domain/contacts/tax-profile";
 import { vatBadge } from "../src/domain/contacts/vat-check";
@@ -22,6 +22,7 @@ import {
 } from "../src/domain/schemas/contacts";
 import type { TaxCase } from "../src/domain/tax/tax-case";
 import { berlinCalendarDate } from "../src/domain/time/berlin";
+import type { CalendarDate } from "../src/domain/time/calendar-date";
 import { formatGermanDate } from "../src/domain/time/calendar-date";
 import type { Doc, Id } from "./_generated/dataModel";
 import type { QueryCtx } from "./_generated/server";
@@ -324,8 +325,8 @@ export const get = query({
       tags: tags.map((t) => ({ _id: t._id, name: t.name, color: t.color ?? null })),
       paymentMethod: paymentMethod ? { _id: paymentMethod._id, name: paymentMethod.name } : null,
       duplicateHints: hints,
-      // CON-150: statistics over finalised documents — sales documents arrive with F04 (empty until then).
-      stats: EMPTY_STATS(cc.today),
+      // CON-150: statistics over the finalised documents of the contact, its persons and merged aliases.
+      stats: await contactStats(ctx, id, cc.today),
       deleteBlockedBy: await blockingReferences(ctx, id),
       today: cc.today,
     };
@@ -690,3 +691,36 @@ export const exportRows = query({
     return rows;
   },
 });
+
+/** CON-150: finalised sales documents of the contact, its persons and the contacts merged into it (CON-133). */
+async function contactStats(ctx: QueryCtx, id: Id<"contacts">, today: CalendarDate) {
+  const ids = new Set<Id<"contacts">>([id]);
+  for (const p of await childPersons(ctx, id)) ids.add(p._id);
+  for (const m of await ctx.db
+    .query("contactMerges")
+    .withIndex("by_winner", (q) => q.eq("winnerId", id))
+    .collect()) {
+    if (m.undoneAt === undefined) ids.add(m.loserId);
+  }
+  const docs: StatsDocument[] = [];
+  for (const cid of ids) {
+    for (const d of await ctx.db
+      .query("salesDocuments")
+      .withIndex("by_contact", (q) => q.eq("contactId", cid))
+      .collect()) {
+      if (d.status === "draft" || !d.documentDate) continue;
+      docs.push({
+        docType: d.type as StatsDocType,
+        documentDate: d.documentDate as CalendarDate,
+        ...(d.dueDate ? { dueDate: d.dueDate as CalendarDate } : {}),
+        netCents: d.totals.netCents,
+        grossCents: d.totals.grossCents,
+        ...(d.openAmountCents !== undefined ? { openAmountCents: d.openAmountCents } : {}),
+        ...(d.paymentStatus ? { paymentStatus: d.paymentStatus } : {}),
+        currency: d.currency,
+        ...(d.fxRateToEur ? { fxRateToEur: d.fxRateToEur.rate } : {}),
+      });
+    }
+  }
+  return computeContactStats(docs, today);
+}

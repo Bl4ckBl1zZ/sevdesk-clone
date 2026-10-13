@@ -218,11 +218,15 @@ export async function setProductActive(ctx: ModelCtx, id: Id<"products">, active
 }
 
 /**
- * PRD-073 references that block a delete: document lines, recurring templates, time entries and stock movements
- * arrive with F04/F11/P4 (each extends this count). Until then every product can be deleted with its prices.
+ * PRD-073 references that block a delete: document lines (F04, drafts included). Recurring templates, time entries
+ * and stock movements arrive with F11/P4 (each extends this count).
  */
-export async function productUsageCount(_ctx: ReadCtx, _id: Id<"products">): Promise<number> {
-  return 0;
+export async function productUsageCount(ctx: ReadCtx, id: Id<"products">): Promise<number> {
+  const lines = await ctx.db
+    .query("documentLines")
+    .withIndex("by_product", (q) => q.eq("productId", id))
+    .collect();
+  return new Set(lines.map((l) => l.documentId)).size;
 }
 
 export async function customerPricesOf(ctx: ReadCtx, productId: Id<"products">) {

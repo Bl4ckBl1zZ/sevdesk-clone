@@ -39,11 +39,7 @@ export async function deleteUnreferencedFile(ctx: ModelCtx, storageId: Id<"_stor
   await ctx.storage.delete(storageId);
 }
 
-/**
- * SET-020: drafts that pick up a company-profile change on their next render. Sales documents (and with them drafts)
- * arrive in P1; until then no draft can exist, so the count is 0. P1 replaces this with a `salesDocuments.by_status`
- * count.
- */
-export async function countDraftsUsingCompanyData(_ctx: ReadCtx): Promise<number> {
-  return 0;
+/** SET-020: drafts that pick up a company-profile change on their next render (all sales-document drafts). */
+export async function countDraftsUsingCompanyData(ctx: ReadCtx): Promise<number> {
+  return (await ctx.db.query("salesDocuments").collect()).filter((d) => d.status === "draft").length;
 }
