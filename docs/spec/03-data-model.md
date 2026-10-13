@@ -827,7 +827,8 @@ bankTransactions: 🔒 { accountId: Id<"bankAccounts">;   // booked transactions
             feeCents?: number;                // fee reported as a field, booked as a separate journal line (BNK-023)
             exchangeRate?: string; instructedAmount?: { amountMinor: number; currency: string };
             balanceAfterCents?: number;       // continuity check (BNK-035)
-            bookedAtRaw?: string /* UTC timestamp as delivered */; importId?: Id<"bankImports">; rawSha256: string };
+            bookedAtRaw?: string /* UTC timestamp as delivered */; importId?: Id<"bankImports">;
+            line?: number /* file line of the first delivery */; rawSha256: string };
   sources: { kind: string; importId?: Id<"bankImports">; entryReference?: string; providerTransactionId?: string;
              rawSha256: string; at: number }[];   // further sources that delivered the same booking (cross-source dedupe, BNK-110; append-only)
   dedupeKey: string;                      // `${accountId}:er:${entryReference}` or `${accountId}:h:${contentHash}:${ordinal}` (BNK-109/034)
@@ -837,29 +838,40 @@ bankTransactions: 🔒 { accountId: Id<"bankAccounts">;   // booked transactions
   ignoredReason?: "duplicate_of_file_import" | "neutralised_pair" | "test_or_zero" | "import_rolled_back";   // BNK-036/063
   ignoredLinkId?: Id<"bankTransactions">;
   reversalOfId?: Id<"bankTransactions">;  // bank counter-entry confirmed as reversal of the original (BNK-121; set once)
-  allocatedCents: number;
+  reversal?: boolean;                     // the source flagged the row as a counter-entry (CAMT RvslInd, MT940 RC/RD) — a hint, not a link
+  transferPeerId?: Id<"bankTransactions">;  // other leg of a Geldtransit pair (BNK-061; whitelist field)
+  allocatedCents: number;                 // written only through `applyAllocation` (convex/model/bankTransactions.ts) — the matching hook
   recordedAt: number; bookedAt?: number; lockedAt?: number }
-// indexes: by_dedupeKey (unique), by_account_contentHash, by_account_bookingDate, by_status, by_account_entryReference
+// indexes: by_dedupeKey (unique), by_account_contentHash, by_account_bookingDate, by_status, by_account_status,
+//          by_account_entryReference, by_import
 bankPendingTransactions: { accountId: Id<"bankAccounts">; entryReference?: string; bookingDate?: string; amountCents: number;
   currency: string; counterpartyName?: string; purpose: string; fetchedAt: number; rawSha256: string }
   // not protected, not part of the books: provisional feed rows (status PDNG), replaced for the fetched window on every poll (BNK-111)
 bankTransactionRevisions: 🔒 { transactionId: Id<"bankTransactions">; sourceKind: string; rawSha256: string; rawJson: string;
-                               fetchedAt: number; applied: boolean }   // false = a re-delivered booked row differs (integrity finding, BNK-113)
+                               fetchedAt: number; applied: boolean;    // false = a re-delivered booked row differs (integrity finding, BNK-113)
+                               importId?: Id<"bankImports">; line?: number; changedFields?: string[] }   // file line + differing fields (EC-BNK-15)
   // append-only raw payloads / file line references for GoBD traceability; unique (transactionId, rawSha256)
 bankStatements: 🔒 { accountId: Id<"bankAccounts">; periodFrom: string; periodTo: string;
   periodStartUtc: number; periodEndUtc: number;          // statements are UTC by default (EC-155)
-  pdf?: FileRef; camt?: FileRef; other?: FileRef[];      // signed PDF = official Kontoauszug; CAMT/MT940/CSV as imported
+  format: "camt053" | "mt940" | "revolut_csv"; statementRef?: string /* CAMT Stmt/Id, MT940 :20: */;
+  pdf?: FileRef; camt?: FileRef; other?: FileRef[];      // signed PDF = official Kontoauszug (set once); CAMT/MT940/CSV as imported
   openingBalanceCents?: number; closingBalanceCents?: number; importId?: Id<"bankImports">;
   reconciled: boolean; differences?: { kind: "missing" | "extra" | "amount"; detail: string; transactionId?: Id<"bankTransactions">; amountCents?: number }[];
-  rolledBack?: boolean; uploadedAt: number; retentionUntil: string }
-  // official Kontoauszug per currency account; monthly import to-do (BNK-030, EC-156); statement import is the main bank data path in P1
+  continuity?: { status: "first" | "ok" | "gap" | "overlap" | "unverifiable"; message?: string; diffCents?: number };   // BNK-035 at import time
+  rolledBack?: boolean /* set once (BNK-036) */; uploadedAt: number; retentionUntil: string /* 31.12. of period year + 8 (vouchers8) */ }
+  // index by_account_period; official Kontoauszug per currency account; statement import is the main bank data path in P1.
+  // The monthly import to-do (BNK-030, EC-156/EC-BNK-52) is derived from accounts + statements (query `banking.todos`), not stored.
+  // `reconciled`/`differences` are the result at import time; the statement view recomputes them live against the current rows.
 bankImports: { accountId; source: "enable_banking" | "camt053" | "mt940" | "revolut_csv" | "csv";
-  fileStorageId?: Id<"_storage">; fileSha256?: string; periodFrom: string; periodTo: string;
+  fileStorageId?: Id<"_storage">; fileSha256?: string; fileName?: string; periodFrom: string; periodTo: string;
   openingBalanceCents?: number; closingBalanceCents?: number; continuityOk?: boolean;   // GOBD-02
-  counts: { total: number; inserted: number; duplicates: number; mergedCrossSource: number; possibleDuplicates: number };
-  rolledBackAt?: number; at: number; actor: Actor }
+  counts: { total: number; inserted: number; duplicates: number; mergedCrossSource: number; possibleDuplicates: number;
+            conflicts: number /* differing re-deliveries, BNK-113 */; rejected: number /* unreadable rows */ };
+  statementId?: Id<"bankStatements">; rowIds?: Id<"bankTransactions">[] /* rows the file delivered: live reconciliation base */;
+  rolledBackAt?: number; at: number; actor: Actor }   // indexes by_account, by_fileSha256 (EC-BNK-42/45); not protected, audited
 possibleDuplicates: { accountId: Id<"bankAccounts">; candidate: unknown /* normalised row */; existingIds: Id<"bankTransactions">[];
-  importId?: Id<"bankImports">; status: "open" | "same" | "separate"; resolvedAt?: number; actor?: Actor }   // review list (BNK-109/110)
+  importId?: Id<"bankImports">; reason: "content_hash" | "near_duplicate"; status: "open" | "same" | "separate";
+  resolvedAt?: number; resolvedTransactionId?: Id<"bankTransactions">; actor?: Actor; createdAt: number }   // review list (BNK-109/110, RI-29)
 matchSuggestions: { transactionId;
   kind: "single" | "combined" | "partial";
   allocations: { target: { kind: "salesDocument" | "voucher" | "contactCredit" | "payment" | "cashTransfer"; id: string };   // payment = existing unreconciled manual payment; cashTransfer = open Geldtransit from a cash deposit
@@ -888,8 +900,9 @@ cashTransfers: 🔒 { date: string; kind: "deposit_to_bank" | "private_withdrawa
   amountCents: number /* > 0 */; bankAccountId?: Id<"bankAccounts">;
   bankTransactionId?: Id<"bankTransactions">;   // deposit: bank credit matched later (set once); ATM: the marked bank debit
   note?: string; backdateReason?: string;       // > 10 days in the past (CSH-021 dating rules)
-  eigenbelegFile: FileRef;                      // auto Eigenbeleg PDF with hash
-  journalEntryIds: Id<"journalEntries">[];
+  shareholder?: { name: string; note: string };  // corporations: private withdrawal → shareholder.clearing (ACC-028)
+  eigenbelegFile?: FileRef;                     // auto Eigenbeleg PDF with hash (absent only on reversal rows)
+  journalEntryIds: Id<"journalEntries">[];      // append-only: filled after the entry is posted; T5 bank leg appended on match
   reversalOfId?: Id<"cashTransfers">; reason?: string;   // reversal row (CSH-027)
   recordedAt: number; actor: Actor }
 // never-negative (CSH-026, RI-11): the `cash` account balance in (date, journal seq) order ≥ 0 at every date, checked in the serialisable mutation
@@ -1154,9 +1167,10 @@ importedRecords: { importId; externalType: string; externalId: string; table: st
 | `journalEntries` | `lockedAt`; `lines[].contactId` removed by staged purge (PRV-007) | reversal entry (Generalumkehr) |
 | `journalLines` | none (read model of `journalEntries`; the PRV-007 purge rewrites `contactId` together with the entry) | via the entry's reversal |
 | `openingItems` | `openAmountCents` (payments/reversals against the item), `lockedAt` (once) | reversal of the opening entry |
-| `cashTransfers` | `bankTransactionId` (once, when the bank side is matched) | reversal row (`reversalOfId`), subject to the never-negative check |
-| `bankTransactions` | `status`, `ignoredReason`, `ignoredLinkId`, `allocatedCents`, `bookedAt`, `lockedAt`, `sources` (append), `reversalOfId` (once), one-time fill of empty counterparty fields (BNK-122) | n/a (booked bank data never changes; a differing re-delivery is stored as a revision with `applied: false` + integrity finding, BNK-113) |
-| `bankTransactionRevisions`, `bankStatements` | none (statement: `reconciled`/`differences` recomputed on re-upload as a new row) | new row |
+| `cashTransfers` | `bankTransactionId` (once, when the bank side is matched), `journalEntryIds` (append) | reversal row (`reversalOfId`), subject to the never-negative check |
+| `bankTransactions` | `status`, `ignoredReason`, `ignoredLinkId`, `allocatedCents`, `transferPeerId`, `bookedAt` (once), `lockedAt` (once), `sources` (append), `reversalOfId` (once), one-time fill of empty counterparty fields (BNK-122) | n/a (booked bank data never changes; a differing re-delivery is stored as a revision with `applied: false` + integrity finding, BNK-113) |
+| `bankTransactionRevisions` | none | new row |
+| `bankStatements` | `pdf` (once: the signed PDF may follow the data file), `rolledBack` (once, BNK-036); `reconciled`/`differences` stay as computed at import (the view recomputes live) | new row |
 | `assets` | before `firstDepreciationAt`: all; after: `disposal` (once), `notes` | manual journal entry with reason (AST-011) |
 | `depreciationRuns` | none | reversal journal entry |
 | `taxFilings` | `status` (`draft → submitted_manually → superseded`), `submittedVia`, `submittedOn`, `sheetHash`, `elsterReportedTotalCents`, `submittedValuesDiffer`, `valuesDifferReason`, `submittedAt`, `transmissionTicket`, `protocolStorageId` (at submission) | correction filing (`supersedesId`) |
@@ -1242,6 +1256,20 @@ Conflicts and naming differences resolved while merging the F01–F12 data-model
 | `integrityCheckpoints` matrix row | Moved out of the "none" row: `uploadStatus`/`exportedTo` change after insert (the row is stored before the R2 upload so a failed upload is visible and retried, E-AUD-10); the signed fields stay frozen | P0 implementation (convex/integrity.ts), 2026-10-12 |
 
 Still referencing removed shapes (owned by the parallel feature pass, to align): `recurringTemplates.automation.send/mailTemplateId/mailIdentityId` (§4), `sendLog.smtpResponse` and the e-mail send outcome (§4), `companyProfile.portal` (F10 deferred), `bankConnections` (Revolut-only fields → Enable Banking consent fields, F07). — **Resolved** by the owner-decisions update below; `companyProfile.portal` and the portal tables are marked reserved (F10 deferred).
+
+### F07 P1 statement-import slice (2026-10-13)
+
+| Item | Change | Reason / source |
+|---|---|---|
+| `bankStatements` mutability | Guarded (was append-only): `pdf` and `rolledBack` may be set once | The signed PDF often arrives after the CAMT file (EC-BNK-52 to-do „PDF fehlt“); BNK-036 flags rolled-back statements „zurückgenommen“ |
+| `bankStatements.format`, `statementRef`, `continuity` | Added | The archive shows the delivered format and the bank's statement ID; the continuity result (BNK-035) is kept with the statement |
+| `bankImports.fileName`, `counts.conflicts/rejected`, `statementId`, `rowIds` | Added | Import history in the UI; BNK-113 conflicts and unreadable rows are counted; `rowIds` lets the statement view recompute the reconciliation after the duplicate review without re-parsing the file |
+| `bankTransactions.reversal`, `transferPeerId`, `source.line`, index `by_account_status`, `by_import` | Added | RvslInd/RC hint for the BNK-121 link; Geldtransit pair; file line for traceability; account list filters and BNK-036 rollback |
+| `bankTransactionRevisions.importId/line/changedFields` | Added | EC-BNK-15 finding shows which fields differ and where they came from |
+| `possibleDuplicates.reason`, `resolvedTransactionId`, `createdAt` | Added | Review list shows why a row is held back; „Eigener Umsatz“ links the inserted row |
+| `cashTransfers.eigenbelegFile` optional, `shareholder`, `journalEntryIds` append | Changed | Reversal rows have no Eigenbeleg of their own; corporations need the shareholder (ACC-028); the journal entry references the row, so its id is appended after posting |
+| Monthly statement to-do | Derived query (`banking.todos`), no job or table | Nothing to store: the to-do is a function of accounts, statements and today (EC-156, EC-BNK-52); a stored to-do could go stale |
+| IBAN uniqueness | Unique per (IBAN, currency) for statement accounts (`banking.createAccount`) | Revolut pockets share one IBAN across currencies (research 13 §2); `settings.addBankAccount` (EUR invoice accounts) keeps its global check |
 
 ### Owner-decisions update 2026-10-12 (B1–B6: bank, sending, cash, sevdesk import, tax, inbox)
 
