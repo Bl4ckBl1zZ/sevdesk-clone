@@ -152,9 +152,10 @@ describe("Verfahrensdokumentation (F01 SET-047)", () => {
 });
 
 describe("AO-04 no POS", () => {
-  test("AO-04 the Kasse page says it is a cash book, not a till; no cash sale without an invoice", () => {
+  test("AO-04 CSH-029 the Kasse page says it is no till; cash income only on invoices", () => {
     renderWithIntl(<NoPosNotice />);
-    expect(screen.getByRole("note")).toHaveTextContent("keine Registrierkasse");
-    expect(screen.getByRole("note")).toHaveTextContent("Barverkäufe ohne Rechnung gibt es nicht (§ 146a AO)");
+    expect(screen.getByRole("note")).toHaveTextContent(
+      "Kein Kassensystem (keine Registrierkasse, keine TSE) – Bareinnahmen nur zu Rechnungen.",
+    );
   });
 });

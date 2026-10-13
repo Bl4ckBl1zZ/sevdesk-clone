@@ -154,6 +154,16 @@ describe("F07 statement import pipeline (BNK-030…036)", () => {
     expect(list.every((r) => r.sources.some((x) => x.kind === "camt053"))).toBe(true);
   });
 
+  test("T07-151 BNK-110 CAMT.053 first, then the Revolut CSV of the same month → 0 new, both statements reconciled", async () => {
+    const s = await setup();
+    await importFile(s, s.eur, camtOct, "eur-2026-10.camt053.xml");
+    const csv = await importFile(s, s.eur, csvOct, "eur-2026-10.csv");
+    expect(csv.preview.counts).toMatchObject({ new: 0, merged: 13, conflicts: 0, possibleDuplicates: 0 });
+    expect(csv.result.reconciled).toBe(true);
+    const statements = await s.owner.query(api.banking.statements, { accountId: s.eur });
+    expect(statements.map((x) => x.reconciled)).toEqual([true, true]);
+  });
+
   test("T07-050 EC-BNK-47 BNK-035 statement after a missing period → „Saldenlücke“; overlap → no duplicates", async () => {
     const s = await setup();
     await importFile(s, s.eur, camtOct, "eur-2026-10.camt053.xml");

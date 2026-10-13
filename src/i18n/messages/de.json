@@ -225,7 +225,7 @@
     },
     "bank": {
       "title": "Bank",
-      "description": "Konten und Umsätze",
+      "description": "Konten, Kontoauszüge und Umsätze",
       "empty": "Noch kein Bankkonto angelegt.",
       "action": "Bankkonto einrichten"
     },
@@ -238,7 +238,7 @@
       "title": "Kasse",
       "description": "Bargeldbestand und Bewegungen",
       "empty": "Noch keine Barbewegungen erfasst.",
-      "noPos": "Kassenbuch für Barbewegungen — keine Registrierkasse. Barzahlungen werden als Zahlung auf eine Rechnung gebucht; Barverkäufe ohne Rechnung gibt es nicht (§ 146a AO)."
+      "noPos": "Kein Kassensystem (keine Registrierkasse, keine TSE) – Bareinnahmen nur zu Rechnungen. Barzahlungen werden als Zahlung auf eine Rechnung gebucht (§ 146a AO)."
     },
     "kontakte": {
       "title": "Kontakte",
@@ -1934,6 +1934,264 @@
         "error": "Fehler"
       },
       "onlyErrors": "nur Fehler"
+    }
+  },
+  "banking": {
+    "overview": {
+      "import": "Kontoauszug importieren",
+      "addAccount": "Konto anlegen",
+      "todos": "Zu erledigen",
+      "empty": "Noch kein Bankkonto angelegt. Legen Sie für jede Währung (z. B. Revolut EUR und USD) ein Konto an.",
+      "accounts": "Konten",
+      "noIban": "ohne eigene IBAN",
+      "closing": "Endsaldo {date}: {amount}",
+      "pdfMissing": "PDF fehlt",
+      "noStatement": "Noch kein Kontoauszug importiert.",
+      "open": "{count, plural, =0 {Keine offenen Umsätze} one {# offener Umsatz} other {# offene Umsätze}}",
+      "duplicates": "{count, plural, one {# mögliche Dublette} other {# mögliche Dubletten}}"
+    },
+    "account": {
+      "title": "Bankkonto anlegen",
+      "description": "Ein Konto je Währung. Revolut-Unterkonten (Pockets) teilen sich eine IBAN – legen Sie für jede Währung ein eigenes Konto an.",
+      "name": "Name",
+      "currency": "Währung",
+      "iban": "IBAN",
+      "ibanHint": "Leer lassen, wenn das Unterkonto keine eigene IBAN hat.",
+      "bic": "BIC",
+      "holder": "Kontoinhaber",
+      "showOnInvoices": "Auf Rechnungen angeben",
+      "saved": "Bankkonto angelegt."
+    },
+    "statements": {
+      "rolledBack": "zurückgenommen",
+      "reconciled": "abgestimmt",
+      "notReconciled": "nicht abgestimmt",
+      "empty": "Noch keine Kontoauszüge archiviert.",
+      "opening": "Anfangssaldo",
+      "closing": "Endsaldo laut Auszug",
+      "expected": "Anfangssaldo + Umsätze",
+      "difference": "Differenz",
+      "pdfFile": "PDF-Kontoauszug",
+      "dataFile": "Datei",
+      "archived": "Archiviert am {date} · aufzubewahren bis {until}",
+      "attachPdf": "Signiertes PDF anhängen",
+      "attachTitle": "PDF-Kontoauszug anhängen",
+      "attachHint": "Das signierte PDF der Bank wird unveränderbar mit Prüfsumme archiviert und kann nur einmal angehängt werden.",
+      "attach": "Anhängen",
+      "attached": "PDF-Kontoauszug archiviert."
+    },
+    "import": {
+      "title": "Kontoauszug importieren",
+      "description": "CAMT.053 (empfohlen), MT940 oder Revolut-CSV und das signierte PDF für denselben Zeitraum. Zuerst wird eine Vorschau erstellt; gespeichert wird erst nach „Importieren“.",
+      "account": "Konto",
+      "file": "Kontoauszugsdatei",
+      "fileHint": "CAMT.053 (.xml), MT940 (.sta/.txt) oder Revolut-CSV (.csv)",
+      "pdf": "Signierter PDF-Kontoauszug (optional)",
+      "pdfHint": "Der PDF-Kontoauszug ist der Buchungsbeleg und kann auch später angehängt werden.",
+      "back": "Zurück",
+      "cancel": "Abbrechen",
+      "preview": "Vorschau",
+      "importAgain": "Trotzdem importieren",
+      "commit": "{count, plural, =0 {Importieren} one {# Umsatz importieren} other {# Umsätze importieren}}",
+      "done": "{count, plural, =0 {Kontoauszug archiviert, keine neuen Umsätze.} one {# Umsatz importiert.} other {# Umsätze importiert.}}",
+      "arithmeticOk": "Anfangssaldo + Umsätze = Endsaldo",
+      "arithmeticUnverifiable": "Saldo nicht prüfbar",
+      "continuityOk": "Anfangssaldo passt zum letzten Endsaldo",
+      "continuityFirst": "Erster Kontoauszug dieses Kontos",
+      "continuityUnverifiable": "Anschluss an den letzten Kontoauszug nicht prüfbar",
+      "format": "Format",
+      "period": "Zeitraum",
+      "opening": "Anfangssaldo",
+      "closing": "Endsaldo",
+      "alreadyHint": "Ein erneuter Import fügt keine Umsätze hinzu.",
+      "counts": "Ergebnis der Vorschau",
+      "countNew": "{count} neu",
+      "countDuplicates": "{count} bereits vorhanden",
+      "countConflicts": "{count} Abweichungen",
+      "countPossible": "{count} mögliche Dubletten",
+      "countSkipped": "{count} nicht gebucht (übersprungen)",
+      "checks": "Saldenprüfung",
+      "issue": "Zeile {line}: {message}",
+      "columns": {
+        "date": "Datum",
+        "text": "Gegenpartei / Zweck",
+        "amount": "Betrag",
+        "outcome": "Ergebnis"
+      },
+      "outcome": {
+        "new": "neu",
+        "duplicate": "vorhanden",
+        "merge": "vorhanden (andere Quelle)",
+        "conflict": "Abweichung",
+        "possible_duplicate": "mögliche Dublette"
+      }
+    },
+    "duplicates": {
+      "title": "Mögliche Dubletten ({count})",
+      "hint": "Diese Zeilen sehen aus wie bereits gebuchte Umsätze. Sie werden erst nach Ihrer Entscheidung übernommen.",
+      "from": "aus {source}, Zeile {line}",
+      "existing": "{count, plural, one {vorhandener Umsatz} other {vorhandene Umsätze}}",
+      "same": "Gleicher Umsatz",
+      "separate": "Eigener Umsatz",
+      "resolvedSame": "Als gleicher Umsatz vermerkt.",
+      "resolvedSeparate": "Als eigener Umsatz gebucht."
+    },
+    "accountView": {
+      "notFound": "Das Bankkonto wurde nicht gefunden.",
+      "tabs": {
+        "transactions": "Umsätze",
+        "statements": "Kontoauszüge",
+        "imports": "Importe"
+      }
+    },
+    "transactions": {
+      "statusLabel": "Status",
+      "search": "Umsätze durchsuchen",
+      "searchPlaceholder": "Gegenpartei, Verwendungszweck, IBAN",
+      "direction": "Richtung",
+      "directionAll": "Ein- und Ausgänge",
+      "directionIn": "Eingänge",
+      "directionOut": "Ausgänge",
+      "from": "Von",
+      "to": "Bis",
+      "empty": "Keine Umsätze für diese Auswahl.",
+      "columns": {
+        "date": "Datum",
+        "counterparty": "Gegenpartei",
+        "purpose": "Verwendungszweck",
+        "amount": "Betrag",
+        "status": "Status"
+      },
+      "noCounterparty": "ohne Gegenpartei",
+      "more": "Weitere laden"
+    },
+    "imports": {
+      "empty": "Noch keine Importe.",
+      "counts": "{inserted} neu, {duplicates} vorhanden, {possible} mögliche Dubletten",
+      "rolledBackAt": "Zurückgenommen am {date}",
+      "rollback": "Import zurücknehmen",
+      "rollbackTitle": "Import zurücknehmen",
+      "rollbackHint": "Nur möglich, solange kein Umsatz dieses Imports zugeordnet oder markiert ist. Die Umsätze werden als „zurückgenommen“ ignoriert (nicht gelöscht), die Dateien bleiben archiviert.",
+      "rolledBack": "Import zurückgenommen.",
+      "reason": "Grund"
+    },
+    "detail": {
+      "noCounterparty": "Umsatz ohne Gegenpartei",
+      "reversalFlag": "Rückbuchung der Bank",
+      "rolledBack": "Import zurückgenommen",
+      "purpose": "Verwendungszweck",
+      "iban": "IBAN",
+      "valueDate": "Wertstellung",
+      "endToEnd": "End-to-End-ID",
+      "fee": "Gebühr",
+      "code": "Buchungscode",
+      "reversalOf": "Rückbuchung zu",
+      "actions": "Aktionen",
+      "markPrivate": "Privat",
+      "markTransfer": "Geldtransit",
+      "markCash": "Bargeld in die Kasse",
+      "markIgnored": "Ignorieren",
+      "unmark": "Markierung aufheben",
+      "linked": "Rückbuchung verknüpft.",
+      "linkReversal": "Als Rückbuchung verknüpfen",
+      "postings": "Buchungen",
+      "entry": "Buchung {seq}",
+      "reversalEntry": "Storno",
+      "eigenbelege": "Eigenbelege",
+      "sources": "Quellen",
+      "revisionConflict": "Abweichende Lieferung der Bank ({fields}) am {date} – nicht übernommen"
+    },
+    "mark": {
+      "done": "Umsatz markiert.",
+      "private": {
+        "title": "Als privat markieren",
+        "description": "{direction, select, out {Wird als Privatentnahme gebucht.} other {Wird als Privateinlage gebucht.}} Ein Eigenbeleg wird automatisch erstellt und archiviert.",
+        "confirm": "Privat buchen",
+        "corporation": "Nur bei Kapitalgesellschaften: Verrechnungskonto Gesellschafter",
+        "shareholder": "Gesellschafter",
+        "note": "Vermerk"
+      },
+      "transfer": {
+        "title": "Als Geldtransit markieren",
+        "description": "Überweisung zwischen eigenen Konten (über das Geldtransitkonto). Ein Eigenbeleg wird automatisch erstellt.",
+        "confirm": "Geldtransit buchen"
+      },
+      "cash_withdrawal": {
+        "title": "Bargeld in die Kasse",
+        "description": "Die Abhebung wird am Buchungstag der Bank als Zugang in der Kasse gebucht (über Geldtransit); eine Automatengebühr wird als Bankgebühr gebucht.",
+        "confirm": "In die Kasse buchen"
+      },
+      "ignored": {
+        "title": "Umsatz ignorieren",
+        "description": "Gebuchte Bankbewegungen müssen gebucht werden. Ignorieren ist nur für Dubletten, neutralisierte Hin- und Rückbuchungen und Nullbeträge erlaubt.",
+        "confirm": "Ignorieren",
+        "reason": "Grund",
+        "link": "Gegenbuchung",
+        "choose": "Bitte wählen"
+      },
+      "unmark": {
+        "title": "Markierung aufheben",
+        "description": "Die Buchung wird storniert (Generalumkehr); der Umsatz ist danach wieder offen.",
+        "confirm": "Aufheben",
+        "reason": "Grund",
+        "done": "Markierung aufgehoben."
+      }
+    }
+  },
+  "cash": {
+    "balance": "Kassenbestand",
+    "account": "Konto {account}",
+    "transfer": "Bargeld eingezahlt / entnommen",
+    "report": "Bericht (CSV)",
+    "atmHint": "Abhebungen am Geldautomaten für die Kasse werden am Bankumsatz als „Bargeld in die Kasse“ markiert.",
+    "movements": "Bewegungen",
+    "empty": "Noch keine Barbewegungen.",
+    "columns": {
+      "date": "Datum",
+      "voucher": "Beleg",
+      "text": "Text",
+      "in": "Einnahme",
+      "out": "Ausgabe",
+      "balance": "Bestand"
+    },
+    "transfers": "Einzahlungen und Entnahmen",
+    "reversalOf": "Storno: ",
+    "kind": {
+      "deposit_to_bank": "Einzahlung auf die Bank",
+      "private_withdrawal": "Privatentnahme",
+      "bank_withdrawal_to_cash": "Abhebung in die Kasse"
+    },
+    "eigenbeleg": "Eigenbeleg",
+    "reversed": "storniert",
+    "reverse": "Stornieren",
+    "reverseTitle": "Barbewegung stornieren",
+    "reverseHint": "Es wird eine Gegenbuchung mit heutigem Datum erstellt. Der Kassenbestand darf dabei nie negativ werden.",
+    "reversedToast": "Barbewegung storniert.",
+    "reason": "Grund",
+    "reportTitle": "Kassenbericht",
+    "reportHint": "Chronologische Barbewegungen mit laufendem Bestand als CSV.",
+    "reportDownload": "Herunterladen",
+    "from": "Von",
+    "to": "Bis",
+    "dialog": {
+      "title": "Bargeld eingezahlt / entnommen",
+      "saved": "Barbewegung gebucht, Eigenbeleg archiviert.",
+      "kind": "Art",
+      "deposit": "Einzahlung auf die Bank",
+      "depositHint": "Bargeld aus der Kasse auf ein Bankkonto (über Geldtransit).",
+      "withdrawal": "Privatentnahme",
+      "withdrawalHint": "Bei Kapitalgesellschaften über das Verrechnungskonto Gesellschafter.",
+      "amount": "Betrag (€)",
+      "date": "Datum",
+      "bankAccount": "Bankkonto",
+      "shareholder": "Gesellschafter",
+      "shareholderHint": "Nur bei Kapitalgesellschaften erforderlich.",
+      "shareholderNote": "Vermerk",
+      "note": "Notiz",
+      "backdateReason": "Grund der späten Erfassung",
+      "backdateHint": "Pflicht, wenn das Datum mehr als 10 Tage zurückliegt.",
+      "projection": "Niedrigster Kassenbestand danach: {amount} am {date}",
+      "projectionNegative": "Nicht möglich: Der Kassenbestand würde am {date} auf {amount} fallen."
     }
   }
 }

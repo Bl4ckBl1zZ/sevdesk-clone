@@ -1,7 +1,12 @@
-import { PlaceholderPage, placeholderMetadata } from "@/components/layout/placeholder-page";
+import { BankOverview } from "@/components/banking/bank-overview";
+import { CatalogPage, catalogMetadata } from "@/components/catalog/catalog-page";
 
-export const generateMetadata = () => placeholderMetadata("bank");
+export const generateMetadata = () => catalogMetadata("bank");
 
 export default function Page() {
-  return <PlaceholderPage page="bank" />;
+  return (
+    <CatalogPage page="bank" permission="banking.read" body={false}>
+      <BankOverview />
+    </CatalogPage>
+  );
 }
