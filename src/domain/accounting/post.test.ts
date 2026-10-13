@@ -127,6 +127,11 @@ describe("posting engine (ACC-002, posting-2026.1)", () => {
     expect(r).toEqual({ ok: true, value: { kind: "none", reason: "advance_invoice" } });
   });
 
+  test("UST-40 INV-04 S9 an amount-based Teilrechnung is an Anzahlung and produces no journal entry either", () => {
+    const r = postEvent(invoice([S19(1000)], { documentType: "partial_invoice" }), SOLL);
+    expect(r).toEqual({ ok: true, value: { kind: "none", reason: "advance_invoice" } });
+  });
+
   test("ACC-002 invalid groups are refused (VAT on non-S, unsupported rate, imported unknown tax case)", () => {
     const vatOnK = postEvent(invoice([{ category: "K", rateBp: 0, netCents: 100, vatCents: 19 }]), SOLL);
     expect(!vatOnK.ok && vatOnK.error.code).toBe("invalid_event");

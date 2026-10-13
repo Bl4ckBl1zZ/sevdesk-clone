@@ -47,6 +47,7 @@ import { defaultInvoiceAccount } from "./bankAccounts";
 import { getCompanyProfile } from "./companyProfile";
 import { contactAddresses, contactChannels, defaultAddressOf, getContact } from "./contacts";
 import { unacknowledgedFailure } from "./integrity";
+import { afterChainFinalize, chainFinalizePatch, chainJournalEvent, loadRelations } from "./invoiceChains";
 import { postJournalEntry } from "./journal";
 import { defaultLayout } from "./layouts";
 import { listCustomFieldDefs, listPaymentMethods, listUnits } from "./lookups";
@@ -173,6 +174,7 @@ export function draftFromDoc(
 ): DraftDocument {
   return {
     type: d.type,
+    ...(d.correctionKind ? { correctionKind: d.correctionKind } : {}),
     ...(d.contactId ? { contactId: d.contactId } : {}),
     ...(billing ? { billingAddress: billing } : {}),
     ...(d.deliveryAddress ? { deliveryAddress: d.deliveryAddress } : {}),
@@ -430,8 +432,10 @@ export async function loadDocumentContext(ctx: ReadCtx, doc: SalesDocumentDoc, n
       kuYearTurnoverCents += d.totals.grossCents;
     }
   }
+  const relations = await loadRelations(ctx, doc);
   return {
     ctx: {
+      ...(relations ? { relations } : {}),
       today,
       setupComplete: profile?.setupCompletedAt !== undefined,
       integrityAlertOpen: (await unacknowledgedFailure(ctx)) !== null,
@@ -526,6 +530,9 @@ function headerFrom(values: DraftValues) {
     ...(values.documentDiscount ? { documentDiscount: values.documentDiscount } : {}),
     language: values.language,
     ...(values.internalNote ? { internalNote: values.internalNote } : {}),
+    ...(values.chainOrder?.number.trim()
+      ? { chainOrder: { ...values.chainOrder, number: values.chainOrder.number.trim() } }
+      : {}),
   };
 }
 
@@ -552,6 +559,7 @@ const CLEARABLE = [
   "internalNote",
   "taxCaseOverridden",
   "billingAddressId",
+  "chainOrder",
 ] as const;
 
 function lineRow(
@@ -960,6 +968,14 @@ export async function commitFinalization(
   );
   const payable = snapshot.totals.payableCents;
   const status = nextStatus(stored, "finalize");
+  // F04 §4.7/§4.8: deductions, credit effect and corrected items of chain/correction types (invoiceChains.ts).
+  const chainPatch = await chainFinalizePatch(ctx, {
+    doc: stored,
+    snapshot,
+    draft,
+    dctx: loaded.ctx,
+    resolved: result.resolved,
+  });
   const reasons = [o.backdateReason, o.overrides?.vatCheck?.reason, o.overrides?.rc13bCertificate?.reason].filter(
     Boolean,
   );
@@ -996,10 +1012,13 @@ export async function commitFinalization(
       finalizedFromVersion: version,
       retentionClass: retentionClassFor(doc.type),
       retentionUntil: retentionUntil(doc.type, documentDate),
+      ...chainPatch,
     },
     { action: "document.finalize", label: assigned.number, ...(reasons.length ? { reason: reasons.join(" · ") } : {}) },
   );
-  const event = journalEventFor(stored, snapshot);
+  await afterChainFinalize(ctx, await getDocument(ctx, id));
+  const event =
+    journalEventFor(stored, snapshot) ?? (await chainJournalEvent(ctx, await getDocument(ctx, id), snapshot));
   if (event) await postJournalEntry(ctx, event);
   return { status: "finalized", number: assigned.number, idempotentReplay: false };
 }

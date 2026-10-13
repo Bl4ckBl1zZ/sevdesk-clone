@@ -68,8 +68,20 @@ export const draftLineSchema = z.object({
   revenueAccount: z.string().max(20).optional(),
 });
 
+/** Invoice-family draft types of the editor (F04 §4.1); Storno is created finalised and never a draft. */
+export const INVOICE_DRAFT_TYPES = [
+  "invoice",
+  "advance_invoice",
+  "partial_invoice",
+  "final_invoice",
+  "correction",
+] as const;
+
+/** Standalone advance chain: the customer's order (number + date) the Abschlagsrechnungen refer to (INV-03). */
+export const chainOrderSchema = z.object({ number: z.string().max(200), date: calendarDate });
+
 export const draftSchema = z.object({
-  type: z.literal("invoice"),
+  type: z.enum(INVOICE_DRAFT_TYPES),
   contactId: z.string().optional(),
   billingAddress: postalAddressSchema.optional(),
   deliveryAddress: postalAddressSchema.optional(),
@@ -120,6 +132,7 @@ export const draftSchema = z.object({
   language: z.enum(["de", "en"]),
   einvoiceFormat: z.enum(EINVOICE_FORMATS).optional(),
   internalNote: optionalText(10_000),
+  chainOrder: chainOrderSchema.optional(),
   lines: z.array(draftLineSchema).max(2500),
 });
 
