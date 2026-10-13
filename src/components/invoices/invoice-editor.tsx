@@ -49,13 +49,17 @@ export function InvoiceEditor({
   initial,
   version,
   presetContactId,
+  chainRoot = true,
 }: {
   id?: Id<"salesDocuments">;
   initial?: DraftValues;
   version?: number;
   presetContactId?: string;
+  /** Advance drafts: the first document of a standalone chain carries the order reference (INV-03). */
+  chainRoot?: boolean;
 }) {
   const t = useTranslations("invoices.editor");
+  const tc = useTranslations("invoiceCorrections");
   const router = useRouter();
   const run = useRun();
   const convex = useConvex();
@@ -192,7 +196,11 @@ export function InvoiceEditor({
     format: useId(),
     priceMode: useId(),
     product: useId(),
+    type: useId(),
+    orderNumber: useId(),
+    orderDate: useId(),
   };
+  const isAdvance = state.type === "advance_invoice" || state.type === "partial_invoice";
 
   return (
     // The query container wraps only the form grid: a container is the containing block of `position: fixed`
@@ -257,6 +265,57 @@ export function InvoiceEditor({
               )}
             </section>
 
+            {(!id || (isAdvance && chainRoot)) && (
+              <section
+                aria-label={tc("editor.type")}
+                className="grid grid-cols-1 gap-4 rounded-xl border p-4 @lg/editor:grid-cols-3"
+              >
+                {!id && (
+                  <div className="flex flex-col gap-1.5">
+                    <label htmlFor={ids.type} className="font-medium text-sm">
+                      {tc("editor.type")}
+                    </label>
+                    <select
+                      id={ids.type}
+                      className={selectClass}
+                      value={state.type}
+                      onChange={(e) => set({ type: e.target.value as DraftValues["type"] })}
+                    >
+                      <option value="invoice">{tc("types.invoice")}</option>
+                      <option value="advance_invoice">{tc("types.advance_invoice")}</option>
+                    </select>
+                  </div>
+                )}
+                {isAdvance && chainRoot && (
+                  <>
+                    <div className="flex flex-col gap-1.5">
+                      <label htmlFor={ids.orderNumber} className="font-medium text-sm">
+                        {tc("editor.chainOrderNumber")}
+                      </label>
+                      <Input
+                        id={ids.orderNumber}
+                        value={state.chainOrderNumber}
+                        onChange={(e) => set({ chainOrderNumber: e.target.value })}
+                        className="h-11 md:h-9"
+                      />
+                    </div>
+                    <div className="flex flex-col gap-1.5">
+                      <label htmlFor={ids.orderDate} className="font-medium text-sm">
+                        {tc("editor.chainOrderDate")}
+                      </label>
+                      <Input
+                        id={ids.orderDate}
+                        type="date"
+                        value={state.chainOrderDate}
+                        onChange={(e) => set({ chainOrderDate: e.target.value })}
+                        className="h-11 md:h-9"
+                      />
+                    </div>
+                  </>
+                )}
+              </section>
+            )}
+
             <section
               aria-label={t("sections.dates")}
               className="grid grid-cols-1 gap-4 rounded-xl border p-4 @lg/editor:grid-cols-3"
@@ -283,7 +342,7 @@ export function InvoiceEditor({
               {state.supplyDateMode === "explicit" && state.supplyKind === "date" && (
                 <div className="flex flex-col gap-1.5">
                   <label htmlFor={ids.supplyDate} className="font-medium text-sm">
-                    {t("supplyDateLabel")}
+                    {isAdvance ? tc("editor.expectedSupply") : t("supplyDateLabel")}
                   </label>
                   <Input
                     id={ids.supplyDate}

@@ -44,6 +44,7 @@ import type { DocumentSnapshot } from "@/domain/documents/snapshot";
 import { formatMicros, formatMilli } from "@/domain/money/format";
 import type { DraftValues } from "@/domain/schemas/documents";
 import { useAuthedQuery } from "@/hooks/use-authed-query";
+import { CorrectionActions, DraftBanner, docTypeKey, RelationsPanel } from "./corrections";
 import { InvoiceEditor } from "./invoice-editor";
 import { DECISION_LABELS, downloadExport, FORMAT_LABELS, InvoiceStatusBadge, money } from "./invoice-shared";
 
@@ -70,6 +71,7 @@ export function InvoiceDetail({ id }: { id: string }) {
 function InvoiceDetailInner({ id }: { id: Id<"salesDocuments"> }) {
   const t = useTranslations("invoices.detail");
   const tNav = useTranslations("nav");
+  const tc = useTranslations("invoiceCorrections");
   const data = useAuthedQuery(api.invoices.get, { id });
   const canWrite = useCan("documents.write");
   if (data === undefined) return <div className="h-96" aria-busy="true" />;
@@ -85,17 +87,26 @@ function InvoiceDetailInner({ id }: { id: Id<"salesDocuments"> }) {
     );
   }
   const status = data.displayStatus as { token: DisplayStatus; label: string };
+  const kind = docTypeKey(data.doc.type, data.doc.correctionKind);
   if (data.doc.status === "draft") {
+    const draftTitle = tc(`draftTitles.${kind}` as never);
     return (
       <>
         <PageHeader
-          title={t("draftTitle")}
+          title={draftTitle}
           description={data.doc.contactName ?? t("noCustomer")}
-          breadcrumbs={[...crumbs, { label: t("draftTitle") }]}
+          breadcrumbs={[...crumbs, { label: draftTitle }]}
         />
         <PageBody>
+          <DraftBanner type={data.doc.type} correctionKind={data.doc.correctionKind ?? null} />
+          <RelationsPanel id={id} type={data.doc.type} />
           {canWrite && "values" in data && data.values ? (
-            <InvoiceEditor id={id} initial={data.values as DraftValues} version={data.doc.version} />
+            <InvoiceEditor
+              id={id}
+              initial={data.values as DraftValues}
+              version={data.doc.version}
+              chainRoot={data.doc.chainRootId === undefined}
+            />
           ) : (
             <p>{t("readOnlyDraft")}</p>
           )}
@@ -107,10 +118,15 @@ function InvoiceDetailInner({ id }: { id: Id<"salesDocuments"> }) {
   return (
     <>
       <PageHeader
-        title={t("title", { number })}
+        title={tc(`titles.${kind}` as "titles.invoice", { number })}
         description={`${data.doc.contactName ?? ""} · ${status.label}`}
         breadcrumbs={[...crumbs, { label: number }]}
-        actions={<FinalActions data={data} />}
+        actions={
+          <>
+            <CorrectionActions doc={data.doc} snapshot={data.snapshot as DocumentSnapshot | null} />
+            <FinalActions data={data} />
+          </>
+        }
       />
       <DetailLayout aside={<Facts data={data} />}>
         <div className="flex flex-wrap items-center gap-2">
@@ -121,6 +137,7 @@ function InvoiceDetailInner({ id }: { id: Id<"salesDocuments"> }) {
           </span>
         </div>
         <ArtifactState data={data} />
+        <RelationsPanel id={id} type={data.doc.type} />
         <SnapshotView snapshot={data.snapshot as DocumentSnapshot | null} />
         <Files data={data} />
         <SendLog data={data} />

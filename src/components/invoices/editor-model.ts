@@ -29,6 +29,11 @@ export interface EditorLine {
 }
 
 export interface EditorState {
+  /** Invoice family / correction (F04 §4.1); the type is fixed once the draft exists. */
+  readonly type: DraftValues["type"];
+  /** Standalone advance chain: the customer's order the Abschlagsrechnungen refer to (INV-03). */
+  readonly chainOrderNumber: string;
+  readonly chainOrderDate: string;
   readonly contactId: string;
   readonly supplyDateMode: "explicit" | "document_date";
   readonly supplyKind: "date" | "period";
@@ -78,6 +83,9 @@ export function emptyLine(kind: DraftLineValues["kind"] = "item"): EditorLine {
 
 export function emptyEditor(today: string, defaults: Partial<EditorState> = {}): EditorState {
   return {
+    type: "invoice",
+    chainOrderNumber: "",
+    chainOrderDate: "",
     contactId: "",
     supplyDateMode: "explicit",
     supplyKind: "date",
@@ -141,6 +149,9 @@ export function lineFromValues(l: DraftLineValues): EditorLine {
 export function editorFromValues(v: DraftValues): EditorState {
   const s = v.supplyDate;
   return {
+    type: v.type,
+    chainOrderNumber: v.chainOrder?.number ?? "",
+    chainOrderDate: v.chainOrder?.date ?? "",
     contactId: v.contactId ?? "",
     supplyDateMode: v.supplyDateMode,
     supplyKind: s?.kind === "period" ? "period" : "date",
@@ -228,8 +239,13 @@ export function toDraftValues(s: EditorState): { values: DraftValues; errors: Ed
         : s.supplyDate
           ? { kind: "date", date: s.supplyDate as CalendarDate }
           : undefined;
+  const chainOrder =
+    (s.type === "advance_invoice" || s.type === "partial_invoice") && opt(s.chainOrderNumber) && s.chainOrderDate
+      ? { chainOrder: { number: s.chainOrderNumber.trim(), date: s.chainOrderDate as CalendarDate } }
+      : {};
   const values: DraftValues = {
-    type: "invoice",
+    type: s.type,
+    ...chainOrder,
     ...(s.contactId ? { contactId: s.contactId } : {}),
     supplyDateMode: s.supplyDateMode,
     ...(supplyDate ? { supplyDate } : {}),

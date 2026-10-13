@@ -68,3 +68,30 @@ describe("DOC-19 invoice editor model", () => {
     expect(again.supplyDate).toEqual({ kind: "period", from: "2026-09-01", to: "2026-09-30" });
   });
 });
+
+describe("INV-03 INV-12 invoice types in the editor model", () => {
+  test("INV-03 an Abschlagsrechnung keeps its type and the customer's order (number + date)", () => {
+    const s = emptyEditor("2026-10-12", {
+      type: "advance_invoice",
+      chainOrderNumber: " B-4711 ",
+      chainOrderDate: "2026-09-01",
+      lines: [{ ...emptyLine(), name: "1. Abschlag", price: "3.000" }],
+    });
+    const { values } = toDraftValues(s);
+    expect(draftSchema.safeParse(values).success).toBe(true);
+    expect(values).toMatchObject({ type: "advance_invoice", chainOrder: { number: "B-4711", date: "2026-09-01" } });
+    expect(editorFromValues(values)).toMatchObject({ type: "advance_invoice", chainOrderNumber: "B-4711" });
+  });
+
+  test("INV-12 a correction draft round-trips with its type; negative quantities stay negative", () => {
+    const s = emptyEditor("2026-10-12", {
+      type: "correction",
+      lines: [{ ...emptyLine(), name: "Gutschrift", quantity: "-2", price: "100" }],
+    });
+    const { values, errors } = toDraftValues(s);
+    expect(errors).toEqual([]);
+    expect(values.type).toBe("correction");
+    expect(values.chainOrder).toBeUndefined();
+    expect(values.lines[0]).toMatchObject({ quantityMilli: -2_000 });
+  });
+});

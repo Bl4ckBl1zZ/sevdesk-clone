@@ -2,7 +2,7 @@ import { v } from "convex/values";
 import { canonicalSnapshotJson, type DocumentSnapshot } from "../src/domain/documents/snapshot";
 import { serializeEinvoice } from "../src/domain/einvoice/serialize";
 import { internal } from "./_generated/api";
-import type { Doc } from "./_generated/dataModel";
+import type { Doc, Id } from "./_generated/dataModel";
 import { action, mutation, query, systemQuery, vConfirmToken } from "./functions";
 import { validateXml } from "./lib/einvoiceTools";
 import { appError } from "./lib/errors";
@@ -126,6 +126,11 @@ export const cancel = mutation({
   },
 });
 
+/** The created draft (id + OCC version for the following finalisation). */
+async function draftRef(ctx: Parameters<typeof getDocument>[0], id: Id<"salesDocuments">) {
+  return { id, version: (await getDocument(ctx, id)).version };
+}
+
 /** „Korrigieren…“ → Rechnungskorrektur or Rechnungsberichtigung draft (INV-12/13). */
 export const createCorrection = mutation({
   permission: "documents.write",
@@ -142,23 +147,25 @@ export const createCorrection = mutation({
       ),
     ),
   },
-  handler: async (ctx, a) => ({
-    id: await createCorrectionDraft(ctx, a.originalId, { kind: a.kind, ...(a.changes ? { changes: a.changes } : {}) }),
-  }),
+  handler: async (ctx, a) =>
+    draftRef(
+      ctx,
+      await createCorrectionDraft(ctx, a.originalId, { kind: a.kind, ...(a.changes ? { changes: a.changes } : {}) }),
+    ),
 });
 
 /** „Weitere Abschlagsrechnung“ / „Schlussrechnung erstellen“ (INV-03/06). */
 export const createChainDraft = mutation({
   permission: "documents.write",
   args: { fromId: v.id("salesDocuments"), type: v.union(v.literal("advance_invoice"), v.literal("final_invoice")) },
-  handler: async (ctx, a) => ({ id: await createChainDraftModel(ctx, a.fromId, a.type) }),
+  handler: async (ctx, a) => draftRef(ctx, await createChainDraftModel(ctx, a.fromId, a.type)),
 });
 
 /** EC-071: Rechnungskorrektur of a partially paid advance down to the received amount (draft). */
 export const reduceAdvance = mutation({
   permission: "documents.write",
   args: { advanceId: v.id("salesDocuments") },
-  handler: async (ctx, a) => ({ id: await reduceAdvanceToReceived(ctx, a.advanceId) }),
+  handler: async (ctx, a) => draftRef(ctx, await reduceAdvanceToReceived(ctx, a.advanceId)),
 });
 
 const ref = (d: Doc<"salesDocuments">) => ({

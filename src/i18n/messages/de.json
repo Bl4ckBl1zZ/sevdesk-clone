@@ -2527,5 +2527,122 @@
       "note": "Hinweis",
       "files": "Übergebene Dateien"
     }
+  },
+  "invoiceCorrections": {
+    "correct": "Korrigieren …",
+    "cancel": "Stornieren",
+    "types": {
+      "invoice": "Rechnung",
+      "advance_invoice": "Abschlagsrechnung",
+      "partial_invoice": "Teilrechnung",
+      "final_invoice": "Schlussrechnung",
+      "cancellation": "Stornorechnung",
+      "credit": "Rechnungskorrektur",
+      "rectification": "Rechnungsberichtigung"
+    },
+    "titles": {
+      "invoice": "Rechnung {number}",
+      "advance_invoice": "Abschlagsrechnung {number}",
+      "partial_invoice": "Teilrechnung {number}",
+      "final_invoice": "Schlussrechnung {number}",
+      "cancellation": "Stornorechnung {number}",
+      "credit": "Rechnungskorrektur {number}",
+      "rectification": "Rechnungsberichtigung {number}"
+    },
+    "draftTitles": {
+      "invoice": "Rechnungsentwurf",
+      "advance_invoice": "Entwurf Abschlagsrechnung",
+      "partial_invoice": "Entwurf Teilrechnung",
+      "final_invoice": "Entwurf Schlussrechnung",
+      "cancellation": "Stornorechnung",
+      "credit": "Entwurf Rechnungskorrektur",
+      "rectification": "Entwurf Rechnungsberichtigung"
+    },
+    "assistant": {
+      "title": "Rechnung {number} korrigieren",
+      "description": "Was stimmt an der Rechnung nicht? Je nach Fall ist ein anderer Beleg richtig.",
+      "question": "Art der Korrektur",
+      "rectificationTitle": "Rechnungsberichtigung – nur Angaben falsch oder fehlend",
+      "rectificationText": "Anschrift, USt-IdNr., Steuernummer, Leistungsdatum oder Leistungsbeschreibung berichtigen. Die Beträge bleiben gleich; die Berichtigung wirkt auf das ursprüngliche Rechnungsdatum zurück. Empfohlen bei formalen Fehlern.",
+      "stornoTitle": "Storno – Rechnung vollständig aufheben",
+      "stornoText": "Nur für unbezahlte Rechnungen. Die Stornorechnung spiegelt alle Positionen mit negativen Mengen; danach kann eine neue Rechnung erstellt werden.",
+      "creditTitle": "Rechnungskorrektur – Betrag mindern",
+      "creditText": "Minderleistung, Rückgabe oder Preisnachlass mit Leistungsänderung – auch bei bezahlten Rechnungen. Ein zu viel gezahlter Betrag wird als Erstattung offen geführt.",
+      "creditFull": "Gesamten Rechnungsbetrag korrigieren (z. B. falscher Steuersatz bei bezahlter Rechnung)",
+      "creditLines": "Positionen mit neuer Menge oder neuem Preis",
+      "newQty": "Neue Menge Pos. {n}",
+      "newPrice": "Neuer Einzelpreis Pos. {n}",
+      "creditHint": "Nur geänderte Positionen ausfüllen. Gespeichert wird die negative Differenz zur Rechnung.",
+      "moreHint": "Mehr berechnen? Bitte eine neue Rechnung erstellen – Korrekturen erhöhen nie den Betrag. Zahlung falsch zugeordnet? Zuerst die Zahlungszuordnung lösen, dann stornieren.",
+      "toStorno": "Weiter zum Storno",
+      "createDraft": "Entwurf anlegen",
+      "creditCreated": "Entwurf der Rechnungskorrektur angelegt.",
+      "rectificationCreated": "Entwurf der Rechnungsberichtigung angelegt."
+    },
+    "storno": {
+      "title": "Rechnung {number} stornieren?",
+      "description": "Die Rechnung {number} vom {date} wird hiermit vollständig storniert. Die Stornorechnung erhält eine eigene Nummer und kann nicht rückgängig gemacht werden.",
+      "confirm": "Stornorechnung erstellen",
+      "date": "Datum der Stornorechnung",
+      "net": "Netto",
+      "vat": "USt",
+      "gross": "Brutto",
+      "reason": "Grund (wird auf der Stornorechnung gedruckt, optional)",
+      "done": "Stornorechnung {number} erstellt.",
+      "xmlInvalid": "Die E-Rechnung der Stornorechnung ist ungültig."
+    },
+    "chain": {
+      "nextAdvance": "Weitere Abschlagsrechnung",
+      "advanceCreated": "Entwurf der Abschlagsrechnung angelegt.",
+      "createFinal": "Schlussrechnung erstellen",
+      "wizardTitle": "Schlussrechnung zu Auftrag {order}",
+      "wizardDescription": "Die Schlussrechnung berechnet die gesamte Leistung zum Steuersatz am Leistungsdatum und zieht jede Abschlagsrechnung mit dem tatsächlich erhaltenen Betrag ab. Offene Abschläge müssen vorher aufgelöst werden.",
+      "createFinalDraft": "Schlussrechnung anlegen",
+      "finalCreated": "Entwurf der Schlussrechnung angelegt.",
+      "unresolved": "Mindestens eine Abschlagsrechnung ist nicht vollständig bezahlt. Unbezahlte bitte stornieren, teilbezahlte per Rechnungskorrektur auf den erhaltenen Betrag mindern. Ein „Nicht abziehen“ gibt es nicht (sonst wäre die Umsatzsteuer doppelt ausgewiesen).",
+      "finalExists": "Für diesen Auftrag gibt es bereits die Schlussrechnung",
+      "draft": "Entwurf",
+      "advances": "Abschlagsrechnungen",
+      "advance": "Abschlagsrechnung",
+      "invoiced": "Berechnet",
+      "received": "Erhalten",
+      "open": "Offen",
+      "beforeFinal": "Vor der Schlussrechnung",
+      "doStorno": "Stornieren",
+      "doReduce": "Auf {amount} mindern",
+      "reduced": "Abschlagsrechnung {number} auf den erhaltenen Betrag gemindert.",
+      "resolution": {
+        "settled": "Bezahlt – wird abgezogen",
+        "storno": "Keine Zahlung – stornieren",
+        "reduce": "Teilweise bezahlt – auf den erhaltenen Betrag mindern",
+        "cancelled": "Storniert – wird nicht abgezogen",
+        "deducted": "In Schlussrechnung abgezogen"
+      }
+    },
+    "relations": {
+      "title": "Bezüge",
+      "refersTo": "Bezieht sich auf {type}",
+      "of": "vom {date}",
+      "cancelledBy": "Storniert durch",
+      "rectified": "Berichtigt",
+      "draft": "(Entwurf)",
+      "cancelled": "storniert",
+      "chain": "Abschlagskette zu Auftrag {order} vom {date}",
+      "finalHint": "Abgezogen werden die tatsächlich erhaltenen Abschläge je Steuersatz der Abschlagsrechnung.",
+      "deducted": "Abgezogen: {list}"
+    },
+    "banner": {
+      "credit": "Rechnungskorrektur: Mengen und Preise mindern (negative Positionen). Der Gesamtbetrag aller Korrekturen darf die Rechnung nicht übersteigen; für Mehrbeträge bitte eine neue Rechnung erstellen.",
+      "rectification": "Rechnungsberichtigung: Nur formale Angaben ändern (Anschrift am Kontakt, USt-IdNr., Leistungsdatum, Bestellnummer). Die Beträge je Steuersatz müssen gleich bleiben.",
+      "advance_invoice": "Abschlagsrechnung: Die Umsatzsteuer entsteht mit dem Zahlungseingang (Mindest-Ist). Der Steuersatz richtet sich nach dem Rechnungsdatum; die Schlussrechnung korrigiert ihn bei Bedarf.",
+      "partial_invoice": "Teilrechnung (betragsbezogen): wird wie eine Anzahlung behandelt und in der Schlussrechnung abgezogen.",
+      "final_invoice": "Schlussrechnung: Bitte die gesamte Leistung erfassen. Abgezogen werden automatisch alle bezahlten Abschlagsrechnungen der Kette."
+    },
+    "editor": {
+      "type": "Belegart",
+      "chainOrderNumber": "Auftrag / Bestellnummer",
+      "chainOrderDate": "Auftragsdatum",
+      "expectedSupply": "Voraussichtlicher Leistungszeitpunkt"
+    }
   }
 }

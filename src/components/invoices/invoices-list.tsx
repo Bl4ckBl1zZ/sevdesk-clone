@@ -16,6 +16,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import type { DisplayStatus } from "@/domain/documents/display-status";
 import { useAuthedQuery } from "@/hooks/use-authed-query";
 import { cn } from "@/lib/utils";
+import { useDocTypeLabel } from "./corrections";
 import { InvoiceStatusBadge, money } from "./invoice-shared";
 
 /** Rechnungen list (DOC-37, F04 §6.1): status tabs and search in the URL; table on desktop, cards on phones. */
@@ -31,6 +32,7 @@ export function InvoicesList() {
 
 function InvoicesListInner() {
   const t = useTranslations("invoices.list");
+  const typeLabel = useDocTypeLabel();
   const url = useUrlState();
   const tab = (TABS as readonly string[]).includes(url.get("status")) ? url.get("status") : "all";
   const q = url.get("q");
@@ -98,7 +100,11 @@ function InvoicesListInner() {
       </ListLayout>
     );
   }
-  const label = (r: (typeof results)[number]) => r.number ?? t("draft");
+  // Non-standard documents of the area are prefixed with their type (Abschlags-, Storno-, Korrekturbelege).
+  const label = (r: (typeof results)[number]) => {
+    const n = r.number ?? t("draft");
+    return r.type === "invoice" ? n : `${typeLabel(r.type, r.correctionKind)} ${n}`;
+  };
   return (
     <ListLayout
       filters={filters}
