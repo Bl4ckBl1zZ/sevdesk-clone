@@ -4,14 +4,21 @@
  *
  *  - Convex query `banking:unmatched` returns `UnmatchedTransaction[]` (booked, status `open`/`partially_matched`,
  *    open amount > 0; pending feed rows never appear, RI-10);
- *  - the matching slice implements a `MatchCandidateProvider` (pure, `src/domain/banking/match.ts`) and persists its
- *    `MatchCandidate`s as `matchSuggestions`; confirming one runs F05 `payments.record` with
+ *  - the matching slice implements a `MatchCandidateProvider` (pure, `src/domain/banking/match.ts`) and computes its
+ *    `MatchCandidate`s on read (like `banking.todos`; rejections persist in `matchRejections`); confirming one runs
+ *    F05 `payments.record` with
  *    `source.kind = "bank"`, which raises `bankTransactions.allocatedCents` and sets the status through
  *    `applyAllocation` (convex/model/bankTransactions.ts) — the only allowed write path (BNK-122).
  */
 import type { TypeDefault } from "./type-defaults";
 
-export type MatchTargetKind = "salesDocument" | "voucher" | "contactCredit" | "payment" | "cashTransfer";
+export type MatchTargetKind =
+  | "salesDocument"
+  | "opening_item"
+  | "voucher"
+  | "contactCredit"
+  | "payment"
+  | "cashTransfer";
 
 export type MatchReason =
   | "number_in_purpose"
