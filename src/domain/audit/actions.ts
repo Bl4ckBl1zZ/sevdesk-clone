@@ -22,7 +22,8 @@ const GROUPS: Record<string, readonly string[] | "*"> = {
     "withdraw",
     "download_original",
   ],
-  payment: ["record", "reverse", "receipt_print"],
+  // F05 P1: refund of a credit balance, PAY-047 reconciliation of a manual payment, PAY-063 archived Quittung
+  payment: ["record", "reverse", "receipt_print", "refund", "reconcile", "receipt"],
   voucher: ["create", "update", "finalize", "replace_file", "cancel"],
   bank: [
     "connect",
@@ -40,6 +41,9 @@ const GROUPS: Record<string, readonly string[] | "*"> = {
     "duplicate_resolve",
     "reversal_link",
     "rollback",
+    // F07 P1 matching slice: BNK-046 rejected suggestion, BNK-048 learned alias
+    "match_reject",
+    "alias_learn",
   ],
   cash: ["transfer", "transfer_reverse"],
   journal: ["post", "reverse", "manual", "opening_balance"],

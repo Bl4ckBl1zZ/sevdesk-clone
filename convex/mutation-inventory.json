@@ -1027,6 +1027,108 @@
     "wrapper": "systemMutation",
     "job": "migration"
   },
+  "payments:applyCredit": {
+    "kind": "mutation",
+    "visibility": "public",
+    "wrapper": "mutation",
+    "permission": "payments.write"
+  },
+  "payments:attachReceiptInternal": {
+    "kind": "mutation",
+    "visibility": "internal",
+    "wrapper": "actorMutation",
+    "permission": "payments.receipt"
+  },
+  "payments:contactCredit": {
+    "kind": "query",
+    "visibility": "public",
+    "wrapper": "query",
+    "permission": "payments.read"
+  },
+  "payments:forDocument": {
+    "kind": "query",
+    "visibility": "public",
+    "wrapper": "query",
+    "permission": "payments.read"
+  },
+  "payments:get": {
+    "kind": "query",
+    "visibility": "public",
+    "wrapper": "query",
+    "permission": "payments.read"
+  },
+  "payments:list": {
+    "kind": "query",
+    "visibility": "public",
+    "wrapper": "query",
+    "permission": "payments.read"
+  },
+  "payments:openItems": {
+    "kind": "query",
+    "visibility": "public",
+    "wrapper": "query",
+    "permission": "payments.read"
+  },
+  "payments:preview": {
+    "kind": "query",
+    "visibility": "public",
+    "wrapper": "query",
+    "permission": "payments.read"
+  },
+  "payments:previewInvoicePayment": {
+    "kind": "query",
+    "visibility": "public",
+    "wrapper": "query",
+    "permission": "payments.read"
+  },
+  "payments:receipt": {
+    "kind": "action",
+    "visibility": "public",
+    "wrapper": "action",
+    "permission": "payments.receipt"
+  },
+  "payments:receiptContext": {
+    "kind": "query",
+    "visibility": "public",
+    "wrapper": "query",
+    "permission": "payments.receipt"
+  },
+  "payments:record": {
+    "kind": "mutation",
+    "visibility": "public",
+    "wrapper": "mutation",
+    "permission": "payments.write"
+  },
+  "payments:recordForInvoice": {
+    "kind": "mutation",
+    "visibility": "public",
+    "wrapper": "mutation",
+    "permission": "payments.write"
+  },
+  "payments:recordRecoveryPayment": {
+    "kind": "mutation",
+    "visibility": "public",
+    "wrapper": "mutation",
+    "permission": "payments.write"
+  },
+  "payments:refund": {
+    "kind": "mutation",
+    "visibility": "public",
+    "wrapper": "mutation",
+    "permission": "payments.write"
+  },
+  "payments:reverse": {
+    "kind": "mutation",
+    "visibility": "public",
+    "wrapper": "mutation",
+    "permission": "payments.reverse"
+  },
+  "payments:writeOff": {
+    "kind": "mutation",
+    "visibility": "public",
+    "wrapper": "mutation",
+    "permission": "payments.write"
+  },
   "products:applyScheduledPricesCron": {
     "kind": "mutation",
     "visibility": "internal",

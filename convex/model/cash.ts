@@ -41,7 +41,7 @@ const KIND_LABEL: Record<Doc<"cashTransfers">["kind"], string> = {
 };
 
 /** Opening date of the cash account: the cash opening-balance entry or the Buchungsbeginn (EC-CSH-19). */
-async function cashOpeningDate(ctx: ReadCtx): Promise<string | undefined> {
+export async function cashOpeningDate(ctx: ReadCtx): Promise<string | undefined> {
   const opening = (
     await ctx.db
       .query("journalEntries")

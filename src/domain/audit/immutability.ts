@@ -78,9 +78,16 @@ export const IMMUTABILITY_MATRIX: Readonly<Record<string, TableRule>> = {
     kind: "guarded",
     fields: { status: "mutable", counts: "mutable", offHostLogKey: "once", finishedAt: "once" },
   },
+  // journalEntryIds grows: the entry is posted after the row exists (it references the row as its source).
   payments: {
     kind: "guarded",
-    fields: { reversedById: "once", lockedAt: "once", reconciledTransactionId: "once", receiptFile: "once" },
+    fields: {
+      reversedById: "once",
+      lockedAt: "once",
+      reconciledTransactionId: "once",
+      receiptFile: "once",
+      journalEntryIds: "append",
+    },
   },
   journalEntries: { kind: "guarded", fields: { lockedAt: "once" } },
   // F08 ACC-013 opening items: the reference data is frozen; payments maintain the open amount (like salesDocuments).
