@@ -140,6 +140,8 @@ describe("permission matrix (02 §4.3)", () => {
     expect(confirmIntentFor("payments.write")).toBe("payment_record");
     expect(confirmIntentFor("payments.reverse")).toBe("payment_reverse");
     expect(confirmIntentFor("banking.match")).toBe("bank_match_confirm");
+    expect(confirmIntentFor("banking.mark")).toBe("bank_transaction_mark");
+    expect(confirmIntentFor("cash.write")).toBe("cash_transfer_record");
     expect(scopeFor("payments.write")).toBe("payments:write");
     expect(scopeFor("payments.reverse")).toBe("payments:write");
     expect(scopeFor("banking.match")).toBe("banking:write");

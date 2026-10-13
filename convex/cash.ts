@@ -5,7 +5,7 @@ import { berlinCalendarDate } from "../src/domain/time/berlin";
 import { renderEigenbeleg } from "../src/pdf/eigenbeleg";
 import { api, internal } from "./_generated/api";
 import type { Id } from "./_generated/dataModel";
-import { action, actorMutation, mutation, query } from "./functions";
+import { action, actorMutation, mutation, query, vConfirmToken } from "./functions";
 import type { FileRefValue } from "./model/bankImport";
 import {
   cashMovementRows,
@@ -95,7 +95,9 @@ export const transferContext = query({
 
 export const recordTransferInternal = actorMutation({
   permission: "cash.write",
-  args: { ...transferArgs, eigenbeleg: v.optional(vFileRef) },
+  args: { ...transferArgs, eigenbeleg: v.optional(vFileRef), confirmToken: vConfirmToken },
+  // The token binds what the caller chose; the Eigenbeleg is rendered by the server after the preview.
+  confirmArgs: Object.keys(transferArgs),
   handler: async (ctx, args) => recordCashTransfer(ctx, args),
 });
 
@@ -107,8 +109,8 @@ const sha256Hex = async (bytes: Uint8Array) =>
 /** ⚠ CSH-024 „Bargeld eingezahlt / entnommen“: Eigenbeleg PDF (sha256) + journal entry T5/T8 in one mutation. */
 export const recordTransfer = action({
   permission: "cash.write",
-  args: transferArgs,
-  handler: async (ctx, args): Promise<{ id: Id<"cashTransfers">; warning?: string }> => {
+  args: { ...transferArgs, confirmToken: vConfirmToken },
+  handler: async (ctx, { confirmToken, ...args }): Promise<{ id: Id<"cashTransfers">; warning?: string }> => {
     const input = await ctx.runQuery(api.cash.transferContext, args);
     const content = eigenbelegContent(input);
     const bytes = await renderEigenbeleg(content, input.company, ctx.now());
@@ -125,6 +127,7 @@ export const recordTransfer = action({
         actorContext: ctx.actorContext,
         ...args,
         eigenbeleg,
+        ...(confirmToken ? { confirmToken } : {}),
       });
     } catch (e) {
       await ctx.storage.delete(storageId);
@@ -136,6 +139,6 @@ export const recordTransfer = action({
 /** CSH-027 reversal (dated today, never-negative applies). */
 export const reverseTransfer = mutation({
   permission: "cash.write",
-  args: { id: v.id("cashTransfers"), reason: v.string() },
+  args: { id: v.id("cashTransfers"), reason: v.string(), confirmToken: vConfirmToken },
   handler: async (ctx, args) => reverseCashTransfer(ctx, args),
 });

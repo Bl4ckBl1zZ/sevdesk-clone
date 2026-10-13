@@ -564,7 +564,9 @@ export const markContext = query({
 
 export const applyMark = actorMutation({
   permission: "banking.mark",
-  args: { ...markArgs, eigenbeleg: v.optional(vFileRef) },
+  args: { ...markArgs, eigenbeleg: v.optional(vFileRef), confirmToken: vConfirmToken },
+  // The token binds what the caller chose; the Eigenbeleg is rendered by the server after the preview.
+  confirmArgs: Object.keys(markArgs),
   handler: async (ctx, args) => markTransaction(ctx, args),
 });
 
@@ -574,8 +576,8 @@ export const applyMark = actorMutation({
  */
 export const mark = action({
   permission: "banking.mark",
-  args: markArgs,
-  handler: async (ctx, args): Promise<{ status: string }> => {
+  args: { ...markArgs, confirmToken: vConfirmToken },
+  handler: async (ctx, { confirmToken, ...args }): Promise<{ status: string }> => {
     const input = await ctx.runQuery(api.banking.markContext, args);
     let eigenbeleg: FileRefValue | undefined;
     if (input) {
@@ -595,6 +597,7 @@ export const mark = action({
         actorContext: ctx.actorContext,
         ...args,
         ...(eigenbeleg ? { eigenbeleg } : {}),
+        ...(confirmToken ? { confirmToken } : {}),
       });
     } catch (e) {
       // Nothing references the Eigenbeleg when the mutation failed: remove the orphan.
@@ -607,7 +610,7 @@ export const mark = action({
 /** „Markierung aufheben“ — Generalumkehr of the posting (ACC-004), reason mandatory. */
 export const unmark = mutation({
   permission: "banking.mark",
-  args: { transactionId: v.id("bankTransactions"), reason: v.string() },
+  args: { transactionId: v.id("bankTransactions"), reason: v.string(), confirmToken: vConfirmToken },
   handler: async (ctx, args) => unmarkTransaction(ctx, args),
 });
 

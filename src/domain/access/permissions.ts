@@ -103,9 +103,19 @@ export const PERMISSIONS = {
   /** F07 statement import, PDF archive, duplicate review, reversal link, rollback (BNK-030…036, BNK-110/121). */
   "banking.write": { roles: ["owner", "bookkeeper"], scope: "banking:write", write: true },
   /** F07 BNK-060/061/063, CSH-025 marking (⚠ legally relevant: MCP needs the confirm token, 06 §2). */
-  "banking.mark": { roles: ["owner", "bookkeeper"], scope: "banking:write", write: true },
+  "banking.mark": {
+    roles: ["owner", "bookkeeper"],
+    scope: "banking:write",
+    write: true,
+    confirm: "bank_transaction_mark",
+  },
   /** F07 CSH-024/027 „Bargeld eingezahlt / entnommen“ and reversals (⚠, never-negative CSH-026). */
-  "cash.write": { roles: ["owner", "bookkeeper"], scope: "banking:write", write: true },
+  "cash.write": {
+    roles: ["owner", "bookkeeper"],
+    scope: "banking:write",
+    write: true,
+    confirm: "cash_transfer_record",
+  },
   /** F04 sales documents: lists, detail, preview (auditor: read-only, Z1 access to issued invoices). */
   "documents.read": { roles: ALL, scope: "documents:read", write: false },
   /** DOC-03 draft create/update/delete. */
