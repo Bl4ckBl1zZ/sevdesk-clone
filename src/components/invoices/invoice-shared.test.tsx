@@ -15,7 +15,13 @@ describe("DOC-20 compliance panel and DOC-55 status badge", () => {
             rule: "ER-10",
             group: "pflichtangaben",
           },
-          { code: "pdf_consent", severity: "W", message: "PDF-Zustimmung fehlt.", rule: "MAIL-01", group: "e_rechnung" },
+          {
+            code: "pdf_consent",
+            severity: "W",
+            message: "PDF-Zustimmung fehlt.",
+            rule: "MAIL-01",
+            group: "e_rechnung",
+          },
         ]}
       />,
     );
