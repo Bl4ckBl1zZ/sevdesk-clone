@@ -18,7 +18,6 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { STATEMENT_FORMAT_LABEL } from "@/domain/banking/types";
 import { Amount, money, uploadFile } from "./shared";
 
@@ -240,32 +239,17 @@ function PreviewView({ preview: p, currency }: { preview: Preview; currency: str
           ))}
         </ul>
       )}
-      <div className="max-h-80 overflow-auto rounded-md border">
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead>{t("columns.date")}</TableHead>
-              <TableHead>{t("columns.text")}</TableHead>
-              <TableHead className="text-right">{t("columns.amount")}</TableHead>
-              <TableHead>{t("columns.outcome")}</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {p.rows.map((r) => (
-              <TableRow key={r.line}>
-                <TableCell className="whitespace-nowrap">{formatDate(r.bookingDate)}</TableCell>
-                <TableCell className="max-w-64 truncate">{r.counterpartyName ?? r.purpose}</TableCell>
-                <TableCell className="text-right">
-                  <Amount cents={r.amountCents} currency={r.currency} />
-                </TableCell>
-                <TableCell>
-                  <Badge variant={OUTCOME_VARIANT[r.outcome]}>{t(`outcome.${r.outcome}`)}</Badge>
-                </TableCell>
-              </TableRow>
-            ))}
-          </TableBody>
-        </Table>
-      </div>
+      {/* A list, not a table: no nested horizontal scroll area in the dialog on phones (axe scrollable-region-focusable). */}
+      <ul aria-label={t("rows")} className="flex flex-col divide-y rounded-md border">
+        {p.rows.map((r) => (
+          <li key={r.line} className="flex flex-wrap items-center gap-x-3 gap-y-1 px-3 py-2">
+            <span className="whitespace-nowrap tabular-nums">{formatDate(r.bookingDate)}</span>
+            <span className="min-w-0 flex-1 truncate">{r.counterpartyName ?? r.purpose}</span>
+            <Amount cents={r.amountCents} currency={r.currency} />
+            <Badge variant={OUTCOME_VARIANT[r.outcome]}>{t(`outcome.${r.outcome}`)}</Badge>
+          </li>
+        ))}
+      </ul>
     </div>
   );
 }

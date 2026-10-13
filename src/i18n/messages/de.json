@@ -2024,7 +2024,8 @@
         "merge": "vorhanden (andere Quelle)",
         "conflict": "Abweichung",
         "possible_duplicate": "mögliche Dublette"
-      }
+      },
+      "rows": "Zeilen der Datei"
     },
     "duplicates": {
       "title": "Mögliche Dubletten ({count})",
