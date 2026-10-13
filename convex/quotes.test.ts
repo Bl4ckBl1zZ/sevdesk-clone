@@ -106,6 +106,12 @@ async function finalizeDraft(t: TestT, owner: Owner, id: Id<"salesDocuments">) {
   return r.number;
 }
 
+async function draftValuesOf(owner: Owner, id: Id<"salesDocuments">): Promise<DraftValues> {
+  const d = await owner.query(api.invoices.get, { id });
+  if (!d || !("values" in d)) throw new Error("not a draft");
+  return d.values as unknown as DraftValues;
+}
+
 const accept = (owner: Owner, id: Id<"salesDocuments">, over: Record<string, unknown> = {}) =>
   owner.mutation(api.documentFlows.accept, {
     id,
@@ -344,7 +350,7 @@ describe("DOC-33 QUO-08…13 conversions and invoicing progress", () => {
       id: r.id,
       version: inv.version,
       values: {
-        ...(await owner.query(api.invoices.get, { id: r.id }))?.values,
+        ...(await draftValuesOf(owner, r.id)),
         supplyDate: { kind: "date", date: "2026-10-12" },
       },
     });
@@ -400,7 +406,7 @@ describe("DOC-33 QUO-08…13 conversions and invoicing progress", () => {
     const rest = await owner.mutation(api.documentFlows.convert, { id: order, values: { to: "invoice" } });
     expect((await linesOf(t, rest.id))[0]?.quantityMilli).toBe(5_000);
     const restDoc = await doc(t, rest.id);
-    const restValues = (await owner.query(api.invoices.get, { id: rest.id }))?.values as DraftValues;
+    const restValues = await draftValuesOf(owner, rest.id);
     await owner.mutation(api.invoices.updateDraft, {
       id: rest.id,
       version: restDoc.version,
@@ -544,7 +550,7 @@ describe("DOC-33 QUO-08…13 conversions and invoicing progress", () => {
       id: inv.id,
       version: invDoc.version,
       values: {
-        ...(await owner.query(api.invoices.get, { id: inv.id }))?.values,
+        ...(await draftValuesOf(owner, inv.id)),
         supplyDate: { kind: "date", date: "2026-10-12" },
       },
     });
