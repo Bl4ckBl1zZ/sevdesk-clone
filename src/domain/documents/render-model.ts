@@ -156,6 +156,7 @@ const L = {
     deliveryNotes: "Lieferschein(e)",
     original: "Zur Rechnung",
     validUntil: "Gültig bis",
+    deliveryTerms: "Lieferbedingungen",
     dueDate: "Fällig am",
     contactPerson: "Ansprechpartner",
     phone: "Telefon",
@@ -231,6 +232,7 @@ const L = {
     deliveryNotes: "Delivery note(s)",
     original: "Relating to invoice",
     validUntil: "Valid until",
+    deliveryTerms: "Terms of delivery",
     dueDate: "Due date",
     contactPerson: "Contact",
     phone: "Phone",
@@ -628,7 +630,16 @@ export function buildRenderModel(
     ),
     payment: { lines: paymentLines, ...(bank ? { bank } : {}), epcPayload },
     ...(reminder ? { reminder } : {}),
-    ...(s.texts.footText ? { footText: s.texts.footText } : {}),
+    ...(s.texts.footText || s.texts.deliveryTerms
+      ? {
+          footText: [
+            s.texts.deliveryTerms ? `${l.deliveryTerms}: ${s.texts.deliveryTerms}` : "",
+            s.texts.footText ?? "",
+          ]
+            .filter(Boolean)
+            .join("\n\n"),
+        }
+      : {}),
     customFields: s.customFields ?? [],
     footer,
     ...(s.einvoice.format === "zugferd_en16931" || s.einvoice.format === "zugferd_xrechnung"

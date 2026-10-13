@@ -84,4 +84,50 @@ describe("document state machines (F04 §4.2, DOC-02)", () => {
       "invoiced",
     ]);
   });
+
+  test("QUO-03 T-QUO-012 quote transitions incl. superseded, late acceptance and reopening follow §4.2.1", () => {
+    const ok = (from: SalesDocStatus, event: LifecycleEvent) => transition("quote", from, event);
+    expect(ok("finalized", "supersede")).toEqual({ ok: true, value: "superseded" });
+    expect(ok("rejected", "supersede")).toEqual({ ok: true, value: "superseded" });
+    expect(ok("expired", "supersede")).toEqual({ ok: true, value: "superseded" });
+    expect(ok("accepted", "supersede").ok).toBe(false);
+    expect(ok("expired", "accept").ok).toBe(false);
+    expect(ok("expired", "accept_late")).toEqual({ ok: true, value: "accepted" });
+    expect(ok("rejected", "reopen")).toEqual({ ok: true, value: "sent" });
+    expect(ok("accepted", "withdraw")).toEqual({ ok: true, value: "cancelled" });
+    expect(ok("superseded", "withdraw").ok).toBe(false);
+    expect(ok("partially_invoiced", "invoice_reverted")).toEqual({ ok: true, value: "accepted" });
+    for (const event of LIFECYCLE_EVENTS) {
+      expect(canTransition("quote", "superseded", event)).toBe(false);
+      expect(canTransition("quote", "cancelled", event)).toBe(false);
+    }
+  });
+
+  test("QUO-08 QUO-13 an order returns to sent or finalized when its invoices are cancelled", () => {
+    expect(transition("order_confirmation", "partially_invoiced", "invoice_reverted")).toEqual({
+      ok: true,
+      value: "sent",
+    });
+    expect(transition("order_confirmation", "invoiced", "invoice_reverted_unsent")).toEqual({
+      ok: true,
+      value: "finalized",
+    });
+    expect(canTransition("order_confirmation", "invoiced", "withdraw")).toBe(false);
+  });
+
+  test("QUO-09 a delivery note returns to its previous status when its invoice is cancelled", () => {
+    expect(transition("delivery_note", "sent", "mark_received")).toEqual({ ok: true, value: "accepted" });
+    expect(transition("delivery_note", "invoiced", "invoice_reverted")).toEqual({ ok: true, value: "accepted" });
+    expect(transition("delivery_note", "invoiced", "invoice_reverted_sent")).toEqual({ ok: true, value: "sent" });
+    expect(transition("delivery_note", "invoiced", "invoice_reverted_unsent")).toEqual({
+      ok: true,
+      value: "finalized",
+    });
+    expect(canTransition("delivery_note", "invoiced", "withdraw")).toBe(false);
+  });
+
+  test("QUO-12 EC-DOC-102 an invoiced proforma cannot be invoiced again", () => {
+    expect(transition("proforma", "sent", "invoiced_fully")).toEqual({ ok: true, value: "invoiced" });
+    expect(canTransition("proforma", "invoiced", "invoiced_fully")).toBe(false);
+  });
 });

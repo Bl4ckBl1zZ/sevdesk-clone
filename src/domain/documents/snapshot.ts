@@ -370,7 +370,13 @@ export interface DocumentSnapshot {
   /** BG-13/BG-15 */
   readonly delivery?: { readonly address?: SnapshotAddress; readonly partyName?: string };
   readonly references: SnapshotReferences;
-  readonly texts: { readonly subject?: string; readonly headText?: string; readonly footText?: string };
+  readonly texts: {
+    readonly subject?: string;
+    readonly headText?: string;
+    readonly footText?: string;
+    /** Quotes and order confirmations: delivery terms (QUO-01, QUO-08), printed above the foot text. */
+    readonly deliveryTerms?: string;
+  };
   readonly notes: readonly SnapshotNote[];
   readonly lines: readonly SnapshotLine[];
   readonly adjustment?: SnapshotAdjustment;

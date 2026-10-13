@@ -67,6 +67,10 @@ export interface DraftLine {
   readonly isLaborCost?: boolean | undefined;
   readonly itemNumber?: string | undefined;
   readonly revenueAccount?: string | undefined;
+  /** Quotes only (DOC-04, QUO-02): excluded from totals and VAT, printed in parentheses. */
+  readonly optional?: boolean | undefined;
+  /** Line of the source document this line was converted from (§4.3.3 invoicing progress). */
+  readonly sourceLineId?: string | undefined;
 }
 
 export interface DraftDocument {
@@ -111,6 +115,12 @@ export interface DraftDocument {
   readonly language: "de" | "en";
   /** Chosen e-invoice format; absent = the default of §4.6.3. */
   readonly einvoiceFormat?: EinvoiceFormat | undefined;
+  /** Quotes (QUO-01): absent = document date + `quoteValidityDays` at finalisation. */
+  readonly validUntil?: string | undefined;
+  /** Quotes and order confirmations (QUO-01, QUO-08). */
+  readonly deliveryTerms?: string | undefined;
+  /** Delivery notes (QUO-09): print prices and totals (default off). */
+  readonly showPrices?: boolean | undefined;
   readonly lines: readonly DraftLine[];
 }
 
@@ -127,6 +137,8 @@ export interface CompanyContext {
   readonly foundedOn?: string | undefined;
   readonly backdateWindowDays: number;
   readonly paymentReferencePrefix?: string | undefined;
+  /** QUO-01 default validity of quotes (F01 `defaults.quoteValidityDays`, default 30). */
+  readonly quoteValidityDays?: number | undefined;
 }
 
 export interface ContactContext {
@@ -174,6 +186,15 @@ export interface DocumentContext {
   }[];
   /** KU companies: current calendar year turnover of finalised invoices (EUR cents, KU-01). */
   readonly kuYearTurnoverCents?: number | undefined;
+  /**
+   * Converted drafts (§4.3.3, QUO-10/13): per source line the quantity not yet billed by other finalised invoices,
+   * keyed by `sourceLineId`. Lines without an entry are not limited.
+   */
+  readonly sourceLineRemaining?: Readonly<
+    Record<string, { readonly remainingMilli: number; readonly sourceNumber: string }>
+  >;
+  /** Invoices from delivery notes (QUO-11, EC-DOC-72): notes already contained in another non-cancelled invoice. */
+  readonly deliveryNotesInvoiced?: readonly { readonly number: string; readonly invoiceNumber: string }[];
 }
 
 // ── helpers ────────────────────────────────────────────────────────────────────────────────────────────────────
@@ -258,6 +279,11 @@ export interface ResolvedDraft {
   readonly derivedTaxCase?: DerivableTaxCase | undefined;
   readonly lines: readonly ResolvedLine[];
   readonly totals: DocumentTotals | null;
+  /**
+   * Net amount per resolved item line (aligned with `lines`); optional quote lines carry the amount they would have
+   * (printed in parentheses) although `totals` excludes them (QUO-02).
+   */
+  readonly itemNetCents: readonly (number | undefined)[];
   readonly totalsIssue?: Issue | undefined;
   /** Gross in EUR cents (thresholds, DOC-56). */
   readonly grossEurCents: number | null;
@@ -359,15 +385,17 @@ export function resolveDraft(draft: DraftDocument, ctx: DocumentContext): Resolv
   });
 
   const adjustment = draft.documentDiscount;
+  const totalsLine = (l: DraftLine, k: number) => ({
+    quantityMilli: l.quantityMilli ?? 0,
+    unitPriceMicros: l.unitPriceMicros ?? 0,
+    discount: toLineDiscount(l.discount),
+    vatCategory: lines[k]?.vatCategory ?? "S",
+    rateBp: lines[k]?.vatRateBp ?? 0,
+  });
+  const billable = items.map(([l], k) => [l, k] as const).filter(([l]) => !l.optional);
   const totalsResult = computeTotals({
     priceMode: draft.priceMode,
-    lines: items.map(([l], k) => ({
-      quantityMilli: l.quantityMilli ?? 0,
-      unitPriceMicros: l.unitPriceMicros ?? 0,
-      discount: toLineDiscount(l.discount),
-      vatCategory: lines[k]?.vatCategory ?? "S",
-      rateBp: lines[k]?.vatRateBp ?? 0,
-    })),
+    lines: billable.map(([l, k]) => totalsLine(l, k)),
     adjustment:
       adjustment &&
       (adjustment.kind === "percent"
@@ -377,6 +405,15 @@ export function resolveDraft(draft: DraftDocument, ctx: DocumentContext): Resolv
         : adjustment.amountCents
           ? { type: adjustment.isSurcharge ? "charge" : "allowance", amountCents: adjustment.amountCents }
           : undefined),
+  });
+  const billableNet = new Map<number, number | undefined>();
+  if (totalsResult.ok) {
+    for (const [j, [, k]] of billable.entries()) billableNet.set(k, totalsResult.value.lines[j]?.netCents);
+  }
+  const itemNetCents = items.map(([l], k) => {
+    if (!l.optional) return billableNet.get(k);
+    const alone = computeTotals({ priceMode: draft.priceMode, lines: [totalsLine(l, k)] });
+    return alone.ok ? alone.value.lines[0]?.netCents : undefined;
   });
   const totals = totalsResult.ok ? totalsResult.value : null;
   return {
@@ -388,6 +425,7 @@ export function resolveDraft(draft: DraftDocument, ctx: DocumentContext): Resolv
     derivedTaxCase,
     lines,
     totals,
+    itemNetCents,
     totalsIssue: totalsResult.ok ? undefined : totalsResult.error,
     grossEurCents: totals ? toEur(totals.grossCents, draft) : null,
   };
