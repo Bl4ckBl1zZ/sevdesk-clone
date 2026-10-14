@@ -257,7 +257,7 @@
             "name": "tag",
             "schema": {
               "type": "string",
-              "pattern": "^tag_[0-9a-z]{16,64}$",
+              "pattern": "^tag_[0-9a-zA-Z]{16,64}$",
               "description": "ID (tag_…)",
               "example": "tag_k57f3x2m9q8w1e4r6t"
             }
@@ -556,7 +556,7 @@
             "name": "id",
             "schema": {
               "type": "string",
-              "pattern": "^con_[0-9a-z]{16,64}$",
+              "pattern": "^con_[0-9a-zA-Z]{16,64}$",
               "description": "ID (con_…)",
               "example": "con_k57f3x2m9q8w1e4r6t"
             },
@@ -691,7 +691,7 @@
             "name": "id",
             "schema": {
               "type": "string",
-              "pattern": "^con_[0-9a-z]{16,64}$",
+              "pattern": "^con_[0-9a-zA-Z]{16,64}$",
               "description": "ID (con_…)",
               "example": "con_k57f3x2m9q8w1e4r6t"
             },
@@ -868,7 +868,7 @@
             "name": "id",
             "schema": {
               "type": "string",
-              "pattern": "^con_[0-9a-z]{16,64}$",
+              "pattern": "^con_[0-9a-zA-Z]{16,64}$",
               "description": "ID (con_…)",
               "example": "con_k57f3x2m9q8w1e4r6t"
             },
@@ -995,7 +995,7 @@
             "name": "id",
             "schema": {
               "type": "string",
-              "pattern": "^con_[0-9a-z]{16,64}$",
+              "pattern": "^con_[0-9a-zA-Z]{16,64}$",
               "description": "ID (con_…)",
               "example": "con_k57f3x2m9q8w1e4r6t"
             },
@@ -1236,7 +1236,7 @@
             "name": "category_id",
             "schema": {
               "type": "string",
-              "pattern": "^pcat_[0-9a-z]{16,64}$",
+              "pattern": "^pcat_[0-9a-zA-Z]{16,64}$",
               "description": "ID (pcat_…)",
               "example": "pcat_k57f3x2m9q8w1e4r6t"
             }
@@ -1495,7 +1495,7 @@
             "name": "id",
             "schema": {
               "type": "string",
-              "pattern": "^prd_[0-9a-z]{16,64}$",
+              "pattern": "^prd_[0-9a-zA-Z]{16,64}$",
               "description": "ID (prd_…)",
               "example": "prd_k57f3x2m9q8w1e4r6t"
             },
@@ -1611,7 +1611,7 @@
             "name": "id",
             "schema": {
               "type": "string",
-              "pattern": "^prd_[0-9a-z]{16,64}$",
+              "pattern": "^prd_[0-9a-zA-Z]{16,64}$",
               "description": "ID (prd_…)",
               "example": "prd_k57f3x2m9q8w1e4r6t"
             },
@@ -1788,7 +1788,7 @@
             "name": "id",
             "schema": {
               "type": "string",
-              "pattern": "^prd_[0-9a-z]{16,64}$",
+              "pattern": "^prd_[0-9a-zA-Z]{16,64}$",
               "description": "ID (prd_…)",
               "example": "prd_k57f3x2m9q8w1e4r6t"
             },
@@ -1915,7 +1915,7 @@
             "name": "id",
             "schema": {
               "type": "string",
-              "pattern": "^prd_[0-9a-z]{16,64}$",
+              "pattern": "^prd_[0-9a-zA-Z]{16,64}$",
               "description": "ID (prd_…)",
               "example": "prd_k57f3x2m9q8w1e4r6t"
             },
@@ -1927,7 +1927,7 @@
             "name": "contact_id",
             "schema": {
               "type": "string",
-              "pattern": "^con_[0-9a-z]{16,64}$",
+              "pattern": "^con_[0-9a-zA-Z]{16,64}$",
               "description": "ID (con_…)",
               "example": "con_k57f3x2m9q8w1e4r6t"
             }
@@ -2988,7 +2988,7 @@
             "name": "contact_id",
             "schema": {
               "type": "string",
-              "pattern": "^con_[0-9a-z]{16,64}$",
+              "pattern": "^con_[0-9a-zA-Z]{16,64}$",
               "description": "ID (con_…)",
               "example": "con_k57f3x2m9q8w1e4r6t"
             }
@@ -3324,7 +3324,7 @@
             "name": "id",
             "schema": {
               "type": "string",
-              "pattern": "^pay_[0-9a-z]{16,64}$",
+              "pattern": "^pay_[0-9a-zA-Z]{16,64}$",
               "description": "ID (pay_…)",
               "example": "pay_k57f3x2m9q8w1e4r6t"
             },
@@ -3442,7 +3442,7 @@
             "name": "id",
             "schema": {
               "type": "string",
-              "pattern": "^inv_[0-9a-z]{16,64}$",
+              "pattern": "^inv_[0-9a-zA-Z]{16,64}$",
               "description": "ID (inv_…)",
               "example": "inv_k57f3x2m9q8w1e4r6t"
             },
@@ -3784,7 +3784,7 @@
             "name": "id",
             "schema": {
               "type": "string",
-              "pattern": "^pay_[0-9a-z]{16,64}$",
+              "pattern": "^pay_[0-9a-zA-Z]{16,64}$",
               "description": "ID (pay_…)",
               "example": "pay_k57f3x2m9q8w1e4r6t"
             },
@@ -3973,7 +3973,7 @@
             "name": "id",
             "schema": {
               "type": "string",
-              "pattern": "^pay_[0-9a-z]{16,64}$",
+              "pattern": "^pay_[0-9a-zA-Z]{16,64}$",
               "description": "ID (pay_…)",
               "example": "pay_k57f3x2m9q8w1e4r6t"
             },
@@ -4101,7 +4101,7 @@
             "name": "id",
             "schema": {
               "type": "string",
-              "pattern": "^con_[0-9a-z]{16,64}$",
+              "pattern": "^con_[0-9a-zA-Z]{16,64}$",
               "description": "ID (con_…)",
               "example": "con_k57f3x2m9q8w1e4r6t"
             },
@@ -4278,7 +4278,7 @@
             "name": "id",
             "schema": {
               "type": "string",
-              "pattern": "^con_[0-9a-z]{16,64}$",
+              "pattern": "^con_[0-9a-zA-Z]{16,64}$",
               "description": "ID (con_…)",
               "example": "con_k57f3x2m9q8w1e4r6t"
             },
@@ -4486,7 +4486,7 @@
             "name": "contact_id",
             "schema": {
               "type": "string",
-              "pattern": "^con_[0-9a-z]{16,64}$",
+              "pattern": "^con_[0-9a-zA-Z]{16,64}$",
               "description": "ID (con_…)",
               "example": "con_k57f3x2m9q8w1e4r6t"
             }
@@ -4592,7 +4592,7 @@
             "name": "id",
             "schema": {
               "type": "string",
-              "pattern": "^con_[0-9a-z]{16,64}$",
+              "pattern": "^con_[0-9a-zA-Z]{16,64}$",
               "description": "ID (con_…)",
               "example": "con_k57f3x2m9q8w1e4r6t"
             },
@@ -4741,7 +4741,7 @@
             "name": "id",
             "schema": {
               "type": "string",
-              "pattern": "^btx_[0-9a-z]{16,64}$",
+              "pattern": "^btx_[0-9a-zA-Z]{16,64}$",
               "description": "ID (btx_…)",
               "example": "btx_k57f3x2m9q8w1e4r6t"
             },
@@ -4859,7 +4859,7 @@
             "name": "id",
             "schema": {
               "type": "string",
-              "pattern": "^btx_[0-9a-z]{16,64}$",
+              "pattern": "^btx_[0-9a-zA-Z]{16,64}$",
               "description": "ID (btx_…)",
               "example": "btx_k57f3x2m9q8w1e4r6t"
             },
@@ -5036,7 +5036,7 @@
             "name": "id",
             "schema": {
               "type": "string",
-              "pattern": "^btx_[0-9a-z]{16,64}$",
+              "pattern": "^btx_[0-9a-zA-Z]{16,64}$",
               "description": "ID (btx_…)",
               "example": "btx_k57f3x2m9q8w1e4r6t"
             },
@@ -5225,7 +5225,7 @@
             "name": "id",
             "schema": {
               "type": "string",
-              "pattern": "^btx_[0-9a-z]{16,64}$",
+              "pattern": "^btx_[0-9a-zA-Z]{16,64}$",
               "description": "ID (btx_…)",
               "example": "btx_k57f3x2m9q8w1e4r6t"
             },
@@ -5576,7 +5576,7 @@
             "name": "id",
             "schema": {
               "type": "string",
-              "pattern": "^csh_[0-9a-z]{16,64}$",
+              "pattern": "^csh_[0-9a-zA-Z]{16,64}$",
               "description": "ID (csh_…)",
               "example": "csh_k57f3x2m9q8w1e4r6t"
             },
@@ -5765,7 +5765,7 @@
             "anyOf": [
               {
                 "type": "string",
-                "pattern": "^con_[0-9a-z]{16,64}$",
+                "pattern": "^con_[0-9a-zA-Z]{16,64}$",
                 "description": "Übergeordnete Organisation (nur Personen)",
                 "example": "con_k57f3x2m9q8w1e4r6t"
               },
@@ -5985,7 +5985,7 @@
             "anyOf": [
               {
                 "type": "string",
-                "pattern": "^pmt_[0-9a-z]{16,64}$",
+                "pattern": "^pmt_[0-9a-zA-Z]{16,64}$",
                 "description": "ID (pmt_…)",
                 "example": "pmt_k57f3x2m9q8w1e4r6t"
               },
@@ -6017,7 +6017,7 @@
             "type": "array",
             "items": {
               "type": "string",
-              "pattern": "^tag_[0-9a-z]{16,64}$",
+              "pattern": "^tag_[0-9a-zA-Z]{16,64}$",
               "description": "ID (tag_…)",
               "example": "tag_k57f3x2m9q8w1e4r6t"
             }
@@ -6139,7 +6139,7 @@
             "anyOf": [
               {
                 "type": "string",
-                "pattern": "^con_[0-9a-z]{16,64}$",
+                "pattern": "^con_[0-9a-zA-Z]{16,64}$",
                 "description": "Übergeordnete Organisation (nur Personen)",
                 "example": "con_k57f3x2m9q8w1e4r6t"
               },
@@ -6359,7 +6359,7 @@
             "anyOf": [
               {
                 "type": "string",
-                "pattern": "^pmt_[0-9a-z]{16,64}$",
+                "pattern": "^pmt_[0-9a-zA-Z]{16,64}$",
                 "description": "ID (pmt_…)",
                 "example": "pmt_k57f3x2m9q8w1e4r6t"
               },
@@ -6391,7 +6391,7 @@
             "type": "array",
             "items": {
               "type": "string",
-              "pattern": "^tag_[0-9a-z]{16,64}$",
+              "pattern": "^tag_[0-9a-zA-Z]{16,64}$",
               "description": "ID (tag_…)",
               "example": "tag_k57f3x2m9q8w1e4r6t"
             }
@@ -6538,7 +6538,7 @@
             "anyOf": [
               {
                 "type": "string",
-                "pattern": "^pcat_[0-9a-z]{16,64}$",
+                "pattern": "^pcat_[0-9a-zA-Z]{16,64}$",
                 "description": "ID (pcat_…)",
                 "example": "pcat_k57f3x2m9q8w1e4r6t"
               },
@@ -6574,7 +6574,7 @@
             "type": "array",
             "items": {
               "type": "string",
-              "pattern": "^tag_[0-9a-z]{16,64}$",
+              "pattern": "^tag_[0-9a-zA-Z]{16,64}$",
               "description": "ID (tag_…)",
               "example": "tag_k57f3x2m9q8w1e4r6t"
             }
@@ -6706,7 +6706,7 @@
             "anyOf": [
               {
                 "type": "string",
-                "pattern": "^pcat_[0-9a-z]{16,64}$",
+                "pattern": "^pcat_[0-9a-zA-Z]{16,64}$",
                 "description": "ID (pcat_…)",
                 "example": "pcat_k57f3x2m9q8w1e4r6t"
               },
@@ -6742,7 +6742,7 @@
             "type": "array",
             "items": {
               "type": "string",
-              "pattern": "^tag_[0-9a-z]{16,64}$",
+              "pattern": "^tag_[0-9a-zA-Z]{16,64}$",
               "description": "ID (tag_…)",
               "example": "tag_k57f3x2m9q8w1e4r6t"
             }
@@ -6868,7 +6868,7 @@
               },
               "transaction_id": {
                 "type": "string",
-                "pattern": "^btx_[0-9a-z]{16,64}$",
+                "pattern": "^btx_[0-9a-zA-Z]{16,64}$",
                 "description": "ID (btx_…)",
                 "example": "btx_k57f3x2m9q8w1e4r6t"
               }
@@ -6888,7 +6888,7 @@
               },
               "account_id": {
                 "type": "string",
-                "pattern": "^bac_[0-9a-z]{16,64}$",
+                "pattern": "^bac_[0-9a-zA-Z]{16,64}$",
                 "description": "ID (bac_…)",
                 "example": "bac_k57f3x2m9q8w1e4r6t"
               }
@@ -7102,7 +7102,7 @@
               },
               "invoice_id": {
                 "type": "string",
-                "pattern": "^inv_[0-9a-z]{16,64}$",
+                "pattern": "^inv_[0-9a-zA-Z]{16,64}$",
                 "description": "ID (inv_…)",
                 "example": "inv_k57f3x2m9q8w1e4r6t"
               }
@@ -7138,7 +7138,7 @@
         "properties": {
           "invoice_id": {
             "type": "string",
-            "pattern": "^inv_[0-9a-z]{16,64}$",
+            "pattern": "^inv_[0-9a-zA-Z]{16,64}$",
             "description": "ID (inv_…)",
             "example": "inv_k57f3x2m9q8w1e4r6t"
           },
@@ -7306,7 +7306,7 @@
           },
           "link_id": {
             "type": "string",
-            "pattern": "^btx_[0-9a-z]{16,64}$",
+            "pattern": "^btx_[0-9a-zA-Z]{16,64}$",
             "description": "ID (btx_…)",
             "example": "btx_k57f3x2m9q8w1e4r6t"
           },
@@ -7359,7 +7359,7 @@
           },
           "bank_account_id": {
             "type": "string",
-            "pattern": "^bac_[0-9a-z]{16,64}$",
+            "pattern": "^bac_[0-9a-zA-Z]{16,64}$",
             "description": "ID (bac_…)",
             "example": "bac_k57f3x2m9q8w1e4r6t"
           },
@@ -7648,7 +7648,7 @@
         "properties": {
           "id": {
             "type": "string",
-            "pattern": "^con_[0-9a-z]{16,64}$",
+            "pattern": "^con_[0-9a-zA-Z]{16,64}$",
             "description": "ID (con_…)",
             "example": "con_k57f3x2m9q8w1e4r6t"
           },
@@ -7681,7 +7681,7 @@
             "anyOf": [
               {
                 "type": "string",
-                "pattern": "^con_[0-9a-z]{16,64}$",
+                "pattern": "^con_[0-9a-zA-Z]{16,64}$",
                 "description": "ID (con_…)",
                 "example": "con_k57f3x2m9q8w1e4r6t"
               },
@@ -7694,7 +7694,7 @@
             "anyOf": [
               {
                 "type": "string",
-                "pattern": "^con_[0-9a-z]{16,64}$",
+                "pattern": "^con_[0-9a-zA-Z]{16,64}$",
                 "description": "ID (con_…)",
                 "example": "con_k57f3x2m9q8w1e4r6t"
               },
@@ -7900,7 +7900,7 @@
             "anyOf": [
               {
                 "type": "string",
-                "pattern": "^pmt_[0-9a-z]{16,64}$",
+                "pattern": "^pmt_[0-9a-zA-Z]{16,64}$",
                 "description": "ID (pmt_…)",
                 "example": "pmt_k57f3x2m9q8w1e4r6t"
               },
@@ -7940,7 +7940,7 @@
             "type": "array",
             "items": {
               "type": "string",
-              "pattern": "^tag_[0-9a-z]{16,64}$",
+              "pattern": "^tag_[0-9a-zA-Z]{16,64}$",
               "description": "ID (tag_…)",
               "example": "tag_k57f3x2m9q8w1e4r6t"
             }
@@ -7993,7 +7993,7 @@
               "properties": {
                 "id": {
                   "type": "string",
-                  "pattern": "^con_[0-9a-z]{16,64}$",
+                  "pattern": "^con_[0-9a-zA-Z]{16,64}$",
                   "description": "ID (con_…)",
                   "example": "con_k57f3x2m9q8w1e4r6t"
                 },
@@ -8072,7 +8072,7 @@
         "properties": {
           "id": {
             "type": "string",
-            "pattern": "^adr_[0-9a-z]{16,64}$",
+            "pattern": "^adr_[0-9a-zA-Z]{16,64}$",
             "description": "ID (adr_…)",
             "example": "adr_k57f3x2m9q8w1e4r6t"
           },
@@ -8160,7 +8160,7 @@
         "properties": {
           "id": {
             "type": "string",
-            "pattern": "^chn_[0-9a-z]{16,64}$",
+            "pattern": "^chn_[0-9a-zA-Z]{16,64}$",
             "description": "ID (chn_…)",
             "example": "chn_k57f3x2m9q8w1e4r6t"
           },
@@ -8231,7 +8231,7 @@
             "anyOf": [
               {
                 "type": "string",
-                "pattern": "^vck_[0-9a-z]{16,64}$",
+                "pattern": "^vck_[0-9a-zA-Z]{16,64}$",
                 "description": "ID (vck_…)",
                 "example": "vck_k57f3x2m9q8w1e4r6t"
               },
@@ -8254,7 +8254,7 @@
         "properties": {
           "id": {
             "type": "string",
-            "pattern": "^con_[0-9a-z]{16,64}$",
+            "pattern": "^con_[0-9a-zA-Z]{16,64}$",
             "description": "ID (con_…)",
             "example": "con_k57f3x2m9q8w1e4r6t"
           },
@@ -8287,7 +8287,7 @@
             "anyOf": [
               {
                 "type": "string",
-                "pattern": "^con_[0-9a-z]{16,64}$",
+                "pattern": "^con_[0-9a-zA-Z]{16,64}$",
                 "description": "ID (con_…)",
                 "example": "con_k57f3x2m9q8w1e4r6t"
               },
@@ -8300,7 +8300,7 @@
             "anyOf": [
               {
                 "type": "string",
-                "pattern": "^con_[0-9a-z]{16,64}$",
+                "pattern": "^con_[0-9a-zA-Z]{16,64}$",
                 "description": "ID (con_…)",
                 "example": "con_k57f3x2m9q8w1e4r6t"
               },
@@ -8506,7 +8506,7 @@
             "anyOf": [
               {
                 "type": "string",
-                "pattern": "^pmt_[0-9a-z]{16,64}$",
+                "pattern": "^pmt_[0-9a-zA-Z]{16,64}$",
                 "description": "ID (pmt_…)",
                 "example": "pmt_k57f3x2m9q8w1e4r6t"
               },
@@ -8546,7 +8546,7 @@
             "type": "array",
             "items": {
               "type": "string",
-              "pattern": "^tag_[0-9a-z]{16,64}$",
+              "pattern": "^tag_[0-9a-zA-Z]{16,64}$",
               "description": "ID (tag_…)",
               "example": "tag_k57f3x2m9q8w1e4r6t"
             }
@@ -8599,7 +8599,7 @@
               "properties": {
                 "id": {
                   "type": "string",
-                  "pattern": "^con_[0-9a-z]{16,64}$",
+                  "pattern": "^con_[0-9a-zA-Z]{16,64}$",
                   "description": "ID (con_…)",
                   "example": "con_k57f3x2m9q8w1e4r6t"
                 },
@@ -8775,7 +8775,7 @@
         "properties": {
           "id": {
             "type": "string",
-            "pattern": "^prd_[0-9a-z]{16,64}$",
+            "pattern": "^prd_[0-9a-zA-Z]{16,64}$",
             "description": "ID (prd_…)",
             "example": "prd_k57f3x2m9q8w1e4r6t"
           },
@@ -8863,7 +8863,7 @@
             "anyOf": [
               {
                 "type": "string",
-                "pattern": "^pcat_[0-9a-z]{16,64}$",
+                "pattern": "^pcat_[0-9a-zA-Z]{16,64}$",
                 "description": "ID (pcat_…)",
                 "example": "pcat_k57f3x2m9q8w1e4r6t"
               },
@@ -8939,7 +8939,7 @@
             "type": "array",
             "items": {
               "type": "string",
-              "pattern": "^tag_[0-9a-z]{16,64}$",
+              "pattern": "^tag_[0-9a-zA-Z]{16,64}$",
               "description": "ID (tag_…)",
               "example": "tag_k57f3x2m9q8w1e4r6t"
             }
@@ -9050,7 +9050,7 @@
         "properties": {
           "id": {
             "type": "string",
-            "pattern": "^prd_[0-9a-z]{16,64}$",
+            "pattern": "^prd_[0-9a-zA-Z]{16,64}$",
             "description": "ID (prd_…)",
             "example": "prd_k57f3x2m9q8w1e4r6t"
           },
@@ -9138,7 +9138,7 @@
             "anyOf": [
               {
                 "type": "string",
-                "pattern": "^pcat_[0-9a-z]{16,64}$",
+                "pattern": "^pcat_[0-9a-zA-Z]{16,64}$",
                 "description": "ID (pcat_…)",
                 "example": "pcat_k57f3x2m9q8w1e4r6t"
               },
@@ -9214,7 +9214,7 @@
             "type": "array",
             "items": {
               "type": "string",
-              "pattern": "^tag_[0-9a-z]{16,64}$",
+              "pattern": "^tag_[0-9a-zA-Z]{16,64}$",
               "description": "ID (tag_…)",
               "example": "tag_k57f3x2m9q8w1e4r6t"
             }
@@ -9395,7 +9395,7 @@
         "properties": {
           "id": {
             "type": "string",
-            "pattern": "^pcat_[0-9a-z]{16,64}$",
+            "pattern": "^pcat_[0-9a-zA-Z]{16,64}$",
             "description": "ID (pcat_…)",
             "example": "pcat_k57f3x2m9q8w1e4r6t"
           },
@@ -9406,7 +9406,7 @@
             "anyOf": [
               {
                 "type": "string",
-                "pattern": "^pcat_[0-9a-z]{16,64}$",
+                "pattern": "^pcat_[0-9a-zA-Z]{16,64}$",
                 "description": "ID (pcat_…)",
                 "example": "pcat_k57f3x2m9q8w1e4r6t"
               },
