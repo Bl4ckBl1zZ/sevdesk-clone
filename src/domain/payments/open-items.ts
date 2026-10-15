@@ -18,6 +18,8 @@ export interface OpenItemDocument {
   documentDate: string;
   dueDate?: string;
   payableCents: number;
+  /** Applied Rechnungskorrekturen up to the as-of date (F04 §4.2.5): reduce the open amount, not the amount column. */
+  creditedCents?: number;
   currency: string;
 }
 
@@ -119,7 +121,7 @@ export function computeOpenItems(input: {
   for (const d of input.documents) {
     if (d.documentDate > asOf) continue;
     const s = settled.get(`${d.kind}:${d.id}`) ?? { settles: 0, paid: 0 };
-    const open = d.payableCents - s.settles;
+    const open = d.payableCents - (d.creditedCents ?? 0) - s.settles;
     if (open === 0) continue;
     const days = daysOverdue(d.dueDate, asOf);
     const bucket = agingBucket(days, edges);

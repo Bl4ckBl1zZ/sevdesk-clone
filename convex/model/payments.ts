@@ -1047,8 +1047,9 @@ export async function openItemsAsOf(
           contactName: d.contactName ?? "",
           documentDate: d.documentDate,
           ...(d.dueDate ? { dueDate: d.dueDate } : {}),
+          payableCents: d.totals.payableCents,
           // Rechnungskorrekturen dated up to the as-of date reduce the receivable like a settlement (F04 §4.2.5).
-          payableCents: d.totals.payableCents - (await creditedCentsOf(ctx, d, args.asOf)),
+          creditedCents: await creditedCentsOf(ctx, d, args.asOf),
           currency: d.currency,
         });
       }

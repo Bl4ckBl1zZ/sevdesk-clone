@@ -77,6 +77,21 @@ describe("open items and aging (PAY-001…PAY-003)", () => {
     expect(agingBuckets([14]).map((b) => b.label)).toEqual(["nicht fällig", "1–14", "> 14"]);
   });
 
+  test("PAY-001 INV-12 a Rechnungskorrektur reduces the open amount; the amount column stays the invoice total", () => {
+    const r = computeOpenItems({
+      documents: [{ ...doc("1", "2026-10-01", "2026-10-31"), creditedCents: 11900 }],
+      rows: [row("1", "2026-10-05", 50000)],
+      asOf: "2026-10-12",
+    });
+    expect(r.items[0]).toMatchObject({ payableCents: 119000, paidCents: 50000, openCents: 57100 });
+    const settled = computeOpenItems({
+      documents: [{ ...doc("1", "2026-10-01", "2026-10-31"), creditedCents: 11900 }],
+      rows: [row("1", "2026-10-05", 107100)],
+      asOf: "2026-10-12",
+    });
+    expect(settled.items).toHaveLength(0);
+  });
+
   test("PAY-043 overdue is derived from status and due date", () => {
     expect(isOverdue({ paymentStatus: "open", dueDate: "2026-10-12" }, "2026-10-13")).toBe(true);
     expect(isOverdue({ paymentStatus: "partially_paid", dueDate: "2026-10-13" }, "2026-10-13")).toBe(false);
