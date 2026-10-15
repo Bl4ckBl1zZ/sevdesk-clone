@@ -28,7 +28,14 @@ import { auditedInsert, auditedPatch } from "./audit";
 import { chainMembers, groupsOfDoc, setRegisterStatus, storedSnapshot } from "./invoiceChains";
 import { postJournalEntry } from "./journal";
 import { assignCounterNumber } from "./numberRanges";
-import { createDraft, documentLines, draftFromDoc, getDocument, nextStatus } from "./salesDocuments";
+import {
+  createDraft,
+  documentLines,
+  draftFromDoc,
+  getDocument,
+  nextStatus,
+  resolveNotifications,
+} from "./salesDocuments";
 import { activeCredits, settlementOf } from "./settlement";
 import type { ModelCtx, ReadCtx } from "./types";
 
@@ -268,6 +275,8 @@ export async function cancelDocument(
     { action: "document.cancelled", label: `${label(original)} → ${assigned.number}`, ...(reason ? { reason } : {}) },
   );
   await setRegisterStatus(ctx, original.number, "cancelled_by_storno");
+  // REC-16 / SND-21: the export to-dos of the original close with its Storno.
+  for (const kind of ["export_and_send", "exported_not_marked"]) await resolveNotifications(ctx, original._id, kind);
   if (original.type === "correction" && original.correctionKind === "credit" && original.correctsId) {
     // INV-15: the credited invoice gets back what the credit absorbed.
     const credited = await getDocument(ctx, original.correctsId);

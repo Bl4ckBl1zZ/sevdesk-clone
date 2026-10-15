@@ -30,6 +30,11 @@ crons.cron("api.cleanup", "15 * * * *", internal.apiKeys.cleanupCron, {});
 crons.cron("deadlines.notify (CEST)", "0 6 * * *", internal.invoices.notifyDeadlinesCron, {});
 crons.cron("deadlines.notify (CET)", "0 7 * * *", internal.invoices.notifyDeadlinesCron, {});
 
+// recurring.generate — daily 06:00 Europe/Berlin (04:00 UTC in summer, 05:00 UTC in winter; F04 REC-05). The job is
+// idempotent per (template, occurrence), so the second registration of the day finds nothing due.
+crons.cron("recurring.generate (CEST)", "0 4 * * *", internal.recurring.generateCron, {});
+crons.cron("recurring.generate (CET)", "0 5 * * *", internal.recurring.generateCron, {});
+
 // documents.artifactsWatchdog — every 10 min: renders that died with their Node process count as a failed attempt
 // and restart (F04 DOC-28, EC-005); a no-op while no document is `pending`.
 crons.interval("documents.artifactsWatchdog", { minutes: 10 }, internal.invoices.artifactsWatchdog, {});

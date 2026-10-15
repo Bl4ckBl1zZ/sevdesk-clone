@@ -16,6 +16,19 @@ export interface PipelineOptions {
   overrides?: { vatCheck?: { reason: string }; rc13bCertificate?: { reason: string } };
 }
 
+interface PreviewOut {
+  status: string;
+  version: number;
+  number: string | null;
+  finalizedFromVersion: number | null;
+  findings: { code: string; severity: string; message: string }[];
+  snapshotJson: string | null;
+  format: "zugferd_en16931" | "zugferd_xrechnung" | "xrechnung_cii" | "xrechnung_ubl" | "none";
+}
+type CommitOut =
+  | { status: "finalized"; number: string; idempotentReplay: boolean }
+  | { status: "invalid"; findings?: { message: string }[] };
+
 /**
  * „Fertigstellen“ (F04 DOC-24, 02 §6): validation → preview snapshot → preview XML validation (KoSIT) → commit →
  * render. Errors before the commit consume no number (EC-007, T-DOC-018). One implementation for the UI/REST/MCP
@@ -32,7 +45,7 @@ export async function runFinalizePipeline(
     ...(a.backdateReason ? { backdateReason: a.backdateReason } : {}),
     ...(a.overrides ? { overrides: a.overrides } : {}),
   };
-  const p = await ctx.runQuery(internal.invoices.pipelinePreview, { id: a.id, ...opts });
+  const p: PreviewOut = await ctx.runQuery(internal.invoices.pipelinePreview, { id: a.id, ...opts });
   if (p.status !== "draft") {
     if (p.finalizedFromVersion === a.version && p.number) return { number: p.number, idempotentReplay: true };
     throw appError("document_not_draft");
@@ -63,7 +76,7 @@ export async function runFinalizePipeline(
     }
     validation = outcome.kind === "passed" ? "passed" : "skipped";
   }
-  const r = await ctx.runMutation(internal.invoices.commit, {
+  const r: CommitOut = await ctx.runMutation(internal.invoices.commit, {
     actorContext,
     id: a.id,
     version: a.version,
