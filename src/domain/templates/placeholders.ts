@@ -141,6 +141,10 @@ export const PLACEHOLDERS: readonly PlaceholderDef[] = [
   d("reminder", "interestAmount", "Verzugszinsen", "12,34 €"),
   d("reminder", "totalDue", "Gesamtforderung", "1.207,34 €"),
   d("reminder", "newDueDate", "Neue Frist", "22.10.2026"),
+  d("reminder", "flatFee", "Verzugspauschale (§ 288 Abs. 5 BGB)", "40,00 €"),
+  d("reminder", "defaultStartDate", "Verzug seit", "27.09.2026"),
+  d("reminder", "number", "Nummer der Mahnung", "MA-2026-0007"),
+  d("reminder", "date", "Datum der Mahnung", "12.10.2026"),
 
   d("recurring", "periodFrom", "Zeitraum von", "01.10.2026"),
   d("recurring", "periodTo", "Zeitraum bis", "31.10.2026"),
