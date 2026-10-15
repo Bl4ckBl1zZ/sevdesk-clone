@@ -58,7 +58,10 @@ describe("REC-04/09 occurrence draft", () => {
 
   test("REC-09 the template contract reference wins over the name; placeholders are filled, no duplicate line", () => {
     const r = occurrenceDraft({
-      draft: draft({ headText: "{{recurring.periodText}}.", subject: "Wartung {{recurring.periodFrom}}–{{recurring.periodTo}}" }),
+      draft: draft({
+        headText: "{{recurring.periodText}}.",
+        subject: "Wartung {{recurring.periodFrom}}–{{recurring.periodTo}}",
+      }),
       templateName: "Wartung",
       contractReference: "V-2026-17",
       period: NOV,
@@ -128,7 +131,13 @@ describe("REC-15 rate-change and KU boundaries", () => {
     ];
     expect(kuChangeIn(history, NOV)).toBe("2026-11-15");
     expect(kuChangeIn(history, { from: d("2026-12-01"), to: d("2026-12-31") })).toBeNull();
-    const r = occurrenceDraft({ draft: draft(), templateName: "X", period: NOV, periodTextEnabled: false, kleinunternehmer: history });
+    const r = occurrenceDraft({
+      draft: draft(),
+      templateName: "X",
+      period: NOV,
+      periodTextEnabled: false,
+      kleinunternehmer: history,
+    });
     expect(r.kuChange).toBe("2026-11-15");
     expect(r.needsReview).toBe(true);
   });

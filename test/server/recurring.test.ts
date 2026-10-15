@@ -97,7 +97,11 @@ describe("REST /recurring-invoices (F04 §7.1)", { timeout: 30_000 }, () => {
     const occ = await json(await call("GET", `/recurring-invoices/${id}/occurrences?count=12`, { key }));
     const data = occ.data as { date: string; period: { from: string; to: string }; gross_cents: number }[];
     expect(data).toHaveLength(12);
-    expect(data[0]).toMatchObject({ date: "2026-11-01", period: { from: "2026-11-01", to: "2026-11-30" }, gross_cents: 5831 });
+    expect(data[0]).toMatchObject({
+      date: "2026-11-01",
+      period: { from: "2026-11-01", to: "2026-11-30" },
+      gross_cents: 5831,
+    });
 
     const run = await call("POST", `/recurring-invoices/${id}/run-now`, { key });
     expect(run.status).toBe(200);

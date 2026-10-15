@@ -816,7 +816,7 @@ export function InvoiceEditor({
   );
 }
 
-function LineEditor({
+export function LineEditor({
   line,
   index,
   count,

@@ -7,7 +7,13 @@ import { BILLING_MODES, RECURRING_INTERVALS } from "../../recurring/schedule";
 import type { DraftValues } from "../documents";
 import type { RecurringTemplateValues } from "../recurring";
 import { decimalString, isoDate, listEnvelope, scaledToDecimal } from "./common";
-import { type DocumentCreateWire, type DraftDefaults, documentLineWire, type WireIssue, wireToDraft } from "./documents";
+import {
+  type DocumentCreateWire,
+  type DraftDefaults,
+  documentLineWire,
+  type WireIssue,
+  wireToDraft,
+} from "./documents";
 
 /**
  * Recurring invoice templates on the wire (05 §4.3 `/recurring-invoices`, 06 §3.4 `recurring_invoice_*`, F04 §7).
@@ -26,7 +32,10 @@ export const recurringScheduleWire = z
     first_date: isoDate.meta({ description: "Erste Rechnung (Ankertag für monatsbasierte Intervalle)" }),
     end_date: isoDate.optional().meta({ description: "Letzte Rechnung spätestens an diesem Tag" }),
     max_count: z.number().int().min(1).max(1000).optional().meta({ description: "Ende nach N Rechnungen" }),
-    billing: z.enum(BILLING_MODES).default("in_advance").meta({ description: "Abrechnung im Voraus oder nachträglich" }),
+    billing: z
+      .enum(BILLING_MODES)
+      .default("in_advance")
+      .meta({ description: "Abrechnung im Voraus oder nachträglich" }),
     period_text: z.boolean().default(true).meta({ description: "Zeitraumtext im Kopftext" }),
   })
   .strict()
@@ -277,7 +286,14 @@ export const recurringOut = z
     foot_text: z.string().nullable().optional(),
     payment_terms: z.object({ due_days: z.number() }).optional(),
     documents: z
-      .array(z.object({ id: z.string(), number: z.string().nullable(), status: z.string(), occurrence: z.string().nullable() }))
+      .array(
+        z.object({
+          id: z.string(),
+          number: z.string().nullable(),
+          status: z.string(),
+          occurrence: z.string().nullable(),
+        }),
+      )
       .optional(),
     version: z.number(),
   })

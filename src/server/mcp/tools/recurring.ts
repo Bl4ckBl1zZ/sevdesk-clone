@@ -62,7 +62,13 @@ export const recurringTools = [
     scopes: ["documents:read"],
     input: z.object({
       state: z.enum(["active", "paused", "ended"]).optional(),
-      next_occurrences: z.number().int().min(0).max(12).optional().meta({ description: "Termine je Vorlage (Standard 3)" }),
+      next_occurrences: z
+        .number()
+        .int()
+        .min(0)
+        .max(12)
+        .optional()
+        .meta({ description: "Termine je Vorlage (Standard 3)" }),
     }),
     handler: async ({ state, next_occurrences }, { convex }) => {
       const r = await convex.query(api.recurring.list, { tab: state ?? "active" });

@@ -62,16 +62,29 @@ async function toValues(
   const issues: WireIssue[] = [];
   const contactId = body.contact_id ? decodeId("contacts", body.contact_id) : (base?.values.draft.contactId ?? null);
   if (body.contact_id && !contactId) invalid([{ field: "contact_id", message: "Unbekannte Kontakt-ID." }]);
-  const defaults = await convex.query(api.invoices.draftDefaults, contactId ? { contactId: contactId as Id<"contacts"> } : {});
+  const defaults = await convex.query(
+    api.invoices.draftDefaults,
+    contactId ? { contactId: contactId as Id<"contacts"> } : {},
+  );
   const priceMode = body.price_mode ?? base?.values.draft.priceMode ?? defaults.priceMode;
   const currency = body.currency ?? base?.values.draft.currency ?? defaults.currency;
   const referenceDate = body.schedule?.first_date ?? base?.values.schedule.firstDate ?? defaults.today;
   const lines: DraftValues["lines"] = body.lines
-    ? await linesToDraft(convex, body.lines, { ...(contactId ? { contactId } : {}), referenceDate, priceMode, currency }, issues)
+    ? await linesToDraft(
+        convex,
+        body.lines,
+        { ...(contactId ? { contactId } : {}), referenceDate, priceMode, currency },
+        issues,
+      )
     : (base?.values.draft.lines ?? []);
   const { values, issues: more } = wireToTemplate(
     { ...body, lines },
-    { currency: defaults.currency, language: defaults.language, priceMode: defaults.priceMode, paymentTerms: defaults.paymentTerms },
+    {
+      currency: defaults.currency,
+      language: defaults.language,
+      priceMode: defaults.priceMode,
+      paymentTerms: defaults.paymentTerms,
+    },
     base?.values,
   );
   issues.push(...more);
@@ -80,7 +93,9 @@ async function toValues(
     ...values,
     draft: {
       ...values.draft,
-      ...(defaults.paymentMethodId && !values.draft.paymentMethodId ? { paymentMethodId: defaults.paymentMethodId } : {}),
+      ...(defaults.paymentMethodId && !values.draft.paymentMethodId
+        ? { paymentMethodId: defaults.paymentMethodId }
+        : {}),
       ...(defaults.bankAccountId && !values.draft.bankAccountId ? { bankAccountId: defaults.bankAccountId } : {}),
     },
   };
@@ -138,7 +153,9 @@ export const recurringResource = defineResource("recurring", "Wiederkehrende Rec
     response: { status: 200, schema: recurringList, description: "Die Vorlagen" },
     handler: async ({ convex, query }) => {
       const r = await convex.query(api.recurring.list, { tab: query.state ?? "active" });
-      return { body: { data: r.rows.map((t) => serializeTemplate(t as unknown as TemplateRecord)), next_cursor: null } };
+      return {
+        body: { data: r.rows.map((t) => serializeTemplate(t as unknown as TemplateRecord)), next_cursor: null },
+      };
     },
   }),
   defineEndpoint({

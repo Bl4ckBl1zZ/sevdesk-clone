@@ -117,7 +117,13 @@ describe("REC-03 end conditions", () => {
     const s = monthly({ maxCount: 3 });
     expect(isEnded(s, 2)).toBe(false);
     expect(isEnded(s, 3)).toBe(true);
-    const plan = planRun({ schedule: s, generatedCount: 2, today: d("2027-06-01"), catchUpAutoMax: 10, finalize: false });
+    const plan = planRun({
+      schedule: s,
+      generatedCount: 2,
+      today: d("2027-06-01"),
+      catchUpAutoMax: 10,
+      finalize: false,
+    });
     expect(plan.occurrences).toHaveLength(1);
     expect(plan.ended).toBe(true);
   });
@@ -155,7 +161,13 @@ describe("REC-05/06 due occurrences and catch-up", () => {
   });
 
   test("REC-07 without finalise automation nothing is automated", () => {
-    const plan = planRun({ schedule: monthly(), generatedCount: 0, today: d("2026-11-01"), catchUpAutoMax: 3, finalize: false });
+    const plan = planRun({
+      schedule: monthly(),
+      generatedCount: 0,
+      today: d("2026-11-01"),
+      catchUpAutoMax: 3,
+      finalize: false,
+    });
     expect(plan.automated).toBe(false);
   });
 });
@@ -173,7 +185,9 @@ describe("REC-10 skip on resume, REC-12 run now, REC-13 preview", () => {
     const plan = planRunNow({ schedule: monthly(), generatedCount: 0, finalize: false });
     expect(plan.occurrences.map((o) => o.date)).toEqual(["2026-11-01"]);
     expect(plan.nextDate).toBe("2026-12-01");
-    expect(planRunNow({ schedule: monthly({ maxCount: 1 }), generatedCount: 1, finalize: false }).occurrences).toEqual([]);
+    expect(planRunNow({ schedule: monthly({ maxCount: 1 }), generatedCount: 1, finalize: false }).occurrences).toEqual(
+      [],
+    );
   });
 
   test("REC-13 T-REC-010 the next 12 occurrences with contiguous periods", () => {

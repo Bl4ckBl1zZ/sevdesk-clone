@@ -104,7 +104,13 @@ describe("REC-01/04/09 generation", () => {
     const t = makeT();
     const { owner, personId } = await setup(t);
     const values = templateValues(personId, {
-      schedule: { interval: "P1M", firstDate: "2026-11-01", maxCount: 3, billing: "in_advance", periodTextEnabled: false },
+      schedule: {
+        interval: "P1M",
+        firstDate: "2026-11-01",
+        maxCount: 3,
+        billing: "in_advance",
+        periodTextEnabled: false,
+      },
     });
     const { id } = await owner.mutation(api.recurring.create, { values });
     await runCron(t);
@@ -239,7 +245,10 @@ describe("REC-07/16 automation and to-dos", () => {
     await runCron(t);
     await settle(t);
     const [doc] = await docsOf(t, id);
-    await owner.mutation(api.corrections.cancel, { id: doc?._id as Id<"salesDocuments">, reason: "Vertrag beendet" } as never);
+    await owner.mutation(api.corrections.cancel, {
+      id: doc?._id as Id<"salesDocuments">,
+      reason: "Vertrag beendet",
+    } as never);
     expect((await openTodos(t)).some((n) => n.kind === "export_and_send")).toBe(false);
   });
 
@@ -319,7 +328,11 @@ describe("REC-10/11/12 pause, edit, run now", () => {
     const r = await owner.mutation(api.recurring.resume, { id, catchUp: false });
     expect(r.skipped).toEqual(["2026-11-01", "2026-12-01"]);
     const tpl = await owner.query(api.recurring.get, { id });
-    expect(tpl).toMatchObject({ nextDate: "2027-01-01", state: "active", skippedOccurrences: ["2026-11-01", "2026-12-01"] });
+    expect(tpl).toMatchObject({
+      nextDate: "2027-01-01",
+      state: "active",
+      skippedOccurrences: ["2026-11-01", "2026-12-01"],
+    });
     const audit = await t.run((ctx) => ctx.db.query("auditLog").collect());
     expect(audit.some((a) => a.action === "recurring.skip" && a.reason?.includes("01.11.2026"))).toBe(true);
     await runCron(t);
@@ -433,7 +446,15 @@ describe("REC-13/15 preview and boundaries", () => {
       automation: { finalize: true },
     });
     values.draft.lines = [
-      { kind: "item", productType: "service", name: "Kantine", quantityMilli: 31_000, unitCode: "C62", unitPriceMicros: 100_000, vatRateKey: "restaurant_food" },
+      {
+        kind: "item",
+        productType: "service",
+        name: "Kantine",
+        quantityMilli: 31_000,
+        unitCode: "C62",
+        unitPriceMicros: 100_000,
+        vatRateKey: "restaurant_food",
+      },
     ];
     const { id } = await owner.mutation(api.recurring.create, { values, confirmAutomation: true });
     expect(await runCron(t)).toMatchObject({ created: 1, finalized: 0 });

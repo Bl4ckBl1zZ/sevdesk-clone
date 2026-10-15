@@ -81,9 +81,7 @@ export async function generatedDocuments(ctx: ReadCtx, id: Id<"recurringTemplate
     .query("salesDocuments")
     .withIndex("by_recurringOccurrence", (q) => q.eq("recurringOccurrence.templateId", id))
     .collect();
-  return docs.sort((a, b) =>
-    (b.recurringOccurrence?.date ?? "").localeCompare(a.recurringOccurrence?.date ?? ""),
-  );
+  return docs.sort((a, b) => (b.recurringOccurrence?.date ?? "").localeCompare(a.recurringOccurrence?.date ?? ""));
 }
 
 /** Active templates with an occurrence due on `today` (the daily job's work list). */
@@ -439,7 +437,13 @@ async function refreshAmount(ctx: ModelCtx, id: Id<"recurringTemplates">): Promi
     t.amount.currency === amount.currency
   )
     return;
-  await auditedPatch(ctx, "recurringTemplates", id, { amount }, { action: "recurring.update", label: AUDIT_TABLE_LABEL(t) });
+  await auditedPatch(
+    ctx,
+    "recurringTemplates",
+    id,
+    { amount },
+    { action: "recurring.update", label: AUDIT_TABLE_LABEL(t) },
+  );
 }
 
 // ── generation (REC-05…07, REC-12, REC-15, REC-16) ────────────────────────────────────────────────────────
@@ -512,7 +516,9 @@ export async function generateOccurrences(
   for (const o of plan.occurrences) {
     const taken = await ctx.db
       .query("salesDocuments")
-      .withIndex("by_recurringOccurrence", (q) => q.eq("recurringOccurrence.templateId", id).eq("recurringOccurrence.date", o.date))
+      .withIndex("by_recurringOccurrence", (q) =>
+        q.eq("recurringOccurrence.templateId", id).eq("recurringOccurrence.date", o.date),
+      )
       .first();
     if (taken) continue; // REC-05: one document per (template, occurrence) — never a second one
     const od = occurrenceDraftFor(src, o, profile?.kleinunternehmer ?? []);
@@ -628,4 +634,3 @@ export function callerMayFinalize(a: ActorContext): boolean {
   if (a.channel === "api" || a.channel === "mcp") return canKeyDo(a.scopes ?? [], "invoices.finalize");
   return a.role !== undefined && canDo(a.role, "invoices.finalize");
 }
-
