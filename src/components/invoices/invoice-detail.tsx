@@ -505,6 +505,9 @@ function SnapshotView({ snapshot }: { snapshot: DocumentSnapshot | null }) {
           </span>
         )}
       </address>
+      {/* The frozen texts of the document (DOC-17), e.g. „Grund der Stornierung: …“ of a Storno (F04 §4.8). */}
+      {snapshot.texts.subject && <p className="font-medium text-sm">{snapshot.texts.subject}</p>}
+      {snapshot.texts.headText && <p className="whitespace-pre-line text-sm">{snapshot.texts.headText}</p>}
       {/* Narrow containers (phones) get a stacked list instead of a horizontally scrolling table. */}
       <div className="@container/lines">
         <ul className="flex flex-col divide-y text-sm @xl/lines:hidden">
@@ -576,6 +579,7 @@ function SnapshotView({ snapshot }: { snapshot: DocumentSnapshot | null }) {
           </dd>
         </dl>
       )}
+      {snapshot.texts.footText && <p className="whitespace-pre-line text-sm">{snapshot.texts.footText}</p>}
       {snapshot.notes.length > 0 && (
         <ul className="flex flex-col gap-1 text-muted-foreground text-sm">
           {snapshot.notes.map((n) => (

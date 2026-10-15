@@ -387,6 +387,8 @@ export const check = query({
     const loaded = await loadDocumentContext(ctx, probe, now);
     const draft: DraftDocument = {
       ...(draftValues as unknown as DraftDocument),
+      // Not part of the editable values (set when the correction draft is created, INV-12/13).
+      ...(probe.correctionKind ? { correctionKind: probe.correctionKind } : {}),
       ...(loaded.contact?.context.buyer.address ? { billingAddress: loaded.contact.context.buyer.address } : {}),
     };
     const r = validateDocument(draft, loaded.ctx);

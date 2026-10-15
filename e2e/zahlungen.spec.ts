@@ -43,6 +43,8 @@ async function finalisedInvoice(page: Page, opts: { skonto?: boolean } = {}) {
   await page.getByLabel("Menge").first().fill("1");
   await page.getByLabel("Einzelpreis").first().fill("100");
   if (opts.skonto) {
+    // The Skonto period must be shorter than the due period (UST-09); the company default is 14 days.
+    await page.getByLabel("Zahlungsziel (Tage)").fill("30");
     await page.getByLabel("Skonto (%)").fill("2");
     await page.getByLabel("Skonto-Frist (Tage)").fill("14");
   }

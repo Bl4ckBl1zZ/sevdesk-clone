@@ -248,6 +248,14 @@ describe("INV-12 INV-13 INV-15 corrections", { timeout: 30_000 }, () => {
       originalId: id,
       kind: "rectification",
     });
+    // The editor's live check sends only the draft values; the correction kind comes from the stored draft.
+    const detail = await owner.query(api.invoices.get, { id: rid });
+    const live = await owner.query(api.invoices.check, {
+      id: rid,
+      values: detail && "values" in detail ? detail.values : {},
+    });
+    expect(live?.findings.map((f) => f.code)).not.toContain("correction_not_reducing");
+    expect(live?.canFinalize).toBe(true);
     const before = (await journal(t)).length;
     const r = await owner.action(api.invoices.finalize, { id: rid, version: (await doc(t, rid)).version });
     await settle(t);

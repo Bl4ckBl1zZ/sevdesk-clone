@@ -49,6 +49,12 @@ async function settleAnimations(page: Page) {
     .catch(() => {
       // Infinite animations (spinners) never settle; analyse anyway.
     });
+  // Base UI popups mark their enter/exit transition; a half-faded backdrop fails color-contrast on the page behind.
+  await page
+    .waitForFunction(() => !document.querySelector("[data-starting-style],[data-ending-style]"), undefined, {
+      timeout: 5_000,
+    })
+    .catch(() => {});
 }
 
 const NAVIGATED = /Execution context was destroyed|navigat|Target page, context or browser has been closed/i;

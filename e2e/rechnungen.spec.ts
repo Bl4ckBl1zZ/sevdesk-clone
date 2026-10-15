@@ -42,7 +42,7 @@ async function draftWithLine(page: Page, line: { name: string; price: string; ty
   await page.getByLabel("Bezeichnung (Pos. 1)").fill(line.name);
   await page.getByLabel("Menge").first().fill("1");
   await page.getByLabel("Einzelpreis").first().fill(line.price);
-  if (line.type) await page.getByLabel("Art").first().selectOption(line.type);
+  if (line.type) await page.getByLabel("Art", { exact: true }).first().selectOption(line.type);
 }
 
 async function saveAndFinalize(page: Page): Promise<string> {
@@ -173,4 +173,10 @@ test("KU-02 Kleinunternehmer: the invoice shows no VAT and the § 19 note", asyn
   await expect(page.getByTestId("gross")).toHaveText("50,00 €", { timeout: 20_000 });
   await saveAndFinalize(page);
   await expect(page.getByText(/§ 19/).filter({ visible: true }).first()).toBeVisible();
+
+  // Back to Regelbesteuerung: the later specs (Zahlungen, Angebote) expect 19 % VAT on the shared deployment.
+  await page.goto("/einstellungen/steuern");
+  await page.getByRole("radio", { name: "Nein, Regelbesteuerung" }).check();
+  await page.getByRole("button", { name: "Speichern" }).first().click();
+  await expect(page.getByText(/Gespeichert/).first()).toBeVisible({ timeout: 20_000 });
 });

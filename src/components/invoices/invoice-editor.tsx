@@ -20,12 +20,14 @@ import {
   documentPath,
   documentRoute,
   isInvoiceDraftType,
+  isLetterType,
 } from "@/domain/documents/doc-types";
 import { RC13B_TYPE_KEYS, rc13bLabelDe } from "@/domain/rules/rc13b-types";
 import { VAT_RATE_KEY_LABELS } from "@/domain/rules/vat-rates";
 import type { DraftValues } from "@/domain/schemas/documents";
 import { useAuthedQuery } from "@/hooks/use-authed-query";
 import { cn } from "@/lib/utils";
+import { useDocTypeLabel } from "./corrections";
 import {
   type EditorLine,
   type EditorState,
@@ -54,7 +56,7 @@ function useDebounced<T>(value: T, ms: number): T {
  * „Entwurf speichern“ and „Fertigstellen“ (finalise dialog). Type-specific fields follow `typeFeatures()`.
  */
 export function InvoiceEditor({
-  id,
+  id: idProp,
   initial,
   version,
   presetContactId,
@@ -91,7 +93,14 @@ export function InvoiceEditor({
   // New drafts in „Rechnungen“ may switch between Rechnung and Abschlagsrechnung; the type is fixed once saved.
   const type = state.type;
   const features = typeFeatures(type);
-  const typeLabel = DOC_TYPE_LABEL_DE[type];
+  const docLabel = useDocTypeLabel();
+  // Rechnungskorrektur vs. Rechnungsberichtigung (draft values carry the correction kind, F04 §4.1).
+  const correctionKind = (initial as { correctionKind?: string } | undefined)?.correctionKind;
+  const typeLabel = isLetterType(type) ? DOC_TYPE_LABEL_DE[type] : docLabel(type, correctionKind);
+  // After „Entwurf speichern“ on /neu this instance stays on screen until the detail page has loaded: keep the
+  // created id (no second draft) and the actions disabled (`navigating`) until the router replaces the page.
+  const [id, setId] = useState(idProp);
+  const [navigating, setNavigating] = useState(false);
   const [dirty, setDirty] = useState(!id);
   const [ver, setVer] = useState(version);
   const [saving, setSaving] = useState(false);
@@ -149,6 +158,9 @@ export function InvoiceEditor({
       if (!id) {
         const r = await run(() => createDraft({ values }), t("saved"));
         if (!r.ok) return null;
+        setId(r.value.id);
+        setVer(1);
+        setNavigating(true);
         setDirty(false);
         router.replace(documentPath(type, r.value.id) as Route);
         return r.value.id;
@@ -738,14 +750,14 @@ export function InvoiceEditor({
         <Button
           variant="outline"
           className="h-11 flex-1 md:h-9 md:flex-none"
-          disabled={saving}
+          disabled={saving || navigating}
           onClick={() => void save()}
         >
           {t("save")}
         </Button>
         <Button
           className="h-11 flex-1 md:h-9 md:flex-none"
-          disabled={saving || (!!id && !dirty && check?.canFinalize === false)}
+          disabled={saving || navigating || (!!id && !dirty && check?.canFinalize === false)}
           onClick={async () => {
             const saved = await save();
             if (saved && id) setConfirmFinalize(true);
@@ -757,7 +769,7 @@ export function InvoiceEditor({
 
       {confirmFinalize && (
         <ConfirmDialog
-          title={type === "invoice" ? t("finalizeTitle") : t("finalizeTitleDoc", { label: typeLabel })}
+          title={t("finalizeTitleDoc", { label: typeLabel })}
           description={isInvoiceDraftType(type) ? t("finalizeDescription") : t("finalizeDescriptionLetter")}
           confirmLabel={t("finalizeConfirm")}
           confirmDisabled={saving || !canFinalize}

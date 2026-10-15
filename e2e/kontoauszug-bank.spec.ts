@@ -74,7 +74,12 @@ test("T07-151 BNK-030 BNK-110 import CAMT.053 + PDF and the CSV of the same mont
 
   await page.getByRole("link", { name: /Revolut EUR/ }).click();
   await expect(h1(page, "Revolut EUR")).toBeVisible();
-  await page.getByRole("tab", { name: "Kontoauszüge" }).click();
+  // Dev mode: a click before hydration is lost, so retry until the tab is selected.
+  const statementsTab = page.getByRole("tab", { name: "Kontoauszüge" });
+  await expect(async () => {
+    await statementsTab.click();
+    await expect(statementsTab).toHaveAttribute("aria-selected", "true", { timeout: 2_000 });
+  }).toPass({ timeout: 20_000 });
   await expect(page.getByText("abgestimmt", { exact: true }).first()).toBeVisible();
   await expect(page.getByText("nicht abgestimmt")).toHaveCount(0);
   await expect(page.getByRole("link", { name: /PDF-Kontoauszug: eur-2026-10.statement.pdf/ })).toBeVisible();

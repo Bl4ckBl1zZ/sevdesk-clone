@@ -45,7 +45,7 @@ async function newDraft(page: Page, line: { name: string; price: string }, advan
   await selectByText(page.getByRole("combobox", { name: "Kunde", exact: true }), CUSTOMER);
   await expect(page.getByTestId("buyer")).toContainText(CUSTOMER);
   if (advance) {
-    await page.getByLabel("Belegart").selectOption("advance_invoice");
+    await page.getByRole("combobox", { name: "Belegart" }).selectOption("advance_invoice");
     await page.getByLabel("Auftrag / Bestellnummer").fill(advance.order);
     await page.getByLabel("Auftragsdatum").fill(today());
     await expect(page.getByLabel("Voraussichtlicher Leistungszeitpunkt")).toBeVisible();
@@ -63,7 +63,7 @@ async function finalizeDraft(page: Page, title: string): Promise<string> {
     timeout: 20_000,
   });
   await page.getByRole("button", { name: "Fertigstellen" }).click();
-  const dialog = page.getByRole("dialog", { name: "Rechnung fertigstellen?" });
+  const dialog = page.getByRole("dialog", { name: `${title} fertigstellen?` });
   await expect(dialog.getByRole("button", { name: "Jetzt fertigstellen" })).toBeEnabled({ timeout: 20_000 });
   await dialog.getByRole("button", { name: "Jetzt fertigstellen" }).click();
   const heading = h1(page, new RegExp(`^${title} \\S+$`));

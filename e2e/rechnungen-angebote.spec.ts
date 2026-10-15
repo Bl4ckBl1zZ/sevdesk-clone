@@ -59,7 +59,8 @@ async function finalize(page: Page, label: string, route: string, save = true): 
   const dialog = page.getByRole("dialog", { name: `${label} fertigstellen?` });
   await expect(dialog).toBeVisible();
   await dialog.getByRole("button", { name: "Jetzt fertigstellen" }).click();
-  const heading = h1(page, new RegExp(`^${label} \\S+$`));
+  // Not „Angebot (Entwurf)“: a revision opens as a draft whose heading has the same shape (QUO-06).
+  const heading = h1(page, new RegExp(`^${label} [^\\s(]\\S*$`));
   await expect(heading).toBeVisible({ timeout: 60_000 });
   return ((await heading.textContent()) ?? "").replace(`${label} `, "").trim();
 }
