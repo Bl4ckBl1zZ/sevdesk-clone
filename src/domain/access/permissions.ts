@@ -160,6 +160,18 @@ export const PERMISSIONS = {
    * document export only the archive copy and the audit entry are written (05 §4.4: `payments:read`).
    */
   "payments.receipt": { roles: STAFF_READ, scope: "payments:read", write: false },
+  /**
+   * F05 dunning: reminder drafts (DUN-008), withdrawal (DUN-009), pause/dispute/block/hand-over (DUN-034/042) and the
+   * manual Zugang override (PAY-052). Drafts are free (W tools); finalising a reminder needs `invoices.finalize`.
+   */
+  "dunning.write": { roles: ["owner", "bookkeeper"], scope: "dunning:write", write: true },
+  /** F05 DUN-030/031 dunning run (⚠: MCP needs a `dunning_run` token from `dunning_preview`; never sends). */
+  "dunning.run": { roles: ["owner", "bookkeeper"], scope: "dunning:write", write: true, confirm: "dunning_run" },
+  /**
+   * F05 DUN-001 policies and Einstellungen › Mahnwesen (05 §2.2 `dunning:manage`): a change alters what the daily run
+   * creates and finalises; settings writes are owner-only (02 §4.3).
+   */
+  "dunning.manage": { roles: ["owner"], scope: "dunning:manage", write: true },
   /** F07 BNK-046 confirming a bank match runs F05 `payments.record` (⚠ `bank_match_confirm`). */
   "banking.match": {
     roles: ["owner", "bookkeeper"],

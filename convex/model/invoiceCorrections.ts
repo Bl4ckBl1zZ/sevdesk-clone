@@ -25,6 +25,7 @@ import { isCalendarDate } from "../../src/domain/time/calendar-date";
 import type { Doc, Id } from "../_generated/dataModel";
 import { appError } from "../lib/errors";
 import { auditedInsert, auditedPatch } from "./audit";
+import { onDocumentCancelled as dunningOnCancelled } from "./dunning";
 import { chainMembers, groupsOfDoc, setRegisterStatus, storedSnapshot } from "./invoiceChains";
 import { postJournalEntry } from "./journal";
 import { assignCounterNumber } from "./numberRanges";
@@ -268,6 +269,7 @@ export async function cancelDocument(
     { action: "document.cancelled", label: `${label(original)} → ${assigned.number}`, ...(reason ? { reason } : {}) },
   );
   await setRegisterStatus(ctx, original.number, "cancelled_by_storno");
+  await dunningOnCancelled(ctx, original._id); // EC-077: the dunning case closes, reminders stay archived
   if (original.type === "correction" && original.correctionKind === "credit" && original.correctsId) {
     // INV-15: the credited invoice gets back what the credit absorbed.
     const credited = await getDocument(ctx, original.correctsId);

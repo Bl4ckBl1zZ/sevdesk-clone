@@ -703,6 +703,144 @@
     "wrapper": "query",
     "permission": "documents.read"
   },
+  "dunning:archive": {
+    "kind": "mutation",
+    "visibility": "public",
+    "wrapper": "mutation",
+    "permission": "dunning.manage"
+  },
+  "dunning:caseAction": {
+    "kind": "mutation",
+    "visibility": "public",
+    "wrapper": "mutation",
+    "permission": "dunning.write"
+  },
+  "dunning:cockpit": {
+    "kind": "query",
+    "visibility": "public",
+    "wrapper": "query",
+    "permission": "payments.read"
+  },
+  "dunning:contactDunning": {
+    "kind": "query",
+    "visibility": "public",
+    "wrapper": "query",
+    "permission": "contacts.read"
+  },
+  "dunning:createPolicy": {
+    "kind": "mutation",
+    "visibility": "public",
+    "wrapper": "mutation",
+    "permission": "dunning.manage"
+  },
+  "dunning:createReminder": {
+    "kind": "mutation",
+    "visibility": "public",
+    "wrapper": "mutation",
+    "permission": "dunning.write"
+  },
+  "dunning:deleteReminder": {
+    "kind": "mutation",
+    "visibility": "public",
+    "wrapper": "mutation",
+    "permission": "dunning.write"
+  },
+  "dunning:finalize": {
+    "kind": "mutation",
+    "visibility": "public",
+    "wrapper": "mutation",
+    "permission": "invoices.finalize"
+  },
+  "dunning:forInvoice": {
+    "kind": "query",
+    "visibility": "public",
+    "wrapper": "query",
+    "permission": "payments.read"
+  },
+  "dunning:interest": {
+    "kind": "query",
+    "visibility": "public",
+    "wrapper": "query",
+    "permission": "payments.read"
+  },
+  "dunning:overrideZugang": {
+    "kind": "mutation",
+    "visibility": "public",
+    "wrapper": "mutation",
+    "permission": "dunning.write"
+  },
+  "dunning:preview": {
+    "kind": "query",
+    "visibility": "public",
+    "wrapper": "query",
+    "permission": "payments.read"
+  },
+  "dunning:refreshOverdueCron": {
+    "kind": "mutation",
+    "visibility": "internal",
+    "wrapper": "systemMutation",
+    "job": "cron.receivables.refreshOverdue"
+  },
+  "dunning:reminder": {
+    "kind": "query",
+    "visibility": "public",
+    "wrapper": "query",
+    "permission": "documents.read"
+  },
+  "dunning:run": {
+    "kind": "mutation",
+    "visibility": "public",
+    "wrapper": "mutation",
+    "permission": "dunning.run"
+  },
+  "dunning:runCron": {
+    "kind": "mutation",
+    "visibility": "internal",
+    "wrapper": "systemMutation",
+    "job": "cron.dunning.run"
+  },
+  "dunning:saveContact": {
+    "kind": "mutation",
+    "visibility": "public",
+    "wrapper": "mutation",
+    "permission": "contacts.write"
+  },
+  "dunning:saveSettings": {
+    "kind": "mutation",
+    "visibility": "public",
+    "wrapper": "mutation",
+    "permission": "dunning.manage"
+  },
+  "dunning:settings": {
+    "kind": "query",
+    "visibility": "public",
+    "wrapper": "query",
+    "permission": "payments.read"
+  },
+  "dunning:termsWarning": {
+    "kind": "query",
+    "visibility": "public",
+    "wrapper": "query",
+    "permission": "contacts.read"
+  },
+  "dunning:updatePolicy": {
+    "kind": "mutation",
+    "visibility": "public",
+    "wrapper": "mutation",
+    "permission": "dunning.manage"
+  },
+  "dunning:updateReminder": {
+    "kind": "mutation",
+    "visibility": "public",
+    "wrapper": "mutation",
+    "permission": "dunning.write"
+  },
+  "dunning:withdraw": {
+    "kind": "mutation",
+    "visibility": "public",
+    "wrapper": "mutation",
+    "permission": "dunning.write"
+  },
   "idempotency:begin": {
     "kind": "mutation",
     "visibility": "public",

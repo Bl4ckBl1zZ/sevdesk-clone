@@ -34,4 +34,14 @@ crons.cron("deadlines.notify (CET)", "0 7 * * *", internal.invoices.notifyDeadli
 // and restart (F04 DOC-28, EC-005); a no-op while no document is `pending`.
 crons.interval("documents.artifactsWatchdog", { minutes: 10 }, internal.invoices.artifactsWatchdog, {});
 
+// receivables.refreshOverdue — daily 00:15 Europe/Berlin (22:15 / 23:15 UTC): overdue stamp once per invoice and the
+// optional „Bald fällig“ to-dos (F05 PAY-044, DUN-053); idempotent (stamp / dedupe key).
+crons.cron("receivables.refreshOverdue (CEST)", "15 22 * * *", internal.dunning.refreshOverdueCron, {});
+crons.cron("receivables.refreshOverdue (CET)", "15 23 * * *", internal.dunning.refreshOverdueCron, {});
+
+// dunning.run — daily 07:00 Europe/Berlin (05:00 UTC in summer, 06:00 UTC in winter; F05 DUN-030). The job gates on
+// the Berlin hour and runs once per day; it creates drafts or finalises reminders and never sends anything.
+crons.cron("dunning.run (CEST)", "0 5 * * *", internal.dunning.runCron, {});
+crons.cron("dunning.run (CET)", "0 6 * * *", internal.dunning.runCron, {});
+
 export default crons;

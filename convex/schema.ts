@@ -635,6 +635,15 @@ export default defineSchema({
     useCollectiveDebtor: v.optional(v.boolean()),
     iban: v.optional(v.string()),
     bic: v.optional(v.string()),
+    /** F05 DUN-002 / PAY-053 (03 §2 `dunning`): policy, „Nicht mahnen“, „Zahlungstermin kalendermäßig vereinbart“. */
+    dunning: v.optional(
+      v.object({
+        policyId: v.optional(v.id("dunningPolicies")),
+        blocked: v.optional(v.boolean()),
+        blockedReason: v.optional(v.string()),
+        calendarDueDateAgreed: v.optional(v.boolean()),
+      }),
+    ),
     tags: v.array(v.id("tags")),
     customFields: v.record(v.string(), v.any()),
     notes: v.optional(v.string()),
@@ -1134,6 +1143,80 @@ export default defineSchema({
     .index("by_fiscalYear", ["fiscalYear", "number"])
     .index("by_contact", ["contactId"]),
 
+  // ── 03 §6 dunning (F05 §3.7–§3.10, §4.4–§4.6) ─────────────────────────────────────────────────────────────
+  // Policies are settings (mutable, audited); cases are mutable bookkeeping of one invoice; runs are append-only
+  // (DUN-037). The app never sends reminders (B2): no e-mail template, no send switch.
+  dunningPolicies: defineTable({
+    name: v.string(),
+    isDefault: v.boolean(),
+    appliesTo: v.object({ consumer: v.boolean(), business: v.boolean() }),
+    steps: v.array(
+      v.object({
+        level: v.number(),
+        daysAfter: v.number(),
+        title: v.string(),
+        feeCents: v.number(),
+        addInterest: v.boolean(),
+        addFlatFee40: v.boolean(),
+        newDueDays: v.number(),
+        textTemplateId: v.optional(v.id("textTemplates")),
+        autoFinalize: v.boolean(),
+      }),
+    ),
+    dueSoonDays: v.optional(v.number()),
+    dueSoonTodo: v.boolean(),
+    minOpenAmountCents: v.number(),
+    pauseOnPartialPaymentDays: v.number(),
+    stopAfterLastLevel: v.boolean(),
+    archivedAt: v.optional(v.number()),
+    version: v.number(),
+  }),
+  dunningCases: defineTable({
+    invoiceId: v.id("salesDocuments"),
+    policyId: v.optional(v.id("dunningPolicies")),
+    currentLevel: v.number(),
+    status: v.union(v.literal("active"), v.literal("paused"), v.literal("closed"), v.literal("handed_over")),
+    pausedUntil: v.optional(v.string()),
+    pausedReason: v.optional(v.string()),
+    disputed: v.optional(v.object({ at: v.number(), reason: v.string() })),
+    handedOver: v.optional(v.object({ at: v.number(), partner: v.string() })),
+    defaultStartDate: v.optional(v.string()),
+    defaultRoute: v.optional(v.union(v.literal("calendar"), v.literal("reminder"), v.literal("30_days"))),
+    flatFeeCharged: v.boolean(),
+    /** The reminder that first claimed the 40 € (EC-DUN-02 message, DUN-009 reset). */
+    flatFeeReminderId: v.optional(v.id("salesDocuments")),
+    reminders: v.array(v.id("salesDocuments")),
+    nextActionDate: v.optional(v.string()),
+    limitationDate: v.string(),
+    /** DUN-035: reopened by a reversal — automation waits until this day. */
+    graceUntil: v.optional(v.string()),
+    /** DUN-055: reminders whose `todo_mark_sent` was logged (once each). */
+    todoLogged: v.optional(v.array(v.id("salesDocuments"))),
+  }).index("by_invoice", ["invoiceId"]),
+  dunningRuns: defineTable({
+    date: v.string(),
+    mode: v.union(v.literal("auto"), v.literal("manual")),
+    evaluated: v.number(),
+    actions: v.array(
+      v.object({
+        invoiceId: v.id("salesDocuments"),
+        action: v.union(
+          v.literal("create_draft"),
+          v.literal("finalize"),
+          v.literal("skip"),
+          v.literal("todo_mark_sent"),
+        ),
+        level: v.optional(v.number()),
+        skipReason: v.optional(v.string()),
+        reminderId: v.optional(v.id("salesDocuments")),
+        error: v.optional(v.string()),
+      }),
+    ),
+    startedAt: v.number(),
+    finishedAt: v.optional(v.number()),
+    actor: vActor,
+  }).index("by_date", ["date"]),
+
   // 03 §4 salesDocuments 🔒 (F04). P1 invoices core: the fields plain invoices use; quotes/advances/Storno/
   // corrections/reminders add theirs with their slices (the matrix row in src/domain/audit/immutability.ts already
   // covers the 03 §11 whitelist). Drafts carry the live contact; finalisation freezes the snapshot (DOC-22/27).
@@ -1199,6 +1282,52 @@ export default defineSchema({
     ),
     totals: vDocumentTotals,
     openAmountCents: v.optional(v.number()),
+    // ── receivables (F05 §3.7–§3.10) ──
+    /** Reminders (type `reminder`): the dunned invoice, level and the frozen claim (DUN-004/005). */
+    reminder: v.optional(
+      v.object({
+        invoiceId: v.id("salesDocuments"),
+        level: v.number(),
+        title: v.string(),
+        feeCents: v.number(),
+        interestCents: v.number(),
+        flatFee40Cents: v.number(),
+        newDueDate: v.string(),
+        newDueDays: v.number(),
+        totalCents: v.number(),
+        openAmountCents: v.number(),
+        interestSegments: v.optional(
+          v.array(
+            v.object({
+              from: v.string(),
+              to: v.string(),
+              days: v.number(),
+              principalCents: v.number(),
+              rateBp: v.number(),
+              amountCents: v.number(),
+            }),
+          ),
+        ),
+        defaultStartDate: v.optional(v.string()),
+        /** Manual amounts kept on the draft (DUN-008); recomputed values apply where absent. */
+        manual: v.optional(
+          v.object({
+            feeCents: v.optional(v.number()),
+            interestCents: v.optional(v.number()),
+            interestReason: v.optional(v.string()),
+            includeFlatFee: v.optional(v.boolean()),
+            newDueDate: v.optional(v.string()),
+          }),
+        ),
+        createdByRun: v.optional(v.boolean()),
+      }),
+    ),
+    /** „Nicht mahnen“ on the invoice (DUN-002). */
+    dunningBlocked: v.optional(v.object({ reason: v.string(), at: v.number() })),
+    /** „Bestritten“ (DUN-034). */
+    disputed: v.optional(v.object({ at: v.number(), reason: v.string() })),
+    /** `invoice.overdue` / due-soon to-do emitted once (PAY-044, DUN-053). */
+    overdueNotifiedAt: v.optional(v.number()),
     zugang: v.optional(
       v.object({
         date: v.string(),
@@ -1320,6 +1449,7 @@ export default defineSchema({
     .index("by_artifactStatus", ["artifactStatus"])
     .index("by_firstExportedAt", ["status", "firstExportedAt"])
     .index("by_paymentStatus_due", ["paymentStatus", "dueDate"])
+    .index("by_reminderInvoice", ["reminder.invoiceId"])
     .searchIndex("search", { searchField: "contactName", filterFields: ["type", "status"] }),
 
   // 03 §4 documentLines 🔒 (frozen with the parent; the guarded db passes the parent status to the matrix).
