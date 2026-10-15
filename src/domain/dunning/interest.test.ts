@@ -78,7 +78,15 @@ describe("DUN-020 MAHN-02 § 288 interest calculator (golden G1–G5, F05 §4.7)
       from: d("2027-01-01"),
       to: d("2027-01-31"),
       margin: "b2b",
-      overrides: [{ id: "o1", validFrom: d("2027-01-01"), validTo: d("2027-06-30"), value: { rateBp: 200 }, source: "Bundesbank" }],
+      overrides: [
+        {
+          id: "o1",
+          validFrom: d("2027-01-01"),
+          validTo: d("2027-06-30"),
+          value: { rateBp: 200 },
+          source: "Bundesbank",
+        },
+      ],
     });
     expect(r.ok && r.value.segments[0]?.rateBp).toBe(1100);
   });
