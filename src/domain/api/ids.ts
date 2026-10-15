@@ -29,6 +29,8 @@ export const ID_PREFIXES = {
   bankTransactions: "btx_",
   cashTransfers: "csh_",
   openingItems: "opi_",
+  // F04 §3.4 recurring invoice templates (05 §3 „IDs“: `rec_`).
+  recurringTemplates: "rec_",
 } as const;
 
 export type IdTable = keyof typeof ID_PREFIXES;

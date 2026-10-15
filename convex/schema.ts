@@ -1308,10 +1308,16 @@ export default defineSchema({
     cancellation: v.optional(
       v.object({ at: v.number(), reason: v.string(), byDocumentId: v.optional(v.id("salesDocuments")) }),
     ),
+    // ── recurring invoices (F04 §3.4, REC-05) ──────────────────────────────────────────────────────────────
+    /** The template this invoice was generated from (detail page „Erzeugte Rechnungen“, REST filter). */
+    recurringTemplateId: v.optional(v.id("recurringTemplates")),
+    /** REC-05 idempotency key (templateId, occurrence date) — unique, enforced in convex/model/recurring.ts. */
+    recurringOccurrence: v.optional(v.object({ templateId: v.id("recurringTemplates"), date: v.string() })),
     createdBy: vActor,
     channel: vChannel,
     version: v.number(),
   })
+    .index("by_recurringOccurrence", ["recurringOccurrence.templateId", "recurringOccurrence.date"])
     .index("by_type_status_date", ["type", "status", "documentDate"])
     .index("by_chainRoot", ["chainRootId"])
     .index("by_correctsId", ["correctsId"])
@@ -1428,6 +1434,58 @@ export default defineSchema({
     .index("by_dedupe", ["dedupeKey"])
     .index("by_open", ["resolvedAt", "createdAt"])
     .index("by_entity", ["entity.table", "entity.id"]),
+
+  // 03 §4 recurringTemplates (F04 §3.4 REC-01…16). Mutable configuration (audited); "Beendet" is derived (REC-03).
+  recurringTemplates: defineTable({
+    name: v.string(),
+    /** UI "Pausiert" = inactive (F04 §4.2.10). */
+    status: v.union(v.literal("active"), v.literal("inactive")),
+    /** The invoice draft content without dates — validated with `templateDraftSchema` on every write. */
+    draft: v.any(),
+    /** Display/index cache of `draft.contactId`. */
+    contactId: v.optional(v.id("contacts")),
+    contactName: v.optional(v.string()),
+    /** BT-12 of every generated invoice (REC-09); absent → the template name. */
+    contractReference: v.optional(v.string()),
+    schedule: v.object({
+      interval: v.union(
+        v.literal("P7D"),
+        v.literal("P14D"),
+        v.literal("P1M"),
+        v.literal("P2M"),
+        v.literal("P3M"),
+        v.literal("P6M"),
+        v.literal("P1Y"),
+        v.literal("P2Y"),
+        v.literal("P3Y"),
+        v.literal("P4Y"),
+        v.literal("P5Y"),
+      ),
+      firstDate: v.string(),
+      nextDate: v.string(),
+      endDate: v.optional(v.string()),
+      maxCount: v.optional(v.number()),
+      billing: v.union(v.literal("in_advance"), v.literal("in_arrears")),
+      periodTextEnabled: v.boolean(),
+    }),
+    /** REC-16: finalise only, never export or send. */
+    automation: v.object({ finalize: v.boolean() }),
+    /** REC-14: the UI confirmation of the first activation; automation is effective only once confirmed. */
+    automationConfirmedAt: v.optional(v.number()),
+    automationConfirmedBy: v.optional(vActor),
+    /** REC-10 „überspringen“ (audited). */
+    skippedOccurrences: v.array(v.object({ date: v.string(), at: v.number(), actor: vActor })),
+    generatedCount: v.number(),
+    lastGeneratedId: v.optional(v.id("salesDocuments")),
+    /** Display cache of the next invoice's totals at the last save/run (list column „Betrag“). */
+    amount: v.optional(v.object({ netCents: v.number(), grossCents: v.number(), currency: v.string() })),
+    /** REC-01: a template with generated invoices is archived instead of deleted. */
+    archivedAt: v.optional(v.number()),
+    createdBy: vActor,
+    version: v.number(),
+  })
+    .index("by_status", ["status"])
+    .index("by_contact", ["contactId"]),
 
   // Dev/test only (not in 03): the in-memory auth-mail transport (AUTH_MAIL_SENDER=memory) stores mails here so
   // integration and E2E tests can read sign-in codes (07 §3.2). Never written with the Cloudflare transport.
