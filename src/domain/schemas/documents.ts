@@ -5,7 +5,7 @@
  */
 import { z } from "zod";
 import { SEND_CHANNELS } from "../documents/dispatch";
-import { DRAFT_TYPES } from "../documents/doc-types";
+import { DRAFT_TYPES, INVOICE_DRAFT_TYPES } from "../documents/doc-types";
 import { TAX_CASES } from "../tax/tax-case";
 import { isCalendarDate } from "../time/calendar-date";
 
@@ -73,6 +73,11 @@ export const draftLineSchema = z.object({
   sourceLineId: z.string().optional(),
 });
 
+export { INVOICE_DRAFT_TYPES };
+
+/** Standalone advance chain: the customer's order (number + date) the Abschlagsrechnungen refer to (INV-03). */
+export const chainOrderSchema = z.object({ number: z.string().max(200), date: calendarDate });
+
 export const draftSchema = z.object({
   type: z.enum(DRAFT_TYPES),
   contactId: z.string().optional(),
@@ -131,6 +136,7 @@ export const draftSchema = z.object({
   deliveryTerms: optionalText(5000),
   /** Delivery notes (QUO-09): print prices (default off). */
   showPrices: z.boolean().optional(),
+  chainOrder: chainOrderSchema.optional(),
   lines: z.array(draftLineSchema).max(2500),
 });
 

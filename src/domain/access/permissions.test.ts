@@ -49,6 +49,7 @@ const EXPECTED: Record<Permission, readonly MemberRole[]> = {
   "documents.export": ["owner", "bookkeeper", "viewer", "auditor"],
   "invoices.finalize": ["owner", "bookkeeper"],
   "invoices.send": ["owner", "bookkeeper"],
+  "invoices.cancel": ["owner", "bookkeeper"],
 };
 
 describe("permission matrix (02 §4.3)", () => {
@@ -129,6 +130,12 @@ describe("permission matrix (02 §4.3)", () => {
   test("MCP-004 contacts.merge is a ⚠ action that needs a contact_merge confirm token", () => {
     expect(confirmIntentFor("contacts.merge")).toBe("contact_merge");
     expect(confirmIntentFor("contacts.write")).toBeUndefined();
+  });
+
+  test("INV-10 MCP-004 invoices.cancel is a ⚠ action that needs an invoice_cancel confirm token and a fresh session", () => {
+    expect(confirmIntentFor("invoices.cancel")).toBe("invoice_cancel");
+    expect(PERMISSIONS["invoices.cancel"].scope).toBe("invoices:cancel");
+    expect(PERMISSIONS["invoices.cancel"].fresh).toBe(true);
   });
 
   test("API-002 key creation needs a fresh session, revocation does not (EC-186)", () => {

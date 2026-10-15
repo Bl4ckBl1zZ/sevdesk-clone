@@ -40,11 +40,12 @@ import {
   type SendChannel,
 } from "@/domain/documents/dispatch";
 import type { DisplayStatus } from "@/domain/documents/display-status";
-import { DOC_TYPE_LABEL_DE, type DraftType, documentRoute } from "@/domain/documents/doc-types";
+import { DOC_TYPE_LABEL_DE, type DraftType, documentRoute, isLetterType } from "@/domain/documents/doc-types";
 import type { DocumentSnapshot } from "@/domain/documents/snapshot";
 import { formatMicros, formatMilli } from "@/domain/money/format";
 import type { DraftValues } from "@/domain/schemas/documents";
 import { useAuthedQuery } from "@/hooks/use-authed-query";
+import { CorrectionActions, DraftBanner, docTypeKey, RelationsPanel } from "./corrections";
 import { ChainCard, DocumentFlowActions } from "./document-actions";
 import { InvoiceEditor } from "./invoice-editor";
 import { DECISION_LABELS, downloadExport, FORMAT_LABELS, InvoiceStatusBadge, money } from "./invoice-shared";
@@ -82,6 +83,7 @@ function InvoiceDetailInner({ id }: { id: Id<"salesDocuments"> }) {
   const t = useTranslations("invoices.detail");
   const tDoc = useTranslations("documents.detail");
   const tNav = useTranslations("nav");
+  const tc = useTranslations("invoiceCorrections");
   const data = useAuthedQuery(api.invoices.get, { id });
   const chain = useAuthedQuery(api.documentFlows.chain, { id });
   const canWrite = useCan("documents.write");
@@ -101,8 +103,10 @@ function InvoiceDetailInner({ id }: { id: Id<"salesDocuments"> }) {
   }
   const status = data.displayStatus as { token: DisplayStatus; label: string };
   const typeLabel = DOC_TYPE_LABEL_DE[type];
+  const letter = isLetterType(type);
+  const kind = docTypeKey(data.doc.type, data.doc.correctionKind);
   if (data.doc.status === "draft") {
-    const draftTitle = type === "invoice" ? t("draftTitle") : tDoc("draftTitle", { label: typeLabel });
+    const draftTitle = letter ? tDoc("draftTitle", { label: typeLabel }) : tc(`draftTitles.${kind}` as never);
     return (
       <>
         <PageHeader
@@ -111,8 +115,16 @@ function InvoiceDetailInner({ id }: { id: Id<"salesDocuments"> }) {
           breadcrumbs={[...crumbs, { label: draftTitle }]}
         />
         <PageBody>
+          <DraftBanner type={data.doc.type} correctionKind={data.doc.correctionKind ?? null} />
+          <RelationsPanel id={id} type={data.doc.type} />
           {canWrite && "values" in data && data.values ? (
-            <InvoiceEditor id={id} initial={data.values as DraftValues} version={data.doc.version} type={type} />
+            <InvoiceEditor
+              id={id}
+              initial={data.values as DraftValues}
+              version={data.doc.version}
+              type={type}
+              chainRoot={data.doc.chainRootId === undefined}
+            />
           ) : (
             <p>{t("readOnlyDraft")}</p>
           )}
@@ -125,10 +137,17 @@ function InvoiceDetailInner({ id }: { id: Id<"salesDocuments"> }) {
   return (
     <>
       <PageHeader
-        title={type === "invoice" ? t("title", { number }) : tDoc("title", { label: typeLabel, number })}
+        title={
+          letter ? tDoc("title", { label: typeLabel, number }) : tc(`titles.${kind}` as "titles.invoice", { number })
+        }
         description={`${data.doc.contactName ?? ""} · ${status.label}`}
         breadcrumbs={[...crumbs, { label: number }]}
-        actions={<FinalActions data={data} />}
+        actions={
+          <>
+            <CorrectionActions doc={data.doc} snapshot={data.snapshot as DocumentSnapshot | null} />
+            <FinalActions data={data} />
+          </>
+        }
       />
       <DetailLayout aside={<Facts data={data} />}>
         <div className="flex flex-wrap items-center gap-2">
@@ -141,6 +160,7 @@ function InvoiceDetailInner({ id }: { id: Id<"salesDocuments"> }) {
         <ArtifactState data={data} />
         <DocumentFlowActions doc={data.doc} targets={chain?.targets ?? []} />
         <ChainCard chain={chain} />
+        <RelationsPanel id={id} type={data.doc.type} />
         <SnapshotView snapshot={data.snapshot as DocumentSnapshot | null} />
         <Files data={data} />
         <SendLog data={data} />

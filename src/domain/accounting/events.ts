@@ -67,7 +67,7 @@ export interface InvoiceFinalisedEvent {
   kind: "invoice_finalised";
   documentId: string;
   documentNumber: string;
-  /** `advance_invoice` (Abschlagsrechnung) produces no journal entry (S9). */
+  /** `advance_invoice` (Abschlagsrechnung) and the amount-based `partial_invoice` produce no journal entry (S9). */
   documentType: "invoice" | "partial_invoice" | "advance_invoice" | "final_invoice";
   /** Invoice date = journal date (user-chosen within the backdating window → period lock rule ACC-006 a). */
   date: string;

@@ -302,7 +302,10 @@ function salesLines(
 }
 
 function postInvoice(e: InvoiceFinalisedEvent, ctx: PostingContext): Result<PostingOutcome, PostingIssue> {
-  if (e.documentType === "advance_invoice") return ok({ kind: "none", reason: "advance_invoice" });
+  // S9: an Abschlagsrechnung and an amount-based Teilrechnung (an Anzahlung, UST-40 b) post nothing; VAT on receipt.
+  if (e.documentType === "advance_invoice" || e.documentType === "partial_invoice") {
+    return ok({ kind: "none", reason: "advance_invoice" });
+  }
   if (e.taxCase === "unknown_imported") {
     return err(
       issue("tax_case_not_postable", "Archivierte Importbelege mit unbekannter Steuerart werden nicht gebucht."),

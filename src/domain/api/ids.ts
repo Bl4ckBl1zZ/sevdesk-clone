@@ -21,6 +21,9 @@ export const ID_PREFIXES = {
   costCenters: "cc_",
   bankAccounts: "bac_",
   contactMerges: "mrg_",
+  // Sales documents (05 §4.3): one table, a prefix per REST resource.
+  invoices: "inv_",
+  corrections: "cor_",
 } as const;
 
 export type IdTable = keyof typeof ID_PREFIXES;

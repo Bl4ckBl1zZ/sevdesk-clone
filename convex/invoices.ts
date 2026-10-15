@@ -3,7 +3,7 @@ import { type Value, v } from "convex/values";
 import { filter } from "convex-helpers/server/filter";
 import { normalizeSearchQuery } from "../src/domain/contacts/core";
 import { defaultMarkSelection, effectiveMark, exportEntriesFor } from "../src/domain/documents/dispatch";
-import { DRAFT_TYPES, type DraftType } from "../src/domain/documents/doc-types";
+import { DRAFT_TYPES, type DraftType, isLetterType } from "../src/domain/documents/doc-types";
 import type { DraftDocument } from "../src/domain/documents/draft";
 import { canonicalSnapshotJson, type DocumentSnapshot } from "../src/domain/documents/snapshot";
 import { blocking, type Finding, validateDocument } from "../src/domain/documents/validate";
@@ -99,6 +99,17 @@ const findingsValue = (fs: readonly Finding[]) =>
 
 // ── list (DOC-37) ────────────────────────────────────────────────────────────────────────────────────────
 
+/** The documents of the „Rechnungen“ area (F04 §6.1): invoice family, Storno and corrections. */
+const INVOICE_LIKE: readonly Doc<"salesDocuments">["type"][] = [
+  "invoice",
+  "advance_invoice",
+  "partial_invoice",
+  "final_invoice",
+  "cancellation",
+  "correction",
+];
+const isInvoiceLike = (d: Pick<Doc<"salesDocuments">, "type">) => INVOICE_LIKE.includes(d.type);
+
 const TABS = [
   "all",
   "draft",
@@ -121,7 +132,7 @@ const vListType = v.union(...DRAFT_TYPES.map((t) => v.literal(t)));
 
 function tabMatches(d: Doc<"salesDocuments">, tab: Tab, today: string): boolean {
   const s = displayStatusOf(d, today).token;
-  if (d.type !== "invoice" && tab === "open") return d.status === "finalized" || d.status === "sent";
+  if (isLetterType(d.type) && tab === "open") return d.status === "finalized" || d.status === "sent";
   switch (tab) {
     case "draft":
       return d.status === "draft";
@@ -149,7 +160,12 @@ function tabMatches(d: Doc<"salesDocuments">, tab: Tab, today: string): boolean 
   }
 }
 
+/** The Rechnungen list (type `invoice`) shows the whole invoice family; the other lists show one type. */
 function baseQuery(ctx: QueryCtx, q: string, type: DraftType) {
+  if (type === "invoice") {
+    if (q) return ctx.db.query("salesDocuments").withSearchIndex("search", (s) => s.search("contactName", q));
+    return ctx.db.query("salesDocuments").order("desc");
+  }
   if (q)
     return ctx.db.query("salesDocuments").withSearchIndex("search", (s) => s.search("contactName", q).eq("type", type));
   return ctx.db
@@ -178,12 +194,16 @@ export const list = query({
           .withIndex("by_number", (i) => i.eq("number", query.toUpperCase()))
           .first()
       : null;
-    const page = await filter(baseQuery(ctx, query ? normalizeSearchQuery(query) : "", type), (d) =>
-      tabMatches(d, t, today),
+    const inList = (d: Doc<"salesDocuments">) => (type === "invoice" ? isInvoiceLike(d) : d.type === type);
+    const page = await filter(
+      baseQuery(ctx, query ? normalizeSearchQuery(query) : "", type),
+      (d) => inList(d) && tabMatches(d, t, today),
     ).paginate(paginationOpts);
-    const hit = numberHit?.type === type ? numberHit : null;
+    const hit = numberHit && inList(numberHit) ? numberHit : null;
     const rows = [...(hit && !page.page.some((d) => d._id === hit._id) ? [hit] : []), ...page.page].map((d) => ({
       _id: d._id,
+      type: d.type,
+      correctionKind: d.correctionKind ?? null,
       number: d.number ?? null,
       contactName: d.contactName ?? null,
       documentDate: d.documentDate ?? null,
@@ -195,7 +215,6 @@ export const list = query({
       displayStatus: displayStatusOf(d, today),
       exported: d.firstExportedAt !== undefined,
       artifactStatus: d.artifactStatus ?? null,
-      type: d.type,
       validUntil: d.validUntil ?? null,
       supplyDate: d.supplyDate ?? null,
       orderReference: d.orderReference ?? null,
@@ -213,7 +232,7 @@ export const get = query({
   args: { id: v.id("salesDocuments") },
   handler: async (ctx, { id }) => {
     const doc = await ctx.db.get(id);
-    if (!doc || !(DRAFT_TYPES as readonly string[]).includes(doc.type)) return null;
+    if (!doc || !(isInvoiceLike(doc) || isLetterType(doc.type))) return null;
     const now = ctx.now();
     const today = berlinCalendarDate(now);
     const lines = (await documentLines(ctx, id)).sort((a, b) => a.position - b.position);
@@ -356,6 +375,7 @@ export const check = query({
       _id: id ?? ("new" as Id<"salesDocuments">),
       type: draftValues.type,
       status: "draft",
+      ...(draftValues.chainOrder ? { chainOrder: draftValues.chainOrder } : {}),
       ...(draftValues.contactId ? { contactId: draftValues.contactId as Id<"contacts"> } : { contactId: undefined }),
       ...(draftValues.bankAccountId
         ? { bankAccountId: draftValues.bankAccountId as Id<"bankAccounts"> }

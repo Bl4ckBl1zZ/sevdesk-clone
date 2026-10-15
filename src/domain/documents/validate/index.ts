@@ -30,6 +30,7 @@ import {
 } from "../draft";
 import type { SalesDocType } from "../snapshot";
 import { CATEGORIES_BY_TAX_CASE } from "../tax-case";
+import { chainFindings } from "./chain";
 import { type EinvoicePlan, isXRechnungFormat, planEinvoice } from "./einvoice-plan";
 import { type Finding, finding } from "./finding";
 
@@ -1263,6 +1264,7 @@ export function validateDocument(
       );
     }
   }
+  out.push(...chainFindings(draft, ctx, resolved));
   return { findings: dedupe(out), resolved, einvoice };
 }
 

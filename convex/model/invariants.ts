@@ -5,6 +5,7 @@ import { genesisHash, sha256Hex, verifyChainPage } from "../../src/domain/audit/
 import { isEncryptedValue } from "../../src/domain/audit/personal";
 import { REDACTED } from "../../src/domain/audit/redact";
 import { TECHNICAL_TABLES, technicalFields } from "../../src/domain/audit/technical";
+import { type ChainInvariantRow, checkChains } from "../../src/domain/documents/chain-invariants";
 import {
   type ArtifactInvariantRow,
   checkDocumentNumbers,
@@ -14,6 +15,7 @@ import {
   type DocumentInvariantRow,
 } from "../../src/domain/documents/invariants";
 import { type LayoutDocType, SALES_DOC_TYPES } from "../../src/domain/documents/layout";
+import { isChainType } from "../../src/domain/documents/relations";
 import type { DocumentSnapshot } from "../../src/domain/documents/snapshot";
 import { ROLE_MAPPING_ROWS, seededAccount } from "../../src/domain/rules/accounting";
 import { berlinCalendarDate } from "../../src/domain/time/berlin";
@@ -161,13 +163,17 @@ const hexToBase64 = (hex: string): string => {
   return btoa(s);
 };
 
-/** RI-01, RI-02, RI-05 and RI-19 (F04 sales documents); the pure checks live in src/domain/documents/invariants.ts. */
+/**
+ * RI-01, RI-02, RI-05, RI-19 and the chain invariants RI-06/07/08 (F04 sales documents); the pure checks live in
+ * src/domain/documents/invariants.ts and chain-invariants.ts.
+ */
 export async function checkDocumentInvariants(ctx: ReadCtx): Promise<InvariantViolation[]> {
   const docs = await ctx.db.query("salesDocuments").collect();
   const register = await ctx.db.query("numberRegister").collect();
   if (docs.length === 0) return [];
   const out: InvariantViolation[] = [];
   const rows = [];
+  const chainRows: ChainInvariantRow[] = [];
   for (const d of docs) {
     const artifacts: ArtifactInvariantRow[] = [];
     for (const a of await ctx.db
@@ -207,6 +213,36 @@ export async function checkDocumentInvariants(ctx: ReadCtx): Promise<InvariantVi
       artifacts,
     };
     rows.push(row);
+    chainRows.push({
+      id: String(d._id),
+      type: d.type,
+      status: d.status,
+      ...(d.number ? { number: d.number } : {}),
+      ...(d.correctsId ? { originalId: String(d.correctsId) } : {}),
+      ...(d.correctionKind ? { correctionKind: d.correctionKind } : {}),
+      groups: (parsed?.totals.byGroup ?? []).map((g) => ({
+        category: g.category,
+        rateBp: g.rateBp,
+        netCents: g.baseCents,
+        vatCents: g.vatCents,
+      })),
+      ...(parsed?.deductions
+        ? {
+            deductions: parsed.deductions.map((x) => ({
+              advanceNumber: x.advanceNumber,
+              byGroup: x.byGroup.map((g) => ({
+                category: g.category,
+                rateBp: g.rateBp,
+                netCents: g.netCents,
+                vatCents: g.vatCents,
+              })),
+            })),
+          }
+        : {}),
+      // A standalone chain's root is its first advance (no chainRootId on the root itself).
+      ...(isChainType(d.type) ? { chainRootId: String(d.chainRootId ?? d._id) } : {}),
+      ...(d.deductedInId ? { deductedInId: String(d.deductedInId) } : {}),
+    });
     out.push(...checkFinalisedDocument(row));
     if (parsed) {
       const nets = parsed.lines.flatMap((l) => (l.kind === "item" && !l.optional ? [l.netCents] : []));
@@ -237,6 +273,7 @@ export async function checkDocumentInvariants(ctx: ReadCtx): Promise<InvariantVi
       ),
     );
   }
+  out.push(...checkChains(chainRows));
   const docIds = new Set(rows.map((r) => r.id));
   out.push(
     ...checkDocumentNumbers(

@@ -128,3 +128,13 @@ export async function ownerStorageState(
   await ctx.close();
   return file;
 }
+
+/**
+ * Stand-in for the payments slice (F05): records `amountCents` as received on the invoice `number` through the
+ * IS_TEST-only `testFixtures.recordPayment` (admin key). Used by the Storno/correction/final-invoice journeys.
+ */
+export async function recordTestPayment(number: string, amountCents: number): Promise<void> {
+  // biome-ignore lint/suspicious/noExplicitAny: internal function via the admin key
+  const r = await admin().mutation(internal.testFixtures.recordPayment as any, { number, amountCents });
+  if (r === null) throw new Error("testFixtures.recordPayment needs IS_TEST=true on the backend");
+}

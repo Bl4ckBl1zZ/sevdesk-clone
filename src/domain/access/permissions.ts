@@ -120,6 +120,17 @@ export const PERMISSIONS = {
   "invoices.finalize": { roles: ["owner", "bookkeeper"], scope: "invoices:finalize", write: true, fresh: true },
   /** SND-07/SND-18 mark as sent and retract (⚠; scope name kept, 05 §2). */
   "invoices.send": { roles: ["owner", "bookkeeper"], scope: "invoices:send", write: true, fresh: true },
+  /**
+   * INV-10/11/15 Storno (⚠, creates and finalises the Stornorechnung; MCP: confirm token from `document_preview`
+   * with `intent: "cancel"`, 06 §3.4). Fresh session like finalising.
+   */
+  "invoices.cancel": {
+    roles: ["owner", "bookkeeper"],
+    scope: "invoices:cancel",
+    write: true,
+    fresh: true,
+    confirm: "invoice_cancel",
+  },
 } as const satisfies Record<string, PermissionRule>;
 
 export type Permission = keyof typeof PERMISSIONS;

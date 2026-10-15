@@ -169,8 +169,8 @@ Each of `/quotes`, `/order-confirmations`, `/delivery-notes`, `/invoices` (incl.
 | GET | `/{type}/{id}/artifacts/{kind}` | documents:read | Download; later downloads of the PDF are stamped "Kopie" (UST-34); `?original=true` returns the archived original bytes |
 | POST | `/{type}/{id}/duplicate` | documents:write | New draft |
 | POST | `/{type}/{id}/convert` | documents:write | `{ to: "order_confirmation"\|"delivery_note"\|"invoice"\|"advance_invoice"\|"partial_invoice"\|"final_invoice", mode?, value? }` → new draft |
-| POST | `/invoices/{id}/cancel` | invoices:cancel (+ invoices:finalize) | Creates and finalises the Stornorechnung (UST-30). Body `{ reason?, document_date?, dry_run? }`; `dry_run: true` returns the mirror preview |
-| POST | `/invoices/{id}/correct` | documents:write | Creates a correction **draft** (Rechnungskorrektur) prefilled from the original |
+| POST | `/invoices/{id}/cancel` | invoices:cancel (+ invoices:finalize) | Creates and finalises the Stornorechnung (UST-30). Body `{ reason?, document_date?, dry_run? }`; `dry_run: true` returns the mirror preview; otherwise `Idempotency-Key` is required (400 `idempotency_key_required`) |
+| POST | `/invoices/{id}/correct` | documents:write | Creates a correction **draft** (Rechnungskorrektur `kind: credit` with optional `changes`, or Rechnungsberichtigung `kind: rectification`) prefilled from the original (F04 §7.1) |
 | POST | `/quotes/{id}/mark-accepted` / `mark-rejected` | documents:write | Manual status (portal acceptance returns with F10, deferred). `mark-accepted { date, accepted_by, channel: "email"\|"phone"\|"manual", note?, late? }`, `mark-rejected { date, reason? }` |
 | POST | `/quotes/{id}/reopen` / `revise` | documents:write | `reopen { reason }` of a rejected quote; `revise { reason? }` → 201 with the new version's draft (QUO-06, number `<base>-V{n}` at finalisation) |
 | POST | `/{type}/{id}/withdraw` | documents:write | Quotes, order confirmations, delivery notes, proforma: `{ reason }` → status `cancelled`, number stays used; 409 while finalised invoices exist in the chain (QUO-15) |

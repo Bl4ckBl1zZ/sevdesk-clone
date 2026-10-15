@@ -1209,6 +1209,40 @@ export default defineSchema({
     ),
     /** Delivery note „Erhalten“ (§4.2.3). */
     received: v.optional(v.object({ date: v.string(), byName: v.string() })),
+    // ── advance/partial/final chains, Storno and corrections (F04 §4.7/§4.8, INV-03…15) ──────────────────────
+    /** Standalone advance chain (no quote/order in the app): the customer's order the chain refers to (INV-03). */
+    chainOrder: v.optional(v.object({ number: v.string(), date: v.string() })),
+    /** Storno / Rechnungskorrektur / Rechnungsberichtigung → the original (BT-25/26). */
+    correctsId: v.optional(v.id("salesDocuments")),
+    /** `correction` only: Rechnungskorrektur (381) or Rechnungsberichtigung (384). */
+    correctionKind: v.optional(v.union(v.literal("credit"), v.literal("rectification"))),
+    /** Rechnungsberichtigung: the corrected items (keys, INV-13). */
+    rectifiedFields: v.optional(v.array(v.string())),
+    /** Final invoice: one row per deducted advance with the received amounts (INV-06/07/09, RI-08). */
+    deductions: v.optional(
+      v.array(
+        v.object({
+          advanceId: v.id("salesDocuments"),
+          advanceNumber: v.string(),
+          advanceDate: v.string(),
+          byGroup: v.array(
+            v.object({
+              category: vVatCategory,
+              rateBp: v.number(),
+              netCents: v.number(),
+              vatCents: v.number(),
+              grossCents: v.number(),
+            }),
+          ),
+          deductedGrossCents: v.number(),
+          partiallyPaid: v.boolean(),
+        }),
+      ),
+    ),
+    /** Advance/partial: the final invoice that deducted it (set by the final's finalisation, cleared by its Storno). */
+    deductedInId: v.optional(v.id("salesDocuments")),
+    /** Credit correction: the part absorbed by the original's open amount at finalisation (§4.2.5, INV-15). */
+    creditAppliedCents: v.optional(v.number()),
     /** Withdrawal of a quote/order/delivery note/proforma (QUO-15) or Storno: when, why, by which document. */
     cancellation: v.optional(
       v.object({ at: v.number(), reason: v.string(), byDocumentId: v.optional(v.id("salesDocuments")) }),
@@ -1218,12 +1252,13 @@ export default defineSchema({
     version: v.number(),
   })
     .index("by_type_status_date", ["type", "status", "documentDate"])
+    .index("by_chainRoot", ["chainRootId"])
+    .index("by_correctsId", ["correctsId"])
     .index("by_contact", ["contactId", "type"])
     .index("by_number", ["number"])
     .index("by_artifactStatus", ["artifactStatus"])
     .index("by_firstExportedAt", ["status", "firstExportedAt"])
     .index("by_paymentStatus_due", ["paymentStatus", "dueDate"])
-    .index("by_chainRoot", ["chainRootId"])
     .searchIndex("search", { searchField: "contactName", filterFields: ["type", "status"] }),
 
   // 03 §4 documentLines 🔒 (frozen with the parent; the guarded db passes the parent status to the matrix).

@@ -1,6 +1,7 @@
 import "server-only";
 import { compileRoutes, type Resource } from "../endpoint";
 import { contactsResource } from "./contacts";
+import { correctionsResource } from "./corrections";
 import { documentsResource } from "./documents";
 import { metaResource } from "./meta";
 import { productsResource } from "./products";
@@ -16,6 +17,7 @@ export const RESOURCES: readonly Resource[] = [
   productsResource,
   settingsResource,
   documentsResource,
+  correctionsResource,
 ];
 
 export const ROUTES = compileRoutes(RESOURCES);

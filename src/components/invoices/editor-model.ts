@@ -4,7 +4,7 @@
  * computed by Convex (`invoices.check`) with the domain functions.
  */
 
-import type { DraftType } from "@/domain/documents/doc-types";
+import { type DraftType, isInvoiceDraftType } from "@/domain/documents/doc-types";
 import { formatBasisPoints, formatMicros, formatMilli } from "@/domain/money/format";
 import { parseBasisPoints, parseMicros, parseMilli } from "@/domain/money/parse";
 import type { DraftValues } from "@/domain/schemas/documents";
@@ -35,6 +35,9 @@ export interface EditorLine {
 export interface EditorState {
   /** Document type of the draft (fixed once saved; F04 §4.1). */
   readonly type: DraftType;
+  /** Standalone advance chain: the customer's order the Abschlagsrechnungen refer to (INV-03). */
+  readonly chainOrderNumber: string;
+  readonly chainOrderDate: string;
   readonly contactId: string;
   readonly supplyDateMode: "explicit" | "document_date";
   readonly supplyKind: "date" | "period";
@@ -76,9 +79,9 @@ export const typeFeatures = (type: DraftType) => ({
   /** Supply date optional („voraussichtlich“) on quotes and orders; mandatory on invoices and delivery notes. */
   supplyOptional: type === "quote" || type === "order_confirmation",
   payment: type !== "delivery_note",
-  einvoice: type === "invoice",
-  invoiceFlags: type === "invoice",
-  epcQr: type === "invoice" || type === "proforma",
+  einvoice: isInvoiceDraftType(type),
+  invoiceFlags: isInvoiceDraftType(type),
+  epcQr: isInvoiceDraftType(type) || type === "proforma",
 });
 
 let seq = 0;
@@ -106,6 +109,8 @@ export function emptyLine(kind: DraftLineValues["kind"] = "item"): EditorLine {
 export function emptyEditor(today: string, defaults: Partial<EditorState> = {}): EditorState {
   return {
     type: "invoice",
+    chainOrderNumber: "",
+    chainOrderDate: "",
     contactId: "",
     supplyDateMode: "explicit",
     supplyKind: "date",
@@ -175,6 +180,8 @@ export function editorFromValues(v: DraftValues): EditorState {
   const s = v.supplyDate;
   return {
     type: v.type,
+    chainOrderNumber: v.chainOrder?.number ?? "",
+    chainOrderDate: v.chainOrder?.date ?? "",
     contactId: v.contactId ?? "",
     supplyDateMode: v.supplyDateMode,
     supplyKind: s?.kind === "period" ? "period" : "date",
@@ -268,8 +275,13 @@ export function toDraftValues(s: EditorState): { values: DraftValues; errors: Ed
           ? { kind: "date", date: s.supplyDate as CalendarDate }
           : undefined;
   const f = typeFeatures(s.type);
+  const chainOrder =
+    (s.type === "advance_invoice" || s.type === "partial_invoice") && opt(s.chainOrderNumber) && s.chainOrderDate
+      ? { chainOrder: { number: s.chainOrderNumber.trim(), date: s.chainOrderDate as CalendarDate } }
+      : {};
   const values: DraftValues = {
     type: s.type,
+    ...chainOrder,
     ...(s.contactId ? { contactId: s.contactId } : {}),
     supplyDateMode: s.supplyDateMode,
     ...(supplyDate ? { supplyDate } : {}),

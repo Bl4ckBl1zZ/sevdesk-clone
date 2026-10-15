@@ -84,6 +84,52 @@ export const PROBLEMS = {
     de: "Diese Nummer ist bereits vergeben.",
     en: "This number is already taken.",
   },
+  // F04 §5.1.6 Storno and correction guards (INV-10/11/15, UST-30): German detail from the guard.
+  storno_paid_invoice: {
+    status: 409,
+    de: "Die Rechnung ist (teil)bezahlt und kann nicht storniert werden.",
+    en: "The invoice is (partially) paid and cannot be cancelled.",
+  },
+  already_cancelled: {
+    status: 409,
+    de: "Die Rechnung ist bereits storniert.",
+    en: "The invoice is already cancelled.",
+  },
+  storno_of_storno: {
+    status: 409,
+    de: "Eine Stornorechnung kann nicht storniert werden.",
+    en: "A cancellation invoice cannot be cancelled.",
+  },
+  storno_advance_deducted: {
+    status: 409,
+    de: "Die Abschlagsrechnung ist in einer Schlussrechnung verrechnet.",
+    en: "The advance invoice is deducted in a final invoice.",
+  },
+  storno_has_corrections: {
+    status: 409,
+    de: "Zur Rechnung gibt es Rechnungskorrekturen.",
+    en: "The invoice has credit corrections.",
+  },
+  correction_refund_allocated: {
+    status: 409,
+    de: "Die Rechnungskorrektur ist bereits erstattet oder verrechnet.",
+    en: "The correction is already refunded or offset.",
+  },
+  correction_target_invalid: {
+    status: 409,
+    de: "Korrekturen sind nur zu fertiggestellten Rechnungen möglich.",
+    en: "Corrections are only possible for finalised invoices.",
+  },
+  final_exists: {
+    status: 409,
+    de: "Für diesen Auftrag gibt es bereits eine Schlussrechnung.",
+    en: "This order already has a final invoice.",
+  },
+  illegal_transition: {
+    status: 409,
+    de: "Diese Aktion ist im aktuellen Status nicht möglich.",
+    en: "This action is not possible in the current status.",
+  },
   idempotency_in_progress: {
     status: 409,
     de: "Eine Anfrage mit diesem Idempotency-Key wird gerade verarbeitet.",
@@ -110,11 +156,6 @@ export const PROBLEMS = {
     en: "Too many requests – please retry later.",
   },
   // F04 sales documents (05 §4.3, F04 §5.1)
-  illegal_transition: {
-    status: 409,
-    de: "Diese Aktion ist im aktuellen Status nicht möglich.",
-    en: "This action is not possible in the current status.",
-  },
   revalidation_failed: {
     status: 409,
     de: "Firmen- oder Kundendaten wurden während der Fertigstellung geändert.",
@@ -221,6 +262,16 @@ const CONFLICT_REASONS: Readonly<Record<string, ProblemCode>> = {
   CONTACT_IN_USE: "contact_in_use",
   CONTACT_MERGED: "contact_merged",
   PRODUCT_IN_USE: "product_in_use",
+  // F04 Storno/correction guards (convex/model/invoiceCorrections.ts: `conflict` with the guard code as reason).
+  storno_paid_invoice: "storno_paid_invoice",
+  already_cancelled: "already_cancelled",
+  storno_of_storno: "storno_of_storno",
+  storno_advance_deducted: "storno_advance_deducted",
+  storno_has_corrections: "storno_has_corrections",
+  correction_refund_allocated: "correction_refund_allocated",
+  correction_target_invalid: "correction_target_invalid",
+  final_exists: "final_exists",
+  illegal_transition: "illegal_transition",
   NUMBER_COLLISION: "number_collision",
 };
 
@@ -239,18 +290,18 @@ const APP_CODE_TO_PROBLEM: Readonly<Record<string, ProblemCode>> = {
   period_locked: "period_locked",
   setup_incomplete: "setup_incomplete",
   conflict: "conflict",
+  illegal_transition: "illegal_transition",
+  document_not_draft: "immutable_record",
+  dependency_unavailable: "dependency_unavailable",
   not_configured: "dependency_unavailable",
   invalid_input: "validation_failed",
   validation_failed: "validation_failed",
-  illegal_transition: "illegal_transition",
-  document_not_draft: "immutable_record",
   revalidation_failed: "revalidation_failed",
   number_conflict: "number_conflict",
   integrity_alert_open: "integrity_alert_open",
   artifacts_not_ready: "artifacts_not_ready",
   artifacts_blocked: "conflict",
   einvoice_validation_failed: "einvoice_validation_failed",
-  dependency_unavailable: "dependency_unavailable",
   clock_skew: "dependency_unavailable",
   idempotency_key_reused: "idempotency_key_reused",
   idempotency_in_progress: "idempotency_in_progress",

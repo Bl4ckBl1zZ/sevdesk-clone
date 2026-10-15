@@ -17,13 +17,14 @@ import type { DisplayStatus } from "@/domain/documents/display-status";
 import { type DraftType, documentPath, documentRoute } from "@/domain/documents/doc-types";
 import { useAuthedQuery } from "@/hooks/use-authed-query";
 import { cn } from "@/lib/utils";
+import { useDocTypeLabel } from "./corrections";
 import { InvoiceStatusBadge, money } from "./invoice-shared";
 
 /**
  * Document lists (DOC-37, F04 §6.1) for Rechnungen (incl. the Proforma tab), Angebote, Auftragsbestätigungen and
  * Lieferscheine: status tabs and search in the URL; table on desktop, cards on phones.
  */
-type ListType = Exclude<DraftType, "proforma">;
+type ListType = "invoice" | "quote" | "order_confirmation" | "delivery_note";
 
 const TABS: Record<ListType, readonly string[]> = {
   invoice: ["all", "draft", "unsent", "open", "overdue", "paid", "exported_not_marked", "proforma"],
@@ -45,6 +46,7 @@ const percent = (bp: number | null) => (bp === null ? "—" : `${Math.floor(bp /
 function InvoicesListInner({ listType }: { listType: ListType }) {
   const tAll = useTranslations("invoices.list");
   const tType = useTranslations(`invoices.list.byType.${listType}`);
+  const typeLabel = useDocTypeLabel();
   const url = useUrlState();
   const tabs = TABS[listType];
   const tab = tabs.includes(url.get("status")) ? url.get("status") : "all";
@@ -119,7 +121,13 @@ function InvoicesListInner({ listType }: { listType: ListType }) {
       </ListLayout>
     );
   }
-  const label = (r: (typeof results)[number]) => r.number ?? tAll("draft");
+  // Non-standard documents of the Rechnungen area are prefixed with their type (Abschlags-, Storno-, Korrekturbelege).
+  const label = (r: (typeof results)[number]) => {
+    const n = r.number ?? tAll("draft");
+    return listType !== "invoice" || r.type === "invoice" || r.type === "proforma"
+      ? n
+      : `${typeLabel(r.type, r.correctionKind)} ${n}`;
+  };
   const href = (r: (typeof results)[number]) => documentPath(r.type, r._id) as Route;
   const priced = listType !== "delivery_note";
   return (

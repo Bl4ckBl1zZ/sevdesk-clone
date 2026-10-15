@@ -14,7 +14,13 @@ import { ConfirmDialog, selectClass, todayBerlin, useRun } from "@/components/ca
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import { DOC_TYPE_LABEL_DE, type DraftType, documentPath, documentRoute } from "@/domain/documents/doc-types";
+import {
+  DOC_TYPE_LABEL_DE,
+  type DraftType,
+  documentPath,
+  documentRoute,
+  isInvoiceDraftType,
+} from "@/domain/documents/doc-types";
 import { RC13B_TYPE_KEYS, rc13bLabelDe } from "@/domain/rules/rc13b-types";
 import { VAT_RATE_KEY_LABELS } from "@/domain/rules/vat-rates";
 import type { DraftValues } from "@/domain/schemas/documents";
@@ -53,17 +59,19 @@ export function InvoiceEditor({
   version,
   presetContactId,
   type: typeProp,
+  chainRoot = true,
 }: {
   id?: Id<"salesDocuments">;
   initial?: DraftValues;
   version?: number;
   presetContactId?: string;
   type?: DraftType;
+  /** Advance drafts: the first document of a standalone chain carries the order reference (INV-03). */
+  chainRoot?: boolean;
 }) {
   const t = useTranslations("invoices.editor");
-  const type: DraftType = (initial?.type as DraftType | undefined) ?? typeProp ?? "invoice";
-  const features = typeFeatures(type);
-  const typeLabel = DOC_TYPE_LABEL_DE[type];
+  const tc = useTranslations("invoiceCorrections");
+  const initialType: DraftType = (initial?.type as DraftType | undefined) ?? typeProp ?? "invoice";
   const router = useRouter();
   const run = useRun();
   const convex = useConvex();
@@ -75,11 +83,15 @@ export function InvoiceEditor({
     initial
       ? editorFromValues(initial)
       : emptyEditor(todayBerlin(), {
-          type,
+          type: initialType,
           contactId: presetContactId ?? "",
-          ...(features.supplyOptional ? { supplyDate: "" } : {}),
+          ...(typeFeatures(initialType).supplyOptional ? { supplyDate: "" } : {}),
         }),
   );
+  // New drafts in „Rechnungen“ may switch between Rechnung and Abschlagsrechnung; the type is fixed once saved.
+  const type = state.type;
+  const features = typeFeatures(type);
+  const typeLabel = DOC_TYPE_LABEL_DE[type];
   const [dirty, setDirty] = useState(!id);
   const [ver, setVer] = useState(version);
   const [saving, setSaving] = useState(false);
@@ -208,7 +220,12 @@ export function InvoiceEditor({
     product: useId(),
     validUntil: useId(),
     deliveryTerms: useId(),
+    type: useId(),
+    orderNumber: useId(),
+    orderDate: useId(),
   };
+  const isAdvance = state.type === "advance_invoice" || state.type === "partial_invoice";
+  const typeChoice = !id && isInvoiceDraftType(initialType);
 
   return (
     // The query container wraps only the form grid: a container is the containing block of `position: fixed`
@@ -273,6 +290,57 @@ export function InvoiceEditor({
               )}
             </section>
 
+            {(typeChoice || (isAdvance && chainRoot)) && (
+              <section
+                aria-label={tc("editor.type")}
+                className="grid grid-cols-1 gap-4 rounded-xl border p-4 @lg/editor:grid-cols-3"
+              >
+                {typeChoice && (
+                  <div className="flex flex-col gap-1.5">
+                    <label htmlFor={ids.type} className="font-medium text-sm">
+                      {tc("editor.type")}
+                    </label>
+                    <select
+                      id={ids.type}
+                      className={selectClass}
+                      value={state.type}
+                      onChange={(e) => set({ type: e.target.value as DraftType })}
+                    >
+                      <option value="invoice">{tc("types.invoice")}</option>
+                      <option value="advance_invoice">{tc("types.advance_invoice")}</option>
+                    </select>
+                  </div>
+                )}
+                {isAdvance && chainRoot && (
+                  <>
+                    <div className="flex flex-col gap-1.5">
+                      <label htmlFor={ids.orderNumber} className="font-medium text-sm">
+                        {tc("editor.chainOrderNumber")}
+                      </label>
+                      <Input
+                        id={ids.orderNumber}
+                        value={state.chainOrderNumber}
+                        onChange={(e) => set({ chainOrderNumber: e.target.value })}
+                        className="h-11 md:h-9"
+                      />
+                    </div>
+                    <div className="flex flex-col gap-1.5">
+                      <label htmlFor={ids.orderDate} className="font-medium text-sm">
+                        {tc("editor.chainOrderDate")}
+                      </label>
+                      <Input
+                        id={ids.orderDate}
+                        type="date"
+                        value={state.chainOrderDate}
+                        onChange={(e) => set({ chainOrderDate: e.target.value })}
+                        className="h-11 md:h-9"
+                      />
+                    </div>
+                  </>
+                )}
+              </section>
+            )}
+
             <section
               aria-label={t("sections.dates")}
               className="grid grid-cols-1 gap-4 rounded-xl border p-4 @lg/editor:grid-cols-3"
@@ -294,7 +362,7 @@ export function InvoiceEditor({
                   <option value="date">{type === "delivery_note" ? t("deliveryDate") : t("supplyDate")}</option>
                   <option value="period">{t("supplyPeriod")}</option>
                   <option value="document_date">
-                    {type === "invoice" ? t("supplyIsDocumentDate") : t("supplyIsDocumentDateLetter")}
+                    {isInvoiceDraftType(type) ? t("supplyIsDocumentDate") : t("supplyIsDocumentDateLetter")}
                   </option>
                 </select>
               </div>
@@ -303,9 +371,11 @@ export function InvoiceEditor({
                   <label htmlFor={ids.supplyDate} className="font-medium text-sm">
                     {type === "delivery_note"
                       ? t("deliveryDate")
-                      : features.supplyOptional
-                        ? t("supplyDateExpected")
-                        : t("supplyDateLabel")}
+                      : isAdvance
+                        ? tc("editor.expectedSupply")
+                        : features.supplyOptional
+                          ? t("supplyDateExpected")
+                          : t("supplyDateLabel")}
                   </label>
                   <Input
                     id={ids.supplyDate}
@@ -363,7 +433,7 @@ export function InvoiceEditor({
                 </div>
               )}
               <p className="text-muted-foreground text-sm @lg/editor:col-span-3">
-                {type === "invoice"
+                {isInvoiceDraftType(type)
                   ? t("documentDateHint", { date: check?.documentDate ?? todayBerlin() })
                   : t("documentDateHintLetter", { label: typeLabel, date: check?.documentDate ?? todayBerlin() })}
               </p>
@@ -688,7 +758,7 @@ export function InvoiceEditor({
       {confirmFinalize && (
         <ConfirmDialog
           title={type === "invoice" ? t("finalizeTitle") : t("finalizeTitleDoc", { label: typeLabel })}
-          description={type === "invoice" ? t("finalizeDescription") : t("finalizeDescriptionLetter")}
+          description={isInvoiceDraftType(type) ? t("finalizeDescription") : t("finalizeDescriptionLetter")}
           confirmLabel={t("finalizeConfirm")}
           confirmDisabled={saving || !canFinalize}
           onConfirm={doFinalize}

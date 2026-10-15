@@ -12,8 +12,21 @@ export type LetterType = (typeof LETTER_TYPES)[number];
 
 export const isLetterType = (type: string): type is LetterType => (LETTER_TYPES as readonly string[]).includes(type);
 
-/** Types whose drafts the shared editor creates (the invoice family types follow with their slice). */
-export const DRAFT_TYPES = ["invoice", ...LETTER_TYPES] as const;
+/** Invoice-family draft types of the editor (F04 §4.1); Storno is created finalised and never a draft. */
+export const INVOICE_DRAFT_TYPES = [
+  "invoice",
+  "advance_invoice",
+  "partial_invoice",
+  "final_invoice",
+  "correction",
+] as const;
+export type InvoiceDraftType = (typeof INVOICE_DRAFT_TYPES)[number];
+
+export const isInvoiceDraftType = (type: string): type is InvoiceDraftType =>
+  (INVOICE_DRAFT_TYPES as readonly string[]).includes(type);
+
+/** Types whose drafts the shared editor creates (F04 §4.1). */
+export const DRAFT_TYPES = [...INVOICE_DRAFT_TYPES, ...LETTER_TYPES] as const;
 export type DraftType = (typeof DRAFT_TYPES)[number];
 
 export const DOC_TYPE_LABEL_DE: Readonly<Record<SalesDocType, string>> = {

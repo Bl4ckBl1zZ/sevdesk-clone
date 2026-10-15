@@ -7,9 +7,13 @@ import { formatCents } from "../money/format";
 import { lookupExemptionReason } from "../rules/exemption-reasons";
 import { renderTemplate } from "../templates/placeholders";
 import { addDays, type CalendarDate, formatGermanDate } from "../time/calendar-date";
+import { finalDeductions } from "./advances";
 import type { SnapshotInput, SnapshotInputLine } from "./build-snapshot";
+import { detectRectifiedFields, RECTIFIED_FIELD_LABELS } from "./corrections";
 import { type DocumentContext, type DraftDocument, type ResolvedDraft, toLineDiscount, vatAccountingAt } from "./draft";
+import { isChainType } from "./relations";
 import type { EinvoiceFormat, Er03Decision, SalesDocType, SupplyDate } from "./snapshot";
+import { rectificationView } from "./validate/chain";
 import type { EinvoicePlan } from "./validate/einvoice-plan";
 
 // ── retention (DOC-40, GOBD-20, UST-50) ─────────────────────────────────────────────────────────────────────────
@@ -249,8 +253,16 @@ export function buildSnapshotInput(
   const refs = p.chainReferences;
   const decision: Er03Decision = p.plan.er03.decision;
   const format: EinvoiceFormat = p.plan.format;
+  const chain = isChainType(draft.type) ? ctx.relations?.chain : undefined;
+  const original = draft.type === "correction" || draft.type === "cancellation" ? ctx.relations?.original : undefined;
+  const deductions = draft.type === "final_invoice" && chain ? finalDeductions(chain.final) : [];
+  const rectified =
+    draft.type === "correction" && draft.correctionKind === "rectification" && original
+      ? detectRectifiedFields(original.snapshot, rectificationView(draft, ctx, resolved, original.snapshot))
+      : [];
   return {
     type: draft.type,
+    ...(draft.type === "correction" ? { correctionKind: draft.correctionKind ?? "credit" } : {}),
     number: p.number,
     documentDate,
     ...(dueDate ? { dueDate } : {}),
@@ -267,6 +279,7 @@ export function buildSnapshotInput(
       ...(propertyRelated ? { propertyRelated: true } : {}),
       ...(draft.constructionWork ? { constructionWork: true } : {}),
       ...(draft.type === "delivery_note" && draft.showPrices ? { showPrices: true } : {}),
+      ...(chain ? { chainIndex: chain.index } : {}),
     },
     seller: {
       ...ctx.company.seller,
@@ -283,6 +296,14 @@ export function buildSnapshotInput(
       ...(refs?.salesOrderReference ? { salesOrderReference: refs.salesOrderReference } : {}),
       ...(refs?.deliveryNoteNumbers?.length ? { deliveryNoteNumbers: [...refs.deliveryNoteNumbers] } : {}),
     },
+    ...(chain
+      ? { chain: { orderLabel: chain.orderLabel, orderNumber: chain.orderNumber, orderDate: chain.orderDate } }
+      : {}),
+    ...(original ? { original: { number: original.number, date: original.documentDate } } : {}),
+    ...(original?.earlierCorrections.length ? { earlierCorrections: original.earlierCorrections } : {}),
+    ...(deductions.length ? { deductions } : {}),
+    // INV-13: printed as German labels ("Berichtigt: Anschrift des Leistungsempfängers"); the document keeps the keys.
+    ...(rectified.length ? { rectifiedFields: rectified.map((f) => RECTIFIED_FIELD_LABELS[f] ?? f) } : {}),
     texts: {
       ...(subject ? { subject } : {}),
       ...(headText ? { headText } : {}),
