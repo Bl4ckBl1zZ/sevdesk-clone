@@ -120,12 +120,8 @@ function automationPatch(
       );
     }
   }
-  if (values.automation.finalize && confirm && current?.automationConfirmedAt === undefined) {
-    if (a.channel !== "ui") {
-      throw appError("invalid_input", "Die Automatik kann nur in der App bestätigt werden.", {
-        reason: "automation_confirm_ui_only",
-      });
-    }
+  // REST/MCP: the automation is stored but stays inactive until confirmed in the UI (a confirm flag is ignored).
+  if (values.automation.finalize && confirm && current?.automationConfirmedAt === undefined && a.channel === "ui") {
     if (!a.role || !canDo(a.role, "invoices.finalize")) throw appError("forbidden_role");
     return { automationConfirmedAt: ctx.now(), automationConfirmedBy: ctx.actor };
   }
@@ -304,7 +300,6 @@ export async function resumeTemplate(
     await appendAudit(ctx, {
       action: "recurring.skip",
       entity: { table: "recurringTemplates", id, label: AUDIT_TABLE_LABEL(t) },
-      diff: { after: { skipped } },
       reason: `Übersprungen: ${skipped.map((d) => formatGermanDate(d as CalendarDate)).join(", ")}`,
     });
   }
@@ -444,7 +439,7 @@ async function refreshAmount(ctx: ModelCtx, id: Id<"recurringTemplates">): Promi
     t.amount.currency === amount.currency
   )
     return;
-  await ctx.db.patch("recurringTemplates", id, { amount });
+  await auditedPatch(ctx, "recurringTemplates", id, { amount }, { action: "recurring.update", label: AUDIT_TABLE_LABEL(t) });
 }
 
 // ── generation (REC-05…07, REC-12, REC-15, REC-16) ────────────────────────────────────────────────────────
