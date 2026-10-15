@@ -21,6 +21,7 @@ import {
 import { ConvexGuard } from "@/components/convex/convex-provider";
 import { DetailLayout, FactList, PageBody } from "@/components/layout/list-layout";
 import { PageHeader } from "@/components/layout/page-header";
+import { PaymentsSection } from "@/components/payments/payments-section";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -162,6 +163,7 @@ function InvoiceDetailInner({ id }: { id: Id<"salesDocuments"> }) {
         <ChainCard chain={chain} />
         <RelationsPanel id={id} type={data.doc.type} />
         <SnapshotView snapshot={data.snapshot as DocumentSnapshot | null} />
+        {data.doc.status !== "cancelled" && <PaymentsSection documentId={data.doc._id} number={number} />}
         <Files data={data} />
         <SendLog data={data} />
       </DetailLayout>

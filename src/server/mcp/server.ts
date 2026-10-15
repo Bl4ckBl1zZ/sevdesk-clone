@@ -7,6 +7,7 @@ import { type RegisteredToolDef, type ToolContext, toolError, toolResult, toolVi
 import { contactTools } from "./tools/contacts";
 import { correctionTools } from "./tools/corrections";
 import { documentTools } from "./tools/documents";
+import { paymentTools } from "./tools/payments";
 import { previewTools } from "./tools/previews";
 import { productTools } from "./tools/products";
 import { settingsTools } from "./tools/settings";
@@ -22,6 +23,7 @@ export const TOOLS: readonly RegisteredToolDef[] = [
   ...productTools,
   ...documentTools,
   ...correctionTools,
+  ...paymentTools,
 ];
 
 /** 06 §1: ≤ 2,048 characters, German domain primer and the safety workflow. */

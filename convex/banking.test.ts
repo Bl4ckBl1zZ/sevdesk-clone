@@ -1,5 +1,6 @@
 /// <reference types="vite/client" />
 import { describe, expect, test, vi } from "vitest";
+import { sha256Hex } from "../src/domain/audit/chain";
 import camtOct from "../test/fixtures/bank/revolut-statements/synthetic-2026-10/eur-2026-10.camt053.xml?raw";
 import csvOct from "../test/fixtures/bank/revolut-statements/synthetic-2026-10/eur-2026-10.csv?raw";
 import mt940Oct from "../test/fixtures/bank/revolut-statements/synthetic-2026-10/eur-2026-10.mt940.txt?raw";
@@ -330,6 +331,38 @@ describe("F07 marking, reversals and cash (BNK-060/061/063/121, CSH-024…027)",
     expect(cash.transfers.find((t) => t.id === ok.id)?.eigenbeleg?.sha256).toMatch(/^[0-9a-f]{64}$/);
     await s.owner.mutation(api.cash.reverseTransfer, { id: ok.id, reason: "falscher Betrag" });
     expect((await s.owner.query(api.cash.overview, {})).balanceCents).toBe(20_000);
+  });
+
+  test("MCP-004 BNK-060 CSH-024 MCP marks and cash transfers need a token bound to the chosen arguments", async () => {
+    const s = await setup();
+    await importFile(s, s.eur, camtOct, "eur-2026-10.camt053.xml");
+    const atm = byRef(await rows(s.t, s.eur), "06");
+    const mcp = await s.t.asMcp(["banking:read", "banking:write"]);
+    const issue = async (intent: string, args: Record<string, unknown>) => {
+      const token = `ct_test_${intent}_${Date.now()}`;
+      await mcp.mutation(api.confirmTokens.issue, { intent, args, entities: [], tokenHash: await sha256Hex(token) });
+      return token;
+    };
+    const mark = { transactionId: atm._id, as: "cash_withdrawal" as const };
+    expect(await mcp.action(api.banking.mark, mark).catch(errorCode)).toBe("confirm_token_required");
+    const wrong = await issue("bank_transaction_mark", { ...mark, as: "private" });
+    expect(await mcp.action(api.banking.mark, { ...mark, confirmToken: wrong }).catch(errorCode)).toBe(
+      "preview_outdated",
+    );
+    // The Eigenbeleg is rendered after the preview and is not part of the bound arguments.
+    const token = await issue("bank_transaction_mark", mark);
+    expect(await mcp.action(api.banking.mark, { ...mark, confirmToken: token })).toEqual({ status: "transfer" });
+    const transfer = {
+      kind: "deposit_to_bank" as const,
+      date: "2026-10-13",
+      amountCents: 5_000,
+      bankAccountId: s.eur,
+      backdateReason: "Nachtrag aus Belegen",
+    };
+    expect(await mcp.action(api.cash.recordTransfer, transfer).catch(errorCode)).toBe("confirm_token_required");
+    const ct = await issue("cash_transfer_record", transfer);
+    const done = await mcp.action(api.cash.recordTransfer, { ...transfer, confirmToken: ct });
+    expect((await s.owner.query(api.cash.overview, {})).transfers.find((t) => t.id === done.id)).toBeDefined();
   });
 
   test("T07-148 EC-CSH-32 private cash withdrawal is blocked for a GmbH", async () => {

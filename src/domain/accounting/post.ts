@@ -127,6 +127,9 @@ export const EXPLANATIONS: Readonly<Record<string, string>> = {
   P9: "Zahlungseingang auf eine abgeschriebene Forderung: die Umsatzsteuer entsteht erneut (§ 17 Abs. 2 Nr. 1 S. 2 UStG).",
   P10: "Zahlungsstorno: Generalumkehr der Zahlungsbuchung, die Rechnung ist wieder offen.",
   P11: "Erstattung eines Kundenguthabens.",
+  P12: "Verrechnung eines Kundenguthabens mit einer Rechnung: Debitor an Debitor.",
+  "P12-ist":
+    "Verrechnung eines Kundenguthabens (Ist-Versteuerung): Debitor an Debitor, der Steueranteil des verrechneten Betrags wird fällig.",
   T5: "Bareinzahlung auf die Bank: Kasse an Geldtransit.",
   "T5-bank": "Bankgutschrift der Bareinzahlung: Bank an Geldtransit.",
   T8: "Privatentnahme aus der Kasse.",
@@ -407,6 +410,7 @@ function postCorrection(e: InvoiceCorrectedEvent, ctx: PostingContext): Result<P
 function meansRole(m: PaymentMeans): AccountRole | null {
   if (m.kind === "bank_account") return bankRole(m.bankAccountId);
   if (m.kind === "cash") return "cash";
+  if (m.kind === "customer_credit") return "receivable";
   return null;
 }
 
@@ -426,11 +430,14 @@ function postPayment(e: PaymentReceivedEvent, ctx: PostingContext): Result<Posti
   if (e.target.kind === "contactCredit" && diffs.length > 0) {
     return err(invalid("Ein Kundenguthaben kann keine Differenzen enthalten."));
   }
+  if (e.target.kind === "contactCredit" && e.means.kind === "customer_credit") {
+    return err(invalid("Ein Guthaben kann nicht mit sich selbst verrechnet werden."));
+  }
   const ist = e.ist !== undefined && e.target.kind !== "contactCredit";
   const method: TaxationMethod = ist ? "ist" : "soll";
   const contact = { contactId: e.contactId };
   const lines: RoleLine[] = [];
-  if (means) lines.push(...debit(R(means), e.amountCents));
+  if (means) lines.push(...debit(R(means), e.amountCents, means === "receivable" ? contact : {}));
 
   let settled = e.amountCents;
   const corrVat = new Map<"19" | "7", number>();
@@ -525,13 +532,15 @@ function postPayment(e: PaymentReceivedEvent, ctx: PostingContext): Result<Posti
       ? "Guthaben"
       : means === null
         ? `Ausfall ${e.target.number ?? ""}`.trim()
-        : `Zahlung ${e.target.number ?? ""}`.trim();
+        : e.means.kind === "customer_credit"
+          ? `Verrechnung ${e.target.number ?? ""}`.trim()
+          : `Zahlung ${e.target.number ?? ""}`.trim();
   const explanation =
     e.target.kind === "contactCredit"
       ? "P6"
       : writeOff && means === null
         ? "P8"
-        : `${e.means.kind === "cash" ? "P3" : "P1"}${ist ? "-ist" : ""}`;
+        : `${e.means.kind === "customer_credit" ? "P12" : e.means.kind === "cash" ? "P3" : "P1"}${ist ? "-ist" : ""}`;
   return entry(e, ctx, {
     date: e.date,
     text: textWith(head, e.counterpartyName),

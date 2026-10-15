@@ -768,3 +768,18 @@ Test names start with the requirement or compliance ID (07-testing §1). Type: U
 | Q-09 | Default account numbers for dunning-fee income, interest income, bad debt per rate and FX gain/loss | **Resolved (v1.1, B5):** decided defaults from the F08 mapping (§4.10, SKR03 default; ⚠ rows stay flagged) (one-off Steuerberater check before go-live recommended, non-blocking) |
 | Q-10 | §367 BGB allocation as default vs. principal-first | Principal first (simpler VAT handling); §367 optional (DUN-027) |
 | Q-11 | Bank-data freshness for P1 auto-finalisation while statements are imported only periodically | `bankDataMaxAgeDays` = 7 (setting); older statement data → drafts only (DUN-033); revisit when the Enable Banking feed (P2) is live |
+
+## 10. P1 implementation notes (payments slice, 2026-10-13)
+
+What the P1 payments slice implements and where it deliberately deviates or defers (reason given; nothing here changes a legal rule):
+
+| Topic | Implementation | Reason |
+|---|---|---|
+| Model API for other slices | `convex/model/payments.ts`: `documentSettlement(ctx, documentId)` → `{ payableCents, receivedCents, settledCents, openAmountCents, fullySettled, paidOn?, paymentStatus? }`; `openItemsAsOf(ctx, { asOf, contactId? })`; `paymentsOfTarget(ctx, target)`; `creditBalance(ctx, contactId)`; `onSettlementChanged(ctx, change)` | Advances (S10 „is the advance settled, how much was received“) and dunning (open items, overdue, payment events) read the same numbers as the UI |
+| Payment events | `onSettlementChanged` is called in the payment transaction after every change of a document's settlement (before/after `paymentStatus` and open amount); currently a no-op | The webhook outbox (F10) and the dunning case do not exist yet; they hook in here, inside PAY-016's single transaction |
+| Overdue | Never stored; `isOverdue` / `displayStatusOf` derive it from `dueDate`, `paymentStatus` and today (Europe/Berlin) | §5.2 |
+| `allocations` table (cash-basis view) | Not written yet; the Ist basis of a payment is taken from the invoice's `vat.output.notdue.*` journal lines when posting (P1/P6/P8 in Ist) | The table is only read by the EÜR / Ist-UStVA reports (F08 §4.4), which come later |
+| Refunds to corrections (PAY-034) and FX (PAY-018) | Deferred; refunds of credit balances (PAY-033/062) are implemented | Corrections with refund belong to the corrections slice; EUR only in P1 |
+| Excess modes | `credit`, `unallocated` (bank only, EC-PAY-50) via UI/REST/MCP; `allocate` (further items) through the combined payment / `POST /payments`; `fees` as differences `dunning_fees`/`default_interest` | PAY-030 |
+| Errors | Rule violations are `invalid_input` (REST 422 `validation_failed`, `errors[0].code` = lower-case reason such as `excess`, `written_off`, `warnings_unacknowledged`); locked periods 409 `period_locked`; till below zero 422 `cash_negative` | 05 §3.1 |
+| Quittung | `payments.receipt`: first print archived (`receiptFile`, sha256), every later print a „Kopie“ rendered from the same immutable data; REST answers JSON with Base64 | PAY-063, EC-PAY-51 |

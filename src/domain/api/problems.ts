@@ -53,6 +53,12 @@ export const PROBLEMS = {
     en: "This record is immutable (GoBD).",
   },
   period_locked: { status: 409, de: "Der Zeitraum ist festgeschrieben.", en: "The period is locked." },
+  /** F07 CSH-026 / AO-05: the till would go below zero at some date (message names date and amount). */
+  cash_negative: {
+    status: 422,
+    de: "Der Kassenbestand würde negativ werden.",
+    en: "The cash balance would become negative.",
+  },
   setup_incomplete: {
     status: 409,
     de: "Die Einrichtung ist noch nicht abgeschlossen.",
@@ -288,6 +294,8 @@ const APP_CODE_TO_PROBLEM: Readonly<Record<string, ProblemCode>> = {
   version_conflict: "version_conflict",
   immutable_record: "immutable_record",
   period_locked: "period_locked",
+  cash_negative: "cash_negative",
+  already_reversed: "conflict",
   setup_incomplete: "setup_incomplete",
   conflict: "conflict",
   illegal_transition: "illegal_transition",

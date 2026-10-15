@@ -353,6 +353,22 @@ async function assertCashNeverNegative(
   if (dip) fail("cash_negative", cashNegativeIssue(dip, date, reversal));
 }
 
+/** CSH-026 dry run (previews, the Eigenbeleg step before the act): would an outflow on `date` dip the till? */
+export async function assertCashOutflowAllowed(ctx: ReadCtx, date: string, outflowCents: number): Promise<void> {
+  if (!isCalendarDate(date)) return;
+  const cash = resolveRole("cash", await resolveContextAt(ctx, date));
+  if (!cash.ok || !cash.value.account) return;
+  const dip = firstNegativeBalance([
+    ...(await cashLines(ctx, cash.value.account)).map((l) => ({
+      date: l.date,
+      seq: l.seq,
+      amountCents: l.debitCents - l.creditCents,
+    })),
+    { date, seq: Number.MAX_SAFE_INTEGER, amountCents: -outflowCents },
+  ]);
+  if (dip) fail("cash_negative", cashNegativeIssue(dip, date, false));
+}
+
 export async function cashLines(ctx: ReadCtx, account: string): Promise<Doc<"journalLines">[]> {
   return ctx.db
     .query("journalLines")
@@ -373,3 +389,42 @@ export async function journalFiscalYears(ctx: ReadCtx, fiscalYearStartMonth: num
 
 export const hasJournalEntries = async (ctx: ReadCtx): Promise<boolean> =>
   (await ctx.db.query("journalEntries").withIndex("by_seq").first()) !== null;
+
+/**
+ * Booking preview (F05 PAY-015, 06 §2.3 previews): the lines an event would post, resolved to accounts of the chart
+ * valid on its date — pure read, nothing is written. Reversal events and skipped events return no lines.
+ */
+export async function previewJournal(
+  ctx: ReadCtx,
+  event: BusinessEvent,
+): Promise<
+  | {
+      status: "lines";
+      text: string;
+      lines: { account: string; role?: string; debitCents: number; creditCents: number }[];
+    }
+  | { status: "skipped" | "error"; message?: string }
+> {
+  const profile = await getCompanyProfile(ctx);
+  if (!profile || !isCalendarDate(event.date) || isReversalEvent(event)) return { status: "skipped" };
+  if (isBeforeBookkeepingStart(event.date, profile.bookkeepingStartDate)) return { status: "skipped" };
+  const outcome = postEvent(event, {
+    taxationMethod: taxationMethodAt(profile.taxationMethod, event.date),
+    legalForm: profile.legalForm,
+    ustvaPeriod: profile.ustvaPeriod,
+  });
+  if (!outcome.ok) return { status: "error", message: outcome.error.message };
+  if (outcome.value.kind === "none") return { status: "skipped" };
+  const resolved = resolveLines(outcome.value.posting.lines, await resolveContextAt(ctx, event.date as CalendarDate));
+  if (!resolved.ok) return { status: "error", message: resolved.error.message };
+  return {
+    status: "lines",
+    text: outcome.value.posting.text,
+    lines: resolved.value.lines.map((l) => ({
+      account: l.account,
+      ...(l.role !== undefined ? { role: l.role } : {}),
+      debitCents: l.debitCents,
+      creditCents: l.creditCents,
+    })),
+  };
+}

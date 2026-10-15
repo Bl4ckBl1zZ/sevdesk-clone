@@ -8,7 +8,7 @@ import { renderEigenbeleg } from "../src/pdf/eigenbeleg";
 import { api, internal } from "./_generated/api";
 import type { Doc, Id } from "./_generated/dataModel";
 import type { ActionCtx } from "./_generated/server";
-import { action, actorMutation, mutation, query } from "./functions";
+import { action, actorMutation, mutation, query, vConfirmToken } from "./functions";
 import { appError } from "./lib/errors";
 import { addStatementAccount } from "./model/bankAccounts";
 import {
@@ -20,7 +20,6 @@ import {
   planStatementImport,
 } from "./model/bankImport";
 import {
-  linkReversal,
   markEigenbelegInput,
   markTransaction,
   requireTransaction,
@@ -33,6 +32,7 @@ import {
 import { accountsOverview, liveReconciliation, revisionFindings, statementTodosFor } from "./model/bankViews";
 import { getCompanyProfile } from "./model/companyProfile";
 import { entriesBySource } from "./model/journal";
+import { linkBankReversal } from "./model/matching";
 import { vFileRef } from "./validators";
 
 /**
@@ -321,13 +321,21 @@ export const commitImportInternal = actorMutation({
     const pdf = args.pdfStorageId
       ? await fileRefFromStorage(ctx, args.pdfStorageId, args.pdfName ?? "Kontoauszug.pdf", "application/pdf")
       : undefined;
-    return commitStatementImport(ctx, {
+    const r = await commitStatementImport(ctx, {
       accountId: args.accountId,
       content: args.content,
       file,
       ...(pdf ? { pdf } : {}),
       ...(args.force ? { force: true } : {}),
     });
+    // BNK-043 auto-apply: one scheduled mutation per booked row, so a failing match never undoes the import.
+    for (const transactionId of (await ctx.db.get(r.importId))?.rowIds ?? []) {
+      await ctx.scheduler.runAfter(0, internal.matching.autoApplyInternal, {
+        actorContext: ctx.actorContext,
+        transactionId,
+      });
+    }
+    return r;
   },
 });
 
@@ -556,7 +564,9 @@ export const markContext = query({
 
 export const applyMark = actorMutation({
   permission: "banking.mark",
-  args: { ...markArgs, eigenbeleg: v.optional(vFileRef) },
+  args: { ...markArgs, eigenbeleg: v.optional(vFileRef), confirmToken: vConfirmToken },
+  // The token binds what the caller chose; the Eigenbeleg is rendered by the server after the preview.
+  confirmArgs: Object.keys(markArgs),
   handler: async (ctx, args) => markTransaction(ctx, args),
 });
 
@@ -566,8 +576,8 @@ export const applyMark = actorMutation({
  */
 export const mark = action({
   permission: "banking.mark",
-  args: markArgs,
-  handler: async (ctx, args): Promise<{ status: string }> => {
+  args: { ...markArgs, confirmToken: vConfirmToken },
+  handler: async (ctx, { confirmToken, ...args }): Promise<{ status: string }> => {
     const input = await ctx.runQuery(api.banking.markContext, args);
     let eigenbeleg: FileRefValue | undefined;
     if (input) {
@@ -587,6 +597,7 @@ export const mark = action({
         actorContext: ctx.actorContext,
         ...args,
         ...(eigenbeleg ? { eigenbeleg } : {}),
+        ...(confirmToken ? { confirmToken } : {}),
       });
     } catch (e) {
       // Nothing references the Eigenbeleg when the mutation failed: remove the orphan.
@@ -599,16 +610,20 @@ export const mark = action({
 /** „Markierung aufheben“ — Generalumkehr of the posting (ACC-004), reason mandatory. */
 export const unmark = mutation({
   permission: "banking.mark",
-  args: { transactionId: v.id("bankTransactions"), reason: v.string() },
+  args: { transactionId: v.id("bankTransactions"), reason: v.string(), confirmToken: vConfirmToken },
   handler: async (ctx, args) => unmarkTransaction(ctx, args),
 });
 
+/**
+ * BNK-121 „Als Rückbuchung verknüpfen“: links the counter-entry and, if the original was allocated, runs the F05
+ * reversal of its payments (EC-PAY-24, ⚠ `payment_reverse`); both open → neutralised pair (BNK-063).
+ */
 export const linkReversalTo = mutation({
-  permission: "banking.write",
-  args: { counterId: v.id("bankTransactions"), originalId: v.id("bankTransactions") },
+  permission: "payments.reverse",
+  args: { counterId: v.id("bankTransactions"), originalId: v.id("bankTransactions"), confirmToken: vConfirmToken },
   handler: async (ctx, args) => {
     await requireTransaction(ctx, args.counterId);
-    await linkReversal(ctx, args);
+    await linkBankReversal(ctx, args);
     return null;
   },
 });

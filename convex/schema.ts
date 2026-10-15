@@ -7,6 +7,7 @@ import {
   vBankTransactionStatus,
   vStatementFormat,
 } from "./bankValidators";
+import { vMatchProvenance, vPaymentDifference, vPaymentSource, vPaymentTarget } from "./paymentValidators";
 import {
   vActor,
   vAuditorScope,
@@ -971,6 +972,66 @@ export default defineSchema({
     acceptedUserId: v.optional(v.string()),
     revokedAt: v.optional(v.number()),
   }).index("by_email", ["email"]),
+
+  // ── 03 §5 payments and receivables (F05 P1, F07 matching) ───────────────────────────────────────────
+  // payments 🔒 — one row per allocation (target); a combined payment shares `allocationGroupId`. Written only by
+  // convex/model/payments.ts in the same transaction as its journal entries, the target's open amount/status and the
+  // bank allocation (PAY-016). Corrected by a reversal row, never edited (PAY-040); after insert only `reversedById`,
+  // `lockedAt`, `reconciledTransactionId`, `receiptFile` (once) and `journalEntryIds` (append) change.
+  payments: defineTable({
+    target: vPaymentTarget,
+    /** Denormalised: the contact of the target (contactCredit: the target id) — per-customer views (PAY-004). */
+    contactId: v.optional(v.id("contacts")),
+    /** Display cache: number of the target document. */
+    number: v.optional(v.string()),
+    date: v.string(),
+    amountCents: v.number(),
+    currency: v.string(),
+    eurAmountCents: v.optional(v.number()),
+    source: vPaymentSource,
+    /** Denormalised from `source` (bank) for the transaction index (BNK-047 unmatch, EC-PAY-24). */
+    bankTransactionId: v.optional(v.id("bankTransactions")),
+    differences: v.array(vPaymentDifference),
+    allocationGroupId: v.optional(v.string()),
+    journalEntryIds: v.array(v.id("journalEntries")),
+    reversalOfId: v.optional(v.id("payments")),
+    reversedById: v.optional(v.id("payments")),
+    reason: v.optional(v.string()),
+    reconciledTransactionId: v.optional(v.id("bankTransactions")),
+    backdateReason: v.optional(v.string()),
+    note: v.optional(v.string()),
+    receiptFile: v.optional(vFileRef),
+    /** Bank match provenance (BNK-042/043): score, reason chips, auto-applied. */
+    match: v.optional(vMatchProvenance),
+    actor: vActor,
+    recordedAt: v.number(),
+    lockedAt: v.optional(v.number()),
+  })
+    .index("by_target", ["target.kind", "target.id"])
+    .index("by_contact", ["contactId"])
+    .index("by_bankTransaction", ["bankTransactionId"])
+    .index("by_reconciled", ["reconciledTransactionId"])
+    .index("by_allocationGroup", ["allocationGroupId"])
+    .index("by_date", ["date"]),
+
+  // matchRejections — „Ablehnen“ on a suggestion (BNK-046): the pair is not suggested again. Not protected, audited.
+  matchRejections: defineTable({
+    transactionId: v.id("bankTransactions"),
+    target: v.object({ kind: v.string(), id: v.string() }),
+    at: v.number(),
+    actor: vActor,
+  }).index("by_transaction", ["transactionId"]),
+
+  // contactAliases — learned on a confirmed match (BNK-048): normalised counterparty name token and IBAN.
+  contactAliases: defineTable({
+    contactId: v.id("contacts"),
+    token: v.string(),
+    iban: v.optional(v.string()),
+    source: v.union(v.literal("match_confirmed"), v.literal("manual")),
+    createdAt: v.number(),
+  })
+    .index("by_token", ["token"])
+    .index("by_contact", ["contactId"]),
 
   // ── 03 §8 bookkeeping (F08, P1) ──────────────────────────────────────────────────────────────────────
   // journalEntries 🔒 — the single double-entry journal; append-only, written only by convex/model/journal.ts

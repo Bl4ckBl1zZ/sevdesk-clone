@@ -716,3 +716,15 @@ Fixtures (07 §3.3): `test/fixtures/bank/enable-banking/` (MSW handlers and reco
 | Q-08 | Auto-apply on by default per account? | On for ≥ 0.98 with the strict extra conditions (BNK-043); owner can switch off |
 | Q-09 | Is a journal-based cash record (no Kassenbuch, no daily close) sufficient? ⚖ LEGAL-OPEN | Decided default: allowed for EÜR businesses without a cash register; the app enforces never-negative, daily-recording warning, reason for > 10 days, no cash sales without invoice, and prints the cash report (CSH-030). For Bilanz companies with frequent cash, a Kassenbuch may be expected — one-off Steuerberater check before go-live recommended, non-blocking |
 | Q-10 | Revolut Business API | Not specified; future option only if the owner buys the Grow plan (research 12) |
+
+## 10. P1 implementation notes (matching slice, 2026-10-13)
+
+| Topic | Implementation | Reason |
+|---|---|---|
+| Suggestions | Computed on read (`matching.review`, `matching.suggestions`) from open documents, opening items, credit balances and unreconciled clearing payments; only rejections (`matchRejections`) and learned aliases (`contactAliases` with token and IBAN, BNK-048) are stored | Open amounts change with every payment; stored suggestions would go stale |
+| Invoice number first | The scorer extracts numbers from purpose/reference incl. the „RE “ prefix and RF references; the reason chips are shown in German (`REASON_LABEL_DE`) | BNK-041/042 |
+| Auto-apply (BNK-043) | Scheduled per imported row after the import commit (`matching.autoApplyInternal`), only for a single candidate ≥ 0.98 with number/RF and exact amount on accounts with `autoApplyMatches`; „Rückgängig“ = F05 reversal | A failing auto-apply must not undo the import |
+| Confirm | `matching.confirm` (⚠ `bank_match_confirm`): incoming → F05 payment (split over several targets, remainder → credit or unallocated); outgoing → refund of a credit balance; target `payment` → reconcile a clearing payment (PAY-047) | One implementation for UI, REST and MCP |
+| Bank reversals (BNK-121) | Linking a counter-entry reverses the original's payments with the counter-entry as the carrier of the reversal row (dated on its booking date, reason „Rückbuchung durch die Bank“) | EC-PAY-24: both bank rows end balanced, the invoice is open again |
+| ⚠ marks and cash transfers via MCP | The action renders the Eigenbeleg, the internal mutation consumes the confirm token in the transaction of the act; the token binds only the caller-chosen arguments | 06 §2.3; the Eigenbeleg does not exist at preview time |
+| Never negative in previews | `cash.transferContext` (used before rendering the Eigenbeleg and by `preview_action`) runs the CSH-026 projection; the posting re-checks in its transaction | Fail early with the same message (EC-CSH-01/02) |

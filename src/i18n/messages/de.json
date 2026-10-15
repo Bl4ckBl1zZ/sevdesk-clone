@@ -2088,7 +2088,8 @@
       "pdfMissing": "PDF fehlt",
       "noStatement": "Noch kein Kontoauszug importiert.",
       "open": "{count, plural, =0 {Keine offenen Umsätze} one {# offener Umsatz} other {# offene Umsätze}}",
-      "duplicates": "{count, plural, one {# mögliche Dublette} other {# mögliche Dubletten}}"
+      "duplicates": "{count, plural, one {# mögliche Dublette} other {# mögliche Dubletten}}",
+      "matching": "Zuordnungen prüfen"
     },
     "account": {
       "title": "Bankkonto anlegen",
@@ -2277,6 +2278,49 @@
         "reason": "Grund",
         "done": "Markierung aufgehoben."
       }
+    },
+    "matching": {
+      "tabsLabel": "Zuordnungen",
+      "tabs": {
+        "suggestions": "Vorschläge",
+        "auto": "Automatisch zugeordnet",
+        "none": "Ohne Vorschlag"
+      },
+      "confirmSafe": "Alle sicheren bestätigen ({count})",
+      "confirmSafeTitle": "Alle sicheren Vorschläge bestätigen",
+      "confirmSafeHint": "{count} Zuordnungen mit einer Bewertung ab 0,95 über insgesamt {sum} werden als Zahlungen gebucht.",
+      "emptySuggestions": "Keine offenen Vorschläge.",
+      "emptyAuto": "Keine automatischen Zuordnungen in den letzten 60 Tagen.",
+      "emptyNone": "Alle offenen Umsätze haben einen Vorschlag.",
+      "credit": "Guthaben",
+      "undone": "rückgängig gemacht",
+      "undo": "Rückgängig",
+      "undoTitle": "Zuordnung aufheben",
+      "undoHint": "Die Zahlung wird storniert (Stornobuchung, kein Löschen); der Umsatz ist danach wieder offen.",
+      "undoneToast": "Zuordnung aufgehoben.",
+      "reason": "Grund (mindestens 5 Zeichen)",
+      "openAccount": "Im Konto öffnen",
+      "confirm": "Bestätigen",
+      "confirmed": "Zahlung gebucht.",
+      "reject": "Ablehnen",
+      "rejected": "Vorschlag abgelehnt.",
+      "next": "Vorschlag {n}/{total}",
+      "other": "Andere wählen",
+      "otherTitle": "Andere Rechnung wählen",
+      "otherHint": "Offener Betrag des Umsatzes: {amount}",
+      "search": "Rechnungsnummer oder Kunde",
+      "remainder": "Restbetrag {amount}",
+      "remainderOpen": "auf dem Umsatz offen lassen",
+      "remainderCredit": "als Guthaben des Kunden",
+      "score": "Bewertung",
+      "skonto": "Skonto",
+      "fees": "Bankgebühren",
+      "kind": {
+        "single": "Zuordnung",
+        "combined": "Sammelzahlung",
+        "partial": "Teilzahlung"
+      },
+      "linkToReview": "Zuordnungen"
     }
   },
   "cash": {
@@ -2801,6 +2845,105 @@
       "chainOrderNumber": "Auftrag / Bestellnummer",
       "chainOrderDate": "Auftragsdatum",
       "expectedSupply": "Voraussichtlicher Leistungszeitpunkt"
+    }
+  },
+  "payments": {
+    "title": "Zahlungen",
+    "record": "Zahlung buchen",
+    "none": "Noch keine Zahlungen erfasst.",
+    "reversal": "Storno",
+    "reversed": "storniert",
+    "autoMatched": "automatisch zugeordnet",
+    "openTransaction": "Bankumsatz öffnen",
+    "printReceipt": "Quittung drucken",
+    "printReceiptCopy": "Quittung drucken (Kopie)",
+    "receiptReady": "Quittung erstellt.",
+    "cashRecorded": "Barzahlung gebucht.",
+    "reverse": "Stornieren",
+    "reverseTitle": "Zahlung stornieren",
+    "reverseHint": "Die Zahlung wird nicht gelöscht: Eine Stornobuchung mit umgekehrten Beträgen wird erfasst – mit dem ursprünglichen Datum, oder mit heutigem Datum, wenn der Zeitraum festgeschrieben ist.",
+    "reversedDone": "Zahlung storniert.",
+    "reason": "Grund (mindestens 5 Zeichen)",
+    "payable": "Rechnungsbetrag",
+    "paid": "bezahlt",
+    "differences": "Differenzen",
+    "openAmount": "offen",
+    "creditBalance": "Guthaben des Kunden: {amount}",
+    "dialog": {
+      "title": "Zahlung buchen · {number}",
+      "open": "offen {amount}",
+      "confirm": "Zahlung buchen",
+      "done": "Zahlung gebucht.",
+      "paidWith": "Bezahlt mit",
+      "means": {
+        "bank": "Bank",
+        "cash": "Bar",
+        "other": "Andere"
+      },
+      "account": "Zahlungskonto",
+      "transaction": "Bankumsatz",
+      "noTransaction": "ohne Bankumsatz (manuell erfassen)",
+      "date": "Datum",
+      "dateFixed": "Fixiert durch den Bankumsatz (Buchungstag).",
+      "amount": "Betrag (€)",
+      "cashDaily": "Bareinnahmen sind täglich aufzuzeichnen (§ 146 Abs. 1 S. 2 AO). Bitte künftig am Tag der Zahlung erfassen.",
+      "backdateReason": "Begründung für nachträgliche Erfassung",
+      "difference": "Differenz {amount}",
+      "diff": {
+        "none": "Teilzahlung – Rest bleibt offen",
+        "skonto": "Skonto",
+        "skontoUntil": "Skonto ({percent} % bis {date})",
+        "skontoLate": "Frist überschritten",
+        "bank_fees": "Bankgebühren",
+        "write_off": "Forderungsausfall",
+        "other": "Sonstige Preisminderung"
+      },
+      "writeOffReason": "Grund des Forderungsausfalls",
+      "writeOff": {
+        "insolvency": "Insolvenz",
+        "uncollectible": "uneinbringlich",
+        "statute_barred": "verjährt",
+        "waiver": "Verzicht"
+      },
+      "otherText": "Grund (mind. 5 Zeichen)",
+      "otherAccount": "Buchungskonto",
+      "excess": "Mehrbetrag {amount}",
+      "excessCredit": "als Guthaben des Kunden",
+      "excessUnallocated": "auf dem Bankumsatz nicht zugeordnet lassen",
+      "note": "Notiz (optional)",
+      "preview": "Buchungsvorschau",
+      "vatCorrection": "USt-Korrektur:",
+      "net": "netto",
+      "vat": "USt"
+    },
+    "openItems": {
+      "kpis": "Kennzahlen",
+      "open": "Offen gesamt",
+      "overdue": "davon überfällig",
+      "due7": "fällig in 7 Tagen",
+      "credits": "Guthaben",
+      "aging": "Altersstruktur",
+      "notDue": "nicht fällig",
+      "daysBucket": "{label} Tage",
+      "asOf": "Stichtag",
+      "overdueOnly": "nur überfällige",
+      "csv": "CSV exportieren",
+      "empty": "Keine offenen Posten.",
+      "statusOpen": "offen",
+      "statusOverdue": "überfällig",
+      "daysOverdue": "{days} Tage überfällig",
+      "creditList": "Guthaben von Kunden",
+      "columns": {
+        "number": "Nr.",
+        "customer": "Kunde",
+        "date": "Rechnungsdatum",
+        "due": "Fällig",
+        "days": "Tage überfällig",
+        "amount": "Betrag",
+        "paid": "Bezahlt",
+        "open": "Offen",
+        "status": "Status"
+      }
     }
   }
 }

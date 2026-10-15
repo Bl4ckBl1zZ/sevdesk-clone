@@ -77,10 +77,19 @@ function tagged<B extends (def: any) => any>(meta: Omit<WrapperMeta, "permission
       );
     }
     const intent = def.permission ? confirmIntentFor(def.permission) : undefined;
+    // ⚠ acts that render a voucher first (Eigenbeleg) run as action → actorMutation: the action only forwards the
+    // token, the actorMutation consumes it in the transaction of the act (06 §2.3). Both must declare it.
     if (intent && (meta.wrapper === "action" || meta.wrapper === "actorMutation")) {
-      throw new Error(`${meta.wrapper}: the ⚠ permission ${def.permission} needs a public mutation (06 §2.3)`);
+      const args = (def as { args?: Record<string, unknown> }).args;
+      if (!args || "isConvexValidator" in args || !("confirmToken" in args)) {
+        throw new Error(`${meta.wrapper}: the ⚠ permission ${def.permission} needs \`confirmToken: vConfirmToken\``);
+      }
     }
-    const fn = builder(intent && meta.wrapper === "mutation" ? withConfirmToken(def as ConfirmableDef, intent) : def);
+    const fn = builder(
+      intent && (meta.wrapper === "mutation" || meta.wrapper === "actorMutation")
+        ? withConfirmToken(def as ConfirmableDef, intent)
+        : def,
+    );
     return Object.assign(fn, {
       [WRAPPER_TAG]: {
         ...meta,
@@ -103,6 +112,11 @@ export const vConfirmToken = v.optional(v.string());
 interface ConfirmableDef {
   permission: Permission;
   args?: Record<string, unknown>;
+  /**
+   * actorMutation only: the argument names the token binds (the preview cannot know server-made arguments such as
+   * the stored Eigenbeleg file); `actorContext` is never part of the hash.
+   */
+  confirmArgs?: readonly string[];
   handler: (ctx: ModelCtx, args: Record<string, unknown>) => unknown;
 }
 
@@ -115,7 +129,11 @@ function withConfirmToken(def: ConfirmableDef, intent: ConfirmIntent): Confirmab
     handler: async (ctx, args) => {
       const { confirmToken, ...rest } = args;
       if (ctx.actorContext.channel === "mcp") {
-        await consumeConfirmToken(ctx, intent, confirmToken as string | undefined, rest);
+        const { actorContext: _a, ...bound } = rest;
+        const hashed = def.confirmArgs
+          ? Object.fromEntries(Object.entries(bound).filter(([k]) => def.confirmArgs?.includes(k)))
+          : bound;
+        await consumeConfirmToken(ctx, intent, confirmToken as string | undefined, hashed);
       }
       return def.handler(ctx, rest);
     },
@@ -207,7 +225,7 @@ export const actorMutation = tagged(
   { wrapper: "actorMutation" },
   customMutation(rawInternalMutation, {
     args: { actorContext: vActorContext },
-    input: async (ctx, args, _extra: { permission: Permission }) => {
+    input: async (ctx, args, _extra: { permission: Permission; confirmArgs?: readonly string[] }) => {
       const stats = newWriteStats();
       const a = args.actorContext as ActorContext;
       return { ctx: { ...fields(a), db: guardedDb(ctx.db, stats) }, args: {}, onSuccess: auditCheck(stats) };

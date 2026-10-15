@@ -103,9 +103,19 @@ export const PERMISSIONS = {
   /** F07 statement import, PDF archive, duplicate review, reversal link, rollback (BNK-030…036, BNK-110/121). */
   "banking.write": { roles: ["owner", "bookkeeper"], scope: "banking:write", write: true },
   /** F07 BNK-060/061/063, CSH-025 marking (⚠ legally relevant: MCP needs the confirm token, 06 §2). */
-  "banking.mark": { roles: ["owner", "bookkeeper"], scope: "banking:write", write: true },
+  "banking.mark": {
+    roles: ["owner", "bookkeeper"],
+    scope: "banking:write",
+    write: true,
+    confirm: "bank_transaction_mark",
+  },
   /** F07 CSH-024/027 „Bargeld eingezahlt / entnommen“ and reversals (⚠, never-negative CSH-026). */
-  "cash.write": { roles: ["owner", "bookkeeper"], scope: "banking:write", write: true },
+  "cash.write": {
+    roles: ["owner", "bookkeeper"],
+    scope: "banking:write",
+    write: true,
+    confirm: "cash_transfer_record",
+  },
   /** F04 sales documents: lists, detail, preview (auditor: read-only, Z1 access to issued invoices). */
   "documents.read": { roles: ALL, scope: "documents:read", write: false },
   /** DOC-03 draft create/update/delete. */
@@ -130,6 +140,32 @@ export const PERMISSIONS = {
     write: true,
     fresh: true,
     confirm: "invoice_cancel",
+  },
+  /** F05 payments, open items, credit balances — read (auditor: Z1 access to receivables). */
+  "payments.read": { roles: ALL, scope: "payments:read", write: false },
+  /**
+   * F05 PAY-010…PAY-063 record a payment (bank, clearing, cash), Sammelzahlung, write-off, credit application and
+   * refund (⚠: MCP needs a `payment_record` confirm token from `preview_action`, PAY-019).
+   */
+  "payments.write": { roles: ["owner", "bookkeeper"], scope: "payments:write", write: true, confirm: "payment_record" },
+  /** F05 PAY-040…042 reversal („Zahlung stornieren“, BNK-047 „Zuordnung aufheben“) (⚠ `payment_reverse`). */
+  "payments.reverse": {
+    roles: ["owner", "bookkeeper"],
+    scope: "payments:write",
+    write: true,
+    confirm: "payment_reverse",
+  },
+  /**
+   * F05 PAY-063 Quittung: archived on first generation (`receiptFile`, set once), „Kopie“ afterwards; like the
+   * document export only the archive copy and the audit entry are written (05 §4.4: `payments:read`).
+   */
+  "payments.receipt": { roles: STAFF_READ, scope: "payments:read", write: false },
+  /** F07 BNK-046 confirming a bank match runs F05 `payments.record` (⚠ `bank_match_confirm`). */
+  "banking.match": {
+    roles: ["owner", "bookkeeper"],
+    scope: "banking:write",
+    write: true,
+    confirm: "bank_match_confirm",
   },
 } as const satisfies Record<string, PermissionRule>;
 

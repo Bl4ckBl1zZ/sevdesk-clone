@@ -302,6 +302,34 @@ describe("payments (F05 / P1–P8)", () => {
     expect(postEvent(pay({ differences: [{ reason: "other", amountCents: 10 }] }), SOLL).ok).toBe(false);
   });
 
+  test("PAY-032 P12 applying a credit balance: debtor against debtor (+ Ist transfer), user-dated", () => {
+    const soll = postEvent(pay({ means: { kind: "customer_credit" }, amountCents: 4500 }), SOLL);
+    expect(brief(lines(soll))).toEqual([
+      ["receivable", "S", 4500],
+      ["receivable", "H", 4500],
+    ]);
+    expect(lines(soll).every((l) => l.contactId === "c1")).toBe(true);
+    expect(
+      soll.ok && soll.value.kind === "entry" && [soll.value.posting.explanation, soll.value.posting.dating],
+    ).toEqual(["P12", "user"]);
+    const ist = postEvent(
+      pay({
+        means: { kind: "customer_credit" },
+        ist: { notDueVat: [{ rateBp: 1900, vatCents: 1900 }], payableCents: 11900, settledBeforeCents: 0 },
+      }),
+      IST,
+    );
+    expect(brief(lines(ist))).toEqual([
+      ["receivable", "S", 11900],
+      ["receivable", "H", 11900],
+      ["vat.output.notdue.19", "S", 1900],
+      ["vat.output.19", "H", 1900],
+    ]);
+    expect(
+      postEvent(pay({ means: { kind: "customer_credit" }, target: { kind: "contactCredit", id: "c1" } }), SOLL).ok,
+    ).toBe(false);
+  });
+
   test("MISC-08 R3 FX difference on a payment into a foreign-currency account goes to FX gain/loss", () => {
     expect(
       brief(

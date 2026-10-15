@@ -111,8 +111,17 @@ export interface InvoiceCorrectedEvent {
 
 // ── payments (F05, F07 cash) ────────────────────────────────────────────────────────────────────────────
 
-/** Where the money moved. `bank_account` covers bank and clearing rows of `bankAccounts` (role `bank.<id>`). */
-export type PaymentMeans = { kind: "bank_account"; bankAccountId: string } | { kind: "cash" } | { kind: "none" };
+/**
+ * Where the money moved. `bank_account` covers bank and clearing rows of `bankAccounts` (role `bank.<id>`);
+ * `customer_credit` applies the contact's credit balance (PAY-032, P12: debtor against debtor, user-dated).
+ */
+export type PaymentMeans =
+  | { kind: "bank_account"; bankAccountId: string }
+  | { kind: "cash" }
+  | { kind: "customer_credit" }
+  | { kind: "none" };
+/** Means that move money (refunds, recoveries). */
+export type MoneyMeans = Exclude<PaymentMeans, { kind: "none" } | { kind: "customer_credit" }>;
 
 /**
  * 03 `payments.differences` (+ `fx_difference` for R3/MISC-08). `amountCents`: + = settles more than the cash
@@ -190,7 +199,7 @@ export interface CustomerRefundEvent {
   kind: "customer_refund";
   paymentId: string;
   date: string;
-  means: Exclude<PaymentMeans, { kind: "none" }>;
+  means: MoneyMeans;
   amountCents: number;
   contactId: string;
   counterpartyName?: string;
@@ -201,7 +210,7 @@ export interface WriteOffRecoveredEvent {
   kind: "writeoff_recovered";
   paymentId: string;
   date: string;
-  means: Exclude<PaymentMeans, { kind: "none" }>;
+  means: MoneyMeans;
   /** Net/VAT per rate of the recovered amount (gross = cash received). */
   recovered: RateAmount[];
   documentNumber?: string;

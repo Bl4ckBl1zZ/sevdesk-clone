@@ -3,8 +3,10 @@ import { afterEach, describe, expect, test } from "vitest";
 import { api } from "../../convex/_generated/api";
 import type { Id } from "../../convex/_generated/dataModel";
 import { finalizedInvoice, INVOICE_RANGE, settle } from "../../convex/invoices.fixtures";
-import { auditedPatch } from "../../convex/model/audit";
+import { defaultInvoiceAccount } from "../../convex/model/bankAccounts";
+import { invoicePaymentArgs, recordPayment } from "../../convex/model/payments";
 import type { TestT } from "../../convex/test.setup";
+import { berlinCalendarDate } from "../../src/domain/time/berlin";
 import { handleMcpRequest } from "../../src/server/mcp/handler";
 import { apiTest, call } from "./harness";
 
@@ -39,16 +41,21 @@ type ToolCall = { isError?: boolean; structuredContent?: Record<string, unknown>
 const errorOf = (r: ToolCall) => JSON.parse(r.content[0]?.text ?? "{}").error as { code: string };
 const json = async (res: Response) => (await res.json()) as Record<string, unknown>;
 
+/** A real F05 payment of the whole invoice (clearing account of the invoice bank account). */
 async function paid(t: TestT, id: Id<"salesDocuments">) {
-  await t.model({ actor: "user:test-owner", role: "owner", channel: "ui" }, (ctx) =>
-    auditedPatch(
+  await t.model({ actor: "user:test-owner", role: "owner", channel: "ui" }, async (ctx) => {
+    const account = await defaultInvoiceAccount(ctx);
+    if (!account) throw new Error("no invoice bank account");
+    await recordPayment(
       ctx,
-      "salesDocuments",
-      id,
-      { openAmountCents: 0, paymentStatus: "paid" },
-      { action: "payment.record" },
-    ),
-  );
+      await invoicePaymentArgs(ctx, {
+        documentId: id,
+        source: { kind: "clearing", accountId: account._id },
+        date: berlinCalendarDate(Date.now()),
+        amountCents: 119_000,
+      }),
+    );
+  });
 }
 
 async function withCorrectionRange(owner: Awaited<ReturnType<typeof finalizedInvoice>>["owner"]) {

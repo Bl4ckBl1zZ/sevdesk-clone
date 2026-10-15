@@ -64,7 +64,7 @@
 | Base URL | `https://api.<BASE_DOMAIN>/api/v1` — **tailnet only**. Owner devices and tools use port 443; the website's server (`tag:website`) uses `https://api.<BASE_DOMAIN>:8443/api/v1`, a Caddy listener that serves only `/api/v1/**` (§6.1, 02 §4.1) |
 | Auth | `Authorization: Bearer sk_live_…` (alternatively `X-API-Key`). Keys in query strings are rejected (400) |
 | Content type | `application/json; charset=utf-8`. Uploads: `multipart/form-data` or a JSON body with `content_base64` (≤ 10 MB) |
-| IDs | Prefixed opaque strings: `con_`, `adr_`, `chn_`, `act_`, `vck_`, `prd_`, `cpr_`, `pcat_`, `stm_`, `quo_`, `ord_`, `dln_`, `inv_` (all invoice types incl. **proforma**), `cor_`, `rem_`, `sbc_` (self-billing Gutschrift, P3), `rec_`, `pay_`, `vou_`, `inb_`, `bac_`, `btx_`, `csh_`, `jrn_`, `ast_`, `prj_`, `tim_`, `whe_`, `evt_`, `job_`, settings objects `nrg_`, `lay_`, `lyv_`, `tpl_`, `pmt_`, `tag_`, `cfd_`, `cc_` (F01 §7.1). Encoded from Convex IDs; stable |
+| IDs | Prefixed opaque strings: `con_`, `adr_`, `chn_`, `act_`, `vck_`, `prd_`, `cpr_`, `pcat_`, `stm_`, `quo_`, `ord_`, `dln_`, `inv_` (all invoice types incl. **proforma**), `cor_`, `rem_`, `sbc_` (self-billing Gutschrift, P3), `rec_`, `pay_`, `opi_` (opening-balance open item, ACC-013), `vou_`, `inb_`, `bac_`, `btx_`, `csh_`, `jrn_`, `ast_`, `prj_`, `tim_`, `whe_`, `evt_`, `job_`, settings objects `nrg_`, `lay_`, `lyv_`, `tpl_`, `pmt_`, `tag_`, `cfd_`, `cc_` (F01 §7.1). Encoded from Convex IDs; stable |
 | Pagination | Cursor: `?limit=1..100 (default 25)&cursor=…`. Response: `{ "data": [...], "next_cursor": "…" \| null }` |
 | Filtering | Explicit query params per resource (e.g. `status`, `contact_id`, `date_from`, `date_to`, `updated_since`, `q`). `updated_since` is supported everywhere for sync |
 | Sorting | `?sort=field` / `-field`, from a whitelist per resource |
@@ -107,7 +107,7 @@
 | 405 | `method_not_allowed` (with `Allow`) |
 | 409 | `document_not_draft`, `version_conflict`, `period_locked`, `number_conflict`, `number_collision`, `immutable_record`, `upsert_ambiguous`, `contact_in_use`, `contact_merged`, `product_in_use`, `setup_incomplete`, `idempotency_in_progress` |
 | 415 | `unsupported_media_type` (body not JSON) |
-| 422 | `validation_failed`, `idempotency_key_reused`, `einvoice_validation_failed` (includes the KoSIT report summary) |
+| 422 | `validation_failed` (payments: `errors[0].code` = the rule reason, e.g. `excess`, `cash_reason_required`, `warnings_unacknowledged`), `idempotency_key_reused`, `einvoice_validation_failed` (includes the KoSIT report summary), `cash_negative` (F07 CSH-026, AO-05) |
 | 429 | `rate_limited` (with `Retry-After`) |
 | 501 | `not_implemented` (catalog entry of a feature that has not shipped yet; MCP stubs) |
 | 503 | `dependency_unavailable` (e.g. einvoice-tools down; finalisation is not attempted) |
@@ -195,7 +195,7 @@ F05 §7.1 is normative; summary:
 | POST | `/payments` | payments:write: combined payment `{ source, date, allocations: [{ target: { kind, id }, amount_cents, differences? }] }` |
 | POST | `/payments/preview` | payments:read: dry run of either body (validation, VAT corrections, journal lines, cash balance after); writes nothing |
 | POST | `/payments/{id}/reverse` | payments:write (`{ reason }`) |
-| GET | `/payments/{id}/receipt` | payments:read: Quittung PDF of a cash payment (archived on first call, „Kopie" afterwards; PAY-063) |
+| GET | `/payments/{id}/receipt` | payments:read: Quittung PDF of a cash payment (archived on first call, „Kopie" afterwards; PAY-063). JSON `{ file_name, copy, content_type, content_base64 }` like the other file downloads of the JSON pipeline |
 | POST | `/contacts/{id}/credit/apply` \| `/refund` | payments:write |
 | GET | `/open-items` (`contact_id`, `overdue_only`, `as_of`, `bucket`), `/contacts/{id}/open-items` | payments:read |
 | GET | `/dunning/preview` (`?date=`; planned actions + `confirm_token`) | payments:read |
@@ -236,7 +236,8 @@ F07 §7 is normative; summary:
 | GET | `/bank-connection` (Enable Banking consent status, `valid_until`, reminders, backoff; no secrets). Connecting, re-consent and „Jetzt abrufen" are **owner-only in the UI** (they need the owner's bank login or presence, F07 BNK-107); there is no sync endpoint (`POST /bank-accounts/{id}/sync` → `409 owner_presence_required`) | banking:read |
 | GET | `/bank-transactions` (`account_id`, `status`, `source`, `date_from/to`, `q`) | banking:read |
 | GET | `/bank-transactions/{id}/suggestions` | banking:read |
-| POST | `/bank-transactions/{id}/match` (`{ targets: [{ kind, id, amount_cents }] }`) | banking:write |
+| POST | `/bank-transactions/{id}/match` (`{ targets: [{ kind: invoice \| opening_item \| credit \| payment, id, amount_cents, differences? }], remainder?: credit \| unallocated, acknowledge_warnings? }`) | banking:write |
+| POST | `/bank-transactions/{id}/unmatch` (`{ reason }`; F05 reversal of the transaction's payments, BNK-047) | payments:write |
 | POST | `/bank-transactions/{id}/mark` (`private\|transfer\|cash_withdrawal\|ignored\|loan`) | banking:write |
 | GET/POST/PATCH | `/matching-rules` | banking:write |
 | GET | `/cash` (balance + movements with running balance), `/cash/report` (PDF/CSV) | banking:read |

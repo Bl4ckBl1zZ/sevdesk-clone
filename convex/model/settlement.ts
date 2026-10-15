@@ -1,13 +1,11 @@
-import type { Doc, Id } from "../_generated/dataModel";
-import { auditedPatch } from "./audit";
-import type { ModelCtx, ReadCtx } from "./types";
+import type { Doc } from "../_generated/dataModel";
+import type { ReadCtx } from "./types";
 
 /**
  * Payment state of an invoice-family document or a credit correction as the Storno, correction and final-invoice
- * flows see it (F04 INV-07/10/11/15, 10 EC-070/071). **This is the single hook the payments slice (F05) replaces**:
- * today it derives everything from `salesDocuments.paymentStatus` / `openAmountCents` (the payments slice is their
- * source of truth) and the `creditAppliedCents` of finalised credits; F05 may read its `payments`/`allocations`
- * instead, as long as it returns the same shape.
+ * flows see it (F04 INV-07/10/11/15, 10 EC-070/071). Invoices read the F05 `payments` rows (net of reversals,
+ * incl. accepted differences, RI-09) and the `creditAppliedCents` of their finalised credits; `openAmountCents` is the
+ * value the payments slice derived from both (PAY-043).
  */
 export interface Settlement {
   /** Payable amount of the snapshot (BT-115). */
@@ -41,6 +39,16 @@ export async function activeCredits(ctx: ReadCtx, doc: Pick<SalesDoc, "_id">): P
   );
 }
 
+/**
+ * Part of `doc`'s payable settled by its credit corrections (Σ `creditAppliedCents`), optionally only credits dated
+ * on or before `asOf` (open items as-of view, PAY-002). Input of the F05 status derivation (PAY-043).
+ */
+export async function creditedCentsOf(ctx: ReadCtx, doc: Pick<SalesDoc, "_id">, asOf?: string): Promise<number> {
+  return (await activeCredits(ctx, doc))
+    .filter((c) => asOf === undefined || (c.documentDate !== undefined && c.documentDate <= asOf))
+    .reduce((s, c) => s + (c.creditAppliedCents ?? 0), 0);
+}
+
 export async function settlementOf(ctx: ReadCtx, doc: SalesDoc): Promise<Settlement> {
   const payable = doc.totals.payableCents;
   const open = doc.openAmountCents ?? payable;
@@ -61,35 +69,23 @@ export async function settlementOf(ctx: ReadCtx, doc: SalesDoc): Promise<Settlem
     // Storno only for unpaid documents (INV-10): nothing was received; the receivable is closed.
     return { payableCents: payable, openCents: 0, creditedCents: 0, receivedCents: 0, hasPayments: false };
   }
-  const credited = (await activeCredits(ctx, doc)).reduce((s, c) => s + (c.creditAppliedCents ?? 0), 0);
-  const received = Math.max(0, payable - open - credited);
+  const credited = await creditedCentsOf(ctx, doc);
+  const rows = await ctx.db
+    .query("payments")
+    .withIndex("by_target", (q) => q.eq("target.kind", "salesDocument").eq("target.id", doc._id))
+    .collect();
+  const active = rows.filter((r) => !r.reversedById && !r.reversalOfId);
+  const settled = rows.reduce((s, r) => s + r.amountCents + r.differences.reduce((d, x) => d + x.amountCents, 0), 0);
+  const paidOn = active
+    .map((r) => r.date)
+    .sort()
+    .at(-1);
   return {
     payableCents: payable,
-    openCents: open,
+    openCents: doc.openAmountCents ?? payable - credited - settled,
     creditedCents: credited,
-    receivedCents: received,
-    hasPayments: received > 0,
+    receivedCents: Math.max(0, settled),
+    hasPayments: active.length > 0,
+    ...(paidOn ? { paidOn } : {}),
   };
-}
-
-/**
- * Stand-in for the payments slice (F05) in tests and E2E only: records `amountCents` as received on an invoice by
- * moving `openAmountCents`/`paymentStatus` (the fields this module reads). Callers guard with IS_TEST.
- */
-export async function recordStandInPayment(
-  ctx: ModelCtx,
-  id: Id<"salesDocuments">,
-  amountCents: number,
-): Promise<Settlement> {
-  const doc = await ctx.db.get(id);
-  if (!doc || doc.status === "draft" || doc.status === "cancelled") throw new Error("stand_in_payment_target");
-  const open = Math.max(0, (doc.openAmountCents ?? doc.totals.payableCents) - amountCents);
-  await auditedPatch(
-    ctx,
-    "salesDocuments",
-    id,
-    { openAmountCents: open, paymentStatus: open === 0 ? "paid" : "partially_paid" },
-    { action: "payment.record" },
-  );
-  return settlementOf(ctx, (await ctx.db.get(id)) as SalesDoc);
 }

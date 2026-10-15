@@ -7,7 +7,9 @@ import type { Doc, Id } from "./_generated/dataModel";
 import { orgForm } from "./catalog.fixtures";
 import { finalizedInvoice, INVOICE_RANGE, invoiceValues, settle } from "./invoices.fixtures";
 import { errorCode } from "./lib/errors";
-import { recordStandInPayment } from "./model/settlement";
+import { defaultInvoiceAccount } from "./model/bankAccounts";
+import { openItemsAsOf } from "./model/payments";
+import { settlementOf } from "./model/settlement";
 import { makeT, type TestT } from "./test.setup";
 
 const NOW = new Date("2026-10-12T10:00:00Z");
@@ -45,9 +47,16 @@ const snapshot = (t: TestT, d: Doc<"salesDocuments">) =>
 
 const dataOf = (e: unknown) => (e as { data?: Record<string, unknown> }).data ?? {};
 
-/** Stand-in for the payments slice: an allocation sets open amount and payment status (03 §4, F05 §4.3). */
+/** A real F05 payment (clearing account of the invoice bank account) of `cents` on the document. */
 async function receive(t: TestT, owner: Owner, id: Id<"salesDocuments">, cents: number) {
-  await t.model({ actor: owner.actor, role: "owner", channel: "ui" }, (ctx) => recordStandInPayment(ctx, id, cents));
+  const account = await t.run(async (ctx) => defaultInvoiceAccount(ctx));
+  if (!account) throw new Error("no invoice bank account");
+  await owner.mutation(api.payments.recordForInvoice, {
+    documentId: id,
+    source: { kind: "clearing", accountId: account._id },
+    date: "2026-10-12",
+    amountCents: cents,
+  });
 }
 
 async function withCorrectionRange(owner: Owner) {
@@ -175,6 +184,34 @@ describe("INV-12 INV-13 INV-15 corrections", { timeout: 30_000 }, () => {
     expect(blocked.guard?.code).toBe("storno_has_corrections");
     await owner.mutation(api.corrections.cancel, { id: cid, reason: "Irrtum" });
     expect((await doc(t, id)).openAmountCents).toBe(119_000);
+    await settle(t);
+  });
+
+  test("INV-12 PAY-043 PAY-001 after a credit, paying the rest settles the invoice; open items show the credited rest", async () => {
+    const t = makeT();
+    const { owner, id } = await finalizedInvoice(t);
+    await withCorrectionRange(owner);
+    const { id: cid } = await owner.mutation(api.corrections.createCorrection, {
+      originalId: id,
+      kind: "credit",
+      changes: [{ position: 1, unitPriceMicros: 900_000 }],
+    });
+    await owner.action(api.invoices.finalize, { id: cid, version: (await doc(t, cid)).version });
+    const items = await t.run((ctx) => openItemsAsOf(ctx, { asOf: "2026-10-12" }));
+    expect(items.items.find((i) => i.id === id)?.openCents).toBe(107_100);
+    await receive(t, owner, id, 107_100);
+    expect(await doc(t, id)).toMatchObject({ paymentStatus: "paid", openAmountCents: 0 });
+    const after = await t.run((ctx) => openItemsAsOf(ctx, { asOf: "2026-10-12" }));
+    expect(after.items.find((i) => i.id === id)).toBeUndefined();
+    const paid = await doc(t, id);
+    const s = await t.run((ctx) => settlementOf(ctx, paid));
+    expect(s).toMatchObject({
+      openCents: 0,
+      creditedCents: 11_900,
+      receivedCents: 107_100,
+      hasPayments: true,
+      paidOn: "2026-10-12",
+    });
     await settle(t);
   });
 

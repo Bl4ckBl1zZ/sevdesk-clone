@@ -4,6 +4,7 @@ import { contactsResource } from "./contacts";
 import { correctionsResource } from "./corrections";
 import { documentsResource } from "./documents";
 import { metaResource } from "./meta";
+import { paymentsResource } from "./payments";
 import { productsResource } from "./products";
 import { settingsResource } from "./settings";
 
@@ -18,6 +19,7 @@ export const RESOURCES: readonly Resource[] = [
   settingsResource,
   documentsResource,
   correctionsResource,
+  paymentsResource,
 ];
 
 export const ROUTES = compileRoutes(RESOURCES);

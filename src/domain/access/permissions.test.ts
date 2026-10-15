@@ -50,6 +50,11 @@ const EXPECTED: Record<Permission, readonly MemberRole[]> = {
   "invoices.finalize": ["owner", "bookkeeper"],
   "invoices.send": ["owner", "bookkeeper"],
   "invoices.cancel": ["owner", "bookkeeper"],
+  "payments.read": ["owner", "bookkeeper", "viewer", "auditor"],
+  "payments.write": ["owner", "bookkeeper"],
+  "payments.reverse": ["owner", "bookkeeper"],
+  "payments.receipt": ["owner", "bookkeeper", "viewer"],
+  "banking.match": ["owner", "bookkeeper"],
 };
 
 describe("permission matrix (02 §4.3)", () => {
@@ -136,6 +141,19 @@ describe("permission matrix (02 §4.3)", () => {
     expect(confirmIntentFor("invoices.cancel")).toBe("invoice_cancel");
     expect(PERMISSIONS["invoices.cancel"].scope).toBe("invoices:cancel");
     expect(PERMISSIONS["invoices.cancel"].fresh).toBe(true);
+  });
+
+  test("MCP-004 PAY-019 payments and bank matches are ⚠ actions with their own confirm intents (06 §2.1)", () => {
+    expect(confirmIntentFor("payments.write")).toBe("payment_record");
+    expect(confirmIntentFor("payments.reverse")).toBe("payment_reverse");
+    expect(confirmIntentFor("banking.match")).toBe("bank_match_confirm");
+    expect(confirmIntentFor("banking.mark")).toBe("bank_transaction_mark");
+    expect(confirmIntentFor("cash.write")).toBe("cash_transfer_record");
+    expect(scopeFor("payments.write")).toBe("payments:write");
+    expect(scopeFor("payments.reverse")).toBe("payments:write");
+    expect(scopeFor("banking.match")).toBe("banking:write");
+    expect(canKeyDo(["payments:read"], "payments.read")).toBe(true);
+    expect(canKeyDo(["payments:read"], "payments.write")).toBe(false);
   });
 
   test("API-002 key creation needs a fresh session, revocation does not (EC-186)", () => {

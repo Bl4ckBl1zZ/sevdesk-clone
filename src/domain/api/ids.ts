@@ -24,6 +24,11 @@ export const ID_PREFIXES = {
   // Sales documents (05 §4.3): one table, a prefix per REST resource.
   invoices: "inv_",
   corrections: "cor_",
+  // F05/F07 (05 §3 „IDs“): payments, bank transactions, cash transfers, opening items of the opening balance.
+  payments: "pay_",
+  bankTransactions: "btx_",
+  cashTransfers: "csh_",
+  openingItems: "opi_",
 } as const;
 
 export type IdTable = keyof typeof ID_PREFIXES;
