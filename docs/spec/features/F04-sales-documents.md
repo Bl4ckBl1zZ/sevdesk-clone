@@ -1042,6 +1042,8 @@ Conventions: snake_case, money `*_cents`, unit prices and quantities as decimal 
 
 Tool descriptions are in English with German domain terms and tell Claude: the app never sends documents — export them for the owner and call `document_mark_sent` only after the owner confirms how and when they sent them; never invent VAT IDs or Leitweg-IDs; always call `document_preview` and show totals, tax case and ER-03 to the user before `document_finalize`; prefer Rechnungsberichtigung for formal defects; Storno only for unpaid invoices. Errors return `isError: true` with the §5.1 structure.
 
+**P1 status (2026-10-13):** the quote/order/delivery-note/proforma part of §7.1/§7.2 is implemented as described in 05 §4.3 „P1 implementation“ (API-021) and 06 §3.4 (MCP-011); the acceptance and rejection bodies carry the business `date` next to the recording instant (03 §12). Open in this slice: inline contact upsert, preview/duplicate, `document_finalize` via MCP.
+
 ## 8. Acceptance tests
 
 Naming: test titles start with the compliance ID(s) and the 10-edge-cases ID(s), then the test ID, e.g. `test("UST-30 EC-074 T-EC-062 storno of a paid invoice is blocked", …)`. Types: **U** unit (Vitest, domain), **C** Convex function test (convex-test), **G** golden file (07 §4: snapshot + CII/UBL + PDF text + DATEV + UStVA), **E** Playwright E2E (desktop + mobile), **V** external validator (KoSIT 1.6.3 / Mustang 2.26 / veraPDF). Every C/E test runs `assertInvariants()` (RI-01…RI-28) in `afterEach` (07 §5a). The covers column lists F04 requirement IDs · compliance IDs · EC/RI IDs.

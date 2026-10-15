@@ -158,7 +158,31 @@ export interface FinalizeParams {
   readonly documentDate: string;
   readonly layoutVersionId: string;
   readonly plan: EinvoicePlan;
+  /** Chain references read in the commit transaction: BT-14 order confirmation, BT-16 delivery notes (QUO-11). */
+  readonly chainReferences?: {
+    readonly salesOrderReference?: string | undefined;
+    readonly deliveryNoteNumbers?: readonly string[] | undefined;
+  };
 }
+
+/** QUO-01: „Gültig bis“ = the chosen date, else document date + `quoteValidityDays` (default 30). */
+export function validUntilFor(
+  draft: Pick<DraftDocument, "type" | "validUntil">,
+  documentDate: string,
+  quoteValidityDays = 30,
+): string | undefined {
+  if (draft.type !== "quote") return undefined;
+  return draft.validUntil ?? addDays(documentDate as CalendarDate, quoteValidityDays);
+}
+
+/** Types with a due date and payment block (invoice family and proforma, App. F). */
+const DUE_TYPES: readonly SalesDocType[] = [
+  "invoice",
+  "advance_invoice",
+  "partial_invoice",
+  "final_invoice",
+  "proforma",
+];
 
 export function buildSnapshotInput(
   draft: DraftDocument,
@@ -170,7 +194,8 @@ export function buildSnapshotInput(
   if (!contact) throw new Error("contact_missing");
   const documentDate = p.documentDate;
   const supplyDate = finalSupplyDate(draft, documentDate);
-  const dueDate = dueDateFor(documentDate, draft.paymentTerms.dueDays);
+  const dueDate = DUE_TYPES.includes(draft.type) ? dueDateFor(documentDate, draft.paymentTerms.dueDays) : undefined;
+  const validUntil = validUntilFor(draft, documentDate, ctx.company.quoteValidityDays);
   const values = placeholderValues({ draft, ctx, resolved, number: p.number, documentDate, dueDate });
   const byIndex = new Map(resolved.lines.map((l) => [l.index, l]));
   const lines: SnapshotInputLine[] = draft.lines.map((l, index) => {
@@ -203,6 +228,7 @@ export function buildSnapshotInput(
       ...(l.linePeriod ? { period: l.linePeriod } : {}),
       ...(l.itemNumber ? { itemNumber: l.itemNumber } : {}),
       ...(l.isLaborCost ? { isLaborCost: true } : {}),
+      ...(l.optional && draft.type === "quote" ? { optional: true } : {}),
     };
   });
   const adj = draft.documentDiscount;
@@ -219,13 +245,16 @@ export function buildSnapshotInput(
   const subject = resolveText(draft.subject, values);
   const headText = resolveText(draft.headText, values);
   const footText = resolveText(draft.footText, values);
+  const deliveryTerms = draft.deliveryTerms?.trim();
+  const refs = p.chainReferences;
   const decision: Er03Decision = p.plan.er03.decision;
   const format: EinvoiceFormat = p.plan.format;
   return {
     type: draft.type,
     number: p.number,
     documentDate,
-    dueDate,
+    ...(dueDate ? { dueDate } : {}),
+    ...(validUntil ? { validUntil } : {}),
     ...(supplyDate ? { supplyDate } : {}),
     ...(draft.supplyDateMode === "document_date" ? { supplyDateIsDocumentDate: true } : {}),
     language: draft.language,
@@ -237,6 +266,7 @@ export function buildSnapshotInput(
       ...(draft.kleinbetrag ? { kleinbetrag: true } : {}),
       ...(propertyRelated ? { propertyRelated: true } : {}),
       ...(draft.constructionWork ? { constructionWork: true } : {}),
+      ...(draft.type === "delivery_note" && draft.showPrices ? { showPrices: true } : {}),
     },
     seller: {
       ...ctx.company.seller,
@@ -250,11 +280,14 @@ export function buildSnapshotInput(
       ...(contact.buyerReference?.trim() ? { contactBuyerReference: contact.buyerReference.trim() } : {}),
       ...(draft.contractReference?.trim() ? { contractReference: draft.contractReference.trim() } : {}),
       ...(draft.orderReference?.trim() ? { orderReference: draft.orderReference.trim() } : {}),
+      ...(refs?.salesOrderReference ? { salesOrderReference: refs.salesOrderReference } : {}),
+      ...(refs?.deliveryNoteNumbers?.length ? { deliveryNoteNumbers: [...refs.deliveryNoteNumbers] } : {}),
     },
     texts: {
       ...(subject ? { subject } : {}),
       ...(headText ? { headText } : {}),
       ...(footText ? { footText } : {}),
+      ...(deliveryTerms && (draft.type === "quote" || draft.type === "order_confirmation") ? { deliveryTerms } : {}),
     },
     lines,
     ...(adjustment ? { adjustment } : {}),

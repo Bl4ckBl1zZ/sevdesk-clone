@@ -1163,6 +1163,56 @@ export default defineSchema({
     tags: v.array(v.id("tags")),
     customFields: v.record(v.string(), v.any()),
     internalNote: v.optional(v.string()),
+    // ── quotes, order confirmations, delivery notes, proforma and conversions (F04 §3.2 QUO, §4.3) ─────────────
+    /** Quotes: 1, 2, … (QUO-06); not the OCC counter `version`. */
+    revision: v.optional(v.number()),
+    /** Quotes (QUO-01): set at finalisation (default document date + `quoteValidityDays`). */
+    validUntil: v.optional(v.string()),
+    /** Quotes and order confirmations (QUO-01, QUO-08). */
+    deliveryTerms: v.optional(v.string()),
+    /** Delivery notes (QUO-09): print prices and totals; lines keep their prices either way. */
+    showPrices: v.optional(v.boolean()),
+    /** Conversion source (quote → order → invoice) or previous quote version (QUO-06, DOC-33). */
+    originId: v.optional(v.id("salesDocuments")),
+    /** Many-to-one conversions: the delivery notes of a collective invoice (QUO-11). */
+    sourceDocumentIds: v.optional(v.array(v.id("salesDocuments"))),
+    /** The first document of the chain (DOC-34); absent on the root itself. */
+    chainRootId: v.optional(v.id("salesDocuments")),
+    /** Quotes/orders: derived invoicing progress cache (§4.3.3), recomputed, never edited. */
+    coverage: v.optional(
+      v.object({
+        prepaidByGroup: v.array(
+          v.object({ category: vVatCategory, rateBp: v.number(), netCents: v.number(), vatCents: v.number() }),
+        ),
+        coveredBp: v.number(),
+      }),
+    ),
+    /** QUO-05 „Angenommen“ (set once): recording instant, business date, by whom, channel, accepted snapshot hash. */
+    acceptance: v.optional(
+      v.object({
+        at: v.number(),
+        date: v.string(),
+        byName: v.string(),
+        channel: v.union(v.literal("manual"), v.literal("portal"), v.literal("email"), v.literal("phone")),
+        note: v.optional(v.string()),
+        snapshotHash: v.string(),
+      }),
+    ),
+    /** QUO-05 „Abgelehnt“ (set once; a later rejection after reopening is recorded in the audit log only). */
+    rejection: v.optional(
+      v.object({
+        at: v.number(),
+        date: v.string(),
+        reason: v.optional(v.string()),
+        channel: v.union(v.literal("manual"), v.literal("portal")),
+      }),
+    ),
+    /** Delivery note „Erhalten“ (§4.2.3). */
+    received: v.optional(v.object({ date: v.string(), byName: v.string() })),
+    /** Withdrawal of a quote/order/delivery note/proforma (QUO-15) or Storno: when, why, by which document. */
+    cancellation: v.optional(
+      v.object({ at: v.number(), reason: v.string(), byDocumentId: v.optional(v.id("salesDocuments")) }),
+    ),
     createdBy: vActor,
     channel: vChannel,
     version: v.number(),
@@ -1173,6 +1223,7 @@ export default defineSchema({
     .index("by_artifactStatus", ["artifactStatus"])
     .index("by_firstExportedAt", ["status", "firstExportedAt"])
     .index("by_paymentStatus_due", ["paymentStatus", "dueDate"])
+    .index("by_chainRoot", ["chainRootId"])
     .searchIndex("search", { searchField: "contactName", filterFields: ["type", "status"] }),
 
   // 03 §4 documentLines 🔒 (frozen with the parent; the guarded db passes the parent status to the matrix).
@@ -1202,6 +1253,10 @@ export default defineSchema({
     isLaborCost: v.optional(v.boolean()),
     revenueAccount: v.optional(v.string()),
     itemNumber: v.optional(v.string()),
+    /** Quotes only (DOC-04, QUO-02): excluded from totals and VAT. */
+    optional: v.optional(v.boolean()),
+    /** The quote/order/delivery-note line this line was converted from (§4.3.3). */
+    sourceLineId: v.optional(v.id("documentLines")),
     invoicedQtyMilli: v.optional(v.number()),
     deliveredQtyMilli: v.optional(v.number()),
   })

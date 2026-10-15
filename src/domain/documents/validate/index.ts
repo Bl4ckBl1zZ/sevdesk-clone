@@ -11,7 +11,7 @@ import { certificateGate } from "../../contacts/consent";
 import { vatCheckGate } from "../../contacts/vat-check";
 import { validateLeitwegId } from "../../einvoice/leitweg-id";
 import { isSupportedCurrency } from "../../money/currencies";
-import { formatBasisPoints, formatEuro } from "../../money/format";
+import { formatBasisPoints, formatEuro, formatMilli } from "../../money/format";
 import { lineAmountCents } from "../../money/line";
 import { isEuVatCountry, isEuVatPrefix } from "../../rules/eu-vat-countries";
 import { lookupRule } from "../../rules/rule-table";
@@ -19,6 +19,7 @@ import { isWithinKleinbetragLimit, KLEINUNTERNEHMER_LIMITS } from "../../rules/t
 import { TAX_CASE_LABELS } from "../../tax/tax-case";
 import { validateVatId } from "../../tax/vat-id";
 import { addDays, type CalendarDate, daysBetween, formatGermanDate } from "../../time/calendar-date";
+import { DOC_TYPE_PLURAL_DE } from "../doc-types";
 import {
   type DocumentContext,
   type DraftDocument,
@@ -77,7 +78,9 @@ export function validateDocument(
   const push = (f: Finding) => out.push(f);
   const isInvoice = INVOICE_TYPES.includes(draft.type);
   const c = ctx.contact;
-  const items = draft.lines.filter((l) => l.kind === "item");
+  const items = draft.lines.filter((l) => l.kind === "item" && !l.optional);
+  /** Delivery notes without printed prices keep prices internally but need none (QUO-09). */
+  const priced = draft.type !== "delivery_note" || draft.showPrices === true;
   const today = ctx.today;
   const docDate = resolved.documentDate;
   const supply = resolved.supplyDate;
@@ -120,7 +123,7 @@ export function validateDocument(
         "E",
         "UST-06",
         "pflichtangaben",
-        `Kein aktiver Nummernkreis für Rechnungen → Einstellungen › Nummernkreise.`,
+        `Kein aktiver Nummernkreis für ${DOC_TYPE_PLURAL_DE[draft.type]} → Einstellungen › Nummernkreise.`,
         {
           field: "settings/number-ranges",
           params: { docType: draft.type },
@@ -252,7 +255,7 @@ export function validateDocument(
   }
 
   // ── §5.1.2 dates ────────────────────────────────────────────────────────────────────────────────────────────
-  if (isInvoice && !supply) {
+  if ((isInvoice || draft.type === "delivery_note") && !supply) {
     push(
       finding("supply_date_missing", "E", "UST-08", "pflichtangaben", "Leistungsdatum oder Leistungszeitraum fehlt.", {
         field: "supplyDate",
@@ -409,7 +412,19 @@ export function validateDocument(
       );
     }
   }
-  if (range && (taxCase === "eu_b2b_service" || taxCase === "intra_community_supply")) {
+  if (draft.type === "quote" && draft.validUntil && draft.validUntil < docDate) {
+    push(
+      finding(
+        "valid_until_before_date",
+        "E",
+        "—",
+        "pflichtangaben",
+        "„Gültig bis“ darf nicht vor dem Angebotsdatum liegen.",
+        { field: "validUntil" },
+      ),
+    );
+  }
+  if (isInvoice && range && (taxCase === "eu_b2b_service" || taxCase === "intra_community_supply")) {
     const [y, m] = range.to.split("-").map(Number) as [number, number];
     const deadline = (m === 12 ? `${y + 1}-01-15` : `${y}-${String(m + 1).padStart(2, "0")}-15`) as CalendarDate;
     if (today > deadline) {
@@ -533,7 +548,7 @@ export function validateDocument(
         ),
       );
     }
-    if (l.unitPriceMicros === undefined) {
+    if (l.unitPriceMicros === undefined && priced) {
       push(
         finding("line_price_missing", "E", "UST-09", "pflichtangaben", `Position ${n}: Einzelpreis fehlt.`, {
           field: field("unitPriceMicros"),
@@ -602,7 +617,7 @@ export function validateDocument(
         ),
       );
     }
-    if (isInvoice && totals.grossCents < 0) {
+    if ((isInvoice || draft.type === "proforma") && totals.grossCents < 0) {
       push(
         finding(
           "total_negative",
@@ -1144,7 +1159,8 @@ export function validateDocument(
     );
   }
   const bt10 = (draft.buyerReference ?? "").trim() || (c?.buyerReference ?? "").trim();
-  if (c?.isPublicAuthority) {
+  // BT-10 / Leitweg-ID belongs to the e-invoice (ER-20): quotes, orders, delivery notes and proforma carry no XML.
+  if (c?.isPublicAuthority && isInvoice) {
     const lw = validateLeitwegId(bt10);
     if (!lw.ok) {
       const msg =
@@ -1203,6 +1219,46 @@ export function validateDocument(
           "e_rechnung",
           "Für die XRechnung fehlt eine elektronische Adresse des Kunden (E-Mail oder Leitweg-ID).",
           { field: "contactId" },
+        ),
+      );
+    }
+  }
+  // ── §5.1.6 conversions: never bill a source line or a delivery note twice (QUO-10/11/13, UST-34) ──────────
+  if (isInvoice) {
+    const billed = new Map<string, number>();
+    resolved.lines.forEach((r) => {
+      const l = draft.lines[r.index];
+      if (!l?.sourceLineId || l.optional) return;
+      const limit = ctx.sourceLineRemaining?.[l.sourceLineId];
+      if (!limit) return;
+      const total = (billed.get(l.sourceLineId) ?? 0) + (l.quantityMilli ?? 0);
+      billed.set(l.sourceLineId, total);
+      if (total > limit.remainingMilli) {
+        const remaining = formatMilli(Math.max(0, limit.remainingMilli));
+        push(
+          finding(
+            "quantity_exceeds_source",
+            "E",
+            "UST-34",
+            "pflichtangaben",
+            `Position ${r.position}: Die Menge übersteigt die noch nicht berechnete Menge aus ${limit.sourceNumber} (noch ${remaining}).`,
+            {
+              field: `lines.${r.index}.quantityMilli`,
+              params: { n: r.position, source: limit.sourceNumber, remaining },
+            },
+          ),
+        );
+      }
+    });
+    for (const dn of ctx.deliveryNotesInvoiced ?? []) {
+      push(
+        finding(
+          "delivery_note_already_invoiced",
+          "E",
+          "UST-34",
+          "pflichtangaben",
+          `Lieferschein ${dn.number} ist bereits in Rechnung ${dn.invoiceNumber} enthalten.`,
+          { params: { number: dn.number, invoice: dn.invoiceNumber } },
         ),
       );
     }

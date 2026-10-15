@@ -1,5 +1,5 @@
 import { describe, expect, test } from "vitest";
-import { decodeId, encodeId, encodeOptionalId } from "./ids";
+import { decodeDocumentId, decodeId, encodeDocumentId, encodeId, encodeOptionalId } from "./ids";
 import { defaultFieldMapper, mapAppError, PROBLEMS, preferredLang, problem } from "./problems";
 
 describe("problem+json (05 §3.1, RFC 9457)", () => {
@@ -90,8 +90,38 @@ describe("problem+json (05 §3.1, RFC 9457)", () => {
   });
 });
 
+describe("F04 sales-document errors (05 §4.3, F04 §5.1)", () => {
+  test("DOC-02 DOC-24 lifecycle, finalisation and chain guards map to their problems with the §5.1 code", () => {
+    expect(mapAppError({ code: "illegal_transition", message: "x" }).code).toBe("illegal_transition");
+    expect(PROBLEMS.illegal_transition.status).toBe(409);
+    expect(mapAppError({ code: "document_not_draft" }).code).toBe("immutable_record");
+    expect(mapAppError({ code: "number_conflict" }).code).toBe("number_conflict");
+    expect(mapAppError({ code: "dependency_unavailable" }).code).toBe("dependency_unavailable");
+    const guard = mapAppError({ code: "conflict", reason: "withdraw_has_invoices", message: "AB-1 hat Rechnungen." });
+    expect(guard).toMatchObject({
+      code: "conflict",
+      errors: [{ code: "withdraw_has_invoices", message: "AB-1 hat Rechnungen." }],
+    });
+    const findings = [{ code: "supply_date_missing", rule: "UST-08", field: "supplyDate", message: "fehlt" }];
+    const invalid = mapAppError({ code: "validation_failed", message: "fehlt", findings });
+    expect(invalid).toMatchObject({
+      code: "validation_failed",
+      errors: [{ code: "supply_date_missing", rule: "UST-08", field: "supply_date", message: "fehlt" }],
+    });
+    expect(PROBLEMS.idempotency_key_required.status).toBe(400);
+  });
+});
+
 describe("prefixed IDs (05 §3)", () => {
   const raw = "k57f3abcdefghijk0123456789";
+
+  test("API-011 F04 §4.1 sales documents carry the prefix of their type", () => {
+    expect(encodeDocumentId("quote", raw)).toBe(`quo_${raw}`);
+    expect(encodeDocumentId("proforma", raw)).toBe(`inv_${raw}`);
+    expect(encodeDocumentId("delivery_note", raw)).toBe(`dln_${raw}`);
+    expect(decodeDocumentId("order_confirmation", `ord_${raw}`)).toBe(raw);
+    expect(decodeDocumentId("order_confirmation", `quo_${raw}`)).toBeNull();
+  });
 
   test("API-011 IDs are prefixed per table and round-trip", () => {
     expect(encodeId("contacts", raw)).toBe(`con_${raw}`);

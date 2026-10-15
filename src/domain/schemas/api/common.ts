@@ -43,7 +43,10 @@ export const decimalString = (scale: number, description: string, example: strin
 export const prefixedId = (table: IdTable, description?: string) =>
   z
     .string()
-    .regex(new RegExp(`^${ID_PREFIXES[table]}[0-9a-z]{16,64}$`), `Erwartet eine ID mit Präfix ${ID_PREFIXES[table]}.`)
+    .regex(
+      new RegExp(`^${ID_PREFIXES[table]}[0-9a-zA-Z]{16,64}$`),
+      `Erwartet eine ID mit Präfix ${ID_PREFIXES[table]}.`,
+    )
     .meta({
       description: description ?? `ID (${ID_PREFIXES[table]}…)`,
       example: `${ID_PREFIXES[table]}k57f3x2m9q8w1e4r6t`,

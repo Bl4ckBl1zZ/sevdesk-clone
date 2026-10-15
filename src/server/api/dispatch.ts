@@ -132,6 +132,10 @@ export async function handleApiRequest(request: Request, routes: readonly Compil
 
     // ── Idempotency-Key (05 §3): POST only, per API key, 24 h ──────────────────────────────────────
     const idemKey = request.method === "POST" ? request.headers.get("idempotency-key") : null;
+    const dryRun = (body as { dry_run?: unknown } | undefined)?.dry_run === true;
+    if (idemKey === null && def.idempotency === "required" && request.method === "POST" && !dryRun) {
+      return problemResponse("idempotency_key_required", ctx);
+    }
     let idemId: string | undefined;
     if (idemKey !== null && convex) {
       if (!IDEMPOTENCY_KEY_RE.test(idemKey)) {

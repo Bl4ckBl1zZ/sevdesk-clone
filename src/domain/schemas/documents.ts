@@ -5,6 +5,7 @@
  */
 import { z } from "zod";
 import { SEND_CHANNELS } from "../documents/dispatch";
+import { DRAFT_TYPES } from "../documents/doc-types";
 import { TAX_CASES } from "../tax/tax-case";
 import { isCalendarDate } from "../time/calendar-date";
 
@@ -66,10 +67,14 @@ export const draftLineSchema = z.object({
   isLaborCost: z.boolean().optional(),
   itemNumber: z.string().max(100).optional(),
   revenueAccount: z.string().max(20).optional(),
+  /** Quotes only (DOC-04, QUO-02): not in the totals. */
+  optional: z.boolean().optional(),
+  /** Set by conversions (§4.3.3); the editor keeps it, it is never typed in. */
+  sourceLineId: z.string().optional(),
 });
 
 export const draftSchema = z.object({
-  type: z.literal("invoice"),
+  type: z.enum(DRAFT_TYPES),
   contactId: z.string().optional(),
   billingAddress: postalAddressSchema.optional(),
   deliveryAddress: postalAddressSchema.optional(),
@@ -120,6 +125,12 @@ export const draftSchema = z.object({
   language: z.enum(["de", "en"]),
   einvoiceFormat: z.enum(EINVOICE_FORMATS).optional(),
   internalNote: optionalText(10_000),
+  /** Quotes (QUO-01): explicit validity; default documentDate + quoteValidityDays at finalisation. */
+  validUntil: calendarDate.optional(),
+  /** Quotes and order confirmations (QUO-01/08): „Lieferbedingungen“. */
+  deliveryTerms: optionalText(5000),
+  /** Delivery notes (QUO-09): print prices (default off). */
+  showPrices: z.boolean().optional(),
   lines: z.array(draftLineSchema).max(2500),
 });
 
@@ -151,3 +162,57 @@ export const exportRequestSchema = z.object({
 });
 
 export type ExportRequest = z.infer<typeof exportRequestSchema>;
+
+// ── quotes and conversions (F04 §4.2, §4.3, §7.1) ──────────────────────────────────────────────────────────────
+
+export const CONVERSION_TARGETS = ["order_confirmation", "delivery_note", "proforma", "invoice"] as const;
+
+/** `POST /{type}/{id}/convert` (§4.3.1): target, full/quantity mode, chosen optional lines. */
+export const convertSchema = z.object({
+  to: z.enum(CONVERSION_TARGETS),
+  mode: z.enum(["full", "quantities"]).optional(),
+  /** Quantity per source line id (quantity mode, or overrides in full mode). */
+  quantities: z.record(z.string(), int().min(0).max(999_999_999_999)).optional(),
+  optionalLineIds: z.array(z.string()).max(2500).optional(),
+  /** Converting a finalised/sent/expired quote into an order or invoice records the acceptance first (§4.2.1). */
+  acceptSource: z.boolean().optional(),
+});
+
+export type ConvertValues = z.infer<typeof convertSchema>;
+
+/** Collective invoice from delivery notes (QUO-11). */
+export const collectiveSchema = z.object({ deliveryNoteIds: z.array(z.string()).min(1).max(200) });
+
+/** 03 `acceptance.channel` without the portal (F10 deferred): „manuell“ covers letter, in person, other. */
+export const ACCEPTANCE_CHANNELS = ["email", "phone", "manual"] as const;
+
+/** „Als angenommen markieren“ (QUO-05, §4.2.1). */
+export const acceptQuoteSchema = z.object({
+  date: calendarDate,
+  byName: z.string().trim().min(1).max(250),
+  channel: z.enum(ACCEPTANCE_CHANNELS),
+  note: optionalText(2000),
+  /** Explicit confirmation for an expired quote (`accept_late`). */
+  late: z.boolean().optional(),
+});
+
+export type AcceptQuoteValues = z.infer<typeof acceptQuoteSchema>;
+
+export const rejectQuoteSchema = z.object({
+  date: calendarDate,
+  reason: optionalText(2000),
+});
+
+export type RejectQuoteValues = z.infer<typeof rejectQuoteSchema>;
+
+/** Withdraw a quote/order/delivery note/proforma (§4.2: `withdraw` → cancelled, number stays used). */
+export const withdrawSchema = z.object({ reason: z.string().trim().min(3).max(2000) });
+
+/** „Wieder öffnen“ of a rejected quote (§4.2.1: reason). */
+export const reopenSchema = z.object({ reason: z.string().trim().min(3).max(2000) });
+
+/** „Neue Version“ (QUO-06, §6.3): optional reason, recorded in the audit log. */
+export const reviseSchema = z.object({ reason: optionalText(2000) });
+
+/** „Erhalten“ of a delivery note (QUO-09). */
+export const markReceivedSchema = z.object({ date: calendarDate, byName: z.string().trim().min(1).max(250) });

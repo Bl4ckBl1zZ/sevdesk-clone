@@ -1,0 +1,30 @@
+--- page 1 ---
+Muster Design GmbH
+Muster Design GmbH · Hauptstraße 1 · 10115 Berlin
+Nummer | LS-2026-0020
+Datum | 12.10.2026
+Beispiel Kunde GmbH
+Lieferdatum | 09.10.2026
+z. Hd. Max Beispiel
+Kundennummer | K-10023
+Musterweg 5
+Ihre Bestellung | PO-55812
+50667 Köln
+Ansprechpartner | Erika Musterfrau
+Telefon | +49 30 1234567
+E-Mail | rechnung@muster-design.de
+Lieferschein LS-2026-0020
+Pos. | Bezeichnung | Menge Einheit | Einzelpreis netto | Gesamt netto
+1 | Bürostuhl ergonomisch | 6 Stk. | 249,00 € | 1.494,00 €
+Summe netto | 1.494,00 €
+zzgl. 19 % USt auf 1.494,00 € | 283,86 €
+Gesamtbetrag | 1.777,86 €
+Muster Design GmbH | Sitz: Berlin | IBAN: DE89 3704 0044 0532 0130 00
+Hauptstraße 1 | Registergericht: Amtsgericht Charlottenburg | BIC: COBADEFFXXX
+10115 Berlin | HRB 123456 B
+Tel. +49 30 1234567 | Geschäftsführer: Max Mustermann, Erika
+rechnung@muster-design.de | Musterfrau
+www.muster-design.de | Stammkapital: 25.000,00 €
+Steuernummer: 21/815/08150
+USt-IdNr.: DE123456788
+Seite 1 von 1

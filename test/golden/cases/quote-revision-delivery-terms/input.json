@@ -1,0 +1,45 @@
+{
+  "id": "T-QUO-001",
+  "title": "QUO-01 QUO-06 quote revision 2: suffix number, validity printed, delivery terms above the foot text",
+  "input": {
+    "type": "quote",
+    "number": "AN-2026-0007-V2",
+    "validUntil": "2026-11-11",
+    "supplyDate": null,
+    "texts": {
+      "headText": "Wie besprochen erhalten Sie unser überarbeitetes Angebot:",
+      "deliveryTerms": "Lieferung frei Haus innerhalb von 3 Wochen nach Auftragseingang.",
+      "footText": "Wir freuen uns auf Ihren Auftrag."
+    },
+    "lines": [
+      {
+        "kind": "item",
+        "name": "Schreibtisch höhenverstellbar",
+        "quantityMilli": 4000,
+        "unitCode": "C62",
+        "unitPriceMicros": 4500000,
+        "vatCategory": "S",
+        "vatRateBp": 1900,
+        "vatRuleRowId": "standard@2021-01-01"
+      },
+      {
+        "kind": "item",
+        "name": "Montage vor Ort",
+        "quantityMilli": 1000,
+        "unitCode": "C62",
+        "unitPriceMicros": 2000000,
+        "vatCategory": "S",
+        "vatRateBp": 1900,
+        "vatRuleRowId": "standard@2021-01-01",
+        "optional": true
+      }
+    ],
+    "einvoice": {
+      "format": "none",
+      "decision": "NOT_REQUIRED"
+    }
+  },
+  "paymentPatch": {
+    "showEpcQr": false
+  }
+}

@@ -105,6 +105,8 @@ Legend: **R** = read-only (`readOnlyHint: true`), **W** = writes drafts or maste
 | `recurring_invoice_upsert` | W | documents:write | Create/update a template (auto-finalising needs `invoices:finalize` on the **key that created it** + a UI confirmation on first activation; templates never send, F04 REC-16) |
 | `recurring_invoice_list` | R | documents:read | |
 
+**P1 implementation (2026-10-13, MCP-011):** `document_search` (one `type` per call: quote, order_confirmation, delivery_note, invoice, proforma; `status`, `contact_id`, `q`), `document_get` (incl. the chain with invoicing progress), `quote_create_draft` (contact by ID; inline upsert via `contact_upsert` first), `invoice_create_draft` (`invoice_type: standard | proforma` in this slice), `document_update_draft`, `document_convert` (incl. `delivery_note_ids` for the collective invoice) and `quote_mark_accepted` / `quote_mark_rejected` share the REST wire schemas and handlers (05 §4.3, API-021). `document_finalize` and the `finalize` intent of `document_preview` follow with the preview slice; until then drafts created via MCP are finalised in the UI or via REST.
+
 ### 3.5 Receivables, payments, dunning (F05)
 
 | Tool | Type | Scope |
@@ -262,3 +264,4 @@ The settings page **Einstellungen › MCP** (owner only) shows these snippets wi
 | MCP-008 | Prompts `/angebot` and `/monatsabschluss` (guidance stubs until documents ship) | SHOULD | P1 |
 | MCP-009 | Eval harness: German scenarios with reference tool calls replayed in CI and against a live test instance (`pnpm mcp:eval`); ⚠ steps only after a preview and approval | SHOULD | P1 |
 | MCP-010 | Results carry `structuredContent` plus a JSON text block; errors are `isError` with the REST code, message, field errors and a German hint; server instructions ≤ 2,048 characters | MUST | P1 |
+| MCP-011 | Document W/R tools of §3.4 for quotes, order confirmations, delivery notes and invoices incl. proforma (search, get with chain, quote/invoice drafts, update, convert, quote accepted/rejected) on the shared REST wire schemas; nothing is finalised without `document_finalize` (⚠) | MUST | P1 |

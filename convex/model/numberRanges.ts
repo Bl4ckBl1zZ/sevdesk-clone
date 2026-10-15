@@ -1,4 +1,10 @@
-import { periodKey, seedRange, validateFormat, type YearMonth } from "../../src/domain/numbering/format";
+import {
+  normalizeNumber,
+  periodKey,
+  seedRange,
+  validateFormat,
+  type YearMonth,
+} from "../../src/domain/numbering/format";
 import {
   assignNumber,
   checkDeactivateRange,
@@ -276,4 +282,43 @@ export async function assignCounterNumber(
     { action: input.action, label: number },
   );
   return { number, rangeId: range._id };
+}
+
+/**
+ * QUO-06 suffix numbering: a quote revision gets `{base}-V{n}` without consuming a counter value; the number goes into
+ * the register like every other issued number (uniqueness RI-02, T-QUO-004). `new_number` mode uses
+ * `assignCounterNumber` instead.
+ */
+export async function registerDerivedNumber(
+  ctx: ModelCtx,
+  input: {
+    number: string;
+    rangeId?: Id<"numberRanges">;
+    docType: string;
+    documentId: string;
+    action: string;
+  },
+): Promise<void> {
+  const normalized = normalizeNumber(input.number);
+  const taken = await ctx.db
+    .query("numberRegister")
+    .withIndex("by_normalized", (q) => q.eq("normalized", normalized))
+    .first();
+  if (taken) {
+    throw appError("conflict", `Die Nummer ${input.number} ist bereits vergeben.`, { reason: "NUMBER_COLLISION" });
+  }
+  await auditedInsert(
+    ctx,
+    "numberRegister",
+    {
+      number: input.number,
+      normalized,
+      ...(input.rangeId ? { rangeId: input.rangeId } : {}),
+      docType: input.docType,
+      documentId: input.documentId,
+      assignedAt: ctx.now(),
+      status: "issued",
+    },
+    { action: input.action, label: input.number },
+  );
 }

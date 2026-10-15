@@ -55,7 +55,9 @@ export type LifecycleEvent =
   | "mark_received"
   | "invoiced_partially"
   | "invoiced_fully"
-  | "invoice_reverted";
+  | "invoice_reverted"
+  | "invoice_reverted_sent"
+  | "invoice_reverted_unsent";
 
 export const LIFECYCLE_EVENTS: readonly LifecycleEvent[] = [
   "finalize",
@@ -74,6 +76,8 @@ export const LIFECYCLE_EVENTS: readonly LifecycleEvent[] = [
   "invoiced_partially",
   "invoiced_fully",
   "invoice_reverted",
+  "invoice_reverted_sent",
+  "invoice_reverted_unsent",
 ];
 
 /** `null` target = the record is removed (draft deletion). */
@@ -137,8 +141,12 @@ const ORDER: Table = {
     invoiced_partially: "partially_invoiced",
     invoiced_fully: "invoiced",
   },
-  partially_invoiced: { invoiced_fully: "invoiced", invoice_reverted: "sent" },
-  invoiced: { invoiced_partially: "partially_invoiced", invoice_reverted: "sent" },
+  partially_invoiced: { invoiced_fully: "invoiced", invoice_reverted: "sent", invoice_reverted_unsent: "finalized" },
+  invoiced: {
+    invoiced_partially: "partially_invoiced",
+    invoice_reverted: "sent",
+    invoice_reverted_unsent: "finalized",
+  },
 };
 
 /** §4.2.3 delivery note ("accepted" = UI „Erhalten"). */
@@ -147,7 +155,8 @@ const DELIVERY_NOTE: Table = {
   finalized: { mark_sent: "sent", mark_received: "accepted", invoiced_fully: "invoiced", withdraw: "cancelled" },
   sent: { retract_mark: "finalized", mark_received: "accepted", invoiced_fully: "invoiced", withdraw: "cancelled" },
   accepted: { invoiced_fully: "invoiced", withdraw: "cancelled" },
-  invoiced: { invoice_reverted: "accepted" },
+  // „previous status“ (§4.2.3): received → accepted, else sent or finalized.
+  invoiced: { invoice_reverted: "accepted", invoice_reverted_sent: "sent", invoice_reverted_unsent: "finalized" },
 };
 
 /** §4.2.4 proforma. */
