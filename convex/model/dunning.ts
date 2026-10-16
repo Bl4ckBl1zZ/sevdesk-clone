@@ -1,3 +1,4 @@
+import { sha256Hex } from "../../src/domain/audit/chain";
 import { buildSnapshot } from "../../src/domain/documents/build-snapshot";
 import { resolveDraft } from "../../src/domain/documents/draft";
 import {
@@ -1467,7 +1468,8 @@ export async function planRun(ctx: ReadCtx, date: CalendarDate, invoiceIds?: rea
   return {
     date,
     actions,
-    digest: planDigest(actions),
+    // SHA-256 of the canonical plan: short enough for the REST confirm_token, bound by the MCP token (DUN-031).
+    digest: await sha256Hex(planDigest(actions)),
     bankDataCurrent: s.ctx.bankDataCurrent,
     ...(s.ctx.bankDataNote ? { bankDataNote: s.ctx.bankDataNote } : {}),
   };

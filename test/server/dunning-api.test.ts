@@ -68,7 +68,7 @@ describe("REST dunning run (05 §4.4, F05 §7.1)", () => {
       summary: { drafts: 1, finalize: 0, skipped: 0 },
     });
     const token = preview.confirm_token as string;
-    expect(token).toEqual(expect.any(String));
+    expect(token).toMatch(/^[0-9a-f]{64}$/);
 
     // Another date can be previewed but never confirmed (the run always evaluates today).
     const later = await json(await call("GET", "/dunning/preview?date=2026-11-30", { key }));
