@@ -170,6 +170,7 @@ function RecurringDetailInner({ id }: { id: Id<"recurringTemplates"> }) {
               version={tpl.version}
               automationConfirmed={tpl.automationConfirmed}
               started={tpl.generatedCount > 0 || tpl.skippedOccurrences.length > 0}
+              inlineActions
             />
           )}
 

@@ -49,6 +49,7 @@ export function RecurringEditor({
   version,
   automationConfirmed = false,
   started = false,
+  inlineActions = false,
 }: {
   id?: Id<"recurringTemplates">;
   initial?: RecurringTemplateValues;
@@ -56,6 +57,11 @@ export function RecurringEditor({
   automationConfirmed?: boolean;
   /** An invoice was generated or a period skipped: the anchor (first date, interval, billing) is fixed. */
   started?: boolean;
+  /**
+   * The page header already owns the fixed phone action bar (template detail: „Jetzt erzeugen“, „Pausieren“ …), so the
+   * save button sits below the form instead of a second fixed bar on top of it.
+   */
+  inlineActions?: boolean;
 }) {
   const t = useTranslations("recurring.editor");
   const te = useTranslations("invoices.editor");
@@ -528,7 +534,13 @@ export function RecurringEditor({
         </div>
       </div>
 
-      <div className="fixed inset-x-0 bottom-[calc(4rem+env(safe-area-inset-bottom))] z-30 flex gap-2 border-t bg-background p-3 md:static md:justify-end md:border-0 md:bg-transparent md:p-0">
+      <div
+        className={
+          inlineActions
+            ? "flex gap-2 md:justify-end"
+            : "fixed inset-x-0 bottom-[calc(4rem+env(safe-area-inset-bottom))] z-30 flex gap-2 border-t bg-background p-3 md:static md:justify-end md:border-0 md:bg-transparent md:p-0"
+        }
+      >
         <Button className="h-11 flex-1 md:h-9 md:flex-none" disabled={saving} onClick={onSave}>
           {t("save")}
         </Button>
