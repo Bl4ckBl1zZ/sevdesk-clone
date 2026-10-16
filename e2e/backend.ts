@@ -4,6 +4,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import type { BrowserContext, Page } from "@playwright/test";
 import { ConvexHttpClient } from "convex/browser";
+import { makeFunctionReference } from "convex/server";
 import { internal } from "../convex/_generated/api";
 import { expect, waitForAppOnNavigation } from "./fixtures";
 
@@ -137,4 +138,22 @@ export async function recordTestPayment(number: string, amountCents: number): Pr
   // biome-ignore lint/suspicious/noExplicitAny: internal function via the admin key
   const r = await admin().mutation(internal.testFixtures.recordPayment as any, { number, amountCents });
   if (r === null) throw new Error("testFixtures.recordPayment needs IS_TEST=true on the backend");
+}
+
+/**
+ * Makes the finalised invoice `number` overdue and „versendet“ in the past so the dunning run plans level 1
+ * (F05 T05-161): IS_TEST-only `testFixtures.backdateInvoice` (admin key). Returns false while the backend does not
+ * provide the fixture yet (the caller skips the run path).
+ */
+export async function backdateTestInvoice(number: string, dueDaysAgo: number): Promise<boolean> {
+  try {
+    const r = await admin().mutation(makeFunctionReference<"mutation">("testFixtures:backdateInvoice"), {
+      number,
+      dueDaysAgo,
+    });
+    return r !== null;
+  } catch (e) {
+    if (e instanceof Error && /Could not find|not found|backdateInvoice/i.test(e.message)) return false;
+    throw e;
+  }
 }
