@@ -155,6 +155,31 @@ describe("DUN-030 DUN-031 DUN-037 daily run and preview", () => {
     expect(cockpit.runs[0]).toMatchObject({ drafts: 1, actor: "system:cron.dunning.run" });
   });
 
+  test("DUN-030 §6.6 „Mahnungen automatisch erstellen“ off: the daily job creates nothing, a manual run still works", async () => {
+    const t = makeT();
+    const s = await setup(t);
+    expect((await s.owner.query(api.dunning.settings, {})).receivables?.autoCreateReminders ?? true).toBe(true);
+    await s.owner.mutation(api.dunning.saveSettings, {
+      values: {
+        autoCreateReminders: false,
+        autoFinalizeReminders: false,
+        postalDeliveryDays: 3,
+        bankDataMaxAgeDays: 7,
+        defaultStartViaReminder: "after_printed_deadline",
+        reopenGraceDays: 7,
+        agingBucketEdgesDays: [30, 60, 90],
+      },
+    });
+    vi.setSystemTime(new Date("2026-10-19T05:00:00Z"));
+    expect(await t.mutation(internal.dunning.runCron, { force: true })).toBeNull();
+    expect(await t.run((ctx) => ctx.db.query("dunningRuns").collect())).toEqual([]);
+    const owner = await t.asUser("owner", { existingUserId: s.owner.userId });
+    const p = await owner.query(api.dunning.preview, {});
+    expect(await owner.mutation(api.dunning.run, { mode: "drafts", expectedDigest: p.digest })).toMatchObject({
+      drafts: 1,
+    });
+  });
+
   test("DUN-057 T05-171 auto-finalise (global + step) finalises with number and PDF; nothing is sent", async () => {
     const t = makeT();
     const s = await setup(t);
@@ -246,6 +271,13 @@ describe("E2E overdue-invoice stand-in (IS_TEST only)", () => {
       dueDate: "2026-10-02",
     });
     await markSent(s.owner, draft, "2026-10-12", "email_manual");
+    // DUN-010: the original invoice (due today) shows its next action with the earliest date.
+    expect((await s.owner.query(api.dunning.forInvoice, { invoiceId: s.invoiceId }))?.next).toMatchObject({
+      kind: "skip",
+      reason: "not_due_yet",
+      level: 1,
+      earliestDate: "2026-10-19",
+    });
     const p = await s.owner.query(api.dunning.preview, { invoiceIds: [draft] });
     expect(p.actions).toEqual([expect.objectContaining({ kind: "create_draft", level: 1 })]);
     // Finalised documents stay untouchable.
@@ -561,7 +593,7 @@ describe("MAHN-03 DUN-008 DUN-009 manual reminders", () => {
     const { owner: o1, invoiceId, r1 } = await firstReminderSent(t);
     const owner = await jump(t, o1, "2026-11-05T08:00:00Z");
     const forInvoice = await owner.query(api.dunning.forInvoice, { invoiceId });
-    expect(forInvoice?.next).toMatchObject({ kind: "create_draft", level: 2 });
+    expect(forInvoice?.next).toMatchObject({ kind: "create_draft", level: 2, earliestDate: "2026-11-05" });
     const e = await catching(owner.mutation(api.dunning.createReminder, { invoiceId, values: { level: 1 } }));
     expect(messageOf(e)).toBe("Mahnstufe 1 wurde bereits erstellt. Nächste Stufe: 2.");
     const beyond = await catching(owner.mutation(api.dunning.createReminder, { invoiceId, values: { level: 5 } }));

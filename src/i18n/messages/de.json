@@ -3267,6 +3267,8 @@
       "setupMissing": "Bitte zuerst die Einrichtung abschließen.",
       "global": {
         "title": "Allgemein",
+        "autoCreate": "Mahnungen automatisch erstellen",
+        "autoCreateHint": "Der tägliche Mahnlauf (07:00 Uhr) legt fällige Mahnungen als Entwurf an. Aus: Mahnungen entstehen nur über „Ausgewählte jetzt ausführen“ oder manuell.",
         "autoFinalize": "Mahnungen automatisch fertigstellen (versendet nie)",
         "autoFinalizeHint": "Nur für Mahnstufen mit „automatisch fertigstellen“. Fertiggestellte Mahnungen exportieren Sie selbst und markieren sie als versendet.",
         "postalDeliveryDays": "Zugangsfiktion Post (Tage)",
@@ -3375,6 +3377,7 @@
       "graceUntil": "Karenzzeit bis",
       "limitation": "Verjährung am",
       "next": "Nächste Aktion",
+      "earliest": "frühestens am {date}",
       "levelN": "Stufe {level}",
       "noReminders": "Noch keine Mahnungen zu dieser Rechnung.",
       "draft": "Entwurf"

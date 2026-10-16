@@ -179,6 +179,8 @@ const companyProfile = defineTable({
   receivables: v.object({
     agingBucketEdgesDays: v.array(v.number()),
     postalDeliveryDays: v.number(),
+    // F05 §6.6 „Mahnungen automatisch erstellen“ (absent = on): the daily dunning.run creates drafts.
+    autoCreateReminders: v.optional(v.boolean()),
     autoFinalizeReminders: v.boolean(),
     bankDataMaxAgeDays: v.number(),
     defaultStartViaReminder: v.union(v.literal("after_printed_deadline"), v.literal("zugang_plus_1")),

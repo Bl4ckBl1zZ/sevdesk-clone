@@ -257,6 +257,7 @@ export const dunningActionOut = z.object({
   contact_name: z.string(),
   kind: z.enum(["create_draft", "finalize", "todo_mark_sent", "skip"]),
   level: z.number().int().nullable(),
+  earliest_date: isoDate.nullable().meta({ description: "Frühestens am (DUN-054); null ohne bekanntes Datum" }),
   reason: z.string().nullable().meta({ description: "Grund beim Überspringen (z. B. not_marked_sent, disputed)" }),
   label: z.string(),
   detail: z.string().nullable(),
@@ -271,12 +272,9 @@ export const dunningPreviewOut = z
     bank_data_note: z.string().nullable(),
     actions: z.array(dunningActionOut),
     summary: z.object({ drafts: z.number().int(), finalize: z.number().int(), skipped: z.number().int() }),
-    confirm_token: z
-      .string()
-      .nullable()
-      .meta({
-        description: "Für POST /dunning/run (bindet genau diesen Plan); null bei einem anderen Datum als heute",
-      }),
+    confirm_token: z.string().nullable().meta({
+      description: "Für POST /dunning/run (bindet genau diesen Plan); null bei einem anderen Datum als heute",
+    }),
   })
   .meta({ id: "DunningPreview" });
 
@@ -291,6 +289,7 @@ export interface PreviewLike {
     contactName: string;
     kind: string;
     level: number | null;
+    earliestDate?: string | null;
     reason: string | null;
     reasonLabel: string;
     detail: string | null;
@@ -317,6 +316,7 @@ export function serializeDunningPreview(p: PreviewLike, today: string): z.infer<
     contact_name: a.contactName,
     kind: a.kind as z.infer<typeof dunningActionOut>["kind"],
     level: a.level,
+    earliest_date: a.earliestDate ?? null,
     reason: a.reason,
     label: a.reasonLabel,
     detail: a.detail,

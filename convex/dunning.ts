@@ -104,12 +104,14 @@ export function reminderView(r: SalesDoc, invoice: SalesDoc | null) {
 
 export type ReminderView = ReturnType<typeof reminderView>;
 
-function actionView(a: DunningAction) {
+/** `date`: the evaluation day — create/finalise actions are possible on it (DUN-010 „frühestens am“). */
+function actionView(a: DunningAction, date: CalendarDate) {
   if (a.kind === "skip") {
     return {
       invoiceId: a.invoiceId,
       number: a.number,
       kind: a.kind,
+      earliestDate: a.earliest ?? null,
       level: a.level ?? null,
       reason: a.reason,
       reasonLabel: SKIP_REASON_LABEL_DE[a.reason],
@@ -123,6 +125,7 @@ function actionView(a: DunningAction) {
       invoiceId: a.invoiceId,
       number: a.number,
       kind: a.kind,
+      earliestDate: null,
       level: null,
       reason: null,
       reasonLabel: `Mahnung ${a.reminderNumber ?? ""} noch nicht als versendet markiert – Erinnerung`,
@@ -135,6 +138,7 @@ function actionView(a: DunningAction) {
     invoiceId: a.invoiceId,
     number: a.number,
     kind: a.kind,
+    earliestDate: date as string | null,
     level: a.level,
     reason: null,
     reasonLabel: a.step.title,
@@ -164,7 +168,7 @@ async function previewOf(ctx: ReadCtx, date: CalendarDate, invoiceIds?: readonly
     digest: plan.digest,
     bankDataCurrent: plan.bankDataCurrent,
     bankDataNote: plan.bankDataNote ?? null,
-    actions: plan.actions.map((a) => ({ ...actionView(a), contactName: contacts.get(a.invoiceId) ?? "" })),
+    actions: plan.actions.map((a) => ({ ...actionView(a, plan.date), contactName: contacts.get(a.invoiceId) ?? "" })),
   };
 }
 
@@ -400,7 +404,7 @@ export const forInvoice = query({
     if (dunnable && ["invoice", "advance_invoice", "partial_invoice", "final_invoice"].includes(inv.type)) {
       const plan = await planRun(ctx, today, [invoiceId]);
       const a = plan.actions[0];
-      if (a) next = actionView(a);
+      if (a) next = actionView(a, today);
     }
     const l = await loadInvoiceState(ctx, inv, today);
     const s = await evaluationContext(ctx, today);
@@ -596,6 +600,8 @@ export const runCron = systemMutation({
       .withIndex("by_date", (q) => q.eq("date", today))
       .collect();
     if (!force && done.some((r) => r.mode === "auto")) return null;
+    // §6.6 „Mahnungen automatisch erstellen“ off: only manual runs (cockpit, REST, MCP) create reminders.
+    if ((await getCompanyProfile(ctx))?.receivables.autoCreateReminders === false) return null;
     const r = await runDunning(ctx, { mode: "auto", allowFinalize: true });
     for (const id of r.finalized) await ctx.scheduler.runAfter(0, internal.documentArtifacts.render, { id });
     return r;

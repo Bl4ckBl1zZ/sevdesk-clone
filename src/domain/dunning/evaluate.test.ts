@@ -291,6 +291,8 @@ describe("DUN-030 DUN-033 DUN-054 DUN-055 DUN-057 evaluateDunning (§4.5)", () =
     });
     const before = evaluateInvoice(d("2026-07-17"), state, ctx);
     expect(before.kind === "skip" && before.reason).toBe("not_due_yet");
+    // DUN-010: the next planned action carries its earliest date.
+    expect(before.kind === "skip" && before.earliest).toBe("2026-07-18");
     const on = evaluateInvoice(d("2026-07-18"), state, ctx);
     expect(on.kind).toBe("create_draft");
     expect(on.kind === "create_draft" && on.level).toBe(2);

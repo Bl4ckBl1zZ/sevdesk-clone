@@ -129,6 +129,8 @@ export type DunningAction =
       readonly reason: SkipReason;
       readonly detail?: string | undefined;
       readonly level?: number | undefined;
+      /** DUN-010/054: `not_due_yet` / `previous_deadline_running` — the first day the action can happen. */
+      readonly earliest?: CalendarDate | undefined;
     };
 
 /** Reminders that count for the chain: finalised or marked sent (drafts and withdrawn ones do not). */
@@ -146,7 +148,10 @@ export function nextLevelEarliest(prev: ReminderState, daysAfter: number): Calen
 }
 
 export function evaluateInvoice(today: CalendarDate, inv: InvoiceState, ctx: EvaluationContext): DunningAction {
-  const skip = (reason: SkipReason, extra: { detail?: string; level?: number } = {}): DunningAction => ({
+  const skip = (
+    reason: SkipReason,
+    extra: { detail?: string; level?: number; earliest?: CalendarDate } = {},
+  ): DunningAction => ({
     kind: "skip",
     invoiceId: inv.invoiceId,
     number: inv.number,
@@ -181,11 +186,12 @@ export function evaluateInvoice(today: CalendarDate, inv: InvoiceState, ctx: Eva
   if (!step) return skip("last_level_reached");
   // 5. timing (DUN-054)
   if (!latest || step.level === 1 || currentLevel === 0) {
-    if (today < addDays(inv.dueDate, step.daysAfter)) {
-      return skip("not_due_yet", { level: step.level, detail: formatGermanDate(addDays(inv.dueDate, step.daysAfter)) });
-    }
+    const earliest = addDays(inv.dueDate, step.daysAfter);
+    if (today < earliest)
+      return skip("not_due_yet", { level: step.level, detail: formatGermanDate(earliest), earliest });
   } else if (latest.zugang && today < addDays(latest.zugang, step.daysAfter)) {
-    return skip("not_due_yet", { level: step.level, detail: formatGermanDate(addDays(latest.zugang, step.daysAfter)) });
+    const earliest = addDays(latest.zugang, step.daysAfter);
+    return skip("not_due_yet", { level: step.level, detail: formatGermanDate(earliest), earliest });
   }
   // 6. safety skips (DUN-033) in the order of §4.5
   if (inv.blocked || inv.contact.blocked) return skip("excluded", { level: step.level });
@@ -208,6 +214,7 @@ export function evaluateInvoice(today: CalendarDate, inv: InvoiceState, ctx: Eva
       return skip("previous_deadline_running", {
         level: step.level,
         detail: formatGermanDate(addDays(earliest ?? today, -1)),
+        ...(earliest ? { earliest } : {}),
       });
     }
   }

@@ -36,6 +36,8 @@ export type PolicyValues = z.infer<typeof policySchema>;
 
 /** Einstellungen › Mahnwesen global switches (companyProfile.receivables, F05 §6.6). */
 export const dunningSettingsSchema = z.object({
+  /** §6.6 „Mahnungen automatisch erstellen“ (default on). */
+  autoCreateReminders: z.boolean().optional(),
   autoFinalizeReminders: z.boolean(),
   postalDeliveryDays: z.number().int().min(0).max(14),
   bankDataMaxAgeDays: z.number().int().min(1).max(90),

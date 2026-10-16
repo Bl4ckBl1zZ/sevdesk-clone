@@ -151,6 +151,9 @@ export function InvoiceDunningSection({ invoiceId, type }: { invoiceId: string; 
                       <span>
                         {tPreview(`kinds.${data.next.kind}`)}
                         {data.next.level ? ` · ${t("levelN", { level: data.next.level })}` : ""}
+                        {data.next.earliestDate
+                          ? ` · ${t("earliest", { date: formatDate(data.next.earliestDate) })}`
+                          : ""}
                       </span>
                       <span className="text-muted-foreground text-xs">
                         {data.next.reasonLabel}

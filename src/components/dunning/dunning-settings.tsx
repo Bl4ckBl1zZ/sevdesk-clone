@@ -84,6 +84,7 @@ function GlobalSwitches({ initial, canManage }: { initial: Receivables; canManag
   const run = useRun();
   const save = useMutation(api.dunning.saveSettings);
   const [form, setForm] = useState({
+    autoCreateReminders: initial.autoCreateReminders !== false,
     autoFinalizeReminders: initial.autoFinalizeReminders,
     postalDeliveryDays: String(initial.postalDeliveryDays),
     bankDataMaxAgeDays: String(initial.bankDataMaxAgeDays),
@@ -98,6 +99,7 @@ function GlobalSwitches({ initial, canManage }: { initial: Receivables; canManag
     const values: DunningSettingsValues | null = (() => {
       const edges = parseBucketEdges(form.agingBucketEdgesDays);
       const parsed = dunningSettingsSchema.safeParse({
+        autoCreateReminders: form.autoCreateReminders,
         autoFinalizeReminders: form.autoFinalizeReminders,
         postalDeliveryDays: Number(form.postalDeliveryDays),
         bankDataMaxAgeDays: Number(form.bankDataMaxAgeDays),
@@ -134,6 +136,19 @@ function GlobalSwitches({ initial, canManage }: { initial: Receivables; canManag
   );
   return (
     <SectionCard title={t("title")} testId="dunning-global">
+      <label className="flex min-h-11 items-start gap-2 text-sm md:min-h-9">
+        <input
+          type="checkbox"
+          className="mt-0.5 size-5 accent-primary md:size-4"
+          checked={form.autoCreateReminders}
+          disabled={!canManage}
+          onChange={(e) => patch({ autoCreateReminders: e.target.checked })}
+        />
+        <span className="flex flex-col">
+          <span className="font-medium">{t("autoCreate")}</span>
+          <span className="text-muted-foreground text-xs">{t("autoCreateHint")}</span>
+        </span>
+      </label>
       <label className="flex min-h-11 items-start gap-2 text-sm md:min-h-9">
         <input
           type="checkbox"
