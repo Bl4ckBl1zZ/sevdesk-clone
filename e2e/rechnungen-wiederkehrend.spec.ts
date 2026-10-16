@@ -84,7 +84,7 @@ test("REC-01 REC-13 REC-14 REC-16 template with schedule and confirmed finalise 
   await expect(confirm).toContainText("Versendet wird nie automatisch");
   await expectNoAxeViolations();
   await confirm.getByRole("button", { name: "Automatik aktivieren" }).click();
-  await expect(page).toHaveURL(/\/rechnungen\/wiederkehrend\/[a-z0-9]+$/, { timeout: 30_000 });
+  await expect(page).toHaveURL(/\/rechnungen\/wiederkehrend\/(?!neu$)[a-z0-9]+$/, { timeout: 30_000 });
   templateUrl = new URL(page.url()).pathname;
   await expect(h1(page, templateName(testInfo.project.name))).toBeVisible();
   await expect(page.getByTestId("template-state")).toHaveText("Aktiv");

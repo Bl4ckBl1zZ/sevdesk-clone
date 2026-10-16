@@ -50,7 +50,7 @@ async function finalisedInvoice(page: Page, opts: { skonto?: boolean } = {}) {
   }
   await expect(page.getByTestId("gross")).toHaveText("119,00 €", { timeout: 20_000 });
   await page.getByRole("button", { name: "Entwurf speichern" }).click();
-  await expect(page).toHaveURL(/\/rechnungen\/[a-z0-9]+$/, { timeout: 30_000 });
+  await expect(page).toHaveURL(/\/rechnungen\/(?!neu$)[a-z0-9]+$/, { timeout: 30_000 });
   await expect(page.getByTestId("compliance").getByRole("status")).toHaveText(/Bereit zum Fertigstellen/, {
     timeout: 20_000,
   });

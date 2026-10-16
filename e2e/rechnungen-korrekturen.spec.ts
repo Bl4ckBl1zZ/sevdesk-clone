@@ -54,7 +54,7 @@ async function newDraft(page: Page, line: { name: string; price: string }, advan
   await page.getByLabel("Menge").first().fill("1");
   await page.getByLabel("Einzelpreis").first().fill(line.price);
   await page.getByRole("button", { name: "Entwurf speichern" }).click();
-  await expect(page).toHaveURL(/\/rechnungen\/[a-z0-9]+$/, { timeout: 30_000 });
+  await expect(page).toHaveURL(/\/rechnungen\/(?!neu$)[a-z0-9]+$/, { timeout: 30_000 });
 }
 
 /** Finalises the open draft and waits for the archived artifacts; returns the number from the title. */

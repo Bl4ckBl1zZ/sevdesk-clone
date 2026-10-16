@@ -6,8 +6,8 @@ import { expect, test } from "./fixtures";
  * Mahnwesen (F05 T05-161, DUN-031, DUN-058, MISC-10) as the signed-in owner: the cockpit and its Vorschau, „Ausgewählte
  * jetzt ausführen“ (drafts), the reminder draft → Fertigstellen → PDF export → „Als versendet markieren“ from „Zu
  * versenden“, the invoice tab „Mahnungen“ and Einstellungen › Mahnwesen; axe on every page. Needs the backend journey
- * and runs after e2e/rechnungen.spec.ts (contact „Muster Handwerk GmbH“). The run path moves its invoice draft into the
- * past with the IS_TEST fixture `testFixtures.backdateDraft` and is skipped without IS_TEST.
+ * and creates its own invoice account and customer („Mahnung Muster GmbH“; it runs before the Rechnungen specs). The run
+ * path moves its invoice draft into the past with the IS_TEST fixture `testFixtures.backdateDraft` and is skipped without IS_TEST.
  */
 const STATE = (project: string) => `test-results/.auth/owner-${project}-dunning.json`;
 let ready = false;
@@ -32,19 +32,21 @@ async function selectByText(select: Locator, text: string): Promise<void> {
   await select.selectOption((await option.getAttribute("value")) ?? "");
 }
 
-/** A finalised 119,00 € invoice for „Muster Handwerk GmbH“; returns its number and detail URL. */
+const CUSTOMER = "Mahnung Muster GmbH";
+
+/** A finalised 119,00 € invoice for CUSTOMER; returns its number and detail URL. */
 /** `backdateDays`: the saved draft is moved into the past (due that many days ago) before „Fertigstellen“. */
 async function finalisedInvoice(page: Page, opts: { backdateDays?: number } = {}) {
   await page.goto("/rechnungen/neu");
   await expect(h1(page, "Neue Rechnung")).toBeVisible();
-  await selectByText(page.getByRole("combobox", { name: "Kunde", exact: true }), "Muster Handwerk GmbH");
-  await expect(page.getByTestId("buyer")).toContainText("Muster Handwerk GmbH");
+  await selectByText(page.getByRole("combobox", { name: "Kunde", exact: true }), CUSTOMER);
+  await expect(page.getByTestId("buyer")).toContainText(CUSTOMER);
   await page.getByLabel("Bezeichnung (Pos. 1)").fill("Beratung Mahnwesen");
   await page.getByLabel("Menge").first().fill("1");
   await page.getByLabel("Einzelpreis").first().fill("100");
   await expect(page.getByTestId("gross")).toHaveText("119,00 €", { timeout: 20_000 });
   await page.getByRole("button", { name: "Entwurf speichern" }).click();
-  await expect(page).toHaveURL(/\/rechnungen\/[a-z0-9]+$/, { timeout: 30_000 });
+  await expect(page).toHaveURL(/\/rechnungen\/(?!neu$)[a-z0-9]+$/, { timeout: 30_000 });
   let backdated = true;
   if (opts.backdateDays !== undefined) {
     const id = new URL(page.url()).pathname.split("/").at(-1) ?? "";
@@ -146,6 +148,32 @@ async function markFromToSend(page: Page, reminderNumber: string, expectNoAxeVio
   await expectNoAxeViolations();
 }
 
+test("SET-050 setup: invoice account and the customer „Mahnung Muster GmbH“", async ({ page }) => {
+  await page.goto("/einstellungen/bank");
+  await expect(h1(page, /Bank/)).toBeVisible();
+  const account = page.getByText("DE89 3704 0044 0532 0130 00").or(page.getByText("DE89370400440532013000"));
+  if ((await account.count()) === 0) {
+    await page.getByRole("button", { name: "Konto hinzufügen" }).click();
+    const dialog = page.getByRole("dialog", { name: "Rechnungskonto hinzufügen" });
+    await dialog.getByLabel("Bezeichnung").fill("Revolut Business");
+    await dialog.getByLabel("IBAN").fill("DE89 3704 0044 0532 0130 00");
+    await dialog.getByLabel("Kontoinhaber").fill("Erika Musterfrau");
+    await dialog.getByRole("button", { name: "Konto hinzufügen" }).click();
+    await expect(dialog).toBeHidden({ timeout: 20_000 });
+  }
+  await expect(account.first()).toBeVisible({ timeout: 20_000 });
+
+  await page.goto("/kontakte/neu");
+  await expect(h1(page, "Neuer Kontakt")).toBeVisible();
+  await page.getByLabel("Firma", { exact: false }).first().fill(CUSTOMER);
+  await page.getByLabel("Straße und Hausnummer").fill("Mahnweg 7");
+  await page.getByLabel("PLZ").fill("10115");
+  await page.getByLabel("Ort", { exact: true }).fill("Berlin");
+  await page.getByLabel("E-Mail", { exact: true }).fill("buchhaltung@mahnung-muster.de");
+  await page.getByRole("button", { name: "Kontakt anlegen" }).click();
+  await expect(h1(page, CUSTOMER)).toBeVisible({ timeout: 20_000 });
+});
+
 test("DUN-008 DUN-010 DUN-004 DUN-058 manual reminder: create, finalise, export the PDF, mark sent from „Zu versenden“", async ({
   page,
   expectNoAxeViolations,
@@ -160,7 +188,7 @@ test("DUN-008 DUN-010 DUN-004 DUN-058 manual reminder: create, finalise, export 
   await expectNoAxeViolations();
   await section.getByTestId("create-reminder").click();
   await acknowledgeIfAsked(page, "Trotzdem erstellen");
-  await expect(page).toHaveURL(/\/mahnungen\/[a-z0-9]+$/, { timeout: 30_000 });
+  await expect(page).toHaveURL(/\/mahnungen\/(?!neu$)[a-z0-9]+$/, { timeout: 30_000 });
 
   const reminderNumber = await finaliseReminder(page, expectNoAxeViolations);
   await expect(page.getByText("Unveränderbar")).toBeVisible();

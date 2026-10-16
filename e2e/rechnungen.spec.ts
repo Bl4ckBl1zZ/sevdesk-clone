@@ -47,7 +47,7 @@ async function draftWithLine(page: Page, line: { name: string; price: string; ty
 
 async function saveAndFinalize(page: Page): Promise<string> {
   await page.getByRole("button", { name: "Entwurf speichern" }).click();
-  await expect(page).toHaveURL(/\/rechnungen\/[a-z0-9]+$/, { timeout: 30_000 });
+  await expect(page).toHaveURL(/\/rechnungen\/(?!neu$)[a-z0-9]+$/, { timeout: 30_000 });
   await expect(h1(page, "Rechnungsentwurf")).toBeVisible();
   await expect(page.getByTestId("compliance").getByRole("status")).toHaveText(/Bereit zum Fertigstellen/, {
     timeout: 20_000,

@@ -44,7 +44,7 @@ test("CON-001 CON-003 CON-120 an organisation is created with address and e-mail
   await page.getByLabel("E-Mail", { exact: true }).fill("rechnung@muster-handwerk.de");
   await page.getByRole("button", { name: "Kontakt anlegen" }).click();
 
-  await expect(page).toHaveURL(/\/kontakte\/[a-z0-9]+$/, { timeout: 20_000 });
+  await expect(page).toHaveURL(/\/kontakte\/(?!neu$)[a-z0-9]+$/, { timeout: 20_000 });
   await expect(h1(page, "Muster Handwerk GmbH")).toBeVisible();
   await expect(page.getByRole("tab", { name: "Verlauf" })).toHaveAttribute("aria-selected", "true");
   await expectNoAxeViolations();
@@ -100,7 +100,7 @@ test("PRD-011 PRD-013 PRD-030 a product entered gross gets a customer price", as
   await expect(page.getByLabel("VK netto")).toHaveValue("100,00");
   await page.getByRole("button", { name: "Produkt anlegen" }).click();
 
-  await expect(page).toHaveURL(/\/produkte\/[a-z0-9]+$/, { timeout: 20_000 });
+  await expect(page).toHaveURL(/\/produkte\/(?!neu$)[a-z0-9]+$/, { timeout: 20_000 });
   await expect(h1(page, "Wartung Heizung")).toBeVisible();
   await expectNoAxeViolations();
 

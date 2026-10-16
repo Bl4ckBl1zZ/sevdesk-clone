@@ -110,7 +110,7 @@ test("QUO-01 QUO-05 DOC-33 QUO-12 quote → accepted → invoice draft → final
   await convert.getByLabel("Neuer Beleg").selectOption("invoice");
   await expect(convert.getByLabel(/Wartungsvertrag Angebot/)).toHaveValue("2", { timeout: 20_000 });
   await convert.getByRole("button", { name: "Entwurf erstellen" }).click();
-  await expect(page).toHaveURL(/\/rechnungen\/[a-z0-9]+$/, { timeout: 30_000 });
+  await expect(page).toHaveURL(/\/rechnungen\/(?!neu$)[a-z0-9]+$/, { timeout: 30_000 });
   await expect(h1(page, "Rechnungsentwurf")).toBeVisible({ timeout: 20_000 });
   await expect(page.getByLabel("Bezeichnung (Pos. 1)")).toHaveValue("Wartungsvertrag Angebot");
   // A quote has no Leistungsdatum; the invoice needs one (UST-08).
