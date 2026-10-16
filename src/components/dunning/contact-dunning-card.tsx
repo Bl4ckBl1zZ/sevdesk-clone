@@ -38,7 +38,8 @@ function ContactDunningForm({
   const [reason, setReason] = useState(data.dunning?.blockedReason ?? "");
   const [calendar, setCalendar] = useState(data.dunning?.calendarDueDateAgreed === true);
   const ids = { policy: useId(), reason: useId() };
-  const stored = data.policies.filter((p) => !p.seeded);
+  // DUN-002: virtual defaults (seed:<n>) are assignable too; saving stores them first.
+  const stored = data.policies;
   const invalid = blocked && reason.trim().length < 3;
   return (
     <SectionCard title={t("title")} testId="contact-dunning">

@@ -186,10 +186,44 @@ export async function createPolicy(ctx: ModelCtx, values: PolicyValues) {
   return { id, warnings: warnings.map((w) => ({ code: w.code, message: w.message })) };
 }
 
-export async function updatePolicy(ctx: ModelCtx, id: Id<"dunningPolicies">, version: number, values: PolicyValues) {
-  const p = await ctx.db.get(id);
-  if (!p || p.archivedAt !== undefined) throw appError("not_found", "Die Mahnrichtlinie existiert nicht.");
-  if (p.version !== version) throw appError("version_conflict");
+const SEED_REF = /^seed:(\d+)$/;
+
+/**
+ * DUN-001: a policy reference from the UI/API — a stored id or a virtual default (`seed:<n>`, listPolicies before the
+ * first save). A seed reference stores the §4.6 defaults first and resolves to the stored row of that default; its
+ * expected version 0 means „the untouched seed“ (stored version 1).
+ */
+export async function resolvePolicyRef(
+  ctx: ModelCtx,
+  ref: string,
+  version?: number,
+): Promise<{ policy: PolicyDoc; expectedVersion: number | undefined }> {
+  const seed = SEED_REF.exec(ref);
+  if (seed) {
+    const def = DEFAULT_POLICIES[Number(seed[1])];
+    if (!def) throw appError("not_found", "Die Mahnrichtlinie existiert nicht.");
+    await ensureDefaultPolicies(ctx);
+    const rows = (await ctx.db.query("dunningPolicies").collect()).sort((a, b) => a._creationTime - b._creationTime);
+    const policy = rows.find((p) => p.name === def.name && p.archivedAt === undefined);
+    if (!policy) throw appError("not_found", "Die Mahnrichtlinie existiert nicht.");
+    return { policy, expectedVersion: version === 0 ? 1 : version };
+  }
+  const id = ctx.db.normalizeId("dunningPolicies", ref);
+  const policy = id ? await ctx.db.get(id) : null;
+  if (!policy || policy.archivedAt !== undefined) throw appError("not_found", "Die Mahnrichtlinie existiert nicht.");
+  return { policy, expectedVersion: version };
+}
+
+/** DUN-001: stores the §4.6 defaults (Einstellungen › Mahnwesen „Standardrichtlinien übernehmen“). */
+export async function ensureDefaults(ctx: ModelCtx): Promise<PolicyRow[]> {
+  await ensureDefaultPolicies(ctx);
+  return listPolicies(ctx);
+}
+
+export async function updatePolicy(ctx: ModelCtx, ref: string, version: number, values: PolicyValues) {
+  const { policy: p, expectedVersion } = await resolvePolicyRef(ctx, ref, version);
+  const id = p._id;
+  if (p.version !== expectedVersion) throw appError("version_conflict");
   const warnings = policyErrors(ctx, values);
   await auditedPatch(
     ctx,
@@ -202,9 +236,9 @@ export async function updatePolicy(ctx: ModelCtx, id: Id<"dunningPolicies">, ver
   return { id, version: p.version + 1, warnings: warnings.map((w) => ({ code: w.code, message: w.message })) };
 }
 
-export async function archivePolicy(ctx: ModelCtx, id: Id<"dunningPolicies">) {
-  const p = await ctx.db.get(id);
-  if (!p || p.archivedAt !== undefined) throw appError("not_found", "Die Mahnrichtlinie existiert nicht.");
+export async function archivePolicy(ctx: ModelCtx, ref: string) {
+  const { policy: p } = await resolvePolicyRef(ctx, ref);
+  const id = p._id;
   if (p.isDefault) {
     throw appError(
       "conflict",
@@ -1389,11 +1423,16 @@ export async function saveContactDunning(
   if (v.blocked && (v.blockedReason?.trim().length ?? 0) < 3) {
     throw appError("invalid_input", "Bitte einen Grund für „Nicht mahnen“ angeben.", { field: "blockedReason" });
   }
-  if (v.policyId && !(await ctx.db.get(v.policyId as Id<"dunningPolicies">))) {
-    throw appError("invalid_input", "Die Mahnrichtlinie existiert nicht.", { field: "policyId" });
+  let policyId: Id<"dunningPolicies"> | undefined;
+  if (v.policyId) {
+    try {
+      policyId = (await resolvePolicyRef(ctx, v.policyId)).policy._id;
+    } catch {
+      throw appError("invalid_input", "Die Mahnrichtlinie existiert nicht.", { field: "policyId" });
+    }
   }
   const dunning = {
-    ...(v.policyId ? { policyId: v.policyId as Id<"dunningPolicies"> } : {}),
+    ...(policyId ? { policyId } : {}),
     ...(v.blocked ? { blocked: true, blockedReason: v.blockedReason?.trim() } : {}),
     ...(v.calendarDueDateAgreed ? { calendarDueDateAgreed: true } : {}),
   };

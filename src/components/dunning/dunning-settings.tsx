@@ -298,19 +298,30 @@ function Policies({ data, canManage }: { data: Settings; canManage: boolean }) {
             {canManage && (
               <div className="flex flex-wrap gap-2">
                 {p.seeded ? (
-                  <Button
-                    variant="outline"
-                    className="h-11 md:h-8"
-                    onClick={() =>
-                      setEditing({
-                        mode: "new",
-                        initial: { ...toValues(p), name: t("copyName", { name: p.name }), isDefault: false },
-                      })
-                    }
-                  >
-                    <CopyIcon aria-hidden="true" />
-                    {t("copy")}
-                  </Button>
+                  <>
+                    {/* DUN-001: editing a virtual default (seed:<n>) stores the defaults first. */}
+                    <Button
+                      variant="outline"
+                      className="h-11 md:h-8"
+                      onClick={() => setEditing({ mode: "edit", policy: p })}
+                    >
+                      <PencilIcon aria-hidden="true" />
+                      {t("edit")}
+                    </Button>
+                    <Button
+                      variant="outline"
+                      className="h-11 md:h-8"
+                      onClick={() =>
+                        setEditing({
+                          mode: "new",
+                          initial: { ...toValues(p), name: t("copyName", { name: p.name }), isDefault: false },
+                        })
+                      }
+                    >
+                      <CopyIcon aria-hidden="true" />
+                      {t("copy")}
+                    </Button>
+                  </>
                 ) : (
                   <>
                     <Button

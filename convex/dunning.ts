@@ -33,6 +33,7 @@ import {
   deleteReminderDraft,
   dueSoon,
   dunnableInvoices,
+  ensureDefaults as ensureDefaultsModel,
   evaluationContext,
   finalizeReminder,
   listPolicies,
@@ -668,15 +669,23 @@ export const createPolicy = mutation({
   handler: async (ctx, { values }) => createPolicyModel(ctx, parse(policySchema, values)),
 });
 
+/** DUN-001: stores the virtual §4.6 defaults as policies (they are also stored on first use). */
+export const ensureDefaults = mutation({
+  permission: "dunning.manage",
+  args: {},
+  handler: async (ctx) => ensureDefaultsModel(ctx),
+});
+
+/** `id`: a stored policy id or a virtual default `seed:<n>` (version 0), which is stored first. */
 export const updatePolicy = mutation({
   permission: "dunning.manage",
-  args: { id: v.id("dunningPolicies"), version: v.number(), values: v.any() },
+  args: { id: v.string(), version: v.number(), values: v.any() },
   handler: async (ctx, { id, version, values }) => updatePolicyModel(ctx, id, version, parse(policySchema, values)),
 });
 
 export const archive = mutation({
   permission: "dunning.manage",
-  args: { id: v.id("dunningPolicies") },
+  args: { id: v.string() },
   handler: async (ctx, { id }) => archivePolicy(ctx, id),
 });
 

@@ -595,6 +595,39 @@ describe("DUN-001 policies and MCP safety", () => {
     expect(errorCode(e)).toBe("forbidden_role");
   });
 
+  test("DUN-001 DUN-002 the virtual defaults (seed:0/seed:1) can be edited, archived and assigned; they become stored rows", async () => {
+    const t = makeT();
+    const s = await setup(t);
+    const seeds = (await s.owner.query(api.dunning.settings, {})).policies;
+    const b2b = seeds[0] as (typeof seeds)[number];
+    expect([b2b.id, b2b.version, b2b.seeded]).toEqual(["seed:0", 0, true]);
+    const { id: _id, version: _v, seeded: _s, warnings: _w, ...values } = b2b;
+    const r = await s.owner.mutation(api.dunning.updatePolicy, {
+      id: "seed:0",
+      version: 0,
+      values: { ...values, minOpenAmountCents: 1000 },
+    });
+    expect(r.version).toBe(2);
+    const stored = (await s.owner.query(api.dunning.settings, {})).policies;
+    expect(stored.map((p) => [p.name, p.seeded])).toEqual([
+      ["Standard B2B", false],
+      ["Standard B2C", false],
+    ]);
+    expect(stored[0]).toMatchObject({ id: r.id, minOpenAmountCents: 1000 });
+    // A stale seed reference after the defaults were stored is a version conflict, not a second copy.
+    expect(
+      errorCode(await catching(s.owner.mutation(api.dunning.updatePolicy, { id: "seed:0", version: 0, values }))),
+    ).toBe("version_conflict");
+    await s.owner.mutation(api.dunning.saveContact, { contactId: s.contactId as Id<"contacts">, policyId: "seed:1" });
+    const contact = await t.run((ctx) => ctx.db.get(s.contactId as Id<"contacts">));
+    expect(contact?.dunning?.policyId).toBe(stored[1]?.id);
+    expect(errorCode(await catching(s.owner.mutation(api.dunning.archive, { id: "seed:7" })))).toBe("not_found");
+    const fresh = makeT();
+    const s2 = await setup(fresh);
+    const ensured = await s2.owner.mutation(api.dunning.ensureDefaults, {});
+    expect(ensured.map((p) => p.seeded)).toEqual([false, false]);
+  });
+
   test("MCP-004 DUN-031 T05-152 dunning_run over MCP needs a confirm token bound to the previewed digest", async () => {
     const t = makeT();
     const s = await setup(t);
