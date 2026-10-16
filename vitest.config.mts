@@ -25,6 +25,8 @@ export default defineConfig({
         extends: true,
         test: {
           name: "convex",
+          // convex-test, PDF rendering and jsdom forms are CPU-heavy; on the shared dev host 5 s gave false failures.
+          testTimeout: 20_000,
           include: ["convex/**/*.test.ts"],
           environment: "edge-runtime",
           setupFiles: ["./test/setup-invariants.ts"],
@@ -35,6 +37,8 @@ export default defineConfig({
         extends: true,
         test: {
           name: "server",
+          // convex-test, PDF rendering and jsdom forms are CPU-heavy; on the shared dev host 5 s gave false failures.
+          testTimeout: 20_000,
           include: [
             "src/*.test.ts",
             "src/app/api/**/*.test.ts",
@@ -57,6 +61,8 @@ export default defineConfig({
         extends: true,
         test: {
           name: "ui",
+          // convex-test, PDF rendering and jsdom forms are CPU-heavy; on the shared dev host 5 s gave false failures.
+          testTimeout: 20_000,
           include: [
             "src/components/**/*.test.{ts,tsx}",
             "src/app/**/*.test.tsx",
