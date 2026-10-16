@@ -1,7 +1,13 @@
-import { PlaceholderPage, placeholderMetadata } from "@/components/layout/placeholder-page";
+import { CatalogPage, catalogMetadata } from "@/components/catalog/catalog-page";
+import { DunningCockpit } from "@/components/dunning/dunning-cockpit";
 
-export const generateMetadata = () => placeholderMetadata("mahnungen");
+export const generateMetadata = () => catalogMetadata("mahnungen");
 
+/** Mahnungen cockpit (F05 §6.4). */
 export default function Page() {
-  return <PlaceholderPage page="mahnungen" />;
+  return (
+    <CatalogPage page="mahnungen" permission="payments.read" body={false}>
+      <DunningCockpit />
+    </CatalogPage>
+  );
 }
