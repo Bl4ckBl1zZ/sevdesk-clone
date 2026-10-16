@@ -26,7 +26,7 @@ import { Input } from "@/components/ui/input";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Textarea } from "@/components/ui/textarea";
 import { SEND_CHANNEL_LABELS, SEND_CHANNELS, type SendChannel } from "@/domain/documents/dispatch";
-import { type CalendarDate, isCalendarDate, toEpochDay } from "@/domain/time/calendar-date";
+import { isLateMark } from "@/domain/dunning/late-mark";
 import { useAdapterErrorToast } from "@/hooks/use-adapter-error-toast";
 import { useAuthedQuery } from "@/hooks/use-authed-query";
 
@@ -314,11 +314,8 @@ export function ReminderExportMenu({
   );
 }
 
-/** DUN-056 / EC-DUN-33: the reminder is marked sent more than 3 days after its document date. */
-export function isLateMark(documentDate: string | null, sentOn: string): boolean {
-  if (!documentDate || !isCalendarDate(documentDate) || !isCalendarDate(sentOn)) return false;
-  return toEpochDay(sentOn as CalendarDate) - toEpochDay(documentDate as CalendarDate) > 3;
-}
+/** DUN-056 / EC-DUN-33: the rule lives in src/domain/dunning/late-mark.ts (one implementation). */
+export { isLateMark };
 
 const ARTIFACT_LABELS: Record<string, string> = { pdf: "PDF" };
 const VARIANT_LABELS: Record<string, string> = { original: "Original", copy: "Kopie", reading: "Lesefassung" };

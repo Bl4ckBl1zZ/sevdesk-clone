@@ -23,6 +23,7 @@ import {
   type ReminderState,
   SKIP_REASON_LABEL_DE,
 } from "../../src/domain/dunning/evaluate";
+import { lateMarkWarning as domainLateMarkWarning } from "../../src/domain/dunning/late-mark";
 import { limitationDateOf, limitationStatus } from "../../src/domain/dunning/limitation";
 import {
   DEFAULT_POLICIES,
@@ -1213,12 +1214,9 @@ export async function assertRetractionAllowed(ctx: ReadCtx, doc: SalesDoc): Prom
   }
 }
 
-/** DUN-056 / EC-DUN-33: a reminder marked sent more than 3 days after its document date. */
+/** DUN-056 / EC-DUN-33: a reminder marked sent more than 3 days after its document date (src/domain/dunning). */
 export function lateMarkWarning(doc: Pick<SalesDoc, "type" | "documentDate">, sentOn: string): string | null {
-  if (doc.type !== "reminder" || !doc.documentDate) return null;
-  return sentOn > addDays(doc.documentDate as CalendarDate, 3)
-    ? "Die im Schreiben genannte Frist ist ggf. zu kurz – Mahnung neu erstellen?"
-    : null;
+  return domainLateMarkWarning(doc.type, doc.documentDate, sentOn);
 }
 
 /** EC-077: a Storno closes the case; the reminders stay archived. Open reminder drafts are removed. */
