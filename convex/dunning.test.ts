@@ -4,7 +4,7 @@ import { sha256Hex } from "../src/domain/audit/chain";
 import { api, internal } from "./_generated/api";
 import type { Doc, Id } from "./_generated/dataModel";
 import { type DunningOwner, dunningSetup, markSent } from "./dunning.fixtures";
-import { settle } from "./invoices.fixtures";
+import { invoiceValues, settle } from "./invoices.fixtures";
 import { errorCode } from "./lib/errors";
 import { bookedTransaction } from "./payments.fixtures";
 import type { TestT } from "./test.setup";
@@ -191,6 +191,34 @@ describe("DUN-030 DUN-031 DUN-037 daily run and preview", () => {
     const rem = await docOf(t, r?.finalized[0] as Id<"salesDocuments">);
     expect(rem).toMatchObject({ status: "finalized", number: "MA-2026-0001", artifactStatus: "ready" });
     expect(await t.run((ctx) => ctx.db.query("sendLog").collect())).toHaveLength(1); // only the invoice's own mark
+  });
+});
+
+describe("DUN-036 bulk „Mahnen“ for selected invoices", () => {
+  test("DUN-036 T05-131 the selection shows the same preview and the run creates drafts only for the selected invoices", async () => {
+    const t = makeT();
+    const s = await setup(t);
+    const { id } = await s.owner.mutation(api.invoices.createDraft, {
+      values: invoiceValues(s.contactId, { paymentTerms: { dueDays: 0 } }),
+    });
+    await s.owner.action(api.invoices.finalize, { id, version: 1 });
+    await settle(t);
+    const second = id as Id<"salesDocuments">;
+    await markSent(s.owner, second, "2026-10-12", "email_manual");
+    const owner = await jump(t, s.owner, "2026-10-19T08:00:00Z");
+    const all = await owner.query(api.dunning.preview, {});
+    expect(all.actions.map((a) => a.kind)).toEqual(["create_draft", "create_draft"]);
+    const selected = await owner.query(api.dunning.preview, { invoiceIds: [second] });
+    expect(selected.actions.map((a) => [a.invoiceId, a.kind])).toEqual([[second, "create_draft"]]);
+    const r = await owner.mutation(api.dunning.run, {
+      mode: "drafts",
+      invoiceIds: [second],
+      expectedDigest: selected.digest,
+    });
+    expect(r).toMatchObject({ drafts: 1, finalized: [] });
+    expect(await owner.query(api.dunning.list, { invoiceId: second })).toHaveLength(1);
+    expect(await owner.query(api.dunning.list, { invoiceId: s.invoiceId })).toHaveLength(0);
+    expect(await owner.query(api.dunning.list, { status: "draft" })).toHaveLength(1);
   });
 });
 
