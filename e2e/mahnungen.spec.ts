@@ -1,13 +1,13 @@
 import type { Locator, Page } from "@playwright/test";
-import { backdateTestInvoice, ownerStorageState } from "./backend";
+import { backdateTestDraft, ownerStorageState } from "./backend";
 import { expect, test } from "./fixtures";
 
 /**
  * Mahnwesen (F05 T05-161, DUN-031, DUN-058, MISC-10) as the signed-in owner: the cockpit and its Vorschau, „Ausgewählte
  * jetzt ausführen“ (drafts), the reminder draft → Fertigstellen → PDF export → „Als versendet markieren“ from „Zu
  * versenden“, the invoice tab „Mahnungen“ and Einstellungen › Mahnwesen; axe on every page. Needs the backend journey
- * and runs after e2e/rechnungen.spec.ts (contact „Muster Handwerk GmbH“). The run path additionally needs the IS_TEST
- * fixture `testFixtures.backdateInvoice` and is skipped without it.
+ * and runs after e2e/rechnungen.spec.ts (contact „Muster Handwerk GmbH“). The run path moves its invoice draft into the
+ * past with the IS_TEST fixture `testFixtures.backdateDraft` and is skipped without IS_TEST.
  */
 const STATE = (project: string) => `test-results/.auth/owner-${project}-dunning.json`;
 let ready = false;
@@ -33,7 +33,8 @@ async function selectByText(select: Locator, text: string): Promise<void> {
 }
 
 /** A finalised 119,00 € invoice for „Muster Handwerk GmbH“; returns its number and detail URL. */
-async function finalisedInvoice(page: Page) {
+/** `backdateDays`: the saved draft is moved into the past (due that many days ago) before „Fertigstellen“. */
+async function finalisedInvoice(page: Page, opts: { backdateDays?: number } = {}) {
   await page.goto("/rechnungen/neu");
   await expect(h1(page, "Neue Rechnung")).toBeVisible();
   await selectByText(page.getByRole("combobox", { name: "Kunde", exact: true }), "Muster Handwerk GmbH");
@@ -44,6 +45,13 @@ async function finalisedInvoice(page: Page) {
   await expect(page.getByTestId("gross")).toHaveText("119,00 €", { timeout: 20_000 });
   await page.getByRole("button", { name: "Entwurf speichern" }).click();
   await expect(page).toHaveURL(/\/rechnungen\/[a-z0-9]+$/, { timeout: 30_000 });
+  let backdated = true;
+  if (opts.backdateDays !== undefined) {
+    const id = new URL(page.url()).pathname.split("/").at(-1) ?? "";
+    backdated = await backdateTestDraft(id, opts.backdateDays);
+    await page.reload();
+  }
+  test.skip(!backdated, "needs IS_TEST=true for testFixtures.backdateDraft");
   await expect(page.getByTestId("compliance").getByRole("status")).toHaveText(/Bereit zum Fertigstellen/, {
     timeout: 20_000,
   });
@@ -173,10 +181,9 @@ test("DUN-031 DUN-030 Vorschau → „Ausgewählte jetzt ausführen“ creates t
   page,
   expectNoAxeViolations,
 }) => {
-  const { number } = await finalisedInvoice(page);
+  // Due 10 days ago (the draft is backdated before „Fertigstellen“): level 1 (7 days after due) is planned.
+  const { number } = await finalisedInvoice(page, { backdateDays: 10 });
   await markInvoiceSent(page);
-  // Due 10 days ago, sent before: level 1 (7 days after due) is planned by the run.
-  test.skip(!(await backdateTestInvoice(number, 10)), "needs the IS_TEST fixture testFixtures.backdateInvoice");
 
   await page.goto("/mahnungen");
   await expect(h1(page, "Mahnungen")).toBeVisible();

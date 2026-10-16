@@ -1739,3 +1739,31 @@ export async function flatFeeOnConsumerReminders(ctx: ReadCtx): Promise<string[]
   }
   return out;
 }
+
+/**
+ * E2E stand-in (IS_TEST only, convex/testFixtures.ts): moves an invoice **draft** into the past — document date
+ * `today − dueDaysAgo` (supply date = document date), due the same day, with a backdating reason — so the regular finalisation and mark produce an
+ * overdue invoice for the dunning journey (T05-161). Finalised documents are never touched (GoBD).
+ */
+export async function backdateDraftForTest(ctx: ModelCtx, id: Id<"salesDocuments">, dueDaysAgo: number) {
+  const doc = await getDocument(ctx, id);
+  if (doc.status !== "draft") throw appError("document_not_draft");
+  const documentDate = addDays(todayOf(ctx), -dueDaysAgo);
+  const version = doc.version + 1;
+  await auditedPatch(
+    ctx,
+    "salesDocuments",
+    id,
+    {
+      documentDate,
+      // UST-08: the supply date must not lie after the (moved) document date.
+      supplyDateMode: "document_date",
+      supplyDate: undefined,
+      paymentTerms: { ...doc.paymentTerms, dueDays: 0 },
+      backdateReason: "E2E: überfällige Rechnung für den Mahnlauf",
+      version,
+    },
+    { action: "document.update_draft", reason: "E2E-Testdaten (IS_TEST)" },
+  );
+  return { documentDate, dueDate: documentDate, version };
+}

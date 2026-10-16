@@ -1891,6 +1891,12 @@
     "wrapper": "query",
     "permission": "members.read"
   },
+  "testFixtures:backdateDraft": {
+    "kind": "mutation",
+    "visibility": "internal",
+    "wrapper": "systemMutation",
+    "job": "test"
+  },
   "testFixtures:recordPayment": {
     "kind": "mutation",
     "visibility": "internal",

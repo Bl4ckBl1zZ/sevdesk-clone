@@ -141,19 +141,15 @@ export async function recordTestPayment(number: string, amountCents: number): Pr
 }
 
 /**
- * Makes the finalised invoice `number` overdue and „versendet“ in the past so the dunning run plans level 1
- * (F05 T05-161): IS_TEST-only `testFixtures.backdateInvoice` (admin key). Returns false while the backend does not
- * provide the fixture yet (the caller skips the run path).
+ * Moves the invoice **draft** `id` into the past (document date today − `dueDaysAgo`, due the same day, backdating
+ * reason) through the IS_TEST-only `testFixtures.backdateDraft` (admin key), so that after „Fertigstellen“ and „Als
+ * versendet markieren“ the dunning run plans level 1 (F05 T05-161). Finalised documents stay immutable (GoBD), which
+ * is why the draft — not the finalised invoice — is moved. Returns false without IS_TEST (the caller skips).
  */
-export async function backdateTestInvoice(number: string, dueDaysAgo: number): Promise<boolean> {
-  try {
-    const r = await admin().mutation(makeFunctionReference<"mutation">("testFixtures:backdateInvoice"), {
-      number,
-      dueDaysAgo,
-    });
-    return r !== null;
-  } catch (e) {
-    if (e instanceof Error && /Could not find|not found|backdateInvoice/i.test(e.message)) return false;
-    throw e;
-  }
+export async function backdateTestDraft(id: string, dueDaysAgo: number): Promise<boolean> {
+  const r = await admin().mutation(makeFunctionReference<"mutation">("testFixtures:backdateDraft"), {
+    id,
+    dueDaysAgo,
+  });
+  return r !== null;
 }

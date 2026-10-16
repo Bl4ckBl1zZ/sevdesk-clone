@@ -3,6 +3,7 @@ import { berlinCalendarDate } from "../src/domain/time/berlin";
 import { systemMutation } from "./functions";
 import { isTest } from "./lib/env";
 import { defaultInvoiceAccount } from "./model/bankAccounts";
+import { backdateDraftForTest } from "./model/dunning";
 import { invoicePaymentArgs, recordPayment as recordPaymentModel } from "./model/payments";
 import { settlementOf } from "./model/settlement";
 
@@ -35,5 +36,19 @@ export const recordPayment = systemMutation({
     );
     const s = await settlementOf(ctx, (await ctx.db.get(doc._id)) ?? doc);
     return { openCents: s.openCents, receivedCents: s.receivedCents };
+  },
+});
+
+/**
+ * E2E only (IS_TEST): makes the invoice draft `id` due `dueDaysAgo` days ago (document date in the past, due the same
+ * day, backdating reason) so that after „Fertigstellen“ and „Als versendet markieren“ the dunning run plans level 1
+ * (F05 T05-161). Drafts only — finalised documents stay immutable. Returns null and writes nothing unless IS_TEST=true.
+ */
+export const backdateDraft = systemMutation({
+  job: "test",
+  args: { id: v.id("salesDocuments"), dueDaysAgo: v.number() },
+  handler: async (ctx, { id, dueDaysAgo }) => {
+    if (!isTest()) return null;
+    return backdateDraftForTest(ctx, id, Math.max(0, Math.min(180, Math.floor(dueDaysAgo))));
   },
 });

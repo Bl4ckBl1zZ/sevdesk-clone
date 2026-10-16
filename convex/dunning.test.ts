@@ -222,6 +222,39 @@ describe("DUN-036 bulk „Mahnen“ for selected invoices", () => {
   });
 });
 
+describe("E2E overdue-invoice stand-in (IS_TEST only)", () => {
+  test("DUN-030 T05-161 testFixtures.backdateDraft makes a draft due in the past so level 1 is planned; no-op off test deployments", async () => {
+    const t = makeT();
+    const s = await setup(t);
+    const { id } = await s.owner.mutation(api.invoices.createDraft, {
+      values: invoiceValues(s.contactId, { paymentTerms: { dueDays: 14 } }),
+    });
+    const draft = id as Id<"salesDocuments">;
+    process.env.IS_TEST = "";
+    try {
+      expect(await t.mutation(internal.testFixtures.backdateDraft, { id: draft, dueDaysAgo: 10 })).toBeNull();
+    } finally {
+      process.env.IS_TEST = "true";
+    }
+    const r = await t.mutation(internal.testFixtures.backdateDraft, { id: draft, dueDaysAgo: 10 });
+    expect(r).toEqual({ documentDate: "2026-10-02", dueDate: "2026-10-02", version: 2 });
+    await s.owner.action(api.invoices.finalize, { id: draft, version: 2 });
+    await settle(t);
+    expect(await docOf(t, draft)).toMatchObject({
+      status: "finalized",
+      documentDate: "2026-10-02",
+      dueDate: "2026-10-02",
+    });
+    await markSent(s.owner, draft, "2026-10-12", "email_manual");
+    const p = await s.owner.query(api.dunning.preview, { invoiceIds: [draft] });
+    expect(p.actions).toEqual([expect.objectContaining({ kind: "create_draft", level: 1 })]);
+    // Finalised documents stay untouchable.
+    expect(
+      errorCode(await catching(t.mutation(internal.testFixtures.backdateDraft, { id: draft, dueDaysAgo: 3 }))),
+    ).toBe("document_not_draft");
+  });
+});
+
 describe("DUN-004 DUN-005 DUN-006 MAHN-05 reminder documents", () => {
   test("MAHN-05 GOBD-20 T05-110 T05-112 finalising gives a MA number, a hash, letters6 retention, no journal entry, no XML", async () => {
     const t = makeT();
