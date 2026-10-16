@@ -20,8 +20,16 @@ function at(date: string) {
   vi.setSystemTime(new Date(`${date}T09:00:00Z`));
 }
 
-function templateValues(contactId: string, over: Partial<RecurringTemplateValues> = {}): RecurringTemplateValues {
-  return {
+/** Test input (plain date strings; the schema brands them on parse). */
+type TemplateInput = Omit<RecurringTemplateValues, "schedule"> & {
+  schedule: Omit<RecurringTemplateValues["schedule"], "firstDate" | "endDate"> & {
+    firstDate: string;
+    endDate?: string;
+  };
+};
+
+function templateValues(contactId: string, over: Partial<TemplateInput> = {}): RecurringTemplateValues {
+  const values: TemplateInput = {
     name: "Wartungsvertrag Beispiel",
     draft: {
       type: "invoice",
@@ -48,6 +56,7 @@ function templateValues(contactId: string, over: Partial<RecurringTemplateValues
     automation: { finalize: false },
     ...over,
   };
+  return values as RecurringTemplateValues;
 }
 
 async function setup(t: TestT) {
