@@ -1,26 +1,23 @@
 import { paginationOptsValidator } from "convex/server";
-import { type Value, v } from "convex/values";
+import { v } from "convex/values";
 import { filter } from "convex-helpers/server/filter";
 import { normalizeSearchQuery } from "../src/domain/contacts/core";
 import { defaultMarkSelection, effectiveMark, exportEntriesFor } from "../src/domain/documents/dispatch";
 import { DRAFT_TYPES, type DraftType, isLetterType } from "../src/domain/documents/doc-types";
 import type { DraftDocument } from "../src/domain/documents/draft";
-import { canonicalSnapshotJson, type DocumentSnapshot } from "../src/domain/documents/snapshot";
+import { canonicalSnapshotJson } from "../src/domain/documents/snapshot";
 import { blocking, type Finding, validateDocument } from "../src/domain/documents/validate";
-import { serializeEinvoice } from "../src/domain/einvoice/serialize";
 import { resolvePrice } from "../src/domain/products/pricing";
 import { draftSchema, markSentSchema, retractMarkSchema } from "../src/domain/schemas/documents";
-import { clockSkewBlocksFinalization } from "../src/domain/system/clock";
 import { berlinCalendarDate } from "../src/domain/time/berlin";
 import { type CalendarDate, isCalendarDate } from "../src/domain/time/calendar-date";
 import { internal } from "./_generated/api";
 import type { Doc, Id } from "./_generated/dataModel";
 import type { QueryCtx } from "./_generated/server";
 import { action, actorMutation, mutation, query, systemMutation, systemQuery } from "./functions";
-import { clockOffsetMs } from "./lib/clock";
-import { validateXml } from "./lib/einvoiceTools";
 import { isTest } from "./lib/env";
 import { appError } from "./lib/errors";
+import { runFinalizePipeline } from "./lib/finalizePipeline";
 import { parse } from "./lib/parse";
 import { defaultInvoiceAccount } from "./model/bankAccounts";
 import { getCompanyProfile } from "./model/companyProfile";
@@ -619,53 +616,8 @@ export const commit = actorMutation({
 export const finalize = action({
   permission: "invoices.finalize",
   args: { id: v.id("salesDocuments"), version: v.number(), ...vFinalizeOptions },
-  handler: async (ctx, a): Promise<{ number: string; idempotentReplay: boolean }> => {
-    const opts = optionsOf(a);
-    const p = await ctx.runQuery(internal.invoices.pipelinePreview, { id: a.id, ...opts });
-    if (p.status !== "draft") {
-      if (p.finalizedFromVersion === a.version && p.number) return { number: p.number, idempotentReplay: true };
-      throw appError("document_not_draft");
-    }
-    if (p.version !== a.version) {
-      throw appError("version_conflict", "Der Entwurf wurde zwischenzeitlich geändert. Bitte Vorschau aktualisieren.");
-    }
-    const errors = p.findings.filter((f) => f.severity === "E");
-    if (errors.length > 0 || !p.snapshotJson) {
-      throw appError("validation_failed", errors[0]?.message, { findings: errors as unknown as Value[] });
-    }
-    // DOC-59 / EC-027: no number is assigned while the server clock is off by more than 60 s.
-    const skew = clockSkewBlocksFinalization(await clockOffsetMs());
-    if (skew) throw appError("clock_skew", skew.message);
-    let validation: "passed" | "skipped" | "not_required" = "not_required";
-    if (p.format !== "none") {
-      const snapshot = JSON.parse(p.snapshotJson) as DocumentSnapshot;
-      const xml = serializeEinvoice(snapshot, p.format).xml;
-      const outcome = await validateXml(xml);
-      if (outcome.kind === "unavailable")
-        throw appError("dependency_unavailable", undefined, { detail: outcome.detail });
-      if (outcome.kind === "failed") {
-        const first = outcome.errors[0];
-        throw appError(
-          "einvoice_validation_failed",
-          `Die E-Rechnung ist ungültig (${outcome.errors.length} Fehler). Erster Fehler: ${first?.ruleId ?? "?"} – ${first?.text ?? ""}.`,
-          { errors: outcome.errors.slice(0, 20) as unknown as Value[] },
-        );
-      }
-      validation = outcome.kind === "passed" ? "passed" : "skipped";
-    }
-    const r = await ctx.runMutation(internal.invoices.commit, {
-      actorContext: ctx.actorContext,
-      id: a.id,
-      version: a.version,
-      validation,
-      ...opts,
-    });
-    if (r.status !== "finalized") {
-      const first = (r.findings ?? [])[0];
-      throw appError("revalidation_failed", first?.message, { findings: (r.findings ?? []) as unknown as Value[] });
-    }
-    return { number: r.number, idempotentReplay: r.idempotentReplay };
-  },
+  handler: async (ctx, a): Promise<{ number: string; idempotentReplay: boolean }> =>
+    runFinalizePipeline(ctx, ctx.actorContext, { id: a.id, version: a.version, ...optionsOf(a) }),
 });
 
 /** „Erneut erzeugen“ (§4.6.5) after a sidecar/config fix: re-renders from the unchanged snapshot. */

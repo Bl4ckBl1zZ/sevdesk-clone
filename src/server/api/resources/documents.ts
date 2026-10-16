@@ -111,7 +111,7 @@ export async function loadChain(convex: ConvexCaller, id: DocId) {
 }
 
 /** Wire lines → draft lines; product lines take name, price, unit and tax key from the product (DOC-05/06). */
-async function linesToDraft(
+export async function linesToDraft(
   convex: ConvexCaller,
   lines: readonly DocumentLineWire[],
   ctx: { contactId?: string; referenceDate: string; priceMode: "net" | "gross"; currency: string },

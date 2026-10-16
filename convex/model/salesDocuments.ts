@@ -690,6 +690,8 @@ export interface DraftRelations {
   sourceDocumentIds?: Id<"salesDocuments">[];
   chainRootId?: Id<"salesDocuments">;
   revision?: number;
+  /** REC-05: the template and occurrence a generated invoice belongs to (idempotency key). */
+  recurringOccurrence?: { templateId: Id<"recurringTemplates">; date: string };
 }
 
 export async function createDraft(
@@ -724,6 +726,12 @@ export async function createDraft(
     ...(relations.sourceDocumentIds?.length ? { sourceDocumentIds: relations.sourceDocumentIds } : {}),
     ...(relations.chainRootId ? { chainRootId: relations.chainRootId } : {}),
     ...(relations.revision ? { revision: relations.revision } : {}),
+    ...(relations.recurringOccurrence
+      ? {
+          recurringTemplateId: relations.recurringOccurrence.templateId,
+          recurringOccurrence: relations.recurringOccurrence,
+        }
+      : {}),
     ...(opts.billingAddressId ? { billingAddressId: opts.billingAddressId } : {}),
   };
   const id = await auditedInsert(ctx, "salesDocuments", base, { action, label: "Entwurf", ...reason });
@@ -837,6 +845,7 @@ export async function deleteDraft(ctx: ModelCtx, id: Id<"salesDocuments">): Prom
     await auditedDelete(ctx, "documentLines", l._id, { action: "document.delete_draft" });
   }
   await auditedDelete(ctx, "salesDocuments", id, { action: "document.delete_draft", label: label(doc) });
+  if (doc.recurringOccurrence) await resolveNotifications(ctx, id, "review_recurring_draft");
 }
 
 // ── status changes (DOC-02) ───────────────────────────────────────────────────────────────────────────────
@@ -1081,6 +1090,7 @@ export async function commitFinalization(
   }
   const finalized = await getDocument(ctx, id);
   if (await inChain(ctx, finalized)) await recomputeChainOf(ctx, finalized, "document.progress");
+  if (finalized.recurringOccurrence) await afterRecurringFinalize(ctx, finalized);
   return { status: "finalized", number: assigned.number, idempotentReplay: false };
 }
 
@@ -1396,6 +1406,7 @@ export async function markSent(
       { action: "document.mark_sent", label: label(doc) },
     );
     await resolveNotifications(ctx, id, "exported_not_marked");
+    await resolveNotifications(ctx, id, "export_and_send");
   }
   return { sendLogId, firstEffective: r.firstEffective, warnings: r.findings.filter((f) => f.severity !== "E") };
 }
@@ -1542,6 +1553,23 @@ export async function notifyExportedNotMarked(ctx: ModelCtx): Promise<number> {
     created++;
   }
   return created;
+}
+
+/**
+ * REC-16: a finalised recurring invoice (automatically or by the owner from the review draft) closes the to-do
+ * „Entwurf prüfen und fertigstellen“ and opens „Exportieren und versenden: {number} ({contact})“ — the app never
+ * exports or sends; the to-do closes with the first sent mark (SND-07) or the Storno.
+ */
+async function afterRecurringFinalize(ctx: ModelCtx, doc: SalesDocumentDoc): Promise<void> {
+  await resolveNotifications(ctx, doc._id, "review_recurring_draft");
+  await upsertNotification(ctx, {
+    kind: "export_and_send",
+    severity: "info",
+    title: `Exportieren und versenden: ${doc.number ?? ""} (${doc.contactName ?? "—"})`,
+    link: documentPath(doc.type, doc._id),
+    entity: { table: "salesDocuments", id: doc._id },
+    dedupeKey: `export_and_send:${doc._id}`,
+  });
 }
 
 export async function openTodos(ctx: ReadCtx): Promise<Doc<"notifications">[]> {

@@ -207,7 +207,13 @@
     "wiederkehrend": {
       "title": "Wiederkehrende Rechnungen",
       "description": "Vorlagen für regelmäßige Rechnungen",
-      "empty": "Noch keine wiederkehrenden Rechnungen vorhanden."
+      "empty": "Noch keine wiederkehrenden Rechnungen vorhanden.",
+      "action": "Erste Vorlage anlegen"
+    },
+    "wiederkehrendNeu": {
+      "title": "Neue wiederkehrende Rechnung",
+      "description": "Rechnungsinhalt, Zeitplan und Automatik festlegen",
+      "empty": "Noch keine Vorlage angelegt."
     },
     "mahnungen": {
       "title": "Mahnungen",
@@ -2944,6 +2950,113 @@
         "open": "Offen",
         "status": "Status"
       }
+    }
+  },
+  "recurring": {
+    "list": {
+      "tabsLabel": "Status der Vorlagen",
+      "tabs": {
+        "active": "Aktiv",
+        "paused": "Pausiert",
+        "ended": "Beendet"
+      },
+      "columns": {
+        "name": "Name",
+        "customer": "Kunde",
+        "interval": "Intervall",
+        "next": "Nächste Rechnung",
+        "amount": "Betrag",
+        "automation": "Automatik",
+        "generated": "Erzeugt",
+        "actions": "Aktionen"
+      },
+      "new": "Neue Vorlage",
+      "empty": "Noch keine wiederkehrenden Rechnungen vorhanden.",
+      "noResults": "Keine Vorlagen in diesem Status.",
+      "action": "Erste Vorlage anlegen",
+      "automationOn": "Fertigstellen automatisch",
+      "automationPending": "Automatik nicht bestätigt",
+      "automationOff": "Entwurf zur Prüfung",
+      "generatedCount": "{count} erzeugt",
+      "runNow": "Jetzt erzeugen",
+      "pause": "Pausieren",
+      "resume": "Fortsetzen",
+      "edit": "Bearbeiten",
+      "paused": "Vorlage pausiert",
+      "resumed": "Vorlage fortgesetzt",
+      "runNowDone": "{created, plural, one {# Rechnung} other {# Rechnungen}} erzeugt, {finalized} fertiggestellt"
+    },
+    "editor": {
+      "sections": {
+        "template": "Vorlage",
+        "schedule": "Zeitplan",
+        "automation": "Automatik",
+        "next": "Nächste Termine"
+      },
+      "name": "Name der Vorlage",
+      "contractReference": "Vertragsreferenz (BT-12)",
+      "contractReferenceHint": "Leer = Name der Vorlage. Erscheint auf jeder Rechnung und in der E-Rechnung.",
+      "firstDate": "Erste Rechnung",
+      "interval": "Intervall",
+      "billing": "Abrechnung",
+      "billingHint": "Im Voraus: Zeitraum ab dem Rechnungstermin. Nachträglich: der Zeitraum vor dem Rechnungstermin.",
+      "end": "Ende",
+      "endNever": "Nie",
+      "endDate": "Am Datum",
+      "endCount": "Nach N Rechnungen",
+      "endDateLabel": "Letzte Rechnung spätestens am",
+      "maxCount": "Anzahl Rechnungen",
+      "periodText": "Zeitraumtext im Kopftext",
+      "periodTextHint": "Fügt „Berechnung für den Zeitraum vom … bis …“ vor dem Kopftext ein (oder Platzhalter {placeholder} verwenden).",
+      "finalize": "Fertigstellen",
+      "finalizeNote": "Versendet wird nie automatisch – fertiggestellte Rechnungen erscheinen als Aufgabe „Exportieren und versenden“.",
+      "finalizePending": "Die Automatik wurde über die API eingerichtet und wirkt erst nach Ihrer Bestätigung.",
+      "confirmAutomation": "Automatik bestätigen",
+      "editNotice": "Änderungen wirken nur auf künftige Rechnungen. Bereits erzeugte Entwürfe und Rechnungen bleiben unverändert.",
+      "scheduleLocked": "Erste Rechnung, Intervall und Abrechnung sind nach der ersten erzeugten Rechnung fest.",
+      "save": "Vorlage speichern",
+      "saved": "Vorlage gespeichert",
+      "inputInvalid": "Bitte die markierten Eingaben prüfen.",
+      "confirmTitle": "Automatisches Fertigstellen aktivieren?",
+      "confirmDescription": "Rechnungen dieser Vorlage werden am Rechnungstag automatisch fertiggestellt: Sie erhalten eine Rechnungsnummer und können danach nicht mehr geändert oder gelöscht werden (GoBD). Versendet wird nie automatisch – Sie exportieren und versenden selbst.",
+      "confirmLabel": "Automatik aktivieren",
+      "preview": {
+        "date": "Datum",
+        "period": "Zeitraum",
+        "amount": "Betrag",
+        "rate": "Steuersatz-Hinweis",
+        "er03": "E-Rechnung",
+        "empty": "Keine weiteren Termine.",
+        "loading": "Termine werden berechnet …",
+        "invalid": "Für die Vorschau bitte Kunde, Positionen und erste Rechnung angeben.",
+        "blocking": "Hinweis: {message}"
+      }
+    },
+    "detail": {
+      "notFound": "Vorlage nicht gefunden.",
+      "state": {
+        "active": "Aktiv",
+        "paused": "Pausiert",
+        "ended": "Beendet",
+        "archived": "Archiviert"
+      },
+      "next": "Nächste Rechnung am {date}",
+      "documents": "Erzeugte Rechnungen",
+      "noDocuments": "Noch keine Rechnung erzeugt.",
+      "draft": "Entwurf",
+      "period": "Zeitraum",
+      "skipped": "Übersprungene Termine: {dates}",
+      "resumeTitle": "Vorlage fortsetzen",
+      "resumeDescription": "Seit der Pause können Termine fällig geworden sein. Sollen sie nachberechnet oder übersprungen werden?",
+      "catchUp": "Nachberechnen",
+      "catchUpHint": "Verpasste Termine werden erzeugt – bei mehr als drei als Entwürfe ohne Automatik.",
+      "skip": "Überspringen",
+      "skipHint": "Verpasste Termine werden protokolliert übersprungen; die nächste Rechnung ist der erste künftige Termin.",
+      "delete": "Löschen",
+      "deleteTitle": "Vorlage löschen?",
+      "deleteDescription": "Ohne erzeugte Rechnungen wird die Vorlage gelöscht, sonst archiviert (die Rechnungen bleiben unverändert).",
+      "deleted": "Vorlage gelöscht",
+      "archived": "Vorlage archiviert"
     }
   }
 }

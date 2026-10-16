@@ -39,6 +39,7 @@ import type * as lib_clock from "../lib/clock.js";
 import type * as lib_einvoiceTools from "../lib/einvoiceTools.js";
 import type * as lib_env from "../lib/env.js";
 import type * as lib_errors from "../lib/errors.js";
+import type * as lib_finalizePipeline from "../lib/finalizePipeline.js";
 import type * as lib_jws from "../lib/jws.js";
 import type * as lib_parse from "../lib/parse.js";
 import type * as lib_rateLimits from "../lib/rateLimits.js";
@@ -83,6 +84,7 @@ import type * as model_notificationSettings from "../model/notificationSettings.
 import type * as model_numberRanges from "../model/numberRanges.js";
 import type * as model_payments from "../model/payments.js";
 import type * as model_products from "../model/products.js";
+import type * as model_recurring from "../model/recurring.js";
 import type * as model_salesDocuments from "../model/salesDocuments.js";
 import type * as model_seeds from "../model/seeds.js";
 import type * as model_settlement from "../model/settlement.js";
@@ -95,6 +97,7 @@ import type * as paymentValidators from "../paymentValidators.js";
 import type * as payments from "../payments.js";
 import type * as products from "../products.js";
 import type * as productsApi from "../productsApi.js";
+import type * as recurring from "../recurring.js";
 import type * as settings from "../settings.js";
 import type * as settingsApi from "../settingsApi.js";
 import type * as signup from "../signup.js";
@@ -141,6 +144,7 @@ declare const fullApi: ApiFromModules<{
   "lib/einvoiceTools": typeof lib_einvoiceTools;
   "lib/env": typeof lib_env;
   "lib/errors": typeof lib_errors;
+  "lib/finalizePipeline": typeof lib_finalizePipeline;
   "lib/jws": typeof lib_jws;
   "lib/parse": typeof lib_parse;
   "lib/rateLimits": typeof lib_rateLimits;
@@ -185,6 +189,7 @@ declare const fullApi: ApiFromModules<{
   "model/numberRanges": typeof model_numberRanges;
   "model/payments": typeof model_payments;
   "model/products": typeof model_products;
+  "model/recurring": typeof model_recurring;
   "model/salesDocuments": typeof model_salesDocuments;
   "model/seeds": typeof model_seeds;
   "model/settlement": typeof model_settlement;
@@ -197,6 +202,7 @@ declare const fullApi: ApiFromModules<{
   payments: typeof payments;
   products: typeof products;
   productsApi: typeof productsApi;
+  recurring: typeof recurring;
   settings: typeof settings;
   settingsApi: typeof settingsApi;
   signup: typeof signup;

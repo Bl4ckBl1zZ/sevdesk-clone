@@ -1459,6 +1459,102 @@
     "wrapper": "query",
     "permission": "products.read"
   },
+  "recurring:confirmAutomation": {
+    "kind": "mutation",
+    "visibility": "public",
+    "wrapper": "mutation",
+    "permission": "invoices.finalize"
+  },
+  "recurring:create": {
+    "kind": "mutation",
+    "visibility": "public",
+    "wrapper": "mutation",
+    "permission": "documents.write"
+  },
+  "recurring:dueTemplates": {
+    "kind": "query",
+    "visibility": "internal",
+    "wrapper": "systemQuery",
+    "job": "cron.recurring.generate"
+  },
+  "recurring:finalizeFailed": {
+    "kind": "mutation",
+    "visibility": "internal",
+    "wrapper": "actorMutation",
+    "permission": "documents.write"
+  },
+  "recurring:generate": {
+    "kind": "mutation",
+    "visibility": "internal",
+    "wrapper": "actorMutation",
+    "permission": "documents.write"
+  },
+  "recurring:generateCron": {
+    "kind": "action",
+    "visibility": "internal",
+    "wrapper": "systemAction",
+    "job": "cron.recurring.generate"
+  },
+  "recurring:generateTemplate": {
+    "kind": "action",
+    "visibility": "internal",
+    "wrapper": "systemAction",
+    "job": "cron.recurring.generate"
+  },
+  "recurring:get": {
+    "kind": "query",
+    "visibility": "public",
+    "wrapper": "query",
+    "permission": "documents.read"
+  },
+  "recurring:list": {
+    "kind": "query",
+    "visibility": "public",
+    "wrapper": "query",
+    "permission": "documents.read"
+  },
+  "recurring:occurrences": {
+    "kind": "query",
+    "visibility": "public",
+    "wrapper": "query",
+    "permission": "documents.read"
+  },
+  "recurring:pause": {
+    "kind": "mutation",
+    "visibility": "public",
+    "wrapper": "mutation",
+    "permission": "documents.write"
+  },
+  "recurring:remove": {
+    "kind": "mutation",
+    "visibility": "public",
+    "wrapper": "mutation",
+    "permission": "documents.write"
+  },
+  "recurring:resume": {
+    "kind": "mutation",
+    "visibility": "public",
+    "wrapper": "mutation",
+    "permission": "documents.write"
+  },
+  "recurring:runFailed": {
+    "kind": "mutation",
+    "visibility": "internal",
+    "wrapper": "actorMutation",
+    "permission": "documents.write"
+  },
+  "recurring:runNow": {
+    "kind": "action",
+    "visibility": "public",
+    "wrapper": "action",
+    "permission": "documents.write"
+  },
+  "recurring:update": {
+    "kind": "mutation",
+    "visibility": "public",
+    "wrapper": "mutation",
+    "permission": "documents.write"
+  },
   "settings:addBankAccount": {
     "kind": "mutation",
     "visibility": "public",
