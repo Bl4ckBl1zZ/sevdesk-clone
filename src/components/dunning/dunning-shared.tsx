@@ -375,16 +375,20 @@ function MarkSentForm({ data, onClose }: { data: ReminderDetail; onClose: () => 
     }
   };
 
+  /**
+   * DUN-056 second choice: withdraw (no notice needed — never marked sent) and re-issue the same level. If the backend
+   * refuses the re-issue, the user lands on the invoice, where the case and the withdrawn reminder are shown.
+   */
   const withdrawAndRecreate = async () => {
-    const res = await run(async () => {
-      await withdraw({ id: r.id, values: { reason: t("lateWithdrawReason") } });
-      if (!r.invoiceId) return null;
-      return createReminder({ invoiceId: r.invoiceId, values: {} });
-    }, t("recreated"));
-    if (res.ok) {
-      onClose();
-      if (res.value) router.push(`/mahnungen/${res.value.id}` as Route);
-    }
+    const withdrawn = await run(() => withdraw({ id: r.id, values: { reason: t("lateWithdrawReason") } }));
+    if (!withdrawn.ok) return;
+    onClose();
+    if (!r.invoiceId) return;
+    const created = await run(
+      () => createReminder({ invoiceId: r.invoiceId as Id<"salesDocuments">, values: { level: r.level } }),
+      t("recreated"),
+    );
+    router.push((created.ok ? `/mahnungen/${created.value.id}` : `/rechnungen/${r.invoiceId}`) as Route);
   };
 
   return (

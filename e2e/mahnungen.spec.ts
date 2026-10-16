@@ -67,7 +67,12 @@ async function markInvoiceSent(page: Page) {
 /** Confirms the ⚑ warning dialog (WARNINGS_UNACKNOWLEDGED) if the backend asked for it. */
 async function acknowledgeIfAsked(page: Page, confirmLabel: string) {
   const warning = page.getByRole("dialog", { name: "Hinweis bestätigen" });
-  if (await warning.isVisible({ timeout: 3_000 }).catch(() => false)) {
+  // The ⚑ dialog appears only after the mutation round-trip (`isVisible` would not wait).
+  const appeared = await warning.waitFor({ state: "visible", timeout: 5_000 }).then(
+    () => true,
+    () => false,
+  );
+  if (appeared) {
     await expect(warning.getByTestId("dunning-warning")).toBeVisible();
     await warning.getByRole("button", { name: confirmLabel }).click();
     await expect(warning).toBeHidden({ timeout: 20_000 });
