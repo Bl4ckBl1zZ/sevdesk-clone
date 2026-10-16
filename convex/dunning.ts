@@ -450,7 +450,7 @@ export const settings = query({
     return {
       policies: policies.map((p) => ({
         ...p,
-        warnings: validatePolicy(p).map((f) => ({
+        warnings: validatePolicy(p, berlinCalendarDate(ctx.now())).map((f) => ({
           code: f.code,
           severity: f.severity,
           message: f.message,
@@ -488,7 +488,7 @@ export const interest = query({
 export const termsWarning = query({
   permission: "contacts.read",
   args: { dueDays: v.number(), isConsumer: v.boolean(), isPublicAuthority: v.boolean() },
-  handler: async (_ctx, a) => paymentTermsWarning(a.dueDays, a)?.message ?? null,
+  handler: async (ctx, a) => paymentTermsWarning(a.dueDays, a, berlinCalendarDate(ctx.now()))?.message ?? null,
 });
 
 // ── reminder writes ─────────────────────────────────────────────────────────────────────────────────────────────

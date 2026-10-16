@@ -2,6 +2,9 @@
  * Dunning policies (Mahnrichtlinien) — F05 DUN-001/002, §4.6 seeded defaults, MAHN-04/06 warnings. Pure.
  * No e-mail template and no send switch (B2): steps only create drafts or finalise (`autoFinalize`).
  */
+import type { RuleOverride } from "../rules/rule-table";
+import { lookupPaymentTermLimits, PAYMENT_TERM_LIMITS, type PaymentTermLimits } from "../rules/thresholds";
+import type { CalendarDate } from "../time/calendar-date";
 
 export interface PolicyStep {
   readonly level: number;
@@ -106,16 +109,32 @@ export const MSG = {
   flatFeeConsumer: "Die 40-€-Pauschale kann nur gegenüber Unternehmern geltend gemacht werden (§ 288 Abs. 5 BGB).",
   b2cFee: "Gegenüber Verbrauchern sind nur die tatsächlich entstandenen Mahnkosten ersatzfähig (üblich 2–5 €).",
   ownFeeWithFlat: "Eigene Mahnkosten werden auf die 40-€-Pauschale angerechnet (§ 288 Abs. 5 S. 3 BGB).",
-  longTerms:
-    "Zahlungsziele über 60 Tage (B2B) bzw. 30 Tage (öffentliche Auftraggeber) sind nur bei ausdrücklicher Vereinbarung wirksam (§ 271a BGB).",
+  longTerms: longTermsMessage(latestTermLimits()),
 } as const;
+
+function latestTermLimits(): PaymentTermLimits {
+  return (PAYMENT_TERM_LIMITS.entries.at(-1) as { value: PaymentTermLimits }).value;
+}
+
+/** MAHN-04/06 warning text from the date-effective limits. */
+export function longTermsMessage(l: PaymentTermLimits): string {
+  return `Zahlungsziele über ${l.businessMaxDays} Tage (B2B) bzw. ${l.publicAuthorityMaxDays} Tage (öffentliche Auftraggeber) sind nur bei ausdrücklicher Vereinbarung wirksam (§ 271a BGB).`;
+}
+
+function termLimitsOn(date: CalendarDate | undefined, overrides: readonly RuleOverride<PaymentTermLimits>[] = []) {
+  if (!date) return latestTermLimits();
+  const row = lookupPaymentTermLimits(date, overrides);
+  return row.ok ? row.value.value : null;
+}
 
 /** B2C: fees above this amount draw EC-DUN-06 (only actual costs). */
 export const B2C_FEE_WARNING_CENTS = 500;
 
 /** DUN-001 / DUN-025 / MAHN-04 checks of a policy (the UI shows warnings, errors block saving). */
-export function validatePolicy(p: DunningPolicy): PolicyFinding[] {
+/** `date` selects the § 271a limits (MAHN-06); without it the latest shipped row applies. */
+export function validatePolicy(p: DunningPolicy, date?: CalendarDate): PolicyFinding[] {
   const out: PolicyFinding[] = [];
+  const terms = termLimitsOn(date);
   if (!p.name.trim())
     out.push({ code: "name_required", severity: "E", message: "Bitte einen Namen angeben.", field: "name" });
   if (!p.appliesTo.consumer && !p.appliesTo.business) {
@@ -174,11 +193,11 @@ export function validatePolicy(p: DunningPolicy): PolicyFinding[] {
         rule: "MAHN-03",
       });
     }
-    if (s.newDueDays > 60) {
+    if (terms && s.newDueDays > terms.businessMaxDays) {
       out.push({
         code: "long_terms",
         severity: "W",
-        message: MSG.longTerms,
+        message: longTermsMessage(terms),
         field: `${f}.newDueDays`,
         rule: "MAHN-04",
       });
@@ -194,8 +213,15 @@ export function validatePolicy(p: DunningPolicy): PolicyFinding[] {
 export function paymentTermsWarning(
   dueDays: number,
   contact: { readonly isConsumer: boolean; readonly isPublicAuthority?: boolean | undefined },
+  date: CalendarDate,
+  overrides: readonly RuleOverride<PaymentTermLimits>[] = [],
 ): PolicyFinding | null {
   if (contact.isConsumer) return null;
-  const limit = contact.isPublicAuthority ? 30 : 60;
-  return dueDays > limit ? { code: "long_terms", severity: "W", message: MSG.longTerms, rule: "MAHN-04" } : null;
+  // MAHN-06: the limits are date-effective data (src/domain/rules/thresholds.ts); no row → no warning.
+  const terms = termLimitsOn(date, overrides);
+  if (!terms) return null;
+  const limit = contact.isPublicAuthority ? terms.publicAuthorityMaxDays : terms.businessMaxDays;
+  return dueDays > limit
+    ? { code: "long_terms", severity: "W", message: longTermsMessage(terms), rule: "MAHN-04" }
+    : null;
 }

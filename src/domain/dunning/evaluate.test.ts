@@ -1,4 +1,6 @@
 import { describe, expect, test } from "vitest";
+import { ALL_RULE_TABLES } from "../rules/registry";
+import { PAYMENT_TERM_LIMITS } from "../rules/thresholds";
 import type { CalendarDate } from "../time/calendar-date";
 import { applyManualAmounts, computeClaim } from "./claim";
 import { defaultStartOf } from "./default-start";
@@ -70,7 +72,7 @@ describe("DUN-001 DUN-002 MAHN-04 policies", () => {
     expect(DEFAULT_POLICIES.every((p) => p.steps.every((s) => !s.autoFinalize) && p.minOpenAmountCents === 500)).toBe(
       true,
     );
-    expect(DEFAULT_POLICIES.flatMap(validatePolicy).filter((f) => f.severity === "E")).toEqual([]);
+    expect(DEFAULT_POLICIES.flatMap((p) => validatePolicy(p)).filter((f) => f.severity === "E")).toEqual([]);
   });
 
   test("DUN-002 resolution: contact policy → default by consumer flag", () => {
@@ -98,9 +100,27 @@ describe("DUN-001 DUN-002 MAHN-04 policies", () => {
   });
 
   test("MAHN-04 EC-DUE-05 T05-085 terms of 45 days for a public customer warn; 45 days B2B do not", () => {
-    expect(paymentTermsWarning(45, { isConsumer: false, isPublicAuthority: true })?.code).toBe("long_terms");
-    expect(paymentTermsWarning(45, { isConsumer: false })).toBeNull();
-    expect(paymentTermsWarning(61, { isConsumer: false })?.rule).toBe("MAHN-04");
+    const d = "2026-10-12" as CalendarDate;
+    expect(paymentTermsWarning(45, { isConsumer: false, isPublicAuthority: true }, d)?.code).toBe("long_terms");
+    expect(paymentTermsWarning(45, { isConsumer: false }, d)).toBeNull();
+    expect(paymentTermsWarning(61, { isConsumer: false }, d)?.rule).toBe("MAHN-04");
+  });
+
+  test("MAHN-06 the payment-term limits are date-effective data; an override (e.g. a 30-day EU maximum) changes the warning", () => {
+    const d = "2026-10-12" as CalendarDate;
+    expect(PAYMENT_TERM_LIMITS.id).toBe("payment_term_limits");
+    expect(ALL_RULE_TABLES).toContain(PAYMENT_TERM_LIMITS);
+    const eu = [
+      {
+        id: "eu-lpr",
+        validFrom: "2026-01-01" as CalendarDate,
+        value: { businessMaxDays: 30, publicAuthorityMaxDays: 30 },
+        source: "EU-Zahlungsverzugsverordnung (angenommen)",
+      },
+    ];
+    expect(paymentTermsWarning(45, { isConsumer: false }, d, eu)?.code).toBe("long_terms");
+    expect(paymentTermsWarning(45, { isConsumer: false }, d)).toBeNull();
+    expect(paymentTermsWarning(400, { isConsumer: true }, d)).toBeNull();
   });
 });
 

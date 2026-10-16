@@ -118,8 +118,8 @@ export async function ensureDefaultPolicies(ctx: ModelCtx): Promise<void> {
   }
 }
 
-function policyErrors(values: PolicyValues) {
-  const findings = validatePolicy(values);
+function policyErrors(ctx: { now: () => number }, values: PolicyValues) {
+  const findings = validatePolicy(values, todayOf(ctx));
   const errors = findings.filter((f) => f.severity === "E");
   if (errors.length > 0) {
     throw appError("invalid_input", errors[0]?.message, {
@@ -173,7 +173,7 @@ async function clearOtherDefaults(ctx: ModelCtx, keep: Id<"dunningPolicies">, ap
 
 export async function createPolicy(ctx: ModelCtx, values: PolicyValues) {
   await ensureDefaultPolicies(ctx);
-  const warnings = policyErrors(values);
+  const warnings = policyErrors(ctx, values);
   const id = await auditedInsert(
     ctx,
     "dunningPolicies",
@@ -188,7 +188,7 @@ export async function updatePolicy(ctx: ModelCtx, id: Id<"dunningPolicies">, ver
   const p = await ctx.db.get(id);
   if (!p || p.archivedAt !== undefined) throw appError("not_found", "Die Mahnrichtlinie existiert nicht.");
   if (p.version !== version) throw appError("version_conflict");
-  const warnings = policyErrors(values);
+  const warnings = policyErrors(ctx, values);
   await auditedPatch(
     ctx,
     "dunningPolicies",

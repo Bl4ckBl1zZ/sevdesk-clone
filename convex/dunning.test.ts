@@ -495,6 +495,28 @@ describe("MAHN-03 DUN-008 DUN-009 manual reminders", () => {
     expect((await docOf(t, id as Id<"salesDocuments">)).reminder?.interestCents).toBe(99_999);
   });
 
+  test("DUN-007 the next level follows the latest reminder; a level beyond the policy needs an acknowledged warning", async () => {
+    const t = makeT();
+    const { owner: o1, invoiceId, r1 } = await firstReminderSent(t);
+    const owner = await jump(t, o1, "2026-11-05T08:00:00Z");
+    const forInvoice = await owner.query(api.dunning.forInvoice, { invoiceId });
+    expect(forInvoice?.next).toMatchObject({ kind: "create_draft", level: 2 });
+    const e = await catching(owner.mutation(api.dunning.createReminder, { invoiceId, values: { level: 1 } }));
+    expect(messageOf(e)).toBe("Mahnstufe 1 wurde bereits erstellt. Nächste Stufe: 2.");
+    const beyond = await catching(owner.mutation(api.dunning.createReminder, { invoiceId, values: { level: 5 } }));
+    expect(reasonOf(beyond)).toBe("WARNINGS_UNACKNOWLEDGED");
+    expect(messageOf(beyond)).toContain("Stufe 5 ist in der Mahnrichtlinie nicht vorgesehen.");
+    const { id } = await owner.mutation(api.dunning.createReminder, {
+      invoiceId,
+      values: { level: 5, acknowledgeWarnings: ["beyond_policy"] },
+    });
+    expect((await docOf(t, id as Id<"salesDocuments">)).reminder).toMatchObject({ level: 5, title: "4. Mahnung" });
+    await owner.mutation(api.dunning.deleteReminder, { id: id as Id<"salesDocuments"> });
+    const { id: next } = await owner.mutation(api.dunning.createReminder, { invoiceId, values: {} });
+    expect((await docOf(t, next as Id<"salesDocuments">)).reminder?.level).toBe(2);
+    expect((await docOf(t, r1)).reminder?.level).toBe(1);
+  });
+
   test("DUN-009 DUN-024 T05-173 withdrawing a never-marked reminder that claimed the 40 € resets flatFeeCharged; the level stays", async () => {
     const t = makeT();
     const { owner: o1, invoiceId } = await firstReminderSent(t);

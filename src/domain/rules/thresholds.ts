@@ -85,3 +85,25 @@ export const lookupVerzugSurcharges = (
   date: CalendarDate,
   overrides: readonly RuleOverride<VerzugSurcharges>[] = [],
 ): Result<RuleRow<VerzugSurcharges>, RuleMissing> => lookupRule(VERZUG_SURCHARGES, date, overrides);
+
+export interface PaymentTermLimits {
+  /** § 271a Abs. 1 BGB: longer terms between businesses are effective only if expressly agreed and not grossly unfair. */
+  readonly businessMaxDays: number;
+  /** § 271a Abs. 2 BGB: a public authority as debtor — over 30 days only if expressly agreed and objectively justified. */
+  readonly publicAuthorityMaxDays: number;
+}
+
+// LEGAL-OPEN: 01 MAHN-06 — the EU Late Payment Regulation (2023 proposal, hard 30-day maximum) is not adopted; if
+// it is, a new row (or an owner override, SET-121) changes the PAY-054/EC-DUE-05 warning without code changes.
+export const PAYMENT_TERM_LIMITS = defineRuleTable<PaymentTermLimits>("payment_term_limits", [
+  {
+    validFrom: "2014-07-29",
+    value: { businessMaxDays: 60, publicAuthorityMaxDays: 30 },
+    source: "§ 271a BGB i. d. F. Gesetz zur Bekämpfung von Zahlungsverzug im Geschäftsverkehr (BGBl. 2014 I S. 1218)",
+  },
+]);
+
+export const lookupPaymentTermLimits = (
+  date: CalendarDate,
+  overrides: readonly RuleOverride<PaymentTermLimits>[] = [],
+): Result<RuleRow<PaymentTermLimits>, RuleMissing> => lookupRule(PAYMENT_TERM_LIMITS, date, overrides);
