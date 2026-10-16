@@ -176,7 +176,7 @@ export const preview = query({
   handler: async (ctx, { date, invoiceIds }) => {
     const today = berlinCalendarDate(ctx.now());
     const d = date && isCalendarDate(date) ? date : today;
-    return previewOf(ctx, d, invoiceIds);
+    return { ...(await previewOf(ctx, d, invoiceIds)), today };
   },
 });
 
@@ -347,6 +347,40 @@ export const reminder = query({
           : defaultMarkSelection("none", archivedArtifacts(artifacts), await lastExportArtifactIds(ctx, id)),
       today,
     };
+  },
+});
+
+/** REST `GET /reminders` (05 §4.4): newest first, filtered by status, invoice or contact. */
+export const list = query({
+  permission: "documents.read",
+  args: {
+    status: v.optional(v.union(v.literal("draft"), v.literal("finalized"), v.literal("sent"), v.literal("cancelled"))),
+    invoiceId: v.optional(v.id("salesDocuments")),
+    contactId: v.optional(v.id("contacts")),
+    limit: v.optional(v.number()),
+  },
+  handler: async (ctx, a) => {
+    const rows = a.invoiceId
+      ? await remindersOf(ctx, a.invoiceId)
+      : await ctx.db
+          .query("salesDocuments")
+          .withIndex("by_type_status_date", (q) =>
+            a.status ? q.eq("type", "reminder").eq("status", a.status) : q.eq("type", "reminder"),
+          )
+          .collect();
+    const filtered = rows
+      .filter((r) => r.type === "reminder" && (!a.status || r.status === a.status))
+      .filter((r) => !a.contactId || r.contactId === a.contactId)
+      .sort((x, y) => y._creationTime - x._creationTime)
+      .slice(0, Math.max(1, Math.min(a.limit ?? 100, 500)));
+    const invoices = new Map<string, SalesDoc | null>();
+    const out = [];
+    for (const r of filtered) {
+      const invId = r.reminder?.invoiceId;
+      if (invId && !invoices.has(invId)) invoices.set(invId, await ctx.db.get(invId));
+      out.push(reminderView(r, invId ? (invoices.get(invId) ?? null) : null));
+    }
+    return out;
   },
 });
 

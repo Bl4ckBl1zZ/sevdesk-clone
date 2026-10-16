@@ -3,6 +3,7 @@ import { compileRoutes, type Resource } from "../endpoint";
 import { contactsResource } from "./contacts";
 import { correctionsResource } from "./corrections";
 import { documentsResource } from "./documents";
+import { dunningResource } from "./dunning";
 import { metaResource } from "./meta";
 import { paymentsResource } from "./payments";
 import { productsResource } from "./products";
@@ -20,6 +21,7 @@ export const RESOURCES: readonly Resource[] = [
   documentsResource,
   correctionsResource,
   paymentsResource,
+  dunningResource,
 ];
 
 export const ROUTES = compileRoutes(RESOURCES);

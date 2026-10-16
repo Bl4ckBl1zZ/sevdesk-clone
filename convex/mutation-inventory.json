@@ -763,6 +763,12 @@
     "wrapper": "query",
     "permission": "payments.read"
   },
+  "dunning:list": {
+    "kind": "query",
+    "visibility": "public",
+    "wrapper": "query",
+    "permission": "documents.read"
+  },
   "dunning:overrideZugang": {
     "kind": "mutation",
     "visibility": "public",

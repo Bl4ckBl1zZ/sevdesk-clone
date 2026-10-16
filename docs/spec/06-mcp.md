@@ -119,6 +119,8 @@ Legend: **R** = read-only (`readOnlyHint: true`), **W** = writes drafts or maste
 | `dunning_run` | ⚠ | dunning:write (+ invoices:finalize for `mode: "finalize"`). `{ confirm_token, invoice_ids?, mode: "drafts" \| "finalize" }`: creates reminder drafts or finalises reminders as planned by `dunning_preview`; **never sends** — finalised reminders are exported with `document_export` and marked with `document_mark_sent` after the owner sent them (F05 §7.2) |
 | `reminder_create` | W | dunning:write (draft) |
 
+**P1 implementation (2026-10-16, F05 dunning slice):** `dunning_preview { mode = "drafts", invoice_ids? }` evaluates today and returns the plan plus a token bound to `mode`, the sorted invoice ids and the plan digest; with `mode: "finalize"` it answers `insufficient_scope` unless the key holds `invoices:finalize`. `dunning_run` re-evaluates and fails with `preview_outdated` when the plan or the parameters changed. `reminder_create` creates a draft only. `document_export`/`document_mark_sent` arrive with the documents send slice; until then reminders are exported and marked via REST (`/reminders/{id}/export`, `/mark-sent`) or the UI. The `/mahnlauf` prompt is registered.
+
 ### 3.6 Purchases and inbox (F06)
 
 | Tool | Type | Scope | Notes |

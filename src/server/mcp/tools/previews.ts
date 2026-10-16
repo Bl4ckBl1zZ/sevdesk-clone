@@ -23,7 +23,7 @@ import { PAYMENT_PREVIEWS } from "./payment-previews";
  * of the guarded Convex mutation + the previewed entity versions. Only the token's SHA-256 reaches Convex.
  *
  * Later slices register a preview per ⚠ intent in `ACTION_PREVIEWS` (issuer `preview_action`) or implement
- * `document_preview` / `dunning_preview`.
+ * `document_preview`; `dunning_preview` lives in ./dunning.ts (F05).
  */
 export interface PreviewPlan {
   /** Exactly the arguments the ⚠ tool will pass to its Convex mutation (without `confirmToken`). */
@@ -149,19 +149,6 @@ export const previewTools = [
         effect: p.wire,
       };
       return { intent, ...p.wire, ...(await issueToken(documentPreviewIntent("cancel"), plan, ctx)) };
-    },
-  }),
-  defineTool({
-    name: "dunning_preview",
-    title: "Mahnlauf-Vorschau",
-    description: "Vorschau eines Mahnlaufs mit confirm_token für dunning_run. Verfügbar mit dem Mahnwesen (F05).",
-    kind: "read",
-    scopes: ["dunning:write", "dunning:manage"],
-    input: z.object({ as_of: z.string().optional() }),
-    handler: async () => {
-      throw new ApiProblem("not_implemented", {
-        detail: "Das Mahnwesen folgt mit F05; bis dahin gibt es keinen Mahnlauf.",
-      });
     },
   }),
 ];

@@ -3,8 +3,8 @@ import { confirmParamsHash } from "../src/domain/api/confirm";
 import { sha256Hex } from "../src/domain/audit/chain";
 import { api, internal } from "./_generated/api";
 import type { Doc, Id } from "./_generated/dataModel";
-import { CONTACT_RANGE, PRODUCT_RANGE } from "./catalog.fixtures";
-import { b2bBuyer, consumerBuyer, INVOICE_RANGE, invoiceValues, settle, setupInvoicing } from "./invoices.fixtures";
+import { type DunningOwner, dunningSetup, markSent } from "./dunning.fixtures";
+import { settle } from "./invoices.fixtures";
 import { errorCode } from "./lib/errors";
 import { bookedTransaction } from "./payments.fixtures";
 import type { TestT } from "./test.setup";
@@ -16,14 +16,6 @@ import { makeT } from "./test.setup";
  */
 
 const NOW = new Date("2026-10-12T10:00:00Z");
-const REMINDER_RANGE = {
-  key: "reminder",
-  name: "Mahnungen",
-  format: "MA-{YYYY}-{####}",
-  resetPolicy: "yearly",
-  next: 1,
-};
-
 beforeEach(() => {
   vi.useFakeTimers({ toFake: ["Date"] });
   vi.setSystemTime(NOW);
@@ -55,38 +47,8 @@ const caseOf = (t: TestT, invoiceId: Id<"salesDocuments">) =>
       .first(),
   );
 
-async function setup(
-  t: TestT,
-  opts: { consumer?: boolean; reminderRange?: boolean; markSent?: boolean; dueDays?: number } = {},
-) {
-  const s = await setupInvoicing(t);
-  const ranges = [
-    CONTACT_RANGE,
-    PRODUCT_RANGE,
-    INVOICE_RANGE,
-    ...(opts.reminderRange === false ? [] : [REMINDER_RANGE]),
-  ];
-  await s.owner.mutation(api.settings.saveNumberRanges, { values: { ranges } });
-  const contactId = opts.consumer ? await consumerBuyer(s.owner) : (await b2bBuyer(s.owner)).personId;
-  const { id } = await s.owner.mutation(api.invoices.createDraft, {
-    values: invoiceValues(contactId, { paymentTerms: { dueDays: opts.dueDays ?? 0 } }),
-  });
-  await s.owner.action(api.invoices.finalize, { id, version: 1 });
-  await settle(t);
-  const invoiceId = id as Id<"salesDocuments">;
-  if (opts.markSent !== false) await markSent(s.owner, invoiceId, "2026-10-12", "email_manual");
-  return { ...s, invoiceId, contactId };
-}
-
-type Owner = Awaited<ReturnType<typeof setupInvoicing>>["owner"];
-
-async function markSent(owner: Owner, id: Id<"salesDocuments">, sentOn: string, channel: string) {
-  const r = await owner.action(api.documentArtifacts.exportFiles, { id, request: { entry: "default" } });
-  return owner.mutation(api.invoices.markSent, {
-    id,
-    values: { sentOn, channel, artifactIds: r.files.map((f) => f.artifactId) },
-  });
-}
+const setup = dunningSetup;
+type Owner = DunningOwner;
 
 /** Moves the clock; the seeded session expires after 7 days, so a fresh owner session is returned. */
 async function jump(t: TestT, owner: Owner, iso: string): Promise<Owner> {

@@ -112,6 +112,16 @@ describe("F04 sales-document errors (05 §4.3, F04 §5.1)", () => {
   });
 });
 
+describe("F05 dunning errors (05 §4.4)", () => {
+  test("DUN-031 a changed dunning plan answers 409 preview_outdated; dunning ids carry their prefixes", () => {
+    expect(mapAppError({ code: "preview_outdated", message: "geändert" }).code).toBe("preview_outdated");
+    expect(PROBLEMS.preview_outdated.status).toBe(409);
+    expect(encodeId("reminders", "k57f3abcdefghijk0123456789")).toBe("rem_k57f3abcdefghijk0123456789");
+    expect(encodeId("dunningPolicies", "k57f3abcdefghijk0123456789")).toBe("dpo_k57f3abcdefghijk0123456789");
+    expect(encodeId("dunningRuns", "k57f3abcdefghijk0123456789")).toBe("drn_k57f3abcdefghijk0123456789");
+  });
+});
+
 describe("prefixed IDs (05 §3)", () => {
   const raw = "k57f3abcdefghijk0123456789";
 
