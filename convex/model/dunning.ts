@@ -551,7 +551,10 @@ export async function planReminder(
   const level = input.level ?? currentLevel + 1;
   const { step, beyond } = stepFor(policy, level);
   if (beyond) findings.push(warn("beyond_policy", `Stufe ${level} ist in der Mahnrichtlinie nicht vorgesehen.`));
-  if (level <= currentLevel && !opts.excludeReminderId) {
+  // DUN-056/DUN-009: the case level is never decremented, but a withdrawn level may be issued again („Gegenstandslos
+  // setzen und neu erstellen“) as long as no issued reminder has that level or a higher one.
+  const reissue = reminders.some((r) => r.status === "cancelled" && r.level === level) && level > (latest?.level ?? 0);
+  if (level <= currentLevel && !opts.excludeReminderId && !reissue) {
     findings.push(
       err("level_exists", `Mahnstufe ${level} wurde bereits erstellt. Nächste Stufe: ${currentLevel + 1}.`),
     );

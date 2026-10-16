@@ -545,6 +545,22 @@ describe("MAHN-03 DUN-008 DUN-009 manual reminders", () => {
     expect((await docOf(t, r1)).reminder?.level).toBe(1);
   });
 
+  test("DUN-056 EC-DUN-33 T05-170 „Gegenstandslos setzen und neu erstellen“ re-issues the withdrawn level", async () => {
+    const t = makeT();
+    const { owner: o1, invoiceId, r1 } = await firstReminderSent(t);
+    const owner = await jump(t, o1, "2026-10-26T08:00:00Z");
+    await owner.mutation(api.dunning.withdraw, { id: r1, values: { reason: "Zu spät versendet" } });
+    expect(await caseOf(t, invoiceId)).toMatchObject({ currentLevel: 1 });
+    const { id } = await owner.mutation(api.dunning.createReminder, { invoiceId, values: { level: 1 } });
+    const again = id as Id<"salesDocuments">;
+    expect((await docOf(t, again)).reminder?.level).toBe(1);
+    await owner.mutation(api.dunning.finalize, { id: again });
+    expect((await docOf(t, again)).number).toBe("MA-2026-0002");
+    // An issued level still cannot be issued twice.
+    const twice = await catching(owner.mutation(api.dunning.createReminder, { invoiceId, values: { level: 1 } }));
+    expect(reasonOf(twice)).toBe("level_exists");
+  });
+
   test("DUN-009 DUN-024 T05-173 withdrawing a never-marked reminder that claimed the 40 € resets flatFeeCharged; the level stays", async () => {
     const t = makeT();
     const { owner: o1, invoiceId } = await firstReminderSent(t);
