@@ -136,6 +136,12 @@ export const PROBLEMS = {
     de: "Diese Aktion ist im aktuellen Status nicht möglich.",
     en: "This action is not possible in the current status.",
   },
+  // F05 DUN-031: the dunning plan (or the previewed parameters) changed since the preview.
+  preview_outdated: {
+    status: 409,
+    de: "Die Daten haben sich seit der Vorschau geändert. Bitte die Vorschau erneut abrufen.",
+    en: "The data changed since the preview. Please request the preview again.",
+  },
   idempotency_in_progress: {
     status: 409,
     de: "Eine Anfrage mit diesem Idempotency-Key wird gerade verarbeitet.",
@@ -313,6 +319,7 @@ const APP_CODE_TO_PROBLEM: Readonly<Record<string, ProblemCode>> = {
   clock_skew: "dependency_unavailable",
   idempotency_key_reused: "idempotency_key_reused",
   idempotency_in_progress: "idempotency_in_progress",
+  preview_outdated: "preview_outdated",
 };
 
 export interface MappedProblem {

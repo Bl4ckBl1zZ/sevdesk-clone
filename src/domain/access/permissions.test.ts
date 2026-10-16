@@ -54,6 +54,9 @@ const EXPECTED: Record<Permission, readonly MemberRole[]> = {
   "payments.write": ["owner", "bookkeeper"],
   "payments.reverse": ["owner", "bookkeeper"],
   "payments.receipt": ["owner", "bookkeeper", "viewer"],
+  "dunning.write": ["owner", "bookkeeper"],
+  "dunning.run": ["owner", "bookkeeper"],
+  "dunning.manage": ["owner"],
   "banking.match": ["owner", "bookkeeper"],
 };
 
@@ -149,6 +152,14 @@ describe("permission matrix (02 §4.3)", () => {
     expect(confirmIntentFor("banking.match")).toBe("bank_match_confirm");
     expect(confirmIntentFor("banking.mark")).toBe("bank_transaction_mark");
     expect(confirmIntentFor("cash.write")).toBe("cash_transfer_record");
+  });
+
+  test("MCP-004 DUN-031 the dunning run is ⚠ (dunning_run token); reminder drafts and policies are not", () => {
+    expect(confirmIntentFor("dunning.run")).toBe("dunning_run");
+    expect(confirmIntentFor("dunning.write")).toBeUndefined();
+    expect(scopeFor("dunning.manage")).toBe("dunning:manage");
+    expect(canDo("bookkeeper", "dunning.manage")).toBe(false);
+    expect(canDo("bookkeeper", "dunning.run")).toBe(true);
     expect(scopeFor("payments.write")).toBe("payments:write");
     expect(scopeFor("payments.reverse")).toBe("payments:write");
     expect(scopeFor("banking.match")).toBe("banking:write");

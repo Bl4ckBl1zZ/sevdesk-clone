@@ -18,8 +18,9 @@ import { type LayoutDocType, SALES_DOC_TYPES } from "../../src/domain/documents/
 import { isChainType } from "../../src/domain/documents/relations";
 import type { DocumentSnapshot } from "../../src/domain/documents/snapshot";
 import { ROLE_MAPPING_ROWS, seededAccount } from "../../src/domain/rules/accounting";
+import { defaultInterestRateBp } from "../../src/domain/rules/basiszinssatz";
 import { berlinCalendarDate } from "../../src/domain/time/berlin";
-import { isCalendarDate } from "../../src/domain/time/calendar-date";
+import { type CalendarDate, isCalendarDate } from "../../src/domain/time/calendar-date";
 import type { Doc, TableNames } from "../_generated/dataModel";
 import { instanceName } from "../lib/env";
 import schema from "../schema";
@@ -154,6 +155,39 @@ export async function checkInvariants(ctx: ReadCtx): Promise<InvariantViolation[
   }
   out.push(...(await checkJournalInvariants(ctx)));
   out.push(...(await checkDocumentInvariants(ctx)));
+  out.push(...(await checkDunningInvariants(ctx)));
+  return out;
+}
+
+/**
+ * RI-24 (F05 MAHN-02/03): no consumer reminder carries the 40 € flat fee, and every printed interest segment uses
+ * the Basiszinssatz + 5/9 points valid at its start.
+ */
+export async function checkDunningInvariants(ctx: ReadCtx): Promise<InvariantViolation[]> {
+  const out: InvariantViolation[] = [];
+  for (const r of await ctx.db
+    .query("salesDocuments")
+    .withIndex("by_type_status_date", (q) => q.eq("type", "reminder"))
+    .collect()) {
+    if (!r.reminder || r.status === "draft") continue;
+    const contact = r.contactId ? await ctx.db.get(r.contactId) : null;
+    const consumer = contact?.isConsumer === true;
+    const name = r.number ?? String(r._id);
+    if (consumer && r.reminder.flatFee40Cents > 0) {
+      out.push({ id: "RI-24", severity: "ERROR", message: `${name}: 40-€-Pauschale gegenüber einem Verbraucher.` });
+    }
+    for (const seg of r.reminder.interestSegments ?? []) {
+      if (r.reminder.manual?.interestCents !== undefined) break;
+      const rate = defaultInterestRateBp(seg.from as CalendarDate, consumer ? "b2c" : "b2b");
+      if (rate.ok && rate.value.rateBp !== seg.rateBp) {
+        out.push({
+          id: "RI-24",
+          severity: "ERROR",
+          message: `${name}: Zinssatz ${seg.rateBp} bp ab ${seg.from} entspricht nicht dem Basiszinssatz + Aufschlag (${rate.value.rateBp} bp).`,
+        });
+      }
+    }
+  }
   return out;
 }
 

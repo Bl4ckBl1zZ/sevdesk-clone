@@ -37,6 +37,7 @@ import { auditedInsert, auditedPatch } from "./audit";
 import { applyAllocation, requireTransaction } from "./bankTransactions";
 import { cashOpeningDate } from "./cash";
 import { getCompanyProfile } from "./companyProfile";
+import { onSettlementChanged as dunningOnSettlementChanged } from "./dunning";
 import { entriesBySource, postJournalEntry, previewJournal } from "./journal";
 import { snapshotOf } from "./salesDocuments";
 import { creditedCentsOf } from "./settlement";
@@ -489,7 +490,9 @@ export interface SettlementChange {
  * settlement. The dunning slice pauses/closes/reopens its case here (DUN-034/035); the webhook outbox
  * (`invoice.paid`, `invoice.partially_paid`, `payment.recorded`, PAY-060) attaches here once it exists.
  */
-export async function onSettlementChanged(_ctx: ModelCtx, _change: SettlementChange): Promise<void> {}
+export async function onSettlementChanged(ctx: ModelCtx, change: SettlementChange): Promise<void> {
+  await dunningOnSettlementChanged(ctx, change);
+}
 
 async function refreshTarget(ctx: ModelCtx, row: { target: PaymentTargetRef }, settles: number, action: string) {
   if (row.target.kind === "salesDocument") {

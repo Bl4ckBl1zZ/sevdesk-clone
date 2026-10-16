@@ -52,6 +52,9 @@
     },
     {
       "name": "Wiederkehrende Rechnungen"
+    },
+    {
+      "name": "Mahnwesen"
     }
   ],
   "paths": {
@@ -14046,6 +14049,2722 @@
           }
         }
       }
+    },
+    "/api/v1/reminders": {
+      "get": {
+        "operationId": "listReminders",
+        "summary": "Mahnungen auflisten",
+        "description": "Neueste zuerst; Filter status, invoice_id, contact_id.\n\nScope: `documents:read`.",
+        "tags": [
+          "Mahnwesen"
+        ],
+        "parameters": [
+          {
+            "in": "query",
+            "name": "status",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "draft",
+                "finalized",
+                "sent",
+                "cancelled"
+              ]
+            }
+          },
+          {
+            "in": "query",
+            "name": "invoice_id",
+            "schema": {
+              "type": "string",
+              "pattern": "^inv_[0-9a-zA-Z]{16,64}$",
+              "description": "ID (inv_…)",
+              "example": "inv_k57f3x2m9q8w1e4r6t"
+            }
+          },
+          {
+            "in": "query",
+            "name": "contact_id",
+            "schema": {
+              "type": "string",
+              "pattern": "^con_[0-9a-zA-Z]{16,64}$",
+              "description": "ID (con_…)",
+              "example": "con_k57f3x2m9q8w1e4r6t"
+            }
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "schema": {
+              "default": 100,
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 500
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Mahnungen",
+            "headers": {
+              "RateLimit-Limit": {
+                "required": true,
+                "description": "Bucket-Größe",
+                "schema": {
+                  "type": "string",
+                  "description": "Bucket-Größe"
+                }
+              },
+              "RateLimit-Remaining": {
+                "required": true,
+                "description": "Verbleibende Anfragen",
+                "schema": {
+                  "type": "string",
+                  "description": "Verbleibende Anfragen"
+                }
+              },
+              "RateLimit-Reset": {
+                "required": true,
+                "description": "Sekunden bis zum vollen Bucket",
+                "schema": {
+                  "type": "string",
+                  "description": "Sekunden bis zum vollen Bucket"
+                }
+              },
+              "X-Request-Id": {
+                "required": true,
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReminderList"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "`unauthorized` – API-Schlüssel fehlt, ist ungültig, abgelaufen oder widerrufen.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "`insufficient_scope` – Der API-Schlüssel hat nicht die nötige Berechtigung.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "`rate_limited` – Zu viele Anfragen – bitte später erneut versuchen.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "`internal_error` – Interner Fehler.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/reminders/{id}": {
+      "get": {
+        "operationId": "getReminder",
+        "summary": "Mahnung abrufen",
+        "description": "Scope: `documents:read`.",
+        "tags": [
+          "Mahnwesen"
+        ],
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "schema": {
+              "type": "string",
+              "pattern": "^rem_[0-9a-zA-Z]{16,64}$",
+              "description": "ID (rem_…)",
+              "example": "rem_k57f3x2m9q8w1e4r6t"
+            },
+            "required": true,
+            "description": "ID (rem_…)"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Die Mahnung",
+            "headers": {
+              "RateLimit-Limit": {
+                "required": true,
+                "description": "Bucket-Größe",
+                "schema": {
+                  "type": "string",
+                  "description": "Bucket-Größe"
+                }
+              },
+              "RateLimit-Remaining": {
+                "required": true,
+                "description": "Verbleibende Anfragen",
+                "schema": {
+                  "type": "string",
+                  "description": "Verbleibende Anfragen"
+                }
+              },
+              "RateLimit-Reset": {
+                "required": true,
+                "description": "Sekunden bis zum vollen Bucket",
+                "schema": {
+                  "type": "string",
+                  "description": "Sekunden bis zum vollen Bucket"
+                }
+              },
+              "X-Request-Id": {
+                "required": true,
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Reminder"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "`unauthorized` – API-Schlüssel fehlt, ist ungültig, abgelaufen oder widerrufen.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "`insufficient_scope` – Der API-Schlüssel hat nicht die nötige Berechtigung.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "`not_found` – Nicht gefunden.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "`rate_limited` – Zu viele Anfragen – bitte später erneut versuchen.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "`internal_error` – Interner Fehler.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/invoices/{id}/reminders": {
+      "post": {
+        "operationId": "createReminder",
+        "summary": "Mahnung erstellen (Entwurf)",
+        "description": "DUN-008: Entwurf der nächsten (oder angegebenen) Mahnstufe, vorbelegt aus der Mahnrichtlinie; Beträge überschreibbar. `finalize: true` stellt sofort fertig (braucht zusätzlich invoices:finalize). Versendet wird nichts.\n\nScope: `dunning:write`.",
+        "tags": [
+          "Mahnwesen"
+        ],
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "schema": {
+              "type": "string",
+              "pattern": "^inv_[0-9a-zA-Z]{16,64}$",
+              "description": "ID (inv_…)",
+              "example": "inv_k57f3x2m9q8w1e4r6t"
+            },
+            "required": true,
+            "description": "ID (inv_…)"
+          },
+          {
+            "in": "header",
+            "name": "Idempotency-Key",
+            "schema": {
+              "description": "24 h je Schlüssel; gleicher Body → gleiche Antwort (Idempotent-Replayed: true)",
+              "type": "string"
+            },
+            "description": "24 h je Schlüssel; gleicher Body → gleiche Antwort (Idempotent-Replayed: true)"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ReminderCreateRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Der Mahnungsentwurf bzw. die fertiggestellte Mahnung",
+            "headers": {
+              "RateLimit-Limit": {
+                "required": true,
+                "description": "Bucket-Größe",
+                "schema": {
+                  "type": "string",
+                  "description": "Bucket-Größe"
+                }
+              },
+              "RateLimit-Remaining": {
+                "required": true,
+                "description": "Verbleibende Anfragen",
+                "schema": {
+                  "type": "string",
+                  "description": "Verbleibende Anfragen"
+                }
+              },
+              "RateLimit-Reset": {
+                "required": true,
+                "description": "Sekunden bis zum vollen Bucket",
+                "schema": {
+                  "type": "string",
+                  "description": "Sekunden bis zum vollen Bucket"
+                }
+              },
+              "X-Request-Id": {
+                "required": true,
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Reminder"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "`bad_request` – Ungültige Anfrage.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "`unauthorized` – API-Schlüssel fehlt, ist ungültig, abgelaufen oder widerrufen.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "`insufficient_scope` – Der API-Schlüssel hat nicht die nötige Berechtigung.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "`not_found` – Nicht gefunden.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "`conflict` – Konflikt.; `illegal_transition` – Diese Aktion ist im aktuellen Status nicht möglich.; `immutable_record` – Dieser Datensatz ist unveränderlich (GoBD).; `version_conflict` – Der Datensatz wurde zwischenzeitlich geändert.; `setup_incomplete` – Die Einrichtung ist noch nicht abgeschlossen.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "415": {
+            "description": "`unsupported_media_type` – Bitte JSON senden (application/json).",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "`validation_failed` – Die Eingaben sind nicht gültig.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "`rate_limited` – Zu viele Anfragen – bitte später erneut versuchen.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "`internal_error` – Interner Fehler.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/reminders/{id}/finalize": {
+      "post": {
+        "operationId": "finalizeReminder",
+        "summary": "Mahnung fertigstellen",
+        "description": "DUN-004: vergibt die Nummer (MA-…), erzeugt das PDF/A und den Hash; prüft die Beträge erneut (EC-DUN-*). Warnungen (z. B. `not_in_default`) mit `acknowledge_warnings` bestätigen. Danach exportieren und als versendet markieren.\n\nScope: `invoices:finalize`.",
+        "tags": [
+          "Mahnwesen"
+        ],
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "schema": {
+              "type": "string",
+              "pattern": "^rem_[0-9a-zA-Z]{16,64}$",
+              "description": "ID (rem_…)",
+              "example": "rem_k57f3x2m9q8w1e4r6t"
+            },
+            "required": true,
+            "description": "ID (rem_…)"
+          },
+          {
+            "in": "header",
+            "name": "Idempotency-Key",
+            "schema": {
+              "description": "24 h je Schlüssel; gleicher Body → gleiche Antwort (Idempotent-Replayed: true)",
+              "type": "string"
+            },
+            "description": "24 h je Schlüssel; gleicher Body → gleiche Antwort (Idempotent-Replayed: true)"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ReminderFinalizeRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Die fertiggestellte Mahnung",
+            "headers": {
+              "RateLimit-Limit": {
+                "required": true,
+                "description": "Bucket-Größe",
+                "schema": {
+                  "type": "string",
+                  "description": "Bucket-Größe"
+                }
+              },
+              "RateLimit-Remaining": {
+                "required": true,
+                "description": "Verbleibende Anfragen",
+                "schema": {
+                  "type": "string",
+                  "description": "Verbleibende Anfragen"
+                }
+              },
+              "RateLimit-Reset": {
+                "required": true,
+                "description": "Sekunden bis zum vollen Bucket",
+                "schema": {
+                  "type": "string",
+                  "description": "Sekunden bis zum vollen Bucket"
+                }
+              },
+              "X-Request-Id": {
+                "required": true,
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Reminder"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "`bad_request` – Ungültige Anfrage.; `idempotency_key_required` – Für diese Aktion ist ein Idempotency-Key erforderlich.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "`unauthorized` – API-Schlüssel fehlt, ist ungültig, abgelaufen oder widerrufen.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "`insufficient_scope` – Der API-Schlüssel hat nicht die nötige Berechtigung.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "`not_found` – Nicht gefunden.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "`conflict` – Konflikt.; `illegal_transition` – Diese Aktion ist im aktuellen Status nicht möglich.; `immutable_record` – Dieser Datensatz ist unveränderlich (GoBD).; `version_conflict` – Der Datensatz wurde zwischenzeitlich geändert.; `setup_incomplete` – Die Einrichtung ist noch nicht abgeschlossen.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "415": {
+            "description": "`unsupported_media_type` – Bitte JSON senden (application/json).",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "`validation_failed` – Die Eingaben sind nicht gültig.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "`rate_limited` – Zu viele Anfragen – bitte später erneut versuchen.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "`internal_error` – Interner Fehler.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/reminders/{id}/withdraw": {
+      "post": {
+        "operationId": "withdrawReminder",
+        "summary": "Mahnung gegenstandslos",
+        "description": "DUN-009: ein Entwurf wird gelöscht (204), eine fertiggestellte Mahnung bleibt mit Status „gegenstandslos“ archiviert. Ein Hinweisschreiben (`void_notice`) ist noch nicht verfügbar.\n\nScope: `dunning:write`.",
+        "tags": [
+          "Mahnwesen"
+        ],
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "schema": {
+              "type": "string",
+              "pattern": "^rem_[0-9a-zA-Z]{16,64}$",
+              "description": "ID (rem_…)",
+              "example": "rem_k57f3x2m9q8w1e4r6t"
+            },
+            "required": true,
+            "description": "ID (rem_…)"
+          },
+          {
+            "in": "header",
+            "name": "Idempotency-Key",
+            "schema": {
+              "description": "24 h je Schlüssel; gleicher Body → gleiche Antwort (Idempotent-Replayed: true)",
+              "type": "string"
+            },
+            "description": "24 h je Schlüssel; gleicher Body → gleiche Antwort (Idempotent-Replayed: true)"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ReminderWithdrawRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Die Mahnung (204 bei einem gelöschten Entwurf)",
+            "headers": {
+              "RateLimit-Limit": {
+                "required": true,
+                "description": "Bucket-Größe",
+                "schema": {
+                  "type": "string",
+                  "description": "Bucket-Größe"
+                }
+              },
+              "RateLimit-Remaining": {
+                "required": true,
+                "description": "Verbleibende Anfragen",
+                "schema": {
+                  "type": "string",
+                  "description": "Verbleibende Anfragen"
+                }
+              },
+              "RateLimit-Reset": {
+                "required": true,
+                "description": "Sekunden bis zum vollen Bucket",
+                "schema": {
+                  "type": "string",
+                  "description": "Sekunden bis zum vollen Bucket"
+                }
+              },
+              "X-Request-Id": {
+                "required": true,
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Reminder"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "`bad_request` – Ungültige Anfrage.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "`unauthorized` – API-Schlüssel fehlt, ist ungültig, abgelaufen oder widerrufen.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "`insufficient_scope` – Der API-Schlüssel hat nicht die nötige Berechtigung.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "`not_found` – Nicht gefunden.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "`conflict` – Konflikt.; `illegal_transition` – Diese Aktion ist im aktuellen Status nicht möglich.; `immutable_record` – Dieser Datensatz ist unveränderlich (GoBD).; `version_conflict` – Der Datensatz wurde zwischenzeitlich geändert.; `setup_incomplete` – Die Einrichtung ist noch nicht abgeschlossen.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "415": {
+            "description": "`unsupported_media_type` – Bitte JSON senden (application/json).",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "`validation_failed` – Die Eingaben sind nicht gültig.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "`rate_limited` – Zu viele Anfragen – bitte später erneut versuchen.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "`internal_error` – Interner Fehler.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/reminders/{id}/export": {
+      "post": {
+        "operationId": "exportReminder",
+        "summary": "Mahnung exportieren",
+        "description": "F04 SND-16: kurzlebige Links (nur im Tailnet) zu den archivierten Dateien; das Original solange nicht markiert, danach „Kopie“ (Original erneut nur mit reason). Ändert keinen Status.\n\nScope: `documents:read`.",
+        "tags": [
+          "Mahnwesen"
+        ],
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "schema": {
+              "type": "string",
+              "pattern": "^rem_[0-9a-zA-Z]{16,64}$",
+              "description": "ID (rem_…)",
+              "example": "rem_k57f3x2m9q8w1e4r6t"
+            },
+            "required": true,
+            "description": "ID (rem_…)"
+          },
+          {
+            "in": "header",
+            "name": "Idempotency-Key",
+            "schema": {
+              "description": "24 h je Schlüssel; gleicher Body → gleiche Antwort (Idempotent-Replayed: true)",
+              "type": "string"
+            },
+            "description": "24 h je Schlüssel; gleicher Body → gleiche Antwort (Idempotent-Replayed: true)"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ReminderExportRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Die Dateien",
+            "headers": {
+              "RateLimit-Limit": {
+                "required": true,
+                "description": "Bucket-Größe",
+                "schema": {
+                  "type": "string",
+                  "description": "Bucket-Größe"
+                }
+              },
+              "RateLimit-Remaining": {
+                "required": true,
+                "description": "Verbleibende Anfragen",
+                "schema": {
+                  "type": "string",
+                  "description": "Verbleibende Anfragen"
+                }
+              },
+              "RateLimit-Reset": {
+                "required": true,
+                "description": "Sekunden bis zum vollen Bucket",
+                "schema": {
+                  "type": "string",
+                  "description": "Sekunden bis zum vollen Bucket"
+                }
+              },
+              "X-Request-Id": {
+                "required": true,
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReminderExportResult"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "`bad_request` – Ungültige Anfrage.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "`unauthorized` – API-Schlüssel fehlt, ist ungültig, abgelaufen oder widerrufen.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "`insufficient_scope` – Der API-Schlüssel hat nicht die nötige Berechtigung.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "`not_found` – Nicht gefunden.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "`artifacts_not_ready` – PDF/E-Rechnung wird noch erzeugt.; `immutable_record` – Dieser Datensatz ist unveränderlich (GoBD).; `conflict` – Konflikt.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "415": {
+            "description": "`unsupported_media_type` – Bitte JSON senden (application/json).",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "`validation_failed` – Die Eingaben sind nicht gültig.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "`rate_limited` – Zu viele Anfragen – bitte später erneut versuchen.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "`internal_error` – Interner Fehler.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/reminders/{id}/mark-sent": {
+      "post": {
+        "operationId": "markReminderSent",
+        "summary": "Mahnung als versendet markieren",
+        "description": "F04 SND-07/17: nachdem der Inhaber die Mahnung selbst versendet hat. Der Zugang (PAY-052) folgt aus Versanddatum und Kanal (Post: +3 Tage). Keine Route versendet etwas.\n\nScope: `invoices:send`.",
+        "tags": [
+          "Mahnwesen"
+        ],
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "schema": {
+              "type": "string",
+              "pattern": "^rem_[0-9a-zA-Z]{16,64}$",
+              "description": "ID (rem_…)",
+              "example": "rem_k57f3x2m9q8w1e4r6t"
+            },
+            "required": true,
+            "description": "ID (rem_…)"
+          },
+          {
+            "in": "header",
+            "name": "Idempotency-Key",
+            "schema": {
+              "description": "24 h je Schlüssel; gleicher Body → gleiche Antwort (Idempotent-Replayed: true)",
+              "type": "string"
+            },
+            "description": "24 h je Schlüssel; gleicher Body → gleiche Antwort (Idempotent-Replayed: true)"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ReminderMarkSentRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Der Versandeintrag",
+            "headers": {
+              "RateLimit-Limit": {
+                "required": true,
+                "description": "Bucket-Größe",
+                "schema": {
+                  "type": "string",
+                  "description": "Bucket-Größe"
+                }
+              },
+              "RateLimit-Remaining": {
+                "required": true,
+                "description": "Verbleibende Anfragen",
+                "schema": {
+                  "type": "string",
+                  "description": "Verbleibende Anfragen"
+                }
+              },
+              "RateLimit-Reset": {
+                "required": true,
+                "description": "Sekunden bis zum vollen Bucket",
+                "schema": {
+                  "type": "string",
+                  "description": "Sekunden bis zum vollen Bucket"
+                }
+              },
+              "X-Request-Id": {
+                "required": true,
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReminderMarkSentResult"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "`bad_request` – Ungültige Anfrage.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "`unauthorized` – API-Schlüssel fehlt, ist ungültig, abgelaufen oder widerrufen.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "`insufficient_scope` – Der API-Schlüssel hat nicht die nötige Berechtigung.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "`not_found` – Nicht gefunden.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "`conflict` – Konflikt.; `illegal_transition` – Diese Aktion ist im aktuellen Status nicht möglich.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "415": {
+            "description": "`unsupported_media_type` – Bitte JSON senden (application/json).",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "`validation_failed` – Die Eingaben sind nicht gültig.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "`rate_limited` – Zu viele Anfragen – bitte später erneut versuchen.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "`internal_error` – Interner Fehler.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/reminders/{id}/mark-sent/{sendLogId}/retract": {
+      "post": {
+        "operationId": "retractReminderMark",
+        "summary": "Versandmarkierung zurücknehmen",
+        "description": "F04 SND-18 mit Grund. Gesperrt, sobald die Mahnung Grundlage einer Folgestufe, der Verzugspauschale oder des Verzugsbeginns ist (EC-DUN-24).\n\nScope: `invoices:send`.",
+        "tags": [
+          "Mahnwesen"
+        ],
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "schema": {
+              "type": "string",
+              "pattern": "^rem_[0-9a-zA-Z]{16,64}$",
+              "description": "ID (rem_…)",
+              "example": "rem_k57f3x2m9q8w1e4r6t"
+            },
+            "required": true,
+            "description": "ID (rem_…)"
+          },
+          {
+            "in": "path",
+            "name": "sendLogId",
+            "schema": {
+              "type": "string",
+              "pattern": "^snd_[0-9a-zA-Z]{16,64}$",
+              "description": "ID (snd_…)",
+              "example": "snd_k57f3x2m9q8w1e4r6t"
+            },
+            "required": true,
+            "description": "ID (snd_…)"
+          },
+          {
+            "in": "header",
+            "name": "Idempotency-Key",
+            "schema": {
+              "description": "24 h je Schlüssel; gleicher Body → gleiche Antwort (Idempotent-Replayed: true)",
+              "type": "string"
+            },
+            "description": "24 h je Schlüssel; gleicher Body → gleiche Antwort (Idempotent-Replayed: true)"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ReminderMarkSentRetractRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Die Mahnung",
+            "headers": {
+              "RateLimit-Limit": {
+                "required": true,
+                "description": "Bucket-Größe",
+                "schema": {
+                  "type": "string",
+                  "description": "Bucket-Größe"
+                }
+              },
+              "RateLimit-Remaining": {
+                "required": true,
+                "description": "Verbleibende Anfragen",
+                "schema": {
+                  "type": "string",
+                  "description": "Verbleibende Anfragen"
+                }
+              },
+              "RateLimit-Reset": {
+                "required": true,
+                "description": "Sekunden bis zum vollen Bucket",
+                "schema": {
+                  "type": "string",
+                  "description": "Sekunden bis zum vollen Bucket"
+                }
+              },
+              "X-Request-Id": {
+                "required": true,
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Reminder"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "`bad_request` – Ungültige Anfrage.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "`unauthorized` – API-Schlüssel fehlt, ist ungültig, abgelaufen oder widerrufen.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "`insufficient_scope` – Der API-Schlüssel hat nicht die nötige Berechtigung.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "`not_found` – Nicht gefunden.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "`conflict` – Konflikt.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "415": {
+            "description": "`unsupported_media_type` – Bitte JSON senden (application/json).",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "`validation_failed` – Die Eingaben sind nicht gültig.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "`rate_limited` – Zu viele Anfragen – bitte später erneut versuchen.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "`internal_error` – Interner Fehler.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/reminders/{id}/zugang": {
+      "post": {
+        "operationId": "overrideReminderZugang",
+        "summary": "Zugang der Mahnung manuell setzen",
+        "description": "PAY-052 (EC-DUE-09): z. B. laut Rückschein; mit Begründung, auditiert.\n\nScope: `dunning:write`.",
+        "tags": [
+          "Mahnwesen"
+        ],
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "schema": {
+              "type": "string",
+              "pattern": "^rem_[0-9a-zA-Z]{16,64}$",
+              "description": "ID (rem_…)",
+              "example": "rem_k57f3x2m9q8w1e4r6t"
+            },
+            "required": true,
+            "description": "ID (rem_…)"
+          },
+          {
+            "in": "header",
+            "name": "Idempotency-Key",
+            "schema": {
+              "description": "24 h je Schlüssel; gleicher Body → gleiche Antwort (Idempotent-Replayed: true)",
+              "type": "string"
+            },
+            "description": "24 h je Schlüssel; gleicher Body → gleiche Antwort (Idempotent-Replayed: true)"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DunningZugangOverrideRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Die Mahnung",
+            "headers": {
+              "RateLimit-Limit": {
+                "required": true,
+                "description": "Bucket-Größe",
+                "schema": {
+                  "type": "string",
+                  "description": "Bucket-Größe"
+                }
+              },
+              "RateLimit-Remaining": {
+                "required": true,
+                "description": "Verbleibende Anfragen",
+                "schema": {
+                  "type": "string",
+                  "description": "Verbleibende Anfragen"
+                }
+              },
+              "RateLimit-Reset": {
+                "required": true,
+                "description": "Sekunden bis zum vollen Bucket",
+                "schema": {
+                  "type": "string",
+                  "description": "Sekunden bis zum vollen Bucket"
+                }
+              },
+              "X-Request-Id": {
+                "required": true,
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Reminder"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "`bad_request` – Ungültige Anfrage.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "`unauthorized` – API-Schlüssel fehlt, ist ungültig, abgelaufen oder widerrufen.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "`insufficient_scope` – Der API-Schlüssel hat nicht die nötige Berechtigung.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "`not_found` – Nicht gefunden.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "`conflict` – Konflikt.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "415": {
+            "description": "`unsupported_media_type` – Bitte JSON senden (application/json).",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "`validation_failed` – Die Eingaben sind nicht gültig.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "`rate_limited` – Zu viele Anfragen – bitte später erneut versuchen.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "`internal_error` – Interner Fehler.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/invoices/{id}/zugang": {
+      "post": {
+        "operationId": "overrideInvoiceZugang",
+        "summary": "Zugang der Rechnung manuell setzen",
+        "description": "PAY-052 (EC-DUE-09): z. B. laut Rückschein; mit Begründung, auditiert. Beeinflusst den Verzugsbeginn.\n\nScope: `dunning:write`.",
+        "tags": [
+          "Mahnwesen"
+        ],
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "schema": {
+              "type": "string",
+              "pattern": "^inv_[0-9a-zA-Z]{16,64}$",
+              "description": "ID (inv_…)",
+              "example": "inv_k57f3x2m9q8w1e4r6t"
+            },
+            "required": true,
+            "description": "ID (inv_…)"
+          },
+          {
+            "in": "header",
+            "name": "Idempotency-Key",
+            "schema": {
+              "description": "24 h je Schlüssel; gleicher Body → gleiche Antwort (Idempotent-Replayed: true)",
+              "type": "string"
+            },
+            "description": "24 h je Schlüssel; gleicher Body → gleiche Antwort (Idempotent-Replayed: true)"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DunningZugangOverrideRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Mahnstatus der Rechnung",
+            "headers": {
+              "RateLimit-Limit": {
+                "required": true,
+                "description": "Bucket-Größe",
+                "schema": {
+                  "type": "string",
+                  "description": "Bucket-Größe"
+                }
+              },
+              "RateLimit-Remaining": {
+                "required": true,
+                "description": "Verbleibende Anfragen",
+                "schema": {
+                  "type": "string",
+                  "description": "Verbleibende Anfragen"
+                }
+              },
+              "RateLimit-Reset": {
+                "required": true,
+                "description": "Sekunden bis zum vollen Bucket",
+                "schema": {
+                  "type": "string",
+                  "description": "Sekunden bis zum vollen Bucket"
+                }
+              },
+              "X-Request-Id": {
+                "required": true,
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DunningCase"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "`bad_request` – Ungültige Anfrage.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "`unauthorized` – API-Schlüssel fehlt, ist ungültig, abgelaufen oder widerrufen.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "`insufficient_scope` – Der API-Schlüssel hat nicht die nötige Berechtigung.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "`not_found` – Nicht gefunden.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "`conflict` – Konflikt.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "415": {
+            "description": "`unsupported_media_type` – Bitte JSON senden (application/json).",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "`validation_failed` – Die Eingaben sind nicht gültig.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "`rate_limited` – Zu viele Anfragen – bitte später erneut versuchen.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "`internal_error` – Interner Fehler.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/invoices/{id}/dunning": {
+      "post": {
+        "operationId": "dunningCaseAction",
+        "summary": "Mahnfall pausieren, fortsetzen, bestreiten, sperren, übergeben",
+        "description": "DUN-002/034/042/043: `pause` (until), `resume`, `dispute` (reason, stoppt das Mahnen), `block`/`unblock`, `hand_over` (partner; Inkasso/Anwalt, beendet das Mahnen).\n\nScope: `dunning:write`.",
+        "tags": [
+          "Mahnwesen"
+        ],
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "schema": {
+              "type": "string",
+              "pattern": "^inv_[0-9a-zA-Z]{16,64}$",
+              "description": "ID (inv_…)",
+              "example": "inv_k57f3x2m9q8w1e4r6t"
+            },
+            "required": true,
+            "description": "ID (inv_…)"
+          },
+          {
+            "in": "header",
+            "name": "Idempotency-Key",
+            "schema": {
+              "description": "24 h je Schlüssel; gleicher Body → gleiche Antwort (Idempotent-Replayed: true)",
+              "type": "string"
+            },
+            "description": "24 h je Schlüssel; gleicher Body → gleiche Antwort (Idempotent-Replayed: true)"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DunningCaseActionRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Mahnstatus der Rechnung",
+            "headers": {
+              "RateLimit-Limit": {
+                "required": true,
+                "description": "Bucket-Größe",
+                "schema": {
+                  "type": "string",
+                  "description": "Bucket-Größe"
+                }
+              },
+              "RateLimit-Remaining": {
+                "required": true,
+                "description": "Verbleibende Anfragen",
+                "schema": {
+                  "type": "string",
+                  "description": "Verbleibende Anfragen"
+                }
+              },
+              "RateLimit-Reset": {
+                "required": true,
+                "description": "Sekunden bis zum vollen Bucket",
+                "schema": {
+                  "type": "string",
+                  "description": "Sekunden bis zum vollen Bucket"
+                }
+              },
+              "X-Request-Id": {
+                "required": true,
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DunningCase"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "`bad_request` – Ungültige Anfrage.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "`unauthorized` – API-Schlüssel fehlt, ist ungültig, abgelaufen oder widerrufen.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "`insufficient_scope` – Der API-Schlüssel hat nicht die nötige Berechtigung.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "`not_found` – Nicht gefunden.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "`conflict` – Konflikt.; `illegal_transition` – Diese Aktion ist im aktuellen Status nicht möglich.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "415": {
+            "description": "`unsupported_media_type` – Bitte JSON senden (application/json).",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "`validation_failed` – Die Eingaben sind nicht gültig.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "`rate_limited` – Zu viele Anfragen – bitte später erneut versuchen.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "`internal_error` – Interner Fehler.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/dunning/preview": {
+      "get": {
+        "operationId": "previewDunningRun",
+        "summary": "Mahnlauf-Vorschau",
+        "description": "DUN-031: was der Lauf heute täte (Entwurf, Fertigstellen, Erinnerung, Überspringen mit Grund). `confirm_token` bindet genau diesen Plan für POST /dunning/run; für ein anderes Datum als heute (`date`) ist er null.\n\nScope: `payments:read`.",
+        "tags": [
+          "Mahnwesen"
+        ],
+        "parameters": [
+          {
+            "in": "query",
+            "name": "date",
+            "schema": {
+              "type": "string",
+              "pattern": "^\\d{4}-\\d{2}-\\d{2}$",
+              "description": "Datum (YYYY-MM-DD)",
+              "example": "2026-10-12"
+            }
+          },
+          {
+            "in": "query",
+            "name": "invoice_ids",
+            "schema": {
+              "description": "Kommagetrennt (inv_…)",
+              "type": "string",
+              "maxLength": 10000
+            },
+            "description": "Kommagetrennt (inv_…)"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Die Vorschau",
+            "headers": {
+              "RateLimit-Limit": {
+                "required": true,
+                "description": "Bucket-Größe",
+                "schema": {
+                  "type": "string",
+                  "description": "Bucket-Größe"
+                }
+              },
+              "RateLimit-Remaining": {
+                "required": true,
+                "description": "Verbleibende Anfragen",
+                "schema": {
+                  "type": "string",
+                  "description": "Verbleibende Anfragen"
+                }
+              },
+              "RateLimit-Reset": {
+                "required": true,
+                "description": "Sekunden bis zum vollen Bucket",
+                "schema": {
+                  "type": "string",
+                  "description": "Sekunden bis zum vollen Bucket"
+                }
+              },
+              "X-Request-Id": {
+                "required": true,
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DunningPreview"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "`unauthorized` – API-Schlüssel fehlt, ist ungültig, abgelaufen oder widerrufen.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "`insufficient_scope` – Der API-Schlüssel hat nicht die nötige Berechtigung.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "`validation_failed` – Die Eingaben sind nicht gültig.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "`rate_limited` – Zu viele Anfragen – bitte später erneut versuchen.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "`internal_error` – Interner Fehler.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/dunning/run": {
+      "post": {
+        "operationId": "runDunning",
+        "summary": "Mahnlauf ausführen",
+        "description": "DUN-030/031: legt Entwürfe an (`mode: drafts`) oder stellt laut Richtlinie fertig (`mode: finalize`, braucht zusätzlich invoices:finalize). `confirm_token` aus GET /dunning/preview mit denselben `invoice_ids`; hat sich der Plan seither geändert → 409 `preview_outdated`. `dry_run: true` liefert die Vorschau. Versendet wird nie etwas.\n\nScope: `dunning:write`.",
+        "tags": [
+          "Mahnwesen"
+        ],
+        "parameters": [
+          {
+            "in": "header",
+            "name": "Idempotency-Key",
+            "schema": {
+              "description": "24 h je Schlüssel; gleicher Body → gleiche Antwort (Idempotent-Replayed: true)",
+              "type": "string"
+            },
+            "description": "24 h je Schlüssel; gleicher Body → gleiche Antwort (Idempotent-Replayed: true)"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DunningRunRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Ergebnis (201) oder Vorschau (200)",
+            "headers": {
+              "RateLimit-Limit": {
+                "required": true,
+                "description": "Bucket-Größe",
+                "schema": {
+                  "type": "string",
+                  "description": "Bucket-Größe"
+                }
+              },
+              "RateLimit-Remaining": {
+                "required": true,
+                "description": "Verbleibende Anfragen",
+                "schema": {
+                  "type": "string",
+                  "description": "Verbleibende Anfragen"
+                }
+              },
+              "RateLimit-Reset": {
+                "required": true,
+                "description": "Sekunden bis zum vollen Bucket",
+                "schema": {
+                  "type": "string",
+                  "description": "Sekunden bis zum vollen Bucket"
+                }
+              },
+              "X-Request-Id": {
+                "required": true,
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "anyOf": [
+                    {
+                      "$ref": "#/components/schemas/DunningRunResult"
+                    },
+                    {
+                      "$ref": "#/components/schemas/DunningPreview"
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "`bad_request` – Ungültige Anfrage.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "`unauthorized` – API-Schlüssel fehlt, ist ungültig, abgelaufen oder widerrufen.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "`insufficient_scope` – Der API-Schlüssel hat nicht die nötige Berechtigung.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "`preview_outdated` – Die Daten haben sich seit der Vorschau geändert. Bitte die Vorschau erneut abrufen.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "415": {
+            "description": "`unsupported_media_type` – Bitte JSON senden (application/json).",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "`validation_failed` – Die Eingaben sind nicht gültig.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "`rate_limited` – Zu viele Anfragen – bitte später erneut versuchen.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "`internal_error` – Interner Fehler.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/dunning/interest": {
+      "get": {
+        "operationId": "calculateInterest",
+        "summary": "Verzugszinsen berechnen",
+        "description": "DUN-022/MAHN-02: § 288 BGB mit den Basiszinssätzen je Halbjahr (Segmente), Tage inklusive, einmal kaufmännisch gerundet.\n\nScope: `payments:read`.",
+        "tags": [
+          "Mahnwesen"
+        ],
+        "parameters": [
+          {
+            "in": "query",
+            "name": "amount_cents",
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 10000000000
+            },
+            "required": true
+          },
+          {
+            "in": "query",
+            "name": "from",
+            "schema": {
+              "type": "string",
+              "pattern": "^\\d{4}-\\d{2}-\\d{2}$",
+              "description": "Erster Verzugstag",
+              "example": "2026-10-12"
+            },
+            "required": true,
+            "description": "Erster Verzugstag"
+          },
+          {
+            "in": "query",
+            "name": "to",
+            "schema": {
+              "type": "string",
+              "pattern": "^\\d{4}-\\d{2}-\\d{2}$",
+              "description": "Letzter Zinstag (inklusive)",
+              "example": "2026-10-12"
+            },
+            "required": true,
+            "description": "Letzter Zinstag (inklusive)"
+          },
+          {
+            "in": "query",
+            "name": "margin",
+            "schema": {
+              "default": "b2b",
+              "description": "b2b (+9 Prozentpunkte), b2c (+5) oder Aufschlag in Basispunkten",
+              "type": "string",
+              "pattern": "^(b2b|b2c|-?\\d{1,4})$"
+            },
+            "description": "b2b (+9 Prozentpunkte), b2c (+5) oder Aufschlag in Basispunkten"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Die Berechnung",
+            "headers": {
+              "RateLimit-Limit": {
+                "required": true,
+                "description": "Bucket-Größe",
+                "schema": {
+                  "type": "string",
+                  "description": "Bucket-Größe"
+                }
+              },
+              "RateLimit-Remaining": {
+                "required": true,
+                "description": "Verbleibende Anfragen",
+                "schema": {
+                  "type": "string",
+                  "description": "Verbleibende Anfragen"
+                }
+              },
+              "RateLimit-Reset": {
+                "required": true,
+                "description": "Sekunden bis zum vollen Bucket",
+                "schema": {
+                  "type": "string",
+                  "description": "Sekunden bis zum vollen Bucket"
+                }
+              },
+              "X-Request-Id": {
+                "required": true,
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DunningInterestCalculation"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "`unauthorized` – API-Schlüssel fehlt, ist ungültig, abgelaufen oder widerrufen.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "`insufficient_scope` – Der API-Schlüssel hat nicht die nötige Berechtigung.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "`validation_failed` – Die Eingaben sind nicht gültig.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "`rate_limited` – Zu viele Anfragen – bitte später erneut versuchen.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "`internal_error` – Interner Fehler.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/dunning-policies": {
+      "get": {
+        "operationId": "listDunningPolicies",
+        "summary": "Mahnrichtlinien",
+        "description": "DUN-001: Stufen, Fristen, Gebühren, Zinsen, Automatik. Solange keine gespeichert ist, erscheinen die Standardrichtlinien mit `id: null, seeded: true`; das erste POST speichert sie mit.\n\nScope: `payments:read`.",
+        "tags": [
+          "Mahnwesen"
+        ],
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "Richtlinien",
+            "headers": {
+              "RateLimit-Limit": {
+                "required": true,
+                "description": "Bucket-Größe",
+                "schema": {
+                  "type": "string",
+                  "description": "Bucket-Größe"
+                }
+              },
+              "RateLimit-Remaining": {
+                "required": true,
+                "description": "Verbleibende Anfragen",
+                "schema": {
+                  "type": "string",
+                  "description": "Verbleibende Anfragen"
+                }
+              },
+              "RateLimit-Reset": {
+                "required": true,
+                "description": "Sekunden bis zum vollen Bucket",
+                "schema": {
+                  "type": "string",
+                  "description": "Sekunden bis zum vollen Bucket"
+                }
+              },
+              "X-Request-Id": {
+                "required": true,
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DunningPolicyList"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "`unauthorized` – API-Schlüssel fehlt, ist ungültig, abgelaufen oder widerrufen.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "`insufficient_scope` – Der API-Schlüssel hat nicht die nötige Berechtigung.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "`rate_limited` – Zu viele Anfragen – bitte später erneut versuchen.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "`internal_error` – Interner Fehler.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "operationId": "createDunningPolicy",
+        "summary": "Mahnrichtlinie anlegen",
+        "description": "Braucht dunning:manage (ändert, was der tägliche Lauf ohne weitere Bestätigung tut).\n\nScope: `dunning:manage`.",
+        "tags": [
+          "Mahnwesen"
+        ],
+        "parameters": [
+          {
+            "in": "header",
+            "name": "Idempotency-Key",
+            "schema": {
+              "description": "24 h je Schlüssel; gleicher Body → gleiche Antwort (Idempotent-Replayed: true)",
+              "type": "string"
+            },
+            "description": "24 h je Schlüssel; gleicher Body → gleiche Antwort (Idempotent-Replayed: true)"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DunningPolicyRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Die Richtlinie mit Warnungen",
+            "headers": {
+              "RateLimit-Limit": {
+                "required": true,
+                "description": "Bucket-Größe",
+                "schema": {
+                  "type": "string",
+                  "description": "Bucket-Größe"
+                }
+              },
+              "RateLimit-Remaining": {
+                "required": true,
+                "description": "Verbleibende Anfragen",
+                "schema": {
+                  "type": "string",
+                  "description": "Verbleibende Anfragen"
+                }
+              },
+              "RateLimit-Reset": {
+                "required": true,
+                "description": "Sekunden bis zum vollen Bucket",
+                "schema": {
+                  "type": "string",
+                  "description": "Sekunden bis zum vollen Bucket"
+                }
+              },
+              "X-Request-Id": {
+                "required": true,
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DunningPolicy"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "`bad_request` – Ungültige Anfrage.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "`unauthorized` – API-Schlüssel fehlt, ist ungültig, abgelaufen oder widerrufen.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "`insufficient_scope` – Der API-Schlüssel hat nicht die nötige Berechtigung.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "415": {
+            "description": "`unsupported_media_type` – Bitte JSON senden (application/json).",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "`validation_failed` – Die Eingaben sind nicht gültig.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "`rate_limited` – Zu viele Anfragen – bitte später erneut versuchen.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "`internal_error` – Interner Fehler.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/dunning-policies/{id}": {
+      "patch": {
+        "operationId": "updateDunningPolicy",
+        "summary": "Mahnrichtlinie ändern",
+        "description": "Vollständiger Stand der Richtlinie; Version per If-Match oder `version`.\n\nScope: `dunning:manage`.",
+        "tags": [
+          "Mahnwesen"
+        ],
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "schema": {
+              "type": "string",
+              "pattern": "^dpo_[0-9a-zA-Z]{16,64}$",
+              "description": "ID (dpo_…)",
+              "example": "dpo_k57f3x2m9q8w1e4r6t"
+            },
+            "required": true,
+            "description": "ID (dpo_…)"
+          },
+          {
+            "in": "header",
+            "name": "If-Match",
+            "schema": {
+              "description": "Erwartete Version",
+              "type": "string"
+            },
+            "description": "Erwartete Version"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DunningPolicyUpdateRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Die Richtlinie mit Warnungen",
+            "headers": {
+              "RateLimit-Limit": {
+                "required": true,
+                "description": "Bucket-Größe",
+                "schema": {
+                  "type": "string",
+                  "description": "Bucket-Größe"
+                }
+              },
+              "RateLimit-Remaining": {
+                "required": true,
+                "description": "Verbleibende Anfragen",
+                "schema": {
+                  "type": "string",
+                  "description": "Verbleibende Anfragen"
+                }
+              },
+              "RateLimit-Reset": {
+                "required": true,
+                "description": "Sekunden bis zum vollen Bucket",
+                "schema": {
+                  "type": "string",
+                  "description": "Sekunden bis zum vollen Bucket"
+                }
+              },
+              "X-Request-Id": {
+                "required": true,
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DunningPolicy"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "`bad_request` – Ungültige Anfrage.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "`unauthorized` – API-Schlüssel fehlt, ist ungültig, abgelaufen oder widerrufen.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "`insufficient_scope` – Der API-Schlüssel hat nicht die nötige Berechtigung.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "`not_found` – Nicht gefunden.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "`version_conflict` – Der Datensatz wurde zwischenzeitlich geändert.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "415": {
+            "description": "`unsupported_media_type` – Bitte JSON senden (application/json).",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "`validation_failed` – Die Eingaben sind nicht gültig.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "`rate_limited` – Zu viele Anfragen – bitte später erneut versuchen.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "`internal_error` – Interner Fehler.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
     }
   },
   "components": {
@@ -16693,6 +19412,505 @@
         },
         "required": [
           "catch_up"
+        ],
+        "additionalProperties": false
+      },
+      "ReminderCreateRequest": {
+        "type": "object",
+        "properties": {
+          "level": {
+            "description": "Mahnstufe (Standard: nächste Stufe)",
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 20
+          },
+          "fee_cents": {
+            "description": "Mahngebühr (überschreibt)",
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 100000000
+          },
+          "interest_cents": {
+            "description": "Verzugszinsen (überschreibt; Abweichung braucht interest_reason)",
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 100000000
+          },
+          "interest_reason": {
+            "type": "string",
+            "maxLength": 500
+          },
+          "include_flat_fee": {
+            "description": "Verzugspauschale 40 € (nur B2B im Verzug)",
+            "type": "boolean"
+          },
+          "new_due_date": {
+            "type": "string",
+            "pattern": "^\\d{4}-\\d{2}-\\d{2}$",
+            "description": "Datum (YYYY-MM-DD)",
+            "example": "2026-10-12"
+          },
+          "head_text": {
+            "type": "string",
+            "maxLength": 20000
+          },
+          "foot_text": {
+            "type": "string",
+            "maxLength": 20000
+          },
+          "acknowledge_warnings": {
+            "maxItems": 20,
+            "type": "array",
+            "items": {
+              "type": "string",
+              "maxLength": 60
+            }
+          },
+          "finalize": {
+            "description": "true = sofort fertigstellen (braucht zusätzlich invoices:finalize)",
+            "type": "boolean"
+          }
+        },
+        "additionalProperties": false
+      },
+      "ReminderFinalizeRequest": {
+        "type": "object",
+        "properties": {
+          "version": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 9007199254740991
+          },
+          "acknowledge_warnings": {
+            "maxItems": 20,
+            "type": "array",
+            "items": {
+              "type": "string",
+              "maxLength": 60
+            }
+          }
+        },
+        "additionalProperties": false
+      },
+      "ReminderWithdrawRequest": {
+        "type": "object",
+        "properties": {
+          "reason": {
+            "type": "string",
+            "maxLength": 1000,
+            "description": "Grund (mindestens 5 Zeichen)"
+          },
+          "void_notice": {
+            "description": "Hinweisschreiben an den Kunden (noch nicht verfügbar)",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "reason"
+        ],
+        "additionalProperties": false
+      },
+      "ReminderExportRequest": {
+        "type": "object",
+        "properties": {
+          "original": {
+            "description": "Original erneut exportieren (nach der Markierung)",
+            "type": "boolean"
+          },
+          "reason": {
+            "description": "Pflicht bei original nach der Markierung",
+            "type": "string",
+            "maxLength": 2000
+          }
+        },
+        "additionalProperties": false
+      },
+      "ReminderMarkSentRequest": {
+        "type": "object",
+        "properties": {
+          "sent_on": {
+            "type": "string",
+            "pattern": "^\\d{4}-\\d{2}-\\d{2}$",
+            "description": "Datum (YYYY-MM-DD)",
+            "example": "2026-10-12"
+          },
+          "channel": {
+            "type": "string",
+            "enum": [
+              "email_manual",
+              "post",
+              "hand",
+              "upload_portal",
+              "other"
+            ]
+          },
+          "note": {
+            "type": "string",
+            "maxLength": 2000
+          },
+          "artifacts": {
+            "maxItems": 50,
+            "type": "array",
+            "items": {
+              "type": "string",
+              "maxLength": 80
+            },
+            "description": "Versendete Dateien (art_…)"
+          }
+        },
+        "required": [
+          "sent_on",
+          "channel",
+          "artifacts"
+        ],
+        "additionalProperties": false
+      },
+      "ReminderMarkSentRetractRequest": {
+        "type": "object",
+        "properties": {
+          "reason": {
+            "type": "string",
+            "maxLength": 2000
+          }
+        },
+        "required": [
+          "reason"
+        ],
+        "additionalProperties": false
+      },
+      "DunningZugangOverrideRequest": {
+        "type": "object",
+        "properties": {
+          "date": {
+            "type": "string",
+            "pattern": "^\\d{4}-\\d{2}-\\d{2}$",
+            "description": "Datum (YYYY-MM-DD)",
+            "example": "2026-10-12"
+          },
+          "reason": {
+            "type": "string",
+            "maxLength": 1000,
+            "description": "Begründung (mindestens 5 Zeichen)"
+          }
+        },
+        "required": [
+          "date",
+          "reason"
+        ],
+        "additionalProperties": false
+      },
+      "DunningCaseActionRequest": {
+        "type": "object",
+        "properties": {
+          "action": {
+            "type": "string",
+            "enum": [
+              "pause",
+              "resume",
+              "dispute",
+              "block",
+              "unblock",
+              "hand_over"
+            ]
+          },
+          "reason": {
+            "type": "string",
+            "maxLength": 1000
+          },
+          "until": {
+            "description": "pause: bis wann (Standard laut Richtlinie)",
+            "type": "string",
+            "pattern": "^\\d{4}-\\d{2}-\\d{2}$",
+            "example": "2026-10-12"
+          },
+          "partner": {
+            "description": "hand_over: Inkasso/Anwalt",
+            "type": "string",
+            "maxLength": 200
+          },
+          "acknowledge_warnings": {
+            "maxItems": 10,
+            "type": "array",
+            "items": {
+              "type": "string",
+              "maxLength": 60
+            }
+          }
+        },
+        "required": [
+          "action"
+        ],
+        "additionalProperties": false
+      },
+      "DunningRunRequest": {
+        "type": "object",
+        "properties": {
+          "mode": {
+            "type": "string",
+            "enum": [
+              "drafts",
+              "finalize"
+            ],
+            "description": "drafts = nur Entwürfe; finalize = laut Richtlinie fertigstellen (braucht invoices:finalize)"
+          },
+          "invoice_ids": {
+            "description": "Nur diese Rechnungen (inv_…)",
+            "maxItems": 500,
+            "type": "array",
+            "items": {
+              "type": "string",
+              "maxLength": 80
+            }
+          },
+          "dry_run": {
+            "description": "true = nur die Vorschau (schreibt nichts)",
+            "type": "boolean"
+          },
+          "confirm_token": {
+            "description": "confirm_token aus GET /dunning/preview mit denselben invoice_ids (Pflicht ohne dry_run)",
+            "type": "string",
+            "maxLength": 200
+          }
+        },
+        "required": [
+          "mode"
+        ],
+        "additionalProperties": false
+      },
+      "DunningPolicyRequest": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 80
+          },
+          "is_default": {
+            "type": "boolean"
+          },
+          "applies_to": {
+            "type": "object",
+            "properties": {
+              "consumer": {
+                "type": "boolean"
+              },
+              "business": {
+                "type": "boolean"
+              }
+            },
+            "required": [
+              "consumer",
+              "business"
+            ]
+          },
+          "steps": {
+            "minItems": 1,
+            "maxItems": 20,
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "level": {
+                  "type": "integer",
+                  "minimum": 1,
+                  "maximum": 20
+                },
+                "days_after": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 3650,
+                  "description": "Tage nach Fälligkeit bzw. Frist der Vorstufe"
+                },
+                "title": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 80
+                },
+                "fee_cents": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 100000000
+                },
+                "add_interest": {
+                  "type": "boolean"
+                },
+                "add_flat_fee_40": {
+                  "type": "boolean"
+                },
+                "new_due_days": {
+                  "type": "integer",
+                  "minimum": 1,
+                  "maximum": 365
+                },
+                "auto_finalize": {
+                  "type": "boolean",
+                  "description": "Im täglichen Lauf fertigstellen (nie versenden)"
+                }
+              },
+              "required": [
+                "level",
+                "days_after",
+                "title",
+                "fee_cents",
+                "add_interest",
+                "add_flat_fee_40",
+                "new_due_days",
+                "auto_finalize"
+              ]
+            }
+          },
+          "due_soon_days": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 3650
+          },
+          "due_soon_todo": {
+            "type": "boolean"
+          },
+          "min_open_amount_cents": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 100000000
+          },
+          "pause_on_partial_payment_days": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 3650
+          },
+          "stop_after_last_level": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "name",
+          "is_default",
+          "applies_to",
+          "steps",
+          "due_soon_todo",
+          "min_open_amount_cents",
+          "pause_on_partial_payment_days",
+          "stop_after_last_level"
+        ],
+        "additionalProperties": false
+      },
+      "DunningPolicyUpdateRequest": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 80
+          },
+          "is_default": {
+            "type": "boolean"
+          },
+          "applies_to": {
+            "type": "object",
+            "properties": {
+              "consumer": {
+                "type": "boolean"
+              },
+              "business": {
+                "type": "boolean"
+              }
+            },
+            "required": [
+              "consumer",
+              "business"
+            ]
+          },
+          "steps": {
+            "minItems": 1,
+            "maxItems": 20,
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "level": {
+                  "type": "integer",
+                  "minimum": 1,
+                  "maximum": 20
+                },
+                "days_after": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 3650,
+                  "description": "Tage nach Fälligkeit bzw. Frist der Vorstufe"
+                },
+                "title": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 80
+                },
+                "fee_cents": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 100000000
+                },
+                "add_interest": {
+                  "type": "boolean"
+                },
+                "add_flat_fee_40": {
+                  "type": "boolean"
+                },
+                "new_due_days": {
+                  "type": "integer",
+                  "minimum": 1,
+                  "maximum": 365
+                },
+                "auto_finalize": {
+                  "type": "boolean",
+                  "description": "Im täglichen Lauf fertigstellen (nie versenden)"
+                }
+              },
+              "required": [
+                "level",
+                "days_after",
+                "title",
+                "fee_cents",
+                "add_interest",
+                "add_flat_fee_40",
+                "new_due_days",
+                "auto_finalize"
+              ]
+            }
+          },
+          "due_soon_days": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 3650
+          },
+          "due_soon_todo": {
+            "type": "boolean"
+          },
+          "min_open_amount_cents": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 100000000
+          },
+          "pause_on_partial_payment_days": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 3650
+          },
+          "stop_after_last_level": {
+            "type": "boolean"
+          },
+          "version": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 9007199254740991
+          }
+        },
+        "required": [
+          "name",
+          "is_default",
+          "applies_to",
+          "steps",
+          "due_soon_todo",
+          "min_open_amount_cents",
+          "pause_on_partial_payment_days",
+          "stop_after_last_level"
         ],
         "additionalProperties": false
       },
@@ -21119,6 +24337,909 @@
         },
         "required": [
           "data"
+        ],
+        "additionalProperties": false
+      },
+      "ReminderList": {
+        "type": "object",
+        "properties": {
+          "data": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Reminder"
+            }
+          },
+          "next_cursor": {
+            "description": "Cursor der nächsten Seite oder null",
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "data",
+          "next_cursor"
+        ],
+        "additionalProperties": false
+      },
+      "Reminder": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "Mahnungs-ID (rem_…)"
+          },
+          "number": {
+            "description": "Nummer (MA-…); null im Entwurf",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "draft",
+              "finalized",
+              "sent",
+              "cancelled"
+            ],
+            "description": "draft, finalized (fertiggestellt, noch nicht als versendet markiert), sent, cancelled (gegenstandslos)"
+          },
+          "level": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          },
+          "title": {
+            "type": "string"
+          },
+          "invoice_id": {
+            "description": "Gemahnte Rechnung (inv_…)",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "invoice_number": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "contact_id": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "contact_name": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "document_date": {
+            "anyOf": [
+              {
+                "type": "string",
+                "pattern": "^\\d{4}-\\d{2}-\\d{2}$",
+                "description": "Datum (YYYY-MM-DD)",
+                "example": "2026-10-12"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "open_amount_cents": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991,
+            "description": "Cent"
+          },
+          "fee_cents": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991,
+            "description": "Cent"
+          },
+          "interest_cents": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991,
+            "description": "Cent"
+          },
+          "flat_fee_40_cents": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991,
+            "description": "Verzugspauschale § 288 Abs. 5 BGB (nur B2B, einmal je Rechnung)"
+          },
+          "total_cents": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991,
+            "description": "Cent"
+          },
+          "new_due_date": {
+            "anyOf": [
+              {
+                "type": "string",
+                "pattern": "^\\d{4}-\\d{2}-\\d{2}$",
+                "description": "Datum (YYYY-MM-DD)",
+                "example": "2026-10-12"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Neue Zahlungsfrist (§ 193 BGB auf Werktag verschoben)"
+          },
+          "default_start_date": {
+            "anyOf": [
+              {
+                "type": "string",
+                "pattern": "^\\d{4}-\\d{2}-\\d{2}$",
+                "description": "Datum (YYYY-MM-DD)",
+                "example": "2026-10-12"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Verzugsbeginn, falls bereits im Verzug"
+          },
+          "created_by_run": {
+            "type": "boolean"
+          },
+          "finalized_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "description": "Zeitpunkt (RFC 3339, UTC)",
+                "example": "2026-10-12T08:30:00.000Z"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "sent_on": {
+            "anyOf": [
+              {
+                "type": "string",
+                "pattern": "^\\d{4}-\\d{2}-\\d{2}$",
+                "description": "Datum (YYYY-MM-DD)",
+                "example": "2026-10-12"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "zugang": {
+            "anyOf": [
+              {
+                "type": "string",
+                "pattern": "^\\d{4}-\\d{2}-\\d{2}$",
+                "description": "Datum (YYYY-MM-DD)",
+                "example": "2026-10-12"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Zugang beim Kunden (aus der Markierung oder manuell)"
+          },
+          "artifact_status": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "cancellation_reason": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "version": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          }
+        },
+        "required": [
+          "id",
+          "number",
+          "status",
+          "level",
+          "title",
+          "invoice_id",
+          "invoice_number",
+          "contact_id",
+          "contact_name",
+          "document_date",
+          "open_amount_cents",
+          "fee_cents",
+          "interest_cents",
+          "flat_fee_40_cents",
+          "total_cents",
+          "new_due_date",
+          "default_start_date",
+          "created_by_run",
+          "finalized_at",
+          "sent_on",
+          "zugang",
+          "artifact_status",
+          "cancellation_reason",
+          "version"
+        ],
+        "additionalProperties": false
+      },
+      "ReminderExportResult": {
+        "type": "object",
+        "properties": {
+          "files": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "artifact_id": {
+                  "type": "string",
+                  "description": "art_…"
+                },
+                "name": {
+                  "type": "string"
+                },
+                "url": {
+                  "type": "string",
+                  "description": "Kurzlebiger Link (nur im Tailnet erreichbar)"
+                },
+                "sha256": {
+                  "type": "string"
+                },
+                "mime": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "artifact_id",
+                "name",
+                "url",
+                "sha256",
+                "mime"
+              ],
+              "additionalProperties": false
+            }
+          }
+        },
+        "required": [
+          "files"
+        ],
+        "additionalProperties": false
+      },
+      "ReminderMarkSentResult": {
+        "type": "object",
+        "properties": {
+          "send_log_id": {
+            "type": "string",
+            "description": "snd_…"
+          },
+          "first_effective": {
+            "type": "boolean"
+          },
+          "warnings": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        },
+        "required": [
+          "send_log_id",
+          "first_effective",
+          "warnings"
+        ],
+        "additionalProperties": false
+      },
+      "DunningCase": {
+        "type": "object",
+        "properties": {
+          "invoice_id": {
+            "type": "string"
+          },
+          "status": {
+            "description": "active, paused, closed, handed_over …; null ohne Mahnfall",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "level": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          },
+          "paused_until": {
+            "anyOf": [
+              {
+                "type": "string",
+                "pattern": "^\\d{4}-\\d{2}-\\d{2}$",
+                "description": "Datum (YYYY-MM-DD)",
+                "example": "2026-10-12"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "disputed": {
+            "type": "boolean"
+          },
+          "blocked": {
+            "type": "boolean"
+          },
+          "zugang": {
+            "anyOf": [
+              {
+                "type": "string",
+                "pattern": "^\\d{4}-\\d{2}-\\d{2}$",
+                "description": "Datum (YYYY-MM-DD)",
+                "example": "2026-10-12"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "required": [
+          "invoice_id",
+          "status",
+          "level",
+          "paused_until",
+          "disputed",
+          "blocked",
+          "zugang"
+        ],
+        "additionalProperties": false
+      },
+      "DunningPreview": {
+        "type": "object",
+        "properties": {
+          "date": {
+            "type": "string",
+            "pattern": "^\\d{4}-\\d{2}-\\d{2}$",
+            "description": "Datum (YYYY-MM-DD)",
+            "example": "2026-10-12"
+          },
+          "bank_data_current": {
+            "type": "boolean"
+          },
+          "bank_data_note": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "actions": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "invoice_id": {
+                  "type": "string"
+                },
+                "invoice_number": {
+                  "type": "string"
+                },
+                "contact_name": {
+                  "type": "string"
+                },
+                "kind": {
+                  "type": "string",
+                  "enum": [
+                    "create_draft",
+                    "finalize",
+                    "todo_mark_sent",
+                    "skip"
+                  ]
+                },
+                "level": {
+                  "anyOf": [
+                    {
+                      "type": "integer",
+                      "minimum": -9007199254740991,
+                      "maximum": 9007199254740991
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "earliest_date": {
+                  "anyOf": [
+                    {
+                      "type": "string",
+                      "pattern": "^\\d{4}-\\d{2}-\\d{2}$",
+                      "description": "Datum (YYYY-MM-DD)",
+                      "example": "2026-10-12"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ],
+                  "description": "Frühestens am (DUN-054); null ohne bekanntes Datum"
+                },
+                "reason": {
+                  "description": "Grund beim Überspringen (z. B. not_marked_sent, disputed)",
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "label": {
+                  "type": "string"
+                },
+                "detail": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "claim": {
+                  "anyOf": [
+                    {
+                      "type": "object",
+                      "properties": {
+                        "title": {
+                          "type": "string"
+                        },
+                        "open_amount_cents": {
+                          "type": "integer",
+                          "minimum": -9007199254740991,
+                          "maximum": 9007199254740991,
+                          "description": "Cent"
+                        },
+                        "fee_cents": {
+                          "type": "integer",
+                          "minimum": -9007199254740991,
+                          "maximum": 9007199254740991,
+                          "description": "Cent"
+                        },
+                        "interest_cents": {
+                          "type": "integer",
+                          "minimum": -9007199254740991,
+                          "maximum": 9007199254740991,
+                          "description": "Cent"
+                        },
+                        "flat_fee_40_cents": {
+                          "type": "integer",
+                          "minimum": -9007199254740991,
+                          "maximum": 9007199254740991,
+                          "description": "Cent"
+                        },
+                        "flat_fee_already_claimed": {
+                          "type": "boolean"
+                        },
+                        "total_cents": {
+                          "type": "integer",
+                          "minimum": -9007199254740991,
+                          "maximum": 9007199254740991,
+                          "description": "Cent"
+                        },
+                        "new_due_date": {
+                          "type": "string",
+                          "pattern": "^\\d{4}-\\d{2}-\\d{2}$",
+                          "description": "Datum (YYYY-MM-DD)",
+                          "example": "2026-10-12"
+                        },
+                        "in_default": {
+                          "type": "boolean"
+                        },
+                        "default_start_date": {
+                          "anyOf": [
+                            {
+                              "type": "string",
+                              "pattern": "^\\d{4}-\\d{2}-\\d{2}$",
+                              "description": "Datum (YYYY-MM-DD)",
+                              "example": "2026-10-12"
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        }
+                      },
+                      "required": [
+                        "title",
+                        "open_amount_cents",
+                        "fee_cents",
+                        "interest_cents",
+                        "flat_fee_40_cents",
+                        "flat_fee_already_claimed",
+                        "total_cents",
+                        "new_due_date",
+                        "in_default",
+                        "default_start_date"
+                      ],
+                      "additionalProperties": false
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "notes": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  }
+                }
+              },
+              "required": [
+                "invoice_id",
+                "invoice_number",
+                "contact_name",
+                "kind",
+                "level",
+                "earliest_date",
+                "reason",
+                "label",
+                "detail",
+                "claim",
+                "notes"
+              ],
+              "additionalProperties": false
+            }
+          },
+          "summary": {
+            "type": "object",
+            "properties": {
+              "drafts": {
+                "type": "integer",
+                "minimum": -9007199254740991,
+                "maximum": 9007199254740991
+              },
+              "finalize": {
+                "type": "integer",
+                "minimum": -9007199254740991,
+                "maximum": 9007199254740991
+              },
+              "skipped": {
+                "type": "integer",
+                "minimum": -9007199254740991,
+                "maximum": 9007199254740991
+              }
+            },
+            "required": [
+              "drafts",
+              "finalize",
+              "skipped"
+            ],
+            "additionalProperties": false
+          },
+          "confirm_token": {
+            "description": "Für POST /dunning/run (bindet genau diesen Plan); null bei einem anderen Datum als heute",
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "date",
+          "bank_data_current",
+          "bank_data_note",
+          "actions",
+          "summary",
+          "confirm_token"
+        ],
+        "additionalProperties": false
+      },
+      "DunningRunResult": {
+        "type": "object",
+        "properties": {
+          "run_id": {
+            "type": "string",
+            "description": "drn_…"
+          },
+          "evaluated": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          },
+          "drafts": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          },
+          "finalized_ids": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "Fertiggestellte Mahnungen (rem_…) – exportieren und als versendet markieren"
+          },
+          "todos": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          },
+          "skipped": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          },
+          "errors": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          }
+        },
+        "required": [
+          "run_id",
+          "evaluated",
+          "drafts",
+          "finalized_ids",
+          "todos",
+          "skipped",
+          "errors"
+        ],
+        "additionalProperties": false
+      },
+      "DunningInterestCalculation": {
+        "type": "object",
+        "properties": {
+          "total_cents": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991,
+            "description": "Cent"
+          },
+          "segments": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "from": {
+                  "type": "string",
+                  "pattern": "^\\d{4}-\\d{2}-\\d{2}$",
+                  "description": "Datum (YYYY-MM-DD)",
+                  "example": "2026-10-12"
+                },
+                "to": {
+                  "type": "string",
+                  "pattern": "^\\d{4}-\\d{2}-\\d{2}$",
+                  "description": "Datum (YYYY-MM-DD)",
+                  "example": "2026-10-12"
+                },
+                "days": {
+                  "type": "integer",
+                  "minimum": -9007199254740991,
+                  "maximum": 9007199254740991
+                },
+                "principal_cents": {
+                  "type": "integer",
+                  "minimum": -9007199254740991,
+                  "maximum": 9007199254740991,
+                  "description": "Cent"
+                },
+                "rate_bp": {
+                  "type": "integer",
+                  "minimum": -9007199254740991,
+                  "maximum": 9007199254740991,
+                  "description": "Zinssatz p. a. in Basispunkten"
+                },
+                "amount_cents": {
+                  "type": "integer",
+                  "minimum": -9007199254740991,
+                  "maximum": 9007199254740991,
+                  "description": "Cent"
+                }
+              },
+              "required": [
+                "from",
+                "to",
+                "days",
+                "principal_cents",
+                "rate_bp",
+                "amount_cents"
+              ],
+              "additionalProperties": false
+            }
+          },
+          "printable": {
+            "type": "boolean",
+            "description": "false = unter 0,01 € (keine Zinszeile auf der Mahnung)"
+          }
+        },
+        "required": [
+          "total_cents",
+          "segments",
+          "printable"
+        ],
+        "additionalProperties": false
+      },
+      "DunningPolicyList": {
+        "type": "object",
+        "properties": {
+          "data": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/DunningPolicy"
+            }
+          },
+          "next_cursor": {
+            "description": "Cursor der nächsten Seite oder null",
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "data",
+          "next_cursor"
+        ],
+        "additionalProperties": false
+      },
+      "DunningPolicy": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 80
+          },
+          "is_default": {
+            "type": "boolean"
+          },
+          "applies_to": {
+            "type": "object",
+            "properties": {
+              "consumer": {
+                "type": "boolean"
+              },
+              "business": {
+                "type": "boolean"
+              }
+            },
+            "required": [
+              "consumer",
+              "business"
+            ],
+            "additionalProperties": false
+          },
+          "steps": {
+            "minItems": 1,
+            "maxItems": 20,
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "level": {
+                  "type": "integer",
+                  "minimum": 1,
+                  "maximum": 20
+                },
+                "days_after": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 3650,
+                  "description": "Tage nach Fälligkeit bzw. Frist der Vorstufe"
+                },
+                "title": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 80
+                },
+                "fee_cents": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 100000000
+                },
+                "add_interest": {
+                  "type": "boolean"
+                },
+                "add_flat_fee_40": {
+                  "type": "boolean"
+                },
+                "new_due_days": {
+                  "type": "integer",
+                  "minimum": 1,
+                  "maximum": 365
+                },
+                "auto_finalize": {
+                  "type": "boolean",
+                  "description": "Im täglichen Lauf fertigstellen (nie versenden)"
+                }
+              },
+              "required": [
+                "level",
+                "days_after",
+                "title",
+                "fee_cents",
+                "add_interest",
+                "add_flat_fee_40",
+                "new_due_days",
+                "auto_finalize"
+              ],
+              "additionalProperties": false
+            }
+          },
+          "due_soon_days": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 3650
+          },
+          "due_soon_todo": {
+            "type": "boolean"
+          },
+          "min_open_amount_cents": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 100000000
+          },
+          "pause_on_partial_payment_days": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 3650
+          },
+          "stop_after_last_level": {
+            "type": "boolean"
+          },
+          "id": {
+            "description": "dpo_…; null für die noch nicht gespeicherten Standardrichtlinien",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "seeded": {
+            "type": "boolean"
+          },
+          "version": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          },
+          "warnings": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "code": {
+                  "type": "string"
+                },
+                "message": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "code",
+                "message"
+              ],
+              "additionalProperties": false
+            }
+          }
+        },
+        "required": [
+          "name",
+          "is_default",
+          "applies_to",
+          "steps",
+          "due_soon_todo",
+          "min_open_amount_cents",
+          "pause_on_partial_payment_days",
+          "stop_after_last_level",
+          "id",
+          "seeded",
+          "version",
+          "warnings"
         ],
         "additionalProperties": false
       }

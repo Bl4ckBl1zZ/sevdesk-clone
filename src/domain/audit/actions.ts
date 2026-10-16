@@ -38,6 +38,8 @@ const GROUPS: Record<string, readonly string[] | "*"> = {
     "expire",
     "mark_received",
     "progress",
+    // F05 PAY-052 manual Zugang override
+    "zugang_override",
   ],
   // F05 P1: refund of a credit balance, PAY-047 reconciliation of a manual payment, PAY-063 archived Quittung
   payment: ["record", "reverse", "receipt_print", "refund", "reconcile", "receipt"],
@@ -63,6 +65,10 @@ const GROUPS: Record<string, readonly string[] | "*"> = {
     "alias_learn",
   ],
   cash: ["transfer", "transfer_reverse"],
+  // F05 dunning: policies, reminders, cases, runs (dunning.policy.*, dunning.reminder.*, dunning.case.*, dunning.run)
+  dunning: "*",
+  // F05 PAY-044 receivables.refreshOverdue
+  receivables: ["overdue"],
   journal: ["post", "reverse", "manual", "opening_balance"],
   period: ["lock"],
   tax_filing: ["submit", "correct", "sondervorauszahlung"],

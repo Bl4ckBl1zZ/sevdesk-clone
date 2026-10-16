@@ -7,6 +7,7 @@ import { type RegisteredToolDef, type ToolContext, toolError, toolResult, toolVi
 import { contactTools } from "./tools/contacts";
 import { correctionTools } from "./tools/corrections";
 import { documentTools } from "./tools/documents";
+import { dunningTools } from "./tools/dunning";
 import { paymentTools } from "./tools/payments";
 import { previewTools } from "./tools/previews";
 import { productTools } from "./tools/products";
@@ -26,6 +27,7 @@ export const TOOLS: readonly RegisteredToolDef[] = [
   ...correctionTools,
   ...paymentTools,
   ...recurringTools,
+  ...dunningTools,
 ];
 
 /** 06 §1: ≤ 2,048 characters, German domain primer and the safety workflow. */
@@ -103,6 +105,30 @@ export function registerSurface(server: McpServer, ctx: ToolContext): void {
               "1. contact_search (bei Bedarf contact_upsert), 2. product_search / product_resolve_price je Position,",
               "3. Angebotsentwurf anlegen und document_preview zeigen (Belege folgen mit F04 – bis dahin die Positionen und Preise als Zusammenfassung zeigen),",
               "4. nur nach ausdrücklicher Freigabe fertigstellen; versenden macht der Inhaber selbst.",
+            ].join("\n"),
+          },
+        },
+      ],
+    }),
+  );
+  server.registerPrompt(
+    "mahnlauf",
+    {
+      title: "Mahnlauf",
+      description: "Mahnlauf-Vorschau zeigen → Freigabe → Entwürfe anlegen (die App versendet nie)",
+      argsSchema: z.object({}),
+    },
+    () => ({
+      messages: [
+        {
+          role: "user" as const,
+          content: {
+            type: "text" as const,
+            text: [
+              "Mahnlauf für heute.",
+              "1. dunning_preview (mode drafts) aufrufen und die geplanten Mahnungen als Tabelle zeigen: Rechnung, Kunde, Stufe, Gebühr, Zinsen, Pauschale, neue Frist; übersprungene Rechnungen mit Grund.",
+              "2. Nur nach ausdrücklicher Freigabe dunning_run mit demselben mode, denselben invoice_ids und dem confirm_token aufrufen.",
+              "3. Danach erinnern: Entwürfe prüfen und fertigstellen; fertige Mahnungen exportiert und versendet der Inhaber selbst und markiert sie dann als versendet.",
             ].join("\n"),
           },
         },

@@ -13,6 +13,7 @@ import { useId, useState } from "react";
 import { useWatch } from "react-hook-form";
 import { ConfirmDialog, formatDateTime, useCan, useRun } from "@/components/catalog/shared";
 import { ConvexGuard } from "@/components/convex/convex-provider";
+import { ContactDunningCard } from "@/components/dunning/contact-dunning-card";
 import { SelectField } from "@/components/forms/fields";
 import { PageBody } from "@/components/layout/list-layout";
 import { PageHeader } from "@/components/layout/page-header";
@@ -129,6 +130,7 @@ function ContactDetailInner({ id }: { id: Id<"contacts"> }) {
               <VatCheckCard data={data} canWrite={canWrite} />
               <ConsentCard data={data} canWrite={canWrite} />
               <CertificateCard data={data} canWrite={canWrite} />
+              {c.roles.includes("customer") && <ContactDunningCard contactId={c._id} />}
             </TabsContent>
             {c.kind === "organization" && (
               <TabsContent value="persons" className="pt-4">

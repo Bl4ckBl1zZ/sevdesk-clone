@@ -49,6 +49,7 @@ import { defaultInvoiceAccount } from "./bankAccounts";
 import { getCompanyProfile } from "./companyProfile";
 import { contactAddresses, contactChannels, defaultAddressOf, getContact } from "./contacts";
 import { chainContextFor, chainReferencesFor, inChain, recomputeChainOf } from "./documentChains";
+import { assertRetractionAllowed, onDispatchChanged as dunningDispatchChanged, lateMarkWarning } from "./dunning";
 import { unacknowledgedFailure } from "./integrity";
 import { afterChainFinalize, chainFinalizePatch, chainJournalEvent, loadRelations } from "./invoiceChains";
 import { postJournalEntry } from "./journal";
@@ -1407,8 +1408,21 @@ export async function markSent(
     );
     await resolveNotifications(ctx, id, "exported_not_marked");
     await resolveNotifications(ctx, id, "export_and_send");
+    await dunningDispatchChanged(ctx, id);
   }
-  return { sendLogId, firstEffective: r.firstEffective, warnings: r.findings.filter((f) => f.severity !== "E") };
+  // DUN-056 / EC-DUN-33: a reminder marked sent more than 3 days after its document date.
+  const late = r.firstEffective ? lateMarkWarning(doc, values.sentOn) : null;
+  const warnings = r.findings.filter((f) => f.severity !== "E");
+  return {
+    sendLogId,
+    firstEffective: r.firstEffective,
+    warnings: late
+      ? [
+          ...warnings,
+          { code: "reminder_marked_late", severity: "W", rule: "MAHN-01", group: "hinweise", message: late } as Finding,
+        ]
+      : warnings,
+  };
 }
 
 export async function retractMark(
@@ -1419,6 +1433,8 @@ export async function retractMark(
   const doc = await getDocument(ctx, id);
   const profile = await getCompanyProfile(ctx);
   const rows = sendLogRows(await sendLogOf(ctx, id));
+  // EC-DUN-35 / PAY-064: no retraction while a reminder (or the Inkasso hand-over) depends on the mark.
+  if (effectiveMark(rows)?.id === input.retractsId) await assertRetractionAllowed(ctx, doc);
   const r = validateRetraction(input, rows, {
     postalDeliveryDays: profile?.receivables.postalDeliveryDays ?? 3,
     at: ctx.now(),
@@ -1453,6 +1469,7 @@ export async function retractMark(
       { status: nextStatus(doc, "retract_mark"), sentAt: undefined, sentOn: undefined, zugang: undefined },
       { action: "document.mark_sent_retracted", label: label(doc), reason: input.reason.trim() },
     );
+    await dunningDispatchChanged(ctx, id);
     return { status: "finalized" };
   }
   const next = effectiveMark(await sendLogRowsAfter(ctx, id));
@@ -1463,6 +1480,7 @@ export async function retractMark(
     { sentAt: next?.at, sentOn: r.next.sentOn, zugang: r.next.zugang },
     { action: "document.mark_sent_retracted", label: label(doc), reason: input.reason.trim() },
   );
+  await dunningDispatchChanged(ctx, id);
   return { status: doc.status };
 }
 

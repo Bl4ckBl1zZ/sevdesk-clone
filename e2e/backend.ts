@@ -4,6 +4,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import type { BrowserContext, Page } from "@playwright/test";
 import { ConvexHttpClient } from "convex/browser";
+import { makeFunctionReference } from "convex/server";
 import { internal } from "../convex/_generated/api";
 import { expect, waitForAppOnNavigation } from "./fixtures";
 
@@ -137,4 +138,18 @@ export async function recordTestPayment(number: string, amountCents: number): Pr
   // biome-ignore lint/suspicious/noExplicitAny: internal function via the admin key
   const r = await admin().mutation(internal.testFixtures.recordPayment as any, { number, amountCents });
   if (r === null) throw new Error("testFixtures.recordPayment needs IS_TEST=true on the backend");
+}
+
+/**
+ * Moves the invoice **draft** `id` into the past (document date today − `dueDaysAgo`, due the same day, backdating
+ * reason) through the IS_TEST-only `testFixtures.backdateDraft` (admin key), so that after „Fertigstellen“ and „Als
+ * versendet markieren“ the dunning run plans level 1 (F05 T05-161). Finalised documents stay immutable (GoBD), which
+ * is why the draft — not the finalised invoice — is moved. Returns false without IS_TEST (the caller skips).
+ */
+export async function backdateTestDraft(id: string, dueDaysAgo: number): Promise<boolean> {
+  const r = await admin().mutation(makeFunctionReference<"mutation">("testFixtures:backdateDraft"), {
+    id,
+    dueDaysAgo,
+  });
+  return r !== null;
 }

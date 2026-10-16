@@ -212,6 +212,8 @@ F05 §7.1 is normative; summary:
 | GET | `/dunning-policies` | payments:read |
 | POST/PATCH | `/dunning-policies[/{id}]` | dunning:manage |
 
+**P1 implementation (2026-10-16, F05 dunning slice):** all rows above except `POST /dunning/collections-export` (DUN-042, SHOULD — not built yet). `/reminders` returns a dedicated reminder shape (`rem_…`, `status`, `level`, `invoice_id`, the claim `open_amount_cents`/`fee_cents`/`interest_cents`/`flat_fee_40_cents`/`total_cents`, `new_due_date`, `default_start_date`, `sent_on`, `zugang`, `version`) instead of the full §4.3 document shape; list filters `status`, `invoice_id`, `contact_id`; no `expand`, `preview`, `duplicate`, `send-log` or `artifacts` routes yet. The `confirm_token` of `GET /dunning/preview` is the plan digest (null when `date` is not today, because the run always evaluates today); `POST /dunning/run` requires it unless `dry_run`, and a changed plan answers `409 preview_outdated`. `POST /reminders/{id}/finalize` requires `Idempotency-Key` like the document finalisation. Export/mark-sent use the §4.3 bodies with `art_…` artifact ids and return `snd_…` send-log ids. `void_notice` on withdraw is accepted but no notice letter is generated yet (DUN-009 notice is SHOULD). `GET /dunning-policies` lists the §4.6 defaults with `id: null, seeded: true` until the first `POST` stores them.
+
 ### 4.5 Purchases, inbox (F06)
 
 F06 §7.1 is normative; summary:

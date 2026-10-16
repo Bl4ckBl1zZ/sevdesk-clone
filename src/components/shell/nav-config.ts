@@ -163,6 +163,7 @@ export const SETTINGS_NAV: SettingsGroup[] = [
       { key: "nummernkreise", href: "/einstellungen/nummernkreise" },
       { key: "layouts", href: "/einstellungen/layouts" },
       { key: "textvorlagen", href: "/einstellungen/textvorlagen" },
+      { key: "mahnwesen", href: "/einstellungen/mahnwesen" },
       { key: "stammdaten", href: "/einstellungen/stammdaten" },
       { key: "regeln", href: "/einstellungen/regeln" },
     ],

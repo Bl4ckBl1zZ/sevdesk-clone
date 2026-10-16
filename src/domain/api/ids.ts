@@ -31,6 +31,13 @@ export const ID_PREFIXES = {
   openingItems: "opi_",
   // F04 §3.4 recurring invoice templates (05 §3 „IDs“: `rec_`).
   recurringTemplates: "rec_",
+  // F05 dunning (05 §4.4): reminders live in salesDocuments (`rem_`), policies, runs; artifacts and send-log rows
+  // of the reminder export/mark-sent routes.
+  reminders: "rem_",
+  dunningPolicies: "dpo_",
+  dunningRuns: "drn_",
+  documentArtifacts: "art_",
+  sendLog: "snd_",
 } as const;
 
 export type IdTable = keyof typeof ID_PREFIXES;
