@@ -58,6 +58,14 @@ async function keyCaller(): Promise<Caller> {
   return httpBackend({ kind: "api-key", publicId: parsed.publicId, keyHash: hash, requestId: crypto.randomUUID() });
 }
 
+/**
+ * Two fresh callers for the race itself: `httpBackend` mints its 60-second server JWT on the first call, so the
+ * racers get theirs right before the race, independent of how long the setup took on a slow backend.
+ */
+async function racers(): Promise<readonly [Caller, Caller]> {
+  return [await keyCaller(), await keyCaller()] as const;
+}
+
 /** IS_TEST-only setup; null when the backend is not a test deployment. */
 async function ensureSetup(): Promise<boolean> {
   // biome-ignore lint/suspicious/noExplicitAny: internal function via the admin key
@@ -79,13 +87,13 @@ describe.skipIf(!enabled)("concurrent cash refunds on the self-hosted backend (F
 
   test("T05-163 EC-PAY-33 two simultaneous cash refunds above the open refund: exactly one is booked", async (ctx) => {
     if (!(await ensureSetup())) ctx.skip();
-    const [a, b] = [await keyCaller(), await keyCaller()];
+    const a = await keyCaller();
     const today = berlinCalendarDate(Date.now());
     const { correctionId } = await cashPaidCreditCorrection(a, { today });
     expect((await correctionOf(a, correctionId)).openAmountCents).toBe(-OPEN_REFUND_CENTS);
 
     // 200,00 + 200,00 > 238,00 open refund; the till holds at least the 1.190,00 cash receipt of this invoice.
-    const results = await raceCashRefunds([a, b], correctionId, [20_000, 20_000], today);
+    const results = await raceCashRefunds(await racers(), correctionId, [20_000, 20_000], today);
     expect(results.map((r) => r.status).sort()).toEqual(["fulfilled", "rejected"]);
     const lost = results.find((r) => r.status === "rejected") as PromiseRejectedResult;
     expect(errorData(lost.reason)).toMatchObject({ reason: "REFUND_EXCEEDS" });
@@ -94,14 +102,14 @@ describe.skipIf(!enabled)("concurrent cash refunds on the self-hosted backend (F
 
   test("T05-163 PAY-062 EC-149 RI-11 two simultaneous cash refunds that only jointly exceed the till: exactly one is booked", async (ctx) => {
     if (!(await ensureSetup())) ctx.skip();
-    const [a, b] = [await keyCaller(), await keyCaller()];
+    const a = await keyCaller();
     const today = berlinCalendarDate(Date.now());
     const { correctionId } = await cashPaidCreditCorrection(a, { today });
     // The till is shared by all runs on this backend: deposit the surplus so exactly 150,00 remain.
     await tillTo(a, today, 15_000);
 
     // 119,00 + 119,00 = the open refund, but only 150,00 are in the till.
-    const results = await raceCashRefunds([a, b], correctionId, [11_900, 11_900], today);
+    const results = await raceCashRefunds(await racers(), correctionId, [11_900, 11_900], today);
     expect(results.map((r) => r.status).sort()).toEqual(["fulfilled", "rejected"]);
     const lost = results.find((r) => r.status === "rejected") as PromiseRejectedResult;
     expect(errorData(lost.reason)).toMatchObject({ code: "cash_negative" });

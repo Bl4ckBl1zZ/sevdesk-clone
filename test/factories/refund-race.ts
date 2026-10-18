@@ -38,12 +38,12 @@ export const REFUND_RACE_SCOPES: readonly Scope[] = [
 
 export const OPEN_REFUND_CENTS = 23_800;
 
-function invoiceDraft(contactId: string): DraftValues {
+function invoiceDraft(contactId: string, today: string): DraftValues {
   return {
     type: "invoice",
     contactId,
     supplyDateMode: "explicit",
-    supplyDate: { kind: "date", date: "2026-10-09" as CalendarDate },
+    supplyDate: { kind: "date", date: today as CalendarDate },
     currency: "EUR",
     priceMode: "net",
     paymentTerms: { dueDays: 30 },
@@ -73,11 +73,15 @@ export async function cashPaidCreditCorrection(
   opts: { today: string; settle?: () => Promise<void>; label?: string },
 ): Promise<{ correctionId: Id<"salesDocuments">; invoiceId: Id<"salesDocuments"> }> {
   const settle = opts.settle ?? (async () => {});
-  const name = `Erstattung ${opts.label ?? crypto.randomUUID().slice(0, 8)} GmbH`;
+  // Unique per run: the real backend keeps the contacts of earlier runs.
+  const label = opts.label ?? crypto.randomUUID().slice(0, 8);
   const contact = await caller.mutation(api.contacts.create, {
-    values: createValues(orgForm(name), { address: { ...BERLIN }, email: "buchhaltung@example.test" }),
+    values: createValues(orgForm(`Erstattung ${label} GmbH`), {
+      address: { ...BERLIN },
+      email: `buchhaltung-${label}@example.test`,
+    }),
   });
-  const { id } = await caller.mutation(api.invoices.createDraft, { values: invoiceDraft(contact.id) });
+  const { id } = await caller.mutation(api.invoices.createDraft, { values: invoiceDraft(contact.id, opts.today) });
   const invoiceId = id as Id<"salesDocuments">;
   await caller.action(api.invoices.finalize, { id: invoiceId, version: 1 });
   await settle();
