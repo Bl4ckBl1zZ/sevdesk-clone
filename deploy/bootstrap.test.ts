@@ -1,4 +1,5 @@
 import { spawnSync } from "node:child_process";
+import { generateKeyPairSync } from "node:crypto";
 import { chmodSync, mkdtempSync, readFileSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -15,6 +16,7 @@ const SECRET_TOKENS = ["CF-API-TOKEN-must-never-print", "TUNNEL-TOKEN-must-never
 interface Stub {
   tunnelStatus?: string;
   composeDomains?: string[];
+  extraEnv?: string[];
 }
 
 function setup(stub: Stub = {}) {
@@ -82,6 +84,7 @@ f="${dir}/$1_$2.json"
       "CADDY_TAG=sha",
       "WEB_TAG=sha",
       "EIT_TAG=sha",
+      ...(stub.extraEnv ?? []),
     ].join("\n"),
   );
   chmodSync(envFile, 0o600);
@@ -143,5 +146,33 @@ describe("bootstrap.sh public edge mode (08 §12)", () => {
   test("SEC-06 token fields of the Dokploy server and Cloudflare config are never printed", () => {
     const r = setup().run("--skip", "convex,backups");
     for (const secret of SECRET_TOKENS) expect(r.out).not.toContain(secret);
+  });
+});
+
+describe("bootstrap convex step (08 §5 step 5)", () => {
+  test("SET-130 the Convex env (incl. SERVER_JWKS) is set before `convex deploy`, JWKS rotation after it", () => {
+    const pem = generateKeyPairSync("ec", { namedCurve: "P-256" })
+      .privateKey.export({ format: "pem", type: "pkcs8" })
+      .toString()
+      .trim()
+      .replace(/\n/g, "\\n");
+    const r = setup({
+      extraEnv: [
+        "CONVEX_SELF_HOSTED_ADMIN_KEY='rechnungen|abc'",
+        "BETTER_AUTH_SECRET=s",
+        `JWT_PRIVATE_KEY_PEM="${pem}"`,
+      ],
+    }).run("--only", "convex");
+    expect(r.status).toBe(0);
+    const lines = r.out.split("\n");
+    const at = (needle: string) => lines.findIndex((l) => l.includes(needle));
+    const deploy = at("npx convex deploy --yes");
+    expect(deploy).toBeGreaterThan(-1);
+    for (const name of ["SERVER_JWKS", "SITE_URL", "PASSKEY_RP_ID", "OWNER_EMAIL", "BETTER_AUTH_SECRET"]) {
+      const set = at(`npx convex env set ${name} `);
+      expect(set, name).toBeGreaterThan(-1);
+      expect(set, name).toBeLessThan(deploy);
+    }
+    expect(at("auth:rotateKeys")).toBeGreaterThan(deploy);
   });
 });

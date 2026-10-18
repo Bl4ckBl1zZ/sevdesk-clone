@@ -484,6 +484,20 @@ do_convex() {
   fi
   unset CONVEX_DEPLOYMENT   # never mixed with CONVEX_SELF_HOSTED_* (08 §10)
   export CONVEX_SELF_HOSTED_URL="https://convex.$BASE_DOMAIN" CONVEX_SELF_HOSTED_ADMIN_KEY
+  # Env first: auth.config.ts reads SERVER_JWKS at push time, so `convex deploy` fails without it.
+  convex_env_set SITE_URL "https://app.$BASE_DOMAIN"
+  convex_env_set PASSKEY_RP_ID "$BASE_DOMAIN"
+  convex_env_set OWNER_EMAIL "$OWNER_EMAIL"
+  convex_env_set EINVOICE_TOOLS_URL "http://einvoice-tools:8080"
+  [[ -z "${JWT_PRIVATE_KEY_PEM:-}" ]] || convex_env_set SERVER_JWKS "$(server_jwks)"
+  local v
+  for v in BETTER_AUTH_SECRET APP_ENCRYPTION_KEY CLOUDFLARE_ACCOUNT_ID CLOUDFLARE_EMAIL_API_TOKEN AUTH_MAIL_FROM \
+    R2_ACCOUNT_ENDPOINT R2_CHECKPOINT_BUCKET R2_CHECKPOINT_ACCESS_KEY_ID R2_CHECKPOINT_SECRET_ACCESS_KEY \
+    R2_BACKUP_BUCKET R2_BACKUP_READONLY_ACCESS_KEY_ID R2_BACKUP_READONLY_SECRET_ACCESS_KEY CHECKPOINT_SIGNING_KEY_PEM \
+    R2_INBOX_BUCKET R2_INBOX_ACCESS_KEY_ID R2_INBOX_SECRET_ACCESS_KEY ENABLE_BANKING_APP_ID ENABLE_BANKING_PRIVATE_KEY_PEM; do
+    if [[ -n "${!v:-}" ]]; then convex_env_set "$v" "${!v}"; else info "skip $v (empty)"; fi
+  done
+
   print_cmd npx convex deploy --yes
   if [[ $APPLY -eq 1 ]]; then (cd "$ROOT" && pnpm -s convex deploy --yes); fi
 
@@ -503,18 +517,6 @@ do_convex() {
     ok "JWKS already set (rotation: deploy/runbooks/rotate-secrets.md)"
   fi
 
-  convex_env_set SITE_URL "https://app.$BASE_DOMAIN"
-  convex_env_set PASSKEY_RP_ID "$BASE_DOMAIN"
-  convex_env_set OWNER_EMAIL "$OWNER_EMAIL"
-  convex_env_set EINVOICE_TOOLS_URL "http://einvoice-tools:8080"
-  [[ -z "${JWT_PRIVATE_KEY_PEM:-}" ]] || convex_env_set SERVER_JWKS "$(server_jwks)"
-  local v
-  for v in BETTER_AUTH_SECRET APP_ENCRYPTION_KEY CLOUDFLARE_ACCOUNT_ID CLOUDFLARE_EMAIL_API_TOKEN AUTH_MAIL_FROM \
-    R2_ACCOUNT_ENDPOINT R2_CHECKPOINT_BUCKET R2_CHECKPOINT_ACCESS_KEY_ID R2_CHECKPOINT_SECRET_ACCESS_KEY \
-    R2_BACKUP_BUCKET R2_BACKUP_READONLY_ACCESS_KEY_ID R2_BACKUP_READONLY_SECRET_ACCESS_KEY CHECKPOINT_SIGNING_KEY_PEM \
-    R2_INBOX_BUCKET R2_INBOX_ACCESS_KEY_ID R2_INBOX_SECRET_ACCESS_KEY ENABLE_BANKING_APP_ID ENABLE_BANKING_PRIVATE_KEY_PEM; do
-    if [[ -n "${!v:-}" ]]; then convex_env_set "$v" "${!v}"; else info "skip $v (empty)"; fi
-  done
   # BETTER_AUTH_SECRET is only set when given: rotating it signs everyone out (02 §4.5).
 }
 
