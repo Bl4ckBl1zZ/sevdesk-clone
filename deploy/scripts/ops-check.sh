@@ -106,6 +106,7 @@ check_disk_all() {
 run_all() {
   : "${COMPOSE_APPNAME:?set COMPOSE_APPNAME}"
   local env_file="${BACKUP_ENV_FILE:-/opt/rechnungen/backup.env}" ids caddy_log
+  # shellcheck disable=SC1090  # server-side env file, path only known at runtime
   [[ -f "$env_file" ]] && { set -a; source "$env_file"; set +a; }
   ids="$(docker ps -aq --filter "label=com.docker.compose.project=$COMPOSE_APPNAME")"
   # shellcheck disable=SC2086
