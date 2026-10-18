@@ -150,7 +150,7 @@ describe("bootstrap.sh public edge mode (08 §12)", () => {
 });
 
 describe("bootstrap convex step (08 §5 step 5)", () => {
-  test("SET-130 the Convex env (incl. SERVER_JWKS) is set before `convex deploy`, JWKS rotation after it", () => {
+  test("SET-130 the Convex env (JWKS, SERVER_JWKS, BASE_DOMAIN …) is set before `convex deploy`", () => {
     const pem = generateKeyPairSync("ec", { namedCurve: "P-256" })
       .privateKey.export({ format: "pem", type: "pkcs8" })
       .toString()
@@ -168,11 +168,22 @@ describe("bootstrap convex step (08 §5 step 5)", () => {
     const at = (needle: string) => lines.findIndex((l) => l.includes(needle));
     const deploy = at("npx convex deploy --yes");
     expect(deploy).toBeGreaterThan(-1);
-    for (const name of ["SERVER_JWKS", "SITE_URL", "PASSKEY_RP_ID", "OWNER_EMAIL", "BETTER_AUTH_SECRET"]) {
+    for (const name of [
+      "SERVER_JWKS",
+      "SITE_URL",
+      "BASE_DOMAIN",
+      "PASSKEY_RP_ID",
+      "OWNER_EMAIL",
+      "BETTER_AUTH_SECRET",
+    ]) {
       const set = at(`npx convex env set ${name} `);
       expect(set, name).toBeGreaterThan(-1);
       expect(set, name).toBeLessThan(deploy);
     }
-    expect(at("auth:rotateKeys")).toBeGreaterThan(deploy);
+    // auth.config.ts reads JWKS at push time too → the static Better Auth key set is generated before the push.
+    const jwks = at("scripts/generate-jwks.ts better-auth --set-convex");
+    expect(jwks).toBeGreaterThan(-1);
+    expect(jwks).toBeLessThan(deploy);
+    expect(r.out).not.toContain("auth:rotateKeys");
   });
 });

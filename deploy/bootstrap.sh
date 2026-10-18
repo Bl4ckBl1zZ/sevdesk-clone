@@ -456,14 +456,14 @@ do_dns() {
 }
 
 server_jwks() {
-  # Public JWK of JWT_PRIVATE_KEY_PEM as a data: URI JWKS for the Convex customJwt provider (02 §4.4).
-  # kid = RFC 7638 thumbprint — the web server JWT signer must use the same kid derivation.
+  # Public JWK of JWT_PRIVATE_KEY_PEM as a JWKS JSON document for the Convex customJwt provider (02 §4.4);
+  # convex/auth.config.ts turns it into the data: URI itself. kid = RFC 7638 thumbprint (same as
+  # scripts/generate-jwks.ts es256KeyPair → the web server JWT signer).
   JWT_PRIVATE_KEY_PEM="$JWT_PRIVATE_KEY_PEM" node --input-type=module -e '
     import { createPrivateKey, createPublicKey, createHash } from "node:crypto";
     const jwk = createPublicKey(createPrivateKey(process.env.JWT_PRIVATE_KEY_PEM)).export({ format: "jwk" });
     const kid = createHash("sha256").update(JSON.stringify({ crv: jwk.crv, kty: jwk.kty, x: jwk.x, y: jwk.y })).digest("base64url");
-    const jwks = { keys: [{ ...jwk, kid, alg: "ES256", use: "sig" }] };
-    process.stdout.write("data:text/plain;charset=utf-8;base64," + Buffer.from(JSON.stringify(jwks)).toString("base64"));
+    process.stdout.write(JSON.stringify({ keys: [{ ...jwk, kid, alg: "ES256", use: "sig" }] }));
   '
 }
 
@@ -490,6 +490,7 @@ do_convex() {
   export CONVEX_SELF_HOSTED_URL="https://convex.$BASE_DOMAIN" CONVEX_SELF_HOSTED_ADMIN_KEY
   # Env first: auth.config.ts reads SERVER_JWKS at push time, so `convex deploy` fails without it.
   convex_env_set SITE_URL "https://app.$BASE_DOMAIN"
+  convex_env_set BASE_DOMAIN "$BASE_DOMAIN"
   convex_env_set PASSKEY_RP_ID "$BASE_DOMAIN"
   convex_env_set OWNER_EMAIL "$OWNER_EMAIL"
   convex_env_set EINVOICE_TOOLS_URL "http://einvoice-tools:8080"
@@ -502,24 +503,23 @@ do_convex() {
     if [[ -n "${!v:-}" ]]; then convex_env_set "$v" "${!v}"; else info "skip $v (empty)"; fi
   done
 
+  # JWKS (Better Auth, RS256): static key set encrypted with BETTER_AUTH_SECRET (scripts/generate-jwks.ts), set once
+  # before the first push — auth.config.ts needs it at push time. Rotating BETTER_AUTH_SECRET needs a new JWKS.
+  local jwks_set=0
+  if [[ $APPLY -eq 1 ]] && (cd "$ROOT" && pnpm exec convex env get JWKS 2>/dev/null | grep -q .); then jwks_set=1; fi
+  if [[ $jwks_set -eq 1 ]]; then
+    ok "JWKS already set (rotation: deploy/runbooks/rotate-secrets.md)"
+  else
+    require_vars BETTER_AUTH_SECRET
+    print_cmd BETTER_AUTH_SECRET="<redacted>" pnpm exec tsx scripts/generate-jwks.ts better-auth --set-convex
+    if [[ $APPLY -eq 1 ]]; then
+      (cd "$ROOT" && BETTER_AUTH_SECRET="$BETTER_AUTH_SECRET" pnpm exec tsx scripts/generate-jwks.ts better-auth --set-convex) \
+        || die "JWKS generation failed"
+    fi
+  fi
+
   print_cmd npx convex deploy --yes
   if [[ $APPLY -eq 1 ]]; then (cd "$ROOT" && pnpm exec convex deploy --yes); fi
-
-  local jwks_set=0
-  if [[ $APPLY -eq 1 ]] && (cd "$ROOT" && pnpm exec convex env get JWKS >/dev/null 2>&1); then jwks_set=1; fi
-  if [[ $jwks_set -eq 0 ]]; then
-    print_cmd npx convex run auth:rotateKeys "|" npx convex env set JWKS
-    if [[ $APPLY -eq 1 ]]; then
-      local jwks
-      if jwks="$(cd "$ROOT" && pnpm exec convex run auth:rotateKeys)"; then
-        convex_env_set JWKS "$jwks"
-      else
-        warn "auth:rotateKeys failed (Better Auth not deployed yet?) — re-run --only convex after the auth work lands"
-      fi
-    fi
-  else
-    ok "JWKS already set (rotation: deploy/runbooks/rotate-secrets.md)"
-  fi
 
   # BETTER_AUTH_SECRET is only set when given: rotating it signs everyone out (02 §4.5).
 }
