@@ -144,7 +144,8 @@ describe("confirm tokens for ⚠ MCP tools (06 §2.3)", () => {
     ).toBe("invalid_input");
     expect(
       await codeOf(
-        mcp.mutation(api.confirmTokens.issue, { intent: "document_finalize", args: {}, entities: [], tokenHash: hash }),
+        // export_datev (F09) has no permission yet; document_finalize became available with the F04 preview slice.
+        mcp.mutation(api.confirmTokens.issue, { intent: "export_datev", args: {}, entities: [], tokenHash: hash }),
       ),
     ).toBe("invalid_input");
   });

@@ -187,7 +187,7 @@ describe("MCP server (06)", () => {
     expect(errorOf(again).code).toBe("confirm_token_used");
   });
 
-  test("MCP-004 a read-only key can neither preview nor merge (scope denial); stubs answer not_implemented", async () => {
+  test("MCP-004 a read-only key can neither preview nor merge (scope denial); the finalise preview needs invoices:finalize", async () => {
     const t = setup();
     const client = await connect((await mcpKey(t, ["contacts:read", "documents:read"])).key);
     // Tools outside the key's scopes are not registered for this request: calling them is a protocol error.
@@ -196,7 +196,7 @@ describe("MCP server (06)", () => {
     ).rejects.toThrow(/not found/);
     await expect(client.callTool({ name: "contact_merge", arguments: {} })).rejects.toThrow(/not found/);
     const doc = (await client.callTool({ name: "document_preview", arguments: { id: "x" } })) as ToolCall;
-    expect(errorOf(doc).code).toBe("not_implemented");
+    expect(errorOf(doc).code).toBe("insufficient_scope");
   });
 
   test("MCP-007 MCP-008 product tools, the company resource and the prompts", async () => {

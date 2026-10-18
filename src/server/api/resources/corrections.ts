@@ -18,6 +18,7 @@ import {
 import type { ConvexCaller } from "../backend";
 import { defineEndpoint, defineResource } from "../endpoint";
 import { ApiProblem } from "../http";
+import { dispatchEndpoints } from "./dispatch";
 import { rawId } from "./shared";
 
 /**
@@ -171,6 +172,15 @@ export const correctionsResource = defineResource("corrections", "Storno, Rechnu
         },
       };
     },
+  }),
+  // F04 §7.1: corrections are previewed, finalised (invoices:finalize + invoices:cancel), exported and marked sent.
+  ...dispatchEndpoints({
+    path: "corrections",
+    idType: "correction",
+    tag: "Rechnungen",
+    singular: "Rechnungskorrektur",
+    schemaPrefix: "Correction",
+    finalize: true,
   }),
 ]);
 

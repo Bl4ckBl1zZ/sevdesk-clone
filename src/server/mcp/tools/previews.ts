@@ -11,10 +11,13 @@ import { encodeId } from "@/domain/api/ids";
 import { sha256Hex } from "@/domain/audit/chain";
 import { contactMergeArgs, contactMergeWire } from "@/domain/schemas/api/contacts";
 import { cancelArgs, cancelWire, rawDocumentId } from "@/domain/schemas/api/corrections";
+import { finalizeArgs, finalizePreviewWire } from "@/domain/schemas/api/dispatch";
 import type { Scope } from "@/domain/schemas/scopes";
 import { ApiProblem } from "../../api/http";
 import { cancelPreviewWire } from "../../api/resources/corrections";
+import { finalizePreviewOf, requireFinalizeScopes, resolveDispatchDoc } from "../../api/resources/dispatch";
 import { defineTool, type ToolContext } from "../tool";
+import { markSentParams, markSentPlan } from "./dispatch";
 import { PAYMENT_PREVIEWS } from "./payment-previews";
 
 /**
@@ -42,6 +45,8 @@ interface ActionPreview {
 
 export const ACTION_PREVIEWS: Partial<Record<ConfirmIntent, ActionPreview>> = {
   ...(PAYMENT_PREVIEWS as Partial<Record<ConfirmIntent, ActionPreview>>),
+  // F04 SND-24: „Als versendet markieren“ (invoices, corrections, letters, reminders).
+  document_mark_sent: { scope: "invoices:send", params: markSentParams, plan: markSentPlan as ActionPreview["plan"] },
   contact_merge: {
     scope: "contacts:write",
     params: contactMergeWire,
@@ -120,20 +125,54 @@ export const previewTools = [
     name: "document_preview",
     title: "Belegvorschau",
     description:
-      'Vorschau mit confirm_token. intent "cancel" (Storno einer Rechnung/Rechnungskorrektur): Spiegel-Vorschau (Positionen, Summen, Datum, E-Rechnungs-Prüfung, INV-10-Prüfung) und Token für invoice_cancel mit denselben reason/document_date. intent "finalize" folgt mit document_finalize. Zeige die Vorschau und frage den Nutzer, bevor du das ⚠ Tool aufrufst.',
+      'Vorschau mit confirm_token. intent "finalize" (Standard): Prüfung eines Entwurfs mit Fehlern/Warnungen (Regel-IDs), Summen, Steuerfall mit Begründung, ER-03-Entscheidung und Format; Token für document_finalize mit derselben version und denselben document_date/backdate_reason/overrides (kein Token bei Fehlern). intent "cancel" (Storno einer Rechnung/Rechnungskorrektur): Spiegel-Vorschau und Token für invoice_cancel mit denselben reason/document_date. Zeige die Vorschau und frage den Nutzer, bevor du das ⚠ Tool aufrufst.',
     kind: "read",
     scopes: ["documents:read"],
     input: z.object({
-      id: z.string(),
+      id: z.string().max(100),
       intent: z.enum(["finalize", "cancel"]).optional(),
       reason: z.string().max(1000).optional(),
       document_date: z.string().optional(),
+      backdate_reason: z.string().max(1000).optional(),
+      overrides: z
+        .object({
+          vat_id_unverified_reason: z.string().max(1000).optional(),
+          rc13b_confirmation: z.string().max(1000).optional(),
+        })
+        .optional(),
     }),
-    handler: async ({ id, intent, reason, document_date }, ctx) => {
+    handler: async ({ id, intent, reason, document_date, backdate_reason, overrides }, ctx) => {
       if (intent !== "cancel") {
-        throw new ApiProblem("not_implemented", {
-          detail: 'Die Fertigstellungs-Vorschau (document_finalize) folgt; Storno-Vorschau: intent "cancel".',
+        if (!ctx.key.scopes.includes("invoices:finalize")) {
+          throw new ApiProblem("insufficient_scope", { extra: { required_scope: "invoices:finalize" } });
+        }
+        const doc = await resolveDispatchDoc(ctx.convex, id, [
+          "quote",
+          "order_confirmation",
+          "delivery_note",
+          "invoice",
+          "correction",
+        ]);
+        requireFinalizeScopes(ctx.key, doc.type);
+        const parsed = finalizePreviewWire.safeParse({
+          ...(document_date ? { document_date } : {}),
+          ...(backdate_reason ? { backdate_reason } : {}),
+          ...(overrides ? { overrides } : {}),
         });
+        if (!parsed.success) {
+          throw new ApiProblem("validation_failed", {
+            errors: parsed.error.issues.map((i) => ({ code: "invalid", field: i.path.join("."), message: i.message })),
+          });
+        }
+        const w = parsed.data;
+        const p = await finalizePreviewOf(ctx.convex, doc, w);
+        if (!p.wire.allowed) return { intent: "finalize", ...p.wire };
+        const plan: PreviewPlan = {
+          args: finalizeArgs(doc.id, { version: p.version, ...w }) as unknown as Record<string, unknown>,
+          entities: [{ table: "salesDocuments", id: doc.id }],
+          effect: p.wire,
+        };
+        return { intent: "finalize", ...p.wire, ...(await issueToken(documentPreviewIntent("finalize"), plan, ctx)) };
       }
       if (!ctx.key.scopes.includes("invoices:cancel")) {
         throw new ApiProblem("insufficient_scope", { extra: { required_scope: "invoices:cancel" } });

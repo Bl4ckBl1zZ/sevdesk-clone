@@ -4266,6 +4266,733 @@
         }
       }
     },
+    "/api/v1/quotes/{id}/preview": {
+      "post": {
+        "operationId": "previewQuote",
+        "summary": "Angebot prüfen (Fertigstellungs-Vorschau)",
+        "description": "DOC-42: Prüfung eines Entwurfs mit den gewünschten Fertigstellungs-Optionen — Fehler/Warnungen mit Regel-ID, Summen, Steuerfall mit Begründung, ER-03-Entscheidung und Format. Schreibt nichts. `confirm_token` ist nur für MCP (REST: null).\n\nScope: `documents:read`.",
+        "tags": [
+          "Angebote"
+        ],
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "schema": {
+              "type": "string",
+              "pattern": "^quo_[0-9a-zA-Z]{16,64}$",
+              "description": "Angebot (quo_…)"
+            },
+            "required": true,
+            "description": "Angebot (quo_…)"
+          },
+          {
+            "in": "header",
+            "name": "Idempotency-Key",
+            "schema": {
+              "description": "24 h je Schlüssel; gleicher Body → gleiche Antwort (Idempotent-Replayed: true)",
+              "type": "string"
+            },
+            "description": "24 h je Schlüssel; gleicher Body → gleiche Antwort (Idempotent-Replayed: true)"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DocumentFinalizePreviewRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Das Prüfergebnis",
+            "headers": {
+              "RateLimit-Limit": {
+                "required": true,
+                "description": "Bucket-Größe",
+                "schema": {
+                  "type": "string",
+                  "description": "Bucket-Größe"
+                }
+              },
+              "RateLimit-Remaining": {
+                "required": true,
+                "description": "Verbleibende Anfragen",
+                "schema": {
+                  "type": "string",
+                  "description": "Verbleibende Anfragen"
+                }
+              },
+              "RateLimit-Reset": {
+                "required": true,
+                "description": "Sekunden bis zum vollen Bucket",
+                "schema": {
+                  "type": "string",
+                  "description": "Sekunden bis zum vollen Bucket"
+                }
+              },
+              "X-Request-Id": {
+                "required": true,
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DocumentFinalizePreview"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "`bad_request` – Ungültige Anfrage.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "`unauthorized` – API-Schlüssel fehlt, ist ungültig, abgelaufen oder widerrufen.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "`insufficient_scope` – Der API-Schlüssel hat nicht die nötige Berechtigung.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "`not_found` – Nicht gefunden.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "`immutable_record` – Dieser Datensatz ist unveränderlich (GoBD).",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "415": {
+            "description": "`unsupported_media_type` – Bitte JSON senden (application/json).",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "`validation_failed` – Die Eingaben sind nicht gültig.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "`rate_limited` – Zu viele Anfragen – bitte später erneut versuchen.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "`internal_error` – Interner Fehler.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/quotes/{id}/export": {
+      "post": {
+        "operationId": "exportQuote",
+        "summary": "Angebot exportieren",
+        "description": "SND-16: kurzlebige Links (5 min, nur im Tailnet) zu den archivierten Dateien; das Original solange nicht als versendet markiert, danach die „Kopie“ (Original erneut nur mit `reason`). Ändert keinen Status; protokolliert `document.export`. Versendet nichts.\n\nScope: `documents:read`.",
+        "tags": [
+          "Angebote"
+        ],
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "schema": {
+              "type": "string",
+              "pattern": "^quo_[0-9a-zA-Z]{16,64}$",
+              "description": "Angebot (quo_…)"
+            },
+            "required": true,
+            "description": "Angebot (quo_…)"
+          },
+          {
+            "in": "header",
+            "name": "Idempotency-Key",
+            "schema": {
+              "description": "24 h je Schlüssel; gleicher Body → gleiche Antwort (Idempotent-Replayed: true)",
+              "type": "string"
+            },
+            "description": "24 h je Schlüssel; gleicher Body → gleiche Antwort (Idempotent-Replayed: true)"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DocumentExportRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Die Dateien",
+            "headers": {
+              "RateLimit-Limit": {
+                "required": true,
+                "description": "Bucket-Größe",
+                "schema": {
+                  "type": "string",
+                  "description": "Bucket-Größe"
+                }
+              },
+              "RateLimit-Remaining": {
+                "required": true,
+                "description": "Verbleibende Anfragen",
+                "schema": {
+                  "type": "string",
+                  "description": "Verbleibende Anfragen"
+                }
+              },
+              "RateLimit-Reset": {
+                "required": true,
+                "description": "Sekunden bis zum vollen Bucket",
+                "schema": {
+                  "type": "string",
+                  "description": "Sekunden bis zum vollen Bucket"
+                }
+              },
+              "X-Request-Id": {
+                "required": true,
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DocumentExportResult"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "`bad_request` – Ungültige Anfrage.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "`unauthorized` – API-Schlüssel fehlt, ist ungültig, abgelaufen oder widerrufen.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "`insufficient_scope` – Der API-Schlüssel hat nicht die nötige Berechtigung.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "`not_found` – Nicht gefunden.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "`artifacts_not_ready` – PDF/E-Rechnung wird noch erzeugt.; `immutable_record` – Dieser Datensatz ist unveränderlich (GoBD).; `conflict` – Konflikt.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "415": {
+            "description": "`unsupported_media_type` – Bitte JSON senden (application/json).",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "`validation_failed` – Die Eingaben sind nicht gültig.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "`rate_limited` – Zu viele Anfragen – bitte später erneut versuchen.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "`internal_error` – Interner Fehler.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/quotes/{id}/mark-sent": {
+      "post": {
+        "operationId": "markSentQuote",
+        "summary": "Angebot als versendet markieren",
+        "description": "SND-07/17: nachdem der Inhaber die Dateien selbst übergeben hat (E-Mail, Post, persönlich, Upload-Portal, Sonstiges). ER-03 wird geprüft; der erste wirksame Eintrag setzt Status, Versanddatum und Zugang. `?dry_run=true` prüft nur. `Idempotency-Key` ist Pflicht. Keine Route versendet etwas.\n\nScope: `invoices:send`.",
+        "tags": [
+          "Angebote"
+        ],
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "schema": {
+              "type": "string",
+              "pattern": "^quo_[0-9a-zA-Z]{16,64}$",
+              "description": "Angebot (quo_…)"
+            },
+            "required": true,
+            "description": "Angebot (quo_…)"
+          },
+          {
+            "in": "query",
+            "name": "dry_run",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "true",
+                "false"
+              ]
+            }
+          },
+          {
+            "in": "header",
+            "name": "Idempotency-Key",
+            "schema": {
+              "description": "24 h je Schlüssel; gleicher Body → gleiche Antwort (Idempotent-Replayed: true)",
+              "type": "string"
+            },
+            "description": "24 h je Schlüssel; gleicher Body → gleiche Antwort (Idempotent-Replayed: true)"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DocumentMarkSentRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Der Versandeintrag (dry_run: das Prüfergebnis)",
+            "headers": {
+              "RateLimit-Limit": {
+                "required": true,
+                "description": "Bucket-Größe",
+                "schema": {
+                  "type": "string",
+                  "description": "Bucket-Größe"
+                }
+              },
+              "RateLimit-Remaining": {
+                "required": true,
+                "description": "Verbleibende Anfragen",
+                "schema": {
+                  "type": "string",
+                  "description": "Verbleibende Anfragen"
+                }
+              },
+              "RateLimit-Reset": {
+                "required": true,
+                "description": "Sekunden bis zum vollen Bucket",
+                "schema": {
+                  "type": "string",
+                  "description": "Sekunden bis zum vollen Bucket"
+                }
+              },
+              "X-Request-Id": {
+                "required": true,
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DocumentMarkSentResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "`bad_request` – Ungültige Anfrage.; `idempotency_key_required` – Für diese Aktion ist ein Idempotency-Key erforderlich.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "`unauthorized` – API-Schlüssel fehlt, ist ungültig, abgelaufen oder widerrufen.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "`insufficient_scope` – Der API-Schlüssel hat nicht die nötige Berechtigung.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "`not_found` – Nicht gefunden.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "`conflict` – Konflikt.; `illegal_transition` – Diese Aktion ist im aktuellen Status nicht möglich.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "415": {
+            "description": "`unsupported_media_type` – Bitte JSON senden (application/json).",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "`validation_failed` – Die Eingaben sind nicht gültig.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "`rate_limited` – Zu viele Anfragen – bitte später erneut versuchen.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "`internal_error` – Interner Fehler.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/quotes/{id}/mark-sent/{sendLogId}/retract": {
+      "post": {
+        "operationId": "retractMarkQuote",
+        "summary": "Versandmarkierung zurücknehmen",
+        "description": "SND-18 mit Grund (≥ 10 Zeichen); hängt eine Rücknahme an, nichts wird geändert oder gelöscht. Gesperrt, solange eine Folgehandlung (z. B. Mahnung) auf der Markierung beruht. `Idempotency-Key` ist Pflicht. Nicht über MCP.\n\nScope: `invoices:send`.",
+        "tags": [
+          "Angebote"
+        ],
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "schema": {
+              "type": "string",
+              "pattern": "^quo_[0-9a-zA-Z]{16,64}$",
+              "description": "Angebot (quo_…)"
+            },
+            "required": true,
+            "description": "Angebot (quo_…)"
+          },
+          {
+            "in": "path",
+            "name": "sendLogId",
+            "schema": {
+              "type": "string",
+              "pattern": "^snd_[0-9a-zA-Z]{16,64}$",
+              "description": "ID (snd_…)",
+              "example": "snd_k57f3x2m9q8w1e4r6t"
+            },
+            "required": true,
+            "description": "ID (snd_…)"
+          },
+          {
+            "in": "header",
+            "name": "Idempotency-Key",
+            "schema": {
+              "description": "24 h je Schlüssel; gleicher Body → gleiche Antwort (Idempotent-Replayed: true)",
+              "type": "string"
+            },
+            "description": "24 h je Schlüssel; gleicher Body → gleiche Antwort (Idempotent-Replayed: true)"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DocumentMarkSentRetractRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Status nach der Rücknahme",
+            "headers": {
+              "RateLimit-Limit": {
+                "required": true,
+                "description": "Bucket-Größe",
+                "schema": {
+                  "type": "string",
+                  "description": "Bucket-Größe"
+                }
+              },
+              "RateLimit-Remaining": {
+                "required": true,
+                "description": "Verbleibende Anfragen",
+                "schema": {
+                  "type": "string",
+                  "description": "Verbleibende Anfragen"
+                }
+              },
+              "RateLimit-Reset": {
+                "required": true,
+                "description": "Sekunden bis zum vollen Bucket",
+                "schema": {
+                  "type": "string",
+                  "description": "Sekunden bis zum vollen Bucket"
+                }
+              },
+              "X-Request-Id": {
+                "required": true,
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DocumentMarkSentRetractResult"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "`bad_request` – Ungültige Anfrage.; `idempotency_key_required` – Für diese Aktion ist ein Idempotency-Key erforderlich.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "`unauthorized` – API-Schlüssel fehlt, ist ungültig, abgelaufen oder widerrufen.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "`insufficient_scope` – Der API-Schlüssel hat nicht die nötige Berechtigung.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "`not_found` – Nicht gefunden.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "`conflict` – Konflikt.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "415": {
+            "description": "`unsupported_media_type` – Bitte JSON senden (application/json).",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "`validation_failed` – Die Eingaben sind nicht gültig.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "`rate_limited` – Zu viele Anfragen – bitte später erneut versuchen.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "`internal_error` – Interner Fehler.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/quotes/{id}/chain": {
       "get": {
         "operationId": "chainOfQuote",
@@ -6375,6 +7102,733 @@
         }
       }
     },
+    "/api/v1/order-confirmations/{id}/preview": {
+      "post": {
+        "operationId": "previewOrderConfirmation",
+        "summary": "Auftragsbestätigung prüfen (Fertigstellungs-Vorschau)",
+        "description": "DOC-42: Prüfung eines Entwurfs mit den gewünschten Fertigstellungs-Optionen — Fehler/Warnungen mit Regel-ID, Summen, Steuerfall mit Begründung, ER-03-Entscheidung und Format. Schreibt nichts. `confirm_token` ist nur für MCP (REST: null).\n\nScope: `documents:read`.",
+        "tags": [
+          "Auftragsbestätigungen"
+        ],
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "schema": {
+              "type": "string",
+              "pattern": "^ord_[0-9a-zA-Z]{16,64}$",
+              "description": "Auftragsbestätigung (ord_…)"
+            },
+            "required": true,
+            "description": "Auftragsbestätigung (ord_…)"
+          },
+          {
+            "in": "header",
+            "name": "Idempotency-Key",
+            "schema": {
+              "description": "24 h je Schlüssel; gleicher Body → gleiche Antwort (Idempotent-Replayed: true)",
+              "type": "string"
+            },
+            "description": "24 h je Schlüssel; gleicher Body → gleiche Antwort (Idempotent-Replayed: true)"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DocumentFinalizePreviewRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Das Prüfergebnis",
+            "headers": {
+              "RateLimit-Limit": {
+                "required": true,
+                "description": "Bucket-Größe",
+                "schema": {
+                  "type": "string",
+                  "description": "Bucket-Größe"
+                }
+              },
+              "RateLimit-Remaining": {
+                "required": true,
+                "description": "Verbleibende Anfragen",
+                "schema": {
+                  "type": "string",
+                  "description": "Verbleibende Anfragen"
+                }
+              },
+              "RateLimit-Reset": {
+                "required": true,
+                "description": "Sekunden bis zum vollen Bucket",
+                "schema": {
+                  "type": "string",
+                  "description": "Sekunden bis zum vollen Bucket"
+                }
+              },
+              "X-Request-Id": {
+                "required": true,
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DocumentFinalizePreview"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "`bad_request` – Ungültige Anfrage.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "`unauthorized` – API-Schlüssel fehlt, ist ungültig, abgelaufen oder widerrufen.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "`insufficient_scope` – Der API-Schlüssel hat nicht die nötige Berechtigung.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "`not_found` – Nicht gefunden.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "`immutable_record` – Dieser Datensatz ist unveränderlich (GoBD).",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "415": {
+            "description": "`unsupported_media_type` – Bitte JSON senden (application/json).",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "`validation_failed` – Die Eingaben sind nicht gültig.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "`rate_limited` – Zu viele Anfragen – bitte später erneut versuchen.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "`internal_error` – Interner Fehler.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/order-confirmations/{id}/export": {
+      "post": {
+        "operationId": "exportOrderConfirmation",
+        "summary": "Auftragsbestätigung exportieren",
+        "description": "SND-16: kurzlebige Links (5 min, nur im Tailnet) zu den archivierten Dateien; das Original solange nicht als versendet markiert, danach die „Kopie“ (Original erneut nur mit `reason`). Ändert keinen Status; protokolliert `document.export`. Versendet nichts.\n\nScope: `documents:read`.",
+        "tags": [
+          "Auftragsbestätigungen"
+        ],
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "schema": {
+              "type": "string",
+              "pattern": "^ord_[0-9a-zA-Z]{16,64}$",
+              "description": "Auftragsbestätigung (ord_…)"
+            },
+            "required": true,
+            "description": "Auftragsbestätigung (ord_…)"
+          },
+          {
+            "in": "header",
+            "name": "Idempotency-Key",
+            "schema": {
+              "description": "24 h je Schlüssel; gleicher Body → gleiche Antwort (Idempotent-Replayed: true)",
+              "type": "string"
+            },
+            "description": "24 h je Schlüssel; gleicher Body → gleiche Antwort (Idempotent-Replayed: true)"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DocumentExportRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Die Dateien",
+            "headers": {
+              "RateLimit-Limit": {
+                "required": true,
+                "description": "Bucket-Größe",
+                "schema": {
+                  "type": "string",
+                  "description": "Bucket-Größe"
+                }
+              },
+              "RateLimit-Remaining": {
+                "required": true,
+                "description": "Verbleibende Anfragen",
+                "schema": {
+                  "type": "string",
+                  "description": "Verbleibende Anfragen"
+                }
+              },
+              "RateLimit-Reset": {
+                "required": true,
+                "description": "Sekunden bis zum vollen Bucket",
+                "schema": {
+                  "type": "string",
+                  "description": "Sekunden bis zum vollen Bucket"
+                }
+              },
+              "X-Request-Id": {
+                "required": true,
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DocumentExportResult"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "`bad_request` – Ungültige Anfrage.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "`unauthorized` – API-Schlüssel fehlt, ist ungültig, abgelaufen oder widerrufen.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "`insufficient_scope` – Der API-Schlüssel hat nicht die nötige Berechtigung.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "`not_found` – Nicht gefunden.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "`artifacts_not_ready` – PDF/E-Rechnung wird noch erzeugt.; `immutable_record` – Dieser Datensatz ist unveränderlich (GoBD).; `conflict` – Konflikt.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "415": {
+            "description": "`unsupported_media_type` – Bitte JSON senden (application/json).",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "`validation_failed` – Die Eingaben sind nicht gültig.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "`rate_limited` – Zu viele Anfragen – bitte später erneut versuchen.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "`internal_error` – Interner Fehler.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/order-confirmations/{id}/mark-sent": {
+      "post": {
+        "operationId": "markSentOrderConfirmation",
+        "summary": "Auftragsbestätigung als versendet markieren",
+        "description": "SND-07/17: nachdem der Inhaber die Dateien selbst übergeben hat (E-Mail, Post, persönlich, Upload-Portal, Sonstiges). ER-03 wird geprüft; der erste wirksame Eintrag setzt Status, Versanddatum und Zugang. `?dry_run=true` prüft nur. `Idempotency-Key` ist Pflicht. Keine Route versendet etwas.\n\nScope: `invoices:send`.",
+        "tags": [
+          "Auftragsbestätigungen"
+        ],
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "schema": {
+              "type": "string",
+              "pattern": "^ord_[0-9a-zA-Z]{16,64}$",
+              "description": "Auftragsbestätigung (ord_…)"
+            },
+            "required": true,
+            "description": "Auftragsbestätigung (ord_…)"
+          },
+          {
+            "in": "query",
+            "name": "dry_run",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "true",
+                "false"
+              ]
+            }
+          },
+          {
+            "in": "header",
+            "name": "Idempotency-Key",
+            "schema": {
+              "description": "24 h je Schlüssel; gleicher Body → gleiche Antwort (Idempotent-Replayed: true)",
+              "type": "string"
+            },
+            "description": "24 h je Schlüssel; gleicher Body → gleiche Antwort (Idempotent-Replayed: true)"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DocumentMarkSentRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Der Versandeintrag (dry_run: das Prüfergebnis)",
+            "headers": {
+              "RateLimit-Limit": {
+                "required": true,
+                "description": "Bucket-Größe",
+                "schema": {
+                  "type": "string",
+                  "description": "Bucket-Größe"
+                }
+              },
+              "RateLimit-Remaining": {
+                "required": true,
+                "description": "Verbleibende Anfragen",
+                "schema": {
+                  "type": "string",
+                  "description": "Verbleibende Anfragen"
+                }
+              },
+              "RateLimit-Reset": {
+                "required": true,
+                "description": "Sekunden bis zum vollen Bucket",
+                "schema": {
+                  "type": "string",
+                  "description": "Sekunden bis zum vollen Bucket"
+                }
+              },
+              "X-Request-Id": {
+                "required": true,
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DocumentMarkSentResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "`bad_request` – Ungültige Anfrage.; `idempotency_key_required` – Für diese Aktion ist ein Idempotency-Key erforderlich.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "`unauthorized` – API-Schlüssel fehlt, ist ungültig, abgelaufen oder widerrufen.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "`insufficient_scope` – Der API-Schlüssel hat nicht die nötige Berechtigung.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "`not_found` – Nicht gefunden.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "`conflict` – Konflikt.; `illegal_transition` – Diese Aktion ist im aktuellen Status nicht möglich.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "415": {
+            "description": "`unsupported_media_type` – Bitte JSON senden (application/json).",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "`validation_failed` – Die Eingaben sind nicht gültig.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "`rate_limited` – Zu viele Anfragen – bitte später erneut versuchen.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "`internal_error` – Interner Fehler.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/order-confirmations/{id}/mark-sent/{sendLogId}/retract": {
+      "post": {
+        "operationId": "retractMarkOrderConfirmation",
+        "summary": "Versandmarkierung zurücknehmen",
+        "description": "SND-18 mit Grund (≥ 10 Zeichen); hängt eine Rücknahme an, nichts wird geändert oder gelöscht. Gesperrt, solange eine Folgehandlung (z. B. Mahnung) auf der Markierung beruht. `Idempotency-Key` ist Pflicht. Nicht über MCP.\n\nScope: `invoices:send`.",
+        "tags": [
+          "Auftragsbestätigungen"
+        ],
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "schema": {
+              "type": "string",
+              "pattern": "^ord_[0-9a-zA-Z]{16,64}$",
+              "description": "Auftragsbestätigung (ord_…)"
+            },
+            "required": true,
+            "description": "Auftragsbestätigung (ord_…)"
+          },
+          {
+            "in": "path",
+            "name": "sendLogId",
+            "schema": {
+              "type": "string",
+              "pattern": "^snd_[0-9a-zA-Z]{16,64}$",
+              "description": "ID (snd_…)",
+              "example": "snd_k57f3x2m9q8w1e4r6t"
+            },
+            "required": true,
+            "description": "ID (snd_…)"
+          },
+          {
+            "in": "header",
+            "name": "Idempotency-Key",
+            "schema": {
+              "description": "24 h je Schlüssel; gleicher Body → gleiche Antwort (Idempotent-Replayed: true)",
+              "type": "string"
+            },
+            "description": "24 h je Schlüssel; gleicher Body → gleiche Antwort (Idempotent-Replayed: true)"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DocumentMarkSentRetractRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Status nach der Rücknahme",
+            "headers": {
+              "RateLimit-Limit": {
+                "required": true,
+                "description": "Bucket-Größe",
+                "schema": {
+                  "type": "string",
+                  "description": "Bucket-Größe"
+                }
+              },
+              "RateLimit-Remaining": {
+                "required": true,
+                "description": "Verbleibende Anfragen",
+                "schema": {
+                  "type": "string",
+                  "description": "Verbleibende Anfragen"
+                }
+              },
+              "RateLimit-Reset": {
+                "required": true,
+                "description": "Sekunden bis zum vollen Bucket",
+                "schema": {
+                  "type": "string",
+                  "description": "Sekunden bis zum vollen Bucket"
+                }
+              },
+              "X-Request-Id": {
+                "required": true,
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DocumentMarkSentRetractResult"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "`bad_request` – Ungültige Anfrage.; `idempotency_key_required` – Für diese Aktion ist ein Idempotency-Key erforderlich.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "`unauthorized` – API-Schlüssel fehlt, ist ungültig, abgelaufen oder widerrufen.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "`insufficient_scope` – Der API-Schlüssel hat nicht die nötige Berechtigung.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "`not_found` – Nicht gefunden.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "`conflict` – Konflikt.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "415": {
+            "description": "`unsupported_media_type` – Bitte JSON senden (application/json).",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "`validation_failed` – Die Eingaben sind nicht gültig.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "`rate_limited` – Zu viele Anfragen – bitte später erneut versuchen.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "`internal_error` – Interner Fehler.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/order-confirmations/{id}/chain": {
       "get": {
         "operationId": "chainOfOrderConfirmation",
@@ -7725,6 +9179,733 @@
           },
           "409": {
             "description": "`conflict` – Konflikt.; `illegal_transition` – Diese Aktion ist im aktuellen Status nicht möglich.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "415": {
+            "description": "`unsupported_media_type` – Bitte JSON senden (application/json).",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "`validation_failed` – Die Eingaben sind nicht gültig.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "`rate_limited` – Zu viele Anfragen – bitte später erneut versuchen.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "`internal_error` – Interner Fehler.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/delivery-notes/{id}/preview": {
+      "post": {
+        "operationId": "previewDeliveryNote",
+        "summary": "Lieferschein prüfen (Fertigstellungs-Vorschau)",
+        "description": "DOC-42: Prüfung eines Entwurfs mit den gewünschten Fertigstellungs-Optionen — Fehler/Warnungen mit Regel-ID, Summen, Steuerfall mit Begründung, ER-03-Entscheidung und Format. Schreibt nichts. `confirm_token` ist nur für MCP (REST: null).\n\nScope: `documents:read`.",
+        "tags": [
+          "Lieferscheine"
+        ],
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "schema": {
+              "type": "string",
+              "pattern": "^dln_[0-9a-zA-Z]{16,64}$",
+              "description": "Lieferschein (dln_…)"
+            },
+            "required": true,
+            "description": "Lieferschein (dln_…)"
+          },
+          {
+            "in": "header",
+            "name": "Idempotency-Key",
+            "schema": {
+              "description": "24 h je Schlüssel; gleicher Body → gleiche Antwort (Idempotent-Replayed: true)",
+              "type": "string"
+            },
+            "description": "24 h je Schlüssel; gleicher Body → gleiche Antwort (Idempotent-Replayed: true)"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DocumentFinalizePreviewRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Das Prüfergebnis",
+            "headers": {
+              "RateLimit-Limit": {
+                "required": true,
+                "description": "Bucket-Größe",
+                "schema": {
+                  "type": "string",
+                  "description": "Bucket-Größe"
+                }
+              },
+              "RateLimit-Remaining": {
+                "required": true,
+                "description": "Verbleibende Anfragen",
+                "schema": {
+                  "type": "string",
+                  "description": "Verbleibende Anfragen"
+                }
+              },
+              "RateLimit-Reset": {
+                "required": true,
+                "description": "Sekunden bis zum vollen Bucket",
+                "schema": {
+                  "type": "string",
+                  "description": "Sekunden bis zum vollen Bucket"
+                }
+              },
+              "X-Request-Id": {
+                "required": true,
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DocumentFinalizePreview"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "`bad_request` – Ungültige Anfrage.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "`unauthorized` – API-Schlüssel fehlt, ist ungültig, abgelaufen oder widerrufen.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "`insufficient_scope` – Der API-Schlüssel hat nicht die nötige Berechtigung.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "`not_found` – Nicht gefunden.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "`immutable_record` – Dieser Datensatz ist unveränderlich (GoBD).",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "415": {
+            "description": "`unsupported_media_type` – Bitte JSON senden (application/json).",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "`validation_failed` – Die Eingaben sind nicht gültig.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "`rate_limited` – Zu viele Anfragen – bitte später erneut versuchen.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "`internal_error` – Interner Fehler.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/delivery-notes/{id}/export": {
+      "post": {
+        "operationId": "exportDeliveryNote",
+        "summary": "Lieferschein exportieren",
+        "description": "SND-16: kurzlebige Links (5 min, nur im Tailnet) zu den archivierten Dateien; das Original solange nicht als versendet markiert, danach die „Kopie“ (Original erneut nur mit `reason`). Ändert keinen Status; protokolliert `document.export`. Versendet nichts.\n\nScope: `documents:read`.",
+        "tags": [
+          "Lieferscheine"
+        ],
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "schema": {
+              "type": "string",
+              "pattern": "^dln_[0-9a-zA-Z]{16,64}$",
+              "description": "Lieferschein (dln_…)"
+            },
+            "required": true,
+            "description": "Lieferschein (dln_…)"
+          },
+          {
+            "in": "header",
+            "name": "Idempotency-Key",
+            "schema": {
+              "description": "24 h je Schlüssel; gleicher Body → gleiche Antwort (Idempotent-Replayed: true)",
+              "type": "string"
+            },
+            "description": "24 h je Schlüssel; gleicher Body → gleiche Antwort (Idempotent-Replayed: true)"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DocumentExportRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Die Dateien",
+            "headers": {
+              "RateLimit-Limit": {
+                "required": true,
+                "description": "Bucket-Größe",
+                "schema": {
+                  "type": "string",
+                  "description": "Bucket-Größe"
+                }
+              },
+              "RateLimit-Remaining": {
+                "required": true,
+                "description": "Verbleibende Anfragen",
+                "schema": {
+                  "type": "string",
+                  "description": "Verbleibende Anfragen"
+                }
+              },
+              "RateLimit-Reset": {
+                "required": true,
+                "description": "Sekunden bis zum vollen Bucket",
+                "schema": {
+                  "type": "string",
+                  "description": "Sekunden bis zum vollen Bucket"
+                }
+              },
+              "X-Request-Id": {
+                "required": true,
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DocumentExportResult"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "`bad_request` – Ungültige Anfrage.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "`unauthorized` – API-Schlüssel fehlt, ist ungültig, abgelaufen oder widerrufen.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "`insufficient_scope` – Der API-Schlüssel hat nicht die nötige Berechtigung.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "`not_found` – Nicht gefunden.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "`artifacts_not_ready` – PDF/E-Rechnung wird noch erzeugt.; `immutable_record` – Dieser Datensatz ist unveränderlich (GoBD).; `conflict` – Konflikt.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "415": {
+            "description": "`unsupported_media_type` – Bitte JSON senden (application/json).",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "`validation_failed` – Die Eingaben sind nicht gültig.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "`rate_limited` – Zu viele Anfragen – bitte später erneut versuchen.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "`internal_error` – Interner Fehler.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/delivery-notes/{id}/mark-sent": {
+      "post": {
+        "operationId": "markSentDeliveryNote",
+        "summary": "Lieferschein als versendet markieren",
+        "description": "SND-07/17: nachdem der Inhaber die Dateien selbst übergeben hat (E-Mail, Post, persönlich, Upload-Portal, Sonstiges). ER-03 wird geprüft; der erste wirksame Eintrag setzt Status, Versanddatum und Zugang. `?dry_run=true` prüft nur. `Idempotency-Key` ist Pflicht. Keine Route versendet etwas.\n\nScope: `invoices:send`.",
+        "tags": [
+          "Lieferscheine"
+        ],
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "schema": {
+              "type": "string",
+              "pattern": "^dln_[0-9a-zA-Z]{16,64}$",
+              "description": "Lieferschein (dln_…)"
+            },
+            "required": true,
+            "description": "Lieferschein (dln_…)"
+          },
+          {
+            "in": "query",
+            "name": "dry_run",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "true",
+                "false"
+              ]
+            }
+          },
+          {
+            "in": "header",
+            "name": "Idempotency-Key",
+            "schema": {
+              "description": "24 h je Schlüssel; gleicher Body → gleiche Antwort (Idempotent-Replayed: true)",
+              "type": "string"
+            },
+            "description": "24 h je Schlüssel; gleicher Body → gleiche Antwort (Idempotent-Replayed: true)"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DocumentMarkSentRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Der Versandeintrag (dry_run: das Prüfergebnis)",
+            "headers": {
+              "RateLimit-Limit": {
+                "required": true,
+                "description": "Bucket-Größe",
+                "schema": {
+                  "type": "string",
+                  "description": "Bucket-Größe"
+                }
+              },
+              "RateLimit-Remaining": {
+                "required": true,
+                "description": "Verbleibende Anfragen",
+                "schema": {
+                  "type": "string",
+                  "description": "Verbleibende Anfragen"
+                }
+              },
+              "RateLimit-Reset": {
+                "required": true,
+                "description": "Sekunden bis zum vollen Bucket",
+                "schema": {
+                  "type": "string",
+                  "description": "Sekunden bis zum vollen Bucket"
+                }
+              },
+              "X-Request-Id": {
+                "required": true,
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DocumentMarkSentResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "`bad_request` – Ungültige Anfrage.; `idempotency_key_required` – Für diese Aktion ist ein Idempotency-Key erforderlich.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "`unauthorized` – API-Schlüssel fehlt, ist ungültig, abgelaufen oder widerrufen.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "`insufficient_scope` – Der API-Schlüssel hat nicht die nötige Berechtigung.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "`not_found` – Nicht gefunden.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "`conflict` – Konflikt.; `illegal_transition` – Diese Aktion ist im aktuellen Status nicht möglich.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "415": {
+            "description": "`unsupported_media_type` – Bitte JSON senden (application/json).",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "`validation_failed` – Die Eingaben sind nicht gültig.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "`rate_limited` – Zu viele Anfragen – bitte später erneut versuchen.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "`internal_error` – Interner Fehler.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/delivery-notes/{id}/mark-sent/{sendLogId}/retract": {
+      "post": {
+        "operationId": "retractMarkDeliveryNote",
+        "summary": "Versandmarkierung zurücknehmen",
+        "description": "SND-18 mit Grund (≥ 10 Zeichen); hängt eine Rücknahme an, nichts wird geändert oder gelöscht. Gesperrt, solange eine Folgehandlung (z. B. Mahnung) auf der Markierung beruht. `Idempotency-Key` ist Pflicht. Nicht über MCP.\n\nScope: `invoices:send`.",
+        "tags": [
+          "Lieferscheine"
+        ],
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "schema": {
+              "type": "string",
+              "pattern": "^dln_[0-9a-zA-Z]{16,64}$",
+              "description": "Lieferschein (dln_…)"
+            },
+            "required": true,
+            "description": "Lieferschein (dln_…)"
+          },
+          {
+            "in": "path",
+            "name": "sendLogId",
+            "schema": {
+              "type": "string",
+              "pattern": "^snd_[0-9a-zA-Z]{16,64}$",
+              "description": "ID (snd_…)",
+              "example": "snd_k57f3x2m9q8w1e4r6t"
+            },
+            "required": true,
+            "description": "ID (snd_…)"
+          },
+          {
+            "in": "header",
+            "name": "Idempotency-Key",
+            "schema": {
+              "description": "24 h je Schlüssel; gleicher Body → gleiche Antwort (Idempotent-Replayed: true)",
+              "type": "string"
+            },
+            "description": "24 h je Schlüssel; gleicher Body → gleiche Antwort (Idempotent-Replayed: true)"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DocumentMarkSentRetractRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Status nach der Rücknahme",
+            "headers": {
+              "RateLimit-Limit": {
+                "required": true,
+                "description": "Bucket-Größe",
+                "schema": {
+                  "type": "string",
+                  "description": "Bucket-Größe"
+                }
+              },
+              "RateLimit-Remaining": {
+                "required": true,
+                "description": "Verbleibende Anfragen",
+                "schema": {
+                  "type": "string",
+                  "description": "Verbleibende Anfragen"
+                }
+              },
+              "RateLimit-Reset": {
+                "required": true,
+                "description": "Sekunden bis zum vollen Bucket",
+                "schema": {
+                  "type": "string",
+                  "description": "Sekunden bis zum vollen Bucket"
+                }
+              },
+              "X-Request-Id": {
+                "required": true,
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DocumentMarkSentRetractResult"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "`bad_request` – Ungültige Anfrage.; `idempotency_key_required` – Für diese Aktion ist ein Idempotency-Key erforderlich.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "`unauthorized` – API-Schlüssel fehlt, ist ungültig, abgelaufen oder widerrufen.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "`insufficient_scope` – Der API-Schlüssel hat nicht die nötige Berechtigung.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "`not_found` – Nicht gefunden.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "`conflict` – Konflikt.",
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -9354,6 +11535,733 @@
         }
       }
     },
+    "/api/v1/invoices/{id}/preview": {
+      "post": {
+        "operationId": "previewInvoice",
+        "summary": "Rechnung prüfen (Fertigstellungs-Vorschau)",
+        "description": "DOC-42: Prüfung eines Entwurfs mit den gewünschten Fertigstellungs-Optionen — Fehler/Warnungen mit Regel-ID, Summen, Steuerfall mit Begründung, ER-03-Entscheidung und Format. Schreibt nichts. `confirm_token` ist nur für MCP (REST: null).\n\nScope: `documents:read`.",
+        "tags": [
+          "Rechnungen"
+        ],
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "schema": {
+              "type": "string",
+              "pattern": "^inv_[0-9a-zA-Z]{16,64}$",
+              "description": "Rechnung (inv_…)"
+            },
+            "required": true,
+            "description": "Rechnung (inv_…)"
+          },
+          {
+            "in": "header",
+            "name": "Idempotency-Key",
+            "schema": {
+              "description": "24 h je Schlüssel; gleicher Body → gleiche Antwort (Idempotent-Replayed: true)",
+              "type": "string"
+            },
+            "description": "24 h je Schlüssel; gleicher Body → gleiche Antwort (Idempotent-Replayed: true)"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DocumentFinalizePreviewRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Das Prüfergebnis",
+            "headers": {
+              "RateLimit-Limit": {
+                "required": true,
+                "description": "Bucket-Größe",
+                "schema": {
+                  "type": "string",
+                  "description": "Bucket-Größe"
+                }
+              },
+              "RateLimit-Remaining": {
+                "required": true,
+                "description": "Verbleibende Anfragen",
+                "schema": {
+                  "type": "string",
+                  "description": "Verbleibende Anfragen"
+                }
+              },
+              "RateLimit-Reset": {
+                "required": true,
+                "description": "Sekunden bis zum vollen Bucket",
+                "schema": {
+                  "type": "string",
+                  "description": "Sekunden bis zum vollen Bucket"
+                }
+              },
+              "X-Request-Id": {
+                "required": true,
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DocumentFinalizePreview"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "`bad_request` – Ungültige Anfrage.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "`unauthorized` – API-Schlüssel fehlt, ist ungültig, abgelaufen oder widerrufen.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "`insufficient_scope` – Der API-Schlüssel hat nicht die nötige Berechtigung.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "`not_found` – Nicht gefunden.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "`immutable_record` – Dieser Datensatz ist unveränderlich (GoBD).",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "415": {
+            "description": "`unsupported_media_type` – Bitte JSON senden (application/json).",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "`validation_failed` – Die Eingaben sind nicht gültig.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "`rate_limited` – Zu viele Anfragen – bitte später erneut versuchen.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "`internal_error` – Interner Fehler.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/invoices/{id}/export": {
+      "post": {
+        "operationId": "exportInvoice",
+        "summary": "Rechnung exportieren",
+        "description": "SND-16: kurzlebige Links (5 min, nur im Tailnet) zu den archivierten Dateien; das Original solange nicht als versendet markiert, danach die „Kopie“ (Original erneut nur mit `reason`). Ändert keinen Status; protokolliert `document.export`. Versendet nichts.\n\nScope: `documents:read`.",
+        "tags": [
+          "Rechnungen"
+        ],
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "schema": {
+              "type": "string",
+              "pattern": "^inv_[0-9a-zA-Z]{16,64}$",
+              "description": "Rechnung (inv_…)"
+            },
+            "required": true,
+            "description": "Rechnung (inv_…)"
+          },
+          {
+            "in": "header",
+            "name": "Idempotency-Key",
+            "schema": {
+              "description": "24 h je Schlüssel; gleicher Body → gleiche Antwort (Idempotent-Replayed: true)",
+              "type": "string"
+            },
+            "description": "24 h je Schlüssel; gleicher Body → gleiche Antwort (Idempotent-Replayed: true)"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DocumentExportRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Die Dateien",
+            "headers": {
+              "RateLimit-Limit": {
+                "required": true,
+                "description": "Bucket-Größe",
+                "schema": {
+                  "type": "string",
+                  "description": "Bucket-Größe"
+                }
+              },
+              "RateLimit-Remaining": {
+                "required": true,
+                "description": "Verbleibende Anfragen",
+                "schema": {
+                  "type": "string",
+                  "description": "Verbleibende Anfragen"
+                }
+              },
+              "RateLimit-Reset": {
+                "required": true,
+                "description": "Sekunden bis zum vollen Bucket",
+                "schema": {
+                  "type": "string",
+                  "description": "Sekunden bis zum vollen Bucket"
+                }
+              },
+              "X-Request-Id": {
+                "required": true,
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DocumentExportResult"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "`bad_request` – Ungültige Anfrage.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "`unauthorized` – API-Schlüssel fehlt, ist ungültig, abgelaufen oder widerrufen.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "`insufficient_scope` – Der API-Schlüssel hat nicht die nötige Berechtigung.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "`not_found` – Nicht gefunden.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "`artifacts_not_ready` – PDF/E-Rechnung wird noch erzeugt.; `immutable_record` – Dieser Datensatz ist unveränderlich (GoBD).; `conflict` – Konflikt.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "415": {
+            "description": "`unsupported_media_type` – Bitte JSON senden (application/json).",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "`validation_failed` – Die Eingaben sind nicht gültig.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "`rate_limited` – Zu viele Anfragen – bitte später erneut versuchen.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "`internal_error` – Interner Fehler.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/invoices/{id}/mark-sent": {
+      "post": {
+        "operationId": "markSentInvoice",
+        "summary": "Rechnung als versendet markieren",
+        "description": "SND-07/17: nachdem der Inhaber die Dateien selbst übergeben hat (E-Mail, Post, persönlich, Upload-Portal, Sonstiges). ER-03 wird geprüft; der erste wirksame Eintrag setzt Status, Versanddatum und Zugang. `?dry_run=true` prüft nur. `Idempotency-Key` ist Pflicht. Keine Route versendet etwas.\n\nScope: `invoices:send`.",
+        "tags": [
+          "Rechnungen"
+        ],
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "schema": {
+              "type": "string",
+              "pattern": "^inv_[0-9a-zA-Z]{16,64}$",
+              "description": "Rechnung (inv_…)"
+            },
+            "required": true,
+            "description": "Rechnung (inv_…)"
+          },
+          {
+            "in": "query",
+            "name": "dry_run",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "true",
+                "false"
+              ]
+            }
+          },
+          {
+            "in": "header",
+            "name": "Idempotency-Key",
+            "schema": {
+              "description": "24 h je Schlüssel; gleicher Body → gleiche Antwort (Idempotent-Replayed: true)",
+              "type": "string"
+            },
+            "description": "24 h je Schlüssel; gleicher Body → gleiche Antwort (Idempotent-Replayed: true)"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DocumentMarkSentRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Der Versandeintrag (dry_run: das Prüfergebnis)",
+            "headers": {
+              "RateLimit-Limit": {
+                "required": true,
+                "description": "Bucket-Größe",
+                "schema": {
+                  "type": "string",
+                  "description": "Bucket-Größe"
+                }
+              },
+              "RateLimit-Remaining": {
+                "required": true,
+                "description": "Verbleibende Anfragen",
+                "schema": {
+                  "type": "string",
+                  "description": "Verbleibende Anfragen"
+                }
+              },
+              "RateLimit-Reset": {
+                "required": true,
+                "description": "Sekunden bis zum vollen Bucket",
+                "schema": {
+                  "type": "string",
+                  "description": "Sekunden bis zum vollen Bucket"
+                }
+              },
+              "X-Request-Id": {
+                "required": true,
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DocumentMarkSentResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "`bad_request` – Ungültige Anfrage.; `idempotency_key_required` – Für diese Aktion ist ein Idempotency-Key erforderlich.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "`unauthorized` – API-Schlüssel fehlt, ist ungültig, abgelaufen oder widerrufen.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "`insufficient_scope` – Der API-Schlüssel hat nicht die nötige Berechtigung.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "`not_found` – Nicht gefunden.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "`conflict` – Konflikt.; `illegal_transition` – Diese Aktion ist im aktuellen Status nicht möglich.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "415": {
+            "description": "`unsupported_media_type` – Bitte JSON senden (application/json).",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "`validation_failed` – Die Eingaben sind nicht gültig.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "`rate_limited` – Zu viele Anfragen – bitte später erneut versuchen.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "`internal_error` – Interner Fehler.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/invoices/{id}/mark-sent/{sendLogId}/retract": {
+      "post": {
+        "operationId": "retractMarkInvoice",
+        "summary": "Versandmarkierung zurücknehmen",
+        "description": "SND-18 mit Grund (≥ 10 Zeichen); hängt eine Rücknahme an, nichts wird geändert oder gelöscht. Gesperrt, solange eine Folgehandlung (z. B. Mahnung) auf der Markierung beruht. `Idempotency-Key` ist Pflicht. Nicht über MCP.\n\nScope: `invoices:send`.",
+        "tags": [
+          "Rechnungen"
+        ],
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "schema": {
+              "type": "string",
+              "pattern": "^inv_[0-9a-zA-Z]{16,64}$",
+              "description": "Rechnung (inv_…)"
+            },
+            "required": true,
+            "description": "Rechnung (inv_…)"
+          },
+          {
+            "in": "path",
+            "name": "sendLogId",
+            "schema": {
+              "type": "string",
+              "pattern": "^snd_[0-9a-zA-Z]{16,64}$",
+              "description": "ID (snd_…)",
+              "example": "snd_k57f3x2m9q8w1e4r6t"
+            },
+            "required": true,
+            "description": "ID (snd_…)"
+          },
+          {
+            "in": "header",
+            "name": "Idempotency-Key",
+            "schema": {
+              "description": "24 h je Schlüssel; gleicher Body → gleiche Antwort (Idempotent-Replayed: true)",
+              "type": "string"
+            },
+            "description": "24 h je Schlüssel; gleicher Body → gleiche Antwort (Idempotent-Replayed: true)"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DocumentMarkSentRetractRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Status nach der Rücknahme",
+            "headers": {
+              "RateLimit-Limit": {
+                "required": true,
+                "description": "Bucket-Größe",
+                "schema": {
+                  "type": "string",
+                  "description": "Bucket-Größe"
+                }
+              },
+              "RateLimit-Remaining": {
+                "required": true,
+                "description": "Verbleibende Anfragen",
+                "schema": {
+                  "type": "string",
+                  "description": "Verbleibende Anfragen"
+                }
+              },
+              "RateLimit-Reset": {
+                "required": true,
+                "description": "Sekunden bis zum vollen Bucket",
+                "schema": {
+                  "type": "string",
+                  "description": "Sekunden bis zum vollen Bucket"
+                }
+              },
+              "X-Request-Id": {
+                "required": true,
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DocumentMarkSentRetractResult"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "`bad_request` – Ungültige Anfrage.; `idempotency_key_required` – Für diese Aktion ist ein Idempotency-Key erforderlich.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "`unauthorized` – API-Schlüssel fehlt, ist ungültig, abgelaufen oder widerrufen.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "`insufficient_scope` – Der API-Schlüssel hat nicht die nötige Berechtigung.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "`not_found` – Nicht gefunden.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "`conflict` – Konflikt.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "415": {
+            "description": "`unsupported_media_type` – Bitte JSON senden (application/json).",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "`validation_failed` – Die Eingaben sind nicht gültig.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "`rate_limited` – Zu viele Anfragen – bitte später erneut versuchen.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "`internal_error` – Interner Fehler.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/invoices/{id}/cancel": {
       "post": {
         "operationId": "cancelInvoice",
@@ -10006,6 +12914,919 @@
           },
           "404": {
             "description": "`not_found` – Nicht gefunden.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "`rate_limited` – Zu viele Anfragen – bitte später erneut versuchen.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "`internal_error` – Interner Fehler.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/corrections/{id}/preview": {
+      "post": {
+        "operationId": "previewCorrection",
+        "summary": "Rechnungskorrektur prüfen (Fertigstellungs-Vorschau)",
+        "description": "DOC-42: Prüfung eines Entwurfs mit den gewünschten Fertigstellungs-Optionen — Fehler/Warnungen mit Regel-ID, Summen, Steuerfall mit Begründung, ER-03-Entscheidung und Format. Schreibt nichts. `confirm_token` ist nur für MCP (REST: null).\n\nScope: `documents:read`.",
+        "tags": [
+          "Rechnungen"
+        ],
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "schema": {
+              "type": "string",
+              "pattern": "^cor_[0-9a-zA-Z]{16,64}$",
+              "description": "Rechnungskorrektur (cor_…)"
+            },
+            "required": true,
+            "description": "Rechnungskorrektur (cor_…)"
+          },
+          {
+            "in": "header",
+            "name": "Idempotency-Key",
+            "schema": {
+              "description": "24 h je Schlüssel; gleicher Body → gleiche Antwort (Idempotent-Replayed: true)",
+              "type": "string"
+            },
+            "description": "24 h je Schlüssel; gleicher Body → gleiche Antwort (Idempotent-Replayed: true)"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DocumentFinalizePreviewRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Das Prüfergebnis",
+            "headers": {
+              "RateLimit-Limit": {
+                "required": true,
+                "description": "Bucket-Größe",
+                "schema": {
+                  "type": "string",
+                  "description": "Bucket-Größe"
+                }
+              },
+              "RateLimit-Remaining": {
+                "required": true,
+                "description": "Verbleibende Anfragen",
+                "schema": {
+                  "type": "string",
+                  "description": "Verbleibende Anfragen"
+                }
+              },
+              "RateLimit-Reset": {
+                "required": true,
+                "description": "Sekunden bis zum vollen Bucket",
+                "schema": {
+                  "type": "string",
+                  "description": "Sekunden bis zum vollen Bucket"
+                }
+              },
+              "X-Request-Id": {
+                "required": true,
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DocumentFinalizePreview"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "`bad_request` – Ungültige Anfrage.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "`unauthorized` – API-Schlüssel fehlt, ist ungültig, abgelaufen oder widerrufen.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "`insufficient_scope` – Der API-Schlüssel hat nicht die nötige Berechtigung.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "`not_found` – Nicht gefunden.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "`immutable_record` – Dieser Datensatz ist unveränderlich (GoBD).",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "415": {
+            "description": "`unsupported_media_type` – Bitte JSON senden (application/json).",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "`validation_failed` – Die Eingaben sind nicht gültig.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "`rate_limited` – Zu viele Anfragen – bitte später erneut versuchen.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "`internal_error` – Interner Fehler.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/corrections/{id}/finalize": {
+      "post": {
+        "operationId": "finalizeCorrection",
+        "summary": "Rechnungskorrektur fertigstellen",
+        "description": "Vergibt die Nummer, friert den Inhalt ein und erzeugt PDF/E-Rechnung (F04 §4.6). Rechnungskorrekturen brauchen invoices:finalize und invoices:cancel. `Idempotency-Key` ist Pflicht.\n\nScope: `invoices:finalize`.",
+        "tags": [
+          "Rechnungen"
+        ],
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "schema": {
+              "type": "string",
+              "pattern": "^cor_[0-9a-zA-Z]{16,64}$",
+              "description": "Rechnungskorrektur (cor_…)"
+            },
+            "required": true,
+            "description": "Rechnungskorrektur (cor_…)"
+          },
+          {
+            "in": "header",
+            "name": "Idempotency-Key",
+            "schema": {
+              "description": "24 h je Schlüssel; gleicher Body → gleiche Antwort (Idempotent-Replayed: true)",
+              "type": "string"
+            },
+            "description": "24 h je Schlüssel; gleicher Body → gleiche Antwort (Idempotent-Replayed: true)"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DocumentFinalize"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Der fertiggestellte Beleg",
+            "headers": {
+              "RateLimit-Limit": {
+                "required": true,
+                "description": "Bucket-Größe",
+                "schema": {
+                  "type": "string",
+                  "description": "Bucket-Größe"
+                }
+              },
+              "RateLimit-Remaining": {
+                "required": true,
+                "description": "Verbleibende Anfragen",
+                "schema": {
+                  "type": "string",
+                  "description": "Verbleibende Anfragen"
+                }
+              },
+              "RateLimit-Reset": {
+                "required": true,
+                "description": "Sekunden bis zum vollen Bucket",
+                "schema": {
+                  "type": "string",
+                  "description": "Sekunden bis zum vollen Bucket"
+                }
+              },
+              "X-Request-Id": {
+                "required": true,
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DocumentFinalizeResult"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "`bad_request` – Ungültige Anfrage.; `idempotency_key_required` – Für diese Aktion ist ein Idempotency-Key erforderlich.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "`unauthorized` – API-Schlüssel fehlt, ist ungültig, abgelaufen oder widerrufen.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "`insufficient_scope` – Der API-Schlüssel hat nicht die nötige Berechtigung.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "`not_found` – Nicht gefunden.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "`version_conflict` – Der Datensatz wurde zwischenzeitlich geändert.; `immutable_record` – Dieser Datensatz ist unveränderlich (GoBD).; `revalidation_failed` – Firmen- oder Kundendaten wurden während der Fertigstellung geändert.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "415": {
+            "description": "`unsupported_media_type` – Bitte JSON senden (application/json).",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "`validation_failed` – Die Eingaben sind nicht gültig.; `einvoice_validation_failed` – Die E-Rechnung ist ungültig.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "`rate_limited` – Zu viele Anfragen – bitte später erneut versuchen.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "`internal_error` – Interner Fehler.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "`dependency_unavailable` – Ein benötigter Dienst ist nicht erreichbar.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/corrections/{id}/export": {
+      "post": {
+        "operationId": "exportCorrection",
+        "summary": "Rechnungskorrektur exportieren",
+        "description": "SND-16: kurzlebige Links (5 min, nur im Tailnet) zu den archivierten Dateien; das Original solange nicht als versendet markiert, danach die „Kopie“ (Original erneut nur mit `reason`). Ändert keinen Status; protokolliert `document.export`. Versendet nichts.\n\nScope: `documents:read`.",
+        "tags": [
+          "Rechnungen"
+        ],
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "schema": {
+              "type": "string",
+              "pattern": "^cor_[0-9a-zA-Z]{16,64}$",
+              "description": "Rechnungskorrektur (cor_…)"
+            },
+            "required": true,
+            "description": "Rechnungskorrektur (cor_…)"
+          },
+          {
+            "in": "header",
+            "name": "Idempotency-Key",
+            "schema": {
+              "description": "24 h je Schlüssel; gleicher Body → gleiche Antwort (Idempotent-Replayed: true)",
+              "type": "string"
+            },
+            "description": "24 h je Schlüssel; gleicher Body → gleiche Antwort (Idempotent-Replayed: true)"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DocumentExportRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Die Dateien",
+            "headers": {
+              "RateLimit-Limit": {
+                "required": true,
+                "description": "Bucket-Größe",
+                "schema": {
+                  "type": "string",
+                  "description": "Bucket-Größe"
+                }
+              },
+              "RateLimit-Remaining": {
+                "required": true,
+                "description": "Verbleibende Anfragen",
+                "schema": {
+                  "type": "string",
+                  "description": "Verbleibende Anfragen"
+                }
+              },
+              "RateLimit-Reset": {
+                "required": true,
+                "description": "Sekunden bis zum vollen Bucket",
+                "schema": {
+                  "type": "string",
+                  "description": "Sekunden bis zum vollen Bucket"
+                }
+              },
+              "X-Request-Id": {
+                "required": true,
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DocumentExportResult"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "`bad_request` – Ungültige Anfrage.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "`unauthorized` – API-Schlüssel fehlt, ist ungültig, abgelaufen oder widerrufen.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "`insufficient_scope` – Der API-Schlüssel hat nicht die nötige Berechtigung.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "`not_found` – Nicht gefunden.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "`artifacts_not_ready` – PDF/E-Rechnung wird noch erzeugt.; `immutable_record` – Dieser Datensatz ist unveränderlich (GoBD).; `conflict` – Konflikt.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "415": {
+            "description": "`unsupported_media_type` – Bitte JSON senden (application/json).",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "`validation_failed` – Die Eingaben sind nicht gültig.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "`rate_limited` – Zu viele Anfragen – bitte später erneut versuchen.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "`internal_error` – Interner Fehler.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/corrections/{id}/mark-sent": {
+      "post": {
+        "operationId": "markSentCorrection",
+        "summary": "Rechnungskorrektur als versendet markieren",
+        "description": "SND-07/17: nachdem der Inhaber die Dateien selbst übergeben hat (E-Mail, Post, persönlich, Upload-Portal, Sonstiges). ER-03 wird geprüft; der erste wirksame Eintrag setzt Status, Versanddatum und Zugang. `?dry_run=true` prüft nur. `Idempotency-Key` ist Pflicht. Keine Route versendet etwas.\n\nScope: `invoices:send`.",
+        "tags": [
+          "Rechnungen"
+        ],
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "schema": {
+              "type": "string",
+              "pattern": "^cor_[0-9a-zA-Z]{16,64}$",
+              "description": "Rechnungskorrektur (cor_…)"
+            },
+            "required": true,
+            "description": "Rechnungskorrektur (cor_…)"
+          },
+          {
+            "in": "query",
+            "name": "dry_run",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "true",
+                "false"
+              ]
+            }
+          },
+          {
+            "in": "header",
+            "name": "Idempotency-Key",
+            "schema": {
+              "description": "24 h je Schlüssel; gleicher Body → gleiche Antwort (Idempotent-Replayed: true)",
+              "type": "string"
+            },
+            "description": "24 h je Schlüssel; gleicher Body → gleiche Antwort (Idempotent-Replayed: true)"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DocumentMarkSentRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Der Versandeintrag (dry_run: das Prüfergebnis)",
+            "headers": {
+              "RateLimit-Limit": {
+                "required": true,
+                "description": "Bucket-Größe",
+                "schema": {
+                  "type": "string",
+                  "description": "Bucket-Größe"
+                }
+              },
+              "RateLimit-Remaining": {
+                "required": true,
+                "description": "Verbleibende Anfragen",
+                "schema": {
+                  "type": "string",
+                  "description": "Verbleibende Anfragen"
+                }
+              },
+              "RateLimit-Reset": {
+                "required": true,
+                "description": "Sekunden bis zum vollen Bucket",
+                "schema": {
+                  "type": "string",
+                  "description": "Sekunden bis zum vollen Bucket"
+                }
+              },
+              "X-Request-Id": {
+                "required": true,
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DocumentMarkSentResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "`bad_request` – Ungültige Anfrage.; `idempotency_key_required` – Für diese Aktion ist ein Idempotency-Key erforderlich.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "`unauthorized` – API-Schlüssel fehlt, ist ungültig, abgelaufen oder widerrufen.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "`insufficient_scope` – Der API-Schlüssel hat nicht die nötige Berechtigung.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "`not_found` – Nicht gefunden.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "`conflict` – Konflikt.; `illegal_transition` – Diese Aktion ist im aktuellen Status nicht möglich.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "415": {
+            "description": "`unsupported_media_type` – Bitte JSON senden (application/json).",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "`validation_failed` – Die Eingaben sind nicht gültig.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "`rate_limited` – Zu viele Anfragen – bitte später erneut versuchen.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "`internal_error` – Interner Fehler.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/corrections/{id}/mark-sent/{sendLogId}/retract": {
+      "post": {
+        "operationId": "retractMarkCorrection",
+        "summary": "Versandmarkierung zurücknehmen",
+        "description": "SND-18 mit Grund (≥ 10 Zeichen); hängt eine Rücknahme an, nichts wird geändert oder gelöscht. Gesperrt, solange eine Folgehandlung (z. B. Mahnung) auf der Markierung beruht. `Idempotency-Key` ist Pflicht. Nicht über MCP.\n\nScope: `invoices:send`.",
+        "tags": [
+          "Rechnungen"
+        ],
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "schema": {
+              "type": "string",
+              "pattern": "^cor_[0-9a-zA-Z]{16,64}$",
+              "description": "Rechnungskorrektur (cor_…)"
+            },
+            "required": true,
+            "description": "Rechnungskorrektur (cor_…)"
+          },
+          {
+            "in": "path",
+            "name": "sendLogId",
+            "schema": {
+              "type": "string",
+              "pattern": "^snd_[0-9a-zA-Z]{16,64}$",
+              "description": "ID (snd_…)",
+              "example": "snd_k57f3x2m9q8w1e4r6t"
+            },
+            "required": true,
+            "description": "ID (snd_…)"
+          },
+          {
+            "in": "header",
+            "name": "Idempotency-Key",
+            "schema": {
+              "description": "24 h je Schlüssel; gleicher Body → gleiche Antwort (Idempotent-Replayed: true)",
+              "type": "string"
+            },
+            "description": "24 h je Schlüssel; gleicher Body → gleiche Antwort (Idempotent-Replayed: true)"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DocumentMarkSentRetractRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Status nach der Rücknahme",
+            "headers": {
+              "RateLimit-Limit": {
+                "required": true,
+                "description": "Bucket-Größe",
+                "schema": {
+                  "type": "string",
+                  "description": "Bucket-Größe"
+                }
+              },
+              "RateLimit-Remaining": {
+                "required": true,
+                "description": "Verbleibende Anfragen",
+                "schema": {
+                  "type": "string",
+                  "description": "Verbleibende Anfragen"
+                }
+              },
+              "RateLimit-Reset": {
+                "required": true,
+                "description": "Sekunden bis zum vollen Bucket",
+                "schema": {
+                  "type": "string",
+                  "description": "Sekunden bis zum vollen Bucket"
+                }
+              },
+              "X-Request-Id": {
+                "required": true,
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DocumentMarkSentRetractResult"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "`bad_request` – Ungültige Anfrage.; `idempotency_key_required` – Für diese Aktion ist ein Idempotency-Key erforderlich.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "`unauthorized` – API-Schlüssel fehlt, ist ungültig, abgelaufen oder widerrufen.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "`insufficient_scope` – Der API-Schlüssel hat nicht die nötige Berechtigung.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "`not_found` – Nicht gefunden.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "`conflict` – Konflikt.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "415": {
+            "description": "`unsupported_media_type` – Bitte JSON senden (application/json).",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "`validation_failed` – Die Eingaben sind nicht gültig.",
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -18441,6 +22262,123 @@
         ],
         "additionalProperties": false
       },
+      "DocumentFinalizePreviewRequest": {
+        "type": "object",
+        "properties": {
+          "document_date": {
+            "type": "string",
+            "pattern": "^\\d{4}-\\d{2}-\\d{2}$",
+            "description": "Datum (YYYY-MM-DD)",
+            "example": "2026-10-12"
+          },
+          "backdate_reason": {
+            "type": "string",
+            "maxLength": 1000
+          },
+          "overrides": {
+            "type": "object",
+            "properties": {
+              "vat_id_unverified_reason": {
+                "type": "string",
+                "maxLength": 1000
+              },
+              "rc13b_confirmation": {
+                "type": "string",
+                "maxLength": 1000
+              }
+            }
+          }
+        },
+        "additionalProperties": false
+      },
+      "DocumentExportRequest": {
+        "type": "object",
+        "properties": {
+          "entry": {
+            "description": "Exportmenü (SND-16): default (je Format), zugferd_pdf, xml, xrechnung_with_reading, pdf, zip (Dateien für das ZIP). Standard: default",
+            "type": "string",
+            "enum": [
+              "default",
+              "zugferd_pdf",
+              "xml",
+              "xrechnung_with_reading",
+              "pdf",
+              "zip"
+            ]
+          },
+          "original": {
+            "description": "Original erneut exportieren (nach der Markierung)",
+            "type": "boolean"
+          },
+          "reason": {
+            "description": "Pflicht bei original nach der Markierung",
+            "type": "string",
+            "maxLength": 2000
+          }
+        },
+        "additionalProperties": false
+      },
+      "DocumentMarkSentRequest": {
+        "type": "object",
+        "properties": {
+          "sent_on": {
+            "type": "string",
+            "pattern": "^\\d{4}-\\d{2}-\\d{2}$",
+            "description": "Versanddatum (≤ heute, ≥ Fertigstellung)",
+            "example": "2026-10-12"
+          },
+          "channel": {
+            "type": "string",
+            "enum": [
+              "email_manual",
+              "post",
+              "hand",
+              "upload_portal",
+              "other"
+            ],
+            "description": "email_manual | post | hand | upload_portal | other (other: note Pflicht)"
+          },
+          "note": {
+            "type": "string",
+            "maxLength": 2000
+          },
+          "artifacts": {
+            "minItems": 1,
+            "maxItems": 50,
+            "type": "array",
+            "items": {
+              "type": "string",
+              "maxLength": 80
+            },
+            "description": "Übergebene Dateien (art_… aus dem Export)"
+          },
+          "einvoice_handed_over_electronically": {
+            "description": "Kanal other: „elektronisch übermittelt“ bestätigt (SND-17)",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "sent_on",
+          "channel",
+          "artifacts"
+        ],
+        "additionalProperties": false
+      },
+      "DocumentMarkSentRetractRequest": {
+        "type": "object",
+        "properties": {
+          "reason": {
+            "type": "string",
+            "minLength": 10,
+            "maxLength": 2000,
+            "description": "Grund (mind. 10 Zeichen, SND-18)"
+          }
+        },
+        "required": [
+          "reason"
+        ],
+        "additionalProperties": false
+      },
       "QuoteAccept": {
         "type": "object",
         "properties": {
@@ -22461,6 +26399,414 @@
         ],
         "additionalProperties": false
       },
+      "DocumentFinalizePreview": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "type": {
+            "type": "string"
+          },
+          "version": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          },
+          "status": {
+            "type": "string"
+          },
+          "allowed": {
+            "type": "boolean",
+            "description": "true = keine Fehler; Fertigstellen ist möglich"
+          },
+          "document_date": {
+            "anyOf": [
+              {
+                "type": "string",
+                "pattern": "^\\d{4}-\\d{2}-\\d{2}$",
+                "description": "Datum (YYYY-MM-DD)",
+                "example": "2026-10-12"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "errors": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "code": {
+                  "type": "string"
+                },
+                "rule": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "field": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "message": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "code",
+                "rule",
+                "field",
+                "message"
+              ],
+              "additionalProperties": false
+            }
+          },
+          "warnings": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "code": {
+                  "type": "string"
+                },
+                "rule": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "field": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "message": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "code",
+                "rule",
+                "field",
+                "message"
+              ],
+              "additionalProperties": false
+            }
+          },
+          "totals": {
+            "anyOf": [
+              {
+                "type": "object",
+                "properties": {
+                  "net_cents": {
+                    "type": "integer",
+                    "minimum": -9007199254740991,
+                    "maximum": 9007199254740991
+                  },
+                  "vat_cents": {
+                    "type": "integer",
+                    "minimum": -9007199254740991,
+                    "maximum": 9007199254740991
+                  },
+                  "gross_cents": {
+                    "type": "integer",
+                    "minimum": -9007199254740991,
+                    "maximum": 9007199254740991
+                  },
+                  "payable_cents": {
+                    "type": "integer",
+                    "minimum": -9007199254740991,
+                    "maximum": 9007199254740991
+                  }
+                },
+                "required": [
+                  "net_cents",
+                  "vat_cents",
+                  "gross_cents",
+                  "payable_cents"
+                ],
+                "additionalProperties": false
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "tax_case": {
+            "type": "object",
+            "properties": {
+              "value": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "reasons": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              }
+            },
+            "required": [
+              "value",
+              "reasons"
+            ],
+            "additionalProperties": false
+          },
+          "einvoice": {
+            "type": "object",
+            "properties": {
+              "decision": {
+                "type": "string"
+              },
+              "reason": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "format": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "decision",
+              "reason",
+              "format"
+            ],
+            "additionalProperties": false
+          },
+          "pdf_preview_url": {
+            "description": "P1: noch nicht verfügbar (null)",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "confirm_token": {
+            "description": "Nur MCP (document_preview); REST liefert null und ignoriert es beim Fertigstellen",
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "id",
+          "type",
+          "version",
+          "status",
+          "allowed",
+          "document_date",
+          "errors",
+          "warnings",
+          "totals",
+          "tax_case",
+          "einvoice",
+          "pdf_preview_url",
+          "confirm_token"
+        ],
+        "additionalProperties": false
+      },
+      "DocumentExportResult": {
+        "type": "object",
+        "properties": {
+          "files": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "artifact_id": {
+                  "type": "string",
+                  "description": "art_…"
+                },
+                "name": {
+                  "type": "string"
+                },
+                "url": {
+                  "type": "string",
+                  "description": "Kurzlebiger Link (5 min, nur im Tailnet erreichbar)"
+                },
+                "sha256": {
+                  "type": "string"
+                },
+                "mime": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "artifact_id",
+                "name",
+                "url",
+                "sha256",
+                "mime"
+              ],
+              "additionalProperties": false
+            }
+          },
+          "zip_name": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "files",
+          "zip_name"
+        ],
+        "additionalProperties": false
+      },
+      "DocumentMarkSentResponse": {
+        "anyOf": [
+          {
+            "$ref": "#/components/schemas/DocumentMarkSentResult"
+          },
+          {
+            "$ref": "#/components/schemas/DocumentMarkSentPreview"
+          }
+        ]
+      },
+      "DocumentMarkSentResult": {
+        "type": "object",
+        "properties": {
+          "send_log_id": {
+            "type": "string",
+            "description": "snd_…"
+          },
+          "first_effective": {
+            "type": "boolean"
+          },
+          "warnings": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        },
+        "required": [
+          "send_log_id",
+          "first_effective",
+          "warnings"
+        ],
+        "additionalProperties": false
+      },
+      "DocumentMarkSentPreview": {
+        "type": "object",
+        "properties": {
+          "number": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "status_before": {
+            "type": "string"
+          },
+          "status_after": {
+            "type": "string"
+          },
+          "first_effective": {
+            "type": "boolean"
+          },
+          "sent_on": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "zugang": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "einvoice_handed_over_electronically": {
+            "type": "boolean"
+          },
+          "errors": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "code": {
+                  "type": "string"
+                },
+                "message": {
+                  "type": "string"
+                },
+                "rule": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "code",
+                "message",
+                "rule"
+              ],
+              "additionalProperties": false
+            }
+          },
+          "warnings": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "code": {
+                  "type": "string"
+                },
+                "message": {
+                  "type": "string"
+                },
+                "rule": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "code",
+                "message",
+                "rule"
+              ],
+              "additionalProperties": false
+            }
+          }
+        },
+        "required": [
+          "number",
+          "status_before",
+          "status_after",
+          "first_effective",
+          "sent_on",
+          "zugang",
+          "einvoice_handed_over_electronically",
+          "errors",
+          "warnings"
+        ],
+        "additionalProperties": false
+      },
+      "DocumentMarkSentRetractResult": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "status"
+        ],
+        "additionalProperties": false
+      },
       "DocumentChain": {
         "type": "object",
         "properties": {
@@ -22982,6 +27328,30 @@
           "advances",
           "finals",
           "can_create_final"
+        ],
+        "additionalProperties": false
+      },
+      "DocumentFinalizeResult": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "number": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string"
+          },
+          "artifact_status": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "number",
+          "status",
+          "artifact_status"
         ],
         "additionalProperties": false
       },

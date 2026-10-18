@@ -892,6 +892,11 @@ export interface FinalizePreview {
   format: NonNullable<SalesDocumentDoc["einvoice"]["format"]>;
   decision: NonNullable<SalesDocumentDoc["einvoice"]["decision"]>;
   documentDate: string;
+  /** ER-03 reason text, tax case with its derivation and the totals — for the finalise preview (DOC-42). */
+  decisionReason?: string;
+  taxCase?: string;
+  taxCaseReasons?: string[];
+  totals?: { netCents: number; vatCents: number; grossCents: number; payableCents: number };
 }
 
 /** Step 1a/1b: validation and the preview snapshot with number PREVIEW-0000 (nothing is written). */
@@ -904,11 +909,25 @@ export async function finalizePreview(
   const doc = withOptions(await getDocument(ctx, id), o);
   const { loaded, draft, result } = await validateStored(ctx, doc, now, validateOptions(o));
   const documentDate = result.resolved.documentDate;
+  const t = result.resolved.totals;
   const base = {
     findings: [...result.findings],
     format: result.einvoice.format,
     decision: result.einvoice.er03.decision,
     documentDate,
+    decisionReason: result.einvoice.er03.reason,
+    ...(result.resolved.taxCase ? { taxCase: result.resolved.taxCase } : {}),
+    taxCaseReasons: result.resolved.derivation.kind === "ok" ? [...result.resolved.derivation.reasons] : [],
+    ...(t
+      ? {
+          totals: {
+            netCents: t.taxExclusiveCents,
+            vatCents: t.vatTotalCents,
+            grossCents: t.grossCents,
+            payableCents: t.payableCents,
+          },
+        }
+      : {}),
   };
   if (blocking(result.findings).length > 0 || !loaded.ctx.contact) return { ...base, snapshot: null };
   const input = buildSnapshotInput(draft, loaded.ctx, result.resolved, {
@@ -1330,11 +1349,11 @@ export async function lastExportArtifactIds(ctx: ReadCtx, id: Id<"salesDocuments
 
 // ── sent mark and retraction (SND-07, SND-17, SND-18, SND-23) ─────────────────────────────────────────────────
 
-export async function markSent(
-  ctx: ModelCtx,
-  id: Id<"salesDocuments">,
-  values: MarkSentValues,
-): Promise<{ sendLogId: Id<"sendLog">; firstEffective: boolean; warnings: Finding[] }> {
+/**
+ * SND-07/17 validation of a mark without writing (§5.1.8): the `preview_action { action: "document_mark_sent" }`
+ * effect and the first step of `markSent` — one implementation (06 §2.3 „same validation as the real call“).
+ */
+export async function checkMarkSent(ctx: ReadCtx, id: Id<"salesDocuments">, values: MarkSentValues, now: number) {
   const doc = await getDocument(ctx, id);
   if (doc.status !== "finalized" && doc.status !== "sent") {
     throw appError("illegal_transition", "Nur fertiggestellte Dokumente können als versendet markiert werden.");
@@ -1352,8 +1371,8 @@ export async function markSent(
       ...(values.suppliedSha256 ? { suppliedSha256: values.suppliedSha256 } : {}),
     },
     {
-      today: berlinCalendarDate(ctx.now()),
-      finalizedOn: berlinCalendarDate(doc.finalizedAt ?? ctx.now()),
+      today: berlinCalendarDate(now),
+      finalizedOn: berlinCalendarDate(doc.finalizedAt ?? now),
       backdateWindowDays: profile?.defaults.backdateWindowDays ?? 10,
       artifactStatus: doc.artifactStatus,
       artifacts: archivedArtifacts(await documentArtifacts(ctx, id)),
@@ -1367,7 +1386,30 @@ export async function markSent(
       sendLog: sendLogRows(log),
     },
   );
-  const errors = blocking([...r.findings]);
+  const postalDays = profile?.receivables.postalDeliveryDays ?? 3;
+  // The state after the mark: the new row appended to the log (status, sentOn and Zugang of the effective mark).
+  const after = sentStateOf(
+    [
+      ...sendLogRows(log),
+      {
+        id: "~preview",
+        kind: "mark_sent",
+        sentOn: values.sentOn,
+        channel: values.channel as SendLogRow["channel"],
+        at: now,
+      },
+    ],
+    postalDays,
+  );
+  return { doc, profile, r, errors: blocking([...r.findings]), after, postalDays };
+}
+
+export async function markSent(
+  ctx: ModelCtx,
+  id: Id<"salesDocuments">,
+  values: MarkSentValues,
+): Promise<{ sendLogId: Id<"sendLog">; firstEffective: boolean; warnings: Finding[] }> {
+  const { doc, profile, r, errors } = await checkMarkSent(ctx, id, values, ctx.now());
   if (errors.length > 0) {
     throw appError("mark_sent_invalid", errors[0]?.message, {
       reason: errors[0]?.code ?? "mark_sent_invalid",

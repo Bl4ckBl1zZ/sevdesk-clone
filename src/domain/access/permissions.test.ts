@@ -154,6 +154,13 @@ describe("permission matrix (02 §4.3)", () => {
     expect(confirmIntentFor("cash.write")).toBe("cash_transfer_record");
   });
 
+  test("MCP-004 DOC-24 SND-24 finalising and marking as sent are ⚠ (document_finalize / document_mark_sent tokens)", () => {
+    expect(confirmIntentFor("invoices.finalize")).toBe("document_finalize");
+    expect(confirmIntentFor("invoices.send")).toBe("document_mark_sent");
+    // Exporting transmits nothing and only writes the audit entry (SND-24): not ⚠.
+    expect(confirmIntentFor("documents.export")).toBeUndefined();
+  });
+
   test("MCP-004 DUN-031 the dunning run is ⚠ (dunning_run token); reminder drafts and policies are not", () => {
     expect(confirmIntentFor("dunning.run")).toBe("dunning_run");
     expect(confirmIntentFor("dunning.write")).toBeUndefined();

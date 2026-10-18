@@ -126,10 +126,28 @@ export const PERMISSIONS = {
    * audit entry and the derived `firstExportedAt` cache are recorded.
    */
   "documents.export": { roles: ALL, scope: "documents:read", write: false },
-  /** DOC-24 finalise (⚠, irreversible number assignment; fresh session, 02 §4.2). */
-  "invoices.finalize": { roles: ["owner", "bookkeeper"], scope: "invoices:finalize", write: true, fresh: true },
-  /** SND-07/SND-18 mark as sent and retract (⚠; scope name kept, 05 §2). */
-  "invoices.send": { roles: ["owner", "bookkeeper"], scope: "invoices:send", write: true, fresh: true },
+  /**
+   * DOC-24 finalise (⚠, irreversible number assignment; fresh session, 02 §4.2). MCP: confirm token from
+   * `document_preview` (intent finalize), bound to id + version + the finalisation options (06 §3.4).
+   */
+  "invoices.finalize": {
+    roles: ["owner", "bookkeeper"],
+    scope: "invoices:finalize",
+    write: true,
+    fresh: true,
+    confirm: "document_finalize",
+  },
+  /**
+   * SND-07/SND-18 mark as sent and retract (⚠; scope name kept, 05 §2). MCP: confirm token from
+   * `preview_action { action: "document_mark_sent" }` (SND-24); the retraction is not exposed via MCP.
+   */
+  "invoices.send": {
+    roles: ["owner", "bookkeeper"],
+    scope: "invoices:send",
+    write: true,
+    fresh: true,
+    confirm: "document_mark_sent",
+  },
   /**
    * INV-10/11/15 Storno (⚠, creates and finalises the Stornorechnung; MCP: confirm token from `document_preview`
    * with `intent: "cancel"`, 06 §3.4). Fresh session like finalising.

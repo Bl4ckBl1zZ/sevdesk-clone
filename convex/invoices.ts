@@ -14,7 +14,7 @@ import { type CalendarDate, isCalendarDate } from "../src/domain/time/calendar-d
 import { internal } from "./_generated/api";
 import type { Doc, Id } from "./_generated/dataModel";
 import type { QueryCtx } from "./_generated/server";
-import { action, actorMutation, mutation, query, systemMutation, systemQuery } from "./functions";
+import { action, actorMutation, mutation, query, systemMutation, systemQuery, vConfirmToken } from "./functions";
 import { isTest } from "./lib/env";
 import { appError } from "./lib/errors";
 import { runFinalizePipeline } from "./lib/finalizePipeline";
@@ -26,6 +26,7 @@ import { runQuoteDeadlines } from "./model/documentFlows";
 import { listPaymentMethods } from "./model/lookups";
 import {
   archivedArtifacts,
+  checkMarkSent,
   commitFinalization,
   createDraft as createDraftModel,
   deleteDraft as deleteDraftModel,
@@ -591,7 +592,10 @@ export const pipelinePreview = systemQuery({
   },
 });
 
-/** Step 2: the single commit transaction; schedules step 3. */
+/**
+ * Step 2: the single commit transaction; schedules step 3. ⚠ for MCP (06 §3.4): the `document_preview` token binds
+ * id, version and the finalisation options — not the server-computed `validation` outcome — and is consumed here.
+ */
 export const commit = actorMutation({
   permission: "invoices.finalize",
   args: {
@@ -599,7 +603,9 @@ export const commit = actorMutation({
     version: v.number(),
     validation: v.union(v.literal("passed"), v.literal("skipped"), v.literal("not_required")),
     ...vFinalizeOptions,
+    confirmToken: vConfirmToken,
   },
+  confirmArgs: ["id", "version", ...Object.keys(vFinalizeOptions)],
   handler: async (ctx, a) => {
     const r = await commitFinalization(ctx, a.id, a.version, { ...optionsOf(a), validation: a.validation });
     if (r.status === "finalized" && !r.idempotentReplay) {
@@ -615,15 +621,52 @@ export const commit = actorMutation({
  */
 export const finalize = action({
   permission: "invoices.finalize",
-  args: { id: v.id("salesDocuments"), version: v.number(), ...vFinalizeOptions },
+  args: { id: v.id("salesDocuments"), version: v.number(), ...vFinalizeOptions, confirmToken: vConfirmToken },
   handler: async (ctx, a): Promise<{ number: string; idempotentReplay: boolean }> =>
-    runFinalizePipeline(ctx, ctx.actorContext, { id: a.id, version: a.version, ...optionsOf(a) }),
+    runFinalizePipeline(ctx, ctx.actorContext, {
+      id: a.id,
+      version: a.version,
+      ...optionsOf(a),
+      ...(a.confirmToken ? { confirmToken: a.confirmToken } : {}),
+    }),
+});
+
+/**
+ * „Fertigstellen“-Vorschau (DOC-42, 06 §3.4 `document_preview`, REST `POST /{type}/{id}/preview`): the same step 1a/1b
+ * as the pipeline (validation and preview snapshot) with totals, tax case and the ER-03 decision — writes nothing.
+ */
+export const finalizeCheck = query({
+  permission: "documents.read",
+  args: { id: v.id("salesDocuments"), ...vFinalizeOptions },
+  handler: async (ctx, a) => {
+    const doc = await getDocument(ctx, a.id);
+    if (doc.status !== "draft") {
+      return { status: doc.status, version: doc.version, type: doc.type, number: doc.number ?? null, check: null };
+    }
+    const p = await finalizePreview(ctx, a.id, ctx.now(), optionsOf(a));
+    return {
+      status: doc.status,
+      version: doc.version,
+      type: doc.type,
+      number: null,
+      check: {
+        findings: findingsValue(p.findings),
+        canFinalize: p.snapshot !== null && blocking(p.findings).length === 0,
+        documentDate: p.documentDate,
+        taxCase: p.taxCase ?? null,
+        taxCaseReasons: p.taxCaseReasons ?? [],
+        totals: p.totals ?? null,
+        einvoice: { decision: p.decision, reason: p.decisionReason ?? null, format: p.format },
+      },
+    };
+  },
 });
 
 /** „Erneut erzeugen“ (§4.6.5) after a sidecar/config fix: re-renders from the unchanged snapshot. */
 export const retryArtifacts = mutation({
   permission: "invoices.finalize",
-  args: { id: v.id("salesDocuments") },
+  // ⚠ permission: the token argument is required by the wrapper; no MCP tool calls this (UI/REST only).
+  args: { id: v.id("salesDocuments"), confirmToken: vConfirmToken },
   handler: async (ctx, { id }) => {
     await restartArtifacts(ctx, id);
     await ctx.scheduler.runAfter(0, internal.documentArtifacts.render, { id });
@@ -632,18 +675,50 @@ export const retryArtifacts = mutation({
 
 // ── sent mark (SND-07, SND-17, SND-18) ────────────────────────────────────────────────────────────────────
 
+/**
+ * „Als versendet markieren“ (SND-07/17). ⚠ for MCP: the `preview_action { action: "document_mark_sent" }` token binds
+ * `{ id, values }` exactly as sent here (SND-24).
+ */
 export const markSent = mutation({
   permission: "invoices.send",
-  args: { id: v.id("salesDocuments"), values: v.any() },
+  args: { id: v.id("salesDocuments"), values: v.any(), confirmToken: vConfirmToken },
   handler: async (ctx, { id, values }) => {
     const r = await markSentModel(ctx, id, parse(markSentSchema, values));
     return { sendLogId: r.sendLogId, firstEffective: r.firstEffective, warnings: r.warnings.map((w) => w.message) };
   },
 });
 
-export const retractMark = mutation({
+/**
+ * Dry run of „Als versendet markieren“ (§5.1.8): findings, whether it is the first effective mark, the status and
+ * Zugang afterwards. Effect of `preview_action { action: "document_mark_sent" }` and REST `mark-sent?dry_run=true`.
+ */
+export const markSentPreview = query({
   permission: "invoices.send",
   args: { id: v.id("salesDocuments"), values: v.any() },
+  handler: async (ctx, { id, values }) => {
+    const c = await checkMarkSent(ctx, id, parse(markSentSchema, values), ctx.now());
+    return {
+      type: c.doc.type,
+      number: c.doc.number ?? null,
+      version: c.doc.version,
+      statusBefore: c.doc.status,
+      firstEffective: c.r.firstEffective,
+      statusAfter: c.errors.length > 0 ? c.doc.status : c.after.status,
+      sentOn: c.after.sentOn ?? null,
+      zugang: c.after.zugang?.date ?? null,
+      errors: c.errors.map((f) => ({ code: f.code, message: f.message, rule: f.rule })),
+      warnings: c.r.findings
+        .filter((f) => f.severity !== "E")
+        .map((f) => ({ code: f.code, message: f.message, rule: f.rule })),
+      einvoiceHandedOverElectronically: c.r.einvoiceHandedOverElectronically === true,
+    };
+  },
+});
+
+/** SND-18 retraction (UI/REST only; an MCP token for it is never issued, SND-24). */
+export const retractMark = mutation({
+  permission: "invoices.send",
+  args: { id: v.id("salesDocuments"), values: v.any(), confirmToken: vConfirmToken },
   handler: async (ctx, { id, values }) => retractMarkModel(ctx, id, parse(retractMarkSchema, values)),
 });
 

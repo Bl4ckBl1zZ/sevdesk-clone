@@ -523,10 +523,12 @@ export const deleteReminder = mutation({
 /** DUN-004 „Fertigstellen“ (number, PDF/A, hash; never sent). */
 export const finalize = mutation({
   permission: "invoices.finalize",
+  // ⚠ (06 §3.4): an MCP caller needs the document_preview token (intent finalize) bound to these arguments.
   args: {
     id: v.id("salesDocuments"),
     version: v.optional(v.number()),
     acknowledgeWarnings: v.optional(v.array(v.string())),
+    confirmToken: vConfirmToken,
   },
   handler: async (ctx, a) => {
     const r = await finalizeReminder(ctx, a.id, {
