@@ -8,7 +8,7 @@ import { renderWithIntl } from "@/i18n/test-utils";
 import { AppSidebar } from "./app-sidebar";
 import { CommandPalette, isPaletteShortcut } from "./command-palette";
 import { MobileTabBar } from "./mobile-tab-bar";
-import { findActiveNavItem, NAV_SECTIONS } from "./nav-config";
+import { findActiveNavItem, PALETTE_NAV_ITEMS } from "./nav-config";
 import { ShellUiProvider } from "./shell-context";
 import { GlobalShortcuts } from "./shortcuts";
 
@@ -45,17 +45,21 @@ function Shell({ children }: { children: React.ReactNode }) {
   );
 }
 
-describe("navigation model (04-ui-ux §3.4)", () => {
-  test("SMOKE the longest matching route is active", () => {
+describe("navigation model (04-ui-ux §3.2, §3.4)", () => {
+  test("SMOKE the longest matching route is active; a child wins over its parent with the same href", () => {
     expect(findActiveNavItem("/")?.key).toBe("start");
     expect(findActiveNavItem("/rechnungen")?.key).toBe("rechnungen");
     expect(findActiveNavItem("/rechnungen/wiederkehrend")?.key).toBe("wiederkehrend");
     expect(findActiveNavItem("/rechnungen/neu")?.key).toBe("rechnungen");
+    expect(findActiveNavItem("/angebote")?.key).toBe("angebote");
+    expect(findActiveNavItem("/bank")?.key).toBe("bank");
+    expect(findActiveNavItem("/steuern/ustva")?.key).toBe("ustva");
     expect(findActiveNavItem("/einstellungen/steuern")?.key).toBe("einstellungen");
+    expect(findActiveNavItem("/zeiten")?.key).toBe("zeiten");
     expect(findActiveNavItem("/rechnungenxyz")).toBeUndefined();
   });
 
-  test("SMOKE the sidebar shows every section of the route map with German labels", () => {
+  test("NAV-001 NAV-002 the sidebar has sevdesk's areas; only the active area shows its sub-items", () => {
     nav.pathname = "/rechnungen/wiederkehrend";
     renderWithIntl(
       <Shell>
@@ -63,19 +67,70 @@ describe("navigation model (04-ui-ux §3.4)", () => {
       </Shell>,
     );
     const main = screen.getByRole("navigation", { name: "Hauptnavigation" });
-    for (const section of ["Verkauf", "Einkauf", "Bank & Kasse", "Buchhaltung", "Steuern", "Auswertungen"]) {
-      expect(within(main).getByText(section)).toBeInTheDocument();
-    }
-    const links = within(main).getAllByRole("link");
-    expect(links).toHaveLength(NAV_SECTIONS.flatMap((s) => s.items).length);
+    const names = within(main)
+      .getAllByRole("link")
+      .map((l) => l.textContent);
+    expect(names).toEqual([
+      "Übersicht",
+      "Aufträge",
+      "Rechnungen",
+      "Wiederkehrend",
+      "Mahnungen",
+      "Ausgaben",
+      "Bank",
+      "Steuern",
+      "Auswertungen",
+      "Kontakte",
+      "Produkte",
+      "Einstellungen",
+    ]);
+    expect(within(main).getByText("Verwalten")).toBeInTheDocument();
     expect(within(main).getByRole("link", { name: "Wiederkehrend" })).toHaveAttribute("aria-current", "page");
-    expect(within(main).getByRole("link", { name: "Rechnungen" })).not.toHaveAttribute("aria-current");
-    expect(screen.getByRole("link", { name: "Einstellungen" })).toHaveAttribute("href", "/einstellungen");
+    const invoices = within(main).getByRole("link", { name: "Rechnungen" });
+    expect(invoices).not.toHaveAttribute("aria-current");
+    expect(invoices).toHaveAttribute("aria-expanded", "true");
+    expect(within(main).getByRole("link", { name: "Aufträge" })).toHaveAttribute("aria-expanded", "false");
+    expect(within(main).getByRole("link", { name: "Einstellungen" })).toHaveAttribute("href", "/einstellungen");
+  });
+
+  test("NAV-002 an area's link opens its first page and shows its sub-items there", () => {
+    nav.pathname = "/steuern/ustva";
+    renderWithIntl(
+      <Shell>
+        <AppSidebar />
+      </Shell>,
+    );
+    const main = screen.getByRole("navigation", { name: "Hauptnavigation" });
+    expect(within(main).getByRole("link", { name: "Steuern" })).toHaveAttribute("href", "/steuern/ustva");
+    expect(within(main).getByRole("link", { name: "UStVA" })).toHaveAttribute("aria-current", "page");
+    for (const sub of ["EÜR", "ZM", "USt-Jahr", "Rücklage"])
+      expect(within(main).getByRole("link", { name: sub })).toBeVisible();
+    expect(within(main).queryByRole("link", { name: "Wiederkehrend" })).toBeNull();
+    expect(within(main).queryByRole("link", { name: "Zeiten" })).toBeNull();
+  });
+
+  test("NAV-003 the search sits at the top of the sidebar and opens the command palette", async () => {
+    renderWithIntl(
+      <Shell>
+        <AppSidebar />
+        <CommandPalette />
+      </Shell>,
+    );
+    await userEvent.click(screen.getByRole("button", { name: /Suchen/ }));
+    expect(await screen.findByPlaceholderText("Seite oder Aktion suchen …")).toBeInTheDocument();
+  });
+
+  test("NAV-004 the command palette still lists pages that left the sidebar, once each", () => {
+    expect(PALETTE_NAV_ITEMS.map((i) => i.key)).toEqual(
+      expect.arrayContaining(["zeiten", "projekte", "journal", "konto"]),
+    );
+    const hrefs = PALETTE_NAV_ITEMS.map((i) => i.href);
+    expect(new Set(hrefs).size).toBe(hrefs.length);
   });
 });
 
 describe("mobile shell (04-ui-ux §3.3)", () => {
-  test("SMOKE the bottom tab bar has Start · Rechnungen · Neu · Beleg · Mehr", () => {
+  test("NAV-005 the bottom tab bar has Übersicht · Rechnungen · Neu · Beleg · Mehr", () => {
     nav.pathname = "/rechnungen";
     renderWithIntl(
       <Shell>
@@ -83,7 +138,7 @@ describe("mobile shell (04-ui-ux §3.3)", () => {
       </Shell>,
     );
     const bar = screen.getByRole("navigation", { name: "Schnellzugriff" });
-    expect(within(bar).getByRole("link", { name: "Start" })).toHaveAttribute("href", "/");
+    expect(within(bar).getByRole("link", { name: "Übersicht" })).toHaveAttribute("href", "/");
     expect(within(bar).getByRole("link", { name: "Rechnungen" })).toHaveAttribute("aria-current", "page");
     expect(within(bar).getByRole("button", { name: "Neu erstellen" })).toBeInTheDocument();
     expect(within(bar).getByRole("button", { name: "Beleg fotografieren oder hochladen" })).toBeInTheDocument();

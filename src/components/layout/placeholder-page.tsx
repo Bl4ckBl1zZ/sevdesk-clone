@@ -2,7 +2,7 @@ import { ConstructionIcon, type LucideIcon } from "lucide-react";
 import type { Metadata, Route } from "next";
 import { getTranslations } from "next-intl/server";
 import type * as React from "react";
-import { findSectionOf, NAV_SECTIONS, type NavKey } from "@/components/shell/nav-config";
+import { ALL_NAV_ITEMS, findAreaOf, type NavKey } from "@/components/shell/nav-config";
 import type messages from "@/i18n/messages/de.json";
 import { EmptyState } from "./empty-state";
 import { PageBody } from "./list-layout";
@@ -35,7 +35,7 @@ const PARENT: Partial<Record<PageKey, NavKey>> = {
 
 function navInfo(page: PageKey): { icon: LucideIcon; navKey?: NavKey } {
   const navKey = (PARENT[page] ?? page) as NavKey;
-  const item = NAV_SECTIONS.flatMap((s) => s.items).find((i) => i.key === navKey);
+  const item = ALL_NAV_ITEMS.find((i) => i.key === navKey);
   return { icon: item?.icon ?? ConstructionIcon, navKey: item ? navKey : undefined };
 }
 
@@ -52,10 +52,10 @@ export async function PlaceholderPage({ page, notice }: { page: PageKey; notice?
   const { icon, navKey } = navInfo(page);
 
   const breadcrumbs: Breadcrumb[] = [];
-  const section = navKey ? findSectionOf(navKey) : undefined;
-  if (section && section.key !== "main") breadcrumbs.push({ label: tNav(`sections.${section.key}`) });
+  const area = navKey ? findAreaOf(navKey) : undefined;
+  if (area && area.key !== navKey) breadcrumbs.push({ label: tNav(`items.${area.key}`), href: area.href });
   if (PARENT[page] && navKey) {
-    const parent = NAV_SECTIONS.flatMap((s) => s.items).find((i) => i.key === navKey);
+    const parent = ALL_NAV_ITEMS.find((i) => i.key === navKey);
     if (parent) breadcrumbs.push({ label: tNav(`items.${parent.key}`), href: parent.href });
   }
   breadcrumbs.push({ label: t(`${page}.title`) });

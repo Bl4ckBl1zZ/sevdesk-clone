@@ -39,8 +39,11 @@ test.describe("desktop shell", () => {
     await expect(page.getByRole("link", { name: "Neue Rechnung" })).toBeVisible();
     await expectNoAxeViolations();
 
-    await nav.getByRole("link", { name: "UStVA" }).click();
+    // NAV-002: an area opens its first page and only then shows its sub-items.
+    await expect(nav.getByRole("link", { name: "UStVA" })).toHaveCount(0);
+    await nav.getByRole("link", { name: "Steuern" }).click();
     await expect(page.getByRole("heading", { level: 1, name: "Umsatzsteuer-Voranmeldung" })).toBeVisible();
+    await expect(nav.getByRole("link", { name: "UStVA" })).toHaveAttribute("aria-current", "page");
     await expectNoAxeViolations();
   });
 

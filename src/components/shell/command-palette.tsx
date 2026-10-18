@@ -15,7 +15,7 @@ import {
   CommandList,
   CommandShortcut,
 } from "@/components/ui/command";
-import { NAV_SECTIONS, SECONDARY_NAV, SETTINGS_NAV } from "./nav-config";
+import { PALETTE_NAV_ITEMS, SETTINGS_NAV } from "./nav-config";
 import { useShellUi } from "./shell-context";
 
 /** True for ⌘K (macOS) / Ctrl+K (others), 04-ui-ux §5. */
@@ -87,7 +87,7 @@ export function CommandPalette() {
             </CommandItem>
           </CommandGroup>
           <CommandGroup heading={t("commandPalette.groupPages")}>
-            {[...NAV_SECTIONS.flatMap((s) => s.items), ...SECONDARY_NAV].map((item) => {
+            {PALETTE_NAV_ITEMS.map((item) => {
               const Icon = item.icon;
               const label = t(`nav.items.${item.key}`);
               return (

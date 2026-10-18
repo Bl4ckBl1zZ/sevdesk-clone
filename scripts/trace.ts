@@ -40,6 +40,7 @@ function walk(dir: string, match: (p: string) => boolean, acc: string[] = []): s
 
 const specFiles = [
   join(ROOT, "docs/spec/01-compliance.md"),
+  join(ROOT, "docs/spec/04-ui-ux.md"),
   join(ROOT, "docs/spec/10-edge-cases.md"),
   join(ROOT, "docs/spec/05-api.md"),
   join(ROOT, "docs/spec/06-mcp.md"),

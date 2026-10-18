@@ -14,7 +14,8 @@ import { findActiveNavItem } from "./nav-config";
 import { useShellUi } from "./shell-context";
 
 /**
- * Top bar (04-ui-ux §3.2/3.3). Desktop: sidebar toggle, "⌘K Suchen …", "+ Neu ▾", bell, theme, account.
+ * Top bar (04-ui-ux §3.2/3.3). Desktop: sidebar toggle, "+ Neu ▾", bell, theme, account (search sits in the sidebar,
+ * NAV-003).
  * Phone: ☰ (navigation sheet), current section title, search icon.
  */
 export function TopBar() {
@@ -32,17 +33,6 @@ export function TopBar() {
         aria-label={isMobile ? t("shell.openNav") : t("shell.toggleSidebar")}
       />
       <span className="truncate font-semibold md:hidden">{title}</span>
-
-      <Button
-        variant="outline"
-        className="hidden h-9 w-72 justify-start gap-2 text-muted-foreground md:flex"
-        onClick={() => setPaletteOpen(true)}
-        aria-keyshortcuts="Meta+K Control+K"
-      >
-        <SearchIcon aria-hidden="true" />
-        <span className="flex-1 text-left">{t("shell.search")}</span>
-        <kbd className="rounded border bg-muted px-1.5 font-mono text-[10px]">⌘K</kbd>
-      </Button>
 
       <div className="ml-auto flex items-center gap-1">
         <Button

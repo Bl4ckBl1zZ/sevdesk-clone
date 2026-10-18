@@ -43,32 +43,37 @@ Inside the main content area, use **container queries** (`@container/main`), not
 
 ### 3.2 Desktop shell
 
+Modelled on sevdesk's navigation (owner request 2026-10-18: "too many options", compared with the live sevdesk account): a short list of areas, sub-items only for the area you are in, search at the top of the sidebar.
+
 ```
-┌──────────────┬──────────────────────────────────────────────────────────┐
-│  [logo] Firma│  ⌘K Suchen…                         [+ Neu ▾]  🔔  ☾      │
-│──────────────│──────────────────────────────────────────────────────────│
-│ ◉ Start      │  Breadcrumb › Rechnungen                                 │
-│ VERKAUF      │  ┌────────────────────────────────────────────────────┐  │
-│   Angebote   │  │ Rechnungen                       [Rechnung erstellen]│ │
-│   Aufträge   │  │ [Alle][Entwurf][Offen][Überfällig][Bezahlt][Storno] │  │
-│   Liefersch. │  │ 🔍 Suche  Filter▾  Zeitraum▾       Spalten▾ Export▾ │  │
-│   Rechnungen │  │ ☐ Nr.      Kunde        Datum   Fällig   Betrag Stat│  │
-│   Wiederkehr.│  │ ☐ RE-1042  Müller GmbH  01.10.  15.10. 1.190,00 ●Of│  │
-│   Mahnungen  │  │ …                                                   │  │
-│ EINKAUF      │  └────────────────────────────────────────────────────┘  │
-│   Belege     │                                                          │
-│   Posteingang│                                                          │
-│ BANK         │                                                          │
-│ KONTAKTE     │                                                          │
-│ PRODUKTE     │                                                          │
-│ ZEITEN       │                                                          │
-│ BUCHHALTUNG  │                                                          │
-│ STEUERN      │                                                          │
-│ AUSWERTUNGEN │                                                          │
-│──────────────│                                                          │
-│ ⚙ Einstellung│                                                          │
-└──────────────┴──────────────────────────────────────────────────────────┘
+┌──────────────────┬──────────────────────────────────────────────────────┐
+│ [logo] Firma     │ ⊟                                    [+ Neu ▾] 🔔 ☾ 👤│
+│ 🔍 Suchen …   ⌘K │──────────────────────────────────────────────────────│
+│ ⌂ Übersicht      │  Breadcrumb › Rechnungen                             │
+│ ✉ Aufträge       │  ┌────────────────────────────────────────────────┐  │
+│ ▣ Rechnungen     │  │ Rechnungen                  [Rechnung erstellen]│  │
+│   │ Wiederkehrend│  │ [Alle][Entwurf][Offen][Überfällig][Bezahlt]…    │  │
+│   │ Mahnungen    │  │ 🔍 Suche  Filter▾  Zeitraum▾   Spalten▾ Export▾ │  │
+│ ▤ Ausgaben       │  │ ☐ Nr.      Kunde        Datum   Fällig   Betrag │  │
+│ ⌂ Bank           │  │ ☐ RE-1042  Müller GmbH  01.10.  15.10. 1.190,00 │  │
+│ % Steuern        │  │ …                                               │  │
+│ ▥ Auswertungen   │  └────────────────────────────────────────────────┘  │
+│ VERWALTEN        │                                                      │
+│   Kontakte       │                                                      │
+│   Produkte       │                                                      │
+│   Einstellungen  │                                                      │
+└──────────────────┴──────────────────────────────────────────────────────┘
 ```
+
+| ID | Requirement | Priority | Phase |
+|---|---|---|---|
+| NAV-001 | Sidebar areas in this order: Übersicht `/`, Aufträge, Rechnungen, Ausgaben, Bank, Steuern, Auswertungen; then the group „Verwalten“ with Kontakte, Produkte, Einstellungen | MUST | P1 |
+| NAV-002 | An area's sub-items are shown only while the area (or one of its pages) is active. An area without its own list links to its first sub-item: Aufträge → Angebote · Auftragsbestätigungen · Lieferscheine; Rechnungen (list) → Wiederkehrend · Mahnungen; Ausgaben (`/belege`) → Posteingang · Anlagen; Bank → Bankkonten · Kasse · Zuordnungen; Steuern → UStVA · EÜR · ZM · USt-Jahr · Rücklage; Auswertungen → Offene Posten · Liquidität · Journal · Kontenplan · Eröffnung · Festschreibung · Export. The area link carries `aria-expanded`, the current page `aria-current="page"` | MUST | P1 |
+| NAV-003 | „Suchen … ⌘K“ sits at the top of the sidebar and opens the command palette (§5); the top bar has no second search field on desktop | MUST | P1 |
+| NAV-004 | Pages without a sidebar entry stay reachable: Berichte (`/auswertungen`), Zeiten, Projekte (P4) and Benachrichtigungen via the command palette, Mein Konto via the account menu. The palette lists every page once | MUST | P1 |
+| NAV-005 | Phone bottom tabs: Übersicht · Rechnungen · Neu · Beleg · Mehr (§3.3); „Mehr“ opens the same sidebar as a sheet | MUST | P1 |
+
+The desktop top bar (sidebar toggle, „+ Neu ▾“, bell, theme, account) stays for now; sevdesk has none (open question to the owner).
 
 ### 3.3 Mobile shell
 
@@ -84,7 +89,7 @@ Inside the main content area, use **container queries** (`@container/main`), not
 │ └─────────────────────────┘ │
 │ …                           │
 ├─────────────────────────────┤
-│ 🏠    🧾    ( + )   📷   ⋯  │  ← bottom tabs: Start · Rechnungen · Neu · Beleg · Mehr
+│ 🏠    🧾    ( + )   📷   ⋯  │  ← bottom tabs: Übersicht · Rechnungen · Neu · Beleg · Mehr
 └─────────────────────────────┘
 ```
 
@@ -97,7 +102,7 @@ Inside the main content area, use **container queries** (`@container/main`), not
 
 | Section | Route | Notes |
 |---|---|---|
-| Start | `/` | Dashboard |
+| Übersicht | `/` | Dashboard (sevdesk „Übersicht“) |
 | Anmelden (no session needed) | `/anmelden`, `/anmelden/code`, `/anmelden/zwei-faktor`, `/anmelden/passkey-einrichten` | Sign-in with passkey (conditional UI) or e-mail OTP, TOTP step, passkey enrolment prompt; first-run owner sign-up uses the same pages (§4.9). `?weiter=<path>` returns to the requested page |
 | Mein Konto | `/konto` | Own passkeys (add, rename, remove), TOTP on/off, active sessions (sign out others), e-mail (read-only) |
 | Einrichtung | `/einrichtung` (`?schritt=…`) | Setup wizard (owner only); until setup is complete every other route except `/einstellungen/**`, `/kontakte/**`, `/produkte/**`, `/konto` redirects here (F01 SET-001) |
@@ -107,7 +112,7 @@ Inside the main content area, use **container queries** (`@container/main`), not
 | Rechnungen | `/rechnungen…` | All invoice types incl. Abschlag, Teil, Schluss, Proforma, Storno, Korrektur; self-billing Gutschriften (P3) as a filter |
 | Wiederkehrend | `/rechnungen/wiederkehrend…` | Recurring templates |
 | Mahnungen | `/mahnungen` | Dunning cockpit |
-| Belege | `/belege…`, `/belege/fehlend` | Purchase vouchers; missing-receipt overview (F06 VOU-110) |
+| Ausgaben (Belege) | `/belege…`, `/belege/fehlend` | Purchase vouchers, labelled „Ausgaben“ in the navigation like sevdesk; missing-receipt overview (F06 VOU-110) |
 | Posteingang | `/posteingang` | Receipt inbox (e-mail, upload, E-Rechnung import) |
 | PWA share target | `/share-target` (POST only) | Shared files → receipt inbox (F06 INB-004, P2) |
 | Bank | `/bank`, `/bank/[accountId]`, `/bank/zuordnungen` | Accounts, transactions, matching queue (`/bank/lastschriften` returns with F10, deferred) |
