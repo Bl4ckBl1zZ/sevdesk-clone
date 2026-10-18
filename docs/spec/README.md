@@ -114,6 +114,7 @@ The owner works without a Steuerberater. Each item is implemented with the **leg
 | A30 | Cloudflare e-mail-in (Email Routing, Worker, R2) as processor for incoming invoices ⚖ | Only after the Cloudflare AVV is confirmed; EU jurisdiction bucket; objects deleted right after import; upload works without it | F06 Q-11 |
 | A31 | Corporation private postings (Verrechnungskonto Gesellschafter) | `private.*` blocked for corporations; owner-created shareholder clearing account per shareholder; postings blocked while unmapped | F08 Q14 |
 | A32 | Deadline for annual returns without an advisor | 31 July of the following year (§149 Abs. 2 AO) from the date-effective table | F08 Q16 |
+| A33 | Ist taxation: when does the VAT reduction of a credit Rechnungskorrektur take effect — at the correction or when the money is refunded? ⚖ | When refunded (P11-ist): the correction's VAT is parked on `vat.output.notdue.*` like the invoice's (S13-ist) and released pro rata with each refund; the part the corrected invoice absorbed follows the invoice's payments (`// LEGAL-OPEN: F08 §4.2.2 P11-ist`) | F08 §4.2.2 P11, F05 PAY-033 |
 
 ### (b) For the owner
 

@@ -207,6 +207,32 @@ describe("REST payments (05 §4.4, F05 §7.1)", () => {
 });
 
 describe("MCP payment and bank tools (06 §3.5, §3.7)", () => {
+  test("MCP-004 PAY-033 bank_match_confirm refunds a correction from an outgoing transaction with a preview token", async () => {
+    const t = setup();
+    const { cor, bankAccount } = await paidInvoiceWithCredit(t);
+    const tx = await bookedTransaction(t, bankAccount, {
+      bookingDate: "2026-10-13",
+      amountCents: -23_800,
+      purpose: "Erstattung Gutschrift",
+    });
+    const client = await connect(
+      (await t.asMcp(["payments:read", "payments:write", "banking:read", "banking:write"])).key,
+    );
+    const params = { transaction_id: `btx_${tx}`, targets: [{ kind: "correction", id: cor, amount_cents: 23_800 }] };
+    const p = (await client.callTool({
+      name: "preview_action",
+      arguments: { action: "bank_match_confirm", params },
+    })) as ToolCall;
+    expect(p.isError).toBeFalsy();
+    const ok = (await client.callTool({
+      name: "bank_match_confirm",
+      arguments: { ...params, confirm_token: p.structuredContent?.confirm_token },
+    })) as ToolCall;
+    expect(ok.isError).toBeFalsy();
+    const key = (await t.asApiKey(["payments:read"])).key;
+    expect((await json(await call("GET", "/open-items", { key }))).data).toEqual([]);
+  });
+
   test("MCP-005 the F05/F07 ⚠ tools are destructive, need user interaction and a confirm token", () => {
     for (const name of [
       "payment_record",

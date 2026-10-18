@@ -196,10 +196,8 @@ export function PaymentsSection({ documentId, number }: { documentId: Id<"salesD
           number={number}
           data={data}
           onClose={() => setRefund(false)}
-          onRecorded={(r) => {
-            setRefund(false);
-            if (r.cash) setLastCash(r.paymentId);
-          }}
+          // No „Quittung drucken“ for a refund: PAY-063 receipts confirm money we received (canPrintReceipt > 0).
+          onRecorded={() => setRefund(false)}
         />
       )}
       {reverse && <ReverseDialog paymentId={reverse} onClose={() => setReverse(null)} />}

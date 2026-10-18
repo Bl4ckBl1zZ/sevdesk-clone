@@ -114,7 +114,7 @@ describe("„Erstattung erfassen“ on a Rechnungskorrektur (PAY-033 b)", () => 
     expect(toast.success).toHaveBeenCalledWith("Erstattung gebucht.");
   });
 
-  test("PAY-062 EC-PAY-28 „Bar erstattet“ refunds from the till and offers the Quittung afterwards", async () => {
+  test("PAY-062 EC-PAY-28 „Bar erstattet“ refunds from the till without a Quittung", async () => {
     const user = userEvent.setup();
     renderSection();
     await user.click(screen.getByRole("button", { name: "Erstattung erfassen" }));
@@ -126,7 +126,9 @@ describe("„Erstattung erfassen“ on a Rechnungskorrektur (PAY-033 b)", () => 
         expect.objectContaining({ source: { kind: "cash" }, amountCents: 23_800 }),
       ),
     );
-    expect(await screen.findByText("Barzahlung gebucht.")).toBeTruthy();
+    // A refund is no cash receipt: no „Barzahlung gebucht“ banner and no Quittung (PAY-063).
+    await waitFor(() => expect(screen.queryByTestId("refund-dialog")).toBeNull());
+    expect(screen.queryByText("Barzahlung gebucht.")).toBeNull();
   });
 
   test("PAY-033 EC-PAY-33 a refund above the open refund shows the German error and cannot be booked", async () => {
