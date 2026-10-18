@@ -3652,7 +3652,7 @@
     "bookedPost": "Beim Import buchen",
     "bookedPostHint": "Wie eigene Rechnungen: Buchung zum Rechnungsdatum, eine Stornorechnung als Gegenbuchung; das Original-PDF bleibt der Beleg (nie neu erzeugt). Der Monat darf nicht festgeschrieben sein.",
     "bookedPaid": "{count} davon führt sevdesk als bezahlt – sie werden trotzdem als offene Forderungen übernommen, damit keine Zahlung doppelt zählt.",
-    "bookedBank": "Bitte die Kontoauszüge ab dem {date} importieren, damit die Zahlungen den Rechnungen zugeordnet werden; Barzahlungen als Zahlung erfassen.",
+    "bookedBank": "Bitte die Kontoauszüge ab dem {date} importieren, damit die Zahlungen den Rechnungen zugeordnet werden; Barzahlungen als Zahlung erfassen. Mahnungen erst danach erstellen.",
     "totalsTitle": "Beträge mit den PDFs abgleichen",
     "totalsHint": "sevdesk exportiert in Einzelfällen abweichende Gesamtbeträge. Weicht ein Betrag vom PDF ab, den Bruttobetrag laut PDF mit Grund eintragen (nur Belege ohne Umsatzsteuer). Die Korrektur wird am Beleg vermerkt und protokolliert.",
     "totalsDocument": "Beleg",

@@ -1154,7 +1154,7 @@ export function buildPlan(
     findings.push({
       code: "E-IMP-39",
       severity: "warning",
-      message: `${postedInvoices.length} gebuchte Rechnungen werden als offene Forderungen übernommen${paidInSevdesk > 0 ? `, davon ${paidInSevdesk} laut sevdesk bereits bezahlt` : ""}. Bitte die Kontoauszüge ab dem Buchungsbeginn (${formatGermanDate(opening.date)}) importieren, damit die Zahlungen zugeordnet werden; Barzahlungen als Zahlung erfassen.`,
+      message: `${postedInvoices.length} gebuchte Rechnungen werden als offene Forderungen übernommen${paidInSevdesk > 0 ? `, davon ${paidInSevdesk} laut sevdesk bereits bezahlt` : ""}. Bitte die Kontoauszüge ab dem Buchungsbeginn (${formatGermanDate(opening.date)}) importieren, damit die Zahlungen zugeordnet werden; Barzahlungen als Zahlung erfassen. Mahnungen erst danach erstellen.`,
     });
   }
   const bookedRows = finalDocs.filter(

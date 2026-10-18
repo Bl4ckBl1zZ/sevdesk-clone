@@ -116,7 +116,7 @@ describe("F09 E-IMP-10 documents dated on/after the Buchungsbeginn (IMP-003, IMP
     expect(plan.findings.find((f) => f.code === "E-IMP-39")).toMatchObject({
       severity: "warning",
       message:
-        "3 gebuchte Rechnungen werden als offene Forderungen übernommen, davon 2 laut sevdesk bereits bezahlt. Bitte die Kontoauszüge ab dem Buchungsbeginn (01.06.2026) importieren, damit die Zahlungen zugeordnet werden; Barzahlungen als Zahlung erfassen.",
+        "3 gebuchte Rechnungen werden als offene Forderungen übernommen, davon 2 laut sevdesk bereits bezahlt. Bitte die Kontoauszüge ab dem Buchungsbeginn (01.06.2026) importieren, damit die Zahlungen zugeordnet werden; Barzahlungen als Zahlung erfassen. Mahnungen erst danach erstellen.",
     });
   });
 
