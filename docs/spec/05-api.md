@@ -199,6 +199,7 @@ F05 §7.1 is normative; summary:
 | POST | `/payments/{id}/reverse` | payments:write (`{ reason }`) |
 | GET | `/payments/{id}/receipt` | payments:read: Quittung PDF of a cash payment (archived on first call, „Kopie" afterwards; PAY-063). JSON `{ file_name, copy, content_type, content_base64 }` like the other file downloads of the JSON pipeline |
 | POST | `/contacts/{id}/credit/apply` \| `/refund` | payments:write |
+| POST | `/corrections/{id}/refund` (Erstattung einer Rechnungskorrektur, F05 PAY-033 b) | payments:write |
 | GET | `/open-items` (`contact_id`, `overdue_only`, `as_of`, `bucket`), `/contacts/{id}/open-items` | payments:read |
 | GET | `/dunning/preview` (`?date=`; planned actions + `confirm_token`) | payments:read |
 | POST | `/dunning/run` | dunning:write (`{ dry_run, invoice_ids?, mode: "drafts" \| "finalize", confirm_token }`; `finalize` additionally needs invoices:finalize). Creates drafts or finalises reminders; **never sends** — finalised reminders are exported and marked sent like any document |

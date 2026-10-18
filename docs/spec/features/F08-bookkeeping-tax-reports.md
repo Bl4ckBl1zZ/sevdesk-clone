@@ -303,7 +303,7 @@ Notation: **S** = debit (Soll), **H** = credit (Haben); amounts: N = net, V = VA
 | P8 | Write-off (uneinbringlich) | S `writeoff.r` N · S `vat.output.r` V · H `receivable` G | S `writeoff.r` N · S `vat.output.notdue.r` V · H `receivable` G | Soll: Kz 50 (Minderung der Bemessungsgrundlage, negative) in the write-off period ⚠; Ist: none | §17 Abs. 2 Nr. 1; reason + evidence (Insolvenz, fruitless enforcement) required |
 | P9 | Recovery after write-off | S `bank` G · H `writeoff.recovery` N · H `vat.output.r` V | same (VAT due on receipt) | Soll: positive correction in the receipt period (Kz 50 positive ⚠ or Kz 81); Ist: Kz 81 | §17 Abs. 2 Nr. 1 S. 2 |
 | P10 | Payment reversal (bank return, wrong match) | Reversal entry of the payment entry (incl. Ist VAT transfer) | same | reverses the Ist share | `payments.reversedById` |
-| P11 | Refund to customer (credit balance) | S `receivable` · H `bank` (or `cash`, subject to CSH-026) | same | none | |
+| P11 | Refund to customer (credit balance, or a credit correction's open refund, F05 PAY-033) | S `receivable` · H `bank` (or `cash`, subject to CSH-026) | same; for a correction refund **plus** S `vat.output.r` · H `vat.output.notdue.r` for the refund's share of the correction's parked (negative) VAT, pro rata as P1 („P11-ist“) | Ist (correction refund): the VAT reduction falls into the refund's period | ⚖ P11-ist is an amendment 2026-10-18: under Ist the correction's VAT reduction is parked on `notdue` like the invoice's VAT (S13-ist), so it must be released when the money flows back; the earliest-tax-point alternative (reduction at the correction date) would reduce VAT before the refund is paid. `// LEGAL-OPEN: F08 §4.2.2 P11-ist` |
 
 #### 4.2.3 Purchases (vouchers)
 

@@ -125,7 +125,8 @@ export function computeOpenItems(input: {
     const s = settled.get(`${d.kind}:${d.id}`) ?? { settles: 0, paid: 0 };
     const open = d.payableCents - (d.creditedCents ?? 0) - s.settles;
     if (open === 0) continue;
-    const days = daysOverdue(d.dueDate, asOf);
+    // An open refund (negative item, PAY-033 b) is owed by us: never overdue, no aging.
+    const days = open > 0 ? daysOverdue(d.dueDate, asOf) : 0;
     const bucket = agingBucket(days, edges);
     const overdue = open > 0 && d.dueDate !== undefined && d.dueDate < asOf;
     items.push({ ...d, paidCents: s.paid, openCents: open, daysOverdue: days, overdue, bucket });

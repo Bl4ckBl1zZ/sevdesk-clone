@@ -84,6 +84,24 @@ describe("open items and aging (PAY-001…PAY-003)", () => {
     expect(done.items).toEqual([]);
   });
 
+  test("PAY-001 PAY-002 an open refund with a past due date has no days overdue and stays „nicht fällig“", () => {
+    const correction: OpenItemDocument = {
+      id: "k2",
+      kind: "salesDocument",
+      number: "RK-2026-0002",
+      contactId: "c1",
+      contactName: "Müller GmbH",
+      documentDate: "2026-08-01",
+      dueDate: "2026-08-15",
+      payableCents: -23_800,
+      currency: "EUR",
+      docType: "correction",
+    };
+    const r = computeOpenItems({ documents: [correction], rows: [], asOf: "2026-10-13" });
+    expect(r.items[0]).toMatchObject({ openCents: -23_800, daysOverdue: 0, overdue: false, bucket: "not_due" });
+    expect(r.totals.buckets.find((b) => b.key === "not_due")).toMatchObject({ openCents: -23_800, count: 1 });
+  });
+
   test("T05-002 PAY-003 GOBD-01 as of 30.09.: a payment reversed on 05.10. still counts", () => {
     const rows = [row("1", "2026-09-20", 119000), row("1", "2026-10-05", -119000)];
     const documents = [doc("1", "2026-09-01", "2026-09-15"), doc("9", "2026-10-02", "2026-10-30")];
