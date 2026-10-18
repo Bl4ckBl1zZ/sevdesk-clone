@@ -1,6 +1,7 @@
 "use client";
 
 import type * as React from "react";
+import { useRef } from "react";
 import { useSessionState } from "@/components/auth/session-provider";
 import { SidebarProvider } from "@/components/ui/sidebar";
 import { AppSidebar, SidebarAutoCollapse } from "./app-sidebar";
@@ -9,6 +10,7 @@ import { CreateSheet } from "./create-menu";
 import { IntegrityBanner } from "./integrity-banner";
 import { MobileTabBar } from "./mobile-tab-bar";
 import { RouteFocus, SkipLink } from "./route-focus";
+import { useRouteEnterAnimation } from "./route-transition";
 import { ShellUiProvider } from "./shell-context";
 import { GlobalShortcuts, ShortcutHelpDialog } from "./shortcuts";
 import { TopBar } from "./top-bar";
@@ -20,6 +22,8 @@ import { TopBar } from "./top-bar";
  */
 export function AppShell({ children }: { children: React.ReactNode }) {
   const { expired } = useSessionState();
+  const mainRef = useRef<HTMLElement>(null);
+  useRouteEnterAnimation(mainRef);
   return (
     <ShellUiProvider>
       <SidebarProvider>
@@ -31,6 +35,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           <IntegrityBanner />
           <main
             id="main"
+            ref={mainRef}
             tabIndex={-1}
             className="@container/main flex-1 pb-[calc(4.5rem+env(safe-area-inset-bottom))] outline-none has-data-[slot=page-actions]:pb-[calc(9rem+env(safe-area-inset-bottom))] md:pb-0 md:has-data-[slot=page-actions]:pb-0"
           >

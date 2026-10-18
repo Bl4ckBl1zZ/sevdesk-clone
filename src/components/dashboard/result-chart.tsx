@@ -53,15 +53,16 @@ export function ResultChart({ months }: { months: readonly MonthResult[] }) {
             <div key={tick} className="absolute inset-x-0 border-border border-t" style={{ bottom: pct(tick, top) }} />
           ))}
           <div className="absolute inset-0 grid grid-cols-12">
-            {months.map((m) => (
+            {months.map((m, i) => (
               <div key={m.period} className="group relative flex h-full items-end justify-center gap-0.5">
+                {/* MOT-005: bars grow from the baseline, month by month. */}
                 <div
-                  className={`w-2 rounded-t-[4px] @xl/main:w-3 ${INCOME_BAR}`}
-                  style={{ height: pct(m.incomeCents, top) }}
+                  className={`w-2 origin-bottom animate-grow-y rounded-t-[4px] @xl/main:w-3 ${INCOME_BAR}`}
+                  style={{ height: pct(m.incomeCents, top), "--motion-delay": `${i * 30}ms` } as React.CSSProperties}
                 />
                 <div
-                  className={`w-2 rounded-t-[4px] @xl/main:w-3 ${EXPENSE_BAR}`}
-                  style={{ height: pct(m.expenseCents, top) }}
+                  className={`w-2 origin-bottom animate-grow-y rounded-t-[4px] @xl/main:w-3 ${EXPENSE_BAR}`}
+                  style={{ height: pct(m.expenseCents, top), "--motion-delay": `${i * 30}ms` } as React.CSSProperties}
                 />
                 <div className="pointer-events-none absolute bottom-full left-1/2 z-10 hidden -translate-x-1/2 whitespace-nowrap rounded-md border bg-popover px-2 py-1 text-popover-foreground text-xs shadow-sm group-hover:block">
                   <p className="font-medium">{m.label}</p>

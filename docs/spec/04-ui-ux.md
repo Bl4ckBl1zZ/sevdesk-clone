@@ -329,8 +329,22 @@ Color is never the only signal: every status has text, and overdue also has an i
 - WCAG 2.1 AA. `@axe-core/playwright` runs on every E2E page visit; any violation fails CI (allowlist only with a ticket reference).
 - Full keyboard operability; visible focus ring; focus is trapped in dialogs and returned on close.
 - Touch targets ≥ 44 × 44 px on mobile.
-- Respect `prefers-reduced-motion`.
+- Respect `prefers-reduced-motion` (§7.1 MOT-007).
 - Form errors are announced (`aria-live="polite"`) and linked via `aria-describedby`.
+
+### 7.1 Motion
+
+Owner request 2026-10-18: interactions should feel less abrupt. Motion is short (≤ 250 ms for feedback, ≤ 650 ms for chart entrances), eased out, never blocks input, and is switched off completely for `prefers-reduced-motion`. Utilities live in `src/app/globals.css` (`animate-rise`, `animate-grow-y`, `animate-grow-x`, `--motion-delay` for staggering).
+
+| ID | Requirement | Priority | Phase |
+|---|---|---|---|
+| MOT-001 | After a page change the main area fades and slides in (≈ 220 ms, Web Animations API, no remount); the first load does not animate | SHOULD | P1 |
+| MOT-002 | Opening a sidebar area slides its sub-items in; sidebar items fade their background and text colour | SHOULD | P1 |
+| MOT-003 | Large link tiles (Übersicht quick actions) lift slightly on hover and settle on press; buttons keep their 1 px press offset | SHOULD | P1 |
+| MOT-004 | Übersicht cards rise in one after another (60 ms stagger) when the data arrives | SHOULD | P1 |
+| MOT-005 | Chart bars grow from the baseline month by month; progress bars fill from the left | SHOULD | P1 |
+| MOT-006 | Phone list cards scale down slightly on press; status tabs fade between states; table rows fade their hover colour | SHOULD | P1 |
+| MOT-007 | With `prefers-reduced-motion: reduce` every animation and transition is effectively instant (no delays, no page fade). E2E runs with reduced motion so axe never inspects a half-faded element | MUST | P1 |
 
 ## 8. Number, date and currency handling
 

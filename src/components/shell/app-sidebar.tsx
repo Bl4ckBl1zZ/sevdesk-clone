@@ -83,7 +83,7 @@ function NavArea({ item, activeKey }: { item: NavItem; activeKey: NavItem["key"]
         <span>{label}</span>
       </SidebarMenuButton>
       {open && children.length > 0 && (
-        <SidebarMenuSub>
+        <SidebarMenuSub className="fade-in slide-in-from-top-1 animate-in duration-200">
           {children.map((child) => {
             const active = activeKey === child.key;
             return (

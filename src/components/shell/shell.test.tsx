@@ -93,7 +93,7 @@ describe("navigation model (04-ui-ux §3.2, §3.4)", () => {
     expect(within(main).getByRole("link", { name: "Einstellungen" })).toHaveAttribute("href", "/einstellungen");
   });
 
-  test("NAV-002 an area's link opens its first page and shows its sub-items there", () => {
+  test("NAV-002 MOT-002 an area's link opens its first page and shows its sub-items there", () => {
     nav.pathname = "/steuern/ustva";
     renderWithIntl(
       <Shell>
@@ -107,6 +107,8 @@ describe("navigation model (04-ui-ux §3.2, §3.4)", () => {
       expect(within(main).getByRole("link", { name: sub })).toBeVisible();
     expect(within(main).queryByRole("link", { name: "Wiederkehrend" })).toBeNull();
     expect(within(main).queryByRole("link", { name: "Zeiten" })).toBeNull();
+    // MOT-002: the sub-items slide in when the area opens.
+    expect(within(main).getByRole("link", { name: "EÜR" }).closest("ul")?.className).toMatch(/animate-in/);
   });
 
   test("NAV-003 the search sits at the top of the sidebar and opens the command palette", async () => {

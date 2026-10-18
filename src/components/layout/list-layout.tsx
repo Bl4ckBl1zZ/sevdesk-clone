@@ -31,7 +31,12 @@ export function ListLayout({
       {toolbar && <div className="flex flex-wrap items-center gap-2">{toolbar}</div>}
       {table && <div className="hidden @3xl/main:block">{table}</div>}
       {/* max-md:pb-16 keeps the last card clear of the phone's floating „Neu“ button (04 §1 rule 2). */}
-      {cards && <div className="flex flex-col gap-2 @3xl/main:hidden max-md:pb-16">{cards}</div>}
+      {/* MOT-006: cards settle slightly on press. */}
+      {cards && (
+        <div className="flex flex-col gap-2 *:transition-transform *:duration-150 *:active:scale-[0.99] @3xl/main:hidden max-md:pb-16">
+          {cards}
+        </div>
+      )}
       {children}
     </PageBody>
   );
@@ -68,7 +73,7 @@ export function StatusFilter({
                 href={o.href}
                 aria-current={active ? "page" : undefined}
                 className={cn(
-                  "inline-flex min-h-11 items-center gap-1.5 whitespace-nowrap rounded-full border px-3 text-sm @3xl/main:min-h-9 @3xl/main:rounded-none @3xl/main:border-0 @3xl/main:border-transparent @3xl/main:border-b-2",
+                  "inline-flex min-h-11 items-center gap-1.5 whitespace-nowrap rounded-full border px-3 text-sm transition-[color,background-color,border-color] duration-200 @3xl/main:min-h-9 @3xl/main:rounded-none @3xl/main:border-0 @3xl/main:border-transparent @3xl/main:border-b-2",
                   active
                     ? "border-primary bg-primary text-primary-foreground @3xl/main:border-primary @3xl/main:bg-transparent @3xl/main:text-foreground"
                     : "text-muted-foreground hover:text-foreground",

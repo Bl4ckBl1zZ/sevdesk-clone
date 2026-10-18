@@ -37,6 +37,8 @@ export default defineConfig({
     ignoreHTTPSErrors: true,
     locale: "de-DE",
     timezoneId: "Europe/Berlin",
+    // 04-ui-ux §7.1 MOT-007: no half-faded elements for axe; the reduced-motion path is what every run exercises.
+    reducedMotion: "reduce",
     ...(devServer ? { navigationTimeout: 60_000, actionTimeout: 20_000 } : {}),
   },
   expect: {

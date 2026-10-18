@@ -250,3 +250,33 @@ describe("DASH-001…009 Übersicht", () => {
     expect(card("Aufgaben").getByText(/Exportieren und versenden/)).toBeInTheDocument();
   });
 });
+
+describe("MOT-003…005 motion on the Übersicht (04-ui-ux §7.1)", () => {
+  test("MOT-003 quick-action tiles lift on hover and settle on press", () => {
+    renderWithIntl(<DashboardView data={full} />);
+    const tile = within(screen.getByRole("navigation", { name: "Schnellaktionen" })).getByRole("link", {
+      name: "Rechnung schreiben",
+    });
+    expect(tile.className).toMatch(/hover:-translate-y-0\.5/);
+    expect(tile.className).toMatch(/active:translate-y-0/);
+    expect(tile.className).toMatch(/transition-\[/);
+  });
+
+  test("MOT-004 the cards rise in one after another", () => {
+    renderWithIntl(<DashboardView data={full} />);
+    const cards = screen.getAllByRole("region");
+    expect(cards.length).toBeGreaterThan(3);
+    const delays = cards.map((c) => (c as HTMLElement).style.getPropertyValue("--motion-delay"));
+    for (const c of cards) expect(c.className).toMatch(/animate-rise/);
+    expect(new Set(delays).size).toBe(cards.length);
+  });
+
+  test("MOT-005 chart bars grow from the baseline and the KU bar fills from the left", () => {
+    renderWithIntl(<DashboardView data={full} />);
+    const chart = screen.getByRole("img", { name: /Einnahmen und Ausgaben/ });
+    const bars = chart.querySelectorAll(".animate-grow-y");
+    expect(bars.length).toBeGreaterThan(0);
+    const indicator = screen.getByRole("progressbar").querySelector("[data-slot=progress-indicator]");
+    expect(indicator?.className).toMatch(/animate-grow-x/);
+  });
+});

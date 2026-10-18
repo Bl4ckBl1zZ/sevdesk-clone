@@ -14,7 +14,8 @@ import {
 import type { Route } from "next";
 import Link from "next/link";
 import { useTranslations } from "next-intl";
-import { useId } from "react";
+import type * as React from "react";
+import { createContext, useContext, useId } from "react";
 import { ConvexGuard } from "@/components/convex/convex-provider";
 import { buttonVariants } from "@/components/ui/button";
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
@@ -78,24 +79,32 @@ function DashboardLoading() {
 
 const can = (role: MemberRole | null, p: Permission) => role !== null && canDo(role, p);
 
+/** MOT-004: position of a card in the page, so the cards rise in one after another. */
+const MotionSlot = createContext(0);
+const STAGGER_MS = 60;
+
 export function DashboardView({ data, todos }: { data: DashboardData; todos?: React.ReactNode }) {
+  let next = 0;
+  const slot = (node: React.ReactNode) => <MotionSlot.Provider value={next++}>{node}</MotionSlot.Provider>;
   return (
     <div className="flex flex-col gap-6 p-4 @3xl/main:p-6">
       <Greeting name={data.greetingName} />
       <QuickActions role={data.role} />
-      {data.result && <ResultCard result={data.result} />}
+      {data.result && slot(<ResultCard result={data.result} />)}
       <div className="grid gap-4 @3xl/main:grid-cols-2">
-        {data.receivables && <ReceivablesCard r={data.receivables} canWrite={can(data.role, "documents.write")} />}
-        {data.ku && <KuCard ku={data.ku} />}
-        {data.bank && <BankCard bank={data.bank} />}
-        {data.bank && <MatchingCard m={data.matching} canMatch={can(data.role, "banking.match")} />}
-        {data.topCustomers && <TopCustomersCard customers={data.topCustomers} />}
-        {data.activity && <ActivityCard lines={data.activity} />}
-        {todos && (
-          <Widget title={<TodosTitle />}>
-            <CardContent>{todos}</CardContent>
-          </Widget>
-        )}
+        {data.receivables &&
+          slot(<ReceivablesCard r={data.receivables} canWrite={can(data.role, "documents.write")} />)}
+        {data.ku && slot(<KuCard ku={data.ku} />)}
+        {data.bank && slot(<BankCard bank={data.bank} />)}
+        {data.bank && slot(<MatchingCard m={data.matching} canMatch={can(data.role, "banking.match")} />)}
+        {data.topCustomers && slot(<TopCustomersCard customers={data.topCustomers} />)}
+        {data.activity && slot(<ActivityCard lines={data.activity} />)}
+        {todos &&
+          slot(
+            <Widget title={<TodosTitle />}>
+              <CardContent>{todos}</CardContent>
+            </Widget>,
+          )}
       </div>
     </div>
   );
@@ -117,8 +126,13 @@ function Widget({
   className?: string;
 }) {
   const id = useId();
+  const index = useContext(MotionSlot);
   return (
-    <section aria-labelledby={id} className={cn("min-w-0", className)}>
+    <section
+      aria-labelledby={id}
+      className={cn("min-w-0 animate-rise", className)}
+      style={{ "--motion-delay": `${index * STAGGER_MS}ms` } as React.CSSProperties}
+    >
       <Card className="h-full">
         <CardHeader>
           <CardTitle>
@@ -167,7 +181,7 @@ function QuickActions({ role }: { role: MemberRole | null }) {
           <li key={a.key}>
             <Link
               href={a.href}
-              className="flex h-full min-h-24 flex-col justify-between gap-3 rounded-xl border bg-card p-4 font-semibold text-sm shadow-xs outline-none transition-colors hover:bg-muted focus-visible:ring-3 focus-visible:ring-ring/50"
+              className="flex h-full min-h-24 flex-col justify-between gap-3 rounded-xl border bg-card p-4 font-semibold text-sm shadow-xs outline-none transition-[background-color,box-shadow,transform] duration-200 ease-out hover:-translate-y-0.5 hover:bg-muted hover:shadow-md focus-visible:ring-3 focus-visible:ring-ring/50 active:translate-y-0 active:shadow-xs"
             >
               <a.icon aria-hidden="true" className="size-6" />
               {t(a.key)}
@@ -285,6 +299,7 @@ function KuCard({ ku }: { ku: NonNullable<DashboardData["ku"]> }) {
           <>
             <Progress
               value={percent}
+              indicatorClassName="origin-left animate-grow-x"
               aria-label={t("progressLabel", { year: ku.year, percent, limit: formatEuro(ku.limitCents) })}
               className={cn(
                 ku.level === "exceeded" || ku.level === "critical"

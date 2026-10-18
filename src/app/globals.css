@@ -142,6 +142,34 @@
   }
 }
 
+/*
+ * 04-ui-ux §7.1 motion: short, eased entrances so interactions feel less abrupt. `--motion-delay` staggers
+ * siblings (MOT-004). Every animation here is switched off by the reduced-motion block below (MOT-007).
+ */
+@theme {
+  --ease-out-soft: cubic-bezier(0.22, 1, 0.36, 1);
+  --animate-rise: rise 320ms var(--ease-out-soft) var(--motion-delay, 0ms) both;
+  --animate-grow-y: grow-y 560ms var(--ease-out-soft) var(--motion-delay, 0ms) both;
+  --animate-grow-x: grow-x 640ms var(--ease-out-soft) 120ms both;
+
+  @keyframes rise {
+    from {
+      opacity: 0;
+      transform: translateY(8px);
+    }
+  }
+  @keyframes grow-y {
+    from {
+      transform: scaleY(0);
+    }
+  }
+  @keyframes grow-x {
+    from {
+      transform: scaleX(0);
+    }
+  }
+}
+
 /* 04-ui-ux §7: respect prefers-reduced-motion (must win over component animations, hence !important). */
 @media (prefers-reduced-motion: reduce) {
   *,
@@ -149,6 +177,8 @@
   *::after {
     /* biome-ignore lint/complexity/noImportantStyles: reduced motion overrides every animation */
     animation-duration: 0.01ms !important;
+    /* biome-ignore lint/complexity/noImportantStyles: reduced motion overrides every animation */
+    animation-delay: 0ms !important;
     /* biome-ignore lint/complexity/noImportantStyles: reduced motion overrides every animation */
     animation-iteration-count: 1 !important;
     /* biome-ignore lint/complexity/noImportantStyles: reduced motion overrides every animation */
