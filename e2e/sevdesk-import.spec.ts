@@ -9,9 +9,10 @@ import { expect, test } from "./fixtures";
  * (test/fixtures/sevdesk-export), check the detected kinds, build the preview, resolve the ambiguous PDF (E-IMP-22),
  * confirm the missing-PDF reason (E-IMP-07) and the number-range continuation, commit as owner. Needs the backend
  * journey (owner with completed setup), like e2e/kontoauszug-bank.spec.ts. The wizard targets the desktop; phones
- * show the read-only hint (F09 §6), so the commit flow runs on the desktop project only. The open fixture invoices
- * become F08 opening receivables (IMP-007): the journey's Buchungsbeginn must lie after 2026-05-10 (else E-IMP-10)
- * and the year's receivables must not be posted yet (else E-IMP-35).
+ * show the read-only hint (F09 §6), so the commit flow runs on the desktop project only. Open fixture invoices would
+ * become F08 opening receivables (IMP-007), which needs a Buchungsbeginn; the journey has none (and can no longer set
+ * one), so they are excluded and the commit archives the settled invoices. IMP-007 itself is covered in
+ * convex/imports.test.ts.
  */
 const STATE = (project: string) => `test-results/.auth/owner-${project}-sevdesk-import.json`;
 const FIXTURES = join(import.meta.dirname, "../test/fixtures/sevdesk-export");
@@ -49,9 +50,18 @@ test("TST-IMP-16 IMP-009 IMP-019 upload, preview with per-row errors, resolve, c
   expectNoAxeViolations,
 }, testInfo) => {
   test.skip(testInfo.project.name !== "desktop", "the import wizard is a desktop flow (F09 §6)");
+  test.setTimeout(240_000); // upload, then one preview per resolved row
   await page.goto("/einstellungen/import");
+  // Until `create` resolves, an earlier unfinished project (previous runs on the same backend) is still open: wait
+  // until the new project (newest first) is listed and opened before uploading.
+  const projects = page.getByRole("region", { name: "Importe" }).getByRole("listitem");
+  await expect(page.getByRole("region", { name: "Importe" }).locator("[aria-busy]")).toHaveCount(0);
+  const before = await projects.count();
   await page.getByRole("button", { name: "sevdesk-Exporte importieren" }).click();
+  await expect(projects).toHaveCount(before + 1, { timeout: 30_000 });
+  await expect(projects.first().getByRole("button", { name: "Öffnen" })).toHaveAttribute("aria-pressed", "true");
   await expect(page.getByRole("heading", { name: "1. Dateien hochladen" })).toBeVisible();
+  await expect(page.getByText("Noch keine Dateien hochgeladen.")).toBeVisible();
 
   const pdfs = readdirSync(join(FIXTURES, "pdf")).map((n) => join(FIXTURES, "pdf", n));
   await page
@@ -72,15 +82,34 @@ test("TST-IMP-16 IMP-009 IMP-019 upload, preview with per-row errors, resolve, c
   await expect(counts).toBeVisible({ timeout: 30_000 });
   await expect(page.getByRole("button", { name: "Import übernehmen" })).toBeDisabled();
 
-  // E-IMP-22: one PDF names two invoices — assign it to the first, exclude the second row.
-  const ambiguous = page.getByRole("row").filter({ hasText: "E-IMP-22" });
-  await ambiguous.first().getByRole("combobox").selectOption({ label: "RE-1005_RE-1006.pdf" });
-  await page.getByRole("button", { name: "Vorschau erstellen" }).click();
-  await expect(counts).toBeVisible({ timeout: 30_000 });
-  for (const row of await page.getByRole("row").filter({ hasText: "E-IMP-22" }).all()) {
+  // Excluding a row invalidates the preview (F09 §5), so every exclusion is followed by a new preview.
+  const stale = page.getByText("Dateien oder Zuordnung wurden geändert – bitte die Vorschau neu erstellen.");
+  const excludeAndPreview = async (row: ReturnType<Page["getByRole"]>) => {
     await row.getByRole("button", { name: "Zeile ausschließen" }).click();
+    await expect(stale).toBeVisible({ timeout: 30_000 });
+    await page.getByRole("button", { name: "Vorschau erstellen" }).click();
+    await expect(stale).toBeHidden({ timeout: 30_000 });
+    await expect(counts).toBeVisible({ timeout: 30_000 });
+  };
+
+  // The journey posts the opening cash balance without a Buchungsbeginn, which freezes it (E-ACC-14). Every open
+  // fixture invoice is therefore blocked as an opening item (E-IMP-34, or E-IMP-10/35 on other accounts): exclude them.
+  const blocked = page.getByRole("row").filter({ hasText: /E-IMP-(10|34|35)(?!\d)/ });
+  for (let n = await blocked.count(); n > 0; n--) {
+    await excludeAndPreview(blocked.first());
+    await expect(blocked).toHaveCount(n - 1, { timeout: 30_000 });
   }
-  await page.getByRole("button", { name: "Vorschau erstellen" }).click();
+
+  // E-IMP-22 (only while RE-1005/RE-1006 are still importable): one PDF names two invoices — assign it to the first,
+  // exclude the second row.
+  const ambiguous = page.getByRole("row").filter({ hasText: "E-IMP-22" });
+  if ((await ambiguous.count()) > 0) {
+    await ambiguous.first().getByRole("combobox").selectOption({ label: "RE-1005_RE-1006.pdf" });
+    await expect(stale).toBeVisible({ timeout: 30_000 });
+    await page.getByRole("button", { name: "Vorschau erstellen" }).click();
+    await expect(stale).toBeHidden({ timeout: 30_000 });
+    for (let n = await ambiguous.count(); n > 0; n--) await excludeAndPreview(ambiguous.first());
+  }
   await expect(page.getByRole("button", { name: /^Fehler \(0\)/ })).toBeVisible({ timeout: 30_000 });
   await expectNoAxeViolations();
 
