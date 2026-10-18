@@ -980,9 +980,11 @@ journalLines: 🔒 { entryId: Id<"journalEntries">; lineIndex: number; seq: numb
 openingItems: 🔒 { fiscalYear: number; kind: "receivable"; number: string; documentDate: string; dueDate?: string;
   contactId?: Id<"contacts">; counterpartyName: string; grossCents: number; openCents: number; taxedAs: "soll" | "ist";
   notDueVat?: { rateBp: number; vatCents: number }[];       // Ist: VAT not yet declared, due on payment (ACC-013)
-  openAmountCents: number; recordedAt: number; lockedAt?: number; actor: Actor }
+  openAmountCents: number; recordedAt: number; lockedAt?: number; actor: Actor;
+  documentId?: Id<"salesDocuments"> }                       // archived sevdesk invoice behind the item (F09 IMP-007; set at insert)
   // open receivables carried into the books by the opening balance (ACC-013 P1 subset; payables P2);
-  // payments target them with `{ kind: "opening_item", id }`. indexes: by_fiscalYear [fiscalYear, number], by_contact
+  // payments target them with `{ kind: "opening_item", id }` (a payment on a linked imported invoice is redirected here, EC-201).
+  // indexes: by_fiscalYear [fiscalYear, number], by_contact, by_document
 
 allocations: 🔒 { paymentId: Id<"payments">;                 // cash-basis view (F08 §4.4): EÜR, Ist-UStVA, profitability
   target: { kind: "salesDocument" | "voucher" | "opening_item"; id: string };

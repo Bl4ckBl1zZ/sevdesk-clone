@@ -17,7 +17,7 @@ import { productImportForm, productRow } from "../../products/csv-io";
 import { lookupVatRate } from "../../rules/vat-rates";
 import { contactCreateSchema, emptyContactForm } from "../../schemas/contacts";
 import { productSchema } from "../../schemas/products";
-import type { CalendarDate } from "../../time/calendar-date";
+import { type CalendarDate, formatGermanDate } from "../../time/calendar-date";
 import { type DateFormat, detectDateFormat, detectNumberFormat, type NumberFormat } from "./formats";
 import { type ImportedDocument, INVOICE_TYPES_WITH_OPEN_ITEMS, openVatSplit, parseInvoiceRow } from "./invoices";
 import {
@@ -748,10 +748,18 @@ export function buildPlan(
     if (opening && p.doc.documentDate >= opening.date) {
       return block(
         "E-IMP-10",
-        `${p.doc.number} liegt am oder nach dem Buchungsbeginn (${opening.date}). Buchen beim Import ist noch nicht möglich – bitte Buchungsbeginn prüfen oder Zeile ausschließen.`,
+        `${p.doc.number} liegt am oder nach dem Buchungsbeginn (${formatGermanDate(opening.date)}). Buchen beim Import ist noch nicht möglich – bitte Buchungsbeginn prüfen oder Zeile ausschließen.`,
       );
     }
     if ((p.openAmountCents ?? 0) <= 0) return p;
+    // E-IMP-33: F08 opening items are EUR only and compare the open amount with the gross; a foreign-currency gross
+    // would make both wrong. Blocked in P1 (conservative); the owner enters the receivable in EUR by hand.
+    if (p.doc.currency !== "EUR") {
+      return block(
+        "E-IMP-33",
+        `${p.doc.number} ist in ${p.doc.currency} – offene Posten in Fremdwährung können noch nicht in die Eröffnungsbilanz übernommen werden. Bitte Zeile ausschließen und den Posten in EUR in der Eröffnungsbilanz erfassen.`,
+      );
+    }
     if (!opening) {
       return block(
         "E-IMP-34",

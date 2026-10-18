@@ -312,6 +312,24 @@ describe("F09 IMP-007 open items become F08 opening-balance receivables (ACC-013
     expect(p.opening?.date).toBe("2026-05-01");
   });
 
+  test("IMP-007 E-IMP-33 an open foreign-currency invoice cannot become an opening receivable (blocked)", () => {
+    const csv =
+      "Rechnungsnummer;Typ;Rechnungsdatum;Kunde;Netto;Steuer;Brutto;Steuersatz;Status;Offener Betrag;Währung\n" +
+      "RE-9001;Rechnung;10.03.2026;Acme Inc.;1.000,00;0,00;1.000,00;0;Offen;1.000,00;USD\n";
+    const info = inspectFile("liste.csv", new TextEncoder().encode(csv));
+    expect(info.kind).toBe("invoices");
+    const files: ImportFileInput[] = [
+      { id: "u1", name: "liste.csv", sha256: "x", kind: info.kind, ...(info.table ? { table: info.table } : {}) },
+    ];
+    const parsed = parseImportFiles(files, { u1: { columns: autoMap("invoices", info.headers ?? []) } }, TODAY);
+    const p = buildPlan(parsed, ist(), { openAmounts: { "invoice:RE-9001": 92_000 } });
+    expect(docOf(p, "RE-9001")?.status).toBe("error");
+    expect(p.findings.find((f) => f.code === "E-IMP-33" && f.severity === "error")?.message).toBe(
+      "RE-9001 ist in USD – offene Posten in Fremdwährung können noch nicht in die Eröffnungsbilanz übernommen werden. Bitte Zeile ausschließen und den Posten in EUR in der Eröffnungsbilanz erfassen.",
+    );
+    expect(p.opening).toBeNull();
+  });
+
   test("IMP-007 IMP-010 E-IMP-36 an open item with an unknown tax case and VAT cannot be carried as not-due Ist VAT", () => {
     const { plan: p } = plan(ist(), unblocked());
     const e = p.findings.find((f) => f.code === "E-IMP-36");
