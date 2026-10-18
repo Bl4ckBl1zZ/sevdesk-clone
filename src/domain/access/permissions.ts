@@ -206,6 +206,11 @@ export const PERMISSIONS = {
     write: true,
     confirm: "bank_match_confirm",
   },
+  /**
+   * 04 §4.7 DASH-011 Übersicht (dashboard view model): every member role; each widget is additionally gated by the
+   * read permission of its data (e.g. `audit.read` for „Verlauf“). UI only — not exposed via REST/MCP.
+   */
+  "dashboard.read": { roles: ALL, scope: null, write: false },
 } as const satisfies Record<string, PermissionRule>;
 
 export type Permission = keyof typeof PERMISSIONS;

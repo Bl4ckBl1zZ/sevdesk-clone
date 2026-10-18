@@ -66,7 +66,7 @@ test.describe("desktop shell", () => {
 
   test("SMOKE shortcut n then r opens a new invoice; ? shows the shortcut help", async ({ page }) => {
     await page.goto("/");
-    await page.getByRole("heading", { level: 1, name: "Start" }).waitFor();
+    await page.getByRole("heading", { level: 1, name: /^Herzlich Willkommen/ }).waitFor();
     await page.keyboard.press("n");
     await page.keyboard.press("r");
     await expect(page).toHaveURL(/\/rechnungen\/neu$/);

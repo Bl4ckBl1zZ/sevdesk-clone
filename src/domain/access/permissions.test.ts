@@ -62,6 +62,8 @@ const EXPECTED: Record<Permission, readonly MemberRole[]> = {
   "dunning.run": ["owner", "bookkeeper"],
   "dunning.manage": ["owner"],
   "banking.match": ["owner", "bookkeeper"],
+  // 04 §4.7 DASH-011: every member role reads the Übersicht; widgets are gated by their own read permission.
+  "dashboard.read": ["owner", "bookkeeper", "viewer", "auditor"],
 };
 
 describe("permission matrix (02 §4.3)", () => {
