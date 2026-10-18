@@ -1206,6 +1206,7 @@ export async function openItemsAsOf(
           // a credit correction carries the part its invoice absorbed (only the rest is refunded, PAY-033 b).
           creditedCents: await creditedOf(ctx, d, args.asOf),
           currency: d.currency,
+          ...(d.type === "correction" ? { docType: "correction" } : {}),
         });
       }
     }

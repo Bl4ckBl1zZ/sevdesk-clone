@@ -21,6 +21,8 @@ export interface OpenItemDocument {
   /** Applied Rechnungskorrekturen up to the as-of date (F04 §4.2.5): reduce the open amount, not the amount column. */
   creditedCents?: number;
   currency: string;
+  /** `correction` = a credit correction with an open refund (negative item, PAY-033 b). */
+  docType?: string;
 }
 
 export interface SettlementRow {

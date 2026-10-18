@@ -183,7 +183,12 @@ export function combinedPaymentArgs(w: CombinedPaymentWire) {
 export const paymentOut = z
   .object({
     id: z.string().meta({ description: "pay_…" }),
-    target: z.object({ kind: z.enum(["invoice", "opening_item", "credit"]), id: z.string() }),
+    target: z.object({
+      kind: z.enum(["invoice", "opening_item", "credit", "correction"]).meta({
+        description: "correction = Erstattung einer Rechnungskorrektur (negativer Betrag, PAY-033)",
+      }),
+      id: z.string(),
+    }),
     number: z.string().nullable(),
     contact_id: z.string().nullable(),
     date: isoDate,
@@ -219,6 +224,8 @@ export type PaymentOut = z.infer<typeof paymentOut>;
 export interface PaymentViewLike {
   id: string;
   target: { kind: string; id: string };
+  /** Type of the target sales document (a `correction` is encoded `cor_…`). */
+  targetType?: string | null;
   number: string | null;
   contactId: string | null;
   date: string;
@@ -245,8 +252,10 @@ export interface PaymentViewLike {
   recordedAt: number;
 }
 
-const wireTarget = (t: { kind: string; id: string }) =>
-  t.kind === "salesDocument"
+const wireTarget = (t: { kind: string; id: string }, targetType?: string | null) =>
+  t.kind === "salesDocument" && targetType === "correction"
+    ? { kind: "correction" as const, id: encodeId("corrections", t.id) }
+    : t.kind === "salesDocument"
     ? { kind: "invoice" as const, id: encodeId("invoices", t.id) }
     : t.kind === "opening_item"
       ? { kind: "opening_item" as const, id: encodeId("openingItems", t.id) }
@@ -257,7 +266,7 @@ const opt = (table: Parameters<typeof encodeId>[0], id: string | null) => (id ? 
 export function serializePayment(p: PaymentViewLike): PaymentOut {
   return {
     id: encodeId("payments", p.id),
-    target: wireTarget(p.target),
+    target: wireTarget(p.target, p.targetType),
     number: p.number,
     contact_id: opt("contacts", p.contactId),
     date: p.date,
@@ -294,7 +303,9 @@ export function serializePayment(p: PaymentViewLike): PaymentOut {
 export const openItemOut = z
   .object({
     id: z.string(),
-    kind: z.enum(["invoice", "opening_item"]),
+    kind: z.enum(["invoice", "opening_item", "correction"]).meta({
+      description: "correction = Rechnungskorrektur mit offener Erstattung (negativer offener Betrag, PAY-033)",
+    }),
     number: z.string(),
     contact_id: z.string().nullable(),
     contact_name: z.string(),
@@ -312,6 +323,7 @@ export const openItemOut = z
 export interface OpenItemLike {
   id: string;
   kind: "salesDocument" | "opening_item";
+  docType?: string;
   number: string;
   contactId?: string;
   contactName: string;
@@ -327,8 +339,11 @@ export interface OpenItemLike {
 
 export function serializeOpenItem(i: OpenItemLike): z.infer<typeof openItemOut> {
   return {
-    id: i.kind === "salesDocument" ? encodeId("invoices", i.id) : encodeId("openingItems", i.id),
-    kind: i.kind === "salesDocument" ? "invoice" : "opening_item",
+    id:
+      i.kind === "opening_item"
+        ? encodeId("openingItems", i.id)
+        : encodeId(i.docType === "correction" ? "corrections" : "invoices", i.id),
+    kind: i.kind === "opening_item" ? "opening_item" : i.docType === "correction" ? "correction" : "invoice",
     number: i.number,
     contact_id: i.contactId ? encodeId("contacts", i.contactId) : null,
     contact_name: i.contactName,

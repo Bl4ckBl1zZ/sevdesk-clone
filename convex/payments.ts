@@ -51,9 +51,13 @@ export async function paymentView(ctx: ReadCtx, p: Doc<"payments">) {
   const tx = p.bankTransactionId ? await ctx.db.get(p.bankTransactionId) : null;
   const account =
     p.source.kind === "clearing" ? await ctx.db.get(p.source.accountId) : tx ? await ctx.db.get(tx.accountId) : null;
+  // A refund of a Rechnungskorrektur targets the correction (PAY-033 b): REST/MCP encode it as `cor_…`.
+  const targetDoc =
+    p.target.kind === "salesDocument" ? await ctx.db.get(p.target.id as Id<"salesDocuments">) : null;
   return {
     id: p._id,
     target: p.target,
+    targetType: targetDoc?.type ?? null,
     number: p.number ?? null,
     contactId: p.contactId ?? null,
     date: p.date,

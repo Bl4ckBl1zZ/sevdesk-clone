@@ -2858,6 +2858,7 @@
   "payments": {
     "title": "Zahlungen",
     "record": "Zahlung buchen",
+    "refund": "Erstattung erfassen",
     "none": "Noch keine Zahlungen erfasst.",
     "reversal": "Storno",
     "reversed": "storniert",
@@ -2924,6 +2925,19 @@
       "net": "netto",
       "vat": "USt"
     },
+    "refundDialog": {
+      "title": "Erstattung erfassen · {number}",
+      "open": "offene Erstattung {amount}",
+      "confirm": "Erstattung buchen",
+      "done": "Erstattung gebucht.",
+      "refundedWith": "Erstattet per",
+      "means": {
+        "bank": "Bank",
+        "cash": "Bar erstattet"
+      },
+      "transaction": "Bankumsatz (Ausgang)",
+      "openAfter": "Danach offene Erstattung: {amount}"
+    },
     "openItems": {
       "kpis": "Kennzahlen",
       "open": "Offen gesamt",
@@ -2938,6 +2952,7 @@
       "csv": "CSV exportieren",
       "empty": "Keine offenen Posten.",
       "statusOpen": "offen",
+      "statusRefundOpen": "Erstattung offen",
       "statusOverdue": "überfällig",
       "daysOverdue": "{days} Tage überfällig",
       "creditList": "Guthaben von Kunden",

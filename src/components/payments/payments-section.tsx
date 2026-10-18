@@ -15,6 +15,7 @@ import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { useAuthedQuery } from "@/hooks/use-authed-query";
 import { PaymentDialog } from "./payment-dialog";
+import { RefundDialog } from "./refund-dialog";
 
 const DIFF_LABEL: Record<string, string> = {
   skonto: "Skonto",
@@ -49,7 +50,10 @@ export function useReceipt() {
   };
 }
 
-/** Invoice detail „Zahlungen“ (F05 §6.2): history incl. reversals, „Zahlung buchen“, „Stornieren“, „Quittung drucken“. */
+/**
+ * Invoice detail „Zahlungen“ (F05 §6.2): history incl. reversals, „Zahlung buchen“, „Stornieren“, „Quittung drucken“;
+ * on a credit correction with an open refund „Erstattung erfassen“ (PAY-033 b).
+ */
 export function PaymentsSection({ documentId, number }: { documentId: Id<"salesDocuments">; number: string }) {
   const t = useTranslations("payments");
   const data = useAuthedQuery(api.payments.forDocument, { documentId });
@@ -58,6 +62,7 @@ export function PaymentsSection({ documentId, number }: { documentId: Id<"salesD
   const canReceipt = useCan("payments.receipt");
   const printReceipt = useReceipt();
   const [dialog, setDialog] = useState(false);
+  const [refund, setRefund] = useState(false);
   const [reverse, setReverse] = useState<string | null>(null);
   const [lastCash, setLastCash] = useState<string | null>(null);
   if (!data) return null;
@@ -73,6 +78,12 @@ export function PaymentsSection({ documentId, number }: { documentId: Id<"salesD
           <Button className="h-11 md:h-9" onClick={() => setDialog(true)} data-testid="record-payment">
             <BanknoteIcon aria-hidden="true" />
             {t("record")}
+          </Button>
+        )}
+        {canWrite && s.openAmountCents < 0 && (
+          <Button className="h-11 md:h-9" onClick={() => setRefund(true)} data-testid="record-refund">
+            <BanknoteIcon aria-hidden="true" />
+            {t("refund")}
           </Button>
         )}
       </div>
@@ -176,6 +187,18 @@ export function PaymentsSection({ documentId, number }: { documentId: Id<"salesD
           onRecorded={(r) => {
             setDialog(false);
             if (r.cash && r.paymentIds[0]) setLastCash(r.paymentIds[0]);
+          }}
+        />
+      )}
+      {refund && (
+        <RefundDialog
+          documentId={documentId}
+          number={number}
+          data={data}
+          onClose={() => setRefund(false)}
+          onRecorded={(r) => {
+            setRefund(false);
+            if (r.cash) setLastCash(r.paymentId);
           }}
         />
       )}

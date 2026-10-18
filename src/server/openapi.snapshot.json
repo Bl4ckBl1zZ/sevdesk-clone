@@ -15334,6 +15334,183 @@
         }
       }
     },
+    "/api/v1/corrections/{id}/refund": {
+      "post": {
+        "operationId": "refundCorrection",
+        "summary": "Rechnungskorrektur erstatten",
+        "description": "PAY-033 (b): Auszahlung des offenen Erstattungsbetrags einer Rechnungskorrektur (Gutschrift) per Bank (gebuchter Ausgang), Konto oder bar („Bar erstattet“, PAY-062: Kassenbestand nie negativ). Mehr als die offene Erstattung → 422 `validation_failed` (EC-PAY-33).\n\nScope: `payments:write`.",
+        "tags": [
+          "Zahlungen"
+        ],
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "schema": {
+              "type": "string",
+              "pattern": "^cor_[0-9a-zA-Z]{16,64}$",
+              "description": "ID (cor_…)",
+              "example": "cor_k57f3x2m9q8w1e4r6t"
+            },
+            "required": true,
+            "description": "ID (cor_…)"
+          },
+          {
+            "in": "header",
+            "name": "Idempotency-Key",
+            "schema": {
+              "description": "24 h je Schlüssel; gleicher Body → gleiche Antwort (Idempotent-Replayed: true)",
+              "type": "string"
+            },
+            "description": "24 h je Schlüssel; gleicher Body → gleiche Antwort (Idempotent-Replayed: true)"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreditRefundRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Die Erstattung",
+            "headers": {
+              "RateLimit-Limit": {
+                "required": true,
+                "description": "Bucket-Größe",
+                "schema": {
+                  "type": "string",
+                  "description": "Bucket-Größe"
+                }
+              },
+              "RateLimit-Remaining": {
+                "required": true,
+                "description": "Verbleibende Anfragen",
+                "schema": {
+                  "type": "string",
+                  "description": "Verbleibende Anfragen"
+                }
+              },
+              "RateLimit-Reset": {
+                "required": true,
+                "description": "Sekunden bis zum vollen Bucket",
+                "schema": {
+                  "type": "string",
+                  "description": "Sekunden bis zum vollen Bucket"
+                }
+              },
+              "X-Request-Id": {
+                "required": true,
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PaymentRecordResult"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "`bad_request` – Ungültige Anfrage.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "`unauthorized` – API-Schlüssel fehlt, ist ungültig, abgelaufen oder widerrufen.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "`insufficient_scope` – Der API-Schlüssel hat nicht die nötige Berechtigung.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "`not_found` – Nicht gefunden.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "`period_locked` – Der Zeitraum ist festgeschrieben.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "415": {
+            "description": "`unsupported_media_type` – Bitte JSON senden (application/json).",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "`validation_failed` – Die Eingaben sind nicht gültig.; `cash_negative` – Der Kassenbestand würde negativ werden.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "`rate_limited` – Zu viele Anfragen – bitte später erneut versuchen.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "`internal_error` – Interner Fehler.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/open-items": {
       "get": {
         "operationId": "listOpenItems",
@@ -22963,8 +23140,10 @@
                     "invoice",
                     "opening_item",
                     "credit",
-                    "payment"
-                  ]
+                    "payment",
+                    "correction"
+                  ],
+                  "description": "invoice (Eingang), opening_item, credit (Guthaben, id = con_…), payment (vorhandene Kontozahlung), correction (Ausgang: Erstattung einer Rechnungskorrektur cor_…, PAY-033)"
                 },
                 "id": {
                   "type": "string"
@@ -27370,8 +27549,10 @@
                 "enum": [
                   "invoice",
                   "opening_item",
-                  "credit"
-                ]
+                  "credit",
+                  "correction"
+                ],
+                "description": "correction = Erstattung einer Rechnungskorrektur (negativer Betrag, PAY-033)"
               },
               "id": {
                 "type": "string"
@@ -28016,8 +28197,10 @@
             "type": "string",
             "enum": [
               "invoice",
-              "opening_item"
-            ]
+              "opening_item",
+              "correction"
+            ],
+            "description": "correction = Rechnungskorrektur mit offener Erstattung (negativer offener Betrag, PAY-033)"
           },
           "number": {
             "type": "string"
