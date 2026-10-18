@@ -143,7 +143,7 @@ function MatchingReviewInner() {
               <li key={tx.id} className="flex flex-col gap-1 rounded-lg border p-3 text-sm">
                 <TxLine tx={tx} />
                 <span className="flex flex-wrap gap-2">
-                  {canMatch && tx.direction === "in" && <OtherTargetButton tx={tx} />}
+                  {canMatch && <OtherTargetButton tx={tx} />}
                   <Link
                     className="inline-flex min-h-11 items-center underline md:min-h-9"
                     href={`/bank/${tx.accountId}` as Route}
@@ -226,12 +226,14 @@ function SuggestionCard({ row, canMatch }: { row: Row; canMatch: boolean }) {
   const c = row.candidates[index] ?? row.candidates[0];
   if (!c) return null;
   const pct = Math.round(c.score * 100);
+  // PAY-033: an outgoing debit refunds a credit balance or a credit correction („Erstattung“).
+  const out = row.tx.direction === "out";
   return (
     <li className="flex flex-col gap-3 rounded-xl border p-4 text-sm" data-testid="match-card">
       <TxLine tx={row.tx} />
       <div className="flex flex-col gap-2 rounded-lg bg-muted/40 p-3">
         <div className="flex flex-wrap items-center gap-2">
-          <span className="font-medium">{t(`kind.${c.kind}`)}</span>
+          <span className="font-medium">{t(out ? `refundKind.${c.kind}` : `kind.${c.kind}`)}</span>
           <meter className="h-2 w-24" aria-label={t("score")} min={0} max={100} value={pct} />
           <span className="tabular-nums">{c.score.toLocaleString("de-DE", { minimumFractionDigits: 2 })}</span>
         </div>
@@ -278,7 +280,7 @@ function SuggestionCard({ row, canMatch }: { row: Row; canMatch: boolean }) {
                     score: c.score,
                     reasons: c.reasons,
                   }),
-                t("confirmed"),
+                t(out ? "refunded" : "confirmed"),
               )
             }
           >
@@ -310,14 +312,17 @@ function SuggestionCard({ row, canMatch }: { row: Row; canMatch: boolean }) {
               {t("next", { n: index + 1, total: row.candidates.length })}
             </Button>
           )}
-          {row.tx.direction === "in" && <OtherTargetButton tx={row.tx} />}
+          <OtherTargetButton tx={row.tx} />
         </div>
       )}
     </li>
   );
 }
 
-/** ↔ „Andere wählen“: search an open invoice; the remainder of the transaction becomes a credit balance. */
+/**
+ * ↔ „Andere wählen“: incoming → search an open invoice (the remainder may become a credit balance); outgoing → an open
+ * refund of a credit correction (PAY-033 b; a smaller refund leaves the rest of the debit open).
+ */
 function OtherTargetButton({ tx }: { tx: Row["tx"] }) {
   const t = useTranslations("banking.matching");
   const [open, setOpen] = useState(false);
@@ -341,10 +346,12 @@ function OtherTargetDialog({ tx, onClose }: { tx: Row["tx"]; onClose: () => void
   const [remainder, setRemainder] = useState<"credit" | "unallocated">("unallocated");
   const targets = useAuthedQuery(api.matching.openTargets, { q });
   const qid = useId();
+  const out = tx.direction === "out";
+  const options = (out ? targets?.refunds : targets?.documents) ?? [];
   const amount = selected ? Math.min(selected.openCents, tx.openCents) : 0;
   return (
     <ConfirmDialog
-      title={t("otherTitle")}
+      title={t(out ? "otherRefundTitle" : "otherTitle")}
       description={t("otherHint", { amount: money(tx.openCents) })}
       confirmLabel={t("confirm")}
       confirmDisabled={!selected}
@@ -355,9 +362,9 @@ function OtherTargetDialog({ tx, onClose }: { tx: Row["tx"]; onClose: () => void
             confirm({
               transactionId: tx.id as Id<"bankTransactions">,
               allocations: [{ target: { kind: selected.kind, id: selected.id }, amountCents: amount }],
-              ...(amount < tx.openCents ? { remainder } : {}),
+              ...(!out && amount < tx.openCents ? { remainder } : {}),
             }),
-          t("confirmed"),
+          t(out ? "refunded" : "confirmed"),
         );
         if (r.ok) onClose();
       }}
@@ -365,11 +372,11 @@ function OtherTargetDialog({ tx, onClose }: { tx: Row["tx"]; onClose: () => void
     >
       <div className="flex flex-col gap-2">
         <label htmlFor={qid} className="font-medium text-sm">
-          {t("search")}
+          {t(out ? "searchRefund" : "search")}
         </label>
         <Input id={qid} value={q} onChange={(e) => setQ(e.target.value)} className="h-11 md:h-9" />
         <ul className="flex max-h-64 flex-col gap-1 overflow-y-auto">
-          {(targets?.documents ?? []).map((d) => (
+          {options.map((d) => (
             <li key={d.id}>
               <label className="flex min-h-11 items-center gap-2 rounded-md border p-2 text-sm md:min-h-9">
                 <input
@@ -387,7 +394,7 @@ function OtherTargetDialog({ tx, onClose }: { tx: Row["tx"]; onClose: () => void
             </li>
           ))}
         </ul>
-        {selected && amount < tx.openCents && (
+        {!out && selected && amount < tx.openCents && (
           <fieldset className="flex flex-col gap-1 text-sm">
             <legend className="font-medium">{t("remainder", { amount: money(tx.openCents - amount) })}</legend>
             <label className="flex min-h-11 items-center gap-2 md:min-h-9">

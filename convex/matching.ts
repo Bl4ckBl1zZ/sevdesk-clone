@@ -85,7 +85,7 @@ export const suggestions = query({
   },
 });
 
-/** ↔ „Andere wählen“: open documents and credit balances for a manual allocation, filtered by number/name. */
+/** ↔ „Andere wählen“: open documents, credit balances and open refunds for a manual allocation, by number/name. */
 export const openTargets = query({
   permission: "banking.read",
   args: { q: v.optional(v.string()) },
@@ -106,6 +106,17 @@ export const openTargets = query({
           dueDate: d.dueDate ?? null,
         })),
       credits: (base.credits ?? []).filter((c) => hit(c.contactName)),
+      // Outgoing debits (PAY-033 b): open refunds of credit corrections, as positive amounts.
+      refunds: (base.refunds ?? [])
+        .filter((r) => hit(r.number) || hit(r.contactName))
+        .slice(0, 50)
+        .map((r) => ({
+          kind: "salesDocument" as const,
+          id: r.id,
+          number: r.number,
+          contactName: r.contactName,
+          openCents: r.openCents,
+        })),
     };
   },
 });

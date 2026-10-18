@@ -240,8 +240,8 @@ F07 §7 is normative; summary:
 | POST | `/bank-accounts/{id}/imports` (`format: camt053 \| mt940 \| revolut_csv \| csv`; the fallback when Enable Banking is not connected or a consent lapsed) | banking:write |
 | GET | `/bank-connection` (Enable Banking consent status, `valid_until`, reminders, backoff; no secrets). Connecting, re-consent and „Jetzt abrufen" are **owner-only in the UI** (they need the owner's bank login or presence, F07 BNK-107); there is no sync endpoint (`POST /bank-accounts/{id}/sync` → `409 owner_presence_required`) | banking:read |
 | GET | `/bank-transactions` (`account_id`, `status`, `source`, `date_from/to`, `q`) | banking:read |
-| GET | `/bank-transactions/{id}/suggestions` | banking:read |
-| POST | `/bank-transactions/{id}/match` (`{ targets: [{ kind: invoice \| opening_item \| credit \| payment, id, amount_cents, differences? }], remainder?: credit \| unallocated, acknowledge_warnings? }`) | banking:write |
+| GET | `/bank-transactions/{id}/suggestions` (candidate targets use the same kinds as `match`; an outgoing debit's refund of a credit correction is `{ kind: "correction", id: "cor_…" }`, F07 BNK-041, 2026-10-18) | banking:read |
+| POST | `/bank-transactions/{id}/match` (`{ targets: [{ kind: invoice \| opening_item \| credit \| payment \| correction, id, amount_cents, differences? }], remainder?: credit \| unallocated, acknowledge_warnings? }`; `correction` = refund of a Rechnungskorrektur from an outgoing debit, F05 PAY-033 b) | banking:write |
 | POST | `/bank-transactions/{id}/unmatch` (`{ reason }`; F05 reversal of the transaction's payments, BNK-047) | payments:write |
 | POST | `/bank-transactions/{id}/mark` (`private\|transfer\|cash_withdrawal\|ignored\|loan`) | banking:write |
 | GET/POST/PATCH | `/matching-rules` | banking:write |

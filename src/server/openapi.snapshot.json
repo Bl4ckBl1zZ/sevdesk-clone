@@ -15919,7 +15919,7 @@
       "post": {
         "operationId": "matchBankTransaction",
         "summary": "Bankumsatz zuordnen",
-        "description": "Bucht die Zahlung(en) über F05 (Eingang → Rechnungen/offene Posten/Guthaben; Ausgang → Erstattung eines Guthabens; `payment` = vorhandene Kontozahlung abgleichen). Restbetrag eines Eingangs: `remainder`.\n\nScope: `banking:write`.",
+        "description": "Bucht die Zahlung(en) über F05 (Eingang → Rechnungen/offene Posten/Guthaben; Ausgang → Erstattung eines Guthabens oder einer Rechnungskorrektur `correction`, PAY-033; `payment` = vorhandene Kontozahlung abgleichen). Restbetrag eines Eingangs: `remainder`.\n\nScope: `banking:write`.",
         "tags": [
           "Bank und Kasse"
         ],

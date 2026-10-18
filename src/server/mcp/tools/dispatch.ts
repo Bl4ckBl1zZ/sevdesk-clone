@@ -1,8 +1,9 @@
 import "server-only";
 import { api } from "@convex/_generated/api";
-import type { z } from "zod";
+import { z } from "zod";
 import { dispatchDocId, documentExportWire, documentMarkSentWire, finalizeArgs } from "@/domain/schemas/api/dispatch";
 import { finalizeWire } from "@/domain/schemas/api/documents";
+import { reminderFinalizeArgs } from "@/domain/schemas/api/dunning";
 import { ApiProblem } from "../../api/http";
 import {
   exportDocument,
@@ -22,7 +23,37 @@ import type { PreviewPlan } from "./previews";
  * exported files and confirms how and when, then Claude records the mark.
  */
 
-const FINALIZE_FAMILIES = ["quote", "order_confirmation", "delivery_note", "invoice", "correction"] as const;
+const FINALIZE_FAMILIES = [
+  "quote",
+  "order_confirmation",
+  "delivery_note",
+  "invoice",
+  "correction",
+  "reminder",
+] as const;
+
+/** Reminders are always dated today (DUN-004): the finalisation options of other documents are refused. */
+export function rejectDocumentOptions(o: { document_date?: unknown; backdate_reason?: unknown; overrides?: unknown }) {
+  const field = (["document_date", "backdate_reason", "overrides"] as const).find((k) => o[k] !== undefined);
+  if (!field) return;
+  throw new ApiProblem("validation_failed", {
+    errors: [{ code: "invalid", field, message: "Mahnungen werden immer mit dem heutigen Datum fertiggestellt." }],
+  });
+}
+
+/** `acknowledge_warnings` belongs to reminders only (their warnings need an explicit acknowledgement, DUN-004). */
+export function rejectReminderOptions(ack: readonly string[] | undefined) {
+  if (ack === undefined) return;
+  throw new ApiProblem("validation_failed", {
+    errors: [
+      {
+        code: "invalid",
+        field: "acknowledge_warnings",
+        message: "acknowledge_warnings gilt nur für Mahnungen (rem_…).",
+      },
+    ],
+  });
+}
 
 export const markSentParams = documentMarkSentWire.extend({ id: dispatchDocId });
 
@@ -54,14 +85,38 @@ export const dispatchTools = [
     name: "document_finalize",
     title: "Beleg fertigstellen ⚠",
     description:
-      "⚠ Stellt einen Entwurf fertig (Nummer, eingefrorener Inhalt, PDF/E-Rechnung; unumkehrbar). Zuerst document_preview {id} (intent finalize, dieselben document_date/backdate_reason/overrides) aufrufen, Summen, Steuerfall und ER-03 zeigen, bestätigen lassen, dann mit confirm_token und der version aus der Vorschau. Danach document_export; versenden macht der Inhaber selbst.",
+      "⚠ Stellt einen Entwurf fertig (Nummer, eingefrorener Inhalt, PDF/E-Rechnung; unumkehrbar), auch einen Mahnungsentwurf (rem_…, mit denselben acknowledge_warnings wie in der Vorschau). Zuerst document_preview {id} (intent finalize, dieselben document_date/backdate_reason/overrides) aufrufen, Summen, Steuerfall und ER-03 bzw. die Mahnforderung zeigen, bestätigen lassen, dann mit confirm_token und der version aus der Vorschau. Danach document_export; versenden macht der Inhaber selbst.",
     kind: "danger",
     confirmIntent: "document_finalize",
     scopes: ["invoices:finalize"],
-    input: finalizeWire.extend({ id: dispatchDocId, confirm_token: confirmTokenArg }),
-    handler: async ({ id, confirm_token, ...w }, { convex, key }) => {
+    input: finalizeWire.extend({
+      id: dispatchDocId,
+      acknowledge_warnings: z
+        .array(z.string().max(60))
+        .max(20)
+        .optional()
+        .meta({ description: "Nur Mahnungen (rem_…): dieselben bestätigten Warnungscodes wie in document_preview" }),
+      confirm_token: confirmTokenArg,
+    }),
+    handler: async ({ id, confirm_token, acknowledge_warnings, ...w }, { convex, key }) => {
       const doc = await resolveDispatchDoc(convex, id, FINALIZE_FAMILIES);
       requireFinalizeScopes(key, doc.type);
+      if (doc.idType === "reminder") {
+        // DUN-004 `dunning.finalize` (⚠ invoices.finalize → intent document_finalize; token bound to these args).
+        rejectDocumentOptions(w);
+        const r = await convex.mutation(api.dunning.finalize, {
+          ...reminderFinalizeArgs(doc.id, { version: w.version, acknowledge_warnings }),
+          confirmToken: confirm_token,
+        } as never);
+        return {
+          id: doc.wireId,
+          number: r.number,
+          status: "finalized",
+          artifact_status: "pending",
+          next: "document_export (PDF der Mahnung), dann versendet der Inhaber selbst; danach document_mark_sent.",
+        };
+      }
+      rejectReminderOptions(acknowledge_warnings);
       const r = await convex.action(api.invoices.finalize, {
         ...finalizeArgs(doc.id, w),
         confirmToken: confirm_token,

@@ -70,10 +70,29 @@ export interface CreditBalanceCandidate {
   balanceCents: number;
 }
 
+/**
+ * PAY-033 (b): a finalised credit correction (Rechnungskorrektur) whose open amount is negative — money the company
+ * still owes the customer („Erstattung offen“). `openCents` is the open refund as a positive amount.
+ */
+export interface OpenRefund {
+  id: string;
+  number: string;
+  contactId?: string;
+  contactName: string;
+  ibans: readonly string[];
+  aliases: readonly string[];
+  documentDate: string;
+  dueDate?: string;
+  openCents: number;
+  currency: string;
+}
+
 export interface MatchInput {
   documents: readonly OpenDocument[];
   manualPayments?: readonly ManualPayment[];
   credits?: readonly CreditBalanceCandidate[];
+  /** Outgoing debits only (BNK-041): open refunds of credit corrections. */
+  refunds?: readonly OpenRefund[];
   /** `${targetKind}:${targetId}` pairs the owner rejected for this transaction (BNK-046). */
   rejected?: ReadonlySet<string>;
 }
@@ -322,6 +341,53 @@ function scoreDocument(
   };
 }
 
+/**
+ * PAY-033 (b) / BNK-041 outgoing: a debit refunding a credit correction. Exact open refund, or less with the
+ * correction number (partial refund); never more than the open refund (EC-PAY-33) and never with differences —
+ * the refund path books the amount as it left the account.
+ */
+function scoreRefund(
+  tx: UnmatchedTransaction,
+  r: OpenRefund,
+  numberKind: "full" | "body" | "tail" | null,
+): Scored | null {
+  const amount = tx.openCents;
+  const reasons: MatchReason[] = [];
+  let bp = 0;
+  const byNumber = numberKind !== null;
+  if (byNumber) {
+    bp += WEIGHTS_BP.number_in_purpose;
+    reasons.push("number_in_purpose");
+  }
+  let kind: MatchCandidate["kind"] = "single";
+  if (amount === r.openCents) {
+    bp += WEIGHTS_BP.exact_amount;
+    reasons.push("exact_amount");
+  } else if (amount < r.openCents && byNumber) {
+    bp += WEIGHTS_BP.partial;
+    reasons.push("partial");
+    kind = "partial";
+  } else {
+    return null;
+  }
+  if (tx.counterpartyIban && r.ibans.map(normIban).includes(normIban(tx.counterpartyIban))) {
+    bp += WEIGHTS_BP.known_iban;
+    reasons.push("known_iban");
+  }
+  const nb = nameBp(nameSimilarity(tx, [r.contactName, ...r.aliases]));
+  if (nb > 0) {
+    bp += nb;
+    reasons.push("name_similarity");
+  }
+  const date = dateSignal(tx.bookingDate, r);
+  bp += date;
+  if (date > 0) reasons.push("date_window");
+  return {
+    bp,
+    candidate: { kind, reasons, allocations: [{ target: { kind: "salesDocument", id: r.id }, amountCents: amount }] },
+  };
+}
+
 /** BNK-044 bounded exact subset-sum: fewest items first, then the oldest due dates. */
 export function subsetSum(
   items: readonly OpenDocument[],
@@ -394,6 +460,17 @@ export function scoreTransaction(
           allocations: [{ target: { kind: "contactCredit", id: c.contactId }, amountCents: tx.openCents }],
         },
       });
+    }
+    // Refund of a credit correction's open refund (PAY-033 b): the correction number is the primary rule.
+    const refunds = (input.refunds ?? []).filter(
+      (r) => r.openCents > 0 && r.currency === tx.currency && ok("salesDocument", r.id),
+    );
+    const refundKinds = new Map(refunds.map((r) => [r.id, numberMatch(r.number, text)]));
+    const refundTails = refunds.filter((r) => refundKinds.get(r.id) === "tail");
+    if (refundTails.length > 1) for (const r of refundTails) refundKinds.set(r.id, null);
+    for (const r of refunds) {
+      const s = scoreRefund(tx, r, refundKinds.get(r.id) ?? null);
+      if (s) out.push(s);
     }
     return rank(out, thresholds);
   }

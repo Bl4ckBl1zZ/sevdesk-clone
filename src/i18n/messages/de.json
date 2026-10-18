@@ -2316,7 +2316,10 @@
       "other": "Andere wählen",
       "otherTitle": "Andere Rechnung wählen",
       "otherHint": "Offener Betrag des Umsatzes: {amount}",
+      "otherRefundTitle": "Erstattung zuordnen",
       "search": "Rechnungsnummer oder Kunde",
+      "searchRefund": "Nummer der Rechnungskorrektur oder Kunde",
+      "refunded": "Erstattung gebucht.",
       "remainder": "Restbetrag {amount}",
       "remainderOpen": "auf dem Umsatz offen lassen",
       "remainderCredit": "als Guthaben des Kunden",
@@ -2327,6 +2330,11 @@
         "single": "Zuordnung",
         "combined": "Sammelzahlung",
         "partial": "Teilzahlung"
+      },
+      "refundKind": {
+        "single": "Erstattung",
+        "combined": "Erstattung",
+        "partial": "Teilerstattung"
       },
       "linkToReview": "Zuordnungen"
     }

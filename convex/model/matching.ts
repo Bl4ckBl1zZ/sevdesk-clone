@@ -8,6 +8,7 @@ import {
   type MatchInput,
   normaliseName,
   type OpenDocument,
+  type OpenRefund,
   scoreTransaction,
 } from "../../src/domain/banking/match";
 import type { MatchAllocation, MatchCandidate, UnmatchedTransaction } from "../../src/domain/banking/match-types";
@@ -54,6 +55,7 @@ async function contactKeys(ctx: ReadCtx, contactId: Id<"contacts"> | undefined) 
 /** Everything the scorer needs except the rejections (per transaction). */
 export async function matchContext(ctx: ReadCtx): Promise<Omit<MatchInput, "rejected">> {
   const documents: OpenDocument[] = [];
+  const refunds: OpenRefund[] = [];
   const keys = new Map<string, { ibans: string[]; aliases: string[] }>();
   const keysOf = async (id: Id<"contacts"> | undefined) => {
     if (!id) return { ibans: [], aliases: [] };
@@ -71,6 +73,24 @@ export async function matchContext(ctx: ReadCtx): Promise<Omit<MatchInput, "reje
       // F09 IMP-007: an archived sevdesk invoice is matched through its opening item (listed below), never twice.
       if (d.imported) continue;
       const open = d.openAmountCents ?? d.totals.payableCents;
+      if (d.type === "correction" && d.correctionKind === "credit") {
+        // PAY-033 (b): a negative open amount is a refund the company owes — a candidate for outgoing debits.
+        if (open >= 0) continue;
+        const k = await keysOf(d.contactId);
+        refunds.push({
+          id: d._id,
+          number: d.number,
+          ...(d.contactId ? { contactId: d.contactId } : {}),
+          contactName: d.contactName ?? "",
+          ibans: k.ibans,
+          aliases: k.aliases,
+          documentDate: d.documentDate,
+          ...(d.dueDate ? { dueDate: d.dueDate } : {}),
+          openCents: -open,
+          currency: d.currency,
+        });
+        continue;
+      }
       if (open <= 0) continue;
       const snap = d.snapshotId ? await ctx.db.get(d.snapshotId) : null;
       const skonto = snap ? (JSON.parse(snap.json) as DocumentSnapshot).payment.skonto : undefined;
@@ -139,7 +159,7 @@ export async function matchContext(ctx: ReadCtx): Promise<Omit<MatchInput, "reje
       balanceCents: balance,
     });
   }
-  return { documents, manualPayments, credits };
+  return { documents, manualPayments, credits, refunds };
 }
 
 async function rejectedFor(ctx: ReadCtx, txId: Id<"bankTransactions">): Promise<Set<string>> {
@@ -170,12 +190,15 @@ export async function targetLabels(ctx: ReadCtx, allocations: readonly MatchAllo
   for (const a of allocations) {
     if (a.target.kind === "salesDocument") {
       const d = await ctx.db.get(a.target.id as Id<"salesDocuments">);
+      // PAY-033 (b): an outgoing debit refunds a credit correction; its open refund is shown as a positive amount.
+      const refund = d?.type === "correction";
       out.push({
         ...a,
-        label: d?.number ?? "Rechnung",
+        label: refund ? `Erstattung zu Rechnungskorrektur ${d?.number ?? ""}`.trim() : (d?.number ?? "Rechnung"),
         contactName: d?.contactName ?? "",
-        openCents: d?.openAmountCents ?? 0,
+        openCents: refund ? Math.max(0, -(d?.openAmountCents ?? 0)) : (d?.openAmountCents ?? 0),
         dueDate: d?.dueDate ?? null,
+        docType: d?.type ?? null,
       });
     } else if (a.target.kind === "opening_item") {
       const i = await ctx.db.get(a.target.id as Id<"openingItems">);
@@ -185,6 +208,7 @@ export async function targetLabels(ctx: ReadCtx, allocations: readonly MatchAllo
         contactName: i?.counterpartyName ?? "",
         openCents: i?.openAmountCents ?? 0,
         dueDate: i?.dueDate ?? null,
+        docType: null,
       });
     } else if (a.target.kind === "contactCredit") {
       const c = await ctx.db.get(a.target.id as Id<"contacts">);
@@ -194,6 +218,7 @@ export async function targetLabels(ctx: ReadCtx, allocations: readonly MatchAllo
         contactName: c?.displayName ?? "",
         openCents: await creditBalance(ctx, a.target.id),
         dueDate: null,
+        docType: null,
       });
     } else if (a.target.kind === "payment") {
       const p = await ctx.db.get(a.target.id as Id<"payments">);
@@ -203,9 +228,10 @@ export async function targetLabels(ctx: ReadCtx, allocations: readonly MatchAllo
         contactName: "",
         openCents: p?.amountCents ?? 0,
         dueDate: null,
+        docType: null,
       });
     } else {
-      out.push({ ...a, label: a.target.kind, contactName: "", openCents: 0, dueDate: null });
+      out.push({ ...a, label: a.target.kind, contactName: "", openCents: 0, dueDate: null, docType: null });
     }
   }
   return out;

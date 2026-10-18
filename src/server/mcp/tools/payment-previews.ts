@@ -113,6 +113,24 @@ export async function bankMatchPlan(params: z.infer<typeof bankMatchParams>, { c
       } as never),
     );
   }
+  // PAY-033 (b): an outgoing debit on a credit correction is a refund — same check as the act (EC-PAY-33).
+  const [first] = args.allocations;
+  let refund: { open_refund_cents: number; open_refund_after_cents: number; date: string } | null = null;
+  if (s.transaction.amountCents < 0 && args.allocations.length === 1 && first?.target.kind === "salesDocument") {
+    const r = await convex.query(api.payments.previewCorrectionRefund, {
+      documentId: first.target.id as never,
+      amountCents: first.amountCents,
+      source: { kind: "bank", transactionId: args.transactionId as never },
+      date: s.transaction.bookingDate,
+    });
+    if (!r.ok)
+      throw new ApiProblem("validation_failed", {
+        detail: r.message,
+        errors: [{ code: r.reason ?? "invalid", field: "targets.0.amount_cents", message: r.message }],
+      });
+    refund = { open_refund_cents: r.openRefundCents, open_refund_after_cents: -r.openAfterCents, date: r.date };
+  }
+  const euros = (cents: number) => (cents / 100).toFixed(2);
   return {
     args,
     entities: [{ table: "bankTransactions", id: args.transactionId }, ...targetEntities(args.allocations)],
@@ -121,8 +139,13 @@ export async function bankMatchPlan(params: z.infer<typeof bankMatchParams>, { c
       targets: wire.targets,
       remainder: wire.remainder ?? null,
       booking,
+      refund,
       hint: booking ? ackHint(booking.unacknowledged) : null,
-      summary: "Der Umsatz wird den Zielen zugeordnet; die Zahlungen werden gebucht (F05).",
+      summary: refund
+        ? `Erstattung an den Kunden: ${euros(first?.amountCents ?? 0)} € zur Rechnungskorrektur werden gebucht (PAY-033); danach offene Erstattung ${euros(refund.open_refund_after_cents)} €.`
+        : s.transaction.amountCents < 0
+          ? "Erstattung an den Kunden: der Umsatz wird dem Ziel zugeordnet und die Erstattung gebucht (PAY-033)."
+          : "Der Umsatz wird den Zielen zugeordnet; die Zahlungen werden gebucht (F05).",
     },
   } satisfies PreviewPlan;
 }

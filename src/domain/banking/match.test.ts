@@ -7,6 +7,7 @@ import {
   jaroWinkler,
   numberMatch,
   type OpenDocument,
+  type OpenRefund,
   rfFor,
   scoreTransaction,
   subsetSum,
@@ -184,6 +185,99 @@ describe("matching scorer (BNK-042, §4.4 golden M1–M8)", () => {
       },
     );
     expect(c?.allocations).toEqual([{ target: { kind: "contactCredit", id: "c1" }, amountCents: 4500 }]);
+  });
+
+  describe("BNK-041 PAY-033 (b) outgoing debits against open refunds of credit corrections", () => {
+    const refund = (over: Partial<OpenRefund> = {}): OpenRefund => ({
+      id: "rk1",
+      number: "RK-2026-0001",
+      contactId: "c1",
+      contactName: "Müller GmbH",
+      ibans: [],
+      aliases: [],
+      documentDate: "2026-10-10",
+      openCents: 23_800,
+      currency: "EUR",
+      ...over,
+    });
+    const out = (over: Partial<UnmatchedTransaction> = {}) =>
+      tx({ amountCents: -23_800, openCents: 23_800, direction: "out", ...over });
+
+    test("T07-074 BNK-041 number + exact open refund + name → 1.00 refund of the correction, auto-applicable (BNK-043)", () => {
+      const [c] = scoreTransaction(out({ purpose: "Erstattung RK-2026-0001", counterpartyName: "MUELLER GMBH" }), {
+        documents: [],
+        refunds: [refund()],
+      });
+      expect(c).toMatchObject({
+        kind: "single",
+        score: 1,
+        reasons: ["number_in_purpose", "exact_amount", "name_similarity", "date_window"],
+        allocations: [{ target: { kind: "salesDocument", id: "rk1" }, amountCents: 23_800 }],
+      });
+      expect(c && autoApplicable(c)).toBe(true);
+    });
+
+    test("T07-074 BNK-041 without the number: exact amount + known IBAN → 0.65 suggestion, never auto", () => {
+      const [c] = scoreTransaction(out({ counterpartyIban: "DE02 1203 0000 0000 2020 51" }), {
+        documents: [],
+        refunds: [refund({ ibans: ["DE02120300000000202051"] })],
+      });
+      expect(c).toMatchObject({ score: 0.65, reasons: ["exact_amount", "known_iban", "date_window"] });
+      expect(c && autoApplicable(c)).toBe(false);
+    });
+
+    test("T07-074 BNK-045 EC-PAY-33 a smaller debit with the number is a partial refund; a larger one is never proposed", () => {
+      const [partial] = scoreTransaction(out({ amountCents: -10_000, openCents: 10_000, purpose: "RK 2026 1" }), {
+        documents: [],
+        refunds: [refund()],
+      });
+      expect(partial).toMatchObject({
+        kind: "partial",
+        score: 0.65,
+        reasons: ["number_in_purpose", "partial", "date_window"],
+        allocations: [{ target: { kind: "salesDocument", id: "rk1" }, amountCents: 10_000 }],
+      });
+      expect(partial && autoApplicable(partial)).toBe(false);
+      // More than the open refund (EC-PAY-33) or a smaller amount without the number: no suggestion.
+      expect(
+        scoreTransaction(out({ amountCents: -30_000, openCents: 30_000, purpose: "RK-2026-0001" }), {
+          documents: [],
+          refunds: [refund()],
+        }),
+      ).toEqual([]);
+      expect(
+        scoreTransaction(out({ amountCents: -10_000, openCents: 10_000 }), { documents: [], refunds: [refund()] }),
+      ).toEqual([]);
+    });
+
+    test("T07-074 BNK-041 hard filters: incoming money, other currency and rejected pairs never propose a refund", () => {
+      expect(
+        scoreTransaction(tx({ amountCents: 23_800, openCents: 23_800, purpose: "RK-2026-0001" }), {
+          documents: [],
+          refunds: [refund()],
+        }),
+      ).toEqual([]);
+      expect(
+        scoreTransaction(out({ purpose: "RK-2026-0001" }), { documents: [], refunds: [refund({ currency: "USD" })] }),
+      ).toEqual([]);
+      expect(
+        scoreTransaction(out({ purpose: "RK-2026-0001" }), {
+          documents: [],
+          refunds: [refund()],
+          rejected: new Set(["salesDocument:rk1"]),
+        }),
+      ).toEqual([]);
+    });
+
+    test("T07-074 BNK-042 a credit balance and an open refund of the same amount and customer are ambiguous", () => {
+      const r = scoreTransaction(out({ counterpartyName: "Müller GmbH" }), {
+        documents: [],
+        credits: [{ contactId: "c1", contactName: "Müller GmbH", ibans: [], aliases: [], balanceCents: 23_800 }],
+        refunds: [refund()],
+      });
+      expect(r.map((c) => c.allocations[0]?.target.kind).sort()).toEqual(["contactCredit", "salesDocument"]);
+      expect(r.every((c) => c.reasons.includes("ambiguous"))).toBe(true);
+    });
   });
 
   test("number normalisation: case, separators, leading zeros, „RE “ prefix, tail only when unique", () => {

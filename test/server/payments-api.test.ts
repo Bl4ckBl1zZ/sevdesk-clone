@@ -213,17 +213,40 @@ describe("MCP payment and bank tools (06 §3.5, §3.7)", () => {
     const tx = await bookedTransaction(t, bankAccount, {
       bookingDate: "2026-10-13",
       amountCents: -23_800,
-      purpose: "Erstattung Gutschrift",
+      purpose: "Erstattung RK-2026-0001",
     });
     const client = await connect(
       (await t.asMcp(["payments:read", "payments:write", "banking:read", "banking:write"])).key,
     );
-    const params = { transaction_id: `btx_${tx}`, targets: [{ kind: "correction", id: cor, amount_cents: 23_800 }] };
+    // T07-074 BNK-041: the suggestion names the correction (cor_…) so its target can be passed on unchanged.
+    const s = (await client.callTool({
+      name: "bank_match_suggestions",
+      arguments: { transaction_id: `btx_${tx}` },
+    })) as ToolCall;
+    const [best] = (s.structuredContent?.candidates ?? []) as { score: number; targets: Json[] }[];
+    expect(best?.targets).toEqual([
+      expect.objectContaining({
+        kind: "correction",
+        id: cor,
+        label: "Erstattung zu Rechnungskorrektur RK-2026-0001",
+        amount_cents: 23_800,
+        open_cents: 23_800,
+      }),
+    ]);
+    const params = {
+      transaction_id: `btx_${tx}`,
+      targets: (best?.targets ?? []).map((x) => ({ kind: x.kind, id: x.id, amount_cents: x.amount_cents })),
+    };
+    expect(params.targets).toEqual([{ kind: "correction", id: cor, amount_cents: 23_800 }]);
     const p = (await client.callTool({
       name: "preview_action",
       arguments: { action: "bank_match_confirm", params },
     })) as ToolCall;
     expect(p.isError).toBeFalsy();
+    expect(p.structuredContent?.effect).toMatchObject({
+      refund: { open_refund_cents: 23_800, open_refund_after_cents: 0 },
+      summary: expect.stringMatching(/^Erstattung an den Kunden/),
+    });
     const ok = (await client.callTool({
       name: "bank_match_confirm",
       arguments: { ...params, confirm_token: p.structuredContent?.confirm_token },
