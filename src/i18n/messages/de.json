@@ -2296,7 +2296,7 @@
       },
       "confirmSafe": "Alle sicheren bestätigen ({count})",
       "confirmSafeTitle": "Alle sicheren Vorschläge bestätigen",
-      "confirmSafeHint": "{count} Zuordnungen mit einer Bewertung ab 0,95 über insgesamt {sum} werden als Zahlungen gebucht.",
+      "confirmSafeHint": "{count} Zuordnungen mit einer Bewertung ab 0,95 über insgesamt {sum} werden als Zahlungen bzw. Erstattungen gebucht.",
       "emptySuggestions": "Keine offenen Vorschläge.",
       "emptyAuto": "Keine automatischen Zuordnungen in den letzten 60 Tagen.",
       "emptyNone": "Alle offenen Umsätze haben einen Vorschlag.",
