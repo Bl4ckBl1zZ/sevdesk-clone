@@ -697,6 +697,12 @@
     "wrapper": "query",
     "permission": "documents.read"
   },
+  "documentsApi:head": {
+    "kind": "query",
+    "visibility": "public",
+    "wrapper": "query",
+    "permission": "documents.read"
+  },
   "documentsApi:list": {
     "kind": "query",
     "visibility": "public",
@@ -1045,6 +1051,12 @@
     "wrapper": "action",
     "permission": "invoices.finalize"
   },
+  "invoices:finalizeCheck": {
+    "kind": "query",
+    "visibility": "public",
+    "wrapper": "query",
+    "permission": "documents.read"
+  },
   "invoices:get": {
     "kind": "query",
     "visibility": "public",
@@ -1061,6 +1073,12 @@
     "kind": "mutation",
     "visibility": "public",
     "wrapper": "mutation",
+    "permission": "invoices.send"
+  },
+  "invoices:markSentPreview": {
+    "kind": "query",
+    "visibility": "public",
+    "wrapper": "query",
     "permission": "invoices.send"
   },
   "invoices:notifyDeadlinesCron": {
@@ -1399,6 +1417,12 @@
     "wrapper": "query",
     "permission": "payments.read"
   },
+  "payments:previewCorrectionRefund": {
+    "kind": "query",
+    "visibility": "public",
+    "wrapper": "query",
+    "permission": "payments.read"
+  },
   "payments:previewInvoicePayment": {
     "kind": "query",
     "visibility": "public",
@@ -1436,6 +1460,12 @@
     "permission": "payments.write"
   },
   "payments:refund": {
+    "kind": "mutation",
+    "visibility": "public",
+    "wrapper": "mutation",
+    "permission": "payments.write"
+  },
+  "payments:refundCorrection": {
     "kind": "mutation",
     "visibility": "public",
     "wrapper": "mutation",

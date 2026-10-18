@@ -338,6 +338,34 @@ export const paymentsResource = defineResource("payments", "Zahlungen, offene Po
     },
   }),
   defineEndpoint({
+    method: "POST",
+    path: "/corrections/{id}/refund",
+    operationId: "refundCorrection",
+    summary: "Rechnungskorrektur erstatten",
+    description:
+      "PAY-033 (b): Auszahlung des offenen Erstattungsbetrags einer Rechnungskorrektur (Gutschrift) per Bank (gebuchter Ausgang), Konto oder bar („Bar erstattet“, PAY-062: Kassenbestand nie negativ). Mehr als die offene Erstattung → 422 `validation_failed` (EC-PAY-33).",
+    tag: TAG,
+    scope: "payments:write",
+    params: idParams("corrections"),
+    body: creditRefundBody,
+    response: { status: 201, schema: recordResult, description: "Die Erstattung" },
+    errors: ["not_found", "validation_failed", "period_locked", "cash_negative"],
+    handler: async ({ convex, params, body }) => {
+      const source = sourceArgs(body.source);
+      if (!source) throw notFound("Bankumsatz oder Konto");
+      const r = await convex.mutation(api.payments.refundCorrection, {
+        documentId: rawId("corrections", params.id) as never,
+        amountCents: body.amount_cents,
+        source: source as never,
+        date: body.date,
+        ...(body.backdate_reason ? { backdateReason: body.backdate_reason } : {}),
+        ...(body.note ? { note: body.note } : {}),
+        ...(body.acknowledge_warnings?.length ? { acknowledgeWarnings: body.acknowledge_warnings } : {}),
+      });
+      return { status: 201, body: recordBody(await loadPayments(convex, [r.paymentId]), r) };
+    },
+  }),
+  defineEndpoint({
     method: "GET",
     path: "/open-items",
     operationId: "listOpenItems",

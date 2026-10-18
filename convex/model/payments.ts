@@ -443,6 +443,16 @@ function eventFor(
 }
 
 /**
+ * The settlement without money that enters the open amount (PAY-043): for an invoice the applied Rechnungskorrekturen
+ * (Σ `creditAppliedCents`, optionally up to `asOf`); for a credit correction itself −`creditAppliedCents`, the part
+ * of its (negative) payable the corrected invoice absorbed — only the rest is refunded (PAY-033 b).
+ */
+export async function creditedOf(ctx: ReadCtx, doc: Doc<"salesDocuments">, asOf?: string): Promise<number> {
+  if (doc.type === "correction") return -(doc.creditAppliedCents ?? 0);
+  return creditedCentsOf(ctx, doc, asOf);
+}
+
+/**
  * Re-derives `openAmountCents`/`paymentStatus` of a sales document from all its payment rows (PAY-043, §4.3) and
  * returns the change for the dunning hook. EC-PAY-45: a negative open amount aborts the mutation.
  */
@@ -454,7 +464,7 @@ async function refreshDocument(ctx: ModelCtx, id: Id<"salesDocuments">, action: 
   try {
     derived = derivePaymentStatus({
       payableCents: doc.totals.payableCents,
-      creditedCents: await creditedCentsOf(ctx, doc),
+      creditedCents: await creditedOf(ctx, doc),
       rows: rows.map(statusRow),
       cancelled: doc.status === "cancelled",
     });
@@ -778,7 +788,7 @@ export async function refundCredit(
   const plan = planRefund({
     sourceKind: args.source.kind,
     amountCents: args.amountCents,
-    creditBalanceCents: await creditBalance(ctx, args.contactId),
+    openRefundCents: await creditBalance(ctx, args.contactId),
     date: args.date,
     today: berlinCalendarDate(ctx.now()),
     closedPeriods: await closedPeriods(ctx),
@@ -836,6 +846,146 @@ export async function refundCredit(
     await applyAllocation(ctx, { transactionId: args.source.transactionId, deltaCents: args.amountCents });
   }
   return { paymentId: id, date: plan.value.date, warnings: plan.value.warnings };
+}
+
+export interface CorrectionRefundArgs {
+  documentId: Id<"salesDocuments">;
+  amountCents: number;
+  source: RefundSource;
+  date: string;
+  backdateReason?: string;
+  note?: string;
+  acknowledgeWarnings?: string[];
+  match?: { score: number; reasons: string[]; auto: boolean };
+}
+
+/**
+ * PAY-033 (b) planning, shared by the preview and the act: the refundable correction (finalised credit, not cancelled,
+ * EUR), the open refund (= −open amount), the source (an outgoing transaction for `bank`) and the dating rules
+ * (PAY-061/062). Throws structured errors (EC-PAY-33 `REFUND_EXCEEDS`, `TX_DIRECTION`, `NOT_REFUNDABLE`, …).
+ */
+export async function planCorrectionRefund(ctx: ReadCtx, args: CorrectionRefundArgs, now: number) {
+  const doc = await ctx.db.get(args.documentId);
+  if (!doc) throw appError("not_found", "Die Rechnungskorrektur existiert nicht.");
+  if (doc.type !== "correction" || doc.correctionKind !== "credit") {
+    throw appError("invalid_input", "Erstattungen sind nur auf Rechnungskorrekturen (Gutschriften) möglich.", {
+      reason: "NOT_REFUNDABLE",
+    });
+  }
+  if (doc.status === "draft") throw appError("invalid_input", PAY_MESSAGES.draft, { reason: "DRAFT" });
+  if (doc.status === "cancelled") throw appError("invalid_input", PAY_MESSAGES.cancelled, { reason: "CANCELLED" });
+  if (doc.currency !== "EUR") throw appError("invalid_input", PAY_MESSAGES.fxDeferred, { reason: "FX_DEFERRED" });
+  if (!doc.contactId) throw appError("invalid_input", "Die Erstattung braucht einen Kunden (Debitor).");
+  const tx = args.source.kind === "bank" ? await requireTransaction(ctx, args.source.transactionId) : undefined;
+  if (tx && !["open", "partially_matched", "matched"].includes(tx.status)) {
+    throw appError("invalid_input", PAY_MESSAGES.txNotAllocatable, { reason: "TX_NOT_ALLOCATABLE" });
+  }
+  if (args.source.kind === "clearing") {
+    const account = await ctx.db.get(args.source.accountId);
+    if (!account) throw appError("not_found", "Das Bankkonto existiert nicht.");
+    if (account.currency !== "EUR") throw appError("invalid_input", PAY_MESSAGES.fxDeferred, { reason: "FX_DEFERRED" });
+  }
+  const openCents = doc.openAmountCents ?? doc.totals.payableCents;
+  const plan = planRefund({
+    sourceKind: args.source.kind,
+    amountCents: args.amountCents,
+    openRefundCents: -openCents,
+    date: args.date,
+    today: berlinCalendarDate(now),
+    closedPeriods: await closedPeriods(ctx),
+    ...(args.backdateReason ? { backdateReason: args.backdateReason } : {}),
+    ...(tx
+      ? { bank: { bookingDate: tx.bookingDate, amountCents: tx.amountCents, allocatedCents: tx.allocatedCents } }
+      : {}),
+  });
+  if (!plan.ok) rejected(plan.error);
+  return {
+    doc,
+    tx,
+    date: plan.value.date,
+    warnings: plan.value.warnings,
+    openRefundCents: -openCents,
+    openAfterCents: openCents + args.amountCents,
+  };
+}
+
+/**
+ * PAY-033 (b) / PAY-062: refund of a credit correction (outgoing bank transaction, „Bar erstattet“ or clearing). One
+ * payment row on the correction with the negative amount, the P11 entry (receivable S · bank/cash H; under Ist also
+ * the release of the correction's parked VAT share, P11-ist), the correction's open amount/status re-derived, the
+ * bank allocation — all in this transaction. A cash refund is subject to the never-negative check (RI-11, EC-PAY-28).
+ */
+export async function refundCorrection(
+  ctx: ModelCtx,
+  args: CorrectionRefundArgs,
+): Promise<{ paymentId: Id<"payments">; date: string; warnings: PaymentWarning[] }> {
+  const p = await planCorrectionRefund(ctx, args, ctx.now());
+  const missing = unacknowledged({ warnings: p.warnings }, args.acknowledgeWarnings ?? []);
+  if (missing.length > 0) {
+    throw appError("invalid_input", missing.map((w) => w.message).join(" "), {
+      reason: "WARNINGS_UNACKNOWLEDGED",
+      warnings: missing.map((w) => w.code).join(","),
+    });
+  }
+  const doc = p.doc;
+  const contactId = doc.contactId as Id<"contacts">;
+  const label = `Erstattung ${doc.number ?? ""}`.trim();
+  const backdate = args.source.kind === "cash" && args.backdateReason?.trim() ? args.backdateReason.trim() : undefined;
+  const id = await auditedInsert(
+    ctx,
+    "payments",
+    {
+      target: { kind: "salesDocument", id: doc._id },
+      contactId,
+      ...(doc.number ? { number: doc.number } : {}),
+      date: p.date,
+      amountCents: -args.amountCents,
+      currency: "EUR",
+      source: args.source,
+      ...(args.source.kind === "bank" ? { bankTransactionId: args.source.transactionId } : {}),
+      differences: [],
+      journalEntryIds: [],
+      ...(backdate ? { backdateReason: backdate } : {}),
+      ...(args.note?.trim() ? { note: args.note.trim() } : {}),
+      ...(args.match ? { match: args.match } : {}),
+      actor: ctx.actor,
+      recordedAt: ctx.now(),
+    },
+    { action: "payment.refund", label, ...(backdate ? { reason: backdate } : {}) },
+  );
+  // P11-ist basis: the correction's parked VAT (negative on notdue) as magnitudes; settled before = absorbed by the
+  // invoice + refunded earlier = |payable| − |open|.
+  const notDue = (await notDueVatOf(ctx, doc._id))
+    .map((v) => ({ rateBp: v.rateBp, vatCents: Math.abs(v.vatCents) }))
+    .filter((v) => v.vatCents !== 0);
+  const payable = Math.abs(doc.totals.payableCents);
+  const posted = await postJournalEntry(ctx, {
+    kind: "customer_refund",
+    paymentId: id,
+    date: p.date,
+    means:
+      args.source.kind === "cash"
+        ? { kind: "cash" }
+        : {
+            kind: "bank_account",
+            bankAccountId: p.tx ? p.tx.accountId : (args.source as { accountId: string }).accountId,
+          },
+    amountCents: args.amountCents,
+    contactId,
+    ...(doc.contactName ? { counterpartyName: doc.contactName } : {}),
+    target: { kind: "salesDocument", id: doc._id, ...(doc.number ? { number: doc.number } : {}) },
+    ...(notDue.length > 0
+      ? { ist: { notDueVat: notDue, payableCents: payable, settledBeforeCents: payable - p.openRefundCents } }
+      : {}),
+  });
+  if (posted.status === "posted") {
+    await auditedPatch(ctx, "payments", id, { journalEntryIds: posted.entryIds }, { action: "payment.refund" });
+  }
+  await refreshDocument(ctx, doc._id, "payment.refund");
+  if (args.source.kind === "bank") {
+    await applyAllocation(ctx, { transactionId: args.source.transactionId, deltaCents: args.amountCents });
+  }
+  return { paymentId: id, date: p.date, warnings: p.warnings };
 }
 
 /** PAY-032: apply the contact's credit balance to one of its open invoices (pair in one transaction). */
@@ -1028,7 +1178,8 @@ export async function openItemsAsOf(
   args: { asOf: string; contactId?: Id<"contacts">; edges?: readonly number[] },
 ) {
   const documents: OpenItemDocument[] = [];
-  for (const type of PAYABLE_TYPES) {
+  // PAY-001: every invoice-like document and correction with an open amount ≠ 0 (credit corrections: refund owed).
+  for (const type of [...PAYABLE_TYPES, "correction"]) {
     for (const status of OPEN_ITEM_STATUSES) {
       const docs = await ctx.db
         .query("salesDocuments")
@@ -1051,9 +1202,11 @@ export async function openItemsAsOf(
           documentDate: d.documentDate,
           ...(d.dueDate ? { dueDate: d.dueDate } : {}),
           payableCents: d.totals.payableCents,
-          // Rechnungskorrekturen dated up to the as-of date reduce the receivable like a settlement (F04 §4.2.5).
-          creditedCents: await creditedCentsOf(ctx, d, args.asOf),
+          // Rechnungskorrekturen dated up to the as-of date reduce the receivable like a settlement (F04 §4.2.5);
+          // a credit correction carries the part its invoice absorbed (only the rest is refunded, PAY-033 b).
+          creditedCents: await creditedOf(ctx, d, args.asOf),
           currency: d.currency,
+          ...(d.type === "correction" ? { docType: "correction" } : {}),
         });
       }
     }

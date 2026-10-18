@@ -7,7 +7,7 @@ import type { CalendarDate } from "../src/domain/time/calendar-date";
 import { internal } from "./_generated/api";
 import type { Id } from "./_generated/dataModel";
 import type { ActionCtx } from "./_generated/server";
-import { action, actorMutation, mutation, query, systemAction, systemQuery } from "./functions";
+import { action, actorMutation, mutation, query, systemAction, systemQuery, vConfirmToken } from "./functions";
 import { isTest } from "./lib/env";
 import { runFinalizePipeline } from "./lib/finalizePipeline";
 import { parse } from "./lib/parse";
@@ -184,7 +184,8 @@ export const update = mutation({
 /** REC-14 UI confirmation of an automation stored via REST/MCP (arms number assignment: fresh session). */
 export const confirmAutomation = mutation({
   permission: "invoices.finalize",
-  args: { id: v.id("recurringTemplates") },
+  // ⚠ permission: the wrapper requires the token argument; REC-14 confirms in the UI only (no MCP tool).
+  args: { id: v.id("recurringTemplates"), confirmToken: vConfirmToken },
   handler: async (ctx, { id }) => confirmAutomationModel(ctx, id),
 });
 

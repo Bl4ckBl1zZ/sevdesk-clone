@@ -39,9 +39,32 @@ const writeOffOf = (r: StatusRow): number =>
 
 export const NEGATIVE_OPEN_MESSAGE = "Interner Fehler: negativer offener Betrag. Vorgang abgebrochen.";
 
+export const REFUND_EXCEEDED_MESSAGE = "Die Erstattung übersteigt den offenen Erstattungsbetrag.";
+
+/**
+ * PAY-033 (b), §4.3 „mirrored logic“: a credit correction (negative payable) has open ≤ 0 = refund still owed
+ * („Erstattung offen“); outgoing refunds (negative rows) move it towards 0 („erstattet“). Settled by the offset alone
+ * (fully absorbed by the corrected invoice) → `credited`. Open > 0 = refunded more than owed → corrupt (EC-PAY-33).
+ */
+function refundStatus(
+  rows: readonly StatusRow[],
+  active: readonly StatusRow[],
+  base: Omit<DerivedPaymentStatus, "paymentStatus">,
+): DerivedPaymentStatus {
+  if (base.openAmountCents > 0) throw new RangeError(REFUND_EXCEEDED_MESSAGE);
+  if (base.openAmountCents === 0) {
+    const moneyCents = active.filter((r) => r.cash).reduce((s, r) => s + r.amountCents, 0);
+    return { ...base, paymentStatus: moneyCents === 0 && rows.length === 0 ? "credited" : "paid" };
+  }
+  return { ...base, paymentStatus: base.settledCents < 0 ? "partially_paid" : "open" };
+}
+
 export function derivePaymentStatus(input: {
   payableCents: number;
-  /** Part of the payable settled by credit corrections (F04 §4.2.5); counts like a settlement without money. */
+  /**
+   * Part of the payable settled by credit corrections (F04 §4.2.5); counts like a settlement without money. For a
+   * credit correction itself: −`creditAppliedCents` (the part the corrected invoice absorbed, PAY-033 b).
+   */
   creditedCents?: number;
   /** Rows in recording order (originals and reversal rows). */
   rows: readonly StatusRow[];
@@ -53,6 +76,7 @@ export function derivePaymentStatus(input: {
   const writeOffCents = active.reduce((s, r) => s + writeOffOf(r), 0);
   const base = { openAmountCents, settledCents, writeOffCents };
   if (input.cancelled) return base;
+  if (input.payableCents < 0) return refundStatus(input.rows, active, base);
   // EC-PAY-45: overpayments are routed to a credit balance (PAY-030); a negative open amount is corrupt state.
   if (input.payableCents > 0 && openAmountCents < 0) throw new RangeError(NEGATIVE_OPEN_MESSAGE);
   if (input.payableCents <= 0) return { ...base, paymentStatus: "paid" };

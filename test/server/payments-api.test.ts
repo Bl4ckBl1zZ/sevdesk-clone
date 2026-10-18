@@ -153,9 +153,86 @@ describe("REST payments (05 §4.4, F05 §7.1)", () => {
     const open = await json(await call("GET", "/open-items", { key }));
     expect(open.data).toEqual([]);
   });
+
+  test("PAY-033 PAY-001 T05-053 EC-PAY-33 a credit correction is an open item (cor_, negative) refunded via REST and an outgoing match", async () => {
+    const t = setup();
+    const { cor, bankAccount } = await paidInvoiceWithCredit(t);
+    const key = (await t.asApiKey(["payments:read", "payments:write", "banking:read", "banking:write"])).key;
+    const open = await json(await call("GET", "/open-items", { key }));
+    expect(open.data).toEqual([expect.objectContaining({ id: cor, kind: "correction", open_cents: -23_800 })]);
+
+    const tooMuch = await call("POST", `/corrections/${cor}/refund`, {
+      key,
+      body: {
+        amount_cents: 30_000,
+        source: { kind: "clearing", account_id: `bac_${bankAccount}` },
+        date: "2026-10-13",
+      },
+    });
+    expect(tooMuch.status).toBe(422);
+    expect((await json(tooMuch)).code).toBe("validation_failed");
+    expect((await call("POST", `/corrections/inv_${cor.slice(4)}/refund`, { key, body: {} })).status).toBe(404);
+
+    const res = await call("POST", `/corrections/${cor}/refund`, {
+      key,
+      body: {
+        amount_cents: 10_000,
+        source: { kind: "clearing", account_id: `bac_${bankAccount}` },
+        date: "2026-10-13",
+      },
+    });
+    expect(res.status).toBe(201);
+    expect(((await json(res)).data as Json[])[0]).toMatchObject({
+      target: { kind: "correction", id: cor },
+      amount_cents: -10_000,
+    });
+
+    const tx = await bookedTransaction(t, bankAccount, {
+      bookingDate: "2026-10-13",
+      amountCents: -13_800,
+      purpose: "Erstattung Gutschrift",
+    });
+    const m = await call("POST", `/bank-transactions/btx_${tx}/match`, {
+      key,
+      body: { targets: [{ kind: "correction", id: cor, amount_cents: 13_800 }] },
+    });
+    expect(m.status).toBe(201);
+    expect(((await json(m)).data as Json[])[0]).toMatchObject({
+      target: { kind: "correction", id: cor },
+      amount_cents: -13_800,
+      source: { kind: "bank", transaction_id: `btx_${tx}` },
+    });
+    expect((await json(await call("GET", "/open-items", { key }))).data).toEqual([]);
+  });
 });
 
 describe("MCP payment and bank tools (06 §3.5, §3.7)", () => {
+  test("MCP-004 PAY-033 bank_match_confirm refunds a correction from an outgoing transaction with a preview token", async () => {
+    const t = setup();
+    const { cor, bankAccount } = await paidInvoiceWithCredit(t);
+    const tx = await bookedTransaction(t, bankAccount, {
+      bookingDate: "2026-10-13",
+      amountCents: -23_800,
+      purpose: "Erstattung Gutschrift",
+    });
+    const client = await connect(
+      (await t.asMcp(["payments:read", "payments:write", "banking:read", "banking:write"])).key,
+    );
+    const params = { transaction_id: `btx_${tx}`, targets: [{ kind: "correction", id: cor, amount_cents: 23_800 }] };
+    const p = (await client.callTool({
+      name: "preview_action",
+      arguments: { action: "bank_match_confirm", params },
+    })) as ToolCall;
+    expect(p.isError).toBeFalsy();
+    const ok = (await client.callTool({
+      name: "bank_match_confirm",
+      arguments: { ...params, confirm_token: p.structuredContent?.confirm_token },
+    })) as ToolCall;
+    expect(ok.isError).toBeFalsy();
+    const key = (await t.asApiKey(["payments:read"])).key;
+    expect((await json(await call("GET", "/open-items", { key }))).data).toEqual([]);
+  });
+
   test("MCP-005 the F05/F07 ⚠ tools are destructive, need user interaction and a confirm token", () => {
     for (const name of [
       "payment_record",
@@ -301,6 +378,36 @@ describe("MCP payment and bank tools (06 §3.5, §3.7)", () => {
 });
 
 /** A second invoice of the same seller (the fixture seeds settings only once per test backend). */
+/** T-GLD-01 paid in full, then a credit correction of −238,00 (8 instead of 10 hours): 238,00 to refund. */
+async function paidInvoiceWithCredit(t: TestT) {
+  const { api } = await import("../../convex/_generated/api");
+  const { INVOICE_RANGE, settle } = await import("../../convex/invoices.fixtures");
+  const f = await invoice(t);
+  await f.owner.mutation(api.settings.saveNumberRanges, {
+    values: {
+      ranges: [
+        { ...INVOICE_RANGE, next: 2 },
+        { key: "correction", name: "Rechnungskorrekturen", format: "RK-{YYYY}-{####}", resetPolicy: "yearly", next: 1 },
+      ],
+    },
+  });
+  await f.owner.mutation(api.payments.recordForInvoice, {
+    documentId: f.id,
+    source: { kind: "clearing", accountId: f.bankAccount as Id<"bankAccounts"> },
+    date: "2026-10-13",
+    amountCents: 119_000,
+  });
+  const { id: cid } = await f.owner.mutation(api.corrections.createCorrection, {
+    originalId: f.id,
+    kind: "credit",
+    changes: [{ position: 1, quantityMilli: 8_000 }],
+  });
+  const version = (await t.run(async (ctx) => ctx.db.get(cid as Id<"salesDocuments">)))?.version ?? 1;
+  await f.owner.action(api.invoices.finalize, { id: cid, version });
+  await settle(t);
+  return { ...f, cor: `cor_${cid}` };
+}
+
 async function finalizedSecond(t: TestT) {
   const { api } = await import("../../convex/_generated/api");
   const { invoiceValues, settle } = await import("../../convex/invoices.fixtures");

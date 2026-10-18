@@ -38,7 +38,7 @@ type CommitOut =
 export async function runFinalizePipeline(
   ctx: Pick<ActionCtx, "runQuery" | "runMutation">,
   actorContext: ActorContext,
-  a: { id: Id<"salesDocuments">; version: number } & PipelineOptions,
+  a: { id: Id<"salesDocuments">; version: number; confirmToken?: string } & PipelineOptions,
 ): Promise<{ number: string; idempotentReplay: boolean }> {
   const opts: PipelineOptions = {
     ...(a.documentDate ? { documentDate: a.documentDate } : {}),
@@ -82,6 +82,8 @@ export async function runFinalizePipeline(
     version: a.version,
     validation,
     ...opts,
+    // ⚠ MCP (06 §3.4): the commit consumes the document_preview token in its transaction.
+    ...(a.confirmToken ? { confirmToken: a.confirmToken } : {}),
   });
   if (r.status !== "finalized") {
     const first = (r.findings ?? [])[0];

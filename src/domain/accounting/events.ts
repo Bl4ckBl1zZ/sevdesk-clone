@@ -195,6 +195,7 @@ export interface PaymentReversedEvent {
 }
 
 /** P11 refund of a customer credit balance. */
+/** P11 refund to the customer: of a credit balance (PAY-031/033 a) or of a credit correction's open refund (PAY-033 b). */
 export interface CustomerRefundEvent {
   kind: "customer_refund";
   paymentId: string;
@@ -203,6 +204,14 @@ export interface CustomerRefundEvent {
   amountCents: number;
   contactId: string;
   counterpartyName?: string;
+  /** PAY-033 (b): the refunded Rechnungskorrektur (booking text). */
+  target?: { kind: "salesDocument"; id: string; number?: string };
+  /**
+   * Ist (P11-ist): the correction's VAT reduction that S13-ist parked on `vat.output.notdue.*`, as **magnitudes**
+   * (credit gross, VAT per rate, part settled before — absorbed by the invoice or refunded earlier). The refund
+   * releases its pro-rata share into the refund's period.
+   */
+  ist?: IstVatBasis;
 }
 
 /** P9 recovery of a written-off receivable: VAT due again on receipt. */

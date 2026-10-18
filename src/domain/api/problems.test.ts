@@ -47,6 +47,21 @@ describe("problem+json (05 §3.1, RFC 9457)", () => {
     ]);
   });
 
+  test("SND-07 SND-05 mark-sent and original re-export violations are 422 with the rule code (F04 §5.1.8)", () => {
+    const m = mapAppError({
+      code: "mark_sent_invalid",
+      message: "Für eine E-Rechnungspflicht ist ein elektronischer Kanal nötig.",
+      reason: "must_e_channel_not_electronic",
+      findings: [{ code: "must_e_channel_not_electronic", message: "Elektronischer Kanal nötig." }],
+    });
+    expect(m.code).toBe("validation_failed");
+    expect(m.errors[0]?.code).toBe("must_e_channel_not_electronic");
+    expect(mapAppError({ code: "resend_original_reason" }).code).toBe("validation_failed");
+    expect(mapAppError({ code: "retraction_invalid", reason: "retraction_reason_short" }).code).toBe(
+      "validation_failed",
+    );
+  });
+
   test("API-009 a custom field mapper strips form prefixes", () => {
     const m = mapAppError(
       { code: "invalid_input", message: "x", issues: [{ path: "contact.organizationName", message: "x" }] },

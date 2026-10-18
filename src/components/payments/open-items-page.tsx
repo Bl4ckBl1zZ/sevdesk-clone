@@ -182,7 +182,7 @@ function OpenItemsInner() {
                     <TableCell className="text-right font-medium tabular-nums">{money(i.openCents)}</TableCell>
                     <TableCell>
                       <Badge variant={i.overdue ? "destructive" : "outline"}>
-                        {i.overdue ? t("statusOverdue") : t("statusOpen")}
+                        {i.overdue ? t("statusOverdue") : i.openCents < 0 ? t("statusRefundOpen") : t("statusOpen")}
                       </Badge>
                     </TableCell>
                   </TableRow>
@@ -210,6 +210,7 @@ function OpenItemsInner() {
                 <span className="flex flex-col items-end gap-1">
                   <span className="font-semibold tabular-nums">{money(i.openCents)}</span>
                   {i.overdue && <Badge variant="destructive">{t("statusOverdue")}</Badge>}
+                  {i.openCents < 0 && <Badge variant="outline">{t("statusRefundOpen")}</Badge>}
                 </span>
               </li>
             ))}

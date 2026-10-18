@@ -202,6 +202,47 @@ describe("payments (F05 / P1–P8)", () => {
     expect(ist.ok && ist.value.kind === "entry" && ist.value.posting.dating).toBe("user");
   });
 
+  test("PAY-033 P11 refund of a credit correction: S receivable · H bank; Ist also releases the correction's VAT share", () => {
+    const refund = {
+      kind: "customer_refund" as const,
+      paymentId: "pay9",
+      date: "2026-04-20",
+      means: { kind: "bank_account" as const, bankAccountId: "bank1" },
+      amountCents: 13_800,
+      contactId: "c1",
+      counterpartyName: "Muster GmbH",
+      target: { kind: "salesDocument" as const, id: "cor1", number: "RK-2026-0001" },
+    };
+    const soll = postEvent(refund, SOLL);
+    expect(brief(lines(soll))).toEqual(
+      [
+        ["receivable", "S", 13_800],
+        ["bank1", "H", 13_800],
+      ].map(([r, side, c]) => [r === "bank1" ? expect.any(String) : r, side, c]),
+    );
+    expect(soll.ok && soll.value.kind === "entry" && soll.value.posting.explanation).toBe("P11");
+    // LEGAL-OPEN (F08 §4.2.2 P11-ist): the S13-ist correction parked −38,00 VAT on notdue; of the 238,00 credit,
+    // 100,00 were absorbed by the unpaid invoice (settled before), the refund of 138,00 releases its pro-rata share.
+    const ist = postEvent(
+      {
+        ...refund,
+        ist: { notDueVat: [{ rateBp: 1900, vatCents: 3_800 }], payableCents: 23_800, settledBeforeCents: 10_000 },
+      },
+      IST,
+    );
+    const ls = brief(lines(ist));
+    expect(ls).toEqual(
+      expect.arrayContaining([
+        ["receivable", "S", 13_800],
+        ["vat.output.19", "S", 2_203],
+        ["vat.output.notdue.19", "H", 2_203],
+      ]),
+    );
+    expect(ist.ok && ist.value.kind === "entry" && ist.value.posting.explanation).toBe("P11-ist");
+    const text = ist.ok && ist.value.kind === "entry" ? ist.value.posting.text : "";
+    expect(text).toContain("RK-2026-0001");
+  });
+
   test("UST-32 P4 Skonto: Soll reduces vat.output, Ist clears notdue and transfers only the rest", () => {
     const skonto = {
       reason: "skonto" as const,

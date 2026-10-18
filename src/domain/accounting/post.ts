@@ -126,7 +126,9 @@ export const EXPLANATIONS: Readonly<Record<string, string>> = {
   P8: "Forderungsausfall: Minderung der Bemessungsgrundlage nach § 17 Abs. 2 Nr. 1 UStG.",
   P9: "Zahlungseingang auf eine abgeschriebene Forderung: die Umsatzsteuer entsteht erneut (§ 17 Abs. 2 Nr. 1 S. 2 UStG).",
   P10: "Zahlungsstorno: Generalumkehr der Zahlungsbuchung, die Rechnung ist wieder offen.",
-  P11: "Erstattung eines Kundenguthabens.",
+  P11: "Erstattung an den Kunden (Guthaben oder Rechnungskorrektur): Debitor an Bank/Kasse.",
+  "P11-ist":
+    "Erstattung einer Rechnungskorrektur (Ist-Versteuerung): Debitor an Bank/Kasse, die Steuerminderung des erstatteten Anteils wird wirksam.",
   P12: "Verrechnung eines Kundenguthabens mit einer Rechnung: Debitor an Debitor.",
   "P12-ist":
     "Verrechnung eines Kundenguthabens (Ist-Versteuerung): Debitor an Debitor, der Steueranteil des verrechneten Betrags wird fällig.",
@@ -593,11 +595,33 @@ function postAdvancePayment(e: AdvancePaymentReceivedEvent, ctx: PostingContext)
 function postRefund(e: CustomerRefundEvent, ctx: PostingContext): Result<PostingOutcome, PostingIssue> {
   if (!isInt(e.amountCents) || e.amountCents <= 0) return err(invalid("Der Erstattungsbetrag muss größer als 0 sein."));
   const means = meansRole(e.means) as AccountRole;
+  const lines: RoleLine[] = [
+    ...debit(R("receivable"), e.amountCents, { contactId: e.contactId }),
+    ...credit(R(means), e.amountCents),
+  ];
+  // LEGAL-OPEN (F08 §4.2.2 P11-ist): under Ist the S13 correction parks its VAT reduction on
+  // `vat.output.notdue.*`; the reduction takes effect when the Entgelt is paid back (§ 17 UStG with § 13 Abs. 1
+  // Nr. 1 b UStG), so the refund releases its pro-rata share — mirror of the P1-ist transfer.
+  const ist = e.ist ? e.ist.notDueVat.filter((v) => v.vatCents !== 0) : [];
+  if (e.ist && ist.length > 0) {
+    for (const v of ist) if (!rateSuffix(v.rateBp)) return err(RATE_UNSUPPORTED(v.rateBp));
+    const shares = shareOfSettlement(
+      ist.map((v) => v.vatCents),
+      e.ist.payableCents,
+      e.ist.settledBeforeCents,
+      e.amountCents,
+    );
+    ist.forEach((v, i) => {
+      const suffix = rateSuffix(v.rateBp) as "19" | "7";
+      lines.push(...debit(R(`vat.output.${suffix}`), shares[i] ?? 0, { taxPointDate: e.date }));
+      lines.push(...credit(R(`vat.output.notdue.${suffix}`), shares[i] ?? 0));
+    });
+  }
   return entry(e, ctx, {
     date: e.date,
-    text: textWith("Erstattung", e.counterpartyName),
-    explanation: "P11",
-    lines: [...debit(R("receivable"), e.amountCents, { contactId: e.contactId }), ...credit(R(means), e.amountCents)],
+    text: textWith(`Erstattung${e.target?.number ? ` ${e.target.number}` : ""}`, e.counterpartyName),
+    explanation: ist.length > 0 ? "P11-ist" : "P11",
+    lines: withTaxPeriods(mergeLines(lines), ctx),
     dating: meansDating(e.means),
   });
 }

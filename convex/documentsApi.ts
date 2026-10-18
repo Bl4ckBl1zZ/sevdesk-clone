@@ -102,3 +102,18 @@ export const get = query({
     };
   },
 });
+
+/**
+ * Type, status and version of any sales document (incl. Storno, corrections and reminders) — REST/MCP resolve a
+ * prefixed id to its document before export, mark-sent and finalise (F04 §7.1/§7.2). Null when unknown.
+ */
+export const head = query({
+  permission: "documents.read",
+  args: { id: v.string() },
+  handler: async (ctx, { id }) => {
+    const docId = ctx.db.normalizeId("salesDocuments", id);
+    const doc = docId ? await ctx.db.get(docId) : null;
+    if (!doc) return null;
+    return { id: doc._id, type: doc.type, status: doc.status, version: doc.version, number: doc.number ?? null };
+  },
+});

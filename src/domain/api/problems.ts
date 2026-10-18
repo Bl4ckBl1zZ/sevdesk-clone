@@ -320,6 +320,10 @@ const APP_CODE_TO_PROBLEM: Readonly<Record<string, ProblemCode>> = {
   idempotency_key_reused: "idempotency_key_reused",
   idempotency_in_progress: "idempotency_in_progress",
   preview_outdated: "preview_outdated",
+  // F04 §5.1.8 / SND-05/18: mark-sent, re-export and retraction rule violations are 422 with the rule code.
+  mark_sent_invalid: "validation_failed",
+  retraction_invalid: "validation_failed",
+  resend_original_reason: "validation_failed",
 };
 
 export interface MappedProblem {

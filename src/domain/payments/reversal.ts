@@ -45,11 +45,15 @@ export type RefundIssue = Issue<
   | "date_invalid"
 >;
 
-/** PAY-033 refund of a credit balance (bank: an outgoing transaction; cash „Bar erstattet“, PAY-062; clearing). */
+/**
+ * PAY-033 refund (bank: an outgoing transaction; cash „Bar erstattet“, PAY-062; clearing) of (a) a credit balance or
+ * (b) the open refund of a credit correction. `openRefundCents` = the credit balance resp. −open amount of the
+ * correction; a larger refund is rejected (EC-PAY-33).
+ */
 export function planRefund(input: {
   sourceKind: "bank" | "cash" | "clearing";
   amountCents: number;
-  creditBalanceCents: number;
+  openRefundCents: number;
   date: string;
   today: string;
   closedPeriods: ReadonlySet<string>;
@@ -59,8 +63,8 @@ export function planRefund(input: {
   if (!Number.isSafeInteger(input.amountCents) || input.amountCents <= 0) {
     return err(issue("amount_positive", PAY_MESSAGES.amountPositive));
   }
-  if (input.amountCents > input.creditBalanceCents) {
-    return err(issue("refund_exceeds", PAY_MESSAGES.refundExceeds(input.creditBalanceCents)));
+  if (input.amountCents > input.openRefundCents) {
+    return err(issue("refund_exceeds", PAY_MESSAGES.refundExceeds(Math.max(0, input.openRefundCents))));
   }
   const warnings: PaymentWarning[] = [];
   if (input.sourceKind === "bank") {

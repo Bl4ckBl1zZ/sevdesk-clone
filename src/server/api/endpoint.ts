@@ -95,7 +95,7 @@ export function compileRoutes(resources: readonly Resource[]): CompiledRoute[] {
       if (seen.has(key)) throw new Error(`duplicate endpoint ${key}`);
       seen.add(key);
       const names: string[] = [];
-      const pattern = endpoint.path.replace(/\{([a-z_]+)\}/g, (_, n: string) => {
+      const pattern = endpoint.path.replace(/\{([a-zA-Z_]+)\}/g, (_, n: string) => {
         names.push(n);
         return "([^/]+)";
       });

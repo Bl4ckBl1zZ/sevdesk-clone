@@ -1044,7 +1044,7 @@ Conventions: snake_case, money `*_cents`, unit prices and quantities as decimal 
 
 Tool descriptions are in English with German domain terms and tell Claude: the app never sends documents — export them for the owner and call `document_mark_sent` only after the owner confirms how and when they sent them; never invent VAT IDs or Leitweg-IDs; always call `document_preview` and show totals, tax case and ER-03 to the user before `document_finalize`; prefer Rechnungsberichtigung for formal defects; Storno only for unpaid invoices. Errors return `isError: true` with the §5.1 structure.
 
-**P1 status (2026-10-13):** the quote/order/delivery-note/proforma part of §7.1/§7.2 is implemented as described in 05 §4.3 „P1 implementation“ (API-021) and 06 §3.4 (MCP-011); the acceptance and rejection bodies carry the business `date` next to the recording instant (03 §12). Open in this slice: inline contact upsert, preview/duplicate, `document_finalize` via MCP.
+**P1 status (2026-10-13):** the quote/order/delivery-note/proforma part of §7.1/§7.2 is implemented as described in 05 §4.3 „P1 implementation“ (API-021) and 06 §3.4 (MCP-011); the acceptance and rejection bodies carry the business `date` next to the recording instant (03 §12). Open in this slice: inline contact upsert, duplicate. **2026-10-18:** the finalise preview, export, mark-sent and retraction routes and the MCP tools `document_preview` (finalize), `document_finalize`, `document_export`, `document_mark_sent` are implemented (05 §4.3 API-022, 06 §3.4 MCP-012); deviations: export takes one menu `entry`, mark-sent `artifacts` are `art_…` strings, `pdf_preview_url` is null.
 
 ## 8. Acceptance tests
 

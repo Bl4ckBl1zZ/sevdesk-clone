@@ -147,7 +147,7 @@ export const paymentTools = [
     name: "bank_match_confirm",
     title: "Bankumsatz zuordnen ⚠",
     description:
-      '⚠ Ordnet einen Bankumsatz Rechnungen (invoice), offenen Posten (opening_item), einem Guthaben (credit, id = con_…) oder einer vorhandenen Kontozahlung (payment) zu und bucht die Zahlung. Erst preview_action {action:"bank_match_confirm", params}, bestätigen lassen, dann mit confirm_token.',
+      '⚠ Ordnet einen Bankumsatz Rechnungen (invoice), offenen Posten (opening_item), einem Guthaben (credit, id = con_…), einer Rechnungskorrektur mit offener Erstattung (correction, nur Ausgang, id = cor_…) oder einer vorhandenen Kontozahlung (payment) zu und bucht die Zahlung. Erst preview_action {action:"bank_match_confirm", params}, bestätigen lassen, dann mit confirm_token.',
     kind: "danger",
     confirmIntent: "bank_match_confirm",
     scopes: ["banking:write"],

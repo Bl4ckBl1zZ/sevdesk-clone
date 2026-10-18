@@ -6,6 +6,7 @@ import { DOCUMENT_ID_PREFIXES, decodeDocumentId, decodeId } from "@/domain/api/i
 import { DRAFT_TYPES, type DraftType } from "@/domain/documents/doc-types";
 import type { SalesDocType } from "@/domain/documents/snapshot";
 import { decimalToScaled } from "@/domain/schemas/api/common";
+import { type DispatchIdType, finalizeArgs } from "@/domain/schemas/api/dispatch";
 import {
   acceptWire,
   chainOut,
@@ -40,6 +41,7 @@ import type { DraftValues } from "@/domain/schemas/documents";
 import type { ConvexCaller } from "../backend";
 import { type AnyEndpoint, defineEndpoint, defineResource } from "../endpoint";
 import { ApiProblem } from "../http";
+import { dispatchEndpoints } from "./dispatch";
 import { expandOf, expandQueryParam, nextCursor, paginationOpts, requireVersion } from "./shared";
 
 /**
@@ -280,24 +282,7 @@ export async function finalizeDocument(
   id: DocId,
   body: z.output<typeof finalizeWire>,
 ) {
-  await convex.action(api.invoices.finalize, {
-    id,
-    version: body.version,
-    ...(body.document_date ? { documentDate: body.document_date } : {}),
-    ...(body.backdate_reason ? { backdateReason: body.backdate_reason } : {}),
-    ...(body.overrides
-      ? {
-          overrides: {
-            ...(body.overrides.vat_id_unverified_reason
-              ? { vatCheck: { reason: body.overrides.vat_id_unverified_reason } }
-              : {}),
-            ...(body.overrides.rc13b_confirmation
-              ? { rc13bCertificate: { reason: body.overrides.rc13b_confirmation } }
-              : {}),
-          },
-        }
-      : {}),
-  });
+  await convex.action(api.invoices.finalize, finalizeArgs(id, body) as never);
   return loadDocument(convex, id, res.types, res.singular);
 }
 
@@ -507,6 +492,16 @@ function sharedEndpoints(res: DocumentResourceDef): AnyEndpoint[] {
       },
     }),
   ];
+  // F04 §7.1 preview, export, mark-sent and retraction (shared with the MCP dispatch tools).
+  endpoints.push(
+    ...dispatchEndpoints({
+      path: res.path,
+      idType: res.idType as DispatchIdType,
+      tag: res.tag,
+      singular: res.singular,
+      schemaPrefix: res.schemaPrefix,
+    }),
+  );
   // `/invoices/{id}/chain` belongs to the invoice-correction slice (Storno/Abschläge); the letters get theirs here.
   if (!isInvoices) {
     endpoints.push(

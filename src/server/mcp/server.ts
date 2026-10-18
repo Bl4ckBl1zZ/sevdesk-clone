@@ -6,6 +6,7 @@ import { snakeKeys } from "@/domain/schemas/api/common";
 import { type RegisteredToolDef, type ToolContext, toolError, toolResult, toolVisible } from "./tool";
 import { contactTools } from "./tools/contacts";
 import { correctionTools } from "./tools/corrections";
+import { dispatchTools } from "./tools/dispatch";
 import { documentTools } from "./tools/documents";
 import { dunningTools } from "./tools/dunning";
 import { paymentTools } from "./tools/payments";
@@ -24,6 +25,7 @@ export const TOOLS: readonly RegisteredToolDef[] = [
   ...contactTools,
   ...productTools,
   ...documentTools,
+  ...dispatchTools,
   ...correctionTools,
   ...paymentTools,
   ...recurringTools,
