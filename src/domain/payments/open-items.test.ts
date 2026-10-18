@@ -55,6 +55,35 @@ describe("open items and aging (PAY-001…PAY-003)", () => {
     ]);
   });
 
+  test("PAY-001 PAY-033 a credit correction with an open refund is a negative item (never overdue) until refunded", () => {
+    const correction: OpenItemDocument = {
+      id: "k1",
+      kind: "salesDocument",
+      number: "RK-2026-0001",
+      contactId: "c1",
+      contactName: "Müller GmbH",
+      documentDate: "2026-10-05",
+      payableCents: -23_800,
+      // 100,00 absorbed by the corrected invoice (credited = −applied), 138,00 still owed to the customer.
+      creditedCents: -10_000,
+      currency: "EUR",
+    };
+    const r = computeOpenItems({
+      documents: [doc("1", "2026-08-01", "2026-08-29"), correction],
+      rows: [row("k1", "2026-10-10", -3_800)],
+      asOf: "2026-10-13",
+    });
+    const item = r.items.find((i) => i.id === "k1");
+    expect(item).toMatchObject({ openCents: -10_000, paidCents: -3_800, overdue: false, bucket: "not_due" });
+    expect(r.totals).toMatchObject({ openCents: 109_000, overdueCents: 119_000 });
+    const done = computeOpenItems({
+      documents: [correction],
+      rows: [row("k1", "2026-10-10", -13_800)],
+      asOf: "2026-10-13",
+    });
+    expect(done.items).toEqual([]);
+  });
+
   test("T05-002 PAY-003 GOBD-01 as of 30.09.: a payment reversed on 05.10. still counts", () => {
     const rows = [row("1", "2026-09-20", 119000), row("1", "2026-10-05", -119000)];
     const documents = [doc("1", "2026-09-01", "2026-09-15"), doc("9", "2026-10-02", "2026-10-30")];
@@ -165,10 +194,10 @@ describe("reversal and refund planning (PAY-040…PAY-042, PAY-033)", () => {
     expect(r.ok && r.value.date).toBe("2026-10-08");
   });
 
-  test("T05-054 EC-PAY-33 refund larger than the credit balance is rejected; cash dating applies", () => {
+  test("T05-054 EC-PAY-33 refund larger than the open refund (credit balance or correction) is rejected; cash dating applies", () => {
     const base = {
       sourceKind: "cash" as const,
-      creditBalanceCents: 4500,
+      openRefundCents: 4500,
       date: "2026-10-13",
       today: "2026-10-13",
       closedPeriods: new Set<string>(),

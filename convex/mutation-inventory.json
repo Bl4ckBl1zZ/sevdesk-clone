@@ -1417,6 +1417,12 @@
     "wrapper": "query",
     "permission": "payments.read"
   },
+  "payments:previewCorrectionRefund": {
+    "kind": "query",
+    "visibility": "public",
+    "wrapper": "query",
+    "permission": "payments.read"
+  },
   "payments:previewInvoicePayment": {
     "kind": "query",
     "visibility": "public",
@@ -1454,6 +1460,12 @@
     "permission": "payments.write"
   },
   "payments:refund": {
+    "kind": "mutation",
+    "visibility": "public",
+    "wrapper": "mutation",
+    "permission": "payments.write"
+  },
+  "payments:refundCorrection": {
     "kind": "mutation",
     "visibility": "public",
     "wrapper": "mutation",

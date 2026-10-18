@@ -18,9 +18,11 @@ import {
   invoicePaymentArgs,
   openItemsAsOf,
   paymentsOfTarget,
+  planCorrectionRefund,
   previewPayment,
   recordPayment,
   recordRecovery,
+  refundCorrection as refundCorrectionModel,
   refundCredit,
   requirePayment,
   reversePayment,
@@ -320,6 +322,54 @@ export const refund = mutation({
     confirmToken: vConfirmToken,
   },
   handler: async (ctx, a) => refundCredit(ctx, a),
+});
+
+const vRefundSource = v.union(
+  v.object({ kind: v.literal("bank"), transactionId: v.id("bankTransactions") }),
+  v.object({ kind: v.literal("clearing"), accountId: v.id("bankAccounts") }),
+  v.object({ kind: v.literal("cash") }),
+);
+
+const correctionRefundFields = {
+  documentId: v.id("salesDocuments"),
+  amountCents: v.number(),
+  source: vRefundSource,
+  date: v.string(),
+  backdateReason: v.optional(v.string()),
+  note: v.optional(v.string()),
+  acknowledgeWarnings: v.optional(v.array(v.string())),
+};
+
+/** Live check of „Erstattung erfassen“ on a Rechnungskorrektur (PAY-033 b): date, warnings, open refund after. */
+export const previewCorrectionRefund = query({
+  permission: "payments.read",
+  args: correctionRefundFields,
+  handler: async (ctx, args) => {
+    try {
+      const p = await planCorrectionRefund(ctx, args, ctx.now());
+      return {
+        ok: true as const,
+        date: p.date,
+        warnings: p.warnings,
+        openRefundCents: p.openRefundCents,
+        openAfterCents: p.openAfterCents,
+      };
+    } catch (e) {
+      const data = (e as { data?: { message?: string; reason?: string } }).data;
+      if (!data?.message) throw e;
+      return { ok: false as const, message: data.message, reason: data.reason ?? null };
+    }
+  },
+});
+
+/**
+ * ⚠ PAY-033 (b) / PAY-062 refund of a credit correction (UI „Erstattung erfassen“, REST
+ * `POST /corrections/{id}/refund`); an outgoing bank transaction is matched via `matching.confirm` as well.
+ */
+export const refundCorrection = mutation({
+  permission: "payments.write",
+  args: { ...correctionRefundFields, confirmToken: vConfirmToken },
+  handler: async (ctx, a) => refundCorrectionModel(ctx, a),
 });
 
 /** ⚠ PAY-026 „Zahlungseingang auf abgeschriebene Forderung“. */

@@ -398,7 +398,10 @@ export const matchWire = z
       .array(
         z
           .object({
-            kind: z.enum(["invoice", "opening_item", "credit", "payment"]),
+            kind: z.enum(["invoice", "opening_item", "credit", "payment", "correction"]).meta({
+              description:
+                "invoice (Eingang), opening_item, credit (Guthaben, id = con_…), payment (vorhandene Kontozahlung), correction (Ausgang: Erstattung einer Rechnungskorrektur cor_…, PAY-033)",
+            }),
             id: z.string(),
             amount_cents: cents("Zugeordneter Betrag"),
             differences: z.array(differenceWire).max(5).optional(),
@@ -426,14 +429,16 @@ export function matchArgs(transactionId: string, w: MatchWire) {
     const id =
       t.kind === "invoice"
         ? decodeId("invoices", t.id)
-        : t.kind === "opening_item"
-          ? decodeId("openingItems", t.id)
-          : t.kind === "credit"
-            ? decodeId("contacts", t.id)
-            : decodeId("payments", t.id);
+        : t.kind === "correction"
+          ? decodeId("corrections", t.id)
+          : t.kind === "opening_item"
+            ? decodeId("openingItems", t.id)
+            : t.kind === "credit"
+              ? decodeId("contacts", t.id)
+              : decodeId("payments", t.id);
     if (!id) return null;
     const kind =
-      t.kind === "invoice"
+      t.kind === "invoice" || t.kind === "correction"
         ? "salesDocument"
         : t.kind === "credit"
           ? "contactCredit"

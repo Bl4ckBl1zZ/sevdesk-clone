@@ -22,6 +22,7 @@ import {
   type RecordResult,
   reconcileManualPayment,
   recordPayment,
+  refundCorrection,
   refundCredit,
   reverseTransactionPayments,
 } from "./payments";
@@ -250,10 +251,24 @@ export async function confirmMatch(
     return { reconciled: true };
   }
   if (tx.amountCents < 0) {
+    // PAY-033 (b): an outgoing transaction refunds a credit correction (open refund, EC-PAY-33 checked there).
+    if (args.allocations.length === 1 && first?.target.kind === "salesDocument") {
+      const documentId = first.target.id as Id<"salesDocuments">;
+      const r = await refundCorrection(ctx, {
+        documentId,
+        amountCents: first.amountCents,
+        source: { kind: "bank", transactionId: tx._id },
+        date: tx.bookingDate,
+        ...(args.provenance ? { match: args.provenance } : {}),
+      });
+      const contactId = (await ctx.db.get(documentId))?.contactId;
+      if (contactId) await learn(ctx, tx, contactId);
+      return { refunded: r.paymentId };
+    }
     if (args.allocations.length !== 1 || first?.target.kind !== "contactCredit") {
       throw appError(
         "invalid_input",
-        "Ausgehende Umsätze können in P1 nur einem Kundenguthaben (Erstattung) zugeordnet werden.",
+        "Ausgehende Umsätze können nur einem Kundenguthaben oder einer Rechnungskorrektur (Erstattung) zugeordnet werden.",
         { reason: "TX_DIRECTION" },
       );
     }
