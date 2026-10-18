@@ -20,10 +20,12 @@ import {
   policyPatchWire,
   policyValues,
   policyWire,
+  type ReminderFinalizeCheckLike,
   type ReminderViewLike,
   reminderCreateValues,
   reminderCreateWire,
   reminderExportWire,
+  reminderFinalizeArgs,
   reminderFinalizeWire,
   reminderOut,
   reminderWithdrawWire,
@@ -32,6 +34,7 @@ import {
   serializeInterest,
   serializePolicy,
   serializeReminder,
+  serializeReminderFinalizeCheck,
   serializeRunResult,
   zugangWire,
 } from "@/domain/schemas/api/dunning";
@@ -62,6 +65,30 @@ export async function loadReminder(convex: ConvexCaller, id: string) {
   const r = await convex.query(api.dunning.reminder, { id: id as never });
   if (!r) throw notFound();
   return serializeReminder(r.reminder as ReminderViewLike);
+}
+
+/**
+ * DUN-004 finalise check of a reminder draft for MCP `document_preview` (06 §3.4): the findings and claim of
+ * `dunning.reminder`, judged against the acknowledged warning codes. Writes nothing.
+ */
+export async function reminderFinalizePreviewOf(
+  convex: ConvexCaller,
+  id: string,
+  wireId: string,
+  acknowledged: readonly string[],
+) {
+  const r = await convex.query(api.dunning.reminder, { id: id as never });
+  if (!r) throw notFound();
+  if (r.reminder.status !== "draft") {
+    throw new ApiProblem("immutable_record", { detail: "Nur Entwürfe können fertiggestellt werden." });
+  }
+  const check: ReminderFinalizeCheckLike = {
+    reminder: { status: r.reminder.status, version: r.reminder.version, level: r.reminder.level },
+    findings: r.findings,
+    claim: r.claim,
+    today: r.today,
+  };
+  return { wire: serializeReminderFinalizeCheck(wireId, check, acknowledged), version: r.reminder.version };
 }
 
 /** `inv_…` list → raw ids (422 on a malformed entry). */
@@ -227,11 +254,10 @@ export const dunningResource = defineResource("dunning", "Mahnwesen: Mahnungen, 
     handler: async ({ convex, params, body, ifMatch }) => {
       const id = rawId("reminders", params.id);
       const version = ifMatch !== null && /^\d+$/.test(ifMatch) ? Number(ifMatch) : body.version;
-      await convex.mutation(api.dunning.finalize, {
-        id: id as never,
-        ...(version !== undefined ? { version } : {}),
-        ...(body.acknowledge_warnings ? { acknowledgeWarnings: body.acknowledge_warnings } : {}),
-      });
+      await convex.mutation(
+        api.dunning.finalize,
+        reminderFinalizeArgs(id, { version, acknowledge_warnings: body.acknowledge_warnings }) as never,
+      );
       return { body: await loadReminder(convex, id) };
     },
   }),

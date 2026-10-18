@@ -421,7 +421,7 @@ export const paymentsResource = defineResource("payments", "Zahlungen, offene Po
     operationId: "matchBankTransaction",
     summary: "Bankumsatz zuordnen",
     description:
-      "Bucht die Zahlung(en) über F05 (Eingang → Rechnungen/offene Posten/Guthaben; Ausgang → Erstattung eines Guthabens; `payment` = vorhandene Kontozahlung abgleichen). Restbetrag eines Eingangs: `remainder`.",
+      "Bucht die Zahlung(en) über F05 (Eingang → Rechnungen/offene Posten/Guthaben; Ausgang → Erstattung eines Guthabens oder einer Rechnungskorrektur `correction`, PAY-033; `payment` = vorhandene Kontozahlung abgleichen). Restbetrag eines Eingangs: `remainder`.",
     tag: BANK_TAG,
     scope: "banking:write",
     params: idParams("bankTransactions"),

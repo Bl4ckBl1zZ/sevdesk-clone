@@ -265,6 +265,7 @@ export const reminder = query({
     const contact = r.contactId ? await ctx.db.get(r.contactId) : null;
     let findings: { code: string; severity: string; message: string }[] = [];
     let computed = null;
+    let claim = null;
     if (r.status === "draft" && invoice) {
       try {
         const plan = await planReminder(
@@ -275,6 +276,17 @@ export const reminder = query({
           { forFinalize: true, excludeReminderId: id },
         );
         findings = plan.findings.map((f) => ({ code: f.code, severity: f.severity, message: f.message }));
+        // What the reminder will state on finalisation (manual amounts applied), for the MCP finalise preview.
+        claim = {
+          openAmountCents: plan.claim.openAmountCents,
+          feeCents: plan.claim.feeCents,
+          interestCents: plan.claim.interestCents,
+          flatFee40Cents: plan.claim.flatFee40Cents,
+          totalCents: plan.claim.totalCents,
+          newDueDate: plan.claim.newDueDate,
+          inDefault: plan.claim.inDefault,
+          defaultStartDate: plan.claim.defaultStartDate ?? null,
+        };
         computed = {
           feeCents: plan.computed.feeCents,
           interestCents: plan.computed.interestCents,
@@ -325,6 +337,7 @@ export const reminder = query({
         : null,
       findings,
       computed,
+      claim,
       snapshot,
       artifacts: artifacts.map((a) => ({
         _id: a._id,
@@ -523,7 +536,8 @@ export const deleteReminder = mutation({
 /** DUN-004 „Fertigstellen“ (number, PDF/A, hash; never sent). */
 export const finalize = mutation({
   permission: "invoices.finalize",
-  // ⚠ (06 §3.4): an MCP caller needs the document_preview token (intent finalize) bound to these arguments.
+  // ⚠ (06 §3.4): an MCP caller needs the document_preview token (intent finalize, `rem_` id) bound to these arguments
+  // (`reminderFinalizeArgs`, src/domain/schemas/api/dunning.ts).
   args: {
     id: v.id("salesDocuments"),
     version: v.optional(v.number()),

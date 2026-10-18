@@ -12,12 +12,14 @@ import { sha256Hex } from "@/domain/audit/chain";
 import { contactMergeArgs, contactMergeWire } from "@/domain/schemas/api/contacts";
 import { cancelArgs, cancelWire, rawDocumentId } from "@/domain/schemas/api/corrections";
 import { finalizeArgs, finalizePreviewWire } from "@/domain/schemas/api/dispatch";
+import { reminderFinalizeArgs } from "@/domain/schemas/api/dunning";
 import type { Scope } from "@/domain/schemas/scopes";
 import { ApiProblem } from "../../api/http";
 import { cancelPreviewWire } from "../../api/resources/corrections";
 import { finalizePreviewOf, requireFinalizeScopes, resolveDispatchDoc } from "../../api/resources/dispatch";
+import { reminderFinalizePreviewOf } from "../../api/resources/dunning";
 import { defineTool, type ToolContext } from "../tool";
-import { markSentParams, markSentPlan } from "./dispatch";
+import { markSentParams, markSentPlan, rejectDocumentOptions, rejectReminderOptions } from "./dispatch";
 import { PAYMENT_PREVIEWS } from "./payment-previews";
 
 /**
@@ -125,7 +127,7 @@ export const previewTools = [
     name: "document_preview",
     title: "Belegvorschau",
     description:
-      'Vorschau mit confirm_token. intent "finalize" (Standard): Prüfung eines Entwurfs mit Fehlern/Warnungen (Regel-IDs), Summen, Steuerfall mit Begründung, ER-03-Entscheidung und Format; Token für document_finalize mit derselben version und denselben document_date/backdate_reason/overrides (kein Token bei Fehlern). intent "cancel" (Storno einer Rechnung/Rechnungskorrektur): Spiegel-Vorschau und Token für invoice_cancel mit denselben reason/document_date. Zeige die Vorschau und frage den Nutzer, bevor du das ⚠ Tool aufrufst.',
+      'Vorschau mit confirm_token. intent "finalize" (Standard): Prüfung eines Entwurfs mit Fehlern/Warnungen (Regel-IDs), Summen, Steuerfall mit Begründung, ER-03-Entscheidung und Format; Token für document_finalize mit derselben version und denselben document_date/backdate_reason/overrides (kein Token bei Fehlern). Mahnungsentwurf (rem_…): Forderung (Stufe, Gebühr, Zinsen, Pauschale, neue Frist) und Warnungen; Warnungen erst nach Rückfrage mit acknowledge_warnings bestätigen, dann gibt es das Token (Datum immer heute). intent "cancel" (Storno einer Rechnung/Rechnungskorrektur): Spiegel-Vorschau und Token für invoice_cancel mit denselben reason/document_date. Zeige die Vorschau und frage den Nutzer, bevor du das ⚠ Tool aufrufst.',
     kind: "read",
     scopes: ["documents:read"],
     input: z.object({
@@ -140,8 +142,13 @@ export const previewTools = [
           rc13b_confirmation: z.string().max(1000).optional(),
         })
         .optional(),
+      acknowledge_warnings: z
+        .array(z.string().max(60))
+        .max(20)
+        .optional()
+        .meta({ description: "Nur Mahnungen (rem_…): bestätigte Warnungscodes, z. B. not_in_default" }),
     }),
-    handler: async ({ id, intent, reason, document_date, backdate_reason, overrides }, ctx) => {
+    handler: async ({ id, intent, reason, document_date, backdate_reason, overrides, acknowledge_warnings }, ctx) => {
       if (intent !== "cancel") {
         if (!ctx.key.scopes.includes("invoices:finalize")) {
           throw new ApiProblem("insufficient_scope", { extra: { required_scope: "invoices:finalize" } });
@@ -152,8 +159,23 @@ export const previewTools = [
           "delivery_note",
           "invoice",
           "correction",
+          "reminder",
         ]);
         requireFinalizeScopes(ctx.key, doc.type);
+        if (doc.idType === "reminder") {
+          // DUN-004: a reminder is finalised by `dunning.finalize` (always dated today; warnings acknowledged by code).
+          rejectDocumentOptions({ document_date, backdate_reason, overrides });
+          const ack = acknowledge_warnings ?? [];
+          const p = await reminderFinalizePreviewOf(ctx.convex, doc.id, doc.wireId, ack);
+          if (!p.wire.allowed) return { intent: "finalize", ...p.wire };
+          const plan: PreviewPlan = {
+            args: reminderFinalizeArgs(doc.id, { version: p.version, acknowledge_warnings: ack }),
+            entities: [{ table: "salesDocuments", id: doc.id }],
+            effect: p.wire,
+          };
+          return { intent: "finalize", ...p.wire, ...(await issueToken(documentPreviewIntent("finalize"), plan, ctx)) };
+        }
+        rejectReminderOptions(acknowledge_warnings);
         const parsed = finalizePreviewWire.safeParse({
           ...(document_date ? { document_date } : {}),
           ...(backdate_reason ? { backdate_reason } : {}),
@@ -174,6 +196,7 @@ export const previewTools = [
         };
         return { intent: "finalize", ...p.wire, ...(await issueToken(documentPreviewIntent("finalize"), plan, ctx)) };
       }
+      rejectReminderOptions(acknowledge_warnings);
       if (!ctx.key.scopes.includes("invoices:cancel")) {
         throw new ApiProblem("insufficient_scope", { extra: { required_scope: "invoices:cancel" } });
       }

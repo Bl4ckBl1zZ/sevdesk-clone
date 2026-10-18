@@ -2203,6 +2203,12 @@
     "wrapper": "systemMutation",
     "job": "test"
   },
+  "testFixtures:ensureInvoicingSetup": {
+    "kind": "mutation",
+    "visibility": "internal",
+    "wrapper": "systemMutation",
+    "job": "test"
+  },
   "testFixtures:recordPayment": {
     "kind": "mutation",
     "visibility": "internal",

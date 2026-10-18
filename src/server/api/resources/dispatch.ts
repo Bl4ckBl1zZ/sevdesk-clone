@@ -130,7 +130,7 @@ export async function finalizePreviewOf(
           code: "reminder_finalize",
           field: "id",
           message:
-            "Mahnungen werden über den Mahnlauf (dunning_run, mode finalize) oder REST /reminders/{id}/finalize fertiggestellt.",
+            "Mahnungen werden mit POST /reminders/{id}/finalize fertiggestellt (MCP: document_preview und document_finalize mit der rem_-ID).",
         },
       ],
     });

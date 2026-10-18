@@ -5,6 +5,7 @@ import { isTest } from "./lib/env";
 import { defaultInvoiceAccount } from "./model/bankAccounts";
 import { backdateDraftForTest } from "./model/dunning";
 import { invoicePaymentArgs, recordPayment as recordPaymentModel } from "./model/payments";
+import { ensureInvoicingSetupForTest } from "./model/seeds";
 import { settlementOf } from "./model/settlement";
 
 /**
@@ -36,6 +37,20 @@ export const recordPayment = systemMutation({
     );
     const s = await settlementOf(ctx, (await ctx.db.get(doc._id)) ?? doc);
     return { openCents: s.openCents, receivedCents: s.receivedCents };
+  },
+});
+
+/**
+ * Integration tests only (IS_TEST, test/integration/refund-race.test.ts): fills the invoicing setup an API key needs
+ * to create, finalise and refund documents (company profile, number ranges incl. Rechnungskorrekturen, invoice bank
+ * account, seeded lookups) — gaps only, an existing setup stays. Returns null and writes nothing unless IS_TEST=true.
+ */
+export const ensureInvoicingSetup = systemMutation({
+  job: "test",
+  args: {},
+  handler: async (ctx) => {
+    if (!isTest()) return null;
+    return { added: await ensureInvoicingSetupForTest(ctx) };
   },
 });
 

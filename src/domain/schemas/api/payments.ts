@@ -475,10 +475,13 @@ export function matchArgs(transactionId: string, w: MatchWire) {
 }
 
 /** Candidate target (Convex) → wire. */
-export function wireMatchTarget(t: { kind: string; id: string }) {
+/** Convex match target → wire target; a sales document of type `correction` is a `cor_…` refund target (PAY-033 b). */
+export function wireMatchTarget(t: { kind: string; id: string }, docType?: string | null) {
   switch (t.kind) {
     case "salesDocument":
-      return { kind: "invoice", id: encodeId("invoices", t.id) };
+      return docType === "correction"
+        ? { kind: "correction", id: encodeId("corrections", t.id) }
+        : { kind: "invoice", id: encodeId("invoices", t.id) };
     case "opening_item":
       return { kind: "opening_item", id: encodeId("openingItems", t.id) };
     case "contactCredit":
@@ -711,6 +714,8 @@ export interface SuggestionsLike {
       label: string;
       contactName: string;
       openCents: number;
+      /** Type of a `salesDocument` target (`correction` = refund of a credit correction, encoded `cor_…`). */
+      docType?: string | null;
     }[];
   }[];
 }
@@ -735,7 +740,7 @@ export function serializeSuggestions(s: SuggestionsLike): z.infer<typeof matchSu
       reasons: [...c.reasons],
       labels: [...c.labels],
       targets: c.allocations.map((a) => ({
-        ...wireMatchTarget(a.target),
+        ...wireMatchTarget(a.target, a.docType),
         label: a.label,
         contact_name: a.contactName,
         amount_cents: a.amountCents,

@@ -302,6 +302,111 @@ describe("MCP dunning tools (06 §3.5)", () => {
     expect(["confirm_token_used", "preview_outdated"]).toContain(errorOf(reused).code);
   });
 
+  test("MCP-012 MCP-004 DUN-004 a single reminder draft (rem_) is finalised with the document_preview token; warnings must be acknowledged", async () => {
+    const { t, inv } = await setup();
+    const client = await connect(
+      (await t.asMcp(["payments:read", "documents:read", "dunning:write", "invoices:finalize"])).key,
+    );
+    // A 5,00 € fee before Verzug (MAHN-01) → the warning `not_in_default` must be acknowledged again at finalisation.
+    const created = (await client.callTool({
+      name: "reminder_create",
+      arguments: { invoice_id: inv, fee_cents: 500, acknowledge_warnings: ["not_in_default"] },
+    })) as ToolCall;
+    const rem = created.structuredContent?.id as string;
+    const version = created.structuredContent?.version as number;
+
+    const noToken = (await client.callTool({ name: "document_finalize", arguments: { id: rem, version } })) as ToolCall;
+    expect(noToken.isError).toBe(true);
+    expect(noToken.content[0]?.text).toMatch(/confirm_token/);
+
+    const blocked = (await client.callTool({ name: "document_preview", arguments: { id: rem } })) as ToolCall;
+    expect(blocked.isError, JSON.stringify(blocked.content)).toBeFalsy();
+    expect(blocked.structuredContent).toMatchObject({
+      intent: "finalize",
+      id: rem,
+      type: "reminder",
+      version,
+      allowed: false,
+      errors: [],
+      warnings: [expect.objectContaining({ code: "not_in_default" })],
+      unacknowledged_warnings: ["not_in_default"],
+    });
+    expect(blocked.structuredContent?.confirm_token).toBeUndefined();
+    // Reminders are always dated today: the document options of invoices do not apply.
+    const dated = (await client.callTool({
+      name: "document_preview",
+      arguments: { id: rem, document_date: "2026-10-18" },
+    })) as ToolCall;
+    expect(errorOf(dated).code).toBe("validation_failed");
+
+    const preview = (await client.callTool({
+      name: "document_preview",
+      arguments: { id: rem, acknowledge_warnings: ["not_in_default"] },
+    })) as ToolCall;
+    expect(preview.structuredContent).toMatchObject({
+      allowed: true,
+      unacknowledged_warnings: [],
+      claim: {
+        level: 1,
+        open_amount_cents: 119_000,
+        fee_cents: 500,
+        total_cents: 119_500,
+        new_due_date: expect.any(String),
+      },
+      confirm_token: expect.stringMatching(/^ct_/),
+    });
+    const token = preview.structuredContent?.confirm_token as string;
+
+    // Other arguments than previewed → preview_outdated (the token is not burned).
+    const other = (await client.callTool({
+      name: "document_finalize",
+      arguments: { id: rem, version, confirm_token: token },
+    })) as ToolCall;
+    expect(errorOf(other).code).toBe("preview_outdated");
+    const withDate = (await client.callTool({
+      name: "document_finalize",
+      arguments: {
+        id: rem,
+        version,
+        document_date: "2026-10-18",
+        acknowledge_warnings: ["not_in_default"],
+        confirm_token: token,
+      },
+    })) as ToolCall;
+    expect(errorOf(withDate).code).toBe("validation_failed");
+
+    const ok = (await client.callTool({
+      name: "document_finalize",
+      arguments: { id: rem, version, acknowledge_warnings: ["not_in_default"], confirm_token: token },
+    })) as ToolCall;
+    expect(ok.isError, JSON.stringify(ok.content)).toBeFalsy();
+    expect(ok.structuredContent).toMatchObject({ id: rem, number: "MA-2026-0001", status: "finalized" });
+    await settle(t);
+    const audit = await t.run((ctx) => ctx.db.query("auditLog").collect());
+    expect(audit.some((e) => e.action === "dunning.reminder.finalize" && e.actor.startsWith("mcp:"))).toBe(true);
+
+    const replay = (await client.callTool({
+      name: "document_finalize",
+      arguments: { id: rem, version, acknowledge_warnings: ["not_in_default"], confirm_token: token },
+    })) as ToolCall;
+    expect(["confirm_token_used", "preview_outdated"]).toContain(errorOf(replay).code);
+    // A finalised reminder has nothing to preview.
+    const done = (await client.callTool({ name: "document_preview", arguments: { id: rem } })) as ToolCall;
+    expect(errorOf(done).code).toBe("immutable_record");
+  });
+
+  test("MCP-012 document_preview of a reminder needs invoices:finalize", async () => {
+    const { t, inv } = await setup();
+    const drafts = await connect((await t.asMcp(["payments:read", "documents:read", "dunning:write"])).key);
+    const created = (await drafts.callTool({ name: "reminder_create", arguments: { invoice_id: inv } })) as ToolCall;
+    const denied = (await drafts.callTool({
+      name: "document_preview",
+      arguments: { id: created.structuredContent?.id as string },
+    })) as ToolCall;
+    expect(errorOf(denied).code).toBe("insufficient_scope");
+    expect(TOOLS.find((x) => x.name === "document_finalize")?.scopes).toEqual(["invoices:finalize"]);
+  });
+
   test("DUN-008 reminder_create creates a draft without a token; the app never sends", async () => {
     const { t, inv } = await setup();
     const client = await connect((await t.asMcp(["payments:read", "dunning:write", "documents:read"])).key);

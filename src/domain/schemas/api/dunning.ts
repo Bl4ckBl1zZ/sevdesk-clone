@@ -155,6 +155,89 @@ export const reminderFinalizeWire = z
   .strict()
   .meta({ id: "ReminderFinalizeRequest" });
 
+/**
+ * `POST /reminders/{id}/finalize` and MCP `document_preview`/⚠ `document_finalize` with a `rem_` id → the arguments of
+ * `dunning.finalize` (without `confirmToken`). The acknowledged warning codes are sorted and unique so that the
+ * MCP confirm token (a hash of exactly these arguments, 06 §2.3) does not depend on their order.
+ */
+export function reminderFinalizeArgs(
+  id: string,
+  w: { version?: number | undefined; acknowledge_warnings?: readonly string[] | undefined },
+): { id: string; version?: number; acknowledgeWarnings?: string[] } {
+  const ack = [...new Set(w.acknowledge_warnings ?? [])].sort();
+  return {
+    id,
+    ...(w.version !== undefined ? { version: w.version } : {}),
+    ...(ack.length > 0 ? { acknowledgeWarnings: ack } : {}),
+  };
+}
+
+/** Structural input: the draft part of `dunning.reminder` (convex/dunning.ts). */
+export interface ReminderFinalizeCheckLike {
+  reminder: { status: string; version: number; level: number };
+  findings: readonly { code: string; severity: string; message: string }[];
+  /** The claim with the draft's manual amounts applied (null when it cannot be computed — an error finding). */
+  claim: {
+    openAmountCents: number;
+    feeCents: number;
+    interestCents: number;
+    flatFee40Cents: number;
+    totalCents: number;
+    newDueDate: string | null;
+    inDefault: boolean;
+    defaultStartDate: string | null;
+  } | null;
+  today: string;
+}
+
+/**
+ * MCP `document_preview` (intent finalize) of a reminder draft (DUN-004): the same findings `dunning.finalize`
+ * checks — errors block, warnings (`W`) must be acknowledged by code — and the claim the reminder will state.
+ * Reminders are always dated today. `allowed` = the act would pass with `acknowledged`.
+ */
+export function serializeReminderFinalizeCheck(
+  wireId: string,
+  c: ReminderFinalizeCheckLike,
+  acknowledged: readonly string[],
+) {
+  const finding = (f: { code: string; message: string }) => ({
+    code: f.code,
+    rule: null,
+    field: null,
+    message: f.message,
+  });
+  const errors = c.findings.filter((f) => f.severity === "E").map(finding);
+  const unacknowledged = [
+    ...new Set(c.findings.filter((f) => f.severity === "W" && !acknowledged.includes(f.code)).map((f) => f.code)),
+  ];
+  const k = c.claim;
+  return {
+    id: wireId,
+    type: "reminder" as const,
+    version: c.reminder.version,
+    status: c.reminder.status,
+    allowed: k !== null && errors.length === 0 && unacknowledged.length === 0,
+    document_date: c.today,
+    errors,
+    warnings: c.findings.filter((f) => f.severity !== "E").map(finding),
+    unacknowledged_warnings: unacknowledged,
+    claim: k
+      ? {
+          level: c.reminder.level,
+          open_amount_cents: k.openAmountCents,
+          fee_cents: k.feeCents,
+          interest_cents: k.interestCents,
+          flat_fee_40_cents: k.flatFee40Cents,
+          total_cents: k.totalCents,
+          new_due_date: k.newDueDate,
+          in_default: k.inDefault,
+          default_start_date: k.defaultStartDate,
+        }
+      : null,
+    pdf_preview_url: null,
+  };
+}
+
 export const reminderWithdrawWire = z
   .object({
     reason: z.string().max(1000).meta({ description: "Grund (mindestens 5 Zeichen)" }),

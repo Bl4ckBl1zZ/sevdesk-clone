@@ -1,13 +1,23 @@
 import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
 import { sha256Hex } from "../src/domain/audit/chain";
 import { displayStatus } from "../src/domain/documents/display-status";
-import { api } from "./_generated/api";
+import {
+  type Caller,
+  cashPaidCreditCorrection,
+  errorData,
+  OPEN_REFUND_CENTS,
+  REFUND_RACE_SCOPES,
+  raceCashRefunds,
+  tillTo,
+} from "../test/factories/refund-race";
+import { api, internal } from "./_generated/api";
 import type { Doc, Id } from "./_generated/dataModel";
 import { b2bBuyer, finalizedInvoice, INVOICE_RANGE, invoiceValues, settle, setupInvoicing } from "./invoices.fixtures";
 import { errorCode } from "./lib/errors";
 import { defaultInvoiceAccount } from "./model/bankAccounts";
 import { recordCashTransfer } from "./model/cash";
 import { patchCompanyProfile } from "./model/companyProfile";
+import { autoApplyMatches } from "./model/matching";
 import { openItemsAsOf } from "./model/payments";
 import { bookedTransaction } from "./payments.fixtures";
 import { makeT, type TestT } from "./test.setup";
@@ -20,6 +30,7 @@ import { makeT, type TestT } from "./test.setup";
  */
 
 const NOW = new Date("2026-10-12T10:00:00Z");
+const TODAY = "2026-10-12";
 const OWNER = { actor: "user:test-owner", role: "owner", channel: "ui" } as const;
 
 beforeEach(() => {
@@ -295,6 +306,139 @@ describe("PAY-033 (b) refunds against credit corrections", { timeout: 30_000 }, 
     const byRole = (role: string) => entry?.lines.find((l) => l.role === role);
     expect(byRole("vat.output.19")).toMatchObject({ debitCents: 3_800, taxPointDate: "2026-10-12" });
     expect(byRole("vat.output.notdue.19")).toMatchObject({ creditCents: 3_800 });
+  });
+
+  test("T07-074 BNK-041 BNK-046 an outgoing debit with the correction number is suggested as „Erstattung zu Rechnungskorrektur …“; ✓ books the refund", async () => {
+    const t = makeT();
+    const { owner, cid, accountId } = await creditOf(t, 119_000);
+    // A partial refund first: the suggestion uses the remaining open refund (138,00).
+    await owner.mutation(api.payments.refundCorrection, {
+      documentId: cid,
+      amountCents: 10_000,
+      source: { kind: "clearing", accountId },
+      date: "2026-10-12",
+    });
+    const tx = await bookedTransaction(t, accountId, {
+      bookingDate: "2026-10-12",
+      amountCents: -13_800,
+      purpose: "Erstattung zu RK-2026-0001",
+    });
+    const s = await owner.query(api.matching.suggestions, { transactionId: tx });
+    const [best] = s.candidates;
+    expect(best).toMatchObject({
+      kind: "single",
+      score: 0.95,
+      safe: true,
+      reasons: ["number_in_purpose", "exact_amount", "date_window"],
+      allocations: [
+        {
+          target: { kind: "salesDocument", id: cid },
+          amountCents: 13_800,
+          label: "Erstattung zu Rechnungskorrektur RK-2026-0001",
+          openCents: 13_800,
+          docType: "correction",
+        },
+      ],
+    });
+    // The „Zuordnungen“ page lists the same suggestion; „Andere wählen“ offers the open refund for debits.
+    const review = await owner.query(api.matching.review, {});
+    expect(review.suggestions.find((r) => r.tx.id === tx)?.candidates[0]?.allocations[0]?.label).toBe(
+      "Erstattung zu Rechnungskorrektur RK-2026-0001",
+    );
+    const targets = await owner.query(api.matching.openTargets, { q: "RK-2026" });
+    expect(targets.refunds).toEqual([
+      expect.objectContaining({ kind: "salesDocument", id: cid, number: "RK-2026-0001", openCents: 13_800 }),
+    ]);
+    expect(targets.documents.some((d) => d.id === cid)).toBe(false);
+
+    if (!best) throw new Error("no suggestion");
+    const r = await owner.mutation(api.matching.confirm, {
+      transactionId: tx,
+      allocations: best.allocations.map((a) => ({ target: a.target, amountCents: a.amountCents })),
+      score: best.score,
+      reasons: best.reasons,
+    });
+    expect("refunded" in r).toBe(true);
+    expect(await docOf(t, cid)).toMatchObject({ openAmountCents: 0, paymentStatus: "paid" });
+    const payment = await t.run((ctx) => ctx.db.get((r as { refunded: Id<"payments"> }).refunded));
+    expect(payment).toMatchObject({
+      amountCents: -13_800,
+      bankTransactionId: tx,
+      match: { score: 0.95, reasons: ["number_in_purpose", "exact_amount", "date_window"], auto: false },
+    });
+    expect((await owner.query(api.matching.suggestions, { transactionId: tx })).transaction).toBeNull();
+    // A fully refunded correction is no candidate for the next debit.
+    const next = await bookedTransaction(t, accountId, {
+      bookingDate: "2026-10-12",
+      amountCents: -13_800,
+      purpose: "RK-2026-0001",
+    });
+    expect((await owner.query(api.matching.suggestions, { transactionId: next })).candidates).toEqual([]);
+  });
+
+  test("T07-074 BNK-043 a debit with the correction number, the exact open refund and the customer's name is auto-applied as the refund", async () => {
+    const t = makeT();
+    const { cid, accountId } = await creditOf(t, 119_000);
+    const c = await docOf(t, cid);
+    const tx = await bookedTransaction(t, accountId, {
+      bookingDate: "2026-10-12",
+      amountCents: -23_800,
+      purpose: "Gutschrift RK-2026-0001",
+      counterpartyName: c.contactName ?? "",
+    });
+    const applied = await t.model(OWNER, (ctx) => autoApplyMatches(ctx, [tx]));
+    expect(applied).toEqual([tx]);
+    expect(await docOf(t, cid)).toMatchObject({ openAmountCents: 0, paymentStatus: "paid" });
+    expect(await t.run((ctx) => ctx.db.get(tx))).toMatchObject({ allocatedCents: 23_800, status: "matched" });
+    const [refund] = await t.run((ctx) =>
+      ctx.db
+        .query("payments")
+        .filter((q) => q.eq(q.field("bankTransactionId"), tx))
+        .collect(),
+    );
+    expect(refund).toMatchObject({ amountCents: -23_800, match: { auto: true } });
+  });
+
+  // T05-163 (second half): convex-test runs the two mutations as serialised transactions, so these tests prove that
+  // every check sits inside the transaction of the act (the loser sees the winner's refund and cash movement). The
+  // real optimistic-concurrency conflict and retry are exercised by the same scenario in
+  // test/integration/refund-race.test.ts against the self-hosted backend.
+  test("T05-163 EC-PAY-33 two simultaneous cash refunds above the open refund: exactly one is booked", async () => {
+    const t = makeT();
+    expect(await t.mutation(internal.testFixtures.ensureInvoicingSetup, {})).toEqual({
+      added: ["companyProfile", "range:contact", "range:invoice", "range:correction", "bankAccount"],
+    });
+    expect(await t.mutation(internal.testFixtures.ensureInvoicingSetup, {})).toEqual({ added: [] });
+    const a = (await t.asApiKey(REFUND_RACE_SCOPES)) as unknown as Caller;
+    const b = (await t.asApiKey(REFUND_RACE_SCOPES)) as unknown as Caller;
+    const { correctionId } = await cashPaidCreditCorrection(a, { today: TODAY, settle: () => settle(t) });
+    expect(await docOf(t, correctionId)).toMatchObject({ openAmountCents: -OPEN_REFUND_CENTS });
+
+    // 200,00 + 200,00 > 238,00 open refund; the till (1.190,00) covers both.
+    const results = await raceCashRefunds([a, b], correctionId, [20_000, 20_000], TODAY);
+    expect(results.map((r) => r.status).sort()).toEqual(["fulfilled", "rejected"]);
+    const lost = results.find((r) => r.status === "rejected") as PromiseRejectedResult;
+    expect(errorData(lost.reason)).toMatchObject({ reason: "REFUND_EXCEEDS" });
+    expect(await docOf(t, correctionId)).toMatchObject({ openAmountCents: -3_800, paymentStatus: "partially_paid" });
+    expect((await a.query(api.cash.overview, {})).balanceCents).toBe(99_000);
+  });
+
+  test("T05-163 PAY-062 EC-149 RI-11 two simultaneous cash refunds that only jointly exceed the till: exactly one is booked", async () => {
+    const t = makeT();
+    await t.mutation(internal.testFixtures.ensureInvoicingSetup, {});
+    const a = (await t.asApiKey(REFUND_RACE_SCOPES)) as unknown as Caller;
+    const b = (await t.asApiKey(REFUND_RACE_SCOPES)) as unknown as Caller;
+    const { correctionId } = await cashPaidCreditCorrection(a, { today: TODAY, settle: () => settle(t) });
+    await tillTo(a, TODAY, 15_000);
+    expect((await a.query(api.cash.overview, {})).balanceCents).toBe(15_000);
+
+    // 119,00 + 119,00 = the open refund, but only 150,00 are in the till.
+    const results = await raceCashRefunds([a, b], correctionId, [11_900, 11_900], TODAY);
+    expect(results.map((r) => r.status).sort()).toEqual(["fulfilled", "rejected"]);
+    const lost = results.find((r) => r.status === "rejected") as PromiseRejectedResult;
+    expect(errorData(lost.reason)).toMatchObject({ code: "cash_negative" });
+    expect(await docOf(t, correctionId)).toMatchObject({ openAmountCents: -11_900 });
+    expect((await a.query(api.cash.overview, {})).balanceCents).toBe(3_100);
   });
 
   test("PAY-019 MCP-004 an MCP actor needs a payment_record token for a correction refund", async () => {
