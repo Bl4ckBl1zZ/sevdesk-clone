@@ -1166,16 +1166,22 @@ purgeTombstones: 🔒 { table: string; recordId: string; retentionClass: Retenti
   contentSha256: string; batchId: Id<"purgeBatches">; purgedAt: number }   // PRV-006
 
 imports: { source: "sevdesk_export" | "lexoffice_csv" | "generic_csv";   // sevdesk: file exports only (contacts/products/invoice+voucher list CSV, DATEV, GoBD ZIP, PDFs); no API (F09)
-  files: (FileRef & { detectedKind?: string; encoding?: string; delimiter?: string; headers?: string[]; ignored?: boolean })[];
+  files: (FileRef & { id: string;      // stable file id inside the project (row refs `fileId:line`, PDF assignments)
+                      detectedKind: string; kind: string;   // detected vs owner-corrected kind (IMP-016)
+                      encoding?: string; delimiter?: string; headers?: string[];
+                      samples?: string[][]; rows?: number;  // first data rows for the mapping UI; data row count
+                      ignored?: boolean; readError?: string })[];
   status: "uploaded" | "previewed" | "running" | "done" | "failed" | "discarded";
-  previewHash?: string;                 // commit only with the current preview (F09 IMP-023, 409 preview_stale)
-  resolutions?: unknown;                // PDF assignments, contact matches, excluded rows, entered open amounts / VAT splits, missing-PDF reasons
+  revision: number;                     // +1 on every workspace edit; a preview computed for an older revision is not saved
+  previewHash?: string;                 // commit only with the current preview (F09 IMP-023, 409 preview_stale); every workspace edit clears it
+  resolutions?: unknown;                // PDF assignments, excluded rows, entered open amounts (missing-PDF reason is a commit argument)
+  decisions?: unknown;                  // number-range decisions + missing-PDF reason confirmed at commit (protocol input)
   protocolFile?: FileRef; committedAt?: number; committedBy?: Actor;
   retentionUntil?: string;              // source files kept ≥ 10 years as migration evidence (F09 IMP-024)
-  preview?: { counts: Record<string, number>; errors: unknown[]; warnings: unknown[]; duplicates: unknown[];
-              numberRangeContinuation: { rangeId: Id<"numberRanges">; lastImported: string; nextValue: number }[] };
-  stats: Record<string, number>; mapping?: unknown; log: string[];
-  importerVersion: string; startedAt: number; finishedAt?: number; actor: Actor }
+  preview?: unknown;                    // PreviewSummary (src/domain/import/sevdesk/preview.ts): counts, blocking, findings (≤ 500), number-range proposals, open items, PDF matching, samples
+  stats: Record<string, number>; mapping?: Record<string /* file id */, { columns: Record<string, string>; numberFormat?: "de" | "en"; dateFormat?: "dmy" | "mdy" }>;
+  log: string[]; error?: string;        // error = last failed commit (status failed; the commit can resume)
+  importerVersion: string; startedAt: number; finishedAt?: number; actor: Actor }   // index by_status
 importMappingPresets: { source: string; fileKind: string; name: string; columns: Record<string, string>; options?: unknown;
   shipped: boolean; unsure: boolean /* sevdesk layouts UNSURE until owner samples exist */; createdAt: number; actor?: Actor }
 importedRecords: { importId; externalType: string; externalId: string; table: string; localId: string }  // idempotent re-runs; index by_external (unique)
@@ -1198,6 +1204,8 @@ importedRecords: { importId; externalType: string; externalId: string; table: st
 | `vouchers`, `voucherLines` | while booked and unlocked: correction with Generalumkehr + re-post, `version + 1`, reason (VOU-008); always: `status`, `openAmountCents`, `bookedAt`, `lockedAt`, `tags`, `checkedComplete` (once), `duplicateDismissals` (append), `rebilledLineId` (once), `originalFiles` (append; `replacedBy` on the old entry), `renditions` (append), `bewirtung.versions` (append); `internalNumber` set once at booking | after lock: `cancelled` with reversal journal + new voucher ("Duplizieren") |
 | `payments` | `reversedById`, `lockedAt`, `reconciledTransactionId` (once), `receiptFile` (once), `journalEntryIds` (append) | reversal payment (`reversalOfId`) |
 | `allocations` | none | written by reversal payments |
+| `imports` | while `uploaded`/`previewed`/`running`/`failed`: the workspace (files, mapping, resolutions, preview, revision, status, log, stats); frozen once `done` or `discarded` except `protocolFile` (set once) | a new import project |
+| `importedRecords` | none (append-only) | n/a (the link of a created record to its sevdesk source) |
 | `journalEntries` | `lockedAt`; `lines[].contactId` removed by staged purge (PRV-007) | reversal entry (Generalumkehr) |
 | `journalLines` | none (read model of `journalEntries`; the PRV-007 purge rewrites `contactId` together with the entry) | via the entry's reversal |
 | `openingItems` | `openAmountCents` (payments/reversals against the item), `lockedAt` (once) | reversal of the opening entry |
@@ -1380,3 +1388,13 @@ Still referencing removed shapes (owned by the parallel feature pass, to align):
 | `documentLines` (implemented) | `optional` (quotes; excluded from totals and VAT) and `sourceLineId`; `invoicedQtyMilli`/`deliveredQtyMilli` are written only by the chain recompute (`document.progress`) | DOC-04/QUO-02; §4.3.3 progress caches, whitelisted in §11, excluded from the snapshot |
 | `rejection` | Set once (§11). After „Wieder öffnen“ a second rejection is recorded in the audit log only | The set-once rule of §11 wins over overwriting the first rejection |
 | `numberRegister` | A quote revision's number `<base>-V{n}` (setting `quoteRevisionNumbering: suffix`) is registered without consuming a counter value | UST-06/GOBD-02: every assigned number is in the register; the counter of the quote range is untouched |
+
+### F09 P1 sevdesk file-export import 2026-10-18 (IMP-003…024)
+
+| Item | Change | Reason / source |
+|---|---|---|
+| `imports` (implemented) | `files[].id/kind/samples/rows/readError`, `revision`, `decisions`, `error`; `preview` holds the `PreviewSummary`; `mapping` keyed by file id | Stable row references (`fileId:line`) for exclusions; a stale preview (workspace edited while the preview action ran) is refused by revision; a failed commit keeps its error and resumes idempotently (E-IMP-14) |
+| `salesDocuments` (implemented) | `imported: true`, `origin { source: "sevdesk_export", externalId: "<type>:<number>", importId }`, index `by_origin`; imported documents are written with status `sent`/`cancelled`, `lockedAt`, no snapshot, retention from the original date (`vouchers8`) | F09 §4.3.3, EC-190; RI-01/RI-19 skip the snapshot, supply-date and sent-mark checks for imported rows (`src/domain/documents/invariants.ts`) |
+| `documentLines.fromSummary` | One summary line per VAT rate „Positionen siehe Original-PDF“ | F09 IMP-020: the invoice list has no line items |
+| `importedRecords` | One row per created contact, product, document and archived PDF; the commit skips keys already present | Idempotent resume and re-import (IMP-006, E-IMP-04) |
+| Payments on imported documents | Refused (`IMPORTED_DOCUMENT_PAYMENT`) until the F08 opening-item link exists | LEGAL-OPEN (EC-201): the opening balance (F08) and an imported open invoice would otherwise both count as receivable |

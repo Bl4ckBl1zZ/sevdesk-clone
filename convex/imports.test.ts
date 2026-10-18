@@ -140,7 +140,7 @@ describe("F09 sevdesk export import — upload, preview, commit (Convex)", () =>
     expect(view).toMatchObject({ status: "previewed", previewHash: p1.previewHash });
   });
 
-  test("TST-IMP-16 TST-IMP-19 IMP-003 IMP-004 IMP-020 EC-190 commit creates archived documents with original numbers and PDFs", async () => {
+  test("TST-IMP-16 TST-IMP-19 TST-IMP-14 SET-065 IMP-003 IMP-004 IMP-008 IMP-014 IMP-020 EC-190 commit creates archived documents with original numbers and PDFs", async () => {
     const { t, owner } = await setup();
     const { importId, second } = await prepared(t, owner);
     expect(second.preview.blocking).toBe(0);
@@ -241,6 +241,13 @@ describe("F09 sevdesk export import — upload, preview, commit (Convex)", () =>
       const audits = (await ctx.db.query("auditLog").collect()).filter((a) => a.action === "document.import");
       expect(audits.length).toBeGreaterThan(0);
       expect(audits.every((a) => a.channel === "import" && a.actor === owner.actor)).toBe(true);
+      // IMP-008: imported audit entries record source and importer version
+      expect(audits.every((a) => a.reason === `sevdesk-Export, sevdesk-export-import@1, Import ${importId}`)).toBe(
+        true,
+      );
+      const records = (await ctx.db.query("auditLog").collect()).filter((a) => a.action === "import.record");
+      expect(records.length).toBeGreaterThanOrEqual(4 + 2 + 8); // contacts, products, documents (+ their PDF files)
+      expect(records.every((a) => a.reason?.includes("sevdesk-export-import@1"))).toBe(true);
       // IMP-024: the import row keeps the source files ≥ 10 years
       const row = await ctx.db.get(importId);
       expect(row).toMatchObject({ status: "done", committedBy: owner.actor });
@@ -492,7 +499,7 @@ describe("F09 IMP-023 discard, stale previews, collisions, resume, roles", () =>
     expect((await owner.query(api.imports.list, {})).map((i) => i.id)).toEqual([importId]);
   });
 
-  test("IMP-007 UVA-06 a payment on an imported open invoice is refused until its opening item exists (LEGAL-OPEN)", async () => {
+  test("IMP-007 EC-201 UVA-06 a payment on an imported open invoice is refused until its opening item exists (LEGAL-OPEN)", async () => {
     const { t, owner } = await setup();
     const { importId, second } = await prepared(t, owner);
     await owner.action(api.imports.commit, {

@@ -465,9 +465,14 @@ async function recordImported(
     {
       action: "import.record",
       label: `${externalType} ${externalId}`,
+      reason: importAuditReason(importId),
     },
   );
 }
+
+/** IMP-008: imported audit entries name the source and the importer version. */
+export const importAuditReason = (importId: Id<"imports">): string =>
+  `sevdesk-Export, ${SEVDESK_IMPORTER_VERSION}, Import ${importId}`;
 
 export async function commitImportContacts(
   ctx: ModelCtx,
@@ -688,7 +693,7 @@ export async function commitImportDocuments(
         channel: ctx.actorContext.channel,
         version: 1,
       },
-      { action: "document.import", label: d.number },
+      { action: "document.import", label: d.number, reason: importAuditReason(importId) },
     );
     let position = 1;
     for (const g of d.groups) {
@@ -708,7 +713,7 @@ export async function commitImportDocuments(
           lineNetCents: g.netCents,
           fromSummary: true,
         },
-        { action: "document.import", label: d.number },
+        { action: "document.import", label: d.number, reason: importAuditReason(importId) },
       );
     }
     await auditedInsert(
@@ -723,7 +728,7 @@ export async function commitImportDocuments(
         status: d.finalStatus === "cancelled" ? "cancelled_by_storno" : "issued",
         imported: true,
       },
-      { action: "document.import", label: d.number },
+      { action: "document.import", label: d.number, reason: importAuditReason(importId) },
     );
     if (file) {
       const artifactId = await auditedInsert(
@@ -742,7 +747,7 @@ export async function commitImportDocuments(
           createdAt: now,
           retentionUntil: retention,
         },
-        { action: "document.import", label: d.number },
+        { action: "document.import", label: d.number, reason: importAuditReason(importId) },
       );
       await recordImported(ctx, importId, EXTERNAL_TYPES.file, file.sha256, "documentArtifacts", artifactId);
     }
