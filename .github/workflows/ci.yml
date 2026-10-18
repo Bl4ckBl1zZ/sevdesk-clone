@@ -91,7 +91,7 @@ jobs:
         run: |
           nohup scripts/convex-local-backend.sh > convex-backend.log 2>&1 &
           for i in $(seq 1 60); do curl -fs http://127.0.0.1:3210/version >/dev/null && break; sleep 1; done
-          scripts/convex-local-backend.sh env >> "$GITHUB_ENV"
+          scripts/convex-local-backend.sh env | tr -d "'" >> "$GITHUB_ENV"   # GITHUB_ENV keeps quotes literally
       # Convex env (IS_TEST, memory auth mail, test keys), push functions, write .env.test.local.
       - run: pnpm test:backend
       - run: pnpm test -p integration
