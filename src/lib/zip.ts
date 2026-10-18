@@ -1,23 +1,11 @@
 /**
  * Minimal ZIP writer (stored, no compression) for „Alles als ZIP“ (F04 SND-16, §4.10.2): the archived artifact bytes
  * go into the archive unchanged, so the hashes in SHA256SUMS.txt match the archive (GoBD). Runs in the browser.
+ * CRC-32 is the domain implementation shared with the import ZIP reader (src/domain/archive/zip.ts).
  */
+import { crc32 } from "@/domain/archive/zip";
 
-const CRC_TABLE = (() => {
-  const t = new Uint32Array(256);
-  for (let n = 0; n < 256; n++) {
-    let c = n;
-    for (let k = 0; k < 8; k++) c = c & 1 ? 0xedb88320 ^ (c >>> 1) : c >>> 1;
-    t[n] = c >>> 0;
-  }
-  return t;
-})();
-
-export function crc32(data: Uint8Array): number {
-  let c = 0xffffffff;
-  for (const b of data) c = (CRC_TABLE[(c ^ b) & 0xff] as number) ^ (c >>> 8);
-  return (c ^ 0xffffffff) >>> 0;
-}
+export { crc32 };
 
 function dosDateTime(d: Date): { time: number; date: number } {
   return {

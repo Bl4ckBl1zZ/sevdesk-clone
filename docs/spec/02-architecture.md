@@ -362,6 +362,8 @@ There is no stored status "open": „Offen" in the UI is the display label for a
 
 Removed with the platform update: `revolut.expenses` (needed the Revolut Business API, which is not used), `cash.openDaysReminder` (no cash book any more, F07), `inbox.poll` (IMAP), `subscriptions.charge` (F10 deferred; returns with the portal).
 
+Internal Node actions that are not scheduled but called from a user's action (2026-10-18, F09): `imports.files` (unpacks uploaded ZIPs into file storage, IMP-016) and `imports.protocol` (renders the import protocol PDF, IMP-024). They run as `system:<job>` and write file storage only, never the database; the calling action records their result through its own mutations, so the audit entries carry the user as actor.
+
 Timers that run in `web` rather than as Convex crons: clock-skew check every 10 min (F12 AUD-019), checkpoint/head startup check at boot and every 6 h (AUD-014). Certificate expiry of the Caddy wildcard certificate is checked by the security page (F12 AUD-020) against `https://app.<BASE_DOMAIN>`.
 
 Crons check `IS_TEST` and skip in E2E unless invoked explicitly.

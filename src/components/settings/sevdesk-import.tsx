@@ -4,7 +4,7 @@ import { api } from "@convex/_generated/api";
 import type { Id } from "@convex/_generated/dataModel";
 import { useAction, useMutation } from "convex/react";
 import type { FunctionReturnType } from "convex/server";
-import { FileUpIcon, MonitorIcon, Trash2Icon } from "lucide-react";
+import { FileDownIcon, FileUpIcon, MonitorIcon, Trash2Icon } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { useId, useState } from "react";
 import { toast } from "sonner";
@@ -12,7 +12,7 @@ import { uploadFile } from "@/components/banking/shared";
 import { formatDate, formatDateTime, selectClass, useRun } from "@/components/catalog/shared";
 import { ConvexGuard } from "@/components/convex/convex-provider";
 import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
+import { Button, buttonVariants } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -30,6 +30,7 @@ import {
 import { formatEuro } from "@/domain/money/format";
 import { parseCents } from "@/domain/money/parse";
 import { useAuthedQuery } from "@/hooks/use-authed-query";
+import { cn } from "@/lib/utils";
 
 type View = NonNullable<FunctionReturnType<typeof api.imports.get>>;
 type Preview = NonNullable<View["preview"]>;
@@ -201,7 +202,7 @@ function ImportProject({
           canCommit={canCommit}
         />
       ) : null}
-      {view.status === "done" ? <ResultSection view={view} /> : null}
+      {view.status === "done" ? <ResultSection view={view} importId={importId} canCommit={canCommit} /> : null}
     </div>
   );
 }
@@ -231,8 +232,12 @@ function FilesSection({ view, importId, editable }: { view: View; importId: Id<"
     if (r.ok) {
       toast.success(t("uploaded", { count: r.value.added.length }));
       if (r.value.duplicates.length > 0) toast.warning(t("duplicates", { names: r.value.duplicates.join(", ") }));
+      // IMP-016 / E-IMP-29/39/40: ZIPs that were not unpacked, and OS metadata skipped inside archives.
+      for (const z of r.value.rejected ?? []) toast.error(z.message);
+      if (r.value.ignoredEntries?.length) toast.info(t("zipIgnored", { names: r.value.ignoredEntries.join(", ") }));
     }
   };
+  const nameOf = (id: string) => view.files.find((x) => x.id === id)?.name ?? id;
 
   return (
     <Card>
@@ -273,16 +278,27 @@ function FilesSection({ view, importId, editable }: { view: View; importId: Id<"
             <TableBody>
               {view.files.map((f) => (
                 <TableRow key={f.id}>
-                  <TableCell className="max-w-64 truncate" title={f.name}>
+                  <TableCell className={`max-w-64 truncate${f.container ? " pl-6" : ""}`} title={f.name}>
                     {f.name}
                     {f.encoding ? <span className="block text-muted-foreground text-xs">{f.encoding}</span> : null}
+                    {/* IMP-016: unpacked files are listed under their ZIP, which stays as evidence only. */}
+                    {f.unpacked ? (
+                      <span className="block text-muted-foreground text-xs">
+                        {t("zipUnpacked", { count: f.unpacked.files })}
+                      </span>
+                    ) : null}
+                    {f.container ? (
+                      <span className="block text-muted-foreground text-xs">
+                        {t("fromZip", { name: nameOf(f.container) })}
+                      </span>
+                    ) : null}
                   </TableCell>
                   <TableCell>
                     <select
                       aria-label={`${t("kind")}: ${f.name}`}
                       className={selectClass}
                       value={f.kind}
-                      disabled={!editable}
+                      disabled={!editable || f.unpacked !== undefined}
                       onChange={(e) => run(() => updateFile({ importId, fileId: f.id, kind: e.target.value }))}
                     >
                       {IMPORT_FILE_KINDS.map((k) => (
@@ -299,7 +315,7 @@ function FilesSection({ view, importId, editable }: { view: View; importId: Id<"
                       aria-label={`${t("ignored")}: ${f.name}`}
                       className="size-4"
                       checked={f.ignored === true}
-                      disabled={!editable}
+                      disabled={!editable || f.unpacked !== undefined}
                       onChange={(e) => run(() => updateFile({ importId, fileId: f.id, ignored: e.target.checked }))}
                     />
                   </TableCell>
@@ -1166,7 +1182,7 @@ function RangeEditor({
   );
 }
 
-function ResultSection({ view }: { view: View }) {
+function ResultSection({ view, importId, canCommit }: { view: View; importId: Id<"imports">; canCommit: boolean }) {
   const t = useTranslations("imports");
   return (
     <Card>
@@ -1184,6 +1200,7 @@ function ResultSection({ view }: { view: View }) {
       </CardHeader>
       <CardContent className="flex flex-col gap-2 text-sm">
         {view.retentionUntil ? <p>{t("retention", { date: formatDate(view.retentionUntil) })}</p> : null}
+        <ProtocolLink view={view} importId={importId} canCommit={canCommit} />
         {view.log.length > 0 ? (
           <>
             <h3 className="font-medium">{t("log")}</h3>
@@ -1197,5 +1214,47 @@ function ResultSection({ view }: { view: View }) {
         ) : null}
       </CardContent>
     </Card>
+  );
+}
+
+/** IMP-024: the archived import protocol PDF (files + SHA-256, mapping, counts, decisions, findings). */
+function ProtocolLink({ view, importId, canCommit }: { view: View; importId: Id<"imports">; canCommit: boolean }) {
+  const t = useTranslations("imports");
+  const run = useRun();
+  const generate = useAction(api.imports.generateProtocol);
+  const [busy, setBusy] = useState(false);
+  const protocol = view.protocol ?? null;
+  if (protocol?.url) {
+    return (
+      <div className="flex flex-col gap-1">
+        <a
+          href={protocol.url}
+          download={protocol.name}
+          className={cn(buttonVariants({ variant: "outline" }), "h-11 w-fit md:h-9")}
+        >
+          <FileDownIcon aria-hidden="true" />
+          {t("protocolDownload")}
+        </a>
+        <p className="break-all text-muted-foreground text-xs">{t("protocolSha", { sha: protocol.sha256 })}</p>
+      </div>
+    );
+  }
+  return (
+    <div className="flex flex-col items-start gap-2">
+      <p className="text-muted-foreground">{t("protocolMissing")}</p>
+      {canCommit ? (
+        <Button
+          variant="outline"
+          disabled={busy}
+          onClick={async () => {
+            setBusy(true);
+            await run(() => generate({ importId }), t("protocolCreated"));
+            setBusy(false);
+          }}
+        >
+          {t("protocolCreate")}
+        </Button>
+      ) : null}
+    </div>
   );
 }

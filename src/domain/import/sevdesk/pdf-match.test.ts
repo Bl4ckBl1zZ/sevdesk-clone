@@ -53,4 +53,14 @@ describe("F09 IMP-019 PDF matching by file name", () => {
     expect(r.ambiguous).toEqual({});
     expect(r.orphans).toEqual([]);
   });
+
+  test("IMP-016 files from a ZIP match by their base name; folder and nested archive names are ignored", () => {
+    const files = [
+      file("a", "belege/2026/RE-1001.pdf"),
+      file("b", "innen.zip/Rechnungen_RE-1002/2026-06-10_Rechnung_RE-1003_0123456789abcdef0123456789abcd00.pdf"),
+    ];
+    const r = matchFiles(rows, files);
+    expect(r.matched).toEqual({ "invoice:RE-1001": "a", "invoice:RE-1003": "b" });
+    expect(r.ambiguous).toEqual({});
+  });
 });

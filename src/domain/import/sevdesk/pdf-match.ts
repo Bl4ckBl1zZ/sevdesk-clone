@@ -58,7 +58,11 @@ export function matchFiles(
     }
   }
   const assigned = new Set(Object.values(assignments));
-  const normFiles = unique.filter((f) => !assigned.has(f.id)).map((f) => ({ f, n: normalizeForMatch(f.name) }));
+  // Files unpacked from a ZIP (IMP-016) carry their inner path; only the base name is the document's file name.
+  const baseName = (name: string) => name.split(/[\\/]/).at(-1) ?? name;
+  const normFiles = unique
+    .filter((f) => !assigned.has(f.id))
+    .map((f) => ({ f, n: normalizeForMatch(baseName(f.name)) }));
   const exact = new Map<string, string[]>(); // file id → rows with exact equality
   const contains = new Map<string, string[]>(); // file id → rows contained as whole token sequence
   for (const r of rows) {

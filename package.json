@@ -55,6 +55,7 @@
     "convex-helpers": "0.1.128",
     "date-fns": "4.4.0",
     "fast-xml-parser": "5.11.2",
+    "fflate": "0.8.3",
     "ibantools": "4.5.4",
     "jose": "6.2.12",
     "lucide-react": "1.55.0",

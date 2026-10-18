@@ -1,5 +1,6 @@
 import { foldSearch, normalizeContactNumber } from "../../src/domain/contacts/core";
 import { retentionUntil } from "../../src/domain/documents/finalize";
+import { IMPORT_TOTAL_MAX_BYTES } from "../../src/domain/import/sevdesk/files";
 import { openVatSplit } from "../../src/domain/import/sevdesk/invoices";
 import {
   applyPreset,
@@ -123,10 +124,11 @@ export interface NewImportFile {
   samples?: string[][];
   rows?: number;
   readError?: string;
+  /** IMP-016: SHA-256 of the uploaded ZIP (in the same call) this file was unpacked from. */
+  containerSha256?: string;
+  /** IMP-016: on a ZIP — what was unpacked from it. */
+  unpacked?: { files: number; ignored: string[] };
 }
-
-/** IMP-016 total upload limit per import (2 GB). */
-const TOTAL_MAX_BYTES = 2 * 1024 * 1024 * 1024;
 
 /** IMP-017: the latest saved preset of the kind wins when it maps every required field, else the shipped preset. */
 async function initialMapping(ctx: ReadCtx, kind: string, headers: readonly string[]): Promise<ColumnMapping | null> {
@@ -154,14 +156,25 @@ export async function addImportFiles(
   let next = Math.max(0, ...all.map((f) => Number(f.id.slice(1)) || 0)) + 1;
   const added: string[] = [];
   const duplicates: string[] = [];
+  // IMP-016: ZIP sha256 → file id of the archive registered in this call (entries reference it as `container`).
+  const containers = new Map<string, string>();
+  const droppedContainers = new Set<string>();
   for (const f of files) {
+    // A ZIP uploaded twice: the archive and everything unpacked from it count once (§4.3.5 step 4).
+    if (f.containerSha256 && droppedContainers.has(f.containerSha256)) {
+      await ctx.storage.delete(f.storageId);
+      continue;
+    }
     // §4.3.5 step 4: identical bytes under several names count as one file.
     if (all.some((x) => x.sha256 === f.sha256)) {
       duplicates.push(f.name);
+      if (f.unpacked) droppedContainers.add(f.sha256);
       await ctx.storage.delete(f.storageId);
       continue;
     }
     const id = `f${next++}`;
+    if (f.unpacked) containers.set(f.sha256, id);
+    const container = f.containerSha256 ? containers.get(f.containerSha256) : undefined;
     all.push({
       id,
       storageId: f.storageId,
@@ -177,12 +190,14 @@ export async function addImportFiles(
       ...(f.samples ? { samples: f.samples } : {}),
       ...(f.rows !== undefined ? { rows: f.rows } : {}),
       ...(f.readError ? { readError: f.readError } : {}),
+      ...(container ? { container } : {}),
+      ...(f.unpacked ? { unpacked: f.unpacked } : {}),
     });
     const initial = await initialMapping(ctx, f.kind, f.headers ?? []);
     if (initial) mapping[id] = { columns: { ...initial } };
     added.push(id);
   }
-  if (all.reduce((s, f) => s + f.bytes, 0) > TOTAL_MAX_BYTES) {
+  if (all.reduce((s, f) => s + f.bytes, 0) > IMPORT_TOTAL_MAX_BYTES) {
     throw appError("invalid_input", "Die Dateien eines Imports dürfen zusammen höchstens 2 GB groß sein.");
   }
   if (added.length > 0) {
@@ -202,6 +217,13 @@ export async function updateImportFile(
   assertEditable(row);
   const file = row.files.find((f) => f.id === fileId);
   if (!file) throw appError("not_found", "Die Datei gehört nicht zu diesem Import.");
+  if (file.unpacked && patch.kind && patch.kind !== file.kind) {
+    // IMP-016: the archive is evidence only; its contents are listed (and classified) as files of their own.
+    throw appError(
+      "invalid_input",
+      "Ein entpacktes ZIP-Archiv behält seine Dateiart. Bitte die enthaltenen Dateien einzeln einordnen.",
+    );
+  }
   const mapping = { ...(row.mapping ?? {}) };
   const kind = patch.kind ?? file.kind;
   if (patch.kind && patch.kind !== file.kind) {
@@ -221,15 +243,18 @@ export async function removeImportFile(ctx: ModelCtx, importId: Id<"imports">, f
   assertEditable(row);
   const file = row.files.find((f) => f.id === fileId);
   if (!file) throw appError("not_found", "Die Datei gehört nicht zu diesem Import.");
-  const { [fileId]: _removed, ...mapping } = row.mapping ?? {};
+  // IMP-016: removing a ZIP removes the files unpacked from it.
+  const removed = row.files.filter((f) => f.id === fileId || f.container === fileId);
+  const gone = new Set(removed.map((f) => f.id));
+  const mapping = Object.fromEntries(Object.entries(row.mapping ?? {}).filter(([id]) => !gone.has(id)));
   await patchWorkspace(
     ctx,
     row,
-    { files: row.files.filter((f) => f.id !== fileId), mapping },
+    { files: row.files.filter((f) => !gone.has(f.id)), mapping },
     "import.files",
-    file.name,
+    removed.length > 1 ? `${file.name} (+${removed.length - 1})` : file.name,
   );
-  await ctx.storage.delete(file.storageId);
+  for (const f of removed) await ctx.storage.delete(f.storageId);
 }
 
 export async function setImportMapping(
@@ -964,6 +989,35 @@ export async function finishImport(
       retentionUntil: retention,
     },
     { action: "import.finish", label: `${input.stats.documentsCreated ?? 0} Belege` },
+  );
+}
+
+/**
+ * IMP-024: attach the archived import protocol PDF to the committed (frozen) import — once; the immutability matrix
+ * allows exactly this field after `done` (a second attach fails with `immutable_record`). Its retention is the
+ * row's `retentionUntil` (longest retention of the produced records, at least 10 years).
+ */
+export async function attachImportProtocol(
+  ctx: ModelCtx,
+  importId: Id<"imports">,
+  file: { storageId: Id<"_storage">; sha256: string; bytes: number; mime: string; name: string },
+): Promise<void> {
+  const row = await requireImport(ctx, importId);
+  if (row.status !== "done") {
+    throw appError("conflict", "Das Importprotokoll entsteht erst mit der Übernahme.", { reason: "IMPORT_NOT_DONE" });
+  }
+  // Re-attaching the same file is a no-op; a different file is refused by the guarded db (`protocolFile: "once"`).
+  if (row.protocolFile?.storageId === file.storageId && row.protocolFile.sha256 === file.sha256) return;
+  await auditedPatch(
+    ctx,
+    "imports",
+    importId,
+    { protocolFile: file },
+    {
+      action: "import.protocol",
+      label: `${file.name} · ${file.sha256.slice(0, 12)}`,
+      reason: importAuditReason(importId),
+    },
   );
 }
 

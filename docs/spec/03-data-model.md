@@ -1173,13 +1173,16 @@ imports: { source: "sevdesk_export" | "lexoffice_csv" | "generic_csv";   // sevd
                       detectedKind: string; kind: string;   // detected vs owner-corrected kind (IMP-016)
                       encoding?: string; delimiter?: string; headers?: string[];
                       samples?: string[][]; rows?: number;  // first data rows for the mapping UI; data row count
-                      ignored?: boolean; readError?: string })[];
+                      ignored?: boolean; readError?: string;
+                      container?: string;           // id of the uploaded ZIP this file was unpacked from (name = path inside it; F09 IMP-016, 2026-10-18)
+                      unpacked?: { files: number; ignored: string[] } })[];   // on a ZIP: unpacked file count + skipped OS metadata; the ZIP is kept, not parsed
   status: "uploaded" | "previewed" | "running" | "done" | "failed" | "discarded";
   revision: number;                     // +1 on every workspace edit; a preview computed for an older revision is not saved
   previewHash?: string;                 // commit only with the current preview (F09 IMP-023, 409 preview_stale); every workspace edit clears it
   resolutions?: unknown;                // PDF assignments, excluded rows, entered open amounts (missing-PDF reason is a commit argument)
   decisions?: unknown;                  // number-range decisions + missing-PDF reason confirmed at commit (protocol input)
-  protocolFile?: FileRef; committedAt?: number; committedBy?: Actor;
+  protocolFile?: FileRef;               // import protocol PDF (F09 IMP-024), set once after the commit; retention = retentionUntil
+  committedAt?: number; committedBy?: Actor;
   retentionUntil?: string;              // source files kept ≥ 10 years as migration evidence (F09 IMP-024)
   preview?: unknown;                    // PreviewSummary (src/domain/import/sevdesk/preview.ts): counts, blocking, findings (≤ 500), number-range proposals, open items, PDF matching, samples
   stats: Record<string, number>; mapping?: Record<string /* file id */, { columns: Record<string, string>; numberFormat?: "de" | "en"; dateFormat?: "dmy" | "mdy" }>;

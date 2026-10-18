@@ -247,13 +247,16 @@ export function parseImportFiles(
       summaries.push({ ...base, rows: 0, blocked: false });
       continue;
     }
+    // IMP-016: a ZIP is unpacked on upload — its files are listed on their own; the archive is evidence only.
+    if (file.kind === "zip") {
+      summaries.push({ ...base, rows: 0, blocked: false });
+      continue;
+    }
     if (file.kind !== "contacts" && file.kind !== "products" && file.kind !== "invoices") {
       const message =
         file.kind === "unknown"
           ? `Datei ${file.name} wurde nicht erkannt. Bitte Dateiart wählen oder ignorieren.`
-          : file.kind === "zip"
-            ? `ZIP-Archive werden in dieser Version noch nicht entpackt – bitte ${file.name} entpacken und die enthaltenen Dateien einzeln hochladen.`
-            : `${file.name}: Diese Dateiart wird erst in einer späteren Ausbaustufe übernommen (P2) und jetzt ignoriert.`;
+          : `${file.name}: Diese Dateiart wird erst in einer späteren Ausbaustufe übernommen (P2) und jetzt ignoriert.`;
       findings.push({ code: file.kind === "unknown" ? "E-IMP-20" : "IMP-018", severity: "warning", message, ...at });
       summaries.push({ ...base, rows: 0, blocked: false });
       continue;
