@@ -44,6 +44,10 @@ const EXPECTED: Record<Permission, readonly MemberRole[]> = {
   "banking.write": ["owner", "bookkeeper"],
   "banking.mark": ["owner", "bookkeeper"],
   "cash.write": ["owner", "bookkeeper"],
+  // F09: imports are bookkeeping work (02 §4.3); the commit continues number ranges (a settings write) → owner only.
+  "imports.read": ["owner", "bookkeeper"],
+  "imports.run": ["owner", "bookkeeper"],
+  "imports.commit": ["owner"],
   "documents.read": ["owner", "bookkeeper", "viewer", "auditor"],
   "documents.write": ["owner", "bookkeeper"],
   "documents.export": ["owner", "bookkeeper", "viewer", "auditor"],

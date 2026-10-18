@@ -197,3 +197,29 @@ describe("RI-19 sent marks", () => {
     ).toEqual([]);
   });
 });
+
+describe("EC-190 F09 IMP-003 imported archive documents in the invariants", () => {
+  test("EC-190 RI-01 an imported document needs no snapshot and no supply date, but number, date, retention and artifact hashes still hold", () => {
+    const imported = finalised({
+      status: "sent",
+      imported: true,
+      hasSupplyDate: false,
+      snapshot: { present: false, hashMatches: false },
+      artifacts: [{ id: "a1", sha256: "abc", storedSha256: "abc" }],
+    });
+    expect(checkFinalisedDocument(imported)).toEqual([]);
+    const { retentionUntil: _r, ...noRetention } = imported;
+    const broken = { ...noRetention, artifacts: [{ id: "a1", sha256: "abc", storedSha256: "xyz" }] };
+    expect(checkFinalisedDocument(broken).map((f) => f.message)).toEqual([
+      "RE-2026-0001: keine Aufbewahrungsfrist.",
+      "RE-2026-0001: Prüfsumme der Datei a1 stimmt nicht.",
+    ]);
+    // the exemption is for imported records only
+    expect(checkFinalisedDocument({ ...imported, imported: false }).length).toBeGreaterThan(0);
+  });
+
+  test("EC-190 RI-19 §4.3.3 an imported sent document has no sendLog proof and is not flagged", () => {
+    expect(checkSentMarks({ id: "d1", number: "RE-1", status: "sent", imported: true }, [], [])).toEqual([]);
+    expect(checkSentMarks({ id: "d1", number: "RE-1", status: "sent" }, [], []).map((f) => f.id)).toEqual(["RI-19"]);
+  });
+});

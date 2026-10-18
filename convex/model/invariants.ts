@@ -233,6 +233,7 @@ export async function checkDocumentInvariants(ctx: ReadCtx): Promise<InvariantVi
       hasSupplyDate: d.supplyDate !== undefined,
       ...(d.retentionUntil ? { retentionUntil: d.retentionUntil } : {}),
       ...(d.artifactStatus ? { artifactStatus: d.artifactStatus } : {}),
+      ...(d.imported ? { imported: true } : {}),
       ...(d.status === "draft"
         ? {}
         : {
@@ -293,6 +294,7 @@ export async function checkDocumentInvariants(ctx: ReadCtx): Promise<InvariantVi
           status: d.status,
           ...(d.number ? { number: d.number } : {}),
           ...(d.finalizedAt ? { finalizedOn: berlinCalendarDate(d.finalizedAt) } : {}),
+          ...(d.imported ? { imported: true } : {}),
         },
         marks.map((m) => ({
           id: String(m._id),

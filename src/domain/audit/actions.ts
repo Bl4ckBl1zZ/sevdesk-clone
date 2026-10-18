@@ -40,6 +40,8 @@ const GROUPS: Record<string, readonly string[] | "*"> = {
     "progress",
     // F05 PAY-052 manual Zugang override
     "zugang_override",
+    // F09 IMP-003 archived historic document from the sevdesk export
+    "import",
   ],
   // F05 P1: refund of a credit balance, PAY-047 reconciliation of a manual payment, PAY-063 archived Quittung
   payment: ["record", "reverse", "receipt_print", "refund", "reconcile", "receipt"],
@@ -87,7 +89,20 @@ const GROUPS: Record<string, readonly string[] | "*"> = {
   member: ["create", "role_change", "extend", "expire", "expired", "disable", "revoke_sessions"],
   invite: ["create", "resend", "revoke", "accept"],
   export: ["datev", "gdpdu", "full", "csv"],
-  import: ["create", "preview", "commit", "discard", "finish"],
+  // F09 sevdesk export import: project lifecycle, files, mapping, resolutions, preview, commit batches, presets.
+  import: [
+    "create",
+    "files",
+    "mapping",
+    "resolutions",
+    "preview",
+    "commit",
+    "discard",
+    "finish",
+    "fail",
+    "record",
+    "preset",
+  ],
   integrity: ["run", "checkpoint", "acknowledge"],
   security: ["write_rejected", "access_denied"],
   auditor: ["access"],

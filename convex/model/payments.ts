@@ -201,6 +201,17 @@ async function loadTarget(ctx: ReadCtx, ref: TargetRef, date: string): Promise<L
     const id = ctx.db.normalizeId("salesDocuments", ref.id);
     const doc = id ? await ctx.db.get(id) : null;
     if (!doc) return null;
+    if (doc.imported) {
+      // LEGAL-OPEN: F09 IMP-007 / UVA-06 — an archived sevdesk invoice was never posted (no receivable, no Ist-VAT
+      // split in the journal). Its payment must clear the F08 opening-balance item created for it, which is not yet
+      // linked to the document; a payment on the document itself would post without the VAT due under Ist and leave
+      // the opening item open. Refused until the link exists (F09 follow-up; the owner books via the opening item).
+      throw appError(
+        "invalid_input",
+        "Zahlungen zu Rechnungen aus dem sevdesk-Import bitte über den offenen Posten der Eröffnungsbilanz erfassen.",
+        { reason: "IMPORTED_DOCUMENT_PAYMENT" },
+      );
+    }
     const snapshot = await snapshotOf(ctx, doc);
     const payable = doc.totals.payableCents;
     const groups: GrossGroup[] = doc.totals.byGroup.map((g) => ({

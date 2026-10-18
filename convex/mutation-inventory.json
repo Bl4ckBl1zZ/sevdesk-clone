@@ -871,6 +871,144 @@
     "wrapper": "mutation",
     "permission": "apiKeys.self"
   },
+  "imports:addFiles": {
+    "kind": "action",
+    "visibility": "public",
+    "wrapper": "action",
+    "permission": "imports.run"
+  },
+  "imports:addFilesInternal": {
+    "kind": "mutation",
+    "visibility": "internal",
+    "wrapper": "actorMutation",
+    "permission": "imports.run"
+  },
+  "imports:beginCommitInternal": {
+    "kind": "mutation",
+    "visibility": "internal",
+    "wrapper": "actorMutation",
+    "permission": "imports.commit"
+  },
+  "imports:commit": {
+    "kind": "action",
+    "visibility": "public",
+    "wrapper": "action",
+    "permission": "imports.commit"
+  },
+  "imports:commitContactsInternal": {
+    "kind": "mutation",
+    "visibility": "internal",
+    "wrapper": "actorMutation",
+    "permission": "imports.commit"
+  },
+  "imports:commitDocumentsInternal": {
+    "kind": "mutation",
+    "visibility": "internal",
+    "wrapper": "actorMutation",
+    "permission": "imports.commit"
+  },
+  "imports:commitProductsInternal": {
+    "kind": "mutation",
+    "visibility": "internal",
+    "wrapper": "actorMutation",
+    "permission": "imports.commit"
+  },
+  "imports:continueRangesInternal": {
+    "kind": "mutation",
+    "visibility": "internal",
+    "wrapper": "actorMutation",
+    "permission": "imports.commit"
+  },
+  "imports:create": {
+    "kind": "mutation",
+    "visibility": "public",
+    "wrapper": "mutation",
+    "permission": "imports.run"
+  },
+  "imports:discard": {
+    "kind": "mutation",
+    "visibility": "public",
+    "wrapper": "mutation",
+    "permission": "imports.run"
+  },
+  "imports:failInternal": {
+    "kind": "mutation",
+    "visibility": "internal",
+    "wrapper": "actorMutation",
+    "permission": "imports.commit"
+  },
+  "imports:finishInternal": {
+    "kind": "mutation",
+    "visibility": "internal",
+    "wrapper": "actorMutation",
+    "permission": "imports.commit"
+  },
+  "imports:generateUploadUrl": {
+    "kind": "mutation",
+    "visibility": "public",
+    "wrapper": "mutation",
+    "permission": "imports.run"
+  },
+  "imports:get": {
+    "kind": "query",
+    "visibility": "public",
+    "wrapper": "query",
+    "permission": "imports.read"
+  },
+  "imports:list": {
+    "kind": "query",
+    "visibility": "public",
+    "wrapper": "query",
+    "permission": "imports.read"
+  },
+  "imports:localState": {
+    "kind": "query",
+    "visibility": "public",
+    "wrapper": "query",
+    "permission": "imports.run"
+  },
+  "imports:preview": {
+    "kind": "action",
+    "visibility": "public",
+    "wrapper": "action",
+    "permission": "imports.run"
+  },
+  "imports:removeFile": {
+    "kind": "mutation",
+    "visibility": "public",
+    "wrapper": "mutation",
+    "permission": "imports.run"
+  },
+  "imports:savePreviewInternal": {
+    "kind": "mutation",
+    "visibility": "internal",
+    "wrapper": "actorMutation",
+    "permission": "imports.run"
+  },
+  "imports:setMapping": {
+    "kind": "mutation",
+    "visibility": "public",
+    "wrapper": "mutation",
+    "permission": "imports.run"
+  },
+  "imports:setResolutions": {
+    "kind": "mutation",
+    "visibility": "public",
+    "wrapper": "mutation",
+    "permission": "imports.run"
+  },
+  "imports:source": {
+    "kind": "query",
+    "visibility": "public",
+    "wrapper": "query",
+    "permission": "imports.run"
+  },
+  "imports:updateFile": {
+    "kind": "mutation",
+    "visibility": "public",
+    "wrapper": "mutation",
+    "permission": "imports.run"
+  },
   "integrity:acknowledge": {
     "kind": "mutation",
     "visibility": "public",

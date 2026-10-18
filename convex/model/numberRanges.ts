@@ -163,6 +163,95 @@ export async function saveRanges(ctx: ModelCtx, input: NumberRangesValues, today
   }
 }
 
+/**
+ * F09 IMP-005 / F01 SET-065 (EC-014): continues a default range after the sevdesk import with the format and next
+ * value the owner confirmed. Never below the current counter or an issued number (SET-059), no collision with the
+ * register incl. the imported numbers (SET-060, E-IMP-12). Audited with the reason „Import“.
+ */
+export async function continueRangeAfterImport(
+  ctx: ModelCtx,
+  input: { rangeKey: string; format: string; resetPolicy: Doc<"numberRanges">["resetPolicy"]; next: number },
+  today: YearMonth,
+): Promise<void> {
+  const seed = seedRange(input.rangeKey);
+  if (!seed) throw appError("invalid_input", `Unbekannter Nummernkreis ${input.rangeKey}.`);
+  const format = validateFormat(input.format, input.resetPolicy);
+  if (!format.ok) throw appError("invalid_input", format.error.message, { field: `numberRanges.${input.rangeKey}` });
+  if (!Number.isSafeInteger(input.next) || input.next < 1) throw appError("invalid_input", "Ungültige nächste Nummer.");
+  const reason = "Import (Fortsetzung der sevdesk-Nummern)";
+  const range = (await listDefaultRanges(ctx)).find((r) => r.docTypes[0] === seed.key);
+  try {
+    await assertNoCollision(
+      ctx,
+      { format: input.format, resetPolicy: input.resetPolicy, startValue: input.next, next: input.next },
+      today,
+    );
+  } catch (e) {
+    const number = (e as { data?: { number?: string } }).data?.number ?? "";
+    throw appError("invalid_input", `Die nächste Nummer ${number} wäre nicht eindeutig.`, {
+      reason: "E_IMP_12",
+      number,
+    });
+  }
+  if (!range) {
+    await auditedInsert(
+      ctx,
+      "numberRanges",
+      {
+        docTypes: [...seed.docTypes],
+        name: seed.name,
+        format: input.format,
+        resetPolicy: input.resetPolicy,
+        startValue: input.next,
+        active: true,
+        isDefault: true,
+      },
+      { action: "settings.number_range.create", label: seed.name, reason },
+    );
+    return;
+  }
+  const key = periodKey(input.resetPolicy, today);
+  const counter = await counterFor(ctx, range._id, key);
+  const max = await maxIssuedCounter(ctx, range._id, key);
+  const decision = validateNextValue(
+    { ...(counter ? { counterNext: counter.next } : {}), ...(max === undefined ? {} : { maxIssuedCounter: max }) },
+    input.next,
+    reason,
+  );
+  if (!decision.ok) throw appError("invalid_input", decision.error.message, { reason: codeOf(decision.error.code) });
+  if (counter) {
+    await auditedPatch(
+      ctx,
+      "numberCounters",
+      counter._id,
+      { next: input.next },
+      {
+        action: "settings.number_range.update",
+        label: range.name,
+        reason,
+      },
+    );
+  } else {
+    await auditedInsert(
+      ctx,
+      "numberCounters",
+      { rangeId: range._id, periodKey: key, next: input.next },
+      {
+        action: "settings.number_range.update",
+        label: range.name,
+        reason,
+      },
+    );
+  }
+  await auditedPatch(
+    ctx,
+    "numberRanges",
+    range._id,
+    { format: input.format, resetPolicy: input.resetPolicy },
+    { action: "settings.number_range.update", label: range.name, reason },
+  );
+}
+
 /** SET-055: an additional (non-default) range for one or more document types. */
 export async function createRange(
   ctx: ModelCtx,

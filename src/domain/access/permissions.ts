@@ -116,6 +116,15 @@ export const PERMISSIONS = {
     write: true,
     confirm: "cash_transfer_record",
   },
+  /** F09 import projects: list, status, preview, protocol (02 §4.3: imports are bookkeeping work). */
+  "imports.read": { roles: ["owner", "bookkeeper"], scope: "imports:run", write: false },
+  /** F09 IMP-016/017/009/023: upload, classify, map, resolve, preview, discard (02 §4.3 bookkeeper: „imports“). */
+  "imports.run": { roles: ["owner", "bookkeeper"], scope: "imports:run", write: true },
+  /**
+   * F09 IMP-023 commit: writes archived documents and continues the number ranges (F01 SET-065, a settings write
+   * the bookkeeper may not make, 02 §4.3) — conservative: owner only.
+   */
+  "imports.commit": { roles: ["owner"], scope: "imports:run", write: true },
   /** F04 sales documents: lists, detail, preview (auditor: read-only, Z1 access to issued invoices). */
   "documents.read": { roles: ALL, scope: "documents:read", write: false },
   /** DOC-03 draft create/update/delete. */
