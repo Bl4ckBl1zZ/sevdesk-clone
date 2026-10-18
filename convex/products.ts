@@ -2,10 +2,9 @@ import { paginationOptsValidator } from "convex/server";
 import { v } from "convex/values";
 import { filter } from "convex-helpers/server/filter";
 import { normalizeSearchQuery } from "../src/domain/contacts/core";
-import { formatMicros } from "../src/domain/money/format";
 import { render } from "../src/domain/numbering/format";
 import { categoryPath } from "../src/domain/products/categories";
-import { PRODUCT_EXPORT_HEADERS, productExportRow, productRow } from "../src/domain/products/csv-io";
+import { PRODUCT_EXPORT_HEADERS, productExportRow, productImportForm, productRow } from "../src/domain/products/csv-io";
 import { computeMargin, priceViews, resolveRate } from "../src/domain/products/pricing";
 import { rateChangeBanner, upcomingRateChanges } from "../src/domain/products/rate-change";
 import {
@@ -335,30 +334,7 @@ async function importMatch(ctx: QueryCtx, number: string) {
     .first();
 }
 
-function toForm(values: NonNullable<ReturnType<typeof productRow>["values"]>, categoryId: string) {
-  return {
-    number: values.number,
-    name: values.name,
-    description: values.description,
-    internalNote: values.internalNote,
-    type: values.type,
-    unitCode: values.unitCode,
-    gtin: values.gtin,
-    priceMode: values.priceMode,
-    price: formatMicros(values.unitPriceMicros),
-    purchasePrice: values.purchasePriceMicros !== undefined ? formatMicros(values.purchasePriceMicros) : "",
-    vatRateKey: values.vatRateKey,
-    exemptionReasonCode: values.exemptionReasonCode ?? "",
-    placeOfSupplyRule: "" as const,
-    reverseCharge13b: "",
-    laborCostShare:
-      values.laborCostShareBp !== undefined ? String(values.laborCostShareBp / 100).replace(".", ",") : "",
-    categoryId,
-    extraUnits: [],
-    tags: [],
-    customFields: {},
-  };
-}
+const toForm = productImportForm;
 
 /** PRD-080 preview: neu / Aktualisierung / Fehler per row (dry run, writes nothing). */
 export const importPreview = query({
