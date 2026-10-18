@@ -9,7 +9,9 @@ import { expect, test } from "./fixtures";
  * (test/fixtures/sevdesk-export), check the detected kinds, build the preview, resolve the ambiguous PDF (E-IMP-22),
  * confirm the missing-PDF reason (E-IMP-07) and the number-range continuation, commit as owner. Needs the backend
  * journey (owner with completed setup), like e2e/kontoauszug-bank.spec.ts. The wizard targets the desktop; phones
- * show the read-only hint (F09 §6), so the commit flow runs on the desktop project only.
+ * show the read-only hint (F09 §6), so the commit flow runs on the desktop project only. The open fixture invoices
+ * become F08 opening receivables (IMP-007): the journey's Buchungsbeginn must lie after 2026-05-10 (else E-IMP-10)
+ * and the year's receivables must not be posted yet (else E-IMP-35).
  */
 const STATE = (project: string) => `test-results/.auth/owner-${project}-sevdesk-import.json`;
 const FIXTURES = join(import.meta.dirname, "../test/fixtures/sevdesk-export");

@@ -54,6 +54,7 @@ const local: LocalImportState = {
   productsByNumber: {},
   documentsByNumber: {},
   ranges: [],
+  opening: { date: "2026-06-01" as CalendarDate, fiscalYear: 2026, receivablesPosted: false, taxedAs: "soll" },
 };
 
 /** The import workspace as `imports:get` returns it, built from the synthetic export set (F09 TST-IMP-16). */

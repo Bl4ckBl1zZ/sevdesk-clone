@@ -515,6 +515,7 @@ function PreviewSection({
   canCommit: boolean;
 }) {
   const t = useTranslations("imports");
+  const tc = useTranslations("common");
   const run = useRun();
   const reasonId = useId();
   const previewAction = useAction(api.imports.preview);
@@ -764,7 +765,7 @@ function PreviewSection({
                       {t("discard")}
                     </Button>
                     <Button variant="outline" onClick={() => setAskDiscard(false)}>
-                      Abbrechen
+                      {tc("cancel")}
                     </Button>
                   </>
                 ) : (

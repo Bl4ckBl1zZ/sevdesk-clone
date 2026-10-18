@@ -14,7 +14,9 @@ import type { Id } from "./_generated/dataModel";
 import { setupInvoicing } from "./invoices.fixtures";
 import { errorCode } from "./lib/errors";
 import { auditedPatch } from "./model/audit";
+import { patchCompanyProfile } from "./model/companyProfile";
 import { assignCounterNumber } from "./model/numberRanges";
+import { openItemsAsOf } from "./model/payments";
 import { makeT, type TestT } from "./test.setup";
 
 /** Products CSV in UTF-8 (the Windows-1252 fixture is covered by the domain tests; `?raw` would re-decode it). */
@@ -40,9 +42,23 @@ const RANGES = [
 const reasonOf = (e: unknown) => (e as { data?: { reason?: string } }).data?.reason;
 const messageOf = (e: unknown) => (e as { data?: { message?: string } }).data?.message ?? String(e);
 
-async function setup() {
+/** Buchungsbeginn after the last fixture document: the sevdesk history predates our bookkeeping (IMP-007). */
+const BOOKKEEPING_START = "2026-06-01";
+
+async function setup(opts: { bookkeepingStart?: string | null; taxation?: "soll" | "ist" } = {}) {
   const t = makeT();
   const { owner } = await setupInvoicing(t);
+  if (opts.taxation === "ist") {
+    await t.model({ actor: owner.actor, role: "owner", channel: "ui" }, (ctx) =>
+      patchCompanyProfile(
+        ctx,
+        { taxationMethod: [{ validFrom: "2020-01-01", method: "ist" }] },
+        { action: "settings.company.update" },
+      ),
+    );
+  }
+  const start = opts.bookkeepingStart === undefined ? BOOKKEEPING_START : opts.bookkeepingStart;
+  if (start) await owner.mutation(api.accounting.setBookkeepingStartDate, { date: start });
   return { t, owner };
 }
 type Owner = Awaited<ReturnType<typeof setup>>["owner"];
@@ -65,8 +81,7 @@ async function prepared(t: TestT, owner: Owner, opts: { assignAll?: boolean } = 
   const view = await owner.query(api.imports.get, { importId });
   const combined = view?.files.find((f) => f.name === "RE-1005_RE-1006.pdf")?.id as string;
   const orphan = view?.files.find((f) => f.name === "RE-0999.pdf")?.id as string;
-  const re1006 = first.preview.findings.find((f) => f.code === "E-IMP-22" && f.key === "invoice:RE-1006")
-    ?.rowRef as string;
+  const re1006 = first.preview.findings.find((f) => f.key === "invoice:RE-1006" && f.rowRef)?.rowRef as string;
   await owner.mutation(api.imports.setResolutions, {
     importId,
     resolutions: opts.assignAll
@@ -499,27 +514,79 @@ describe("F09 IMP-023 discard, stale previews, collisions, resume, roles", () =>
     expect((await owner.query(api.imports.list, {})).map((i) => i.id)).toEqual([importId]);
   });
 
-  test("IMP-007 EC-201 UVA-06 a payment on an imported open invoice is refused until its opening item exists (LEGAL-OPEN)", async () => {
-    const { t, owner } = await setup();
+  test("TST-IMP-07 IMP-007 EC-201 UVA-06 ACC-013 open invoices become opening receivables; payments on the imported invoice settle them", async () => {
+    const { t, owner } = await setup({ taxation: "ist" });
     const { importId, second } = await prepared(t, owner);
-    await owner.action(api.imports.commit, {
+    expect(second.preview.blocking).toBe(0);
+    const r = await owner.action(api.imports.commit, {
       importId,
       previewHash: second.previewHash,
       numberRanges: [],
       missingPdfReason: "x",
     });
-    const doc = (await importedDocs(t)).find((d) => d.number === "RE-1007");
-    const bank = await t.run(async (ctx) => (await ctx.db.query("bankAccounts").first())?._id);
+    expect(r.counts.openingItemsCreated).toBe(4);
+    const docs = new Map((await importedDocs(t)).map((d) => [d.number, d]));
+    const items = await t.run((ctx) => ctx.db.query("openingItems").collect());
+    expect(items.map((i) => [i.number, i.openCents, i.taxedAs, i.notDueVat ?? [], i.documentId])).toEqual([
+      ["RE-1002", 5700, "ist", [{ rateBp: 700, vatCents: 373 }], docs.get("RE-1002")?._id],
+      ["RE-1003", 200000, "ist", [], docs.get("RE-1003")?._id],
+      ["RE-1005", 30000, "ist", [], docs.get("RE-1005")?._id],
+      ["RE-1007", 23800, "ist", [{ rateBp: 1900, vatCents: 3800 }], docs.get("RE-1007")?._id],
+    ]);
+    expect(items.every((i) => i.fiscalYear === 2026 && i.contactId !== undefined)).toBe(true);
+    // One opening-balance journal entry dated at the Buchungsbeginn: 1400 receivables against 9008
+    const opening = await t.run(async (ctx) =>
+      (await ctx.db.query("journalEntries").collect()).filter((e) => e.source.kind === "opening_balance"),
+    );
+    expect(opening).toHaveLength(1);
+    expect(opening[0]?.date).toBe(BOOKKEEPING_START);
+    // OPOS lists the opening items, never the archived documents as well (no double receivable)
+    const opos = await t.run((ctx) => openItemsAsOf(ctx, { asOf: "2026-10-12" }));
+    const numbers = opos.items.map((i) => i.number).sort();
+    expect(numbers).toEqual(["RE-1002", "RE-1003", "RE-1005", "RE-1007"]);
+    expect(opos.items.every((i) => i.kind === "opening_item")).toBe(true);
+
+    // A payment recorded on the imported invoice settles its opening item; the document mirrors it.
+    const bank = await t.run(async (ctx) => (await ctx.db.query("bankAccounts").first())?._id as Id<"bankAccounts">);
+    await owner.mutation(api.payments.recordForInvoice, {
+      documentId: docs.get("RE-1007")?._id as Id<"salesDocuments">,
+      source: { kind: "clearing", accountId: bank },
+      date: "2026-10-12",
+      amountCents: 23_800,
+    });
+    const after = await t.run(async (ctx) => {
+      const item = items.find((i) => i.number === "RE-1007");
+      return {
+        item: item ? await ctx.db.get(item._id) : null,
+        doc: await ctx.db.get(docs.get("RE-1007")?._id as Id<"salesDocuments">),
+        payment: (await ctx.db.query("payments").collect()).at(-1),
+      };
+    });
+    expect(after.item?.openAmountCents).toBe(0);
+    expect(after.doc).toMatchObject({ openAmountCents: 0, paymentStatus: "paid" });
+    expect(after.payment?.target).toMatchObject({ kind: "opening_item" });
+    expect((await t.run((ctx) => openItemsAsOf(ctx, { asOf: "2026-10-12" }))).items.map((i) => i.number)).not.toContain(
+      "RE-1007",
+    );
+
+    // EC-201: an imported invoice without an opening item (paid in sevdesk) takes no payment.
     const e = await owner
       .mutation(api.payments.recordForInvoice, {
-        documentId: doc?._id as Id<"salesDocuments">,
-        source: { kind: "clearing", accountId: bank as Id<"bankAccounts"> },
+        documentId: docs.get("RE-1001")?._id as Id<"salesDocuments">,
+        source: { kind: "clearing", accountId: bank },
         date: "2026-10-12",
-        amountCents: 23_800,
+        amountCents: 1_000,
       })
       .catch((x) => x);
     expect(reasonOf(e)).toBe("IMPORTED_DOCUMENT_PAYMENT");
-    expect((await importedDocs(t)).find((d) => d.number === "RE-1007")?.openAmountCents).toBe(23_800);
+  });
+
+  test("IMP-007 E-IMP-34 without a Buchungsbeginn the open invoices block the commit", async () => {
+    const { t, owner } = await setup({ bookkeepingStart: null });
+    const { second } = await prepared(t, owner);
+    const codes = second.preview.findings.filter((f) => f.code === "E-IMP-34").map((f) => f.key);
+    expect(codes.sort()).toEqual(["invoice:RE-1002", "invoice:RE-1003", "invoice:RE-1005", "invoice:RE-1007"]);
+    expect(second.preview.blocking).toBe(4);
   });
 
   test("E-IMP-26 IMP-017 an ambiguous number format blocks the file until the owner chooses it", async () => {

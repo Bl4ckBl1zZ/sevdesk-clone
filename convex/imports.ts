@@ -29,6 +29,7 @@ import {
   beginImportCommit,
   commitImportContacts,
   commitImportDocuments,
+  commitImportOpeningItems,
   commitImportProducts,
   continueImportedRanges,
   createImport,
@@ -417,6 +418,12 @@ export const commitDocumentsInternal = actorMutation({
   handler: async (ctx, { importId, docs }) => commitImportDocuments(ctx, importId, docs),
 });
 
+export const commitOpeningInternal = actorMutation({
+  permission: "imports.commit",
+  args: { importId: v.id("imports") },
+  handler: async (ctx, { importId }) => commitImportOpeningItems(ctx, importId),
+});
+
 export const continueRangesInternal = actorMutation({
   permission: "imports.commit",
   args: { importId: v.id("imports"), decisions: v.array(vRangeDecision), today: v.string() },
@@ -553,10 +560,10 @@ export const commit = action({
     // IMP-014: the records carry channel `import`; the actor stays the committing user / API key.
     const actorContext = { ...ctx.actorContext, channel: "import" as const };
     const importId = args.importId;
-    const counts = { contactsCreated: 0, productsCreated: 0, documentsCreated: 0, skipped: 0 };
+    const counts = { contactsCreated: 0, productsCreated: 0, documentsCreated: 0, openingItemsCreated: 0, skipped: 0 };
     const log: string[] = [];
     try {
-      // IMP-018 commit order: contacts → products → sales documents with artifacts → number ranges.
+      // IMP-018 commit order: contacts → products → sales documents with artifacts → open items → number ranges.
       const contacts = plan.contacts.filter((c) => c.status === "new").map((c) => ({ key: c.key, values: c.values }));
       const minimal = plan.minimalContacts
         .filter((m) => !m.localId)
@@ -606,6 +613,12 @@ export const commit = action({
         counts.documentsCreated += r.created;
         counts.skipped += r.skipped;
       }
+      // IMP-007: open items → F08 opening receivables, linked to their archived documents (one transaction).
+      const opening = await withRetry(() =>
+        ctx.runMutation(internal.imports.commitOpeningInternal, { actorContext, importId }),
+      );
+      counts.openingItemsCreated = opening.created;
+      if (opening.created > 0) log.push(`Eröffnungsbilanz: ${opening.created} offene Posten übernommen`);
       if (args.numberRanges.length > 0) {
         await ctx.runMutation(internal.imports.continueRangesInternal, {
           actorContext,

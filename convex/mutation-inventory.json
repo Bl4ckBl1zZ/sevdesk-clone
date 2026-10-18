@@ -907,6 +907,12 @@
     "wrapper": "actorMutation",
     "permission": "imports.commit"
   },
+  "imports:commitOpeningInternal": {
+    "kind": "mutation",
+    "visibility": "internal",
+    "wrapper": "actorMutation",
+    "permission": "imports.commit"
+  },
   "imports:commitProductsInternal": {
     "kind": "mutation",
     "visibility": "internal",

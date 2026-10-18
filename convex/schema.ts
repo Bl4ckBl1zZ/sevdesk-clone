@@ -1141,9 +1141,12 @@ export default defineSchema({
     recordedAt: v.number(),
     lockedAt: v.optional(v.number()),
     actor: vActor,
+    /** The archived sevdesk invoice this receivable carries (F09 IMP-007); set at insert, never changed. */
+    documentId: v.optional(v.id("salesDocuments")),
   })
     .index("by_fiscalYear", ["fiscalYear", "number"])
-    .index("by_contact", ["contactId"]),
+    .index("by_contact", ["contactId"])
+    .index("by_document", ["documentId"]),
 
   // ── 03 §6 dunning (F05 §3.7–§3.10, §4.4–§4.6) ─────────────────────────────────────────────────────────────
   // Policies are settings (mutable, audited); cases are mutable bookkeeping of one invoice; runs are append-only

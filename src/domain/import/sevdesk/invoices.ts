@@ -429,7 +429,10 @@ export function parseInvoiceRow(
 }
 
 /** IMP-007: VAT of an open amount split per rate pro rata by gross (largest groups first, rounded half away). */
-export function openVatSplit(doc: Pick<ImportedDocument, "groups" | "totals">, openCents: number) {
+export function openVatSplit(
+  doc: { groups: readonly { rateBp: number; vatCents: number }[]; totals: { grossCents: number } },
+  openCents: number,
+) {
   if (doc.totals.grossCents === 0) return [];
   return doc.groups
     .filter((g) => g.vatCents !== 0)

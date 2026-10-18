@@ -42,6 +42,8 @@ const emptyLocal = (over: Partial<LocalImportState> = {}): LocalImportState => (
   productsByNumber: {},
   documentsByNumber: {},
   ranges: [],
+  // Buchungsbeginn after the last fixture document (all sevdesk documents predate the bookkeeping, IMP-007).
+  opening: { date: "2026-06-01" as CalendarDate, fiscalYear: 2026, receivablesPosted: false, taxedAs: "soll" },
   ...over,
 });
 
@@ -245,5 +247,83 @@ describe("F09 IMP-006 idempotency, IMP-004 collisions, E-IMP-24 duplicates", () 
     );
     expect(p.counts.invoices).toBe(0);
     expect(p.blocking).toBeGreaterThan(0);
+  });
+});
+
+describe("F09 IMP-007 open items become F08 opening-balance receivables (ACC-013)", () => {
+  /** Ist-Versteuerung (the case where the open items carry not-due VAT). */
+  const opening = (): NonNullable<LocalImportState["opening"]> => ({
+    ...(emptyLocal().opening as NonNullable<LocalImportState["opening"]>),
+    taxedAs: "ist",
+  });
+  const ist = (over: Partial<NonNullable<LocalImportState["opening"]>> = {}) =>
+    emptyLocal({ opening: { ...opening(), ...over } });
+  const fileId = (name: string) => fixtureFiles().files.find((f) => f.name === name)?.id as string;
+  /** RE-1005 gets its PDF; RE-1006 (OSS, open) is assigned the orphan PDF so it stays in the plan. */
+  const unblocked = () => ({
+    pdfAssignments: { "invoice:RE-1005": fileId("RE-1005_RE-1006.pdf"), "invoice:RE-1006": fileId("RE-0999.pdf") },
+  });
+  const withoutOss = () => {
+    const re1006 = docOf(plan(ist(), unblocked()).plan, "RE-1006")?.doc.rowRef as string;
+    return { ...unblocked(), excluded: [re1006] };
+  };
+
+  test("TST-IMP-07 IMP-007 UVA-06 each open invoice yields one opening receivable with the pro-rata not-due VAT (Ist)", () => {
+    const { plan: p } = plan(ist(), withoutOss());
+    expect(p.blocking).toBe(0);
+    expect(p.opening).toMatchObject({ fiscalYear: 2026, date: "2026-06-01", taxedAs: "ist" });
+    expect(p.opening?.items).toEqual([
+      { key: "invoice:RE-1002", openCents: 5700, notDueVat: [{ rateBp: 700, vatCents: 373 }] },
+      { key: "invoice:RE-1003", openCents: 200000, notDueVat: [] },
+      { key: "invoice:RE-1005", openCents: 30000, notDueVat: [] },
+      { key: "invoice:RE-1007", openCents: 23800, notDueVat: [{ rateBp: 1900, vatCents: 3800 }] },
+    ]);
+    const soll = plan(ist({ taxedAs: "soll" }), withoutOss()).plan;
+    expect(soll.opening?.items.every((i) => i.notDueVat.length === 0)).toBe(true);
+  });
+
+  test("IMP-007 E-IMP-34 open items are blocked while no Buchungsbeginn is set", () => {
+    const { plan: p } = plan(emptyLocal({ opening: null }), withoutOss());
+    const e = p.findings.filter((f) => f.code === "E-IMP-34");
+    expect(e.map((f) => f.key).sort()).toEqual([
+      "invoice:RE-1002",
+      "invoice:RE-1003",
+      "invoice:RE-1005",
+      "invoice:RE-1007",
+    ]);
+    expect(e[0]?.message).toMatch(/Buchungsbeginn/);
+    expect(p.documents.find((d) => d.doc.number === "RE-1001")?.status).toBe("new"); // paid: no open item
+    expect(p.opening).toBeNull();
+  });
+
+  test("IMP-007 E-IMP-35 receivables already posted in the opening balance block the open items (no double receivable)", () => {
+    const { plan: p } = plan(ist({ receivablesPosted: true }), withoutOss());
+    expect(p.findings.filter((f) => f.code === "E-IMP-35").map((f) => f.key)).toContain("invoice:RE-1002");
+    expect(docOf(p, "RE-1002")?.status).toBe("error");
+    expect(p.opening).toBeNull();
+  });
+
+  test("IMP-007 E-IMP-10 documents dated on or after the Buchungsbeginn are blocked (posting at import is not offered yet)", () => {
+    const { plan: p } = plan(ist({ date: "2026-05-01" as CalendarDate }), withoutOss());
+    const late = p.findings.filter((f) => f.code === "E-IMP-10").map((f) => f.key);
+    expect(late).toContain("invoice:RE-1007");
+    expect(late).not.toContain("invoice:RE-1003");
+    expect(docOf(p, "RE-1007")?.status).toBe("error");
+    expect(p.opening?.date).toBe("2026-05-01");
+  });
+
+  test("IMP-007 IMP-010 E-IMP-36 an open item with an unknown tax case and VAT cannot be carried as not-due Ist VAT", () => {
+    const { plan: p } = plan(ist(), unblocked());
+    const e = p.findings.find((f) => f.code === "E-IMP-36");
+    expect(e?.key).toBe("invoice:RE-1006");
+    expect(docOf(p, "RE-1006")?.status).toBe("error");
+    // Soll: the VAT was due when invoiced (declared in sevdesk) — the opening item carries no VAT, nothing blocks.
+    const soll = plan(ist({ taxedAs: "soll" }), unblocked()).plan;
+    expect(soll.findings.some((f) => f.code === "E-IMP-36")).toBe(false);
+    expect(soll.opening?.items.find((i) => i.key === "invoice:RE-1006")).toEqual({
+      key: "invoice:RE-1006",
+      openCents: 11900,
+      notDueVat: [],
+    });
   });
 });

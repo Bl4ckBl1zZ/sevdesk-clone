@@ -19,7 +19,7 @@ import { contactCreateSchema, emptyContactForm } from "../../schemas/contacts";
 import { productSchema } from "../../schemas/products";
 import type { CalendarDate } from "../../time/calendar-date";
 import { type DateFormat, detectDateFormat, detectNumberFormat, type NumberFormat } from "./formats";
-import { type ImportedDocument, INVOICE_TYPES_WITH_OPEN_ITEMS, parseInvoiceRow } from "./invoices";
+import { type ImportedDocument, INVOICE_TYPES_WITH_OPEN_ITEMS, openVatSplit, parseInvoiceRow } from "./invoices";
 import {
   type ColumnMapping,
   checkMapping,
@@ -42,6 +42,8 @@ export const EXTERNAL_TYPES = {
   product: "sevdesk.product",
   document: "sevdesk.document",
   file: "sevdesk.file",
+  /** One marker per import: its open items were posted as F08 opening receivables (IMP-007). */
+  opening: "sevdesk.opening_receivables",
 } as const;
 export const importedKey = (externalType: string, externalId: string) => `${externalType}|${externalId}`;
 
@@ -87,6 +89,26 @@ export interface LocalImportState {
   /** Normalised document number → local sales document (Storno/Korrektur references). */
   readonly documentsByNumber: Readonly<Record<string, { id: string; type: string }>>;
   readonly ranges: readonly LocalRange[];
+  /**
+   * F08 opening balance at the Buchungsbeginn (IMP-007, ACC-013); `null`/absent = no Buchungsbeginn set yet.
+   * `receivablesPosted`: the fiscal year already has a (non-reversed) receivables opening posting.
+   */
+  readonly opening?: OpeningContext | null;
+}
+
+export interface OpeningContext {
+  readonly date: CalendarDate;
+  readonly fiscalYear: number;
+  readonly receivablesPosted: boolean;
+  /** Taxation method at the Buchungsbeginn: under Ist the open items carry their not-due VAT (UVA-06). */
+  readonly taxedAs: "soll" | "ist";
+}
+
+/** One F08 opening receivable per open imported invoice (IMP-007). */
+export interface OpeningItemPlan {
+  readonly key: string;
+  readonly openCents: number;
+  readonly notDueVat: { rateBp: number; vatCents: number }[];
 }
 
 // ── step 1: parse ─────────────────────────────────────────────────────────────────────────────────────
@@ -442,6 +464,8 @@ export interface ImportPlan {
   readonly documentFiles: ParsedImport["documentFiles"];
   readonly numberRanges: RangeProposal[];
   readonly openItems: { count: number; totalCents: number };
+  /** Opening receivables posted at commit through F08 (`null` = no open items). */
+  readonly opening: (Omit<OpeningContext, "receivablesPosted"> & { items: OpeningItemPlan[] }) | null;
   readonly counts: Readonly<Record<string, number>>;
   /** Errors on rows/files that would be committed — commit is refused while > 0. */
   readonly blocking: number;
@@ -702,15 +726,64 @@ export function buildPlan(
     return { ...rest, finalStatus: "cancelled" };
   });
 
+  // ── Buchungsbeginn and F08 opening balance (IMP-007, ACC-013; E-IMP-10/34/35/36) ──
+  const opening = local.opening ?? null;
+  const docs3 = docs2.map((p): PlannedDocument => {
+    if (p.status !== "new") return p;
+    const block = (code: string, message: string): PlannedDocument => {
+      findings.push({
+        code,
+        severity: "error",
+        message,
+        fileId: p.doc.fileId,
+        fileName: fileName(p.doc.fileId),
+        line: p.doc.line,
+        rowRef: p.doc.rowRef,
+        key: p.doc.key,
+      });
+      return { ...p, status: "error" };
+    };
+    // E-IMP-10: the spec offers „buchen“ for documents in the booked period; P1 has no import posting, so they are
+    // blocked (conservative: never archive a booked-period invoice without its journal entry).
+    if (opening && p.doc.documentDate >= opening.date) {
+      return block(
+        "E-IMP-10",
+        `${p.doc.number} liegt am oder nach dem Buchungsbeginn (${opening.date}). Buchen beim Import ist noch nicht möglich – bitte Buchungsbeginn prüfen oder Zeile ausschließen.`,
+      );
+    }
+    if ((p.openAmountCents ?? 0) <= 0) return p;
+    if (!opening) {
+      return block(
+        "E-IMP-34",
+        `${p.doc.number} ist offen. Offene Posten werden in die Eröffnungsbilanz übernommen – bitte zuerst den Buchungsbeginn festlegen.`,
+      );
+    }
+    if (opening.receivablesPosted) {
+      return block(
+        "E-IMP-35",
+        `${p.doc.number} ist offen, aber für ${opening.fiscalYear} sind bereits offene Forderungen in der Eröffnungsbilanz erfasst. Bitte dort stornieren oder die Zeile ausschließen.`,
+      );
+    }
+    // LEGAL-OPEN: F09 IMP-010 — an unknown/OSS tax case under Ist: booking its VAT as not-due German VAT would declare
+    // it in the UStVA on payment, omitting it could under-declare. Blocked until the owner clarifies the case.
+    if (opening.taxedAs === "ist" && p.doc.taxCase === "unknown_imported" && p.doc.totals.vatCents !== 0) {
+      return block(
+        "E-IMP-36",
+        `${p.doc.number}: Steuerfall unbekannt (z. B. OSS) – der offene Posten kann bei Ist-Versteuerung nicht mit Umsatzsteuer übernommen werden. Bitte klären oder Zeile ausschließen.`,
+      );
+    }
+    return p;
+  });
+
   // ── PDFs (IMP-019) ──
-  const committable = docs2.filter((p) => p.status === "new");
+  const committable = docs3.filter((p) => p.status === "new");
   const pdfFiles = parsed.documentFiles.filter((f) => f.kind === "pdf");
   const pdf = matchFiles(
     committable.map((p) => ({ key: p.doc.key, number: p.doc.number })),
     pdfFiles,
     resolutions.pdfAssignments ?? {},
   );
-  const withPdf = docs2.map((p): PlannedDocument => {
+  const withPdf = docs3.map((p): PlannedDocument => {
     if (p.status !== "new") return p;
     const at = {
       fileId: p.doc.fileId,
@@ -810,6 +883,22 @@ export function buildPlan(
 
   const open = finalDocs.filter((p) => p.status === "new" && (p.openAmountCents ?? 0) > 0);
   const openItems = { count: open.length, totalCents: open.reduce((s, p) => s + (p.openAmountCents ?? 0), 0) };
+  const openingPlan: ImportPlan["opening"] =
+    opening && open.length > 0
+      ? {
+          date: opening.date,
+          fiscalYear: opening.fiscalYear,
+          taxedAs: opening.taxedAs,
+          items: open.map((p) => {
+            const openCents = p.openAmountCents ?? 0;
+            return {
+              key: p.doc.key,
+              openCents,
+              notDueVat: opening.taxedAs === "ist" ? openVatSplit(p.doc, openCents) : [],
+            };
+          }),
+        }
+      : null;
   const live = (status: string) => status === "new" || status === "existing" || status === "skip";
   const blockedFiles = parsed.files.filter((f) => f.blocked).length;
   const blocking =
@@ -863,6 +952,7 @@ export function buildPlan(
     documentFiles: parsed.documentFiles,
     numberRanges,
     openItems,
+    opening: openingPlan,
     counts,
     blocking,
   };
@@ -904,6 +994,7 @@ export function previewHashInput(
     ]),
     minimal: plan.minimalContacts.map((m) => [m.key, m.localId ?? null]),
     ranges: plan.numberRanges.map((r) => [r.rangeKey, r.candidates.map((c) => [c.format, c.next])]),
+    opening: plan.opening,
   });
 }
 

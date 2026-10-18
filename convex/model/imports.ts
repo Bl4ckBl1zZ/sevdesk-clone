@@ -1,5 +1,6 @@
 import { foldSearch, normalizeContactNumber } from "../../src/domain/contacts/core";
 import { retentionUntil } from "../../src/domain/documents/finalize";
+import { openVatSplit } from "../../src/domain/import/sevdesk/invoices";
 import {
   applyPreset,
   autoMap,
@@ -23,6 +24,7 @@ import { addDays, type CalendarDate, daysBetween } from "../../src/domain/time/c
 import type { Doc, Id } from "../_generated/dataModel";
 import { appError } from "../lib/errors";
 import { parse } from "../lib/parse";
+import { type OpeningReceivableInput, openingContextForImport, postOpeningBalance } from "./accounting";
 import { appendAudit, auditedInsert, auditedPatch } from "./audit";
 import { createContact } from "./contacts";
 import { continueRangeAfterImport, listDefaultRanges, nextValue } from "./numberRanges";
@@ -48,6 +50,10 @@ export const IMPORT_MESSAGES = {
   discarded: "Dieser Import wurde verworfen.",
   stale: "Die Vorschau ist veraltet. Bitte Vorschau neu erstellen.",
   running: "Der Import läuft bereits.",
+  noBookkeepingStart:
+    "Offene Posten werden in die Eröffnungsbilanz übernommen – bitte zuerst den Buchungsbeginn festlegen.",
+  receivablesPosted: (year: number) =>
+    `Für ${year} sind bereits offene Forderungen in der Eröffnungsbilanz erfasst. Bitte dort stornieren oder die offenen Rechnungen vom Import ausschließen.`,
 } as const;
 
 export async function requireImport(ctx: ReadCtx, importId: Id<"imports">): Promise<ImportRow> {
@@ -393,6 +399,7 @@ export async function importLocalState(ctx: ReadCtx, keys: LookupKeys, today: Ca
     productsByNumber,
     documentsByNumber,
     ranges,
+    opening: await openingContextForImport(ctx),
   };
 }
 
@@ -755,6 +762,60 @@ export async function commitImportDocuments(
     created++;
   }
   return { created, skipped };
+}
+
+/**
+ * IMP-007 / F08 ACC-013: the open invoices of this import become opening receivables (9000/9008; Ist: not-due VAT
+ * per rate, pro rata by gross) through the F08 service, each linked to its archived document. Derived from the
+ * documents the import created, so a resumed commit finds them too; once per import (marker in `importedRecords`).
+ */
+export async function commitImportOpeningItems(ctx: ModelCtx, importId: Id<"imports">): Promise<{ created: number }> {
+  await requireRunning(ctx, importId);
+  if (await importedRecord(ctx, EXTERNAL_TYPES.opening, importId)) return { created: 0 };
+  const records = await ctx.db
+    .query("importedRecords")
+    .withIndex("by_import", (q) => q.eq("importId", importId))
+    .collect();
+  const open: Doc<"salesDocuments">[] = [];
+  for (const r of records) {
+    if (r.externalType !== EXTERNAL_TYPES.document) continue;
+    const id = ctx.db.normalizeId("salesDocuments", r.localId);
+    const doc = id ? await ctx.db.get(id) : null;
+    if (doc?.imported && (doc.openAmountCents ?? 0) > 0) open.push(doc);
+  }
+  if (open.length === 0) return { created: 0 };
+  // The preview blocked these cases (E-IMP-34/35); re-checked here because the profile may change until commit.
+  const opening = await openingContextForImport(ctx);
+  if (!opening) throw appError("conflict", IMPORT_MESSAGES.noBookkeepingStart, { reason: "E_IMP_34" });
+  if (opening.receivablesPosted) {
+    throw appError("conflict", IMPORT_MESSAGES.receivablesPosted(opening.fiscalYear), { reason: "E_IMP_35" });
+  }
+  const items: OpeningReceivableInput[] = open.map((doc) => {
+    const openCents = doc.openAmountCents ?? 0;
+    const notDueVat =
+      opening.taxedAs === "ist" ? openVatSplit({ groups: doc.totals.byGroup, totals: doc.totals }, openCents) : [];
+    return {
+      number: doc.number ?? "",
+      documentDate: doc.documentDate ?? "",
+      ...(doc.dueDate ? { dueDate: doc.dueDate } : {}),
+      counterpartyName: doc.contactName || (doc.number ?? ""),
+      ...(doc.contactId ? { contactId: doc.contactId } : {}),
+      grossCents: doc.totals.grossCents,
+      openCents,
+      taxedAs: opening.taxedAs,
+      ...(notDueVat.length > 0 ? { notDueVat } : {}),
+      documentId: doc._id,
+    };
+  });
+  const posted = await postOpeningBalance(ctx, opening.fiscalYear, { kind: "receivables", items });
+  // The opening items and their journal entry are one transaction: anything but a posting rolls both back.
+  if (posted.status !== "posted" || !posted.entryIds[0]) {
+    throw appError("conflict", "Die offenen Posten konnten nicht in die Eröffnungsbilanz gebucht werden.", {
+      reason: "IMPORT_OPENING_NOT_POSTED",
+    });
+  }
+  await recordImported(ctx, importId, EXTERNAL_TYPES.opening, importId, "journalEntries", posted.entryIds[0]);
+  return { created: items.length };
 }
 
 export async function continueImportedRanges(
