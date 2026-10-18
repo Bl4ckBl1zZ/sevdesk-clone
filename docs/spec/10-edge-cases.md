@@ -1,6 +1,6 @@
 # 10 — Regulatory Edge Cases & Invariants
 
-> **Status:** v1.1 · 2026-10-12 (owner decisions B1–B6 applied: bank data via statement import and the Enable Banking PSD2 feed instead of the Revolut Business API; no customer e-mailing — export + manual sent mark; simple cash without a cash book; sevdesk import from file exports; no Steuerberater; R2 e-mail-in inbox. Withdrawn IDs stay listed; new IDs EC-157…159, EC-191…200, RI-29) · **Normative.** Owner requirement: *edge cases must be handled so that the regulations are never broken.*
+> **Status:** v1.1 · 2026-10-12 (owner decisions B1–B6 applied: bank data via statement import and the Enable Banking PSD2 feed instead of the Revolut Business API; no customer e-mailing — export + manual sent mark; simple cash without a cash book; sevdesk import from file exports; no Steuerberater; R2 e-mail-in inbox. Withdrawn IDs stay listed; new IDs EC-157…159, EC-191…200, RI-29; 2026-10-18: EC-201 for the F09 sevdesk import) · **Normative.** Owner requirement: *edge cases must be handled so that the regulations are never broken.*
 >
 > This document is the cross-cutting safety net. Feature files (F01–F12 § 5) list the edge cases of their own area; this file collects the ones that **could break a legal rule**, defines the required behaviour, and adds **regulatory invariants** that are checked continuously. Then an edge case nobody thought of is still caught before it causes harm.
 
@@ -197,6 +197,7 @@ Format: **ID · Scenario → Required behaviour** (Enforcement · Test type · R
 | EC-128 | A B2C invoice without the §286 note → automatic default after 30 days | Not applied to consumers without the note; dunning text adapts (the reminder sets the default once it has a Zugang, i.e. was marked sent) | domain | U | MAHN-01 |
 | EC-129 | A payment reversed after the invoice was marked paid (bank return/chargeback arriving as a booked counter-entry) | The owner confirms the counter-entry as reversal (F07 BNK-121); the F05 reversal re-opens the invoice; dunning resumes after a grace period; audited | convex | C | GOBD-03 |
 | EC-130 | A claim near limitation (31.12. of year +3) | A warning from 1 October; dunning does not stop limitation (the docs explain Mahnbescheid) | domain | U | MAHN-05 |
+| EC-201 | A payment is recorded against an invoice that came from the sevdesk file import (F09); the same receivable is also an F08 opening item | The import creates exactly one opening item per open invoice (`documentId` link; E-IMP-35 blocks if the year's receivables were already posted by hand). A payment on the invoice is redirected to its opening item (Ist VAT from the item's not-due split); the invoice mirrors the open amount; OPOS and bank matching list only the opening item. An imported invoice without an opening item (paid in sevdesk) takes no payment: „Diese Rechnung stammt aus dem sevdesk-Import und hat keinen offenen Posten in der Eröffnungsbilanz – eine Zahlung kann nicht zugeordnet werden.“ (`IMPORTED_DOCUMENT_PAYMENT`) | convex | C | UVA-06, GOBD-01 |
 
 ### 3.9 Banking (statement import + Enable Banking feed) and cash
 

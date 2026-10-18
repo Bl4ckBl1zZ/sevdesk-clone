@@ -1,0 +1,11 @@
+﻿Rechnungsnummer;Typ;Rechnungsdatum;Lieferdatum;Fällig am;Kundennummer;Kunde;Netto;Steuer;Brutto;Steuersatz;Steuerregel;Status;Offener Betrag;Währung;Bezug
+RE-1001;Rechnung;15.01.2026;15.01.2026;29.01.2026;1001;Muster Bau GmbH;1.000,00;190,00;1.190,00;19;Umsatzsteuerpflichtige Umsätze;Bezahlt;0,00;EUR;
+RE-1002;Rechnung;02.02.2026;31.01.2026;16.02.2026;1002;Erika Beispiel;100,00;7,00;107,00;7;;Teilbezahlt;57,00;EUR;
+RE-1003;Rechnung;10.03.2026;;24.03.2026;1003;Société Exemple SARL;2.000,00;0,00;2.000,00;0;Innergemeinschaftliche Lieferungen;Offen;2.000,00;EUR;
+RE-1004;Rechnung;01.04.2026;01.04.2026;15.04.2026;1001;Muster Bau GmbH;500,00;95,00;595,00;19;;Storniert;;EUR;
+STORNO-1004;Stornorechnung;03.04.2026;01.04.2026;;1001;Muster Bau GmbH;-500,00;-95,00;-595,00;19;;Bezahlt;;EUR;RE-1004
+GS-0001;Gutschrift;20.04.2026;15.01.2026;;1001;Muster Bau GmbH;-100,00;-19,00;-119,00;19;;Bezahlt;;EUR;RE-1001
+RE-1005;Rechnung;05.05.2026;05.05.2026;19.05.2026;2001;Neukunde KG;300,00;0,00;300,00;0;;Offen;300,00;EUR;
+RE-1006;Rechnung;06.05.2026;06.05.2026;20.05.2026;1001;Muster Bau GmbH;100,00;19,00;119,00;19;Fernverkäufe (OSS);Offen;119,00;EUR;
+;Rechnung;07.05.2026;;;1001;Muster Bau GmbH;10,00;1,90;11,90;19;;Entwurf;;EUR;
+RE-1007;Rechnung;10.05.2026;10.05.2026;24.05.2026;1002;Erika Beispiel;200,00;38,00;238,00;19;;Offen;238,00;EUR;

@@ -1,5 +1,15 @@
 import { describe, expect, test } from "vitest";
-import { decodeCsv, detectEncoding, detectSeparator, importRowKey, parseCsv, readCsv, writeCsv } from "./csv";
+import {
+  decodeCsv,
+  detectEncoding,
+  detectSeparator,
+  importRowKey,
+  parseCsv,
+  parseCsvRecords,
+  readCsv,
+  readCsvRecords,
+  writeCsv,
+} from "./csv";
 
 const latin1 = (s: string) => new Uint8Array([...s].map((c) => c.charCodeAt(0)));
 
@@ -75,5 +85,35 @@ describe("CON-143 PRD-085 CSV writing", () => {
     expect(csv.charCodeAt(0)).toBe(0xfeff);
     expect(csv.slice(1)).toBe('Name;Notiz;Betrag\r\n"Müller; GmbH";"\'=HYPERLINK(""x"")";-12.5\r\nA;;\r\n');
     expect(importRowKey("abc", 7)).toBe("abc:7");
+  });
+});
+
+describe("F09 IMP-016 E-IMP-16 CSV records keep their file line", () => {
+  test("E-IMP-16 records carry the physical line (blank lines skipped, quoted line breaks span lines)", () => {
+    const text = 'Nr;Text\r\n1;a\r\n\r\n2;"zwei\r\nZeilen"\r\n3;c\r\n';
+    expect(parseCsvRecords(text, ";")).toEqual([
+      { line: 1, cells: ["Nr", "Text"] },
+      { line: 2, cells: ["1", "a"] },
+      { line: 4, cells: ["2", "zwei\r\nZeilen"] },
+      { line: 6, cells: ["3", "c"] },
+    ]);
+    expect(parseCsv(text, ";")).toEqual([
+      ["Nr", "Text"],
+      ["1", "a"],
+      ["2", "zwei\r\nZeilen"],
+      ["3", "c"],
+    ]);
+  });
+
+  test("IMP-016 readCsvRecords: BOM, separator and encoding detected; header trimmed", () => {
+    const bytes = new Uint8Array([0xef, 0xbb, 0xbf, ...new TextEncoder().encode(" Nummer ;Brutto\n\nRE-1;1,00\n")]);
+    const r = readCsvRecords(bytes);
+    expect(r.ok && r.value).toEqual({
+      headers: ["Nummer", "Brutto"],
+      records: [{ line: 3, cells: ["RE-1", "1,00"] }],
+      encoding: "utf-8",
+      separator: ";",
+    });
+    expect(readCsvRecords(new Uint8Array()).ok).toBe(false);
   });
 });

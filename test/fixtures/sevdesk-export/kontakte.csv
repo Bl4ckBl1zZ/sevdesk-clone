@@ -1,0 +1,4 @@
+﻿Kundennummer;Kategorie;Firma;Vorname;Nachname;Straße;PLZ;Ort;Land;E-Mail;Telefon;USt-IdNr.
+1001;Kunde;Muster Bau GmbH;;;Hauptstraße 1;10115;Berlin;Deutschland;rechnung@muster-bau.example;+49 30 1234567;
+1002;Kunde;;Erika;Beispiel;Lindenweg 5;80331;München;DE;erika@beispiel.example;;
+1003;Kunde;Société Exemple SARL;;;1 Rue de Test;75001;Paris;FR;compta@exemple.example;;FR40303265045

@@ -199,6 +199,17 @@ export const IMMUTABILITY_MATRIX: Readonly<Record<string, TableRule>> = {
       reason: "once",
     },
   },
+  // ── F09 imports ─────────────────────────────────────────────────────────────
+  // IMP-006: the idempotency keys of imported records are never changed or removed.
+  importedRecords: APPEND_ONLY,
+  // IMP-023/IMP-024: a committed import is migration evidence (files, mapping, decisions, protocol) and a discarded
+  // one is closed; only the protocol file can still be attached once. Before that the project is a mutable workspace.
+  imports: {
+    kind: "guarded",
+    frozenWhen: (doc) => doc.status === "done" || doc.status === "discarded",
+    fields: { protocolFile: "once" },
+    message: "Ein übernommener oder verworfener Import kann nicht mehr geändert werden.",
+  },
 };
 
 export const PROTECTED_TABLES: readonly string[] = Object.keys(IMMUTABILITY_MATRIX);

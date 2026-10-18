@@ -55,8 +55,14 @@ const ALIASES: Readonly<Record<string, ProductImportField>> = Object.fromEntries
       ["description", ["beschreibung", "text", "langtext", "description"]],
       ["type", ["typ", "art", "artikeltyp", "type"]],
       ["unit", ["einheit", "mengeneinheit", "unit"]],
-      ["netPrice", ["vk netto", "verkaufspreis netto", "preis netto", "nettopreis", "preis", "net price"]],
-      ["grossPrice", ["vk brutto", "verkaufspreis brutto", "preis brutto", "bruttopreis", "gross price"]],
+      [
+        "netPrice",
+        ["vk netto", "verkaufspreis netto", "preis netto", "preis (netto)", "nettopreis", "preis", "net price"],
+      ],
+      [
+        "grossPrice",
+        ["vk brutto", "verkaufspreis brutto", "preis brutto", "preis (brutto)", "bruttopreis", "gross price"],
+      ],
       ["purchasePrice", ["ek netto", "einkaufspreis", "einkaufspreis netto", "ek", "purchase price"]],
       ["vat", ["steuersatz", "ust", "ust.", "mwst", "mwst.", "umsatzsteuer", "steuer", "vat", "vat rate"]],
       ["exemptionReasonCode", ["befreiungsgrund", "vatex", "steuerbefreiung"]],
@@ -250,6 +256,35 @@ export function productRow(
         .filter(Boolean),
       internalNote: get("internalNote"),
     },
+  };
+}
+
+/**
+ * PRD-080 / F09 IMP-018: parsed import row → product form values (validated with `productSchema` by the caller,
+ * the same schema as the UI form). Shared by the product CSV import and the sevdesk export import.
+ */
+export function productImportForm(values: NonNullable<ProductRowResult["values"]>, categoryId: string) {
+  return {
+    number: values.number,
+    name: values.name,
+    description: values.description,
+    internalNote: values.internalNote,
+    type: values.type,
+    unitCode: values.unitCode,
+    gtin: values.gtin,
+    priceMode: values.priceMode,
+    price: formatMicros(values.unitPriceMicros),
+    purchasePrice: values.purchasePriceMicros !== undefined ? formatMicros(values.purchasePriceMicros) : "",
+    vatRateKey: values.vatRateKey,
+    exemptionReasonCode: values.exemptionReasonCode ?? "",
+    placeOfSupplyRule: "" as const,
+    reverseCharge13b: "",
+    laborCostShare:
+      values.laborCostShareBp !== undefined ? String(values.laborCostShareBp / 100).replace(".", ",") : "",
+    categoryId,
+    extraUnits: [],
+    tags: [],
+    customFields: {},
   };
 }
 

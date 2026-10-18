@@ -68,6 +68,8 @@ export async function matchContext(ctx: ReadCtx): Promise<Omit<MatchInput, "reje
       .collect();
     for (const d of docs) {
       if (d.status === "draft" || d.status === "cancelled" || !d.number || !d.documentDate) continue;
+      // F09 IMP-007: an archived sevdesk invoice is matched through its opening item (listed below), never twice.
+      if (d.imported) continue;
       const open = d.openAmountCents ?? d.totals.payableCents;
       if (open <= 0) continue;
       const snap = d.snapshotId ? await ctx.db.get(d.snapshotId) : null;

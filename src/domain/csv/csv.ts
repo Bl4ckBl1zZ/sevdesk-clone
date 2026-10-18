@@ -61,12 +61,29 @@ export function detectSeparator(text: string): CsvSeparator {
   return order.reduce((best, s) => (counts[s] > counts[best] ? s : best), ";" as CsvSeparator);
 }
 
-/** RFC 4180 parser (quotes, doubled quotes, CRLF/LF, separators inside quotes). Empty trailing lines are dropped. */
-export function parseCsv(text: string, separator: CsvSeparator = detectSeparator(text)): string[][] {
-  const rows: string[][] = [];
+/** One CSV record with the physical file line it starts on (1-based; quoted line breaks span several lines). */
+export interface CsvRecord {
+  readonly line: number;
+  readonly cells: string[];
+}
+
+/**
+ * RFC 4180 parser (quotes, doubled quotes, CRLF/LF, separators inside quotes) that keeps the file line of every
+ * record, so row errors can name the line the user sees in an editor (F09 E-IMP-16). Blank lines are dropped.
+ */
+export function parseCsvRecords(text: string, separator: CsvSeparator = detectSeparator(text)): CsvRecord[] {
+  const records: CsvRecord[] = [];
   let row: string[] = [];
   let field = "";
   let quoted = false;
+  let line = 1;
+  let start = 1;
+  const push = () => {
+    row.push(field);
+    if (row.some((c) => c.trim() !== "")) records.push({ line: start, cells: row });
+    row = [];
+    field = "";
+  };
   for (let i = 0; i < text.length; i++) {
     const ch = text[i] as string;
     if (quoted) {
@@ -75,7 +92,10 @@ export function parseCsv(text: string, separator: CsvSeparator = detectSeparator
           field += '"';
           i++;
         } else quoted = false;
-      } else field += ch;
+      } else {
+        if (ch === "\n" || (ch === "\r" && text[i + 1] !== "\n")) line++;
+        field += ch;
+      }
       continue;
     }
     if (ch === '"' && field === "") quoted = true;
@@ -84,17 +104,18 @@ export function parseCsv(text: string, separator: CsvSeparator = detectSeparator
       field = "";
     } else if (ch === "\n" || ch === "\r") {
       if (ch === "\r" && text[i + 1] === "\n") i++;
-      row.push(field);
-      rows.push(row);
-      row = [];
-      field = "";
+      push();
+      line++;
+      start = line;
     } else field += ch;
   }
-  if (field !== "" || row.length > 0) {
-    row.push(field);
-    rows.push(row);
-  }
-  return rows.filter((r) => r.some((c) => c.trim() !== ""));
+  if (field !== "" || row.length > 0) push();
+  return records;
+}
+
+/** RFC 4180 parser (quotes, doubled quotes, CRLF/LF, separators inside quotes). Empty trailing lines are dropped. */
+export function parseCsv(text: string, separator: CsvSeparator = detectSeparator(text)): string[][] {
+  return parseCsvRecords(text, separator).map((r) => r.cells);
 }
 
 export interface CsvTable {
@@ -118,6 +139,29 @@ export function readCsv(
   if (!headers) return err(issue("IMPORT_EMPTY", "Die Datei enthält keine Daten."));
   if (rows.length > IMPORT_MAX_ROWS) return err(tooLarge);
   return ok({ headers: headers.map((h) => h.trim()), rows, encoding: decoded.value.encoding, separator });
+}
+
+export interface CsvRecordTable {
+  readonly headers: string[];
+  /** Data records with their file line (the header is line 1 unless blank lines precede it). */
+  readonly records: CsvRecord[];
+  readonly encoding: CsvEncoding;
+  readonly separator: CsvSeparator;
+}
+
+/** Like `readCsv`, but keeps the file line of every data record (F09 import preview, E-IMP-16). */
+export function readCsvRecords(
+  bytes: Uint8Array,
+): Result<CsvRecordTable, Issue<"IMPORT_ENCODING" | "IMPORT_TOO_LARGE" | "IMPORT_EMPTY">> {
+  const tooLarge = issue("IMPORT_TOO_LARGE", "Die Datei ist zu groß (max. 10 MB bzw. 20.000 Zeilen).");
+  if (bytes.length > IMPORT_MAX_BYTES) return err(tooLarge);
+  const decoded = decodeCsv(bytes);
+  if (!decoded.ok) return decoded;
+  const separator = detectSeparator(decoded.value.text);
+  const [header, ...records] = parseCsvRecords(decoded.value.text, separator);
+  if (!header) return err(issue("IMPORT_EMPTY", "Die Datei enthält keine Daten."));
+  if (records.length > IMPORT_MAX_ROWS) return err(tooLarge);
+  return ok({ headers: header.cells.map((h) => h.trim()), records, encoding: decoded.value.encoding, separator });
 }
 
 const needsQuotes = (v: string, sep: string) => v.includes(sep) || /["\r\n]/.test(v) || /^\s|\s$/.test(v);

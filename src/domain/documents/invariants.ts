@@ -31,6 +31,11 @@ export interface DocumentInvariantRow {
   artifactStatus?: "pending" | "ready" | "blocked";
   snapshot?: { present: boolean; hashMatches: boolean; number?: string };
   artifacts: readonly ArtifactInvariantRow[];
+  /**
+   * Archived import (F09 IMP-003, EC-190): no snapshot (never re-rendered) and our validators are not applied
+   * retroactively (e.g. a missing supply date) — number, date, retention and artifact hashes still hold.
+   */
+  imported?: boolean;
 }
 
 const INVOICE_TYPES = new Set([
@@ -50,14 +55,18 @@ export function checkFinalisedDocument(d: DocumentInvariantRow): DocumentFinding
   const out: DocumentFinding[] = [];
   const name = d.number ?? d.id;
   if (!d.number) out.push(err("RI-01", `Beleg ${d.id} ist festgeschrieben, hat aber keine Nummer.`));
-  if (!d.snapshot?.present) out.push(err("RI-01", `${name}: kein Snapshot vorhanden.`));
-  else if (!d.snapshot.hashMatches)
-    out.push(err("RI-01", `${name}: snapshotHash stimmt nicht mit dem Snapshot überein.`));
-  else if (d.snapshot.number !== undefined && d.number !== undefined && d.snapshot.number !== d.number) {
-    out.push(err("RI-01", `${name}: Nummer im Snapshot weicht ab.`));
+  // EC-190: an archived import has no snapshot (never re-rendered).
+  if (!d.imported) {
+    if (!d.snapshot?.present) out.push(err("RI-01", `${name}: kein Snapshot vorhanden.`));
+    else if (!d.snapshot.hashMatches)
+      out.push(err("RI-01", `${name}: snapshotHash stimmt nicht mit dem Snapshot überein.`));
+    else if (d.snapshot.number !== undefined && d.number !== undefined && d.snapshot.number !== d.number) {
+      out.push(err("RI-01", `${name}: Nummer im Snapshot weicht ab.`));
+    }
   }
   if (!d.documentDate) out.push(err("RI-01", `${name}: kein Belegdatum.`));
-  if (INVOICE_TYPES.has(d.type) && !d.hasSupplyDate) out.push(err("RI-01", `${name}: kein Leistungsdatum.`));
+  if (INVOICE_TYPES.has(d.type) && !d.hasSupplyDate && !d.imported)
+    out.push(err("RI-01", `${name}: kein Leistungsdatum.`));
   if (!d.retentionUntil) out.push(err("RI-01", `${name}: keine Aufbewahrungsfrist.`));
   if (d.artifactStatus === "ready" && d.artifacts.length === 0) {
     out.push(err("RI-01", `${name}: Dateien als bereit markiert, aber nicht archiviert.`));
@@ -149,11 +158,12 @@ export interface MarkInvariantRow {
 
 /** RI-19 */
 export function checkSentMarks(
-  doc: { id: string; number?: string; status: string; finalizedOn?: string },
+  doc: { id: string; number?: string; status: string; finalizedOn?: string; imported?: boolean },
   rows: readonly MarkInvariantRow[],
   artifacts: readonly ArtifactInvariantRow[],
 ): DocumentFinding[] {
-  if (doc.status !== "sent") return [];
+  // F09 §4.3.3: an imported document is archived as sent without a sendLog row (the export proves no dispatch).
+  if (doc.status !== "sent" || doc.imported) return [];
   const name = doc.number ?? doc.id;
   const retracted = new Set(rows.filter((r) => r.kind === "retraction" && r.retractsId).map((r) => r.retractsId));
   const effective = rows.filter((r) => r.kind === "mark_sent" && !retracted.has(r.id));

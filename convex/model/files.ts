@@ -37,6 +37,14 @@ export async function fileReferences(ctx: ReadCtx, storageId: Id<"_storage">): P
   for (const e of await ctx.db.query("journalEntries").collect()) {
     if (e.attachments?.some((f) => f.storageId === storageId)) refs.push(`journalEntries ${e.seq}`);
   }
+  // F09 IMP-003/IMP-024: archived original PDFs and the source files of a committed import (migration evidence).
+  for (const a of await ctx.db.query("documentArtifacts").collect()) {
+    if (a.storageId === storageId) refs.push(`documentArtifacts ${String(a._id)}`);
+  }
+  for (const i of await ctx.db.query("imports").collect()) {
+    if (i.status !== "discarded" && i.files.some((f) => f.storageId === storageId))
+      refs.push(`imports ${String(i._id)}`);
+  }
   return refs;
 }
 

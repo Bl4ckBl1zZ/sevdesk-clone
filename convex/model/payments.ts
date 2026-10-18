@@ -185,6 +185,36 @@ async function notDueVatOf(ctx: ReadCtx, documentId: string): Promise<{ rateBp: 
   return [...out.entries()].map(([rateBp, vatCents]) => ({ rateBp, vatCents })).filter((v) => v.vatCents !== 0);
 }
 
+const IMPORTED_PAYMENT_MESSAGE =
+  "Diese Rechnung stammt aus dem sevdesk-Import und hat keinen offenen Posten in der Eröffnungsbilanz – eine Zahlung kann nicht zugeordnet werden.";
+
+/**
+ * F09 IMP-007: an allocation to an archived sevdesk invoice goes to its F08 opening item (the receivable with the
+ * Ist VAT split); the document follows through `syncImportedDocument`.
+ */
+async function redirectImported(ctx: ReadCtx, allocations: RecordArgs["allocations"]) {
+  const out: RecordArgs["allocations"] = [];
+  for (const a of allocations) {
+    if (a.target.kind !== "salesDocument") {
+      out.push(a);
+      continue;
+    }
+    const id = ctx.db.normalizeId("salesDocuments", a.target.id);
+    const doc = id ? await ctx.db.get(id) : null;
+    if (!id || !doc?.imported) {
+      out.push(a);
+      continue;
+    }
+    const item = await ctx.db
+      .query("openingItems")
+      .withIndex("by_document", (q) => q.eq("documentId", id))
+      .first();
+    if (!item) throw appError("invalid_input", IMPORTED_PAYMENT_MESSAGE, { reason: "IMPORTED_DOCUMENT_PAYMENT" });
+    out.push({ ...a, target: { kind: "opening_item", id: item._id } });
+  }
+  return out;
+}
+
 interface LoadedTarget {
   facts: TargetFacts;
   doc?: Doc<"salesDocuments">;
@@ -201,6 +231,11 @@ async function loadTarget(ctx: ReadCtx, ref: TargetRef, date: string): Promise<L
     const id = ctx.db.normalizeId("salesDocuments", ref.id);
     const doc = id ? await ctx.db.get(id) : null;
     if (!doc) return null;
+    if (doc.imported) {
+      // F09 IMP-007 / EC-201: an archived sevdesk invoice was never posted; its receivable is the F08 opening item
+      // (redirected in `planFor`). Without one (paid in sevdesk, or created before the link) nothing can be settled.
+      throw appError("invalid_input", IMPORTED_PAYMENT_MESSAGE, { reason: "IMPORTED_DOCUMENT_PAYMENT" });
+    }
     const snapshot = await snapshotOf(ctx, doc);
     const payable = doc.totals.payableCents;
     const groups: GrossGroup[] = doc.totals.byGroup.map((g) => ({
@@ -336,7 +371,8 @@ export interface PlannedPayment {
 }
 
 /** Loads the facts and runs the pure planner (shared by the preview and the act). Throws structured errors. */
-export async function planFor(ctx: ReadCtx, args: RecordArgs, now: number): Promise<PlannedPayment> {
+export async function planFor(ctx: ReadCtx, original: RecordArgs, now: number): Promise<PlannedPayment> {
+  const args = { ...original, allocations: await redirectImported(ctx, original.allocations) };
   const { facts, tx } = await sourceFacts(ctx, args.source);
   const date = tx ? tx.bookingDate : args.date;
   const targets = new Map<string, LoadedTarget>();
@@ -508,8 +544,36 @@ async function refreshTarget(ctx: ModelCtx, row: { target: PaymentTargetRef }, s
   if (row.target.kind === "salesDocument") {
     await refreshDocument(ctx, row.target.id as Id<"salesDocuments">, action);
   } else if (row.target.kind === "opening_item" && settles !== 0) {
-    await settleOpeningItem(ctx, row.target.id as Id<"openingItems">, settles);
+    const id = row.target.id as Id<"openingItems">;
+    const { openAmountCents } = await settleOpeningItem(ctx, id, settles);
+    const item = await ctx.db.get(id);
+    if (item?.documentId) await syncImportedDocument(ctx, item.documentId, openAmountCents, action);
   }
+}
+
+/**
+ * F09 IMP-007: an archived sevdesk invoice mirrors the open amount of its F08 opening item — the item is the
+ * receivable (journal, Ist VAT), the document is the archive record that dunning and the document views read.
+ */
+async function syncImportedDocument(
+  ctx: ModelCtx,
+  documentId: Id<"salesDocuments">,
+  openAmountCents: number,
+  action: string,
+) {
+  const doc = await ctx.db.get(documentId);
+  if (!doc) return;
+  const paymentStatus =
+    openAmountCents === 0 ? "paid" : openAmountCents >= doc.totals.grossCents ? "open" : "partially_paid";
+  const before = { paymentStatus: doc.paymentStatus, openAmountCents: doc.openAmountCents };
+  await auditedPatch(
+    ctx,
+    "salesDocuments",
+    documentId,
+    { openAmountCents, paymentStatus },
+    { action, ...(doc.number ? { label: doc.number } : {}) },
+  );
+  await onSettlementChanged(ctx, { documentId, before, after: { paymentStatus, openAmountCents } });
 }
 
 const auditLabel = (row: { number?: string; target: PaymentTargetRef }) =>
@@ -1142,6 +1206,8 @@ export async function invoicePaymentArgs(ctx: ReadCtx, input: InvoicePaymentInpu
   if (doc.paymentStatus === "written_off") {
     throw appError("invalid_input", PAY_MESSAGES.writtenOff, { reason: "WRITTEN_OFF" });
   }
+  // EC-201: the receivable of an archived sevdesk invoice is its opening item (`redirectImported`).
+  if (doc.imported) await redirectImported(ctx, [{ target: { kind: "salesDocument", id: doc._id }, amountCents: 0 }]);
   const r = allocationsForInvoice({
     invoice: {
       id: doc._id,
@@ -1193,6 +1259,8 @@ export async function openItemsAsOf(
       for (const d of docs) {
         if (args.contactId && d.contactId !== args.contactId) continue;
         if (!d.number || !d.documentDate) continue;
+        // F09 IMP-007: an archived sevdesk invoice is a receivable only through its opening item (listed below).
+        if (d.imported) continue;
         documents.push({
           id: d._id,
           kind: "salesDocument",

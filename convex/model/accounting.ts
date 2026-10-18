@@ -1,6 +1,12 @@
 import type { OpeningBalancePart, OpeningReceivable } from "../../src/domain/accounting/events";
 import { openingSourceId } from "../../src/domain/accounting/events";
-import { chartAt, fiscalYearEnd, fiscalYearOf, fiscalYearStart } from "../../src/domain/accounting/period";
+import {
+  chartAt,
+  fiscalYearEnd,
+  fiscalYearOf,
+  fiscalYearStart,
+  taxationMethodAt,
+} from "../../src/domain/accounting/period";
 import { explanationText } from "../../src/domain/accounting/post";
 import { roleMappingView } from "../../src/domain/accounting/resolve";
 import { roleLabel, STATIC_ROLES } from "../../src/domain/accounting/roles";
@@ -274,6 +280,8 @@ export interface OpeningReceivableInput {
   openCents: number;
   taxedAs: "soll" | "ist";
   notDueVat?: { rateBp: number; vatCents: number }[];
+  /** F09 IMP-007: the archived sevdesk invoice behind this receivable (payments on it settle the opening item). */
+  documentId?: Id<"salesDocuments">;
 }
 
 export type OpeningPartInput =
@@ -341,6 +349,7 @@ export async function postOpeningBalance(
           openAmountCents: i.openCents,
           recordedAt: ctx.now(),
           actor: ctx.actor,
+          ...(i.documentId ? { documentId: i.documentId } : {}),
         },
         { action: "journal.opening_balance", label: `Offener Posten ${i.number}` },
       );
@@ -362,6 +371,36 @@ export async function postOpeningBalance(
     eventPart = part;
   }
   return postJournalEntry(ctx, { kind: "opening_balance", fiscalYear, date, part: eventPart });
+}
+
+/**
+ * F09 IMP-007: where the sevdesk open items land — the Buchungsbeginn's fiscal year, whether its receivables opening
+ * posting already exists (it is posted once per year), and the taxation method at that date. `null` while no
+ * Buchungsbeginn is set (the import then blocks open items, E-IMP-34).
+ */
+export async function openingContextForImport(ctx: ReadCtx): Promise<{
+  date: CalendarDate;
+  fiscalYear: number;
+  receivablesPosted: boolean;
+  taxedAs: "soll" | "ist";
+} | null> {
+  const profile = await getCompanyProfile(ctx);
+  const start = profile?.bookkeepingStartDate;
+  if (!profile || !start || !isCalendarDate(start)) return null;
+  const fiscalYear = fiscalYearOf(start, profile.fiscalYearStartMonth);
+  let receivablesPosted = false;
+  for (const e of await entriesBySource(ctx, {
+    kind: "opening_balance",
+    id: openingSourceId(fiscalYear, { kind: "receivables" }),
+  })) {
+    if (!(await reversalOf(ctx, e._id))) receivablesPosted = true;
+  }
+  return {
+    date: start,
+    fiscalYear,
+    receivablesPosted,
+    taxedAs: taxationMethodAt(profile.taxationMethod ?? [], start) === "ist" ? "ist" : "soll",
+  };
 }
 
 /** Wizard state; without `fiscalYear` the year of the Buchungsbeginn (or of today) is shown. */

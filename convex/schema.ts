@@ -1141,9 +1141,12 @@ export default defineSchema({
     recordedAt: v.number(),
     lockedAt: v.optional(v.number()),
     actor: vActor,
+    /** The archived sevdesk invoice this receivable carries (F09 IMP-007); set at insert, never changed. */
+    documentId: v.optional(v.id("salesDocuments")),
   })
     .index("by_fiscalYear", ["fiscalYear", "number"])
-    .index("by_contact", ["contactId"]),
+    .index("by_contact", ["contactId"])
+    .index("by_document", ["documentId"]),
 
   // ── 03 §6 dunning (F05 §3.7–§3.10, §4.4–§4.6) ─────────────────────────────────────────────────────────────
   // Policies are settings (mutable, audited); cases are mutable bookkeeping of one invoice; runs are append-only
@@ -1444,10 +1447,21 @@ export default defineSchema({
     recurringTemplateId: v.optional(v.id("recurringTemplates")),
     /** REC-05 idempotency key (templateId, occurrence date) — unique, enforced in convex/model/recurring.ts. */
     recurringOccurrence: v.optional(v.object({ templateId: v.id("recurringTemplates"), date: v.string() })),
+    // ── archived imports (F09 IMP-003, EC-190) ──
+    /** Read-only archive record with the original PDF as artifact; never re-rendered, no snapshot. */
+    imported: v.optional(v.literal(true)),
+    origin: v.optional(
+      v.object({
+        source: v.union(v.literal("sevdesk_export"), v.literal("lexoffice_csv"), v.literal("generic_csv")),
+        externalId: v.string(),
+        importId: v.id("imports"),
+      }),
+    ),
     createdBy: vActor,
     channel: vChannel,
     version: v.number(),
   })
+    .index("by_origin", ["origin.source", "origin.externalId"])
     .index("by_recurringOccurrence", ["recurringOccurrence.templateId", "recurringOccurrence.date"])
     .index("by_type_status_date", ["type", "status", "documentDate"])
     .index("by_chainRoot", ["chainRootId"])
@@ -1493,6 +1507,8 @@ export default defineSchema({
     sourceLineId: v.optional(v.id("documentLines")),
     invoicedQtyMilli: v.optional(v.number()),
     deliveredQtyMilli: v.optional(v.number()),
+    /** Imported archive document rebuilt from a list row: one summary line per VAT rate (F09 IMP-020). */
+    fromSummary: v.optional(v.literal(true)),
   })
     .index("by_document", ["documentId", "position"])
     .index("by_product", ["productId"]),
@@ -1618,6 +1634,100 @@ export default defineSchema({
   })
     .index("by_status", ["status"])
     .index("by_contact", ["contactId"]),
+
+  // ── 03 §10 imports (F09 §4.3: sevdesk file exports only, no API) ─────────────────────────────────────────
+  // One row per import project: uploaded files with detection metadata, mapping, resolutions, the stored preview
+  // and its hash (commit only with the current preview, IMP-023), the run log. Source files stay as migration
+  // evidence (IMP-024, `retentionUntil` ≥ 10 years) once committed; discard removes them before a commit.
+  imports: defineTable({
+    source: v.union(v.literal("sevdesk_export"), v.literal("lexoffice_csv"), v.literal("generic_csv")),
+    files: v.array(
+      v.object({
+        /** Stable file id inside the import (rows reference `<id>:<line>`). */
+        id: v.string(),
+        storageId: v.id("_storage"),
+        sha256: v.string(),
+        bytes: v.number(),
+        mime: v.string(),
+        name: v.string(),
+        detectedKind: v.string(),
+        /** Current kind (the owner may correct the detection, IMP-016). */
+        kind: v.string(),
+        encoding: v.optional(v.string()),
+        delimiter: v.optional(v.string()),
+        headers: v.optional(v.array(v.string())),
+        /** First rows for the mapping grid (IMP-017). */
+        samples: v.optional(v.array(v.array(v.string()))),
+        rows: v.optional(v.number()),
+        ignored: v.optional(v.boolean()),
+        readError: v.optional(v.string()),
+      }),
+    ),
+    status: v.union(
+      v.literal("uploaded"),
+      v.literal("previewed"),
+      v.literal("running"),
+      v.literal("done"),
+      v.literal("failed"),
+      v.literal("discarded"),
+    ),
+    /** Incremented on every change of files, mapping or resolutions; a preview is saved only for the revision it read. */
+    revision: v.number(),
+    previewHash: v.optional(v.string()),
+    preview: v.optional(v.any()),
+    mapping: v.optional(
+      v.record(
+        v.string(),
+        v.object({
+          columns: v.record(v.string(), v.string()),
+          numberFormat: v.optional(v.union(v.literal("de"), v.literal("en"))),
+          dateFormat: v.optional(v.union(v.literal("dmy"), v.literal("mdy"))),
+        }),
+      ),
+    ),
+    resolutions: v.optional(
+      v.object({
+        excluded: v.optional(v.array(v.string())),
+        pdfAssignments: v.optional(v.record(v.string(), v.string())),
+        openAmounts: v.optional(v.record(v.string(), v.number())),
+      }),
+    ),
+    /** Owner decisions recorded at commit start (number ranges, missing-PDF reason, opening items). */
+    decisions: v.optional(v.any()),
+    stats: v.record(v.string(), v.number()),
+    log: v.array(v.string()),
+    error: v.optional(v.string()),
+    importerVersion: v.string(),
+    startedAt: v.number(),
+    finishedAt: v.optional(v.number()),
+    committedAt: v.optional(v.number()),
+    committedBy: v.optional(vActor),
+    retentionUntil: v.optional(v.string()),
+    actor: vActor,
+  }).index("by_status", ["status"]),
+
+  // F09 IMP-017: saved column mappings (shipped `sevdesk-*` presets live in code, flagged unsure).
+  importMappingPresets: defineTable({
+    source: v.string(),
+    fileKind: v.string(),
+    name: v.string(),
+    columns: v.record(v.string(), v.string()),
+    shipped: v.boolean(),
+    unsure: v.boolean(),
+    createdAt: v.number(),
+    actor: v.optional(vActor),
+  }).index("by_kind", ["source", "fileKind"]),
+
+  // F09 IMP-006 🔒 append-only: idempotent re-runs — (externalType, externalId) is unique by convention (model).
+  importedRecords: defineTable({
+    importId: v.id("imports"),
+    externalType: v.string(),
+    externalId: v.string(),
+    table: v.string(),
+    localId: v.string(),
+  })
+    .index("by_external", ["externalType", "externalId"])
+    .index("by_import", ["importId"]),
 
   // Dev/test only (not in 03): the in-memory auth-mail transport (AUTH_MAIL_SENDER=memory) stores mails here so
   // integration and E2E tests can read sign-in codes (07 §3.2). Never written with the Cloudflare transport.
