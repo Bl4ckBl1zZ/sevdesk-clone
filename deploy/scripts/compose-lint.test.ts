@@ -103,3 +103,61 @@ describe("production compose lint (08 §3.1)", () => {
     for (const [name, svc] of Object.entries(committed.services)) expect(svc.logging, name).toEqual(logging);
   });
 });
+
+describe("public edge compose lint (08 §12)", () => {
+  const pub = () => parse(readFileSync(join(import.meta.dirname, "../compose/docker-compose.public.yml"), "utf8"));
+  const publicRules = (doc: unknown) => lintCompose(doc, { edge: "public" }).map((v) => `${v.service}:${v.rule}`);
+  const publicBase = () => {
+    const doc = base() as { services: Record<string, Record<string, unknown>> };
+    doc.services.caddy = {
+      image: "reg/rechnungen-caddy:abc",
+      command: ["caddy", "run", "--config", "/etc/caddy/Caddyfile.public", "--adapter", "caddyfile"],
+      logging,
+    };
+    return doc;
+  };
+
+  test("SEC-01 the committed public compose file passes in public mode", () => {
+    expect(lintCompose(pub(), { edge: "public" })).toEqual([]);
+  });
+
+  test("SEC-01 the committed public compose publishes nothing and runs caddy with Caddyfile.public", () => {
+    const doc = pub() as { services: Record<string, Record<string, unknown>> };
+    const published = Object.entries(doc.services).filter(([, s]) => s.ports !== undefined || s.expose !== undefined);
+    expect(published).toEqual([]);
+    expect(doc.services.caddy?.command).toEqual([
+      "caddy",
+      "run",
+      "--config",
+      "/etc/caddy/Caddyfile.public",
+      "--adapter",
+      "caddyfile",
+    ]);
+    const env = ((doc.services.caddy?.environment ?? []) as string[]).map((e) => e.split("=")[0]);
+    expect(env).not.toContain("CLOUDFLARE_DNS_API_TOKEN");
+    expect(env).not.toContain("ACME_EMAIL");
+  });
+
+  test("SEC-01 the public compose differs from the tailnet compose only in the caddy edge service", () => {
+    const a = pub() as { services: Record<string, unknown> };
+    const b = prod() as { services: Record<string, unknown> };
+    const { caddy: _a, ...restA } = a.services;
+    const { caddy: _b, ...restB } = b.services;
+    expect(restA).toEqual(restB);
+  });
+
+  test("SEC-01 in public mode any expose or ports fails (caddy included) and caddy must use Caddyfile.public", () => {
+    expect(publicRules(publicBase())).toEqual([]);
+    const a = publicBase();
+    Object.assign(a.services.caddy as object, { expose: ["80"] });
+    Object.assign(a.services.backend as object, { ports: ["3210:3210"] });
+    expect(publicRules(a)).toEqual(["caddy:public-not-published", "backend:public-not-published"]);
+    const b = publicBase();
+    delete (b.services.caddy as Record<string, unknown>).command;
+    expect(publicRules(b)).toEqual(["caddy:public-caddyfile"]);
+  });
+
+  test("SEC-01 the tailnet rules still apply to the tailnet file (public caddy fails there)", () => {
+    expect(rules(publicBase())).toEqual(["caddy:edge-ports"]);
+  });
+});

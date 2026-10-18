@@ -18,6 +18,10 @@ DOKPLOY_ENVIRONMENT=production
 DOKPLOY_SERVER_NAME="Proxmox PVE"
 COMPOSE_NAME=rechnungen
 R2_DESTINATION_NAME="Cloudflare R2 (dokploy)"
+# Edge: tailnet (Tailscale Service + Caddy TLS, 08 §1) or public (Dokploy domains on the Cloudflare tunnel, 08 §12).
+# Public: BASE_DOMAIN = CLOUDFLARE_ZONE_NAME (Universal SSL covers *.<zone> only); CLOUDFLARE_DNS_API_TOKEN/ACME_EMAIL unused.
+EDGE_MODE=tailnet
+CLOUDFLARE_ZONE_NAME=
 OWNER_EMAIL=
 # Registry the CI pushes to and the server pulls from (ghcr.io/<owner> or the self-hosted registry), see ADR 0003.
 IMAGE_REGISTRY=

@@ -1,0 +1,125 @@
+# PUBLIC EDGE MODE (08 §12, owner decision 2026-10-18): the app is published on the owner's public Dokploy domain.
+# Cloudflare terminates TLS (Universal SSL for *.{$BASE_DOMAIN}) → the fork's Cloudflare tunnel on the server →
+# Dokploy's Traefik (one Dokploy domain per host, https off) → this container on plain HTTP :80.
+# The host routing below is IDENTICAL to deploy/caddy/Caddyfile (enforced by deploy/caddy/caddyfile.test.ts); only the
+# listener differs: no ACME, no wildcard certificate, no :8443 website listener.
+#
+# Env (compose): BASE_DOMAIN, CONVEX_DASH_BASIC_AUTH (bcrypt hash from `caddy hash-password`).
+# Validated at image build time (deploy/caddy/Dockerfile runs `caddy validate` with dummy values).
+{
+	# TLS is Cloudflare's job in this mode; Caddy must not try to obtain certificates or redirect to HTTPS.
+	auto_https off
+	# Static config; no admin API inside the container.
+	admin off
+	servers {
+		# Traefik and the tunnel hide the client IP from the app (02 §4.1); no trusted_proxies, no IP-based limits.
+		protocols h1 h2c
+	}
+}
+
+# Response headers for every host. `defer` = applied after the upstream answered (overrides), `?` = default only if
+# the upstream did not set it (proxy.ts sets the nonce-based CSP, frame and permissions policies for app./api.).
+(security_headers) {
+	header {
+		defer
+		Strict-Transport-Security "max-age=31536000"
+		-Server
+		-Via
+		-X-Powered-By
+	}
+	# One directive per default: `?` adds a "require absent" condition to its whole header block.
+	header ?X-Content-Type-Options "nosniff"
+	header ?Referrer-Policy "same-origin"
+	header ?X-Frame-Options "DENY"
+	header ?Cross-Origin-Opener-Policy "same-origin"
+}
+
+# Access log (DSGVO-05/06): client IPs truncated (IPv4 /24, IPv6 /48), credentials and cookies never logged.
+# Rotation: Docker json-file max-size/max-file (compose) + deploy/scripts/log-retention.sh (≤ 90 days).
+(access_log) {
+	log {
+		output stdout
+		format filter {
+			wrap json
+			request>remote_ip ip_mask 24 48
+			request>client_ip ip_mask 24 48
+			request>headers>Cookie delete
+			request>headers>Authorization delete
+			request>headers>X-Forwarded-For delete
+			request>headers>Cf-Connecting-Ip delete
+			resp_headers>Set-Cookie delete
+		}
+	}
+}
+
+# ── :80 — all hosts, reached only through Traefik (Dokploy domains → caddy:80) ─────────────────────────────────
+:80 {
+	import security_headers
+	import access_log
+	encode zstd gzip
+
+	@app host app.{$BASE_DOMAIN}
+	@api host api.{$BASE_DOMAIN}
+	@cvx host convex.{$BASE_DOMAIN}
+	@site host convex-site.{$BASE_DOMAIN}
+	@dash host convex-dash.{$BASE_DOMAIN}
+
+	# app.: UI, Server Actions, /api/health and /api/auth/* (Next proxies Better Auth to backend:3211 internally,
+	# so auth cookies stay first-party on app., 02 §4.2). REST and MCP live on api. only (02 §4.1).
+	handle @app {
+		@machine_api path /api/v1 /api/v1/* /api/mcp /api/mcp/*
+		handle @machine_api {
+			respond 404
+		}
+		handle {
+			reverse_proxy web:3000
+		}
+	}
+
+	# api.: path allowlist (defence in depth; proxy.ts enforces the same list, 02 §4.1). API keys only — cookies are
+	# stripped so a browser session can never authenticate a machine request.
+	handle @api {
+		@api_allowed path /api/v1 /api/v1/* /api/mcp /api/mcp/* /api/docs /api/docs/* /api/openapi.json /api/health
+		handle @api_allowed {
+			request_header -Cookie
+			reverse_proxy web:3000 {
+				# MCP (streamable HTTP) and large exports must not be buffered.
+				flush_interval -1
+			}
+		}
+		handle {
+			respond 404
+		}
+	}
+
+	# convex.: Convex API incl. the sync WebSocket (reverse_proxy upgrades automatically).
+	handle @cvx {
+		reverse_proxy backend:3210
+	}
+
+	# convex-site.: Convex HTTP actions — only Better Auth (02 §4.1: "no other HTTP actions are public").
+	handle @site {
+		@auth path /api/auth/* /.well-known/*
+		handle @auth {
+			reverse_proxy backend:3211 {
+				flush_interval -1
+			}
+		}
+		handle {
+			respond 404
+		}
+	}
+
+	# convex-dash.: Convex dashboard behind basic auth (+ the Convex admin key inside the dashboard).
+	handle @dash {
+		basic_auth {
+			owner {$CONVEX_DASH_BASIC_AUTH}
+		}
+		reverse_proxy dashboard:6791
+	}
+
+	# Unknown host under the wildcard (DNS-rebinding protection, SEC-06).
+	handle {
+		respond 421
+	}
+}

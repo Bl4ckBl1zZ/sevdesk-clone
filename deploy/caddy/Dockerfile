@@ -12,15 +12,17 @@ RUN xcaddy build "v${CADDY_VERSION}" --with "github.com/caddy-dns/cloudflare@${C
 
 FROM caddy:${CADDY_VERSION}-alpine
 COPY --from=build /usr/bin/caddy /usr/bin/caddy
-COPY Caddyfile /etc/caddy/Caddyfile
+COPY Caddyfile Caddyfile.public /etc/caddy/
 
-# Fail the build on a broken Caddyfile or a missing DNS module (dummy values; the token only has to look valid).
+# Fail the build on a broken Caddyfile (tailnet edge) or Caddyfile.public (public edge mode, 08 §12) or a missing DNS module (dummy values; the token only has to look valid).
 RUN set -eux; \
     caddy list-modules | grep -q '^dns.providers.cloudflare$'; \
     BASE_DOMAIN=example.test ACME_EMAIL=ci@example.test \
     CLOUDFLARE_DNS_API_TOKEN=0123456789abcdefghijklmnopqrstuvwxyzABCD \
     CONVEX_DASH_BASIC_AUTH="$(caddy hash-password --plaintext ci)" \
       caddy validate --adapter caddyfile --config /etc/caddy/Caddyfile; \
+    BASE_DOMAIN=example.test CONVEX_DASH_BASIC_AUTH="$(caddy hash-password --plaintext ci)" \
+      caddy validate --adapter caddyfile --config /etc/caddy/Caddyfile.public; \
     apk add --no-cache libcap; \
     setcap cap_net_bind_service=+ep /usr/bin/caddy; \
     grep -q '^caddy:' /etc/group || addgroup -S -g 10000 caddy; \

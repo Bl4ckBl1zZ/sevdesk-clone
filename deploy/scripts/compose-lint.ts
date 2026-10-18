@@ -4,6 +4,10 @@
  * The owner's Dokploy fork publishes every compose service that declares `ports:` or `expose:` as a Tailscale
  * Service. A stray `expose` on `backend` or `postgres` would put Convex or the database on the tailnet next to the
  * TLS edge, so the file is linted in CI (`pnpm lint:deploy`).
+ *
+ * Public edge mode (08 §12, owner decision 2026-10-18): `docker-compose.public.yml` is reached through Dokploy domains
+ * (Traefik → caddy:80) behind the Cloudflare tunnel. There NO service may declare `ports`/`expose` (the fork would try
+ * to publish it as a Tailscale Service) and caddy must run `Caddyfile.public`.
  */
 
 export interface Violation {
@@ -19,6 +23,14 @@ const isDict = (v: unknown): v is Dict => typeof v === "object" && v !== null &&
 /** The single service allowed to be published, and exactly the ports it must expose (02 §4.1). */
 export const EDGE_SERVICE = "caddy";
 export const EDGE_PORTS = ["443", "8443"];
+
+/** `tailnet`: Tailscale Service edge (default, 08 §1). `public`: Dokploy domain + Cloudflare tunnel (08 §12). */
+export type EdgeMode = "tailnet" | "public";
+export interface LintOptions {
+  edge?: EdgeMode;
+}
+/** The Caddy config caddy must run in public edge mode (baked into the caddy image next to `Caddyfile`). */
+export const PUBLIC_CADDYFILE = "/etc/caddy/Caddyfile.public";
 
 /** Convex backend flags that are switched on by ANY non-empty value (08 §3.1 notes). */
 export const CONVEX_TRUTHY_FLAGS = ["DO_NOT_REQUIRE_SSL", "REDACT_LOGS_TO_CLIENT", "DISABLE_BEACON"];
@@ -58,7 +70,8 @@ function imageTag(image: string): string | null {
   return colon === -1 ? null : image.slice(colon + 1);
 }
 
-export function lintCompose(doc: unknown): Violation[] {
+export function lintCompose(doc: unknown, options: LintOptions = {}): Violation[] {
+  const edgeMode: EdgeMode = options.edge ?? "tailnet";
   const out: Violation[] = [];
   const add = (service: string | null, rule: string, message: string) => out.push({ service, rule, message });
 
@@ -73,14 +86,21 @@ export function lintCompose(doc: unknown): Violation[] {
     const hasPorts = svc.ports !== undefined;
     const hasExpose = svc.expose !== undefined;
 
-    if (name !== EDGE_SERVICE && (hasPorts || hasExpose)) {
+    if (edgeMode === "public" && (hasPorts || hasExpose)) {
+      add(
+        name,
+        "public-not-published",
+        `declares ${hasPorts ? "`ports`" : "`expose`"} — in public edge mode Traefik reaches caddy over the Dokploy network; nothing is published (08 §12)`,
+      );
+    }
+    if (edgeMode === "tailnet" && name !== EDGE_SERVICE && (hasPorts || hasExpose)) {
       add(
         name,
         "only-edge-published",
         `declares ${hasPorts ? "`ports`" : "`expose`"} — the Dokploy fork would publish it to the tailnet; only \`${EDGE_SERVICE}\` may (08 §3.1)`,
       );
     }
-    if (name === EDGE_SERVICE && hasPorts) {
+    if (edgeMode === "tailnet" && name === EDGE_SERVICE && hasPorts) {
       add(name, "edge-no-host-ports", "must use `expose`, never `ports` (would also bind host ports, 08 §1)");
     }
     if (svc.network_mode === "host") add(name, "no-host-network", "`network_mode: host` bypasses the compose network");
@@ -125,7 +145,13 @@ export function lintCompose(doc: unknown): Violation[] {
 
   const edge = services[EDGE_SERVICE];
   if (!isDict(edge)) add(EDGE_SERVICE, "edge-present", `the TLS edge service \`${EDGE_SERVICE}\` is missing`);
-  else {
+  else if (edgeMode === "public") {
+    const command = Array.isArray(edge.command) ? edge.command.map(String) : String(edge.command ?? "").split(/\s+/);
+    const config = command[command.indexOf("--config") + 1];
+    if (!command.includes("--config") || config !== PUBLIC_CADDYFILE) {
+      add(EDGE_SERVICE, "public-caddyfile", `must run \`caddy run --config ${PUBLIC_CADDYFILE}\` (08 §12)`);
+    }
+  } else {
     const exposed = portList(edge.expose).sort();
     if (JSON.stringify(exposed) !== JSON.stringify([...EDGE_PORTS].sort())) {
       add(

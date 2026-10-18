@@ -10,21 +10,27 @@
 # Usage:
 #   deploy/bootstrap.sh [--apply] [--env-file .env.production] [--instance-name rechnungen-pilot]
 #                       [--only steps] [--skip steps] [--install-server-scripts]
+# Edge mode (env file EDGE_MODE): `tailnet` (default, 08 §1) = Tailscale Service + Caddy TLS; `public` (08 §12, owner
+# decision 2026-10-18) = Dokploy domains on the server's Cloudflare tunnel → Traefik → caddy:80.
 # Steps (default: all, in this order):
-#   preflight  CLI + fork procedures present, server found, Tailscale gateway adopted/ready (abort otherwise)
+#   preflight  CLI + fork procedures present, server found; tailnet: Tailscale gateway adopted/ready (abort otherwise);
+#              public: Cloudflare tunnel of the server healthy, zone id of CLOUDFLARE_ZONE_NAME
 #   project    project "rechnungen" + environment "production"
 #   compose    compose "rechnungen" on "Proxmox PVE", raw source = deploy/compose/docker-compose.yml
+#              (public: deploy/compose/docker-compose.public.yml)
+#   domains    public only: one Dokploy domain per host (app./api./convex./convex-site./convex-dash.) → caddy:80,
+#              https off (Cloudflare terminates TLS), --cloudflareZoneId → DNS record on the tunnel
 #   registry   registry credentials on the server (docker login for private images)
 #   env        compose environment (08 §5.2) from the env file
-#   deploy     compose deploy, wait for the caddy Tailscale Service, resolve its TailVIP
-#   dns        deploy/scripts/sync-dns.sh → A/AAAA records → TailVIP; wait for https://app.<BASE_DOMAIN>/api/health
+#   deploy     compose deploy; tailnet: wait for the caddy Tailscale Service, resolve its TailVIP
+#   dns        tailnet: deploy/scripts/sync-dns.sh → A/AAAA records → TailVIP; both: wait for https://app.<BASE_DOMAIN>/api/health
 #   convex     npx convex deploy + Convex function env (needs CONVEX_SELF_HOSTED_ADMIN_KEY)
 #   backups    Dokploy compose backup (postgres) + volume backup (convex-data) + server schedules → R2 destination
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 COMPOSE_FILE="$ROOT/deploy/compose/docker-compose.yml"
-ALL_STEPS=(preflight project compose registry env deploy dns convex backups)
+ALL_STEPS=(preflight project compose domains registry env deploy dns convex backups)
 
 APPLY=0
 ENV_FILE="$ROOT/.env.production"
@@ -110,6 +116,17 @@ load_env() {
   : "${DOKPLOY_PROJECT:=rechnungen}" "${DOKPLOY_ENVIRONMENT:=production}" "${DOKPLOY_SERVER_NAME:=Proxmox PVE}"
   : "${COMPOSE_NAME:=rechnungen}" "${R2_DESTINATION_NAME:=Cloudflare R2 (dokploy)}" "${LOG_LEVEL:=info}"
   : "${CONVEX_SHA:=72ce13c379fe6dbdfc305bc8ad699c5663c68c2a}"
+  : "${EDGE_MODE:=tailnet}" "${CLOUDFLARE_ZONE_NAME:=${BASE_DOMAIN:-}}"
+  [[ "$EDGE_MODE" == "tailnet" || "$EDGE_MODE" == "public" ]] || die "EDGE_MODE must be tailnet or public (got $EDGE_MODE)"
+  if [[ "$EDGE_MODE" == "public" ]]; then
+    COMPOSE_FILE="$ROOT/deploy/compose/docker-compose.public.yml"
+    # The public Caddy has no ACME / DNS-01 (Cloudflare terminates TLS, 08 §12).
+    COMPOSE_ENV_VARS=("${COMPOSE_ENV_VARS[@]/ACME_EMAIL/}")
+    COMPOSE_ENV_VARS=("${COMPOSE_ENV_VARS[@]/CLOUDFLARE_DNS_API_TOKEN/}")
+    local v kept=()
+    for v in "${COMPOSE_ENV_VARS[@]}"; do [[ -n "$v" ]] && kept+=("$v"); done
+    COMPOSE_ENV_VARS=("${kept[@]}")
+  fi
   if [[ -n "$INSTANCE_OVERRIDE" ]]; then INSTANCE_NAME="$INSTANCE_OVERRIDE"; fi
   : "${INSTANCE_NAME:=rechnungen-pilot}"
   PG_DATABASE="${INSTANCE_NAME//-/_}"
@@ -146,7 +163,7 @@ compose_env() {
 }
 
 # ── lookups (read-only) ───────────────────────────────────────────────────────────────────────────────────────────
-SERVER_ID=""; SERVER_IP=""; PROJECT_ID=""; ENV_ID=""; CMP_ID=""; CMP_APPNAME=""; DEST_ID=""
+SERVER_ID=""; SERVER_IP=""; PROJECT_ID=""; ENV_ID=""; CMP_ID=""; CMP_APPNAME=""; DEST_ID=""; ZONE_ID=""
 CADDY_FQDN=""; CADDY_TAILVIP4=""; CADDY_TAILVIP6=""
 
 lookup_server() {
@@ -176,18 +193,58 @@ lookup_destination() {
   [[ -n "$DEST_ID" ]] || die "Dokploy destination \"$R2_DESTINATION_NAME\" not found (dokploy destination all)"
 }
 
+lookup_zone() {
+  # Only the zone list is read; the config's token fields are never printed (jq selects zone ids only).
+  ZONE_ID="$(query dokploy cloudflare get-config --json \
+    | jq -r --arg z "$CLOUDFLARE_ZONE_NAME" '[.zones[]? | select(.zoneName==$z) | .cloudflareZoneId][0] // empty')"
+  [[ -n "$ZONE_ID" ]] || die "Cloudflare zone \"$CLOUDFLARE_ZONE_NAME\" not found in the Dokploy Cloudflare config (dokploy cloudflare get-config)"
+}
+
+# Hosts behind the edge (02 §4.1); public mode creates one Dokploy domain each.
+EDGE_HOSTS=(app api convex convex-site convex-dash)
+
 # ── steps ─────────────────────────────────────────────────────────────────────────────────────────────────────────
 do_preflight() {
   step "preflight"
   need dokploy; need jq; need curl; need openssl
-  dokploy tailscale --help >/dev/null 2>&1 || die "this dokploy CLI lacks the fork procedures (tailscale.*) — run deploy/scripts/build-dokploy-cli.sh"
+  if [[ "$EDGE_MODE" == "public" ]]; then
+    dokploy cloudflare --help >/dev/null 2>&1 || die "this dokploy CLI lacks the fork procedures (cloudflare.*) — run deploy/scripts/build-dokploy-cli.sh"
+  else
+    dokploy tailscale --help >/dev/null 2>&1 || die "this dokploy CLI lacks the fork procedures (tailscale.*) — run deploy/scripts/build-dokploy-cli.sh"
+  fi
   local version
   version="$(query dokploy settings get-dokploy-version --json | jq -r '.')"
   info "Dokploy server $version, CLI $(dokploy --version)"
   [[ "$version" == "0.41.1" ]] || warn "bootstrap was verified against Dokploy fork v0.41.1 — re-check flags (ADR 0003)"
   lookup_server
-  info "server \"$DOKPLOY_SERVER_NAME\" = $SERVER_ID ($SERVER_IP)"
+  info "server \"$DOKPLOY_SERVER_NAME\" = $SERVER_ID ($SERVER_IP) · edge mode $EDGE_MODE"
+  if [[ "$EDGE_MODE" == "public" ]]; then
+    preflight_public
+  else
+    preflight_tailnet
+  fi
+  lookup_destination
+  info "R2 destination \"$R2_DESTINATION_NAME\" = $DEST_ID"
+  [[ "$INSTANCE_NAME" == "rechnungen" ]] || warn "INSTANCE_NAME=$INSTANCE_NAME (pilot, 08 §8.1); go-live: deploy/runbooks/go-live.md"
+}
 
+preflight_public() {
+  local tunnel
+  tunnel="$(query dokploy server one --serverId "$SERVER_ID" --json | jq -r '.tunnelStatus // "none"')"
+  if [[ "$tunnel" != "healthy" ]]; then
+    local msg="Cloudflare tunnel of \"$DOKPLOY_SERVER_NAME\" is not healthy (tunnelStatus=$tunnel) — the Dokploy domains would not be reachable (08 §12)"
+    if [[ $APPLY -eq 1 ]]; then die "$msg"; else warn "$msg (dry-run continues)"; fi
+  else
+    ok "Cloudflare tunnel of \"$DOKPLOY_SERVER_NAME\" healthy"
+  fi
+  lookup_zone
+  info "cloudflare zone $CLOUDFLARE_ZONE_NAME = $ZONE_ID"
+  # Cloudflare Universal SSL covers <zone> and *.<zone> only; app.<BASE_DOMAIN> must be one level below the zone.
+  [[ "$BASE_DOMAIN" == "$CLOUDFLARE_ZONE_NAME" ]] ||
+    warn "BASE_DOMAIN=$BASE_DOMAIN is below the zone $CLOUDFLARE_ZONE_NAME — app.$BASE_DOMAIN needs an Advanced Certificate (Universal SSL covers *.$CLOUDFLARE_ZONE_NAME only)"
+}
+
+preflight_tailnet() {
   local gw ownership status
   gw="$(query dokploy tailscale list --json | jq -c --arg s "$SERVER_ID" \
     '[.gateways[] | select(.serverId==$s) | {id: .tailscaleGatewayId, ownership, status, lastError}][0] // empty')"
@@ -200,9 +257,6 @@ do_preflight() {
   else
     ok "gateway ready"
   fi
-  lookup_destination
-  info "R2 destination \"$R2_DESTINATION_NAME\" = $DEST_ID"
-  [[ "$INSTANCE_NAME" == "rechnungen" ]] || warn "INSTANCE_NAME=$INSTANCE_NAME (pilot, 08 §8.1); go-live: deploy/runbooks/go-live.md"
 }
 
 do_project() {
@@ -232,7 +286,8 @@ do_compose() {
   step "compose $COMPOSE_NAME (raw source)"
   [[ -n "$ENV_ID" ]] || lookup_project
   [[ -n "$SERVER_ID" ]] || lookup_server
-  (cd "$ROOT" && pnpm -s lint:deploy) || die "deploy/compose/docker-compose.yml fails lint:deploy"
+  info "compose file ${COMPOSE_FILE#"$ROOT/"}"
+  (cd "$ROOT" && pnpm -s lint:deploy) || die "${COMPOSE_FILE#"$ROOT/"} fails lint:deploy"
   if [[ -z "$CMP_ID" ]]; then
     local out
     # `compose create` has no --sourceType in this CLI; the raw source is set by `compose update` below.
@@ -250,6 +305,28 @@ do_compose() {
   fi
   mutate dokploy compose update --composeId "$CMP_ID" --sourceType raw --composeType docker-compose \
     --composeFile "$(cat "$COMPOSE_FILE")" --json >/dev/null
+}
+
+do_domains() {
+  [[ "$EDGE_MODE" == "public" ]] || return 0
+  step "Dokploy domains → caddy:80 (public edge, 08 §12)"
+  [[ -n "$CMP_ID" ]] || lookup_project
+  [[ -n "$ZONE_ID" ]] || lookup_zone
+  local existing="" host
+  if [[ -n "$CMP_ID" && "$CMP_ID" != "<"* ]]; then
+    existing="$(query dokploy compose one --composeId "$CMP_ID" --json | jq -r '(.domains // [])[].host')"
+  fi
+  [[ -n "$CMP_ID" ]] || CMP_ID="<COMPOSE_ID>"
+  for host in "${EDGE_HOSTS[@]}"; do
+    host="$host.$BASE_DOMAIN"
+    if grep -qxF "$host" <<<"$existing"; then
+      ok "domain $host exists"
+      continue
+    fi
+    # https off + certificateType none: Cloudflare terminates TLS; the zone id makes the fork create the DNS record.
+    mutate dokploy domain create --host "$host" --path / --port 80 --serviceName caddy --domainType compose \
+      --composeId "$CMP_ID" --certificateType none --cloudflareZoneId "$ZONE_ID" --json >/dev/null
+  done
 }
 
 do_registry() {
@@ -325,6 +402,10 @@ do_deploy() {
   [[ -n "$CMP_ID" ]] || CMP_ID="<COMPOSE_ID>"
   mutate dokploy compose deploy --composeId "$CMP_ID" --title "bootstrap" \
     --description "deploy/bootstrap.sh $(git -C "$ROOT" rev-parse --short HEAD 2>/dev/null || echo)" --json >/dev/null
+  if [[ "$EDGE_MODE" == "public" ]]; then
+    info "public edge: Traefik routes the Dokploy domains to caddy:80; no Tailscale Service to wait for"
+    return
+  fi
   if [[ $APPLY -eq 0 ]]; then
     info "(dry-run) would wait for endpoint ownerKey=compose:$CMP_ID:caddy to become ready and resolve its TailVIP"
     return
@@ -335,7 +416,27 @@ do_deploy() {
   info "next: add the <CADDY_SVC> grants to the tailnet policy (deploy/tailnet-policy.hujson)"
 }
 
+wait_for_health() {
+  for _ in $(seq 1 60); do
+    if curl -fsS --max-time 10 "https://app.$BASE_DOMAIN/api/health" >/dev/null 2>&1; then
+      ok "https://app.$BASE_DOMAIN/api/health"
+      return
+    fi
+    sleep 10
+  done
+  die "https://app.$BASE_DOMAIN/api/health not reachable ($1)"
+}
+
 do_dns() {
+  if [[ "$EDGE_MODE" == "public" ]]; then
+    step "DNS (public edge: records come from the Dokploy domains)"
+    if [[ $APPLY -eq 1 ]]; then
+      wait_for_health "Dokploy domain sync status? Traefik labels? docker logs caddy"
+    else
+      info "(dry-run) would wait for https://app.$BASE_DOMAIN/api/health"
+    fi
+    return
+  fi
   step "DNS → TailVIP"
   require_vars BASE_DOMAIN CLOUDFLARE_DNS_API_TOKEN
   if [[ -z "$CADDY_TAILVIP4" ]]; then
@@ -351,17 +452,7 @@ do_dns() {
   [[ $APPLY -eq 1 ]] && flag="--apply"
   CLOUDFLARE_DNS_API_TOKEN="$CLOUDFLARE_DNS_API_TOKEN" \
     "$ROOT/deploy/scripts/sync-dns.sh" "$flag" "$BASE_DOMAIN" "$CADDY_TAILVIP4" "${CADDY_TAILVIP6:-}"
-  if [[ $APPLY -eq 1 ]]; then
-
-    for _ in $(seq 1 60); do
-      if curl -fsS --max-time 10 "https://app.$BASE_DOMAIN/api/health" >/dev/null 2>&1; then
-        ok "https://app.$BASE_DOMAIN/api/health"
-        return
-      fi
-      sleep 10
-    done
-    die "https://app.$BASE_DOMAIN/api/health not reachable (certificate issuance? grants? docker logs caddy)"
-  fi
+  if [[ $APPLY -eq 1 ]]; then wait_for_health "certificate issuance? grants? docker logs caddy"; fi
 }
 
 server_jwks() {

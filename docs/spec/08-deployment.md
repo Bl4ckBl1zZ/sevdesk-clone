@@ -5,7 +5,7 @@
 
 ## 1. Target topology
 
-See [02-architecture.md §1](02-architecture.md#1-system-overview). **No public host.** Dokploy server: the owner's fork **`Bl4ckBl1zZ/dokploy` v0.41.1**; target: the Dokploy **remote server "Proxmox PVE"** (home, Germany → AO-06 satisfied). Dokploy project **`rechnungen`**, environment **`production`** (+ optional `staging` later for restore drills):
+See [02-architecture.md §1](02-architecture.md#1-system-overview). **No public host** — except in **public edge mode** (§12, owner decision 2026-10-18), which the deployed instance uses. Dokploy server: the owner's fork **`Bl4ckBl1zZ/dokploy` v0.41.1**; target: the Dokploy **remote server "Proxmox PVE"** (home, Germany → AO-06 satisfied). Dokploy project **`rechnungen`**, environment **`production`** (+ optional `staging` later for restore drills):
 
 | Dokploy resource | Type | Name | Tailnet exposure |
 |---|---|---|---|
@@ -498,3 +498,43 @@ pnpm e2e                                               # playwright (desktop, ip
 | Server confirmation: Dokploy remote server "Proxmox PVE", Germany | AO-06 |
 | GitHub repo (public/private) + GHCR; Tailscale OAuth client for CI (`tag:ci`) | CI/CD over the tailnet |
 | Optional: website server with a `tag:website` auth key | Website → REST API (05 §6.1) |
+
+## 12. Public edge mode (owner decision 2026-10-18)
+
+**Decision.** On 2026-10-18 the owner chose to publish the deployed instance on the public Dokploy/Cloudflare domain
+`8u9yhy8fewf.org` instead of Tailscale Services ("don't use tailscale, use the domain configured on Dokploy"). Reason:
+the Tailscale gateway of "Proxmox PVE" is still `pending_retag` (§2.1), and the owner wants the app reachable from every
+device without a Tailscale client. The tailnet edge (§1–§5) stays in the repository unchanged and can be switched back
+by setting `EDGE_MODE=tailnet`.
+
+**What changes** (`EDGE_MODE=public` in `.env.production`, `deploy/bootstrap.sh`):
+
+| | Tailnet edge (default) | Public edge |
+|---|---|---|
+| Compose file | `deploy/compose/docker-compose.yml` | `deploy/compose/docker-compose.public.yml` — identical except `caddy` |
+| Path | tailnet → socat → caddy:443 (TLS in Caddy, DNS-01 wildcard) | Cloudflare (TLS, Universal SSL `*.<zone>`) → the fork's Cloudflare tunnel of the server → Dokploy Traefik → caddy:80 |
+| Caddy config | `deploy/caddy/Caddyfile` | `deploy/caddy/Caddyfile.public` — plain HTTP `:80`, no ACME, **identical host routing** (app./api. path allowlist and cookie strip, convex-site. auth only, convex-dash. basic auth, unknown host → 421) |
+| Published | caddy `expose: [443, 8443]` | nothing (`expose`/`ports` forbidden for every service; Traefik reaches caddy via `dokploy-network`) |
+| DNS | `sync-dns.sh` → TailVIP | one Dokploy domain per host (`app`, `api`, `convex`, `convex-site`, `convex-dash`) → service `caddy`, port 80, https off, certificate none, `--cloudflareZoneId` → the fork creates the DNS record on the tunnel |
+| Inputs dropped | — | `CLOUDFLARE_DNS_API_TOKEN`, `ACME_EMAIL` (not written to the compose env) |
+| New inputs | — | `EDGE_MODE=public`, `CLOUDFLARE_ZONE_NAME` (zone in the Dokploy Cloudflare config) |
+| Website listener 8443 | yes | no (website → REST integration stays deferred) |
+
+`BASE_DOMAIN` must equal the zone (`app.8u9yhy8fewf.org`, one level below the zone): Universal SSL covers only
+`*.<zone>`; deeper hosts need an Advanced Certificate (preflight warns). The passkey RP ID is `BASE_DOMAIN`.
+
+**Still enforced:** every human signs in (Better Auth passkey / e-mail OTP, invite-only), every route, Server Action and
+Convex function checks session and role (SEC-01), Host-header validation (SEC-06), the api. allowlist, no client-IP
+based rate limiting (the tunnel hides client IPs; limits stay per API key / per e-mail).
+
+**No longer protected (accepted by the owner):** the network boundary. Anyone on the internet reaches the sign-in page,
+the Convex API (`convex.`, admin operations need the admin key), the Better Auth endpoints (`convex-site.`) and the
+Convex dashboard login (`convex-dash.`, basic auth + admin key). Recommended follow-ups: Cloudflare Access (one-time
+PIN for the owner's e-mail) in front of `convex-dash.` and optionally `app.`; Cloudflare WAF rate limiting on
+`/api/auth/*`.
+
+**Requirement coverage** (tests in `deploy/`): SEC-01 public compose lint (`compose-lint.test.ts`: nothing published,
+caddy runs `Caddyfile.public`, other services identical), SEC-01/SEC-06 identical routing and 421 fallback
+(`caddyfile.test.ts`), DSGVO-05/06 filtered access log (`caddyfile.test.ts`), SEC-01 bootstrap public mode — no
+Tailscale lookups, tunnel health gate, idempotent domains on the zone; SEC-06 token fields never printed
+(`bootstrap.test.ts`).

@@ -1,0 +1,172 @@
+# PUBLIC EDGE MODE app stack (08 §12, owner decision 2026-10-18) — ONE Dokploy compose resource "rechnungen" (raw
+# source, uploaded by deploy/bootstrap.sh with EDGE_MODE=public) on the remote server "Proxmox PVE".
+#
+# Path: Cloudflare (TLS, Universal SSL for *.${BASE_DOMAIN}) → the fork's Cloudflare tunnel of the server → Dokploy's
+# Traefik → caddy:80. bootstrap.sh creates one Dokploy domain per host (app./api./convex./convex-site./convex-dash.,
+# service caddy, port 80, https off, --cloudflareZoneId → DNS record on the tunnel). Dokploy adds the Traefik labels and
+# the dokploy-network to caddy at deploy time.
+#   * NO service declares `ports:` or `expose:` — the fork would otherwise try to publish it as a Tailscale Service
+#   * caddy runs deploy/caddy/Caddyfile.public (same host routing as the tailnet Caddyfile, plain HTTP, no ACME)
+#   * every other service is IDENTICAL to deploy/compose/docker-compose.yml (enforced by compose-lint.test.ts)
+# Enforced by `pnpm lint:deploy` (deploy/scripts/check-compose.ts, public rules for *.public.yml).
+#
+# All ${VARS} come from the Dokploy compose environment (`dokploy compose save-environment`, 08 §5.2); see
+# deploy/env/production.example. Convex flag gotcha: DO_NOT_REQUIRE_SSL, REDACT_LOGS_TO_CLIENT and DISABLE_BEACON are
+# switched ON by ANY non-empty value — never set them to "false"; delete the line instead (linted).
+
+# No top-level `name:` — Dokploy sets the project name (appName), which prefixes the volumes (<appName>_convex-data).
+
+x-logging: &logging
+  driver: json-file
+  options: { max-size: "20m", max-file: "5" }
+
+services:
+  caddy:
+    image: ${IMAGE_REGISTRY:?}/rechnungen-caddy:${CADDY_TAG:?}   # same image as the tailnet edge (contains both Caddyfiles)
+    command: ["caddy", "run", "--config", "/etc/caddy/Caddyfile.public", "--adapter", "caddyfile"]
+    restart: unless-stopped
+    environment:
+      - BASE_DOMAIN=${BASE_DOMAIN:?}
+      - CONVEX_DASH_BASIC_AUTH=${CONVEX_DASH_BASIC_AUTH:?}      # bcrypt hash (caddy hash-password); single-quote it in the env
+    volumes:
+      - caddy-data:/data
+      - caddy-config:/config
+    networks: [default]                                         # Dokploy adds dokploy-network (Traefik) for the domains
+    depends_on:
+      web: { condition: service_healthy }
+      backend: { condition: service_healthy }
+      dashboard: { condition: service_started }
+    logging: *logging
+
+  web:
+    image: ${IMAGE_REGISTRY:?}/rechnungen-web:${WEB_TAG:?}      # NEXT_PUBLIC_* baked in at build time (08 §5.1)
+    restart: unless-stopped
+    init: true
+    environment:
+      - NODE_ENV=production
+      - APP_ORIGIN=https://app.${BASE_DOMAIN:?}
+      - API_ORIGIN=https://api.${BASE_DOMAIN:?}
+      - CONVEX_URL_INTERNAL=http://backend:3210
+      - CONVEX_SITE_URL_INTERNAL=http://backend:3211
+      - JWT_PRIVATE_KEY_PEM=${JWT_PRIVATE_KEY_PEM:?}
+      - APP_ENCRYPTION_KEY=${APP_ENCRYPTION_KEY:?}
+      - EINVOICE_TOOLS_URL=http://einvoice-tools:8080
+      - LOG_LEVEL=${LOG_LEVEL:-info}
+      - APP_VERSION=${WEB_TAG:?}
+      - CONVEX_SHA=${CONVEX_SHA:?}                                # SET-130 / AUD-020: shown and checked on the system pages
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:3000/api/health').then(r=>process.exit(r.ok?0:1),()=>process.exit(1))"]
+      interval: 10s
+      timeout: 5s
+      start_period: 30s
+      retries: 3
+    networks: [default, tools]
+    depends_on:
+      backend: { condition: service_healthy }
+    logging: *logging
+
+  backend:
+    image: ghcr.io/get-convex/convex-backend:${CONVEX_SHA:?}    # pinned SHA, e.g. 72ce13c379fe6dbdfc305bc8ad699c5663c68c2a
+    restart: unless-stopped
+    stop_grace_period: 10s
+    stop_signal: SIGINT
+    volumes:
+      - convex-data:/convex/data                                # file storage (+ volume backup, 08 §7)
+    environment:
+      - INSTANCE_NAME=${INSTANCE_NAME:?}                        # "rechnungen" (pilot: "rechnungen-pilot") → DB rechnungen[_pilot]
+      - INSTANCE_SECRET=${INSTANCE_SECRET:?}                    # openssl rand -hex 32 (set explicitly!)
+      - CONVEX_CLOUD_ORIGIN=https://convex.${BASE_DOMAIN:?}
+      - CONVEX_SITE_ORIGIN=https://convex-site.${BASE_DOMAIN:?}  # = JWT issuer of Better Auth tokens
+      - POSTGRES_URL=postgresql://convex:${PG_PASSWORD:?}@postgres:5432   # no db name! (Convex appends INSTANCE_NAME)
+      - DO_NOT_REQUIRE_SSL=1                                    # compose network only
+      - REDACT_LOGS_TO_CLIENT=1
+      - DISABLE_BEACON=1
+      - RUST_LOG=info
+      - DOCUMENT_RETENTION_DELAY=172800
+    healthcheck:
+      test: curl -f http://localhost:3210/version
+      interval: 5s
+      timeout: 5s
+      start_period: 15s
+      retries: 6
+    networks: [default, db, tools]                              # default: egress (Cloudflare, R2, eVatR/VIES, Claude API)
+    depends_on:
+      postgres: { condition: service_healthy }
+      pg-init: { condition: service_completed_successfully }
+    logging: *logging
+
+  dashboard:
+    image: ghcr.io/get-convex/convex-dashboard:${CONVEX_SHA:?}  # SAME SHA as backend (linted)
+    restart: unless-stopped
+    environment:
+      - NEXT_PUBLIC_DEPLOYMENT_URL=https://convex.${BASE_DOMAIN:?}
+    networks: [default]
+    depends_on:
+      backend: { condition: service_healthy }
+    logging: *logging
+
+  postgres:
+    image: postgres:17.11
+    restart: unless-stopped
+    shm_size: 256mb
+    environment:
+      - POSTGRES_USER=convex
+      - POSTGRES_PASSWORD=${PG_PASSWORD:?}
+      - POSTGRES_DB=postgres
+    volumes:
+      - pg-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U convex -d postgres"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    networks: [db]                                              # internal network: no egress, no other services
+    logging: *logging
+
+  # One-shot: makes sure the database named after INSTANCE_NAME (dashes → underscores) exists before Convex starts.
+  # Replaces POSTGRES_DB=<instance> (which only runs on the very first init) so the pilot → go-live switch of
+  # INSTANCE_NAME (08 §8.1) works without manual SQL. Idempotent.
+  pg-init:
+    image: postgres:17.11
+    restart: "no"
+    environment:
+      - PGHOST=postgres
+      - PGUSER=convex
+      - PGPASSWORD=${PG_PASSWORD:?}
+      - INSTANCE_NAME=${INSTANCE_NAME:?}
+    entrypoint: ["sh", "-c"]
+    command:
+      - |
+        set -eu
+        db=$$(printf '%s' "$$INSTANCE_NAME" | tr '-' '_')
+        if psql -d postgres -tAc "SELECT 1 FROM pg_database WHERE datname = '$$db'" | grep -q 1; then
+          echo "database $$db exists"
+        else
+          createdb "$$db" && echo "created database $$db"
+        fi
+    networks: [db]
+    depends_on:
+      postgres: { condition: service_healthy }
+    logging: *logging
+
+  einvoice-tools:
+    image: ${IMAGE_REGISTRY:?}/rechnungen-einvoice-tools:${EIT_TAG:?}   # KoSIT 1.6.3 + XRechnung cfg 2026-08-31 + Mustang 2.26.0
+    restart: unless-stopped
+    init: true
+    environment:
+      - EINVOICE_TOOLS_VERSION=${EIT_TAG:?}
+    networks: [tools]                                           # internal network: reachable from web + backend only, no egress
+    logging: *logging
+
+networks:
+  default: {}
+  db:
+    internal: true
+  tools:
+    internal: true
+
+volumes:
+  caddy-data:
+  caddy-config:
+  convex-data:
+  pg-data:

@@ -38,3 +38,56 @@ describe("Caddyfile (08 §3.2)", () => {
     expect(snippet("security_headers")).toMatch(/Strict-Transport-Security "max-age=31536000"/);
   });
 });
+
+/** Public edge mode (08 §12): Cloudflare terminates TLS → tunnel → Traefik → caddy:80. Same routing as the tailnet edge. */
+const publicCaddyfile = readFileSync(join(import.meta.dirname, "Caddyfile.public"), "utf8");
+const sitesOf = (text: string) =>
+  text
+    .split("\n")
+    .filter((l) => /^\S.*\{\s*$/.test(l) && !l.startsWith("(") && !l.startsWith("{"))
+    .map((l) => l.replace(/\s*\{\s*$/, ""));
+/** The host routing of the first site block: from the first `@app host` matcher to the 421 fallback. */
+const routing = (text: string) => {
+  const start = text.indexOf("\t@app host");
+  const end = text.indexOf("respond 421", start);
+  return text
+    .slice(start, end)
+    .replace(/^\s*#.*$/gm, "")
+    .replace(/\s+/g, " ");
+};
+
+describe("Caddyfile.public (08 §12, public edge mode)", () => {
+  test("SEC-01 one plain-HTTP site on :80 behind Cloudflare/Traefik; no ACME, no website listener", () => {
+    expect(sitesOf(publicCaddyfile)).toEqual([":80"]);
+    const directives = publicCaddyfile.replace(/^\s*#.*$/gm, "");
+    expect(directives).not.toMatch(/acme_dns|ACME_EMAIL|CLOUDFLARE_DNS_API_TOKEN|:8443|:443|\btls\b/);
+    expect(publicCaddyfile).toMatch(/auto_https off/);
+    expect(publicCaddyfile).toMatch(/admin off/);
+  });
+
+  test("SEC-01 SEC-06 the host routing is identical to the tailnet edge (allowlists, cookie strip, dash auth, 421)", () => {
+    const route = routing(publicCaddyfile);
+    expect(route.length).toBeGreaterThan(500);
+    expect(route).toBe(routing(caddyfile));
+    for (const host of ["app", "api", "convex", "convex-site", "convex-dash"]) {
+      expect(route).toContain(`host ${host}.{$BASE_DOMAIN}`);
+    }
+    expect(route).toContain("request_header -Cookie");
+    expect(route).toContain("owner {$CONVEX_DASH_BASIC_AUTH}");
+    expect(route).toMatch(
+      /@machine_api path \/api\/v1 \/api\/v1\/\* \/api\/mcp \/api\/mcp\/\* handle @machine_api \{ respond 404/,
+    );
+    expect(publicCaddyfile).toMatch(/handle \{\s*respond 421\s*\}/);
+  });
+
+  test("DSGVO-06 DSGVO-05 the public site logs through the filtered snippet and keeps HSTS", () => {
+    const snip = (name: string) => {
+      const start = publicCaddyfile.indexOf(`(${name}) {`);
+      return publicCaddyfile.slice(start, publicCaddyfile.indexOf("\n}\n", start));
+    };
+    expect(snip("access_log")).toBe(snippet("access_log"));
+    expect(snip("security_headers")).toBe(snippet("security_headers"));
+    expect(publicCaddyfile.match(/import access_log/g)?.length).toBe(1);
+    expect(publicCaddyfile.match(/^\s*log \{/gm)?.length).toBe(1);
+  });
+});

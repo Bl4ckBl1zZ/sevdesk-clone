@@ -171,13 +171,14 @@ jobs:
         run: |
           shellcheck --version
           shellcheck -x deploy/bootstrap.sh deploy/scripts/*.sh services/einvoice-tools/scripts/*.sh scripts/*.sh
-      - name: docker compose config (prod with dummy env, dev)
+      - name: docker compose config (prod tailnet + public edge with dummy env, dev)
         run: |
           set -a
           # every variable of the env template, dummy value
           eval "$(sed -n 's/^\([A-Z_][A-Z0-9_]*\)=.*/\1=x/p' deploy/env/production.example)"
           set +a
           docker compose -f deploy/compose/docker-compose.yml config --quiet
+          docker compose -f deploy/compose/docker-compose.public.yml config --quiet
           docker compose -f deploy/compose.dev.yml config --quiet
       - name: Caddyfile.dev validates (stock caddy)
         run: |
