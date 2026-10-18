@@ -541,7 +541,8 @@ do_backups() {
   else
     mutate dokploy backup create --backupType compose --composeId "$CMP_ID" --serviceName postgres \
       --databaseType postgres --database "$PG_DATABASE" --destinationId "$DEST_ID" --schedule "0 3 * * *" \
-      --prefix "postgres/" --keepLatestCount 30 --enabled --json >/dev/null
+      --prefix "postgres/" --keepLatestCount 30 --metadata '{"postgres":{"databaseUser":"convex"}}' --enabled \
+      --json >/dev/null   # without metadata.postgres.databaseUser Dokploy's pg_dump call fails
   fi
 
   # 2. Convex file storage volume, weekly. Volume name = <appName>_convex-data (Dokploy project name prefix).
