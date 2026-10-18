@@ -154,16 +154,83 @@
   },
   "pages": {
     "start": {
-      "title": "Start",
-      "description": "Überblick über Forderungen, Umsatz und Aufgaben",
+      "title": "Übersicht",
+      "description": "Ergebnis, offene Rechnungen, Bank und Aufgaben auf einen Blick",
       "empty": "Sobald Rechnungen und Belege erfasst sind, erscheinen hier Kennzahlen und Aufgaben.",
-      "action": "Einrichtung fortsetzen",
-      "widgets": {
-        "receivables": "Offene Forderungen",
-        "revenue": "Umsatz",
-        "todos": "Aufgaben",
-        "activity": "Letzte Aktivität",
-        "noData": "Noch keine Daten"
+      "greeting": "Herzlich Willkommen",
+      "greetingNamed": "Herzlich Willkommen, {name}",
+      "loading": "Übersicht wird geladen …",
+      "quickActions": {
+        "label": "Schnellzugriff",
+        "invoice": "Rechnung schreiben",
+        "expense": "Ausgabe hochladen",
+        "match": "Zahlungen zuordnen",
+        "ustva": "UStVA vorbereiten"
+      },
+      "result": {
+        "title": "Gewinn vor Steuern",
+        "income": "Einnahmen",
+        "expense": "Ausgaben",
+        "footer": "Letzte 12 Monate",
+        "hint": "Vorläufig laut Journal (Buchungsdatum), nicht die EÜR.",
+        "empty": "In den letzten 12 Monaten gibt es noch keine Buchungen.",
+        "chartLabel": "Einnahmen und Ausgaben je Monat, letzte 12 Monate",
+        "tableCaption": "Einnahmen und Ausgaben je Monat",
+        "month": "Monat",
+        "profit": "Gewinn"
+      },
+      "receivables": {
+        "title": "Ausstehende Rechnungen",
+        "total": "Ausstehender Betrag",
+        "overdue": "Fällig",
+        "open": "Offen",
+        "partiallyPaid": "Teilbezahlt",
+        "rowLabel": "{label}: {count, plural, one {# Rechnung} other {# Rechnungen}}, {amount}",
+        "create": "Rechnung schreiben"
+      },
+      "ku": {
+        "title": "Kleinunternehmergrenze",
+        "turnover": "Umsatz {year}",
+        "limit": "Umsatzsteuerpflicht {limit}",
+        "progressLabel": "Umsatz {year}: {percent} % der Grenze von {limit}",
+        "explanation": "Als Kleinunternehmer stellen Sie Rechnungen ohne Umsatzsteuer, solange Ihr Umsatz im Vorjahr höchstens {prior} betrug und im laufenden Jahr {current} nicht überschreitet. Die Rechnung, mit der die Grenze überschritten wird, und alle folgenden enthalten Umsatzsteuer.",
+        "foundingYear": "Im Gründungsjahr gilt die Grenze von {founding}.",
+        "noRule": "Für {year} ist noch keine Umsatzgrenze hinterlegt.",
+        "warn": "Grenze zu {percent} % erreicht",
+        "exceeded": "Grenze überschritten – bitte Steuerstatus prüfen"
+      },
+      "bank": {
+        "title": "Bank",
+        "total": "Gesamtsaldo",
+        "missingBalance": "{count, plural, one {Ein Konto} other {# Konten}} ohne Kontoauszug-Saldo",
+        "latest": "Letzte Umsätze",
+        "noTransactions": "Noch keine Umsätze vorhanden.",
+        "empty": "Noch kein Bankkonto angelegt.",
+        "addAccount": "Bankkonto hinzufügen",
+        "all": "Alle Zahlungen anzeigen"
+      },
+      "matching": {
+        "title": "Zuordnungsquote",
+        "scaleLabel": "Zuordnungsquote {percent} %",
+        "low": "Ausbaufähig",
+        "medium": "Gut",
+        "complete": "Vollständig",
+        "unassigned": "Zahlungen ohne Zuordnung: {count}",
+        "action": "Zuordnen",
+        "explanation": "Anteil Ihrer Bankumsätze, die einer Rechnung, Zahlung oder Buchung zugeordnet sind. Ignorierte Umsätze zählen nicht mit.",
+        "empty": "Noch keine Bankumsätze vorhanden."
+      },
+      "topCustomers": {
+        "title": "Top 5 Kunden",
+        "period": "Letzte 3 Monate, nach Rechnungsbetrag",
+        "empty": "In diesem Zeitraum sind keine Daten vorhanden."
+      },
+      "activity": {
+        "title": "Verlauf",
+        "empty": "Noch keine Aktivitäten vorhanden."
+      },
+      "todos": {
+        "title": "Aufgaben"
       }
     },
     "angebote": {

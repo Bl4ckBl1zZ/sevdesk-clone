@@ -613,6 +613,12 @@
     "wrapper": "action",
     "permission": "documents.read"
   },
+  "dashboard:overview": {
+    "kind": "query",
+    "visibility": "public",
+    "wrapper": "query",
+    "permission": "dashboard.read"
+  },
   "documentArtifacts:exportFiles": {
     "kind": "action",
     "visibility": "public",

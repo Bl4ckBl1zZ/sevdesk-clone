@@ -208,19 +208,32 @@ A three-column triage on desktop: **list** (sources: E-Mail, Upload, App, E-Rech
 
 Each card pairs a transaction with its best match(es): score, reason chips ("Rechnungsnr. im Verwendungszweck", "Betrag exakt", "IBAN bekannt"). Actions: ✓ Bestätigen, ✗ Ablehnen, ↔ Andere wählen, + Neuer Beleg, Privat, Geldtransit. "Alle sicheren bestätigen" applies to matches with score ≥ 0.95.
 
-### 4.7 Dashboard (Start)
+### 4.7 Dashboard (Übersicht)
 
-Widgets in a responsive grid (container queries; one column on mobile):
+Replicates sevdesk's „Übersicht“ (observed 2026-10-18, desktop) — **reason for the change: sevdesk parity, owner request 2026-10-18**; replaces the earlier widget list (Offene Forderungen / Umsatz / Liquidität / Steuer-Rücklage / KU / To-dos / Letzte Aktivität). One read `dashboard.overview` (`convex/dashboard.ts`, permission `dashboard.read`) returns a plain view model; the arithmetic is pure in `src/domain/reports/dashboard.ts` and `src/domain/audit/describe.ts`. Layout top to bottom, container queries on `@container/main` (one column on phones, sevdesk layout from `@3xl/main`):
 
-| Widget | Content |
-|---|---|
-| Offene Forderungen | total open, overdue (red), due within 7 days; tap → filtered list |
-| Umsatz | this month vs last month vs same month last year; 12-month bar chart |
-| Liquidität | bank balances + 90-day forecast line (P3) |
-| Steuer-Rücklage | next UStVA estimate + income-tax reserve suggestion (P3) |
-| Kleinunternehmer-Grenze | progress bars 25k / 100k (only if KU) |
-| To-dos | unbooked receipts > 10 days, unmatched transactions, quotes expiring, drafts older than 7 days, E-Rechnung validation failures, compliance warnings (missing company data) |
-| Letzte Aktivität | audit stream incl. API/MCP actors |
+1. Heading „Herzlich Willkommen, {Vorname}“ (no subtitle).
+2. Four quick-action tiles (links): „Rechnung schreiben“ `/rechnungen/neu`, „Ausgabe hochladen“ `/posteingang`, „Zahlungen zuordnen“ `/bank/zuordnungen`, „UStVA vorbereiten“ `/steuern/ustva`; 2 × 2 on phones.
+3. Full-width „Gewinn vor Steuern“ with Einnahmen (blue) / Ausgaben (red), a 12-month grouped column chart and the footer „Letzte 12 Monate“.
+4. Widget grid (2 columns from `@3xl/main`, cards flow so a hidden card's slot is taken by the next one): „Ausstehende Rechnungen“, „Kleinunternehmergrenze“ (only if KU), „Bank“, „Zuordnungsquote“, „Top 5 Kunden“, „Verlauf“, „Aufgaben“.
+
+| ID | Requirement | Priority | Phase |
+|---|---|---|---|
+| DASH-001 | Greeting „Herzlich Willkommen, {Vorname}“: first word of `members.name` (copied from the Better Auth user at sign-up); if the name is empty, contains „@“ or equals the e-mail → the e-mail local part; else „Herzlich Willkommen“ alone. The heading is the page's `h1#page-title` (also rendered while loading) | MUST | P1 |
+| DASH-002 | Four quick-action tiles (bordered cards, icon top-left, bold label) as links; tiles for acts the role may not perform are hidden (Rechnung schreiben / Ausgabe hochladen: `documents.write`, Zahlungen zuordnen: `banking.match`, UStVA vorbereiten: `accounting.read`) | MUST | P1 |
+| DASH-003 | „Gewinn vor Steuern“ = Einnahmen − Ausgaben over the months shown: **posted journal lines by entry date** (`journalLines.date`), Einnahmen = Σ(credit − debit) on accounts of type `revenue`, Ausgaben = Σ(debit − credit) on type `expense`, account types from the chart seed valid on today (rule data `src/domain/rules/accounting`, SKR03/SKR04). Labelled „Vorläufig laut Journal (Buchungsdatum), nicht die EÜR“: the EÜR cash-basis figures need payment allocations (F08 §4.4, TAX-015, P3). Window: 12 calendar months ending with the current month (`Nov 25 … Okt 26` on 2026-10-18; German month abbreviations as fixed data). A Storno nets its month; a negative month draws no bar but keeps its value in the table. Plain CSS columns (no chart library), `role="img"` with a label plus a visually hidden table Monat/Einnahmen/Ausgaben/Gewinn; empty text „In den letzten 12 Monaten gibt es noch keine Buchungen.“ | MUST | P1 |
+| DASH-004 | „Ausstehende Rechnungen“: grey box „Ausstehender Betrag“ = Σ open amount of open items (F05 PAY-001, `openItemsAsOf(today)`) with a positive EUR open amount (open refunds and other currencies excluded); three **disjoint** rows with count pill, label, amount and chevron link: „Fällig“ (past due, also when partially paid) → `/rechnungen?status=overdue`, „Offen“ (not due, nothing paid) → `/rechnungen?status=open`, „Teilbezahlt“ (not due, partially paid) → `/rechnungen?status=open` (the list has no partially-paid filter; its „Offen“ tab is a superset); the rows sum to the box; footer button „Rechnung schreiben“ (`documents.write`) | MUST | P1 |
+| DASH-005 | „Kleinunternehmergrenze“ only if the company is KU on today (`companyProfile.kleinunternehmer` history): grey box „Umsatz {Jahr}“ = Σ gross of finalised, not cancelled invoices (type `invoice`) dated in the current year — the same sum as the finalise-time KU check (KU-01; for a KU gross = net); progress bar against the limit of `kleinunternehmer_limits` valid on today via `lookupRule` (founding-year limit if `foundedOn` is in the current year, else the current-year limit; levels from `warnAtBp`), label „Umsatzsteuerpflicht {Grenze}“ and the explanation built from the prior- and current-year limits of the same row; no row → „Für {Jahr} ist noch keine Umsatzgrenze hinterlegt.“ (never a literal amount) | MUST | P1 |
+| DASH-006 | „Bank“: „Gesamtsaldo“ = Σ closing balance of the latest (not rolled back) statement of the active EUR bank accounts (what `/bank` shows); accounts without a statement balance are named („1 Konto ohne Kontoauszug-Saldo“); the latest 4 transactions of those accounts (not `ignored`) with counterparty (else purpose), date and signed amount; link „Alle Zahlungen anzeigen“ → `/bank`; no account → „Noch kein Bankkonto angelegt.“ + „Bankkonto hinzufügen“ | MUST | P1 |
+| DASH-007 | „Zuordnungsquote“ (our „Buchhaltungsscore“): assigned (`matched`, `booked`, `private`, `transfer`) / all bank transactions except `ignored`, floored to whole percent (100 % only when nothing is unassigned); 3-colour scale < 85 red, 85–99 amber, 100 green (UI heuristic, not legal data) with level text and icon; „Zahlungen ohne Zuordnung: {n}“ (`open` + `partially_matched`); button „Zuordnen“ → `/bank/zuordnungen` (`banking.match`); one explanatory sentence; no transactions → „Noch keine Bankumsätze vorhanden.“ | MUST | P1 |
+| DASH-008 | „Top 5 Kunden“: the five contacts with the highest **invoiced payable amount** (`totals.payableCents`, so advance/final chains are not counted twice) of finalised invoices (`invoice`, `advance_invoice`, `partial_invoice`, `final_invoice`; status `finalized`/`sent`; EUR) with document date in (today − 3 months, today]; cancelled invoices and Storno documents excluded (the pair nets to zero), Rechnungskorrekturen not yet netted; ties by name; Σ ≤ 0 omitted; ranked list; empty text „In diesem Zeitraum sind keine Daten vorhanden.“ | MUST | P1 |
+| DASH-009 | „Verlauf“: the latest 5 business acts from the audit log as German lines („RE-2026-0001 fertiggestellt“, „Zahlung zu RE-2026-0001 erfasst“) with timestamp (Europe/Berlin) and actor shown by role or channel (Inhaber, Buchhaltung, API, KI-Assistent (MCP), System) — never e-mail, IP or diff; technical entries (artifact pipeline, sign-ins, integrity runs, auditor access, journal postings, notifications) are skipped and repeats of the same act on the same entity shown once; only for roles with `audit.read` (currently all) | MUST | P1 |
+| DASH-010 | „Aufgaben“: the existing to-do list (F04 SND-21, REC-16) stays as the last card — sevdesk has none, but the export/send to-dos are part of the invoice workflow | MUST | P1 |
+| DASH-011 | `dashboard.read` for every member role (owner, bookkeeper, viewer, auditor), not grantable to API keys; each widget is additionally gated by the read permission of its data (`accounting.read`, `payments.read`, `documents.read`, `banking.read`, `audit.read`) and is `null`/hidden otherwise | MUST | P1 |
+
+Open questions for the owner: sevdesk's chart labels read „Okt 25 … Okt 26“ (13 months incl. the current one) while its footer says „Letzte 12 Monate“ — we show 12 (`DASHBOARD_MONTHS`). Top 5 Kunden by invoiced amount (sevdesk-like „Umsatz“) rather than by payments received.
+
+Follow-ups: „Top 5 Ausgaben“ and „Produkte & Dienstleistungen“ (need purchase vouchers, F06); a „Teilbezahlt“ filter in the invoice list; Rechnungskorrekturen in Top 5 Kunden; cash-basis Einnahmen/Ausgaben once payment allocations exist (TAX-015); liquidity forecast, tax reserve and the 800k monitors (RPT-002, P3).
 
 ### 4.8 Settings
 

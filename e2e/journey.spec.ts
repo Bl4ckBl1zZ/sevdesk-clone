@@ -118,12 +118,12 @@ test("SET-002 SET-003 SET-004 the wizard saves every step on the server and comp
   await noAxeViolations(page);
   await page.getByRole("button", { name: "Einrichtung abschließen" }).click();
   await expect(page).toHaveURL(/\/$/, { timeout: 20_000 });
-  await expect(page.getByRole("heading", { level: 1, name: "Start" })).toBeVisible();
+  await expect(page.getByRole("heading", { level: 1, name: /^Herzlich Willkommen/ })).toBeVisible();
 });
 
 test("SET-003 SET-008 after a reload the data is persisted and the wizard is no longer forced", async () => {
   await page.reload();
-  await expect(page.getByRole("heading", { level: 1, name: "Start" })).toBeVisible();
+  await expect(page.getByRole("heading", { level: 1, name: /^Herzlich Willkommen/ })).toBeVisible();
   await page.goto("/einstellungen/unternehmen");
   await expect(page.getByLabel(/Firma bzw\. vollständiger Name/)).toHaveValue("Erika Musterfrau", { timeout: 20_000 });
   await expect(page.getByLabel(/^Ort/)).toHaveValue("Berlin");
@@ -195,7 +195,7 @@ test("SEC-01 the owner signs out and back in with the passkey", async () => {
   await expect(page.getByText(/Ersteinrichtung/)).toHaveCount(0);
   await page.getByRole("button", { name: "Mit Passkey anmelden" }).click();
   await expect(page).toHaveURL(/\/$/, { timeout: 20_000 });
-  await expect(page.getByRole("heading", { level: 1, name: "Start" })).toBeVisible();
+  await expect(page.getByRole("heading", { level: 1, name: /^Herzlich Willkommen/ })).toBeVisible();
 });
 
 test("SEC-01 an uninvited address gets the neutral answer and no code (E-AUD-26)", async ({ browser }, testInfo) => {
@@ -217,7 +217,7 @@ test("SEC-01 the invited bookkeeper signs in with a code and has no access to th
   await signInWithCode(p, "buchhaltung@example.test");
   await expect(p).toHaveURL(/\/anmelden\/passkey-einrichten/, { timeout: 20_000 });
   await p.getByRole("link", { name: "Später" }).click();
-  await expect(p.getByRole("heading", { level: 1, name: "Start" })).toBeVisible({ timeout: 20_000 });
+  await expect(p.getByRole("heading", { level: 1, name: /^Herzlich Willkommen/ })).toBeVisible({ timeout: 20_000 });
   await p.goto("/einrichtung");
   await expect(p.getByText("Ihre Rolle (Buchhaltung) erlaubt diese Aktion nicht.")).toBeVisible();
   await p.goto("/einstellungen/mitglieder");
