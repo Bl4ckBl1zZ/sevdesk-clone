@@ -1,0 +1,6 @@
+﻿"Rechnungs-Nr.";"Rechnungs-Datum";"Fällig am";"Bezahlt am";"Betreff";"Gesamtbetrag-Netto";"Gesamtbetrag-Brutto";"offener Betrag";"Empfänger-KdNr";"Empfänger-Adresse";"Empfänger-Land";"Empfänger-IBAN";"Empfänger-BIC";"";
+RE-5004;15.09.2026;29.09.2026;;Rechnung Nr. RE-5004;556,00;556,00;556,00;1000;Muster Handel UG Max Muster Hauptstraße 1 10115 Berlin;Deutschland;;;BP-0001
+RE-5003;12.08.2026;26.08.2026;;Stornorechnung Nr. RE-5003 zur Rechnung Nr. RE-5002;-514,00;-514,00;0,00;1000;Muster Handel UG Hauptstraße 1 10115 Berlin;Deutschland;;;
+RE-5002;29.07.2026;12.08.2026;;Rechnung Nr. RE-5002;514,00;514,00;0,00;1000;Muster Handel UG Hauptstraße 1 10115 Berlin;Deutschland;;;
+RE-5001;26.06.2026;14.07.2026;01.07.2026;Rechnung Nr. A-77;1.548,80;1.548,80;0,00;1001;Société Exemple SARL Marie Exemple 1 Rue de Test 75001 Paris;Frankreich;;;A-77
+RE-5000;10.06.2026;30.06.2026;11.06.2026;Rechnung Nr. RE-5000;998,30;998,30;0,00;1000;Muster Handel UG Max Muster Hauptstraße 1 10115 Berlin;Deutschland;;;

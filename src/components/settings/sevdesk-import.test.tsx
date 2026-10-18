@@ -15,7 +15,12 @@ import {
 } from "@/domain/import/sevdesk/preview";
 import type { CalendarDate } from "@/domain/time/calendar-date";
 import { renderWithIntl } from "@/i18n/test-utils";
-import { sevdeskFixtureBytes, sevdeskPdfNames } from "../../../test/fixtures/sevdesk-export/load";
+import {
+  sevdeskFixtureBytes,
+  sevdeskPdfNames,
+  sevdeskVerifiedBytes,
+  sevdeskVerifiedPdfNames,
+} from "../../../test/fixtures/sevdesk-export/load";
 import { SevdeskImport } from "./sevdesk-import";
 
 const backend = vi.hoisted(() => ({
@@ -58,13 +63,21 @@ const local: LocalImportState = {
 };
 
 /** The import workspace as `imports:get` returns it, built from the synthetic export set (F09 TST-IMP-16). */
-function workspace(resolutions: ImportResolutions = {}, status = "previewed") {
-  const names = ["kontakte.csv", "artikel.csv", "rechnungen.csv", ...sevdeskPdfNames().map((n) => `pdf/${n}`)];
+function workspace(
+  resolutions: ImportResolutions = {},
+  status = "previewed",
+  set: "alternate" | "verified" = "alternate",
+) {
+  const names =
+    set === "verified"
+      ? ["contacts.csv", "18-10-2026_part.csv", "invoices.csv", ...sevdeskVerifiedPdfNames().map((n) => `pdf/${n}`)]
+      : ["kontakte.csv", "artikel.csv", "rechnungen.csv", ...sevdeskPdfNames().map((n) => `pdf/${n}`)];
+  const bytesOf = set === "verified" ? sevdeskVerifiedBytes : sevdeskFixtureBytes;
   const files: ImportFileInput[] = [];
   const mappings: Record<string, FileMappingInput> = {};
   const viewFiles = names.map((path, i) => {
     const name = path.replace(/^pdf\//, "");
-    const bytes = sevdeskFixtureBytes(path);
+    const bytes = bytesOf(path);
     const info = inspectFile(name, bytes);
     const id = `f${i}`;
     files.push({ id, name, sha256: `sha-${name}`, kind: info.kind, ...(info.table ? { table: info.table } : {}) });
@@ -235,6 +248,22 @@ describe("F09 sevdesk-Import (/einstellungen/import)", () => {
     await userEvent.click(screen.getByRole("button", { name: /^Hinweise \(/ }));
     expect(screen.getByRole("button", { name: /^Hinweise \(/ })).toHaveAttribute("aria-pressed", "true");
     expect(screen.queryByText("E-IMP-22")).toBeNull();
+  });
+
+  test("IMP-009 an excluded row with a parse error (0 % article, E-IMP-16) no longer counts as an error", () => {
+    // Without Kleinunternehmer status the verified export's two 0 % articles are ambiguous; the owner excludes one.
+    const first = workspace({}, "previewed", "verified");
+    const parseErrors = first.preview?.findings.filter((f) => f.code === "E-IMP-16") ?? [];
+    expect(parseErrors).toHaveLength(2);
+    setWorkspace(workspace({ excluded: [parseErrors[0]?.rowRef as string] }, "previewed", "verified"));
+    renderWithIntl(<SevdeskImport canRun canCommit />);
+    // 5 invoices after the Buchungsbeginn 2026-06-01 (E-IMP-10) + the article still included; the excluded one is
+    // still listed (dimmed) so it can be taken back in, but no longer counted.
+    expect(screen.getByRole("button", { name: /^Fehler \(/ })).toHaveTextContent("Fehler (6)");
+    const excludedRow = screen.getByRole("button", { name: "Wieder aufnehmen" }).closest("tr");
+    expect(excludedRow).toHaveTextContent("Ausgeschlossen");
+    expect(excludedRow?.className).not.toMatch(/opacity/); // dimming broke the WCAG AA contrast (axe)
+    expect(screen.getAllByRole("button", { name: "Wieder aufnehmen" })).toHaveLength(1);
   });
 
   test("IMP-019 E-IMP-07 commit stays blocked by errors and needs a reason for missing PDFs; it sends the preview hash and the confirmed ranges", async () => {

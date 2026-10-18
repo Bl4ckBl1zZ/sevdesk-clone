@@ -5,17 +5,18 @@ import { ownerStorageState } from "./backend";
 import { expect, test } from "./fixtures";
 
 /**
- * sevdesk file-export import (F09 P1, TST-IMP-16 through the UI): upload the synthetic export set
- * (test/fixtures/sevdesk-export), check the detected kinds, build the preview, resolve the ambiguous PDF (E-IMP-22),
- * confirm the missing-PDF reason (E-IMP-07) and the number-range continuation, commit as owner. Needs the backend
- * journey (owner with completed setup), like e2e/kontoauszug-bank.spec.ts. The wizard targets the desktop; phones
- * show the read-only hint (F09 §6), so the commit flow runs on the desktop project only. Open fixture invoices would
- * become F08 opening receivables (IMP-007), which needs a Buchungsbeginn; the journey has none (and can no longer set
- * one), so they are excluded and the commit archives the settled invoices. IMP-007 itself is covered in
- * convex/imports.test.ts.
+ * sevdesk file-export import (F09 P1, TST-IMP-16 through the UI): upload a synthetic export set in the layout of real
+ * sevdesk exports (test/fixtures/sevdesk-export-verified: double-BOM contacts, the invoice list without type/status/tax
+ * columns, the part list, PDFs named like sevdesk's ZIP), check the detected kinds, build the preview, exclude blocked
+ * rows, confirm the number-range continuation, commit as owner. Needs the backend journey (owner with completed setup),
+ * like e2e/kontoauszug-bank.spec.ts. The wizard targets the desktop; phones show the read-only hint (F09 §6), so the
+ * commit flow runs on the desktop project only. The open fixture invoice would become an F08 opening receivable
+ * (IMP-007), which needs a Buchungsbeginn; the journey has none (and can no longer set one), so it is excluded; 0 %
+ * articles are ambiguous unless the company is Kleinunternehmer today (EC-202) and are excluded too. IMP-007 and
+ * EC-202 are covered in convex/imports.test.ts.
  */
 const STATE = (project: string) => `test-results/.auth/owner-${project}-sevdesk-import.json`;
-const FIXTURES = join(import.meta.dirname, "../test/fixtures/sevdesk-export");
+const FIXTURES = join(import.meta.dirname, "../test/fixtures/sevdesk-export-verified");
 let ready = false;
 
 test.beforeAll(async ({ browser }, testInfo) => {
@@ -67,14 +68,15 @@ test("TST-IMP-16 IMP-009 IMP-019 upload, preview with per-row errors, resolve, c
   await page
     .getByLabel("Dateien auswählen")
     .setInputFiles([
-      join(FIXTURES, "kontakte.csv"),
-      join(FIXTURES, "artikel.csv"),
-      join(FIXTURES, "rechnungen.csv"),
+      join(FIXTURES, "contacts.csv"),
+      join(FIXTURES, "18-10-2026_part.csv"),
+      join(FIXTURES, "invoices.csv"),
       ...pdfs,
     ]);
-  await expect(page.getByLabel("Dateiart: rechnungen.csv")).toHaveValue("invoices", { timeout: 30_000 });
-  await expect(page.getByLabel("Dateiart: kontakte.csv")).toHaveValue("contacts");
-  await expect(page.getByRole("heading", { name: "2. Spaltenzuordnung: rechnungen.csv" })).toBeVisible();
+  await expect(page.getByLabel("Dateiart: invoices.csv")).toHaveValue("invoices", { timeout: 30_000 });
+  await expect(page.getByLabel("Dateiart: contacts.csv")).toHaveValue("contacts");
+  await expect(page.getByLabel("Dateiart: 18-10-2026_part.csv")).toHaveValue("products");
+  await expect(page.getByRole("heading", { name: "2. Spaltenzuordnung: invoices.csv" })).toBeVisible();
   await expectNoAxeViolations();
 
   await page.getByRole("button", { name: "Vorschau erstellen" }).click();
@@ -92,24 +94,23 @@ test("TST-IMP-16 IMP-009 IMP-019 upload, preview with per-row errors, resolve, c
     await expect(counts).toBeVisible({ timeout: 30_000 });
   };
 
-  // The journey posts the opening cash balance without a Buchungsbeginn, which freezes it (E-ACC-14). Every open
-  // fixture invoice is therefore blocked as an opening item (E-IMP-34, or E-IMP-10/35 on other accounts): exclude them.
-  const blocked = page.getByRole("row").filter({ hasText: /E-IMP-(10|34|35)(?!\d)/ });
-  for (let n = await blocked.count(); n > 0; n--) {
+  // The journey posts the opening cash balance without a Buchungsbeginn, which freezes it (E-ACC-14). The open fixture
+  // invoice is therefore blocked as an opening item (E-IMP-34, or E-IMP-10/35 on other accounts); 0 % articles are
+  // ambiguous outside the Kleinunternehmer regime (E-IMP-16): exclude them.
+  // The error filter is active: every row with an exclude button is an error row. Cell texts run together („E-IMP-16“
+  // + „18-10-2026_part.csv:2“), so the code is checked without a digit look-ahead.
+  const blocked = page
+    .getByRole("row")
+    .filter({ has: page.getByRole("button", { name: "Zeile ausschließen" }) })
+    .filter({ hasText: /E-IMP-(10|16|34|35)/ });
+  const errors = page.getByRole("button", { name: /^Fehler \(\d+\)/ });
+  await expect(errors).toBeVisible({ timeout: 30_000 });
+  for (let n = Number(/\((\d+)\)/.exec(await errors.innerText())?.[1]); n > 0; n--) {
+    await expect(blocked.first()).toBeVisible({ timeout: 30_000 });
     await excludeAndPreview(blocked.first());
-    await expect(blocked).toHaveCount(n - 1, { timeout: 30_000 });
+    await expect(errors).toHaveText(new RegExp(`^Fehler \\(${n - 1}\\)`), { timeout: 30_000 });
   }
 
-  // E-IMP-22 (only while RE-1005/RE-1006 are still importable): one PDF names two invoices — assign it to the first,
-  // exclude the second row.
-  const ambiguous = page.getByRole("row").filter({ hasText: "E-IMP-22" });
-  if ((await ambiguous.count()) > 0) {
-    await ambiguous.first().getByRole("combobox").selectOption({ label: "RE-1005_RE-1006.pdf" });
-    await expect(stale).toBeVisible({ timeout: 30_000 });
-    await page.getByRole("button", { name: "Vorschau erstellen" }).click();
-    await expect(stale).toBeHidden({ timeout: 30_000 });
-    for (let n = await ambiguous.count(); n > 0; n--) await excludeAndPreview(ambiguous.first());
-  }
   await expect(page.getByRole("button", { name: /^Fehler \(0\)/ })).toBeVisible({ timeout: 30_000 });
   await expectNoAxeViolations();
 
@@ -123,5 +124,5 @@ test("TST-IMP-16 IMP-009 IMP-019 upload, preview with per-row errors, resolve, c
   await expect(page.getByText(/^Import übernommen:/).first()).toBeVisible({ timeout: 60_000 });
 
   await page.goto("/rechnungen");
-  await expect(page.getByRole("link", { name: /RE-1001/ }).first()).toBeVisible();
+  await expect(page.getByRole("link", { name: /RE-5000/ }).first()).toBeVisible();
 });

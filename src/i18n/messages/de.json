@@ -3653,6 +3653,7 @@
     "action": "Aktion",
     "exclude": "Zeile ausschließen",
     "include": "Wieder aufnehmen",
+    "excludedRow": "Ausgeschlossen",
     "choosePdf": "PDF zuordnen",
     "enterOpen": "Offener Betrag (EUR)",
     "saveOpen": "Betrag speichern",

@@ -1,7 +1,8 @@
 # Synthetic sevdesk export set (F09 TST-IMP-16)
 
-Synthetic data only — no real persons or companies. Every header, status label and file name here is a guess
-(SEVDESK-LAYOUT-UNSURE, F09 §4.3 open item 9) and is replaced by anonymised owner samples once available.
+Synthetic data only — no real persons or companies. This set uses **alternate** columns sevdesk's own export does not
+write (type, status, tax rule, VAT, currency, supply date, Bezug) so the mapping paths an owner can set by hand stay
+covered. The layout of real sevdesk exports (verified 2026-10-18) is in `../sevdesk-export-verified/`.
 
 | File | Encoding | Content |
 |---|---|---|

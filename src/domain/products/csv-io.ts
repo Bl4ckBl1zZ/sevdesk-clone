@@ -57,7 +57,18 @@ const ALIASES: Readonly<Record<string, ProductImportField>> = Object.fromEntries
       ["unit", ["einheit", "mengeneinheit", "unit"]],
       [
         "netPrice",
-        ["vk netto", "verkaufspreis netto", "preis netto", "preis (netto)", "nettopreis", "preis", "net price"],
+        // „Verkaufspreis“: sevdesk part export (2026-10-18). SEVDESK-LAYOUT-UNSURE: net assumed (sevdesk stores the
+        // net article price); the sample was a Kleinunternehmer export where net and gross are equal.
+        [
+          "vk netto",
+          "verkaufspreis netto",
+          "preis netto",
+          "preis (netto)",
+          "nettopreis",
+          "preis",
+          "verkaufspreis",
+          "net price",
+        ],
       ],
       [
         "grossPrice",

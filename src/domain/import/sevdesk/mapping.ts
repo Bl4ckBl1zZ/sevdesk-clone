@@ -3,8 +3,10 @@
  * E-IMP-20). The importer never relies on column positions: each CSV file kind has target fields mapped to source
  * headers by normalised header name. The shipped `sevdesk-*` presets are best guesses.
  *
- * SEVDESK-LAYOUT-UNSURE: every header candidate, status label and file layout below is an assumption until the
- * owner provides sample exports (F09 §4.3, open item 9); the owner corrects the mapping in the UI.
+ * Verified against real sevdesk exports (2026-10-18, open item 9 resolved): the first candidate of each target is
+ * the header sevdesk writes („Rechnungs-Nr.“, „Gesamtbetrag-Brutto“, …); the further candidates are unverified
+ * alternates for hand-edited or older files. sevdesk's invoice list has no type, status, tax, currency or supply-date
+ * column — type and status are derived (§4.3.3), the tax case from the company setting (EC-202).
  */
 import {
   autoMapHeaders,
@@ -70,6 +72,7 @@ export const INVOICE_FIELDS = [
   "open",
   "currency",
   "reference",
+  "subject",
 ] as const;
 export type InvoiceField = (typeof INVOICE_FIELDS)[number];
 /** Per-rate amount columns (`net@1900`, `vat@700`, `gross@1900`) when the export splits amounts by VAT rate. */
@@ -95,30 +98,46 @@ export const INVOICE_FIELD_LABELS: Readonly<Record<InvoiceField, string>> = {
   open: "Offener Betrag",
   currency: "Währung",
   reference: "Bezug (Ursprungsrechnung)",
+  subject: "Betreff",
 };
 
 const REQUIRED_INVOICE: readonly InvoiceField[] = ["number", "documentDate", "gross"];
 
-/** SEVDESK-LAYOUT-UNSURE: preset `sevdesk-invoices` — candidates in priority order (normalised). */
+/**
+ * Preset `sevdesk-invoices` — candidates in priority order (normalised). Verified sevdesk headers: „Rechnungs-Nr.“,
+ * „Rechnungs-Datum“, „Fällig am“, „Bezahlt am“ (unmapped), „Betreff“, „Gesamtbetrag-Netto/-Brutto“,
+ * „offener Betrag“, „Empfänger-KdNr“, „Empfänger-Adresse“ (name and address in one cell). The unnamed last column
+ * (the customer's „Referenz“ on the PDF, not the Storno reference) stays unmapped.
+ */
 const INVOICE_CANDIDATES: Readonly<Record<InvoiceField, readonly string[]>> = {
   type: ["typ", "rechnungstyp", "belegart", "dokumenttyp", "art"],
-  number: ["rechnungsnummer", "rechnungs nr", "rechnungsnr", "rechnung nr", "nummer", "belegnummer"],
-  documentDate: ["rechnungsdatum", "datum", "belegdatum"],
+  number: ["rechnungs nr", "rechnungsnummer", "rechnungsnr", "rechnung nr", "nummer", "belegnummer"],
+  documentDate: ["rechnungs datum", "rechnungsdatum", "datum", "belegdatum"],
   supplyDate: ["lieferdatum", "leistungsdatum", "liefer leistungsdatum"],
   dueDate: ["faellig am", "faelligkeit", "faelligkeitsdatum", "zahlungsziel datum"],
   sentOn: ["versendet am", "versanddatum", "versandt am", "gesendet am"],
-  customerNumber: ["kundennummer", "kunden nr", "kundennr", "kontaktnummer"],
-  customerName: ["kunde", "kundenname", "name", "empfaenger", "kontakt", "firma"],
-  net: ["netto", "nettobetrag", "betrag netto", "summe netto"],
+  customerNumber: ["empfaenger kdnr", "kundennummer", "kunden nr", "kundennr", "kontaktnummer"],
+  customerName: ["empfaenger adresse", "kunde", "kundenname", "name", "empfaenger", "kontakt", "firma"],
+  net: ["gesamtbetrag netto", "netto", "nettobetrag", "betrag netto", "summe netto"],
   vat: ["steuer", "ust", "mwst", "umsatzsteuer", "steuerbetrag", "ust betrag"],
-  gross: ["brutto", "bruttobetrag", "betrag brutto", "summe brutto", "rechnungsbetrag", "betrag", "summe"],
+  gross: [
+    "gesamtbetrag brutto",
+    "brutto",
+    "bruttobetrag",
+    "betrag brutto",
+    "summe brutto",
+    "rechnungsbetrag",
+    "betrag",
+    "summe",
+  ],
   rate: ["steuersatz", "ust satz", "mwst satz", "umsatzsteuersatz"],
   taxRule: ["steuerregel", "umsatzsteuerart", "steuerart"],
   status: ["status", "rechnungsstatus"],
   paid: ["bezahlt", "bezahlter betrag", "bezahlt betrag", "gezahlt", "gezahlter betrag"],
-  open: ["offen", "offener betrag", "restbetrag", "offener rechnungsbetrag"],
+  open: ["offener betrag", "offen", "restbetrag", "offener rechnungsbetrag"],
   currency: ["waehrung"],
-  reference: ["bezug", "ursprungsrechnung", "referenz", "bezugsrechnung", "rechnungsbezug"],
+  reference: ["bezug", "ursprungsrechnung", "bezugsrechnung", "rechnungsbezug"],
+  subject: ["betreff"],
 };
 
 const PER_RATE = /^(netto|ust|mwst|steuer|brutto) (\d{1,2})(?: (\d{1,2}))? ?%?$/;
@@ -300,7 +319,7 @@ export function classifyFile(input: {
   if (/^\s*﻿?"?EXTF"?[;,]/.test(input.firstLine ?? "")) return "datev";
   if (!input.headers) return "unknown";
   const n = input.headers.map(normalizeHeader);
-  const invoiceNumber = has(n, ["rechnungsnummer", "rechnungs nr", "rechnungsnr", "rechnung nr"]);
+  const invoiceNumber = has(n, ["rechnungs nr", "rechnungsnummer", "rechnungsnr", "rechnung nr"]);
   const gross = has(n, INVOICE_CANDIDATES.gross) || n.some((x) => /^brutto \d/.test(x));
   const date = has(n, INVOICE_CANDIDATES.documentDate);
   if (invoiceNumber && gross && date) return "invoices";

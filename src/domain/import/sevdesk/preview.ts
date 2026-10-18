@@ -11,6 +11,7 @@ import { canonicalize } from "../../audit/canonical";
 import { foldSearch, normalizeContactNumber } from "../../contacts/core";
 import { type ImportRowValues, rowToFormValues } from "../../contacts/csv-io";
 import type { CsvRecord } from "../../csv/csv";
+import { historyAt } from "../../documents/draft";
 import { formatCents } from "../../money/format";
 import { normalizeNumber } from "../../numbering/format";
 import { productImportForm, productRow } from "../../products/csv-io";
@@ -19,7 +20,13 @@ import { contactCreateSchema, emptyContactForm } from "../../schemas/contacts";
 import { productSchema } from "../../schemas/products";
 import { type CalendarDate, formatGermanDate } from "../../time/calendar-date";
 import { type DateFormat, detectDateFormat, detectNumberFormat, type NumberFormat } from "./formats";
-import { type ImportedDocument, INVOICE_TYPES_WITH_OPEN_ITEMS, openVatSplit, parseInvoiceRow } from "./invoices";
+import {
+  type ImportedDocument,
+  INVOICE_TYPES_WITH_OPEN_ITEMS,
+  mapsNoTaxColumn,
+  openVatSplit,
+  parseInvoiceRow,
+} from "./invoices";
 import {
   type ColumnMapping,
   checkMapping,
@@ -32,7 +39,9 @@ import {
 } from "./mapping";
 import { type LocalRange, proposeContinuation, type RangeProposal } from "./number-pattern";
 import { matchFiles, type PdfMatchResult } from "./pdf-match";
-import { type ImportFinding, rowRefOf } from "./types";
+import { type ImportFinding, type KuHistory, rowRefOf } from "./types";
+
+export type { KuHistory } from "./types";
 
 export const SEVDESK_IMPORTER_VERSION = "sevdesk-export-import@1";
 
@@ -161,6 +170,9 @@ export interface ParsedImport {
   readonly skippedReminders: number;
 }
 
+/** „0“, „0,00“, „0 %“ — a zero VAT rate as exported. */
+const isZeroRate = (raw: string | undefined) => /^0+(?:[.,]0+)?\s*%?$/.test((raw ?? "").trim());
+
 const rowFingerprint = (headers: readonly string[], cells: readonly string[]) =>
   JSON.stringify(headers.map((h, i) => `${h}=${(cells[i] ?? "").trim()}`).sort());
 
@@ -179,11 +191,20 @@ function invoiceDetectionValues(table: NonNullable<ImportFileInput["table"]>, ma
   };
 }
 
+/** Company facts the parser needs (read-only; EC-202). */
+export interface ParseOptions {
+  /** The company's Kleinunternehmer history (`companyProfile.kleinunternehmer`). */
+  readonly kleinunternehmer?: KuHistory;
+}
+
 export function parseImportFiles(
   files: readonly ImportFileInput[],
   mappings: Readonly<Record<string, FileMappingInput>>,
   today: CalendarDate,
+  options: ParseOptions = {},
 ): ParsedImport {
+  const kuHistory = options.kleinunternehmer ?? [];
+  const kuToday = historyAt(kuHistory, today)?.isKU ?? false;
   const findings: ImportFinding[] = [];
   const summaries: FileSummary[] = [];
   const contacts: ParsedContact[] = [];
@@ -271,6 +292,19 @@ export function parseImportFiles(
       blocked,
     });
     if (blocked) continue;
+    if (kind === "invoices" && mapsNoTaxColumn(mapping)) {
+      // EC-203: sevdesk's own list carries neither tax data nor positions, and its totals can deviate from the PDF.
+      findings.push({
+        code: "E-IMP-37",
+        severity: "warning",
+        message: `${file.name} enthält keine Steuer- und Positionsangaben. Bitte die Gesamtbeträge vor der Übernahme mit den PDFs vergleichen – sevdesk exportiert in Einzelfällen abweichende Beträge (z. B. nach Teilzahlungen). Ein übernommener Beleg kann danach nicht mehr geändert werden.`,
+        ...at,
+      });
+    }
+    const productPositions = kind === "products" ? positionalMapping<string>(table.headers, mapping) : [];
+    const vatIndex = productPositions.indexOf("vat");
+    const exemptionIndex = productPositions.indexOf("exemptionReasonCode");
+    let kuProducts = 0;
 
     for (const record of table.records) {
       const rowRef = rowRefOf(file.id, record.line);
@@ -306,7 +340,19 @@ export function parseImportFiles(
           fingerprint: rowFingerprint(table.headers, record.cells),
         });
       } else if (kind === "products") {
-        const parsed = productRow(record.cells, positionalMapping(table.headers, mapping), record.line, rateBpToday);
+        let cells = record.cells;
+        // EC-202: under § 19 UStG a 0 % article is not ambiguous — it gets the dormant key „standard“ (product keys
+        // do not apply to Kleinunternehmer documents, PRD-082); applied once the company leaves the KU regime.
+        if (kuToday && vatIndex >= 0 && isZeroRate(cells[vatIndex]) && !(cells[exemptionIndex] ?? "").trim()) {
+          cells = cells.map((c, i) => (i === vatIndex ? "standard" : c));
+          kuProducts++;
+        }
+        const parsed = productRow(
+          cells,
+          productPositions as Parameters<typeof productRow>[1],
+          record.line,
+          rateBpToday,
+        );
         if (!parsed.values) {
           findings.push({
             code: "E-IMP-16",
@@ -353,6 +399,7 @@ export function parseImportFiles(
           fileName: file.name,
           numberFormat: numberFormat as NumberFormat,
           dateFormat: dateFormat as DateFormat,
+          kleinunternehmer: kuHistory,
         });
         findings.push(...r.findings);
         if (r.kind === "skipped") {
@@ -361,6 +408,22 @@ export function parseImportFiles(
         } else if (r.doc) documents.push(r.doc);
       }
     }
+    if (kuProducts > 0) {
+      findings.push({
+        code: "E-IMP-38",
+        severity: "info",
+        message: `${file.name}: ${kuProducts} Artikel mit 0 % Umsatzsteuer erhalten den Steuersatz „Standard“. Er wird angewendet, sobald Sie die Kleinunternehmerregelung verlassen – bitte dann prüfen.`,
+        ...at,
+      });
+    }
+  }
+  const fromCompany = documents.filter((d) => d.taxCaseFromCompany).length;
+  if (fromCompany > 0) {
+    findings.push({
+      code: "E-IMP-38",
+      severity: "info",
+      message: `${fromCompany} Rechnungen ohne Steuerangabe werden als Kleinunternehmer-Rechnungen (§ 19 UStG) übernommen, weil Ihr Unternehmen am Rechnungsdatum Kleinunternehmer war (Einstellungen › Steuern).`,
+    });
   }
   if (skippedDrafts > 0) {
     findings.push({

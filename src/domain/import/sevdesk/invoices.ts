@@ -5,6 +5,8 @@
  * (`fromSummary`); payment state is derived from amounts, not from the status text; our validators are not applied
  * retroactively — deviations from current rules are listed (EC-190). Pure; `today` is not needed.
  */
+
+import { historyAt } from "../../documents/draft";
 import { formatCents } from "../../money/format";
 import { roundHalfAway } from "../../money/rounding";
 import { largestNetThatFits, vatCents } from "../../money/vat";
@@ -22,7 +24,7 @@ import {
   parseRateBp,
 } from "./formats";
 import { type ColumnMapping, parsePerRate } from "./mapping";
-import { type ImportedDocType, type ImportFinding, rowRefOf } from "./types";
+import { type ImportedDocType, type ImportFinding, type KuHistory, rowRefOf } from "./types";
 
 export interface SummaryGroup {
   readonly category: VatCategory;
@@ -50,6 +52,8 @@ export interface ImportedDocument {
   readonly customerName: string;
   readonly currency: string;
   readonly taxCase: TaxCase;
+  /** EC-202: the file carries no tax data; `kleinunternehmer` was taken from the company's KU history. */
+  readonly taxCaseFromCompany?: true;
   readonly groups: SummaryGroup[];
   readonly totals: { netCents: number; vatCents: number; grossCents: number };
   /** Status text „Storniert“ (the original of a Storno). */
@@ -106,6 +110,12 @@ export const INVOICE_TYPES_WITH_OPEN_ITEMS: readonly ImportedDocType[] = [
   "final_invoice",
 ];
 
+/**
+ * §4.3.3, verified sevdesk layout: the invoice list has no type column; a Storno is its own row whose subject reads
+ * „Stornorechnung Nr. RE-1008 zur Rechnung Nr. RE-1007“ (group 2 = the cancelled invoice).
+ */
+const STORNO_SUBJECT = /^\s*Stornorechnung\s+Nr\.?\s*(\S+)\s+zur\s+Rechnung\s+Nr\.?\s*(\S+)\s*$/i;
+
 type StatusClass = "draft" | "open" | "partial" | "paid" | "cancelled" | "other";
 
 /** SEVDESK-LAYOUT-UNSURE: status texts (§4.3.3). */
@@ -132,7 +142,13 @@ export interface InvoiceRowContext {
   readonly fileName: string;
   readonly numberFormat: NumberFormat;
   readonly dateFormat: DateFormat;
+  /** EC-202: the company's Kleinunternehmer history, used only for files without any tax column. */
+  readonly kleinunternehmer?: KuHistory;
 }
+
+/** EC-202: no VAT, rate, tax-rule or per-rate column is mapped — the file says nothing about tax. */
+export const mapsNoTaxColumn = (mapping: ColumnMapping): boolean =>
+  !mapping.vat && !mapping.rate && !mapping.taxRule && !Object.keys(mapping).some((t) => parsePerRate(t) !== null);
 
 const euro = (cents: number) => `${formatCents(cents)} €`;
 
@@ -174,7 +190,8 @@ export function parseInvoiceRow(
 
   const status = statusClass(get("status"));
   const typeText = normalizeHeader(get("type"));
-  const mapped = TYPE_TEXTS[typeText];
+  const storno = typeText === "" ? STORNO_SUBJECT.exec(get("subject")) : null;
+  const mapped = storno ? "cancellation" : TYPE_TEXTS[typeText];
   if (status === "draft") return { kind: "skipped", reason: "draft", findings };
   if (mapped === "reminder") return { kind: "skipped", reason: "reminder", findings };
   if (mapped === undefined) {
@@ -309,7 +326,17 @@ export function parseInvoiceRow(
       ? null
       : { category: "S", rateBp: hit, netCents: g.net, vatCents: g.vat, grossCents: g.gross };
   };
-  if (splitUnknown || label === "oss" || label === "unknown") {
+  // EC-202: a list without any tax column (sevdesk's own export) whose amounts carry no VAT is a Kleinunternehmer
+  // invoice if — and only if — the company was Kleinunternehmer on the document date (owner's own setting).
+  // LEGAL-OPEN: F09 open item 9 — the tax rule itself is not in the export; the company history stands in for it.
+  const fromCompany =
+    mapsNoTaxColumn(mapping) &&
+    raw.every((g) => g.vat === 0) &&
+    (historyAt(ctx.kleinunternehmer ?? [], documentDate)?.isKU ?? false);
+  if (fromCompany) {
+    taxCase = "kleinunternehmer";
+    groups = raw.map((g) => ({ category: "KU", rateBp: 0, netCents: g.net, vatCents: 0, grossCents: g.gross }));
+  } else if (splitUnknown || label === "oss" || label === "unknown") {
     taxCase = "unknown_imported";
     groups = unknown();
   } else if (label && label.taxCase !== "domestic") {
@@ -387,14 +414,16 @@ export function parseInvoiceRow(
   }
 
   // ── EC-190: deviations from current rules (not enforced retroactively) ──
-  if (!supplyDate) deviations.push("Kein Leistungsdatum angegeben (§ 14 Abs. 4 Nr. 6 UStG).");
-  if (dueDate === undefined && isInvoiceType) deviations.push("Kein Fälligkeitsdatum angegeben.");
+  // Only a mapped-but-empty column says the document lacks the date; sevdesk's list has no supply-date column at all
+  // (the PDF carries it), which is not a deviation of the document.
+  if (!supplyDate && mapping.supplyDate) deviations.push("Kein Leistungsdatum angegeben (§ 14 Abs. 4 Nr. 6 UStG).");
+  if (dueDate === undefined && isInvoiceType && mapping.dueDate) deviations.push("Kein Fälligkeitsdatum angegeben.");
   if (diff !== undefined) deviations.push("Summen nicht konsistent (wie im sevdesk-Export übernommen).");
   if (taxCase === "unknown_imported") deviations.push("Steuerfall nicht eindeutig (unknown_imported).");
 
   const customerName = get("customerName");
   const customerNumber = get("customerNumber");
-  const reference = get("reference");
+  const reference = get("reference") || storno?.[2] || "";
   const fingerprint = JSON.stringify(headers.map((h, i) => `${normalizeHeader(h)}=${(cells[i] ?? "").trim()}`).sort());
   return {
     kind: "row",
@@ -415,6 +444,7 @@ export function parseInvoiceRow(
       customerName,
       currency,
       taxCase,
+      ...(fromCompany ? { taxCaseFromCompany: true as const } : {}),
       groups,
       totals,
       cancelledByStatus,

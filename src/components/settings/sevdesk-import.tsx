@@ -415,7 +415,8 @@ function MappingSection({
                     onChange={(e) => setColumns((c) => ({ ...c, [f.key]: e.target.value }))}
                   >
                     <option value="">{t("notMapped")}</option>
-                    {headers.map((h) => (
+                    {/* Unnamed columns (sevdesk's invoice list ends with `""`) cannot be mapped by name (IMP-017). */}
+                    {[...new Set(headers.filter((h) => h !== ""))].map((h) => (
                       <option key={h} value={h}>
                         {h}
                       </option>
@@ -642,7 +643,9 @@ function PreviewSection({
                       onClick={() => setFilter(s)}
                     >
                       {t(s === "error" ? "filterErrors" : s === "warning" ? "filterWarnings" : "filterInfo", {
-                        count: bySeverity(s).length,
+                        // Errors of excluded rows stay listed (to take them back in) but no longer block.
+                        count: bySeverity(s).filter((f) => s !== "error" || !(f.rowRef && excluded.has(f.rowRef)))
+                          .length,
                       })}
                     </Button>
                   ))}
@@ -803,12 +806,20 @@ function FindingRow({
   const ex = resolutions.excluded ?? [];
   const parsed = parseCents(amount);
   return (
-    <TableRow className={excluded ? "opacity-60" : undefined}>
+    <TableRow data-excluded={excluded || undefined}>
       <TableCell className="whitespace-nowrap align-top text-muted-foreground text-xs">
         <span className="block font-mono">{f.code}</span>
         {where}
       </TableCell>
-      <TableCell className="align-top whitespace-normal">{f.message}</TableCell>
+      <TableCell className="align-top whitespace-normal">
+        {/* Excluded rows keep full contrast (WCAG AA); the badge says what dimming used to imply. */}
+        {excluded ? (
+          <Badge variant="outline" className="mr-2">
+            {t("excludedRow")}
+          </Badge>
+        ) : null}
+        {f.message}
+      </TableCell>
       {editable ? (
         <TableCell className="align-top">
           <div className="flex flex-col gap-2">

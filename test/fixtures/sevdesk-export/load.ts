@@ -11,3 +11,14 @@ export function sevdeskFixtureBytes(path: string): Uint8Array {
 export function sevdeskPdfNames(): string[] {
   return readdirSync(join(SEVDESK_FIXTURES, "pdf")).sort();
 }
+
+/** Synthetic set in the layout verified against real sevdesk exports (`test/fixtures/sevdesk-export-verified/`). */
+export const SEVDESK_VERIFIED_FIXTURES = join(import.meta.dirname, "../sevdesk-export-verified");
+
+export function sevdeskVerifiedBytes(path: string): Uint8Array {
+  return new Uint8Array(readFileSync(join(SEVDESK_VERIFIED_FIXTURES, path)));
+}
+
+export function sevdeskVerifiedPdfNames(): string[] {
+  return readdirSync(join(SEVDESK_VERIFIED_FIXTURES, "pdf")).sort();
+}

@@ -9,6 +9,14 @@ import pdf1005 from "../test/fixtures/sevdesk-export/pdf/RE-1005_RE-1006.pdf?raw
 import pdf1002 from "../test/fixtures/sevdesk-export/pdf/Rechnung_RE-1002.pdf?raw";
 import pdf1003 from "../test/fixtures/sevdesk-export/pdf/re 1003.PDF?raw";
 import rechnungen from "../test/fixtures/sevdesk-export/rechnungen.csv?raw";
+import vPart from "../test/fixtures/sevdesk-export-verified/18-10-2026_part.csv?raw";
+import vContacts from "../test/fixtures/sevdesk-export-verified/contacts.csv?raw";
+import vInvoices from "../test/fixtures/sevdesk-export-verified/invoices.csv?raw";
+import vPdf1000 from "../test/fixtures/sevdesk-export-verified/pdf/2026-06-10_Rechnung_RE-5000_0123456789abcdef0123456789abcd00.pdf?raw";
+import vPdf1001 from "../test/fixtures/sevdesk-export-verified/pdf/2026-06-26_Rechnung_RE-5001_0123456789abcdef0123456789abcd01.pdf?raw";
+import vPdf1002 from "../test/fixtures/sevdesk-export-verified/pdf/2026-07-29_Rechnung_RE-5002_0123456789abcdef0123456789abcd02.pdf?raw";
+import vPdf1003 from "../test/fixtures/sevdesk-export-verified/pdf/2026-08-12_Stornorechnung_RE-5003_0123456789abcdef0123456789abcd03.pdf?raw";
+import vPdf1004 from "../test/fixtures/sevdesk-export-verified/pdf/2026-09-15_Rechnung_RE-5004_0123456789abcdef0123456789abcd04.pdf?raw";
 import { api, internal } from "./_generated/api";
 import type { Id } from "./_generated/dataModel";
 import { setupInvoicing } from "./invoices.fixtures";
@@ -614,5 +622,69 @@ describe("F09 IMP-023 discard, stale previews, collisions, resume, roles", () =>
     expect((await owner.query(api.imports.get, { importId }))?.presets.map((x) => x.name)).toEqual([
       "Meine Rechnungsliste",
     ]);
+  });
+});
+
+describe("F09 sevdesk import in the verified export layout (Kleinunternehmer account, Convex)", () => {
+  const VERIFIED = [
+    { name: "contacts.csv", content: vContacts },
+    { name: "18-10-2026_part.csv", content: vPart },
+    { name: "invoices.csv", content: vInvoices },
+    { name: "2026-06-10_Rechnung_RE-5000_0123456789abcdef0123456789abcd00.pdf", content: vPdf1000 },
+    { name: "2026-06-26_Rechnung_RE-5001_0123456789abcdef0123456789abcd01.pdf", content: vPdf1001 },
+    { name: "2026-07-29_Rechnung_RE-5002_0123456789abcdef0123456789abcd02.pdf", content: vPdf1002 },
+    { name: "2026-08-12_Stornorechnung_RE-5003_0123456789abcdef0123456789abcd03.pdf", content: vPdf1003 },
+    { name: "2026-09-15_Rechnung_RE-5004_0123456789abcdef0123456789abcd04.pdf", content: vPdf1004 },
+  ];
+
+  test("TST-IMP-16 EC-202 IMP-007 §4.3.3 Kleinunternehmer export: Storno pairs, § 19 tax case from the company history, open item", async () => {
+    const { t, owner } = await setup({ bookkeepingStart: "2026-10-01" });
+    await t.model({ actor: owner.actor, role: "owner", channel: "ui" }, (ctx) =>
+      patchCompanyProfile(
+        ctx,
+        { kleinunternehmer: [{ validFrom: "2026-01-01", isKU: true }] },
+        { action: "settings.company.update" },
+      ),
+    );
+    const importId = await owner.mutation(api.imports.create, {});
+    await upload(t, owner, importId, VERIFIED);
+    const view = await owner.query(api.imports.get, { importId });
+    expect(view?.files.map((f) => f.kind)).toEqual([
+      "contacts",
+      "products",
+      "invoices",
+      "pdf",
+      "pdf",
+      "pdf",
+      "pdf",
+      "pdf",
+    ]);
+    const p = await owner.action(api.imports.preview, { importId });
+    expect(p.preview.blocking).toBe(0);
+    expect(p.preview.counts).toMatchObject({
+      contactsNew: 2,
+      productsNew: 2,
+      invoices: 4,
+      cancellations: 1,
+      pdfMatched: 5,
+      openItems: 1,
+    });
+    expect(p.preview.findings.map((f: { code: string }) => f.code)).toEqual(
+      expect.arrayContaining(["E-IMP-37", "E-IMP-38"]),
+    );
+    await owner.action(api.imports.commit, {
+      importId,
+      previewHash: p.previewHash,
+      numberRanges: [{ rangeKey: "invoice", format: "RE-{####}", resetPolicy: "never" as const, next: 5005 }],
+    });
+    const byNumber = new Map((await importedDocs(t)).map((d) => [d.number, d]));
+    expect([...byNumber.keys()].sort()).toEqual(["RE-5000", "RE-5001", "RE-5002", "RE-5003", "RE-5004"]);
+    for (const d of byNumber.values()) expect(d.taxCase).toBe("kleinunternehmer");
+    expect(byNumber.get("RE-5002")?.status).toBe("cancelled");
+    expect(byNumber.get("RE-5003")).toMatchObject({ type: "cancellation", correctsId: byNumber.get("RE-5002")?._id });
+    expect(byNumber.get("RE-5000")).toMatchObject({ status: "sent", paymentStatus: "paid", openAmountCents: 0 });
+    expect(byNumber.get("RE-5004")).toMatchObject({ paymentStatus: "open", openAmountCents: 55_600 });
+    const contacts = await t.run((ctx) => ctx.db.query("contacts").collect());
+    expect(contacts.find((c) => c.number === "1001")?.vatId).toBe("FR40303265045");
   });
 });

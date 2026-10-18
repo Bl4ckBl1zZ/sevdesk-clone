@@ -20,6 +20,9 @@ export interface ImportFinding {
   readonly rowRef?: string;
 }
 
+/** The company's Kleinunternehmer history (F01 SET-033, `companyProfile.kleinunternehmer`), sorted or not. */
+export type KuHistory = readonly { readonly validFrom: string; readonly isKU: boolean }[];
+
 export const rowRefOf = (fileId: string, line: number): string => `${fileId}:${line}`;
 
 /** Document types the invoice list maps to (§4.3.1; drafts and reminders are not imported). */

@@ -24,6 +24,7 @@ import type { Id } from "./_generated/dataModel";
 import type { ActionCtx } from "./_generated/server";
 import { action, actorMutation, mutation, query } from "./functions";
 import { appError } from "./lib/errors";
+import { getCompanyProfile } from "./model/companyProfile";
 import {
   addImportFiles,
   beginImportCommit,
@@ -172,7 +173,10 @@ export const source = query({
   args: { importId: v.id("imports") },
   handler: async (ctx, { importId }) => {
     const i = await requireImport(ctx, importId);
+    // EC-202: the Kleinunternehmer history stands in for the tax rule sevdesk's invoice list does not export.
+    const profile = await getCompanyProfile(ctx);
     return {
+      kleinunternehmer: (profile?.kleinunternehmer ?? []).map((k) => ({ validFrom: k.validFrom, isKU: k.isKU })),
       status: i.status,
       revision: i.revision,
       previewHash: i.previewHash ?? null,
@@ -311,6 +315,7 @@ export const discard = mutation({
 // ── preview (IMP-009) ─────────────────────────────────────────────────────────────────────────────────
 
 type Workspace = {
+  kleinunternehmer: { validFrom: string; isKU: boolean }[];
   status: string;
   revision: number;
   previewHash: string | null;
@@ -347,7 +352,7 @@ async function computePlan(
     const info = inspectFile(f.name, bytes);
     files.push({ ...base, ...(info.table ? { table: info.table } : {}) });
   }
-  const parsed = parseImportFiles(files, ws.mapping, today);
+  const parsed = parseImportFiles(files, ws.mapping, today, { kleinunternehmer: ws.kleinunternehmer });
   const local = await ctx.runQuery(api.imports.localState, { keys: lookupKeys(parsed), today });
   const plan = buildPlan(parsed, local, ws.resolutions);
   const hash = await sha256Hex(previewHashInput(files, ws.mapping, ws.resolutions, plan));
