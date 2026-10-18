@@ -106,7 +106,11 @@ export function RefundDialog({
       <div className="flex flex-col gap-3" data-testid="refund-dialog">
         <fieldset className="flex flex-col gap-1.5">
           <legend className="mb-1 font-medium text-sm">{t("refundedWith")}</legend>
-          <div role="radiogroup" aria-label={t("refundedWith")} className="grid grid-cols-2 gap-1 rounded-lg border p-1">
+          <div
+            role="radiogroup"
+            aria-label={t("refundedWith")}
+            className="grid grid-cols-2 gap-1 rounded-lg border p-1"
+          >
             {(["bank", "cash"] as const).map((m) => (
               <label
                 key={m}

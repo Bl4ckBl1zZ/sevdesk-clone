@@ -84,8 +84,7 @@ beforeEach(() => {
   backend.previews = [];
 });
 
-const renderSection = () =>
-  renderWithIntl(<PaymentsSection documentId={"doc1" as never} number="RK-2026-0001" />);
+const renderSection = () => renderWithIntl(<PaymentsSection documentId={"doc1" as never} number="RK-2026-0001" />);
 
 describe("„Erstattung erfassen“ on a Rechnungskorrektur (PAY-033 b)", () => {
   test("PAY-033 T05-053 an open refund offers „Erstattung erfassen“ (no „Zahlung buchen“) and refunds by bank transaction", async () => {

@@ -256,10 +256,10 @@ const wireTarget = (t: { kind: string; id: string }, targetType?: string | null)
   t.kind === "salesDocument" && targetType === "correction"
     ? { kind: "correction" as const, id: encodeId("corrections", t.id) }
     : t.kind === "salesDocument"
-    ? { kind: "invoice" as const, id: encodeId("invoices", t.id) }
-    : t.kind === "opening_item"
-      ? { kind: "opening_item" as const, id: encodeId("openingItems", t.id) }
-      : { kind: "credit" as const, id: encodeId("contacts", t.id) };
+      ? { kind: "invoice" as const, id: encodeId("invoices", t.id) }
+      : t.kind === "opening_item"
+        ? { kind: "opening_item" as const, id: encodeId("openingItems", t.id) }
+        : { kind: "credit" as const, id: encodeId("contacts", t.id) };
 
 const opt = (table: Parameters<typeof encodeId>[0], id: string | null) => (id ? encodeId(table, id) : null);
 

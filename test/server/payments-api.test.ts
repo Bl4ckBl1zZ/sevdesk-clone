@@ -163,7 +163,11 @@ describe("REST payments (05 §4.4, F05 §7.1)", () => {
 
     const tooMuch = await call("POST", `/corrections/${cor}/refund`, {
       key,
-      body: { amount_cents: 30_000, source: { kind: "clearing", account_id: `bac_${bankAccount}` }, date: "2026-10-13" },
+      body: {
+        amount_cents: 30_000,
+        source: { kind: "clearing", account_id: `bac_${bankAccount}` },
+        date: "2026-10-13",
+      },
     });
     expect(tooMuch.status).toBe(422);
     expect((await json(tooMuch)).code).toBe("validation_failed");
@@ -171,7 +175,11 @@ describe("REST payments (05 §4.4, F05 §7.1)", () => {
 
     const res = await call("POST", `/corrections/${cor}/refund`, {
       key,
-      body: { amount_cents: 10_000, source: { kind: "clearing", account_id: `bac_${bankAccount}` }, date: "2026-10-13" },
+      body: {
+        amount_cents: 10_000,
+        source: { kind: "clearing", account_id: `bac_${bankAccount}` },
+        date: "2026-10-13",
+      },
     });
     expect(res.status).toBe(201);
     expect(((await json(res)).data as Json[])[0]).toMatchObject({
