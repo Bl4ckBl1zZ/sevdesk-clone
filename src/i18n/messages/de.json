@@ -3569,10 +3569,10 @@
   "imports": {
     "intro": "Übernehmen Sie Kontakte, Artikel und Ihre bisherigen Rechnungen aus den Datei-Exporten von sevdesk (ohne sevdesk-API). Nichts wird geschrieben, bevor Sie die Vorschau geprüft und den Import übernommen haben.",
     "desktopHint": "Der Import-Assistent ist für große Bildschirme gedacht. Auf dem Telefon können Sie den Stand ansehen.",
-    "unsureHint": "Die Spaltennamen der sevdesk-Exporte sind noch nicht an echten Beispieldateien geprüft. Bitte die Zuordnung kontrollieren.",
+    "layoutHint": "Abgestimmt auf die sevdesk-Exporte (Stand Oktober 2026). Die Rechnungsliste aus sevdesk enthält keine Steuer- und Positionsangaben – bitte die Beträge mit den PDFs abgleichen.",
     "checklistTitle": "So gehen Sie vor",
     "checklist1": "sevdesk einfrieren (keine neuen Belege mehr erfassen)",
-    "checklist2": "Exporte herunterladen: Kontakte-CSV, Artikel-CSV, Rechnungsliste als CSV und die Rechnungs-PDFs",
+    "checklist2": "In sevdesk unter Rechnungen, Kontakte und Produkte jeweils „Exportieren › CSV (Excel)“ wählen, unter Rechnungen zusätzlich „Exportieren › ZIP Archiv“ für die PDFs",
     "checklist3": "Dateien hier hochladen und die Dateiarten prüfen",
     "checklist4": "Spaltenzuordnung kontrollieren und Vorschau erstellen",
     "checklist5": "Fehler beheben oder Zeilen ausschließen, Nummernkreise bestätigen",

@@ -110,7 +110,7 @@ function SevdeskImportInner({ canRun, canCommit }: { canRun: boolean; canCommit:
               )}
             </ol>
           </div>
-          <p className="text-muted-foreground text-xs">{t("unsureHint")}</p>
+          <p className="text-muted-foreground text-xs">{t("layoutHint")}</p>
           {canRun ? (
             <div>
               <Button onClick={start} disabled={creating}>

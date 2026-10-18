@@ -228,7 +228,7 @@ function Transactions({ accountId, currency }: { accountId: Id<"bankAccounts">; 
                   onClick={() => setSelected(r._id)}
                   className="flex w-full items-start justify-between gap-3 rounded-lg border p-3 text-left"
                 >
-                  <span className="flex min-w-0 flex-col gap-1">
+                  <span className="flex min-w-0 flex-col items-start gap-1">
                     <span className="font-medium">{r.counterpartyName ?? t("noCounterparty")}</span>
                     <span className="truncate text-muted-foreground text-sm">
                       {formatDate(r.bookingDate)} · {r.purpose}

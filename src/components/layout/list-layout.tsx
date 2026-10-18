@@ -30,7 +30,8 @@ export function ListLayout({
       {filters}
       {toolbar && <div className="flex flex-wrap items-center gap-2">{toolbar}</div>}
       {table && <div className="hidden @3xl/main:block">{table}</div>}
-      {cards && <div className="flex flex-col gap-2 @3xl/main:hidden">{cards}</div>}
+      {/* max-md:pb-16 keeps the last card clear of the phone's floating „Neu“ button (04 §1 rule 2). */}
+      {cards && <div className="flex flex-col gap-2 @3xl/main:hidden max-md:pb-16">{cards}</div>}
       {children}
     </PageBody>
   );

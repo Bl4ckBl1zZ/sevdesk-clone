@@ -253,7 +253,7 @@ function ProductsListInner() {
       }
       cards={results.map((r) => (
         <article key={r._id} className="flex items-start justify-between gap-3 rounded-lg border p-3">
-          <div className="flex min-w-0 flex-col gap-1">
+          <div className="flex min-w-0 flex-col items-start gap-1">
             <Link href={`/produkte/${r._id}` as Route} className="font-medium hover:underline">
               {r.name}
             </Link>

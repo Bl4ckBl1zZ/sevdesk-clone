@@ -182,7 +182,8 @@ function InvoicesListInner({ listType }: { listType: ListType }) {
       }
       cards={results.map((r) => (
         <article key={r._id} className="flex items-start justify-between gap-3 rounded-lg border p-3">
-          <div className="flex min-w-0 flex-col gap-1">
+          {/* items-start: the status badge keeps its own width instead of stretching across the card. */}
+          <div className="flex min-w-0 flex-col items-start gap-1">
             <Link href={href(r)} className="font-medium hover:underline">
               {label(r)}
             </Link>
