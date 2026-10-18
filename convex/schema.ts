@@ -1661,6 +1661,10 @@ export default defineSchema({
         rows: v.optional(v.number()),
         ignored: v.optional(v.boolean()),
         readError: v.optional(v.string()),
+        /** IMP-016: id of the uploaded ZIP this file was unpacked from (`name` is then the path inside it). */
+        container: v.optional(v.string()),
+        /** IMP-016: on a ZIP — files unpacked from it and skipped OS metadata (the ZIP itself is kept, not parsed). */
+        unpacked: v.optional(v.object({ files: v.number(), ignored: v.array(v.string()) })),
       }),
     ),
     status: v.union(
@@ -1703,6 +1707,8 @@ export default defineSchema({
     committedAt: v.optional(v.number()),
     committedBy: v.optional(vActor),
     retentionUntil: v.optional(v.string()),
+    /** IMP-024: the archived import protocol PDF (set once after the commit; retention = `retentionUntil`). */
+    protocolFile: v.optional(vFileRef),
     actor: vActor,
   }).index("by_status", ["status"]),
 

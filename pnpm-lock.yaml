@@ -238,6 +238,9 @@ importers:
       fast-xml-parser:
         specifier: 5.11.2
         version: 5.11.2
+      fflate:
+        specifier: 0.8.3
+        version: 0.8.3
       ibantools:
         specifier: 4.5.4
         version: 4.5.4

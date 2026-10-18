@@ -52,6 +52,8 @@ export const SYSTEM_JOBS = [
   "cron.dunning.run", // 02 §7 dunning.run (F05 DUN-030): drafts or finalises reminders, never sends
   "cron.receivables.refreshOverdue", // 02 §7 receivables.refreshOverdue (F05 PAY-044, DUN-053 „Bald fällig“ to-dos)
   "documents.pipeline", // F04 §4.6 step 1 reads and step 3 renderArtifacts (scheduled, retried)
+  "imports.files", // F09 IMP-016 Node action that unpacks uploaded ZIPs into storage (no db writes)
+  "imports.protocol", // F09 IMP-024 Node action that renders the import protocol PDF into storage (no db writes)
   "auth", // member created by the sign-up trigger, OTP throttle, auth-mail failures
   "test", // IS_TEST-only fixtures for the E2E journeys (convex/testFixtures.ts); refuse to run otherwise
   "migration", // migrations:run — the runner then acts as system:migration.<name> (AUD-028)

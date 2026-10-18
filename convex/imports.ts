@@ -1,6 +1,7 @@
 import { v } from "convex/values";
 import { sha256Hex } from "../src/domain/audit/chain";
 import { retentionUntil } from "../src/domain/documents/finalize";
+import { isZipBytes } from "../src/domain/import/sevdesk/archive";
 import { IMPORT_FILE_MAX_BYTES, inspectFile } from "../src/domain/import/sevdesk/files";
 import { INVOICE_TYPES_WITH_OPEN_ITEMS } from "../src/domain/import/sevdesk/invoices";
 import { isMappedCsvKind } from "../src/domain/import/sevdesk/mapping";
@@ -17,16 +18,19 @@ import {
   previewHashInput,
   summarizePlan,
 } from "../src/domain/import/sevdesk/preview";
+import type { ImportProtocolInput } from "../src/domain/import/sevdesk/protocol";
 import { berlinCalendarDate } from "../src/domain/time/berlin";
 import type { CalendarDate } from "../src/domain/time/calendar-date";
 import { api, internal } from "./_generated/api";
 import type { Id } from "./_generated/dataModel";
 import type { ActionCtx } from "./_generated/server";
-import { action, actorMutation, mutation, query } from "./functions";
+import { action, actorMutation, mutation, query, systemQuery } from "./functions";
 import { appError } from "./lib/errors";
+import { describeImportFile, type NewImportFilePayload, vNewImportFile } from "./lib/importFiles";
 import { getCompanyProfile } from "./model/companyProfile";
 import {
   addImportFiles,
+  attachImportProtocol,
   beginImportCommit,
   commitImportContacts,
   commitImportDocuments,
@@ -47,7 +51,8 @@ import {
   setImportResolutions,
   updateImportFile,
 } from "./model/imports";
-import { vTaxCase, vVatCategory } from "./validators";
+import type { ActorContext } from "./model/types";
+import { vFileRef, vTaxCase, vVatCategory } from "./validators";
 
 /**
  * F09 sevdesk export import (IMP-003…024, §4.3.4): upload → classification → mapping → preview → commit / discard.
@@ -162,6 +167,15 @@ export const get = query({
       committedBy: i.committedBy ?? null,
       retentionUntil: i.retentionUntil ?? null,
       importerVersion: i.importerVersion,
+      // IMP-024: the archived import protocol (download link for the import page).
+      protocol: i.protocolFile
+        ? {
+            name: i.protocolFile.name,
+            sha256: i.protocolFile.sha256,
+            bytes: i.protocolFile.bytes,
+            url: await ctx.storage.getUrl(i.protocolFile.storageId),
+          }
+        : null,
       presets: presets.map((p) => ({ id: p._id, name: p.name, fileKind: p.fileKind, columns: p.columns })),
     };
   },
@@ -217,59 +231,97 @@ export const generateUploadUrl = mutation({
   handler: async (ctx) => ctx.storage.generateUploadUrl(),
 });
 
-const vNewFile = v.object({
-  storageId: v.id("_storage"),
-  sha256: v.string(),
-  bytes: v.number(),
-  mime: v.string(),
-  name: v.string(),
-  kind: v.string(),
-  encoding: v.optional(v.string()),
-  delimiter: v.optional(v.string()),
-  headers: v.optional(v.array(v.string())),
-  samples: v.optional(v.array(v.array(v.string()))),
-  rows: v.optional(v.number()),
-  readError: v.optional(v.string()),
-});
-
 export const addFilesInternal = actorMutation({
   permission: "imports.run",
-  args: { importId: v.id("imports"), files: v.array(vNewFile) },
+  args: { importId: v.id("imports"), files: v.array(vNewImportFile) },
   handler: async (ctx, { importId, files }) => addImportFiles(ctx, importId, files),
 });
 
-/** IMP-016: uploaded files are hashed, decoded and classified here (bytes never pass through a mutation). */
+/**
+ * IMP-016: uploaded files are hashed, decoded and classified here (bytes never pass through a mutation). A ZIP is
+ * unpacked in the Node action `importsNode.unpackZip`: each contained file becomes an import file of its own (own
+ * storage, SHA-256, inner path as name, `container` = the ZIP) and the ZIP stays as archived source file (IMP-024).
+ * A rejected ZIP (E-IMP-29/39/40) is deleted and reported; the other files of the upload are still added.
+ */
 export const addFiles = action({
   permission: "imports.run",
   args: { importId: v.id("imports"), files: v.array(v.object({ storageId: v.id("_storage"), name: v.string() })) },
-  handler: async (ctx, { importId, files }): Promise<{ added: string[]; duplicates: string[] }> => {
-    const out: (typeof vNewFile.type)[] = [];
-    for (const f of files) {
-      const blob = await ctx.storage.get(f.storageId);
-      if (!blob) throw appError("not_found", `Die Datei ${f.name} wurde nicht gefunden.`);
-      if (blob.size > IMPORT_FILE_MAX_BYTES) {
-        await ctx.storage.delete(f.storageId);
-        throw appError("invalid_input", `${f.name} ist größer als 50 MB.`);
+  handler: async (
+    ctx,
+    { importId, files },
+  ): Promise<{
+    added: string[];
+    duplicates: string[];
+    /** E-IMP-29/39/40: ZIPs that were not unpacked (deleted again). */
+    rejected?: { name: string; code: string; message: string }[];
+    /** OS metadata skipped inside ZIPs (`<zip>/<path>`). */
+    ignoredEntries?: string[];
+  }> => {
+    const out: NewImportFilePayload[] = [];
+    const rejected: { name: string; code: string; message: string }[] = [];
+    const ignoredEntries: string[] = [];
+    const cleanup = async () => {
+      for (const f of files) await ctx.storage.delete(f.storageId).catch(() => {});
+      for (const f of out) await ctx.storage.delete(f.storageId).catch(() => {});
+    };
+    try {
+      let usedBytes: number = await ctx.runQuery(internal.imports.usedBytes, { importId });
+      for (const f of files) {
+        const blob = await ctx.storage.get(f.storageId);
+        if (!blob) throw appError("not_found", `Die Datei ${f.name} wurde nicht gefunden.`);
+        if (blob.size > IMPORT_FILE_MAX_BYTES) throw appError("invalid_input", `${f.name} ist größer als 50 MB.`);
+        if (isZipBytes(new Uint8Array(await blob.slice(0, 4).arrayBuffer()))) {
+          const r = await ctx.runAction(internal.importsNode.unpackZip, {
+            storageId: f.storageId,
+            name: f.name,
+            usedBytes: usedBytes + blob.size,
+          });
+          if (!r.ok) {
+            await ctx.storage.delete(f.storageId);
+            rejected.push({ name: f.name, code: r.code, message: r.message });
+            continue;
+          }
+          // The archive itself is kept as source file (IMP-024) but not parsed; the Node action hashed it.
+          out.push({
+            storageId: f.storageId,
+            sha256: r.sha256,
+            bytes: blob.size,
+            mime: blob.type || "application/zip",
+            name: f.name.slice(0, 255),
+            kind: "zip",
+            unpacked: { files: r.files, ignored: r.ignored.slice(0, 200) },
+          });
+          for (const e of r.entries) out.push({ ...e, containerSha256: r.sha256 });
+          ignoredEntries.push(...r.ignored.map((p) => `${f.name}/${p}`));
+          usedBytes += blob.size + r.entries.reduce((sum, e) => sum + e.bytes, 0);
+          continue;
+        }
+        out.push(await describeImportFile(f.name, new Uint8Array(await blob.arrayBuffer()), f.storageId, blob.type));
+        usedBytes += blob.size;
       }
-      const bytes = new Uint8Array(await blob.arrayBuffer());
-      const info = inspectFile(f.name, bytes);
-      out.push({
-        storageId: f.storageId,
-        sha256: await sha256Hex(bytes),
-        bytes: blob.size,
-        mime: blob.type || (info.kind === "pdf" ? "application/pdf" : "application/octet-stream"),
-        name: f.name.slice(0, 255),
-        kind: info.kind,
-        ...(info.encoding ? { encoding: info.encoding } : {}),
-        ...(info.delimiter ? { delimiter: info.delimiter } : {}),
-        ...(info.headers ? { headers: info.headers.slice(0, 200) } : {}),
-        ...(info.table ? { samples: info.table.records.slice(0, 3).map((r) => r.cells.slice(0, 200)) } : {}),
-        ...(info.table ? { rows: info.table.records.length } : {}),
-        ...(info.readError ? { readError: info.readError } : {}),
+      const r = await ctx.runMutation(internal.imports.addFilesInternal, {
+        actorContext: ctx.actorContext,
+        importId,
+        files: out,
       });
+      return {
+        ...r,
+        ...(rejected.length > 0 ? { rejected } : {}),
+        ...(ignoredEntries.length > 0 ? { ignoredEntries } : {}),
+      };
+    } catch (e) {
+      // Nothing of this upload was registered: no orphaned blobs (uploads and unpacked entries).
+      await cleanup();
+      throw e;
     }
-    return ctx.runMutation(internal.imports.addFilesInternal, { actorContext: ctx.actorContext, importId, files: out });
   },
+});
+
+/** Bytes already stored in the import (IMP-016 2 GB budget for unpacking). */
+export const usedBytes = systemQuery({
+  job: "imports.files",
+  args: { importId: v.id("imports") },
+  handler: async (ctx, { importId }) => (await requireImport(ctx, importId)).files.reduce((sum, f) => sum + f.bytes, 0),
 });
 
 export const updateFile = mutation({
@@ -449,6 +501,112 @@ export const finishInternal = actorMutation({
     finishImport(ctx, importId, { ...rest, today: today as CalendarDate }),
 });
 
+// ── import protocol (IMP-024) ───────────────────────────────────────────────────────────────────────
+
+/** Input of the protocol PDF: the frozen row plus the commit's audit entries (start time, actor label and role). */
+export const protocolInput = systemQuery({
+  job: "imports.protocol",
+  args: { importId: v.id("imports") },
+  handler: async (ctx, { importId }): Promise<ImportProtocolInput> => {
+    const i = await requireImport(ctx, importId);
+    if (i.status !== "done") {
+      throw appError("conflict", IMPORT_PROTOCOL_NOT_DONE, { reason: "IMPORT_NOT_DONE" });
+    }
+    const audit = await ctx.db
+      .query("auditLog")
+      .withIndex("by_entity", (q) => q.eq("entity.table", "imports").eq("entity.id", importId))
+      .collect();
+    const commitStart = audit.find((a) => a.action === "import.commit");
+    const committer = audit.findLast((a) => a.action === "import.finish") ?? commitStart;
+    const preview = (i.preview ?? {}) as NonNullable<ImportProtocolInput["preview"]>;
+    const decisions = (i.decisions ?? {}) as NonNullable<ImportProtocolInput["decisions"]>;
+    return {
+      importId,
+      importerVersion: i.importerVersion,
+      createdBy: i.actor,
+      startedAt: i.startedAt,
+      commit: {
+        actor: i.committedBy ?? committer?.actor ?? i.actor,
+        ...(committer?.actorLabel ? { label: committer.actorLabel } : {}),
+        ...(committer?.actorRole ? { role: committer.actorRole } : {}),
+        ...(commitStart ? { startedAt: commitStart.at } : {}),
+        finishedAt: i.finishedAt ?? i.committedAt ?? i.startedAt,
+      },
+      ...(i.retentionUntil ? { retentionUntil: i.retentionUntil } : {}),
+      files: i.files.map((f) => ({
+        id: f.id,
+        name: f.name,
+        kind: f.kind,
+        detectedKind: f.detectedKind,
+        bytes: f.bytes,
+        sha256: f.sha256,
+        ...(f.ignored ? { ignored: true } : {}),
+        ...(f.container ? { container: f.container } : {}),
+        ...(f.rows !== undefined ? { rows: f.rows } : {}),
+        ...(f.encoding ? { encoding: f.encoding } : {}),
+        ...(f.delimiter ? { delimiter: f.delimiter } : {}),
+        ...(f.unpacked ? { unpacked: f.unpacked } : {}),
+      })),
+      mapping: Object.fromEntries(Object.entries(i.mapping ?? {}).map(([id, m]) => [id, { columns: m.columns }])),
+      resolutions: i.resolutions ?? {},
+      decisions: {
+        ...(decisions.numberRanges ? { numberRanges: decisions.numberRanges } : {}),
+        ...(decisions.missingPdfReason ? { missingPdfReason: decisions.missingPdfReason } : {}),
+      },
+      preview: {
+        ...(preview.findings
+          ? {
+              findings: preview.findings.map((f) => ({
+                code: f.code,
+                severity: f.severity,
+                message: f.message,
+                ...(f.fileName ? { fileName: f.fileName } : {}),
+                ...(f.line !== undefined ? { line: f.line } : {}),
+              })),
+            }
+          : {}),
+        ...(preview.findingsTotal !== undefined ? { findingsTotal: preview.findingsTotal } : {}),
+        ...(preview.openItems ? { openItems: preview.openItems } : {}),
+        ...(preview.pdf ? { pdf: { orphans: preview.pdf.orphans ?? [], missing: preview.pdf.missing ?? [] } } : {}),
+      },
+      stats: i.stats,
+      log: i.log,
+    };
+  },
+});
+
+const IMPORT_PROTOCOL_NOT_DONE = "Das Importprotokoll entsteht erst mit der Übernahme.";
+
+export const attachProtocolInternal = actorMutation({
+  permission: "imports.commit",
+  args: { importId: v.id("imports"), file: vFileRef },
+  handler: async (ctx, { importId, file }) => attachImportProtocol(ctx, importId, file),
+});
+
+async function archiveProtocol(ctx: ActionCtx, actorContext: ActorContext, importId: Id<"imports">) {
+  const file = await ctx.runAction(internal.importsNode.renderProtocol, { importId });
+  try {
+    await ctx.runMutation(internal.imports.attachProtocolInternal, { actorContext, importId, file });
+  } catch (e) {
+    await ctx.storage.delete(file.storageId);
+    throw e;
+  }
+}
+
+/** IMP-024 „Protokoll erzeugen“: creates a missing protocol of a committed import; an existing one stays. */
+export const generateProtocol = action({
+  permission: "imports.commit",
+  args: { importId: v.id("imports") },
+  handler: async (ctx, { importId }): Promise<{ created: boolean }> => {
+    const i = await ctx.runQuery(api.imports.get, { importId });
+    if (!i) throw appError("not_found", "Der Import existiert nicht.");
+    if (i.status !== "done") throw appError("conflict", IMPORT_PROTOCOL_NOT_DONE, { reason: "IMPORT_NOT_DONE" });
+    if (i.protocol) return { created: false };
+    await archiveProtocol(ctx, ctx.actorContext, importId);
+    return { created: true };
+  },
+});
+
 export const failInternal = actorMutation({
   permission: "imports.commit",
   args: { importId: v.id("imports"), message: v.string() },
@@ -518,7 +676,7 @@ export const commit = action({
     /** E-IMP-07 „ohne Original-PDF übernehmen“ for all listed rows (reason mandatory, audited with the decisions). */
     missingPdfReason: v.optional(v.string()),
   },
-  handler: async (ctx, args): Promise<{ status: "done"; counts: Record<string, number> }> => {
+  handler: async (ctx, args): Promise<{ status: "done"; counts: Record<string, number>; protocol: boolean }> => {
     const { ws, plan, hash, today } = await computePlan(ctx, args.importId);
     const resuming = ws.status === "failed";
     if (!resuming) {
@@ -650,7 +808,12 @@ export const commit = action({
         today,
         ...(maxRetention ? { maxRetentionUntil: maxRetention } : {}),
       });
-      return { status: "done", counts: stats };
+      // IMP-024: rendered from the frozen row; a failure leaves the import done („Protokoll erzeugen“ retries).
+      const protocol = await archiveProtocol(ctx, actorContext, importId).then(
+        () => true,
+        () => false,
+      );
+      return { status: "done", counts: stats, protocol };
     } catch (e) {
       // E-IMP-14: finished batches stay; the run can be resumed.
       await ctx.runMutation(internal.imports.failInternal, { actorContext, importId, message: messageOf(e) });

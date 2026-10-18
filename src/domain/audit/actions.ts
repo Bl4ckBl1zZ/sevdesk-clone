@@ -102,6 +102,7 @@ const GROUPS: Record<string, readonly string[] | "*"> = {
     "fail",
     "record",
     "preset",
+    "protocol", // IMP-024: the import protocol PDF attached to the committed import
   ],
   integrity: ["run", "checkpoint", "acknowledge"],
   security: ["write_rejected", "access_denied"],

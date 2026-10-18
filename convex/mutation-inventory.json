@@ -889,6 +889,12 @@
     "wrapper": "actorMutation",
     "permission": "imports.run"
   },
+  "imports:attachProtocolInternal": {
+    "kind": "mutation",
+    "visibility": "internal",
+    "wrapper": "actorMutation",
+    "permission": "imports.commit"
+  },
   "imports:beginCommitInternal": {
     "kind": "mutation",
     "visibility": "internal",
@@ -955,6 +961,12 @@
     "wrapper": "actorMutation",
     "permission": "imports.commit"
   },
+  "imports:generateProtocol": {
+    "kind": "action",
+    "visibility": "public",
+    "wrapper": "action",
+    "permission": "imports.commit"
+  },
   "imports:generateUploadUrl": {
     "kind": "mutation",
     "visibility": "public",
@@ -984,6 +996,12 @@
     "visibility": "public",
     "wrapper": "action",
     "permission": "imports.run"
+  },
+  "imports:protocolInput": {
+    "kind": "query",
+    "visibility": "internal",
+    "wrapper": "systemQuery",
+    "job": "imports.protocol"
   },
   "imports:removeFile": {
     "kind": "mutation",
@@ -1020,6 +1038,24 @@
     "visibility": "public",
     "wrapper": "mutation",
     "permission": "imports.run"
+  },
+  "imports:usedBytes": {
+    "kind": "query",
+    "visibility": "internal",
+    "wrapper": "systemQuery",
+    "job": "imports.files"
+  },
+  "importsNode:renderProtocol": {
+    "kind": "action",
+    "visibility": "internal",
+    "wrapper": "systemAction",
+    "job": "imports.protocol"
+  },
+  "importsNode:unpackZip": {
+    "kind": "action",
+    "visibility": "internal",
+    "wrapper": "systemAction",
+    "job": "imports.files"
   },
   "integrity:acknowledge": {
     "kind": "mutation",

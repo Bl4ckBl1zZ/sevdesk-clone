@@ -3591,7 +3591,10 @@
       "discarded": "Verworfen"
     },
     "filesTitle": "1. Dateien hochladen",
-    "filesHint": "CSV-, PDF- und XML-Dateien (je höchstens 50 MB). ZIP-Archive bitte vorher entpacken.",
+    "filesHint": "CSV-, PDF-, XML- und ZIP-Dateien (je höchstens 50 MB). ZIP-Archive werden automatisch entpackt; das Archiv bleibt als Nachweis erhalten.",
+    "zipUnpacked": "{count, plural, one {# Datei entpackt} other {# Dateien entpackt}}",
+    "fromZip": "aus {name}",
+    "zipIgnored": "In ZIP-Archiven übersprungen (Systemdateien): {names}",
     "chooseFiles": "Dateien auswählen",
     "uploading": "Dateien werden hochgeladen …",
     "uploaded": "{count, plural, one {# Datei hinzugefügt} other {# Dateien hinzugefügt}}",
@@ -3684,6 +3687,11 @@
     "doneTitle": "Ergebnis",
     "log": "Protokoll",
     "retention": "Die Quelldateien werden als Nachweis bis {date} aufbewahrt.",
+    "protocolDownload": "Importprotokoll herunterladen (PDF)",
+    "protocolSha": "SHA-256: {sha}",
+    "protocolMissing": "Das Importprotokoll wurde noch nicht erzeugt.",
+    "protocolCreate": "Protokoll erzeugen",
+    "protocolCreated": "Importprotokoll erzeugt.",
     "failed": "Der Import wurde abgebrochen: {error}"
   }
 }
