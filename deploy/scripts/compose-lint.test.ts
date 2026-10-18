@@ -12,8 +12,8 @@ const base = () => ({
   services: {
     caddy: { image: "reg/rechnungen-caddy:abc", expose: ["443", "8443"], logging },
     web: { image: "reg/rechnungen-web:abc", logging },
-    backend: { image: "ghcr.io/get-convex/convex-backend:72ce13c", environment: ["DISABLE_BEACON=1"], logging },
-    dashboard: { image: "ghcr.io/get-convex/convex-dashboard:72ce13c", logging },
+    backend: { image: "ghcr.io/convex/convex-backend:72ce13c", environment: ["DISABLE_BEACON=1"], logging },
+    dashboard: { image: "ghcr.io/convex/convex-dashboard:72ce13c", logging },
     postgres: { image: "postgres:17.11", logging },
   },
 });
@@ -83,7 +83,7 @@ describe("production compose lint (08 §3.1)", () => {
 
   test("backend and dashboard must use the same Convex SHA", () => {
     const a = base();
-    a.services.dashboard.image = "ghcr.io/get-convex/convex-dashboard:other";
+    a.services.dashboard.image = "ghcr.io/convex/convex-dashboard:other";
     expect(rules(a)).toEqual(["dashboard:convex-same-sha"]);
   });
 

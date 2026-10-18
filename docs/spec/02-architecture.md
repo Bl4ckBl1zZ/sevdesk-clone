@@ -32,8 +32,8 @@ There is **no public host**. Every endpoint is reachable only from inside the ow
 |---|---|---|---|
 | `caddy` | Caddy 2 built with `caddy-dns/cloudflare` (`ghcr.io/<owner>/rechnungen-caddy:<tag>`, built in CI) | **The only service with `expose: ["443", "8443"]`** → published by the fork as one Tailscale Service (`dokploy-<project>-<env>-<resource>-caddy-<8>.tailb289f5.ts.net`, plain TCP) | TLS edge: wildcard cert `*.<BASE_DOMAIN>` (DNS-01), routing by `Host`, port 8443 = API-only listener, basic auth on `convex-dash.`, security headers |
 | `web` | Our `Dockerfile` (Next.js 16.4 standalone, Node 24) | none (reached via Caddy) | UI, Server Actions, REST API, MCP, `/api/auth/*` proxy to Better Auth, server-JWT issuer for API keys/MCP |
-| `backend` | `ghcr.io/get-convex/convex-backend:<SHA>` | none (via Caddy as `convex.` / `convex-site.`) | Database, functions, scheduler, crons, file storage; **Better Auth runs here** as an HTTP action (port 3211) |
-| `dashboard` | `ghcr.io/get-convex/convex-dashboard:<same SHA>` | none (via Caddy as `convex-dash.`) | Convex admin dashboard |
+| `backend` | `ghcr.io/convex/convex-backend:<SHA>` | none (via Caddy as `convex.` / `convex-site.`) | Database, functions, scheduler, crons, file storage; **Better Auth runs here** as an HTTP action (port 3211) |
+| `dashboard` | `ghcr.io/convex/convex-dashboard:<same SHA>` | none (via Caddy as `convex-dash.`) | Convex admin dashboard |
 | `postgres` | `postgres:17` | none | Convex persistence (better backup tooling than SQLite); backed up by Dokploy to R2 |
 | `einvoice-tools` | Our `services/einvoice-tools/Dockerfile` (Temurin 17 JRE + Node 24) | none | KoSIT validator daemon (XRechnung config bundle), Mustang CLI (ZUGFeRD/PDF-A validation, visualisation) |
 

@@ -20,7 +20,7 @@ name: rechnungen-dev
 
 services:
   backend:
-    image: ghcr.io/get-convex/convex-backend:${CONVEX_SHA:-72ce13c379fe6dbdfc305bc8ad699c5663c68c2a}
+    image: ghcr.io/convex/convex-backend:${CONVEX_SHA:-72ce13c379fe6dbdfc305bc8ad699c5663c68c2a}
     stop_grace_period: 10s
     stop_signal: SIGINT
     ports: ["127.0.0.1:3210:3210", "127.0.0.1:3211:3211"]   # CLI (pnpm convex dev) talks to 127.0.0.1:3210 directly
@@ -44,7 +44,7 @@ services:
       pg-init: { condition: service_completed_successfully }
 
   dashboard:
-    image: ghcr.io/get-convex/convex-dashboard:${CONVEX_SHA:-72ce13c379fe6dbdfc305bc8ad699c5663c68c2a}
+    image: ghcr.io/convex/convex-dashboard:${CONVEX_SHA:-72ce13c379fe6dbdfc305bc8ad699c5663c68c2a}
     ports: ["127.0.0.1:6791:6791"]
     environment:
       - NEXT_PUBLIC_DEPLOYMENT_URL=https://convex.localtest.me

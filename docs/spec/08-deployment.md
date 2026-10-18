@@ -110,7 +110,8 @@ services:
       - EINVOICE_TOOLS_URL=http://einvoice-tools:8080
     healthcheck: { test: "curl -f http://localhost:3000/api/health", interval: 10s, start_period: 20s }
   backend:
-    image: ghcr.io/get-convex/convex-backend:${CONVEX_SHA}      # pinned SHA, e.g. 72ce13c379fe6dbdfc305bc8ad699c5663c68c2a
+    image: ghcr.io/convex/convex-backend:${CONVEX_SHA}      # pinned SHA, e.g. 72ce13c379fe6dbdfc305bc8ad699c5663c68c2a
+    # (the Convex GitHub org was renamed get-convex → convex in 2026; ghcr.io/get-convex/* no longer resolves)
     stop_grace_period: 10s
     stop_signal: SIGINT
     volumes: [convex-data:/convex/data]
@@ -128,7 +129,7 @@ services:
     healthcheck: { test: "curl -f http://localhost:3210/version", interval: 5s, start_period: 15s }
     depends_on: { postgres: { condition: service_healthy } }
   dashboard:
-    image: ghcr.io/get-convex/convex-dashboard:${CONVEX_SHA}   # SAME SHA as backend
+    image: ghcr.io/convex/convex-dashboard:${CONVEX_SHA}   # SAME SHA as backend
     environment:
       - NEXT_PUBLIC_DEPLOYMENT_URL=https://convex.${BASE_DOMAIN}
     depends_on: { backend: { condition: service_healthy } }

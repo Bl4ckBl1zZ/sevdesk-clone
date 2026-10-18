@@ -66,7 +66,7 @@ services:
     logging: *logging
 
   backend:
-    image: ghcr.io/get-convex/convex-backend:${CONVEX_SHA:?}    # pinned SHA, e.g. 72ce13c379fe6dbdfc305bc8ad699c5663c68c2a
+    image: ghcr.io/convex/convex-backend:${CONVEX_SHA:?}    # pinned SHA, e.g. 72ce13c379fe6dbdfc305bc8ad699c5663c68c2a
     restart: unless-stopped
     stop_grace_period: 10s
     stop_signal: SIGINT
@@ -96,7 +96,7 @@ services:
     logging: *logging
 
   dashboard:
-    image: ghcr.io/get-convex/convex-dashboard:${CONVEX_SHA:?}  # SAME SHA as backend (linted)
+    image: ghcr.io/convex/convex-dashboard:${CONVEX_SHA:?}  # SAME SHA as backend (linted)
     restart: unless-stopped
     environment:
       - NEXT_PUBLIC_DEPLOYMENT_URL=https://convex.${BASE_DOMAIN:?}
