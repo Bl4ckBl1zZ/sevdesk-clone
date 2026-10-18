@@ -161,3 +161,17 @@ describe("public edge compose lint (08 §12)", () => {
     expect(rules(publicBase())).toEqual(["caddy:edge-ports"]);
   });
 });
+
+describe("web container health check (08 §3.1)", () => {
+  // proxy.ts answers every request whose Host is neither app. nor api. with 421 (SEC-06 DNS-rebinding protection),
+  // so a probe of http://127.0.0.1:3000 without the app Host header can never be healthy.
+  test.each(["docker-compose.yml", "docker-compose.public.yml"])(
+    "SEC-06 %s probes /api/health with the app Host header from APP_ORIGIN",
+    (file) => {
+      const doc = parse(readFileSync(join(import.meta.dirname, "../compose", file), "utf8"));
+      const probe = JSON.stringify(doc.services.web.healthcheck.test);
+      expect(probe).toContain("/api/health");
+      expect(probe).toMatch(/headers:\{Host:new URL\(process\.env\.APP_ORIGIN\)\.host\}/);
+    },
+  );
+});

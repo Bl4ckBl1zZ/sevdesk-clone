@@ -65,6 +65,6 @@ USER node
 
 # HOSTNAME=0.0.0.0 matters: Docker sets HOSTNAME to the container id, and the standalone server binds to it.
 HEALTHCHECK --interval=10s --timeout=5s --start-period=30s --retries=3 \
-  CMD ["node", "-e", "fetch('http://127.0.0.1:3000/api/health').then(r=>process.exit(r.ok?0:1),()=>process.exit(1))"]
+  CMD ["node", "-e", "require('node:http').get({host:'127.0.0.1',port:3000,path:'/api/health',headers:{Host:new URL(process.env.APP_ORIGIN).host}},r=>process.exit(r.statusCode===200?0:1)).on('error',()=>process.exit(1))"]
 
 CMD ["node", "server.js"]
