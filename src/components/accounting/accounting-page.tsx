@@ -21,7 +21,10 @@ export async function AccountingPage({ page, children }: { page: AccountingPageK
       <PageHeader
         title={t(`${page}.title`)}
         description={t(`${page}.description`)}
-        breadcrumbs={[{ label: tNav("sections.buchhaltung") }, { label: t(`${page}.title`) }]}
+        breadcrumbs={[
+          { label: tNav("items.auswertungenBereich"), href: "/auswertungen/offene-posten" },
+          { label: t(`${page}.title`) },
+        ]}
       />
       <PageBody>
         <RoleGate permission="accounting.read">{children}</RoleGate>
