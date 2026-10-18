@@ -175,3 +175,15 @@ describe("web container health check (08 §3.1)", () => {
     },
   );
 });
+
+describe("stack-unique upstream aliases (08 §12)", () => {
+  test.each(["docker-compose.yml", "docker-compose.public.yml"])(
+    "SEC-06 %s gives web, backend and dashboard a rechnungen-* alias on the default network",
+    (file) => {
+      const doc = parse(readFileSync(join(import.meta.dirname, "../compose", file), "utf8"));
+      for (const name of ["web", "backend", "dashboard"]) {
+        expect(doc.services[name].networks.default.aliases).toContain(`rechnungen-${name}`);
+      }
+    },
+  );
+});

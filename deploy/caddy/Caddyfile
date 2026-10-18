@@ -73,7 +73,7 @@
 			respond 404
 		}
 		handle {
-			reverse_proxy web:3000
+			reverse_proxy rechnungen-web:3000
 		}
 	}
 
@@ -83,7 +83,7 @@
 		@api_allowed path /api/v1 /api/v1/* /api/mcp /api/mcp/* /api/docs /api/docs/* /api/openapi.json /api/health
 		handle @api_allowed {
 			request_header -Cookie
-			reverse_proxy web:3000 {
+			reverse_proxy rechnungen-web:3000 {
 				# MCP (streamable HTTP) and large exports must not be buffered.
 				flush_interval -1
 			}
@@ -95,14 +95,14 @@
 
 	# convex.: Convex API incl. the sync WebSocket (reverse_proxy upgrades automatically).
 	handle @cvx {
-		reverse_proxy backend:3210
+		reverse_proxy rechnungen-backend:3210
 	}
 
 	# convex-site.: Convex HTTP actions — only Better Auth (02 §4.1: "no other HTTP actions are public").
 	handle @site {
 		@auth path /api/auth/* /.well-known/*
 		handle @auth {
-			reverse_proxy backend:3211 {
+			reverse_proxy rechnungen-backend:3211 {
 				flush_interval -1
 			}
 		}
@@ -116,7 +116,7 @@
 		basic_auth {
 			owner {$CONVEX_DASH_BASIC_AUTH}
 		}
-		reverse_proxy dashboard:6791
+		reverse_proxy rechnungen-dashboard:6791
 	}
 
 	# Unknown host under the wildcard (DNS-rebinding protection, SEC-06).
@@ -136,7 +136,7 @@
 	}
 	handle @v1 {
 		request_header -Cookie
-		reverse_proxy web:3000
+		reverse_proxy rechnungen-web:3000
 	}
 	handle {
 		respond 404

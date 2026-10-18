@@ -62,7 +62,9 @@ services:
       timeout: 5s
       start_period: 30s
       retries: 3
-    networks: [default, tools]
+    networks:
+      default: { aliases: [rechnungen-web] }   # stack-unique upstream name for caddy (08 §12)
+      tools: {}
     depends_on:
       backend: { condition: service_healthy }
     logging: *logging
@@ -91,7 +93,10 @@ services:
       timeout: 5s
       start_period: 15s
       retries: 6
-    networks: [default, db, tools]                              # default: egress (Cloudflare, R2, eVatR/VIES, Claude API)
+    networks:                                                   # default: egress (Cloudflare, R2, eVatR/VIES, Claude API)
+      default: { aliases: [rechnungen-backend] }
+      db: {}
+      tools: {}
     depends_on:
       postgres: { condition: service_healthy }
       pg-init: { condition: service_completed_successfully }
@@ -102,7 +107,8 @@ services:
     restart: unless-stopped
     environment:
       - NEXT_PUBLIC_DEPLOYMENT_URL=https://convex.${BASE_DOMAIN:?}
-    networks: [default]
+    networks:
+      default: { aliases: [rechnungen-dashboard] }
     depends_on:
       backend: { condition: service_healthy }
     logging: *logging

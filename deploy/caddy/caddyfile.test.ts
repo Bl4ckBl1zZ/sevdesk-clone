@@ -91,3 +91,16 @@ describe("Caddyfile.public (08 §12, public edge mode)", () => {
     expect(publicCaddyfile.match(/^\s*log \{/gm)?.length).toBe(1);
   });
 });
+
+describe("Caddy upstreams (08 §12)", () => {
+  // Dokploy attaches caddy to the shared dokploy-network, where other stacks also run services called `backend`/`web`;
+  // a bare service name can resolve to another project's container. Upstreams use stack-unique network aliases.
+  test.each([
+    ["Caddyfile", caddyfile],
+    ["Caddyfile.public", publicCaddyfile],
+  ])("SEC-06 %s proxies only to the rechnungen-* aliases", (_name, text) => {
+    const targets = [...text.matchAll(/^\s*reverse_proxy (\S+)/gm)].map((m) => m[1]);
+    expect(targets.length).toBeGreaterThan(0);
+    for (const t of targets) expect(t).toMatch(/^rechnungen-(web|backend|dashboard):\d+$/);
+  });
+});
