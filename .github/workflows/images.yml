@@ -1,0 +1,62 @@
+# Manual image build (08 §6) for deploys while the CI coverage gates (07 §5) are still red.
+# Same images, tags and build args as ci.yml `build-image`, but triggered by hand:
+#   gh workflow run images.yml --ref main
+# Tests still run in ci.yml; only use this for commits whose test jobs passed (coverage gates aside).
+name: images
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  packages: write
+
+jobs:
+  build-image:
+    runs-on: ubuntu-24.04
+    strategy:
+      fail-fast: true
+      matrix:
+        include:
+          - image: rechnungen-web
+            context: .
+          - image: rechnungen-caddy
+            context: deploy/caddy
+          - image: rechnungen-einvoice-tools
+            context: services/einvoice-tools
+    steps:
+      - uses: actions/checkout@v5
+      - name: Registry
+        id: reg
+        env:
+          REGISTRY: ${{ secrets.REGISTRY }}
+        run: |
+          reg="${REGISTRY:-ghcr.io/${GITHUB_REPOSITORY_OWNER}}"
+          reg="$(echo "$reg" | tr '[:upper:]' '[:lower:]')"
+          echo "registry=$reg" >> "$GITHUB_OUTPUT"
+          echo "host=${reg%%/*}" >> "$GITHUB_OUTPUT"
+          echo "date=$(date -u +%F)" >> "$GITHUB_OUTPUT"
+      - uses: docker/login-action@v4
+        with:
+          registry: ${{ steps.reg.outputs.host }}
+          username: ${{ secrets.REGISTRY_USER || github.actor }}
+          password: ${{ secrets.REGISTRY_PASSWORD || secrets.GITHUB_TOKEN }}
+      - uses: docker/setup-buildx-action@v4
+      - uses: docker/build-push-action@v7
+        with:
+          context: ${{ matrix.context }}
+          push: true
+          tags: |
+            ${{ steps.reg.outputs.registry }}/${{ matrix.image }}:${{ github.sha }}
+          build-args: |
+            NEXT_PUBLIC_CONVEX_URL=https://convex.${{ vars.BASE_DOMAIN }}
+            NEXT_PUBLIC_SITE_URL=https://app.${{ vars.BASE_DOMAIN }}
+            APP_VERSION=${{ github.sha }}
+            GIT_SHA=${{ github.sha }}
+            BUILD_DATE=${{ steps.reg.outputs.date }}
+            EINVOICE_TOOLS_VERSION=2026-08-31-1+${{ github.sha }}
+          labels: |
+            org.opencontainers.image.source=${{ github.server_url }}/${{ github.repository }}
+            org.opencontainers.image.revision=${{ github.sha }}
+          cache-from: type=gha,scope=${{ matrix.image }}
+          cache-to: type=gha,mode=max,scope=${{ matrix.image }}
