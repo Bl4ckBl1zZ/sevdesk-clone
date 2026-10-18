@@ -119,7 +119,7 @@ describe("DASH-001…009 Übersicht", () => {
 
   test("DASH-002 four quick-action links; read-only roles only see the read action", () => {
     const { unmount } = renderWithIntl(<DashboardView data={full} />);
-    const nav = within(screen.getByRole("navigation", { name: "Schnellzugriff" }));
+    const nav = within(screen.getByRole("navigation", { name: "Schnellaktionen" }));
     expect(nav.getAllByRole("link").map((l) => [l.textContent, l.getAttribute("href")])).toEqual([
       ["Rechnung schreiben", "/rechnungen/neu"],
       ["Ausgabe hochladen", "/posteingang"],
@@ -128,7 +128,7 @@ describe("DASH-001…009 Übersicht", () => {
     ]);
     unmount();
     renderWithIntl(<DashboardView data={{ ...full, role: "viewer" }} />);
-    const viewerNav = within(screen.getByRole("navigation", { name: "Schnellzugriff" }));
+    const viewerNav = within(screen.getByRole("navigation", { name: "Schnellaktionen" }));
     expect(viewerNav.getAllByRole("link").map((l) => l.textContent)).toEqual(["UStVA vorbereiten"]);
   });
 

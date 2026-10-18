@@ -161,7 +161,7 @@
       "greetingNamed": "Herzlich Willkommen, {name}",
       "loading": "Übersicht wird geladen …",
       "quickActions": {
-        "label": "Schnellzugriff",
+        "label": "Schnellaktionen",
         "invoice": "Rechnung schreiben",
         "expense": "Ausgabe hochladen",
         "match": "Zahlungen zuordnen",
