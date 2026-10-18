@@ -470,7 +470,11 @@ server_jwks() {
 convex_env_set() { # name value
   local name="$1" value="$2"
   echo "  ${B}\$${N} npx convex env set $name <redacted ${#value} chars>" >&2
-  if [[ $APPLY -eq 1 ]]; then (cd "$ROOT" && pnpm -s convex env set "$name" "$value" >/dev/null); fi
+  # `pnpm exec` (not the `convex` script: pnpm would echo the command line incl. the value); `--` because PEM values
+  # start with "-----" and would be parsed as an option. Output is dropped so values never reach the terminal.
+  if [[ $APPLY -eq 1 ]]; then
+    (cd "$ROOT" && pnpm exec convex env set -- "$name" "$value" >/dev/null 2>&1) || die "convex env set $name failed"
+  fi
 }
 
 do_convex() {
@@ -499,15 +503,15 @@ do_convex() {
   done
 
   print_cmd npx convex deploy --yes
-  if [[ $APPLY -eq 1 ]]; then (cd "$ROOT" && pnpm -s convex deploy --yes); fi
+  if [[ $APPLY -eq 1 ]]; then (cd "$ROOT" && pnpm exec convex deploy --yes); fi
 
   local jwks_set=0
-  if [[ $APPLY -eq 1 ]] && (cd "$ROOT" && pnpm -s convex env get JWKS >/dev/null 2>&1); then jwks_set=1; fi
+  if [[ $APPLY -eq 1 ]] && (cd "$ROOT" && pnpm exec convex env get JWKS >/dev/null 2>&1); then jwks_set=1; fi
   if [[ $jwks_set -eq 0 ]]; then
     print_cmd npx convex run auth:rotateKeys "|" npx convex env set JWKS
     if [[ $APPLY -eq 1 ]]; then
       local jwks
-      if jwks="$(cd "$ROOT" && pnpm -s convex run auth:rotateKeys)"; then
+      if jwks="$(cd "$ROOT" && pnpm exec convex run auth:rotateKeys)"; then
         convex_env_set JWKS "$jwks"
       else
         warn "auth:rotateKeys failed (Better Auth not deployed yet?) — re-run --only convex after the auth work lands"
