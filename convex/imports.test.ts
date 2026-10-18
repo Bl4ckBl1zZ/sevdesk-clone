@@ -21,7 +21,7 @@ import { api, internal } from "./_generated/api";
 import type { Id } from "./_generated/dataModel";
 import { setupInvoicing } from "./invoices.fixtures";
 import { errorCode } from "./lib/errors";
-import { auditedPatch } from "./model/audit";
+import { auditedInsert, auditedPatch } from "./model/audit";
 import { patchCompanyProfile } from "./model/companyProfile";
 import { assignCounterNumber } from "./model/numberRanges";
 import { openItemsAsOf } from "./model/payments";
@@ -686,5 +686,129 @@ describe("F09 sevdesk import in the verified export layout (Kleinunternehmer acc
     expect(byNumber.get("RE-5004")).toMatchObject({ paymentStatus: "open", openAmountCents: 55_600 });
     const contacts = await t.run((ctx) => ctx.db.query("contacts").collect());
     expect(contacts.find((c) => c.number === "1001")?.vatId).toBe("FR40303265045");
+  });
+
+  /** Kleinunternehmer since 2026, Buchungsbeginn at the start of the business: the whole history is booked period. */
+  async function kuSetup() {
+    const s = await setup({ bookkeepingStart: "2026-06-01" });
+    await s.t.model({ actor: s.owner.actor, role: "owner", channel: "ui" }, (ctx) =>
+      patchCompanyProfile(
+        ctx,
+        { kleinunternehmer: [{ validFrom: "2026-01-01", isKU: true }] },
+        { action: "settings.company.update" },
+      ),
+    );
+    const importId = await s.owner.mutation(api.imports.create, {});
+    await upload(s.t, s.owner, importId, VERIFIED);
+    return { ...s, importId };
+  }
+
+  test("E-IMP-10 EC-204 EC-201 EC-203 IMP-003 booked-period documents are posted at import and paid through the normal payment flow", async () => {
+    const { t, owner, importId } = await kuSetup();
+    const blocked = await owner.action(api.imports.preview, { importId });
+    expect(blocked.preview.blocking).toBe(5);
+    expect(blocked.preview.bookedPeriod).toEqual({ date: "2026-06-01", count: 5, post: false, paidInSevdesk: 0 });
+    // The owner posts the booked period and corrects one total from its PDF (EC-203).
+    await owner.mutation(api.imports.setResolutions, {
+      importId,
+      resolutions: {
+        postBookedPeriod: true,
+        correctedTotals: { "invoice:RE-5001": { grossCents: 154_960, reason: "Gesamtbetrag laut PDF" } },
+      },
+    });
+    const p = await owner.action(api.imports.preview, { importId });
+    expect(p.preview.blocking).toBe(0);
+    expect(p.preview.counts).toMatchObject({ booked: 5, openItems: 0 });
+    expect(p.preview.findings.map((f: { code: string }) => f.code)).toEqual(
+      expect.arrayContaining(["E-IMP-10", "E-IMP-39", "E-IMP-37"]),
+    );
+    await owner.action(api.imports.commit, {
+      importId,
+      previewHash: p.previewHash,
+      numberRanges: [{ rangeKey: "invoice", format: "RE-{####}", resetPolicy: "never" as const, next: 5005 }],
+    });
+    const docs = new Map((await importedDocs(t)).map((d) => [d.number, d]));
+    for (const d of docs.values()) expect(d.origin).toMatchObject({ source: "sevdesk_export", posted: true });
+    // Open receivables with their gross even though sevdesk lists RE-5000/RE-5001 as paid (EC-204).
+    expect(docs.get("RE-5000")).toMatchObject({ status: "sent", paymentStatus: "open", openAmountCents: 99_830 });
+    expect(docs.get("RE-5000")?.internalNote).toContain("Laut sevdesk bezahlt am 11.06.2026");
+    expect(docs.get("RE-5001")).toMatchObject({ openAmountCents: 154_960, totals: { grossCents: 154_960 } });
+    expect(docs.get("RE-5001")?.internalNote).toContain(
+      "Betrag gegenüber sevdesk-Export korrigiert: 1.548,80 € → 1.549,60 € (Gesamtbetrag laut PDF).",
+    );
+    expect(docs.get("RE-5002")).toMatchObject({ status: "cancelled", openAmountCents: 0 });
+    // Journal: one S3 entry per invoice (KU, no VAT) dated on the invoice; the Storno reverses its original (S12).
+    const entries = await t.run((ctx) => ctx.db.query("journalEntries").collect());
+    const of = (n: string) =>
+      entries.filter((e) => e.source.kind === "salesDocument" && e.source.id === docs.get(n)?._id);
+    for (const n of ["RE-5000", "RE-5001", "RE-5002", "RE-5004"]) {
+      expect(
+        of(n).map((e) => [e.explanation, e.date]),
+        n,
+      ).toEqual([["S3", docs.get(n)?.documentDate]]);
+    }
+    expect(of("RE-5001")[0]?.lines.find((l) => l.debitCents > 0)?.debitCents).toBe(154_960);
+    expect(of("RE-5003")).toHaveLength(1);
+    expect(of("RE-5003")[0]?.reversalOfId).toBe(of("RE-5002")[0]?._id);
+    expect(entries.some((e) => e.source.kind === "opening_balance")).toBe(false);
+    expect(await t.run((ctx) => ctx.db.query("openingItems").collect())).toEqual([]);
+    // EC-203: the correction is audited with the owner's reason.
+    const audit = await t.run((ctx) => ctx.db.query("auditLog").collect());
+    expect(audit.find((a) => a.action === "import.corrected_total")).toMatchObject({
+      reason: "Gesamtbetrag laut PDF",
+      entity: { table: "salesDocuments", id: docs.get("RE-5001")?._id },
+    });
+    // OPOS lists the posted invoices themselves; a payment settles the document directly (no opening item).
+    const opos = await t.run((ctx) => openItemsAsOf(ctx, { asOf: "2026-10-12" }));
+    expect(opos.items.map((i) => [i.number, i.kind]).sort()).toEqual([
+      ["RE-5000", "salesDocument"],
+      ["RE-5001", "salesDocument"],
+      ["RE-5004", "salesDocument"],
+    ]);
+    const bank = await t.run(async (ctx) => (await ctx.db.query("bankAccounts").first())?._id as Id<"bankAccounts">);
+    await owner.mutation(api.payments.recordForInvoice, {
+      documentId: docs.get("RE-5000")?._id as Id<"salesDocuments">,
+      source: { kind: "clearing", accountId: bank },
+      date: "2026-10-12",
+      amountCents: 99_830,
+    });
+    const paid = await t.run(async (ctx) => ({
+      doc: await ctx.db.get(docs.get("RE-5000")?._id as Id<"salesDocuments">),
+      payment: (await ctx.db.query("payments").collect()).at(-1),
+    }));
+    expect(paid.doc).toMatchObject({ openAmountCents: 0, paymentStatus: "paid" });
+    expect(paid.payment?.target).toMatchObject({ kind: "salesDocument" });
+  });
+
+  test("E-IMP-10 ACC-006 a booked-period document in a locked month (UStVA filed) is blocked", async () => {
+    const { t, owner, importId } = await kuSetup();
+    await t.model({ actor: owner.actor, role: "owner", channel: "ui" }, (ctx) =>
+      auditedInsert(
+        ctx,
+        "periods",
+        { period: "2026-09", status: "locked", lockedAt: Date.now(), lockedBy: owner.actor, reason: "ustva_submitted" },
+        { action: "period.lock" },
+      ),
+    );
+    await owner.mutation(api.imports.setResolutions, { importId, resolutions: { postBookedPeriod: true } });
+    const p = await owner.action(api.imports.preview, { importId });
+    expect(p.preview.blocking).toBe(1);
+    expect(p.preview.findings.find((f: { severity: string }) => f.severity === "error")).toMatchObject({
+      code: "E-IMP-10",
+      key: "invoice:RE-5004",
+      message:
+        "RE-5004: Der Zeitraum 09/2026 ist festgeschrieben (UStVA abgegeben) – der Beleg kann nicht mehr gebucht werden. Bitte Zeile ausschließen.",
+    });
+  });
+
+  test("EC-203 E-IMP-37 a corrected total needs a reason (resolutions are validated)", async () => {
+    const { owner, importId } = await kuSetup();
+    const e = await owner
+      .mutation(api.imports.setResolutions, {
+        importId,
+        resolutions: { correctedTotals: { "invoice:RE-5001": { grossCents: 154_960, reason: " " } } },
+      })
+      .catch((x) => x);
+    expect(messageOf(e)).toBe("Bitte für jede Betragskorrektur einen Grund angeben.");
   });
 });

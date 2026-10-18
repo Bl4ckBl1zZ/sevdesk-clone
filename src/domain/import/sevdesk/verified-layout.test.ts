@@ -65,13 +65,14 @@ describe("F09 TST-IMP-16 verified sevdesk layout: classification and mapping (IM
     expect(files[0]?.table?.headers[0]).toBe("Kunden-Nr.");
   });
 
-  test("IMP-017 the sevdesk invoice list maps by name; the unnamed reference column stays unmapped", () => {
+  test("IMP-017 E-IMP-39 the sevdesk invoice list maps by name („Bezahlt am“ as a hint); the unnamed reference column stays unmapped", () => {
     const inv = inspectFile("invoices.csv", sevdeskVerifiedBytes("invoices.csv"));
     const m = autoMap("invoices", inv.headers ?? []);
     expect(m).toEqual({
       number: "Rechnungs-Nr.",
       documentDate: "Rechnungs-Datum",
       dueDate: "Fällig am",
+      paidOn: "Bezahlt am",
       subject: "Betreff",
       net: "Gesamtbetrag-Netto",
       gross: "Gesamtbetrag-Brutto",

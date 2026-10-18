@@ -7,6 +7,7 @@ import type {
 } from "../../src/domain/accounting/events";
 import { taxationMethodAt } from "../../src/domain/accounting/period";
 import { derivePaymentStatus, NEGATIVE_OPEN_MESSAGE, type StatusRow } from "../../src/domain/documents/payment-status";
+import { isArchiveOnlyImport } from "../../src/domain/import/sevdesk/types";
 import { PAY_MESSAGES } from "../../src/domain/payments/messages";
 import { computeOpenItems, type OpenItemDocument, type SettlementRow } from "../../src/domain/payments/open-items";
 import {
@@ -201,7 +202,8 @@ async function redirectImported(ctx: ReadCtx, allocations: RecordArgs["allocatio
     }
     const id = ctx.db.normalizeId("salesDocuments", a.target.id);
     const doc = id ? await ctx.db.get(id) : null;
-    if (!id || !doc?.imported) {
+    // EC-204: a document posted at import (E-IMP-10) is settled like an own invoice.
+    if (!id || !doc || !isArchiveOnlyImport(doc)) {
       out.push(a);
       continue;
     }
@@ -231,9 +233,10 @@ async function loadTarget(ctx: ReadCtx, ref: TargetRef, date: string): Promise<L
     const id = ctx.db.normalizeId("salesDocuments", ref.id);
     const doc = id ? await ctx.db.get(id) : null;
     if (!doc) return null;
-    if (doc.imported) {
+    if (isArchiveOnlyImport(doc)) {
       // F09 IMP-007 / EC-201: an archived sevdesk invoice was never posted; its receivable is the F08 opening item
       // (redirected in `planFor`). Without one (paid in sevdesk, or created before the link) nothing can be settled.
+      // A document posted at import (EC-204) takes the normal path below.
       throw appError("invalid_input", IMPORTED_PAYMENT_MESSAGE, { reason: "IMPORTED_DOCUMENT_PAYMENT" });
     }
     const snapshot = await snapshotOf(ctx, doc);
@@ -1207,7 +1210,9 @@ export async function invoicePaymentArgs(ctx: ReadCtx, input: InvoicePaymentInpu
     throw appError("invalid_input", PAY_MESSAGES.writtenOff, { reason: "WRITTEN_OFF" });
   }
   // EC-201: the receivable of an archived sevdesk invoice is its opening item (`redirectImported`).
-  if (doc.imported) await redirectImported(ctx, [{ target: { kind: "salesDocument", id: doc._id }, amountCents: 0 }]);
+  if (isArchiveOnlyImport(doc)) {
+    await redirectImported(ctx, [{ target: { kind: "salesDocument", id: doc._id }, amountCents: 0 }]);
+  }
   const r = allocationsForInvoice({
     invoice: {
       id: doc._id,
@@ -1259,8 +1264,9 @@ export async function openItemsAsOf(
       for (const d of docs) {
         if (args.contactId && d.contactId !== args.contactId) continue;
         if (!d.number || !d.documentDate) continue;
-        // F09 IMP-007: an archived sevdesk invoice is a receivable only through its opening item (listed below).
-        if (d.imported) continue;
+        // F09 IMP-007: an archived sevdesk invoice is a receivable only through its opening item (listed below);
+        // one posted at import (EC-204) is listed itself.
+        if (isArchiveOnlyImport(d)) continue;
         documents.push({
           id: d._id,
           kind: "salesDocument",

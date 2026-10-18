@@ -69,6 +69,7 @@ export const INVOICE_FIELDS = [
   "taxRule",
   "status",
   "paid",
+  "paidOn",
   "open",
   "currency",
   "reference",
@@ -95,6 +96,7 @@ export const INVOICE_FIELD_LABELS: Readonly<Record<InvoiceField, string>> = {
   taxRule: "Steuerregel",
   status: "Status",
   paid: "Bezahlter Betrag",
+  paidOn: "Bezahlt am",
   open: "Offener Betrag",
   currency: "Währung",
   reference: "Bezug (Ursprungsrechnung)",
@@ -105,7 +107,7 @@ const REQUIRED_INVOICE: readonly InvoiceField[] = ["number", "documentDate", "gr
 
 /**
  * Preset `sevdesk-invoices` — candidates in priority order (normalised). Verified sevdesk headers: „Rechnungs-Nr.“,
- * „Rechnungs-Datum“, „Fällig am“, „Bezahlt am“ (unmapped), „Betreff“, „Gesamtbetrag-Netto/-Brutto“,
+ * „Rechnungs-Datum“, „Fällig am“, „Bezahlt am“ (a hint only, E-IMP-39), „Betreff“, „Gesamtbetrag-Netto/-Brutto“,
  * „offener Betrag“, „Empfänger-KdNr“, „Empfänger-Adresse“ (name and address in one cell). The unnamed last column
  * (the customer's „Referenz“ on the PDF, not the Storno reference) stays unmapped.
  */
@@ -134,6 +136,7 @@ const INVOICE_CANDIDATES: Readonly<Record<InvoiceField, readonly string[]>> = {
   taxRule: ["steuerregel", "umsatzsteuerart", "steuerart"],
   status: ["status", "rechnungsstatus"],
   paid: ["bezahlt", "bezahlter betrag", "bezahlt betrag", "gezahlt", "gezahlter betrag"],
+  paidOn: ["bezahlt am", "zahlungsdatum", "bezahlt datum"],
   open: ["offener betrag", "offen", "restbetrag", "offener rechnungsbetrag"],
   currency: ["waehrung"],
   reference: ["bezug", "ursprungsrechnung", "bezugsrechnung", "rechnungsbezug"],

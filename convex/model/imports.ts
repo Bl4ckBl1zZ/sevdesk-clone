@@ -14,7 +14,8 @@ import {
   type LookupKeys,
   SEVDESK_IMPORTER_VERSION,
 } from "../../src/domain/import/sevdesk/preview";
-import type { ImportedDocType } from "../../src/domain/import/sevdesk/types";
+import { type ImportedDocType, isArchiveOnlyImport } from "../../src/domain/import/sevdesk/types";
+import { formatCents } from "../../src/domain/money/format";
 import { normalizeNumber, type YearMonth } from "../../src/domain/numbering/format";
 import { contactCreateSchema, emptyAddress, emptyContactForm } from "../../src/domain/schemas/contacts";
 import { productSchema } from "../../src/domain/schemas/products";
@@ -26,7 +27,9 @@ import { appError } from "../lib/errors";
 import { parse } from "../lib/parse";
 import { type OpeningReceivableInput, openingContextForImport, postOpeningBalance } from "./accounting";
 import { appendAudit, auditedInsert, auditedPatch } from "./audit";
+import { getCompanyProfile } from "./companyProfile";
 import { createContact } from "./contacts";
+import { postJournalEntry } from "./journal";
 import { continueRangeAfterImport, listDefaultRanges, nextValue } from "./numberRanges";
 import { createProduct, ensureCategoryPath } from "./products";
 import type { ModelCtx, ReadCtx } from "./types";
@@ -278,9 +281,16 @@ export interface ImportResolutionsInput {
   excluded?: string[];
   pdfAssignments?: Record<string, string>;
   openAmounts?: Record<string, number>;
+  /** E-IMP-10: post documents dated on/after the Buchungsbeginn at commit (EC-204). */
+  postBookedPeriod?: boolean;
+  /** EC-203 / E-IMP-37: gross from the PDF with the owner's reason (document key → value). */
+  correctedTotals?: Record<string, { grossCents: number; reason: string }>;
 }
 
-/** PUT /imports/{id}/resolutions: PDF assignments, excluded rows, entered open amounts (invalidates the preview). */
+/**
+ * PUT /imports/{id}/resolutions: PDF assignments, excluded rows, entered open amounts, the booked-period choice and
+ * corrected totals (invalidates the preview; the row-level checks are the preview's, src/domain/import/sevdesk).
+ */
 export async function setImportResolutions(
   ctx: ModelCtx,
   importId: Id<"imports">,
@@ -291,6 +301,13 @@ export async function setImportResolutions(
   for (const cents of Object.values(resolutions.openAmounts ?? {})) {
     if (!Number.isSafeInteger(cents) || cents < 0)
       throw appError("invalid_input", "Offene Beträge in ganzen Cent ≥ 0.");
+  }
+  for (const c of Object.values(resolutions.correctedTotals ?? {})) {
+    if (!Number.isSafeInteger(c.grossCents) || c.grossCents === 0) {
+      throw appError("invalid_input", "Korrigierte Beträge in ganzen Cent ≠ 0.");
+    }
+    if (!c.reason.trim()) throw appError("invalid_input", "Bitte für jede Betragskorrektur einen Grund angeben.");
+    if (c.reason.length > 500) throw appError("invalid_input", "Der Grund darf höchstens 500 Zeichen lang sein.");
   }
   for (const fileId of Object.values(resolutions.pdfAssignments ?? {})) {
     if (!row.files.some((f) => f.id === fileId && f.kind === "pdf")) {
@@ -390,7 +407,15 @@ export async function importLocalState(ctx: ReadCtx, keys: LookupKeys, today: Ca
     if (key !== "invoice" && key !== "correction") continue;
     ranges.push({ rangeKey: key, format: r.format, resetPolicy: r.resetPolicy, next: await nextValue(ctx, r, ym) });
   }
+  // E-IMP-10 / ACC-006: posted documents must not land in a locked (or locking) month.
+  const closedPeriods: Record<string, string> = {};
+  for (const p of await ctx.db.query("periods").collect()) {
+    if (p.status !== "open") closedPeriods[p.period] = p.reason ?? p.status;
+  }
+  const profile = await getCompanyProfile(ctx);
   return {
+    closedPeriods,
+    taxationMethod: (profile?.taxationMethod ?? []).map((m) => ({ validFrom: m.validFrom, method: m.method })),
     today,
     imported,
     registerNumbers,
@@ -408,6 +433,10 @@ export async function importLocalState(ctx: ReadCtx, keys: LookupKeys, today: Ca
 export interface CommitDecisions {
   numberRanges: { rangeKey: string; format: string; resetPolicy: "never" | "yearly" | "monthly"; next: number }[];
   missingPdfReason?: string;
+  /** E-IMP-10: booked-period documents posted at import (recorded with the commit audit). */
+  postBookedPeriod?: boolean;
+  /** EC-203: corrected totals (document key → gross + reason) as committed. */
+  correctedTotals?: Record<string, { grossCents: number; reason: string }>;
 }
 
 /** previewed → running (only with the current preview hash, E-IMP-27); failed → running resumes. */
@@ -573,9 +602,75 @@ export interface ImportedDocumentPayload {
   correctsLocalId?: string;
   pdfFileId?: string;
   deviations: string[];
+  /** E-IMP-10 / EC-204: posted at import (journal entries like an own finalised invoice / Storno). */
+  post?: boolean;
+  /** EC-203: the owner's corrected gross (audited with the reason). */
+  correctedTotal?: { exportedGrossCents: number; grossCents: number; reason: string };
 }
 
 const SUMMARY_LINE = "Positionen siehe Original-PDF";
+
+/**
+ * E-IMP-10 / EC-204: the journal entry of a booked-period import, through the same F08 events as our own
+ * finalisation (S1–S8, `salesDocuments.commitFinalization`) and Storno (S12, `invoiceCorrections`) — in the inserting
+ * transaction, user-dated (a locked month refuses, ACC-006). The tax point falls back to the document date only
+ * where it decides nothing (the preview blocks Soll-VAT, igL and EU services without a supply date).
+ */
+async function postImportedDocument(
+  ctx: ModelCtx,
+  docId: Id<"salesDocuments">,
+  d: ImportedDocumentPayload,
+  contact: Doc<"contacts">,
+  correctsId: Id<"salesDocuments"> | undefined,
+): Promise<void> {
+  if (d.type === "cancellation") {
+    if (!correctsId) {
+      throw appError(
+        "conflict",
+        `${d.number}: Die stornierte Rechnung fehlt – die Stornorechnung kann nicht gebucht werden.`,
+        {
+          reason: "IMPORT_STORNO_UNRESOLVED",
+        },
+      );
+    }
+    // An original archived before the Buchungsbeginn has nothing to reverse (`skipped: nothing_to_reverse`).
+    await postJournalEntry(ctx, {
+      kind: "invoice_cancelled",
+      documentId: docId,
+      documentNumber: d.number,
+      originalDocumentId: correctsId,
+      date: d.documentDate,
+    });
+    return;
+  }
+  if (d.type !== "invoice") {
+    throw appError("conflict", `${d.number}: Diese Belegart kann beim Import nicht gebucht werden.`, {
+      reason: "IMPORT_POST_TYPE",
+    });
+  }
+  const r = await postJournalEntry(ctx, {
+    kind: "invoice_finalised",
+    documentId: docId,
+    documentNumber: d.number,
+    documentType: "invoice",
+    date: d.documentDate,
+    supplyDate: { kind: "date", date: d.supplyDate ?? d.documentDate },
+    taxCase: d.taxCase,
+    contactId: contact._id,
+    counterpartyName: d.customerName || contact.displayName,
+    vatGroups: d.groups.map((g) => ({
+      category: g.category,
+      rateBp: g.rateBp,
+      netCents: g.netCents,
+      vatCents: g.vatCents,
+    })),
+  });
+  if (r.status !== "posted") {
+    throw appError("conflict", `${d.number} konnte nicht gebucht werden (${r.reason}).`, {
+      reason: "IMPORT_NOT_POSTED",
+    });
+  }
+}
 
 /**
  * IMP-003/IMP-004/IMP-020: one archived document per payload — read-only from insert (status sent/cancelled),
@@ -628,7 +723,9 @@ export async function commitImportDocuments(
     const documentDate = d.documentDate as CalendarDate;
     const isOpen = (d.openAmountCents ?? 0) > 0;
     const notes = [
-      "Importiert aus sevdesk-Export · archiviert.",
+      d.post
+        ? "Importiert aus sevdesk-Export · archiviert · beim Import gebucht."
+        : "Importiert aus sevdesk-Export · archiviert.",
       ...(file ? [] : ["Original-PDF fehlt."]),
       ...(d.sentOnAssumed ? ["Versanddatum = Rechnungsdatum (Import-Annahme)."] : []),
       ...d.deviations.filter((x) => x !== "Original-PDF fehlt."),
@@ -695,7 +792,7 @@ export async function commitImportDocuments(
           ? { cancellation: { at: now, reason: "Storniert (laut sevdesk-Export)" } }
           : {}),
         imported: true,
-        origin: { source: SOURCE, externalId: d.key, importId },
+        origin: { source: SOURCE, externalId: d.key, importId, ...(d.post ? { posted: true as const } : {}) },
         createdBy: ctx.actor,
         channel: ctx.actorContext.channel,
         version: 1,
@@ -758,6 +855,20 @@ export async function commitImportDocuments(
       );
       await recordImported(ctx, importId, EXTERNAL_TYPES.file, file.sha256, "documentArtifacts", artifactId);
     }
+    if (d.correctedTotal) {
+      // EC-203: the corrected total is part of the archived record — audited with the owner's reason.
+      await appendAudit(ctx, {
+        action: "import.corrected_total",
+        entity: {
+          table: "salesDocuments",
+          id: docId,
+          label: `${d.number}: ${formatCents(d.correctedTotal.exportedGrossCents)} → ${formatCents(d.correctedTotal.grossCents)} €`,
+        },
+        // No diff: the document's audited state is its insert entry (RI-15); this entry records the decision.
+        reason: d.correctedTotal.reason,
+      });
+    }
+    if (d.post) await postImportedDocument(ctx, docId, d, contact, correctsId);
     await recordImported(ctx, importId, EXTERNAL_TYPES.document, d.key, "salesDocuments", docId);
     created++;
   }
@@ -781,7 +892,8 @@ export async function commitImportOpeningItems(ctx: ModelCtx, importId: Id<"impo
     if (r.externalType !== EXTERNAL_TYPES.document) continue;
     const id = ctx.db.normalizeId("salesDocuments", r.localId);
     const doc = id ? await ctx.db.get(id) : null;
-    if (doc?.imported && (doc.openAmountCents ?? 0) > 0) open.push(doc);
+    // Documents posted at import are receivables of their own entry — never a second one here (EC-204).
+    if (doc && isArchiveOnlyImport(doc) && (doc.openAmountCents ?? 0) > 0) open.push(doc);
   }
   if (open.length === 0) return { created: 0 };
   // The preview blocked these cases (E-IMP-34/35); re-checked here because the profile may change until commit.

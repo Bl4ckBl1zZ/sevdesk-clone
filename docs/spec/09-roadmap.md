@@ -75,7 +75,7 @@ Order of work (each a vertical slice: domain → Convex → API/MCP → UI → E
 
 **Go-live checklist (production switch from sevdesk):**
 - [ ] **Switch at the start of a VAT period** (the first day of a month, or of a quarter for quarterly filers), so that every UStVA/ZM period is computed entirely by one system: the last period before the switch is filed from sevdesk, the first period after it from the app. Mid-period switches are not supported (the Kennzahlen would be split across two systems).
-- [ ] Buchungsbeginn = that first day; opening balances (bank, cash counted on the day, open receivables and payables from the import) entered as of the day before (F08).
+- [ ] Buchungsbeginn = that first day; opening balances (bank, cash counted on the day, open receivables and payables from the import) entered as of the day before (F08). To keep a whole fiscal year in the app (e.g. the owner's 2026, business start June 2026), set the Buchungsbeginn on or before the first sevdesk document and import with „Beim Import buchen“ (F09 E-IMP-10, EC-204): those documents are posted as open receivables and the bank statements from the Buchungsbeginn on must be imported so their payments are matched (cash payments recorded by hand).
 - [ ] Fresh production instance (pilot archived); setup wizard completed (company, tax settings, SKR03, bank accounts, number ranges continuing the sevdesk sequences per the import preview, F09 IMP-005).
 - [ ] Final sevdesk file export downloaded and **committed** in production; import protocol archived (F09 IMP-024); spot check of 10 historical documents against their PDFs.
 - [ ] Enable Banking connected (consent valid ≥ 150 days) or the statement-import routine in place; first sync/import reconciled.

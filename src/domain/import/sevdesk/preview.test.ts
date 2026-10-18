@@ -303,7 +303,7 @@ describe("F09 IMP-007 open items become F08 opening-balance receivables (ACC-013
     expect(p.opening).toBeNull();
   });
 
-  test("IMP-007 E-IMP-10 documents dated on or after the Buchungsbeginn are blocked (posting at import is not offered yet)", () => {
+  test("IMP-007 E-IMP-10 documents dated on or after the Buchungsbeginn are blocked unless the owner chooses „beim Import buchen“", () => {
     const { plan: p } = plan(ist({ date: "2026-05-01" as CalendarDate }), withoutOss());
     const late = p.findings.filter((f) => f.code === "E-IMP-10").map((f) => f.key);
     expect(late).toContain("invoice:RE-1007");

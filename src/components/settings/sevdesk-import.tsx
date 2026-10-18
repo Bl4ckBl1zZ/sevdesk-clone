@@ -68,11 +68,18 @@ function SevdeskImportInner({ canRun, canCommit }: { canRun: boolean; canCommit:
   const list = useAuthedQuery(api.imports.list, {});
   const create = useMutation(api.imports.create);
   const [selected, setSelected] = useState<Id<"imports"> | null>(null);
+  // While `create` runs, no project is shown: the previous unfinished one must not take an upload meant for the new.
+  const [creating, setCreating] = useState(false);
   const active = selected ?? list?.find((i) => i.status !== "done" && i.status !== "discarded")?.id ?? null;
 
   const start = async () => {
-    const r = await run(() => create({}));
-    if (r.ok) setSelected(r.value);
+    setCreating(true);
+    try {
+      const r = await run(() => create({}));
+      if (r.ok) setSelected(r.value);
+    } finally {
+      setCreating(false);
+    }
   };
 
   return (
@@ -106,7 +113,7 @@ function SevdeskImportInner({ canRun, canCommit }: { canRun: boolean; canCommit:
           <p className="text-muted-foreground text-xs">{t("unsureHint")}</p>
           {canRun ? (
             <div>
-              <Button onClick={start}>
+              <Button onClick={start} disabled={creating}>
                 <FileUpIcon aria-hidden="true" /> {t("start")}
               </Button>
             </div>
@@ -148,7 +155,13 @@ function SevdeskImportInner({ canRun, canCommit }: { canRun: boolean; canCommit:
         )}
       </section>
 
-      {active ? <ImportProject key={active} importId={active} canRun={canRun} canCommit={canCommit} /> : null}
+      {creating ? (
+        <p className="text-muted-foreground text-sm" role="status" aria-busy="true">
+          {t("creating")}
+        </p>
+      ) : active ? (
+        <ImportProject key={active} importId={active} canRun={canRun} canCommit={canCommit} />
+      ) : null}
     </div>
   );
 }
@@ -498,6 +511,7 @@ const COUNT_KEYS = [
   "cancellations",
   "documentsSkipped",
   "openItems",
+  "booked",
   "pdfMatched",
   "pdfMissing",
   "pdfOrphans",
@@ -629,6 +643,26 @@ function PreviewSection({
                 ))}
               </dl>
               <p className="text-sm">{t("openTotal", { amount: euro(preview.openItems.totalCents) })}</p>
+              {preview.bookedPeriod ? (
+                <BookedPeriodChoice
+                  booked={preview.bookedPeriod}
+                  editable={editable}
+                  onChange={(post) => {
+                    const { postBookedPeriod: _p, ...rest } = res;
+                    updateRes(post ? { ...rest, postBookedPeriod: true } : rest);
+                  }}
+                />
+              ) : null}
+              {preview.correctable.length > 0 ? (
+                <CorrectedTotals
+                  rows={preview.correctable}
+                  editable={editable}
+                  onChange={(key, value) => {
+                    const { [key]: _old, ...others } = res.correctedTotals ?? {};
+                    updateRes({ ...res, correctedTotals: value ? { ...others, [key]: value } : others });
+                  }}
+                />
+              ) : null}
               <section aria-labelledby="import-findings" className="flex flex-col gap-2">
                 <h3 id="import-findings" className="font-medium">
                   {t("findings")}
@@ -782,6 +816,180 @@ function PreviewSection({
         </Card>
       ) : null}
     </>
+  );
+}
+
+/**
+ * E-IMP-10 / EC-204: documents dated on/after the Buchungsbeginn are blocked („Nicht buchen“) or posted at import like
+ * own invoices; posted invoices enter as open receivables — their payments come from the bank statements.
+ */
+function BookedPeriodChoice({
+  booked,
+  editable,
+  onChange,
+}: {
+  booked: NonNullable<Preview["bookedPeriod"]>;
+  editable: boolean;
+  onChange: (post: boolean) => void;
+}) {
+  const t = useTranslations("imports");
+  const name = useId();
+  const date = formatDate(booked.date);
+  return (
+    <fieldset className="flex flex-col gap-2 rounded-md border p-3">
+      <legend className="px-1 font-medium text-sm">{t("bookedTitle", { date })}</legend>
+      <p className="text-sm">{t("bookedHint", { count: booked.count })}</p>
+      {(["skip", "post"] as const).map((v) => (
+        <label key={v} className="flex items-start gap-2 text-sm">
+          <input
+            type="radio"
+            name={name}
+            className="mt-0.5 size-4"
+            value={v}
+            checked={booked.post === (v === "post")}
+            disabled={!editable}
+            onChange={() => onChange(v === "post")}
+          />
+          <span>
+            <span className="font-medium">{t(v === "post" ? "bookedPost" : "bookedSkip")}</span>
+            <span className="block text-muted-foreground">{t(v === "post" ? "bookedPostHint" : "bookedSkipHint")}</span>
+          </span>
+        </label>
+      ))}
+      {booked.post ? (
+        <p className="rounded-md bg-muted/40 p-2 text-sm">
+          {booked.paidInSevdesk > 0 ? `${t("bookedPaid", { count: booked.paidInSevdesk })} ` : ""}
+          {t("bookedBank", { date })}
+        </p>
+      ) : null}
+    </fieldset>
+  );
+}
+
+type Correctable = Preview["correctable"][number];
+
+/**
+ * EC-203 / E-IMP-37: sevdesk's list total can differ from the PDF — per row the owner enters the gross from the PDF
+ * with a reason (rows without VAT only; the server re-checks everything in the preview).
+ */
+function CorrectedTotals({
+  rows,
+  editable,
+  onChange,
+}: {
+  rows: Correctable[];
+  editable: boolean;
+  onChange: (key: string, value: { grossCents: number; reason: string } | null) => void;
+}) {
+  const t = useTranslations("imports");
+  const headingId = useId();
+  return (
+    <section aria-labelledby={headingId} className="flex flex-col gap-2">
+      <h3 id={headingId} className="font-medium">
+        {t("totalsTitle")}
+      </h3>
+      <p className="text-muted-foreground text-sm">{t("totalsHint")}</p>
+      <Table>
+        <TableHeader>
+          <TableRow>
+            <TableHead>{t("totalsDocument")}</TableHead>
+            <TableHead className="hidden @2xl:table-cell">{t("totalsDate")}</TableHead>
+            <TableHead className="text-right">{t("totalsExported")}</TableHead>
+            <TableHead>{t("totalsCorrection")}</TableHead>
+          </TableRow>
+        </TableHeader>
+        <TableBody>
+          {rows.map((r) => (
+            <CorrectedTotalRow key={r.key} row={r} editable={editable} onChange={onChange} />
+          ))}
+        </TableBody>
+      </Table>
+    </section>
+  );
+}
+
+function CorrectedTotalRow({
+  row: r,
+  editable,
+  onChange,
+}: {
+  row: Correctable;
+  editable: boolean;
+  onChange: (key: string, value: { grossCents: number; reason: string } | null) => void;
+}) {
+  const t = useTranslations("imports");
+  const amountId = useId();
+  const reasonId = useId();
+  const [editing, setEditing] = useState(false);
+  const [amount, setAmount] = useState("");
+  const [reason, setReason] = useState("");
+  const parsed = parseCents(amount);
+  const corrected = r.reason !== undefined;
+  return (
+    <TableRow>
+      <TableCell className="align-top font-medium">{r.number}</TableCell>
+      <TableCell className="hidden align-top @2xl:table-cell">{formatDate(r.documentDate)}</TableCell>
+      <TableCell className="text-right align-top tabular-nums">{euro(r.exportedGrossCents)}</TableCell>
+      <TableCell className="align-top whitespace-normal">
+        <div className="flex flex-col gap-2">
+          {corrected ? (
+            <span className="text-sm">
+              {t("totalsCorrected")} {euro(r.grossCents)} ({r.reason})
+            </span>
+          ) : null}
+          {editable && corrected ? (
+            <Button
+              size="sm"
+              variant="outline"
+              className="self-start"
+              aria-label={`${t("totalsRemove")}: ${r.number}`}
+              onClick={() => onChange(r.key, null)}
+            >
+              {t("totalsRemove")}
+            </Button>
+          ) : null}
+          {editable && !corrected && !editing ? (
+            <Button
+              size="sm"
+              variant="outline"
+              className="self-start"
+              aria-label={`${t("totalsEdit")}: ${r.number}`}
+              onClick={() => setEditing(true)}
+            >
+              {t("totalsEdit")}
+            </Button>
+          ) : null}
+          {editable && !corrected && editing ? (
+            <div className="grid gap-2 @lg:grid-cols-2">
+              <div className="flex flex-col gap-1.5">
+                <Label htmlFor={amountId}>{t("totalsAmount", { number: r.number })}</Label>
+                <Input id={amountId} inputMode="decimal" value={amount} onChange={(e) => setAmount(e.target.value)} />
+              </div>
+              <div className="flex flex-col gap-1.5">
+                <Label htmlFor={reasonId}>{t("totalsReason", { number: r.number })}</Label>
+                <Input id={reasonId} value={reason} maxLength={500} onChange={(e) => setReason(e.target.value)} />
+              </div>
+              <div className="flex gap-2 @lg:col-span-2">
+                <Button
+                  size="sm"
+                  variant="secondary"
+                  aria-label={`${t("totalsSave")}: ${r.number}`}
+                  disabled={!parsed.ok || parsed.value === 0 || !reason.trim()}
+                  onClick={() =>
+                    parsed.ok && onChange(r.key, { grossCents: Number(parsed.value), reason: reason.trim() })
+                  }
+                >
+                  {t("totalsSave")}
+                </Button>
+                <Button size="sm" variant="ghost" onClick={() => setEditing(false)}>
+                  {t("totalsCancel")}
+                </Button>
+              </div>
+            </div>
+          ) : null}
+        </div>
+      </TableCell>
+    </TableRow>
   );
 }
 

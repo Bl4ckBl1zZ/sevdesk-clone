@@ -1,4 +1,4 @@
-import { screen, within } from "@testing-library/react";
+import { act, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { getFunctionName } from "convex/server";
 import { beforeEach, describe, expect, test, vi } from "vitest";
@@ -9,6 +9,7 @@ import {
   type FileMappingInput,
   type ImportFileInput,
   type ImportResolutions,
+  type KuHistory,
   type LocalImportState,
   parseImportFiles,
   summarizePlan,
@@ -67,6 +68,7 @@ function workspace(
   resolutions: ImportResolutions = {},
   status = "previewed",
   set: "alternate" | "verified" = "alternate",
+  kleinunternehmer: KuHistory = [],
 ) {
   const names =
     set === "verified"
@@ -100,7 +102,7 @@ function workspace(
         : {}),
     };
   });
-  const plan = buildPlan(parseImportFiles(files, mappings, TODAY), local, resolutions);
+  const plan = buildPlan(parseImportFiles(files, mappings, TODAY, { kleinunternehmer }), local, resolutions);
   return {
     id: "imp1",
     status,
@@ -358,5 +360,91 @@ describe("F09 sevdesk-Import (/einstellungen/import)", () => {
     expect(screen.getByText("Import übernommen: 7 Belege, 4 Kontakte, 2 Artikel.")).toBeInTheDocument();
     expect(screen.getByText(/bis 31\.12\.2037 aufbewahrt/)).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Import übernehmen" })).toBeNull();
+  });
+
+  test("IMP-016 after „sevdesk-Exporte importieren“ the previous project's upload is hidden until the new project exists", async () => {
+    setWorkspace(workspace({}, "uploaded"));
+    let resolve: (id: string) => void = () => {};
+    backend.mutations["imports:create"] = vi.fn().mockReturnValue(
+      new Promise<string>((r) => {
+        resolve = r;
+      }),
+    );
+    renderWithIntl(<SevdeskImport canRun canCommit />);
+    expect(screen.getByLabelText("Dateien auswählen")).toBeInTheDocument();
+    const start = screen.getByRole("button", { name: "sevdesk-Exporte importieren" });
+    await userEvent.click(start);
+    // No upload into the unfinished previous import while the new one is being created.
+    expect(screen.queryByLabelText("Dateien auswählen")).toBeNull();
+    expect(start).toBeDisabled();
+    expect(screen.getByRole("status")).toHaveTextContent("Neuer Import wird angelegt …");
+    await act(async () => resolve("imp2"));
+    expect(start).toBeEnabled();
+    expect(screen.getByLabelText("Dateien auswählen")).toBeInTheDocument();
+  });
+});
+
+describe("F09 E-IMP-10 / EC-203 booked period and corrected totals (Kleinunternehmer export)", () => {
+  const KU: KuHistory = [{ validFrom: "2026-01-01", isKU: true }];
+
+  test("E-IMP-10 EC-204 documents after the Buchungsbeginn stay blocked until the owner chooses „Beim Import buchen“", async () => {
+    setWorkspace(workspace({}, "previewed", "verified", KU));
+    renderWithIntl(<SevdeskImport canRun canCommit />);
+    const group = screen.getByRole("group", { name: "Belege ab dem Buchungsbeginn (01.06.2026)" });
+    expect(group).toHaveTextContent("5 Belege liegen am oder nach dem Buchungsbeginn");
+    expect(within(group).getByRole("radio", { name: /Nicht buchen/ })).toBeChecked();
+    await userEvent.click(within(group).getByRole("radio", { name: /Beim Import buchen/ }));
+    expect(backend.mutations["imports:setResolutions"]).toHaveBeenCalledWith({
+      importId: "imp1",
+      resolutions: { postBookedPeriod: true },
+    });
+  });
+
+  test("E-IMP-10 E-IMP-39 with „Beim Import buchen“ the preview counts the posted documents and asks for the bank statements", () => {
+    setWorkspace(workspace({ postBookedPeriod: true }, "previewed", "verified", KU));
+    renderWithIntl(<SevdeskImport canRun canCommit />);
+    const group = screen.getByRole("group", { name: "Belege ab dem Buchungsbeginn (01.06.2026)" });
+    expect(within(group).getByRole("radio", { name: /Beim Import buchen/ })).toBeChecked();
+    expect(group).toHaveTextContent(/2 davon führt sevdesk als bezahlt/);
+    expect(group).toHaveTextContent(/Kontoauszüge ab dem 01\.06\.2026 importieren/);
+    const counts = screen.getByTestId("preview-counts");
+    expect(within(counts).getByText("Beim Import gebucht").nextSibling).toHaveTextContent("5");
+    expect(screen.getByRole("button", { name: /^Fehler \(/ })).toHaveTextContent("Fehler (0)");
+  });
+
+  test("EC-203 E-IMP-37 the owner corrects a total from the PDF; a reason is mandatory", async () => {
+    setWorkspace(workspace({ postBookedPeriod: true }, "previewed", "verified", KU));
+    renderWithIntl(<SevdeskImport canRun canCommit />);
+    const section = screen.getByRole("region", { name: "Beträge mit den PDFs abgleichen" });
+    expect(within(section).getAllByRole("row")).toHaveLength(6); // header + 5 documents
+    await userEvent.click(within(section).getByRole("button", { name: "Betrag korrigieren: RE-5001" }));
+    const save = within(section).getByRole("button", { name: "Korrektur speichern: RE-5001" });
+    await userEvent.type(within(section).getByLabelText("Korrigierter Bruttobetrag für RE-5001"), "1.549,60");
+    expect(save).toBeDisabled(); // reason missing
+    await userEvent.type(within(section).getByLabelText("Grund für RE-5001"), "Gesamtbetrag laut PDF");
+    await userEvent.click(save);
+    expect(backend.mutations["imports:setResolutions"]).toHaveBeenCalledWith({
+      importId: "imp1",
+      resolutions: {
+        postBookedPeriod: true,
+        correctedTotals: { "invoice:RE-5001": { grossCents: 154_960, reason: "Gesamtbetrag laut PDF" } },
+      },
+    });
+  });
+
+  test("EC-203 a saved correction is shown with its reason and can be removed", async () => {
+    const corrected = { "invoice:RE-5001": { grossCents: 154_960, reason: "Gesamtbetrag laut PDF" } };
+    setWorkspace(workspace({ correctedTotals: corrected }, "previewed", "verified", KU));
+    renderWithIntl(<SevdeskImport canRun canCommit />);
+    const section = screen.getByRole("region", { name: "Beträge mit den PDFs abgleichen" });
+    const row = within(section).getByText("RE-5001").closest("tr");
+    if (!(row instanceof HTMLElement)) throw new Error("row");
+    expect(row).toHaveTextContent("1.548,80 €");
+    expect(row).toHaveTextContent("1.549,60 € (Gesamtbetrag laut PDF)");
+    await userEvent.click(within(row).getByRole("button", { name: "Korrektur entfernen: RE-5001" }));
+    expect(backend.mutations["imports:setResolutions"]).toHaveBeenCalledWith({
+      importId: "imp1",
+      resolutions: { correctedTotals: {} },
+    });
   });
 });

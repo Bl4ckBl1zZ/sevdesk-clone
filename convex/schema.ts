@@ -1455,6 +1455,11 @@ export default defineSchema({
         source: v.union(v.literal("sevdesk_export"), v.literal("lexoffice_csv"), v.literal("generic_csv")),
         externalId: v.string(),
         importId: v.id("imports"),
+        /**
+         * F09 E-IMP-10 / EC-204: dated on/after the Buchungsbeginn and posted at import like an own finalised document
+         * (its receivable is the journal entry, not an F08 opening item; payments settle it directly). Set at insert.
+         */
+        posted: v.optional(v.literal(true)),
       }),
     ),
     createdBy: vActor,
@@ -1690,6 +1695,10 @@ export default defineSchema({
         excluded: v.optional(v.array(v.string())),
         pdfAssignments: v.optional(v.record(v.string(), v.string())),
         openAmounts: v.optional(v.record(v.string(), v.number())),
+        /** E-IMP-10: post documents dated on/after the Buchungsbeginn at commit (EC-204). */
+        postBookedPeriod: v.optional(v.boolean()),
+        /** EC-203 / E-IMP-37: gross from the PDF per document key, with the owner's reason. */
+        correctedTotals: v.optional(v.record(v.string(), v.object({ grossCents: v.number(), reason: v.string() }))),
       }),
     ),
     /** Owner decisions recorded at commit start (number ranges, missing-PDF reason, opening items). */

@@ -6,6 +6,7 @@ import { INVOICE_TYPES_WITH_OPEN_ITEMS } from "../src/domain/import/sevdesk/invo
 import { isMappedCsvKind } from "../src/domain/import/sevdesk/mapping";
 import {
   buildPlan,
+  euroText,
   type FileMappingInput,
   type ImportFileInput,
   type ImportPlan,
@@ -66,6 +67,8 @@ const vResolutions = v.object({
   excluded: v.optional(v.array(v.string())),
   pdfAssignments: v.optional(v.record(v.string(), v.string())),
   openAmounts: v.optional(v.record(v.string(), v.number())),
+  postBookedPeriod: v.optional(v.boolean()),
+  correctedTotals: v.optional(v.record(v.string(), v.object({ grossCents: v.number(), reason: v.string() }))),
 });
 const vResetPolicy = v.union(v.literal("never"), v.literal("yearly"), v.literal("monthly"));
 const vRangeDecision = v.object({
@@ -115,6 +118,8 @@ const vDocPayload = v.object({
   correctsLocalId: v.optional(v.string()),
   pdfFileId: v.optional(v.string()),
   deviations: v.array(v.string()),
+  post: v.optional(v.boolean()),
+  correctedTotal: v.optional(v.object({ exportedGrossCents: v.number(), grossCents: v.number(), reason: v.string() })),
 });
 
 // ── reads ─────────────────────────────────────────────────────────────────────────────────────────────
@@ -393,7 +398,12 @@ export const beginCommitInternal = actorMutation({
     importId: v.id("imports"),
     previewHash: v.string(),
     revision: v.number(),
-    decisions: v.object({ numberRanges: v.array(vRangeDecision), missingPdfReason: v.optional(v.string()) }),
+    decisions: v.object({
+      numberRanges: v.array(vRangeDecision),
+      missingPdfReason: v.optional(v.string()),
+      postBookedPeriod: v.optional(v.boolean()),
+      correctedTotals: v.optional(v.record(v.string(), v.object({ grossCents: v.number(), reason: v.string() }))),
+    }),
   },
   handler: async (ctx, { importId, ...input }) => beginImportCommit(ctx, importId, input),
 });
@@ -506,6 +516,8 @@ function docPayload(p: ImportPlan["documents"][number]): ImportedDocumentPayload
     ...(p.correctsLocalId ? { correctsLocalId: p.correctsLocalId } : {}),
     ...(p.pdfFileId ? { pdfFileId: p.pdfFileId } : {}),
     deviations: p.deviations,
+    ...(p.post ? { post: true } : {}),
+    ...(p.correction ? { correctedTotal: { ...p.correction } } : {}),
   };
 }
 
@@ -560,6 +572,11 @@ export const commit = action({
       decisions: {
         numberRanges: args.numberRanges,
         ...(args.missingPdfReason?.trim() ? { missingPdfReason: args.missingPdfReason.trim() } : {}),
+        // E-IMP-10 / EC-203: the owner's choices are part of the audited commit decisions.
+        ...(ws.resolutions.postBookedPeriod ? { postBookedPeriod: true } : {}),
+        ...(ws.resolutions.correctedTotals && Object.keys(ws.resolutions.correctedTotals).length > 0
+          ? { correctedTotals: { ...ws.resolutions.correctedTotals } }
+          : {}),
       },
     });
     // IMP-014: the records carry channel `import`; the actor stays the committing user / API key.
@@ -624,6 +641,14 @@ export const commit = action({
       );
       counts.openingItemsCreated = opening.created;
       if (opening.created > 0) log.push(`Eröffnungsbilanz: ${opening.created} offene Posten übernommen`);
+      const posted = plan.documents.filter((p) => p.status === "new" && p.post).length;
+      if (posted > 0) log.push(`Beim Import gebucht (ab Buchungsbeginn): ${posted} Belege`);
+      for (const p of plan.documents) {
+        if (p.status !== "new" || !p.correction) continue;
+        log.push(
+          `${p.doc.number}: Betrag korrigiert ${euroText(p.correction.exportedGrossCents)} → ${euroText(p.correction.grossCents)} (${p.correction.reason})`,
+        );
+      }
       if (args.numberRanges.length > 0) {
         await ctx.runMutation(internal.imports.continueRangesInternal, {
           actorContext,

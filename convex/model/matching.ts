@@ -12,6 +12,7 @@ import {
 } from "../../src/domain/banking/match";
 import type { MatchAllocation, MatchCandidate, UnmatchedTransaction } from "../../src/domain/banking/match-types";
 import type { DocumentSnapshot } from "../../src/domain/documents/snapshot";
+import { isArchiveOnlyImport } from "../../src/domain/import/sevdesk/types";
 import type { DifferenceInput } from "../../src/domain/payments/plan";
 import type { Doc, Id } from "../_generated/dataModel";
 import { appError } from "../lib/errors";
@@ -68,8 +69,9 @@ export async function matchContext(ctx: ReadCtx): Promise<Omit<MatchInput, "reje
       .collect();
     for (const d of docs) {
       if (d.status === "draft" || d.status === "cancelled" || !d.number || !d.documentDate) continue;
-      // F09 IMP-007: an archived sevdesk invoice is matched through its opening item (listed below), never twice.
-      if (d.imported) continue;
+      // F09 IMP-007: an archived sevdesk invoice is matched through its opening item (listed below), never twice;
+      // one posted at import (EC-204) is matched itself.
+      if (isArchiveOnlyImport(d)) continue;
       const open = d.openAmountCents ?? d.totals.payableCents;
       if (open <= 0) continue;
       const snap = d.snapshotId ? await ctx.db.get(d.snapshotId) : null;

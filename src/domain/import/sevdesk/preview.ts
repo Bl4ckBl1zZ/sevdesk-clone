@@ -7,6 +7,7 @@
  * Two steps so the server only reads what it needs: `parseImportFiles` (pure parsing) → `lookupKeys` (what the
  * local snapshot must contain) → `buildPlan`.
  */
+import { taxationMethodAt } from "../../accounting/period";
 import { canonicalize } from "../../audit/canonical";
 import { foldSearch, normalizeContactNumber } from "../../contacts/core";
 import { type ImportRowValues, rowToFormValues } from "../../contacts/csv-io";
@@ -39,7 +40,7 @@ import {
 } from "./mapping";
 import { type LocalRange, proposeContinuation, type RangeProposal } from "./number-pattern";
 import { matchFiles, type PdfMatchResult } from "./pdf-match";
-import { type ImportFinding, type KuHistory, rowRefOf } from "./types";
+import { IMPORTED_DOC_TYPE_LABELS, type ImportFinding, type KuHistory, rowRefOf } from "./types";
 
 export type { KuHistory } from "./types";
 
@@ -81,6 +82,18 @@ export interface ImportResolutions {
   readonly pdfAssignments?: Readonly<Record<string, string>>;
   /** Entered open amounts in EUR cents: document key → cents (E-IMP-30, E-IMP-33). */
   readonly openAmounts?: Readonly<Record<string, number>>;
+  /**
+   * E-IMP-10: documents dated on/after the Buchungsbeginn are committed as posted documents (journal entries like an
+   * own finalised invoice; EC-204). Without it such rows stay blocked.
+   */
+  readonly postBookedPeriod?: boolean;
+  /** EC-203 / E-IMP-37: gross from the PDF for a row without VAT, with the owner's reason (document key → value). */
+  readonly correctedTotals?: Readonly<Record<string, CorrectedTotal>>;
+}
+
+export interface CorrectedTotal {
+  readonly grossCents: number;
+  readonly reason: string;
 }
 
 export interface LocalImportState {
@@ -98,6 +111,10 @@ export interface LocalImportState {
   /** Normalised document number → local sales document (Storno/Korrektur references). */
   readonly documentsByNumber: Readonly<Record<string, { id: string; type: string }>>;
   readonly ranges: readonly LocalRange[];
+  /** ACC-006: months that are not open (`YYYY-MM` → lock reason, e.g. `ustva_submitted`); nothing is posted there. */
+  readonly closedPeriods?: Readonly<Record<string, string>>;
+  /** Taxation method history (Soll/Ist) for the tax point of posted documents; default: `opening.taxedAs`. */
+  readonly taxationMethod?: readonly { readonly validFrom: string; readonly method: "soll" | "ist" }[];
   /**
    * F08 opening balance at the Buchungsbeginn (IMP-007, ACC-013); `null`/absent = no Buchungsbeginn set yet.
    * `receivablesPosted`: the fiscal year already has a (non-reversed) receivables opening posting.
@@ -187,7 +204,7 @@ function invoiceDetectionValues(table: NonNullable<ImportFileInput["table"]>, ma
   );
   return {
     amounts: amountTargets.flatMap(col),
-    dates: ["documentDate", "supplyDate", "dueDate", "sentOn"].flatMap(col),
+    dates: ["documentDate", "supplyDate", "dueDate", "sentOn", "paidOn"].flatMap(col),
   };
 }
 
@@ -507,6 +524,10 @@ export interface PlannedDocument {
   readonly openAmountCents?: number;
   readonly pdfFileId?: string;
   readonly deviations: string[];
+  /** E-IMP-10 / EC-204: dated on/after the Buchungsbeginn and posted at commit (F08 S1–S8 / S12). */
+  readonly post?: true;
+  /** EC-203: the owner corrected the exported gross (`doc.totals` already carry the corrected amount). */
+  readonly correction?: { readonly exportedGrossCents: number; readonly grossCents: number; readonly reason: string };
 }
 
 export interface MinimalContact {
@@ -529,12 +550,72 @@ export interface ImportPlan {
   readonly openItems: { count: number; totalCents: number };
   /** Opening receivables posted at commit through F08 (`null` = no open items). */
   readonly opening: (Omit<OpeningContext, "receivablesPosted"> & { items: OpeningItemPlan[] }) | null;
+  /** E-IMP-10: rows dated on/after the Buchungsbeginn and the owner's choice (`null` = none or no Buchungsbeginn). */
+  readonly bookedPeriod: BookedPeriod | null;
   readonly counts: Readonly<Record<string, number>>;
   /** Errors on rows/files that would be committed — commit is refused while > 0. */
   readonly blocking: number;
 }
 
+export interface BookedPeriod {
+  readonly date: CalendarDate;
+  /** Rows on/after the Buchungsbeginn that would be committed (excluded and earlier imported rows not counted). */
+  readonly count: number;
+  readonly post: boolean;
+  /** Posted invoices that sevdesk lists as (partly) paid — they enter as open receivables (EC-204). */
+  readonly paidInSevdesk: number;
+}
+
 export const minimalKey = (name: string) => `m:${foldSearch(name)}`;
+
+/** EC-203: a row whose total the owner may correct — one zero-VAT group (Kleinunternehmer / unknown without VAT). */
+export const isCorrectable = (d: ImportedDocument): boolean =>
+  d.groups.length === 1 &&
+  d.groups[0]?.vatCents === 0 &&
+  d.totals.vatCents === 0 &&
+  (d.taxCase === "kleinunternehmer" || d.taxCase === "unknown_imported");
+
+const correctionText = (from: number, to: number, reason: string) =>
+  `Betrag gegenüber sevdesk-Export korrigiert: ${euroText(from)} → ${euroText(to)} (${reason}).`;
+
+type Correction = NonNullable<PlannedDocument["correction"]>;
+
+/** EC-203: applies an entered gross to a zero-VAT row (net = gross); the open amount follows an open row. */
+function applyCorrection(
+  d: ImportedDocument,
+  c: CorrectedTotal,
+): { doc: ImportedDocument; error?: string; correction?: Correction } {
+  if (!isCorrectable(d)) {
+    return {
+      doc: d,
+      error: `${d.number}: Der Betrag kann nur bei Belegen ohne Umsatzsteuer (eine Steuergruppe mit 0 %) korrigiert werden.`,
+    };
+  }
+  const reason = c.reason.trim();
+  if (!reason) return { doc: d, error: `${d.number}: Bitte einen Grund für die Betragskorrektur angeben.` };
+  const from = d.totals.grossCents;
+  const to = c.grossCents;
+  if (!Number.isSafeInteger(to) || to === 0 || Math.sign(to) !== Math.sign(from)) {
+    return {
+      doc: d,
+      error: `${d.number}: Der korrigierte Betrag ist ungültig (ganze Cent, nicht 0, gleiches Vorzeichen wie im Export).`,
+    };
+  }
+  const group = d.groups[0] as ImportedDocument["groups"][number];
+  // A paid row stays paid (0), an open row follows the corrected gross; a partly paid row keeps the exported open
+  // amount (it must still fit the corrected gross, else E-IMP-30).
+  const open = d.openAmountCents === from ? to : d.openAmountCents;
+  return {
+    doc: {
+      ...d,
+      totals: { netCents: to, vatCents: 0, grossCents: to },
+      groups: [{ ...group, netCents: to, grossCents: to }],
+      ...(open !== undefined ? { openAmountCents: open } : {}),
+      deviations: [...d.deviations, correctionText(from, to, reason)],
+    },
+    correction: { exportedGrossCents: from, grossCents: to, reason },
+  };
+}
 
 /** E-IMP-24: same key twice — identical content counts once, different content blocks all copies. */
 function dedupe<T extends { key: string; fingerprint: string; rowRef: string; line: number; fileId: string }>(
@@ -635,7 +716,31 @@ export function buildPlan(
 
   // ── documents ──
   const dd = dedupe(parsed.documents, (d) => d.number, findings, fileName);
-  const docs = dd.kept;
+  // EC-203 / E-IMP-37: corrected totals first — the open item and the Storno match derive from the amounts.
+  const corrections = new Map<string, Correction>();
+  const docs = dd.kept.map((d) => {
+    const c = resolutions.correctedTotals?.[d.key];
+    if (!c || excluded.has(d.rowRef) || dd.conflicted.has(d.rowRef)) return d;
+    const r = applyCorrection(d, c);
+    const at = { fileId: d.fileId, fileName: fileName(d.fileId), line: d.line, rowRef: d.rowRef, key: d.key };
+    if (r.error || !r.correction) {
+      findings.push({ code: "E-IMP-37", severity: "error", message: r.error ?? "", ...at });
+      errorRows.add(d.rowRef);
+      return d;
+    }
+    corrections.set(d.key, r.correction);
+    findings.push({
+      code: "E-IMP-37",
+      severity: "info",
+      message: `${d.number}: ${correctionText(r.correction.exportedGrossCents, r.correction.grossCents, r.correction.reason)}`,
+      ...at,
+    });
+    return r.doc;
+  });
+  const opening = local.opening ?? null;
+  /** E-IMP-10: dated on/after the Buchungsbeginn (the books are kept here from that day, ACC-014). */
+  const inBookedPeriod = (d: ImportedDocument) => opening !== null && d.documentDate >= opening.date;
+  const postBooked = resolutions.postBookedPeriod === true;
   const byNumber = new Map<string, ImportedDocument[]>();
   for (const d of docs)
     byNumber.set(normalizeNumber(d.number), [...(byNumber.get(normalizeNumber(d.number)) ?? []), d]);
@@ -653,7 +758,13 @@ export function buildPlan(
   for (const d of docs) {
     const at = { fileId: d.fileId, fileName: fileName(d.fileId), line: d.line, rowRef: d.rowRef, key: d.key };
     const rowError = (code: string, message: string) => findings.push({ code, severity: "error", message, ...at });
-    const base = { doc: d, deviations: [...d.deviations], finalStatus: "sent" as const };
+    const correction = corrections.get(d.key);
+    const base = {
+      doc: d,
+      deviations: [...d.deviations],
+      finalStatus: "sent" as const,
+      ...(correction ? { correction } : {}),
+    };
     if (excluded.has(d.rowRef)) {
       planned.push({ ...base, status: "excluded" });
       continue;
@@ -744,7 +855,14 @@ export function buildPlan(
     let openAmountCents: number | undefined;
     let paymentStatus: PlannedDocument["paymentStatus"];
     const entered = resolutions.openAmounts?.[d.key];
-    if (INVOICE_TYPES_WITH_OPEN_ITEMS.includes(d.type) && !d.cancelledByStatus) {
+    const invoiceType = INVOICE_TYPES_WITH_OPEN_ITEMS.includes(d.type) && !d.cancelledByStatus;
+    if (invoiceType && postBooked && inBookedPeriod(d)) {
+      // EC-204: a posted invoice enters as an open receivable with its gross, whatever sevdesk says about payments —
+      // the payments come from the bank statements (F07) or are recorded as cash payments; marking it paid here
+      // would count them twice (and the EÜR income would lack its payment, F08 §4.6).
+      openAmountCents = d.totals.grossCents;
+      paymentStatus = openAmountCents > 0 ? "open" : "paid";
+    } else if (invoiceType) {
       const fromExport = d.currency === "EUR" || d.openAmountCents === 0 ? d.openAmountCents : undefined;
       openAmountCents = entered ?? fromExport;
       if (openAmountCents === undefined) {
@@ -790,8 +908,10 @@ export function buildPlan(
   });
 
   // ── Buchungsbeginn and F08 opening balance (IMP-007, ACC-013; E-IMP-10/34/35/36) ──
-  const opening = local.opening ?? null;
-  const docs3 = docs2.map((p): PlannedDocument => {
+  const methodOn = (date: string): "soll" | "ist" =>
+    local.taxationMethod ? taxationMethodAt(local.taxationMethod, date) : (opening?.taxedAs ?? "soll");
+  let paidInSevdesk = 0;
+  const docs3a = docs2.map((p): PlannedDocument => {
     if (p.status !== "new") return p;
     const block = (code: string, message: string): PlannedDocument => {
       findings.push({
@@ -806,13 +926,42 @@ export function buildPlan(
       });
       return { ...p, status: "error" };
     };
-    // E-IMP-10: the spec offers „buchen“ for documents in the booked period; P1 has no import posting, so they are
-    // blocked (conservative: never archive a booked-period invoice without its journal entry).
-    if (opening && p.doc.documentDate >= opening.date) {
-      return block(
-        "E-IMP-10",
-        `${p.doc.number} liegt am oder nach dem Buchungsbeginn (${formatGermanDate(opening.date)}). Buchen beim Import ist noch nicht möglich – bitte Buchungsbeginn prüfen oder Zeile ausschließen.`,
-      );
+    // E-IMP-10: a booked-period document is never archived without its journal entry — blocked until the owner
+    // chooses „Beim Import buchen“; then it is posted like an own finalised document of the same tax case.
+    if (opening && inBookedPeriod(p.doc)) {
+      if (!postBooked) {
+        return block(
+          "E-IMP-10",
+          `${p.doc.number} liegt am oder nach dem Buchungsbeginn (${formatGermanDate(opening.date)}). Bitte „Beim Import buchen“ wählen oder Zeile ausschließen.`,
+        );
+      }
+      const issue = postingIssue(p, local.closedPeriods ?? {}, methodOn);
+      if (issue) return block(issue.code, issue.message);
+      const deviations = [...p.deviations];
+      if (p.doc.type !== "cancellation" && !p.doc.supplyDate) {
+        // LEGAL-OPEN: F09 §9 open item 11 (supply date of posted imports) — sevdesk's list has none; here it decides no
+        // tax point (postingIssue blocks Soll-VAT, igL and EU services without it), the PDF stays authoritative.
+        deviations.push(
+          "Leistungsdatum für die Buchung = Rechnungsdatum (Import-Annahme; maßgeblich ist das Original-PDF).",
+        );
+      }
+      const exportedOpen = p.doc.openAmountCents;
+      const isInvoice = INVOICE_TYPES_WITH_OPEN_ITEMS.includes(p.doc.type) && p.finalStatus !== "cancelled";
+      if (isInvoice && exportedOpen !== undefined && exportedOpen < p.doc.totals.grossCents) {
+        paidInSevdesk++;
+        const when = p.doc.paidOn ? ` am ${formatGermanDate(p.doc.paidOn)}` : "";
+        const rest = exportedOpen > 0 ? ` (offener Betrag laut Export: ${euroText(exportedOpen)})` : "";
+        deviations.push(
+          `Laut sevdesk bezahlt${when}${rest} – als offene Forderung übernommen; die Zahlung wird über den Kontoauszug zugeordnet.`,
+        );
+      }
+      return {
+        ...p,
+        post: true,
+        deviations,
+        // Like an own Storno: the cancelled original has nothing open (F04 §4.7).
+        ...(p.finalStatus === "cancelled" ? { openAmountCents: 0 } : {}),
+      };
     }
     if ((p.openAmountCents ?? 0) <= 0) return p;
     // E-IMP-33: F08 opening items are EUR only and compare the open amount with the gross; a foreign-currency gross
@@ -841,6 +990,42 @@ export function buildPlan(
       return block(
         "E-IMP-36",
         `${p.doc.number}: Steuerfall unbekannt (z. B. OSS) – der offene Posten kann bei Ist-Versteuerung nicht mit Umsatzsteuer übernommen werden. Bitte klären oder Zeile ausschließen.`,
+      );
+    }
+    return p;
+  });
+  // A posted Storno reverses its original's entries (F08 S12): the original is committed with it — posted here or in
+  // an earlier import, or archived before the Buchungsbeginn (nothing to reverse) — and the amounts match.
+  const byKey = new Map(docs3a.map((p) => [p.doc.key, p]));
+  const docs3 = docs3a.map((p): PlannedDocument => {
+    const original = p.doc.type === "cancellation" && p.correctsKey ? byKey.get(p.correctsKey) : undefined;
+    if (p.status !== "new" || !original) return p;
+    const block = (message: string): PlannedDocument => {
+      findings.push({
+        code: "E-IMP-10",
+        severity: "error",
+        message,
+        fileId: p.doc.fileId,
+        fileName: fileName(p.doc.fileId),
+        line: p.doc.line,
+        rowRef: p.doc.rowRef,
+        key: p.doc.key,
+      });
+      return { ...p, status: "error" };
+    };
+    if (p.post && original.status !== "new" && original.status !== "skip") {
+      return block(
+        `${p.doc.number}: Die stornierte Rechnung ${original.doc.number} wird nicht mit übernommen – die Stornorechnung kann ohne sie nicht gebucht werden. Bitte beide übernehmen oder beide ausschließen.`,
+      );
+    }
+    if (original.post && !p.post) {
+      return block(
+        `${p.doc.number} liegt vor dem Buchungsbeginn, die stornierte Rechnung ${original.doc.number} danach – bitte Daten prüfen.`,
+      );
+    }
+    if (p.post && original.post && p.doc.totals.grossCents !== -original.doc.totals.grossCents) {
+      return block(
+        `${p.doc.number}: Der Betrag der Stornorechnung (${euroText(p.doc.totals.grossCents)}) entspricht nicht der Rechnung ${original.doc.number} (${euroText(original.doc.totals.grossCents)}). Bitte Betrag korrigieren oder beide Zeilen ausschließen.`,
       );
     }
     return p;
@@ -952,7 +1137,31 @@ export function buildPlan(
     }
   }
 
-  const open = finalDocs.filter((p) => p.status === "new" && (p.openAmountCents ?? 0) > 0);
+  // Posted documents are receivables of their own journal entry, never F08 opening items (EC-201, EC-204).
+  const open = finalDocs.filter((p) => p.status === "new" && !p.post && (p.openAmountCents ?? 0) > 0);
+  const posted = finalDocs.filter((p) => p.status === "new" && p.post);
+  const postedInvoices = posted.filter(
+    (p) => INVOICE_TYPES_WITH_OPEN_ITEMS.includes(p.doc.type) && p.finalStatus !== "cancelled",
+  );
+  if (opening && posted.length > 0) {
+    findings.push({
+      code: "E-IMP-10",
+      severity: "info",
+      message: `${posted.length} Belege ab dem Buchungsbeginn (${formatGermanDate(opening.date)}) werden beim Import gebucht – wie eigene Rechnungen, mit dem Original-PDF (nie neu erzeugt).`,
+    });
+  }
+  if (opening && postedInvoices.length > 0) {
+    findings.push({
+      code: "E-IMP-39",
+      severity: "warning",
+      message: `${postedInvoices.length} gebuchte Rechnungen werden als offene Forderungen übernommen${paidInSevdesk > 0 ? `, davon ${paidInSevdesk} laut sevdesk bereits bezahlt` : ""}. Bitte die Kontoauszüge ab dem Buchungsbeginn (${formatGermanDate(opening.date)}) importieren, damit die Zahlungen zugeordnet werden; Barzahlungen als Zahlung erfassen.`,
+    });
+  }
+  const bookedRows = finalDocs.filter(
+    (p) => inBookedPeriod(p.doc) && p.status !== "excluded" && p.status !== "skip",
+  ).length;
+  const bookedPeriod: BookedPeriod | null =
+    opening && bookedRows > 0 ? { date: opening.date, count: bookedRows, post: postBooked, paidInSevdesk } : null;
   const openItems = { count: open.length, totalCents: open.reduce((s, p) => s + (p.openAmountCents ?? 0), 0) };
   const openingPlan: ImportPlan["opening"] =
     opening && open.length > 0
@@ -1002,6 +1211,7 @@ export function buildPlan(
     documentsSkipped: count(finalDocs, "skip"),
     documentsExcluded: count(finalDocs, "excluded"),
     openItems: openItems.count,
+    booked: posted.length,
     pdfMatched: Object.keys(pdf.matched).length,
     pdfMissing: newDocs.filter((p) => !p.pdfFileId).length,
     pdfOrphans: pdf.orphans.length,
@@ -1024,9 +1234,71 @@ export function buildPlan(
     numberRanges,
     openItems,
     opening: openingPlan,
+    bookedPeriod,
     counts,
     blocking,
   };
+}
+
+/** E-IMP-10 checks of a booked-period row that is to be posted (what the F08 posting engine would refuse). */
+function postingIssue(
+  p: PlannedDocument,
+  closedPeriods: Readonly<Record<string, string>>,
+  methodOn: (date: string) => "soll" | "ist",
+): { code: string; message: string } | null {
+  const d = p.doc;
+  const nr = d.number;
+  if (d.type !== "invoice" && d.type !== "cancellation") {
+    return {
+      code: "E-IMP-10",
+      message: `${nr}: ${IMPORTED_DOC_TYPE_LABELS[d.type]} kann beim Import noch nicht gebucht werden. Bitte Zeile ausschließen und den Beleg in der App erfassen.`,
+    };
+  }
+  if (d.taxCase === "unknown_imported") {
+    return {
+      code: "E-IMP-10",
+      message: `${nr}: Steuerfall nicht eindeutig – der Beleg kann nicht gebucht werden. Bitte Steuerangaben ergänzen oder Zeile ausschließen.`,
+    };
+  }
+  if (d.currency !== "EUR") {
+    return {
+      code: "E-IMP-33",
+      message: `${nr} ist in ${d.currency} – Belege in Fremdwährung können beim Import noch nicht gebucht werden. Bitte Zeile ausschließen.`,
+    };
+  }
+  // ACC-006: user-dated postings (finalisation dating) are refused in a locked or locking month.
+  const period = d.documentDate.slice(0, 7);
+  const lock = closedPeriods[period];
+  if (lock !== undefined) {
+    return {
+      code: "E-IMP-10",
+      message: `${nr}: Der Zeitraum ${period.slice(5, 7)}/${period.slice(0, 4)} ist festgeschrieben${lock === "ustva_submitted" ? " (UStVA abgegeben)" : ""} – der Beleg kann nicht mehr gebucht werden. Bitte Zeile ausschließen.`,
+    };
+  }
+  if (d.type === "cancellation" && !p.correctsKey && !p.correctsLocalId) {
+    return {
+      code: "E-IMP-10",
+      message: `${nr}: Stornorechnung ohne zugehörige Rechnung – sie kann nicht gebucht werden. Bitte Zeile ausschließen.`,
+    };
+  }
+  // UVA-01 / § 13 UStG: the supply date is the tax point under Soll (and always for igL and EU services); it is never
+  // guessed. Kleinunternehmer, zero-VAT domestic and Ist-domestic postings do not depend on it (F08 post.ts).
+  const needsSupplyDate =
+    d.type === "invoice" &&
+    !d.supplyDate &&
+    d.groups.some(
+      (g) =>
+        g.category === "K" ||
+        (g.category === "AE" && d.taxCase === "eu_b2b_service") ||
+        (g.category === "S" && methodOn(d.documentDate) === "soll"),
+    );
+  if (needsSupplyDate) {
+    return {
+      code: "E-IMP-10",
+      message: `${nr}: Leistungsdatum fehlt – es bestimmt den Umsatzsteuer-Zeitraum. Bitte die Spalte „Leistungsdatum“ zuordnen oder Zeile ausschließen.`,
+    };
+  }
+  return null;
 }
 
 /** Rows that still need the „ohne Original-PDF übernehmen“ confirmation (E-IMP-07). */
@@ -1052,6 +1324,8 @@ export function previewHashInput(
       excluded: [...(resolutions.excluded ?? [])].sort(),
       pdfAssignments: resolutions.pdfAssignments ?? {},
       openAmounts: resolutions.openAmounts ?? {},
+      postBookedPeriod: resolutions.postBookedPeriod === true,
+      correctedTotals: resolutions.correctedTotals ?? {},
     },
     contacts: plan.contacts.map((c) => [c.key, c.status, c.localId ?? null]),
     products: plan.products.map((p) => [p.key, p.status, p.localId ?? null]),
@@ -1062,10 +1336,13 @@ export function previewHashInput(
       p.pdfFileId ?? null,
       p.openAmountCents ?? null,
       p.finalStatus,
+      p.doc.totals.grossCents,
+      p.post === true,
     ]),
     minimal: plan.minimalContacts.map((m) => [m.key, m.localId ?? null]),
     ranges: plan.numberRanges.map((r) => [r.rangeKey, r.candidates.map((c) => [c.format, c.next])]),
     opening: plan.opening,
+    bookedPeriod: plan.bookedPeriod,
   });
 }
 
@@ -1095,6 +1372,8 @@ export function summarizePlan(plan: ImportPlan, findingLimit = 500) {
     findingsTotal: plan.findings.length,
     numberRanges: plan.numberRanges,
     openItems: plan.openItems,
+    bookedPeriod: plan.bookedPeriod,
+    correctable: correctableRows(plan),
     pdf: {
       orphans: plan.pdf.orphans.map((id) => plan.documentFiles.find((f) => f.id === id)?.name ?? id),
       missing: missingPdfKeys(plan).slice(0, 200),
@@ -1114,6 +1393,27 @@ export function summarizePlan(plan: ImportPlan, findingLimit = 500) {
   };
 }
 export type PreviewSummary = ReturnType<typeof summarizePlan>;
+
+/**
+ * EC-203 / E-IMP-37: rows of an invoice list without tax data whose gross the owner may correct after comparing it
+ * with the PDF (capped; the owner's exports are small).
+ */
+function correctableRows(plan: ImportPlan, limit = 500) {
+  const files = new Set(
+    plan.findings.filter((f) => f.code === "E-IMP-37" && f.severity === "warning").map((f) => f.fileId),
+  );
+  return plan.documents
+    .filter((p) => files.has(p.doc.fileId) && (p.status === "new" || p.status === "error") && isCorrectable(p.doc))
+    .slice(0, limit)
+    .map((p) => ({
+      key: p.doc.key,
+      number: p.doc.number,
+      documentDate: p.doc.documentDate,
+      exportedGrossCents: p.correction?.exportedGrossCents ?? p.doc.totals.grossCents,
+      grossCents: p.doc.totals.grossCents,
+      ...(p.correction ? { reason: p.correction.reason } : {}),
+    }));
+}
 
 /** Human-readable euro amount for messages. */
 export const euroText = (cents: number) => `${formatCents(cents)} €`;

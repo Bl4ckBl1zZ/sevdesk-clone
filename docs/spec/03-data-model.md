@@ -524,7 +524,8 @@ type PaymentStatus = "open" | "partially_paid" | "paid" | "credited" | "written_
   reminder?: { invoiceId: Id<"salesDocuments">; level: number; feeCents: number; interestCents: number;
                flatFee40Cents: number; newDueDate: string; interestSegments?: unknown };
   selfBillingVoucherId?: Id<"vouchers">; // self_billing: linked purchase voucher (INV-16)
-  origin?: { source: "sevdesk_export" | "lexoffice_csv" | "generic_csv"; externalId: string; importId: Id<"imports"> };   // archived import (F09)
+  origin?: { source: "sevdesk_export" | "lexoffice_csv" | "generic_csv"; externalId: string; importId: Id<"imports">;
+             posted?: true };   // archived import (F09); posted = dated on/after the Buchungsbeginn and posted at import (E-IMP-10, EC-204)
   imported?: true;                       // read-only archive record with the original PDF as artifact, never re-rendered (F09, EC-190)
   datevBelegnummer?: string;             // DATEV-safe alias for a legacy number with invalid characters (E-EXP-10; set once, audited)
   // cached totals (recomputed on every draft change; frozen at finalisation)
@@ -1399,4 +1400,6 @@ Still referencing removed shapes (owned by the parallel feature pass, to align):
 | `salesDocuments` (implemented) | `imported: true`, `origin { source: "sevdesk_export", externalId: "<type>:<number>", importId }`, index `by_origin`; imported documents are written with status `sent`/`cancelled`, `lockedAt`, no snapshot, retention from the original date (`vouchers8`) | F09 §4.3.3, EC-190; RI-01/RI-19 skip the snapshot, supply-date and sent-mark checks for imported rows (`src/domain/documents/invariants.ts`) |
 | `documentLines.fromSummary` | One summary line per VAT rate „Positionen siehe Original-PDF“ | F09 IMP-020: the invoice list has no line items |
 | `importedRecords` | One row per created contact, product, document and archived PDF; the commit skips keys already present | Idempotent resume and re-import (IMP-006, E-IMP-04) |
-| `openingItems.documentId` (+ index `by_document`) | Set at insert by the import commit (one receivables opening posting per fiscal year, F08 ACC-013); never changed | IMP-007 / EC-201: payments on the imported invoice are redirected to its opening item; the invoice's `openAmountCents`/`paymentStatus` mirror the item; OPOS and matching skip `imported` documents |
+| `openingItems.documentId` (+ index `by_document`) | Set at insert by the import commit (one receivables opening posting per fiscal year, F08 ACC-013); never changed | IMP-007 / EC-201: payments on the imported invoice are redirected to its opening item; the invoice's `openAmountCents`/`paymentStatus` mirror the item; OPOS and matching skip archive-only `imported` documents |
+| `salesDocuments.origin.posted` (2026-10-18) | `true` when the imported document was dated on/after the Buchungsbeginn and posted at import (journal source = the document, F08 S1–S8/S12); set at insert, never changed | E-IMP-10 / EC-204: such documents have no opening item; payments, OPOS and bank matching treat them like own invoices (`isArchiveOnlyImport` in `src/domain/import/sevdesk/types.ts`) |
+| `imports.resolutions.postBookedPeriod`, `imports.resolutions.correctedTotals` (2026-10-18) | The owner's choice „Beim Import buchen“ and the corrected gross + reason per document key; part of the preview hash; copied into `imports.decisions` at commit | E-IMP-10, EC-203 / E-IMP-37 |

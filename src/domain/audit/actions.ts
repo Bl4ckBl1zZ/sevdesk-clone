@@ -102,6 +102,8 @@ const GROUPS: Record<string, readonly string[] | "*"> = {
     "fail",
     "record",
     "preset",
+    // F09 EC-203 / E-IMP-37: a total corrected from the PDF before the commit (with the owner's reason)
+    "corrected_total",
   ],
   integrity: ["run", "checkpoint", "acknowledge"],
   security: ["write_rejected", "access_denied"],

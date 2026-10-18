@@ -48,6 +48,8 @@ export interface ImportedDocument {
   /** §4.3.3: the export's sent date, else the document date (`sentOnAssumed`). */
   readonly sentOn: CalendarDate;
   readonly sentOnAssumed: boolean;
+  /** „Bezahlt am“ as exported — a hint only (E-IMP-39): payments are recorded from the bank statements. */
+  readonly paidOn?: CalendarDate;
   readonly customerNumber?: string;
   readonly customerName: string;
   readonly currency: string;
@@ -228,6 +230,10 @@ export function parseInvoiceRow(
   const supplyDate = date("supplyDate", "Leistungsdatum");
   const dueDate = date("dueDate", "Fälligkeit");
   const sentOnRaw = date("sentOn", "Versanddatum");
+  // E-IMP-39: „Bezahlt am“ is only a hint — an unreadable value is listed, never blocks the row.
+  const paidOnRaw = parseImportDate(get("paidOn"), ctx.dateFormat);
+  if (!paidOnRaw.ok) warn("E-IMP-39", `${number}: „Bezahlt am“ nicht lesbar (${paidOnRaw.error.message}) – ignoriert.`);
+  const paidOn = paidOnRaw.ok ? paidOnRaw.value : undefined;
   if (findings.length === 0 && !documentDate) error("E-IMP-16", "Rechnungsdatum fehlt.");
 
   // ── amounts (IMP-020: per rate if the export splits them) ──
@@ -440,6 +446,7 @@ export function parseInvoiceRow(
       ...(dueDate ? { dueDate } : {}),
       sentOn: sentOnRaw ?? documentDate,
       sentOnAssumed: sentOnRaw === undefined,
+      ...(paidOn ? { paidOn } : {}),
       ...(customerNumber ? { customerNumber } : {}),
       customerName,
       currency,

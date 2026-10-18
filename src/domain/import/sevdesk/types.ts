@@ -25,6 +25,15 @@ export type KuHistory = readonly { readonly validFrom: string; readonly isKU: bo
 
 export const rowRefOf = (fileId: string, line: number): string => `${fileId}:${line}`;
 
+/**
+ * F09 IMP-007 / EC-201 / EC-204: an imported document that was archived without a journal entry — its receivable (if
+ * any) is the F08 opening item. Documents posted at import (`origin.posted`, E-IMP-10) are receivables of their own.
+ */
+export const isArchiveOnlyImport = (d: {
+  readonly imported?: boolean;
+  readonly origin?: { readonly posted?: boolean };
+}): boolean => d.imported === true && d.origin?.posted !== true;
+
 /** Document types the invoice list maps to (§4.3.1; drafts and reminders are not imported). */
 export type ImportedDocType =
   | "invoice"
