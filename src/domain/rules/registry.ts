@@ -11,6 +11,7 @@ import { NOTE_TEXTS } from "./note-texts";
 import { RC13B_TYPES } from "./rc13b-types";
 import { RETENTION_YEARS } from "./retention";
 import type { RuleTable } from "./rule-table";
+import { ANNUAL_RETURN_DEADLINE, NEUGRUENDER_RULE, USTVA_PERIOD_LIMITS } from "./tax-filing";
 import {
   ASSET_THRESHOLDS,
   BOOKKEEPING_DUTY_LIMITS,
@@ -25,6 +26,7 @@ import {
   VERZUG_SURCHARGES,
 } from "./thresholds";
 import { VAT_RATE_KEYS } from "./vat-rates";
+import { ZM_GOODS_THRESHOLD } from "./zm";
 
 export const ALL_RULE_TABLES: readonly RuleTable<unknown>[] = [
   ...Object.values(VAT_RATE_KEYS),
@@ -47,4 +49,8 @@ export const ALL_RULE_TABLES: readonly RuleTable<unknown>[] = [
   ...Object.values(RC13B_TYPES),
   ...Object.values(EXEMPTION_REASONS),
   ...ACCOUNTING_RULE_TABLES,
+  USTVA_PERIOD_LIMITS,
+  NEUGRUENDER_RULE,
+  ANNUAL_RETURN_DEADLINE,
+  ZM_GOODS_THRESHOLD,
 ];
