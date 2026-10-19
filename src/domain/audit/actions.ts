@@ -105,7 +105,7 @@ const GROUPS: Record<string, readonly string[] | "*"> = {
   project: "*",
   time_entry: "*",
   settings: "*", // settings.<section>.update
-  rule_override: ["add"],
+  rule_override: ["add", "delete"],
   api_key: ["create", "revoke"],
   webhook: "*", // webhook.endpoint.*
   auth: ["sign_in", "sign_out", "passkey_add", "passkey_remove", "totp_enable", "totp_disable", "otp_mail_failed"],

@@ -2527,6 +2527,12 @@
     "wrapper": "mutation",
     "permission": "settings.write"
   },
+  "settings:addRuleOverride": {
+    "kind": "mutation",
+    "visibility": "public",
+    "wrapper": "mutation",
+    "permission": "settings.write"
+  },
   "settings:archiveBankAccount": {
     "kind": "mutation",
     "visibility": "public",
@@ -2570,6 +2576,12 @@
     "permission": "settings.write"
   },
   "settings:deleteNumberRange": {
+    "kind": "mutation",
+    "visibility": "public",
+    "wrapper": "mutation",
+    "permission": "settings.write"
+  },
+  "settings:deleteRuleOverride": {
     "kind": "mutation",
     "visibility": "public",
     "wrapper": "mutation",
@@ -2640,6 +2652,12 @@
     "visibility": "public",
     "wrapper": "mutation",
     "permission": "settings.write"
+  },
+  "settings:ruleOverview": {
+    "kind": "query",
+    "visibility": "public",
+    "wrapper": "query",
+    "permission": "settings.read"
   },
   "settings:runAccessChecks": {
     "kind": "action",

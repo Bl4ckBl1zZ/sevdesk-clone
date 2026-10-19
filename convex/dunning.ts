@@ -51,6 +51,7 @@ import {
   updateReminderDraft,
   withdrawReminder as withdrawReminderModel,
 } from "./model/dunning";
+import { loadRuleOverrides } from "./model/ruleOverrides";
 import {
   archivedArtifacts,
   displayStatusOf,
@@ -487,8 +488,9 @@ export const settings = query({
 export const interest = query({
   permission: "payments.read",
   args: { values: v.any() },
-  handler: async (_ctx, { values }) => {
+  handler: async (ctx, { values }) => {
     const q = parse(interestQuerySchema, values);
+    const overrides = (await loadRuleOverrides(ctx)).basiszinssatz;
     if (q.to < q.from) throw appError("invalid_input", "Das Enddatum liegt vor dem Beginn.", { field: "to" });
     const r = computeInterest({
       principalCents: q.amountCents,
@@ -496,6 +498,7 @@ export const interest = query({
       from: q.from as CalendarDate,
       to: q.to as CalendarDate,
       margin: typeof q.margin === "number" ? { customBp: q.margin } : q.margin,
+      ...(overrides.length ? { overrides } : {}),
     });
     if (!r.ok) throw appError("invalid_input", r.error.message, { reason: r.error.code });
     return r.value;

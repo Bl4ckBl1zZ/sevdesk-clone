@@ -11,6 +11,7 @@ import {
   layoutSchema,
   numberRangeCreateSchema,
   numberRangesSchema,
+  ruleOverrideSchema,
   taxSchema,
   validateLogoFile,
 } from "../src/domain/schemas/settings";
@@ -68,6 +69,11 @@ import {
   registerView,
   saveRanges,
 } from "./model/numberRanges";
+import {
+  addRuleOverride as addRuleOverrideModel,
+  deleteRuleOverride as deleteRuleOverrideModel,
+  ruleOverviewView,
+} from "./model/ruleOverrides";
 import { seedSettingsDefaults } from "./model/seeds";
 import { setupChecklist, setupFacts } from "./model/setup";
 
@@ -528,6 +534,27 @@ export const restoreLayoutVersion = mutation({
   permission: "settings.write",
   args: { layoutId: v.id("layouts"), versionId: v.id("layoutVersions") },
   handler: async (ctx, { layoutId, versionId }) => restoreLayoutVersionModel(ctx, layoutId, versionId),
+});
+
+/** SET-120: Einstellungen › Regeln — shipped tables, owner overrides and the rows effective today. */
+export const ruleOverview = query({
+  permission: "settings.read",
+  args: {},
+  handler: async (ctx) => ruleOverviewView(ctx, berlinCalendarDate(ctx.now())),
+});
+
+/** SET-121: add an owner override (owner only; mandatory source; overlapping overrides refused). */
+export const addRuleOverride = mutation({
+  permission: "settings.write",
+  args: { values: v.any() },
+  handler: async (ctx, { values }) => addRuleOverrideModel(ctx, parse(ruleOverrideSchema, values)),
+});
+
+/** SET-123: delete an override no finalised document used (audited); referenced → RULE_ROW_LOCKED. */
+export const deleteRuleOverride = mutation({
+  permission: "settings.write",
+  args: { id: v.id("ruleOverrides"), reason: v.string() },
+  handler: async (ctx, { id, reason }) => deleteRuleOverrideModel(ctx, id, reason),
 });
 
 /** SET-074: default layout per document type. */

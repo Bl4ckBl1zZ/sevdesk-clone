@@ -106,6 +106,17 @@ const ARGS: Record<string, Record<string, unknown>> = {
   "settings:setLayoutDefaults": { layoutId: "placeholder", docTypes: ["quote"] },
   "settings:layoutHistory": { layoutId: "placeholder" },
   "settings:restoreLayoutVersion": { layoutId: "placeholder", versionId: "placeholder" },
+  "settings:addRuleOverride": {
+    values: {
+      ruleSet: "basiszinssatz",
+      tableId: "basiszinssatz",
+      validFrom: "2031-01-01",
+      validTo: "2031-06-30",
+      rate: "1,5",
+      source: "Bundesbank",
+    },
+  },
+  "settings:deleteRuleOverride": { id: "placeholder", reason: "Tippfehler korrigiert" },
   "settings:layoutPreviewData": {},
   "lookups:saveTextTemplate": {
     values: {
@@ -204,6 +215,7 @@ async function callers(t: TestT): Promise<Record<string, { caller: Caller; role?
 const bankAccountOf = new WeakMap<TestT, string>();
 const UNIT_PLACEHOLDER_CODES = ["XBA", "XBB", "XBC", "XBD", "XBE", "XBF", "XBG", "XBH", "XBI", "XBJ", "XBK", "XBL"];
 let unitPlaceholderCount = 0;
+let overrideYear = 2040;
 
 async function resolvePlaceholders(t: TestT, args: Record<string, unknown>): Promise<Record<string, unknown>> {
   const out = { ...args };
@@ -249,6 +261,26 @@ async function resolvePlaceholders(t: TestT, args: Record<string, unknown>): Pro
   if (out.layoutId === "placeholder") {
     out.layoutId = await t.model({ actor: "user:seed", role: "owner", channel: "ui" }, async (ctx) =>
       (await import("./model/layouts")).createLayout(ctx, `L${Math.random()}`),
+    );
+  }
+  if (out.id === "placeholder") {
+    overrideYear += 1;
+    const year = overrideYear;
+    out.id = await t.model(
+      { actor: "user:seed", role: "owner", channel: "ui" },
+      async (ctx) =>
+        (
+          await (
+            await import("./model/ruleOverrides")
+          ).addRuleOverride(ctx, {
+            ruleSet: "basiszinssatz",
+            tableId: "basiszinssatz",
+            validFrom: `${year}-01-01`,
+            validTo: `${year}-06-30`,
+            rateBp: 100,
+            source: "Testquelle",
+          })
+        ).id,
     );
   }
   if (out.versionId === "placeholder") {

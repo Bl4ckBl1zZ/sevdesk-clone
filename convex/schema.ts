@@ -1135,6 +1135,19 @@ export default defineSchema({
     .index("by_date", ["date", "seq"])
     .index("by_contact", ["contactId", "date"]),
 
+  // 03 §1 ruleOverrides (F01 SET-121…123): owner rows on top of the shipped rule tables in src/domain/rules. Never
+  // updated; the row id is `override:<_id>`. Referenced by a finalised document (documentSnapshots.ruleVersions) →
+  // locked; unreferenced rows may be deleted (audited).
+  ruleOverrides: defineTable({
+    ruleSet: v.union(v.literal("basiszinssatz"), v.literal("taxRate"), v.literal("noteText")),
+    tableId: v.string(),
+    validFrom: v.string(),
+    validTo: v.optional(v.string()),
+    value: v.union(v.object({ rateBp: v.number() }), v.object({ de: v.string(), en: v.string() })),
+    source: v.string(),
+    addedAt: v.number(),
+  }).index("by_ruleSet", ["ruleSet", "tableId"]),
+
   // accountRoleMappings 🔒 — owner overrides of the shipped mapping (rule data roles-2026.2 in
   // src/domain/rules/accounting); append-only versions, resolution = latest validFrom ≤ posting date (ACC-008).
   accountRoleMappings: defineTable({

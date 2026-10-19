@@ -2,7 +2,7 @@ import type { InvoiceFinalisedEvent } from "../../src/domain/accounting/events";
 import { chartAt } from "../../src/domain/accounting/period";
 import { validateCompanyForDocuments } from "../../src/domain/company/validate";
 import { ADDRESS_REMOVED_WARNING, attentionLine } from "../../src/domain/contacts/snapshot";
-import { buildSnapshot } from "../../src/domain/documents/build-snapshot";
+import { buildSnapshot, type SnapshotInput } from "../../src/domain/documents/build-snapshot";
 import { revisionNumber } from "../../src/domain/documents/conversion";
 import {
   type ArchivedArtifact,
@@ -39,6 +39,7 @@ import {
 } from "../../src/domain/documents/snapshot";
 import { blocking, type Finding, validateDocument } from "../../src/domain/documents/validate";
 import type { ValidateOptions, ValidationResult } from "../../src/domain/documents/validate/index";
+import type { GroupedOverrides } from "../../src/domain/rules/overrides";
 import { isVatRateKey, VAT_RATE_KEY_LABELS } from "../../src/domain/rules/vat-rates";
 import type { DraftValues, MarkSentValues } from "../../src/domain/schemas/documents";
 import { companyForValidation, type ProfileData } from "../../src/domain/settings/profile";
@@ -68,6 +69,7 @@ import { layoutForDocument } from "./layouts";
 import { listCustomFieldDefs, listPaymentMethods, listUnits } from "./lookups";
 import { type NotificationInput, notify } from "./notifications";
 import { assignCounterNumber, listDefaultRanges, registerDerivedNumber } from "./numberRanges";
+import { loadRuleOverrides } from "./ruleOverrides";
 import { turnoverTotals } from "./turnover";
 import type { ModelCtx, ReadCtx } from "./types";
 import { contactChecks, vatCheckFollowUp } from "./vatChecks";
@@ -398,6 +400,8 @@ export interface LoadedContext {
   postalDeliveryDays: number;
   /** DOC-53: printable document custom fields. */
   printableDocumentFields: { label: string; value: string }[];
+  /** SET-122: owner rule overrides (VAT rates go into `ctx`, note texts into the snapshot builder). */
+  ruleOverrides: GroupedOverrides;
 }
 
 /** Everything `validateDocument` needs, read in the current transaction. */
@@ -474,9 +478,13 @@ export async function loadDocumentContext(
   }
   const chain = await chainContextFor(ctx, doc, draftLines ?? []);
   const relations = await loadRelations(ctx, doc);
+  const ruleOverrides = await loadRuleOverrides(ctx);
   return {
     ctx: {
       ...chain,
+      ...(Object.keys(ruleOverrides.vatRateOverrides).length
+        ? { vatRateOverrides: ruleOverrides.vatRateOverrides }
+        : {}),
       ...(relations ? { relations } : {}),
       today,
       setupComplete: profile?.setupCompletedAt !== undefined,
@@ -512,6 +520,7 @@ export async function loadDocumentContext(
     },
     contact,
     printableDocumentFields: await printableDocumentFields(ctx, doc),
+    ruleOverrides,
     layoutVersionId: layout?.version?._id ?? "default",
     postalDeliveryDays: profile?.receivables.postalDeliveryDays ?? 3,
   };
@@ -760,6 +769,12 @@ async function documentAssignments(
 }
 
 /** DOC-53 / CON-*: printed custom fields = the contact's then the document's (definitions with `printOnDocuments`). */
+/** SET-122: owner note-text overrides for the snapshot builder (none → the shipped texts). */
+export function noteOverridesOf(loaded: { ruleOverrides: GroupedOverrides }): Pick<SnapshotInput, "noteOverrides"> {
+  const n = loaded.ruleOverrides.noteOverrides;
+  return Object.keys(n).length ? { noteOverrides: n } : {};
+}
+
 function printedFields(loaded: {
   contact: { printableCustomFields: { label: string; value: string }[] } | null;
   printableDocumentFields: { label: string; value: string }[];
@@ -1042,6 +1057,7 @@ export async function finalizePreview(
   const snap = buildSnapshot({
     ...input,
     ...printedFields(loaded),
+    ...noteOverridesOf(loaded),
     ...frozenAttachments(doc),
   });
   if (!snap.ok) {
@@ -1128,6 +1144,7 @@ export async function commitFinalization(
   const built = buildSnapshot({
     ...input,
     ...printedFields(loaded),
+    ...noteOverridesOf(loaded),
     ...frozenAttachments(doc),
   });
   if (!built.ok) throw appError("validation_failed", built.error.message, { reason: built.error.code });

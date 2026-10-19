@@ -194,11 +194,31 @@ test("DOC-53 DOC-54 PRD-053 the invoice editor offers layout, cost centre and th
   await expectNoAxeViolations();
 });
 
-test("SET-076 the layout version history lists versions with their changes", async ({ page, expectNoAxeViolations }) => {
+test("SET-076 the layout version history lists versions with their changes", async ({
+  page,
+  expectNoAxeViolations,
+}) => {
   await page.goto("/einstellungen/layouts");
   const versions = page.getByRole("button", { name: /^Versionen/ }).first();
   test.skip((await versions.count()) === 0, "no layout yet in this journey");
   await versions.click();
   await expect(page.getByTestId("layout-history")).toContainText("Version 1");
   await expectNoAxeViolations();
+});
+
+test("SET-120 SET-121 /einstellungen/regeln lists the rule tables with source and offers owner overrides", async ({
+  page,
+  expectNoAxeViolations,
+}) => {
+  await page.goto("/einstellungen/regeln");
+  await expect(page.getByRole("heading", { name: "Basiszinssatz" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Steuersätze" })).toBeVisible();
+  await expect(page.getByText("§ 12 Abs. 1 UStG").first()).toBeVisible();
+  await expectNoAxeViolations();
+  await page.getByRole("button", { name: "Überschreibung hinzufügen" }).click();
+  const dialog = page.getByRole("dialog");
+  await expect(dialog.getByLabel("Regelart")).toBeVisible();
+  await expect(dialog.getByLabel(/^Quelle/)).toBeVisible();
+  await expectNoAxeViolations();
+  await dialog.getByRole("button", { name: "Abbrechen" }).click();
 });

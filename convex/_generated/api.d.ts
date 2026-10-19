@@ -121,6 +121,7 @@ import type * as model_privacy from "../model/privacy.js";
 import type * as model_products from "../model/products.js";
 import type * as model_recurring from "../model/recurring.js";
 import type * as model_recurringVouchers from "../model/recurringVouchers.js";
+import type * as model_ruleOverrides from "../model/ruleOverrides.js";
 import type * as model_salesDocuments from "../model/salesDocuments.js";
 import type * as model_seeds from "../model/seeds.js";
 import type * as model_settlement from "../model/settlement.js";
@@ -274,6 +275,7 @@ declare const fullApi: ApiFromModules<{
   "model/products": typeof model_products;
   "model/recurring": typeof model_recurring;
   "model/recurringVouchers": typeof model_recurringVouchers;
+  "model/ruleOverrides": typeof model_ruleOverrides;
   "model/salesDocuments": typeof model_salesDocuments;
   "model/seeds": typeof model_seeds;
   "model/settlement": typeof model_settlement;

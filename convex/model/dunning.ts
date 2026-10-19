@@ -33,6 +33,7 @@ import {
   validatePolicy,
 } from "../../src/domain/dunning/policy";
 import { defaultReminderTexts, reminderPlaceholderValues } from "../../src/domain/dunning/templates";
+import { basiszinsRuleVersions } from "../../src/domain/rules/overrides";
 import type { DunningSettingsValues, PolicyValues, ReminderCreateValues } from "../../src/domain/schemas/dunning";
 import { berlinCalendarDate } from "../../src/domain/time/berlin";
 import { addDays, type CalendarDate, formatGermanDate } from "../../src/domain/time/calendar-date";
@@ -42,11 +43,13 @@ import { auditedDelete, auditedInsert, auditedPatch } from "./audit";
 import { getCompanyProfile, patchCompanyProfile } from "./companyProfile";
 import { assignCounterNumber } from "./numberRanges";
 import { paymentsOfTarget, settlesOf } from "./payments";
+import { loadRuleOverrides } from "./ruleOverrides";
 import {
   draftFromDoc,
   getDocument,
   loadDocumentContext,
   nextStatus,
+  noteOverridesOf,
   resolveNotifications,
   snapshotOf,
   upsertNotification,
@@ -433,8 +436,11 @@ export async function evaluationContext(ctx: ReadCtx, today: CalendarDate): Prom
   const profile = await getCompanyProfile(ctx);
   const r = profile?.receivables;
   const bank = await bankDataFreshness(ctx, today, r?.bankDataMaxAgeDays ?? 7);
+  const basiszins = (await loadRuleOverrides(ctx)).basiszinssatz;
   return {
     ctx: {
+      // SET-122/DUN-021: owner Basiszinssatz rows win over the shipped table.
+      ...(basiszins.length ? { overrides: basiszins } : {}),
       policies: await listPolicies(ctx),
       autoFinalizeReminders: r?.autoFinalizeReminders ?? false,
       defaultStartViaReminder: r?.defaultStartViaReminder ?? "after_printed_deadline",
@@ -639,6 +645,7 @@ export async function planReminder(
     history: loaded.state.history,
     flatFeeCharged: loaded.dunningCase?.flatFeeCharged ?? false,
     state: settings.ctx.state,
+    ...(settings.ctx.overrides ? { overrides: settings.ctx.overrides } : {}),
   });
   if (!computedR.ok) throw appError("invalid_input", computedR.error.message, { reason: computedR.error.code });
   const flatFeeRem = loaded.dunningCase?.flatFeeReminderId
@@ -998,7 +1005,13 @@ export async function finalizeReminder(
     newDueDate: claim.newDueDate,
     totalCents: claim.totalCents,
   };
-  const built = buildSnapshot({ ...input, reminder });
+  // SET-122: the reminder records the Basiszinssatz rows its interest used (shipped or owner override).
+  const built = buildSnapshot({
+    ...input,
+    ...noteOverridesOf(loaded),
+    ruleVersions: { ...(input.ruleVersions ?? {}), ...basiszinsRuleVersions(claim.interestSegments) },
+    reminder,
+  });
   if (!built.ok) throw appError("validation_failed", built.error.message, { reason: built.error.code });
   const snapshot = built.value;
   const snapshotId = await auditedInsert(
