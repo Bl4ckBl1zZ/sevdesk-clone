@@ -542,7 +542,7 @@ Current balance (large), movement list with running balance (date, Beleg, text, 
 | POST | `/bank-transactions/{id}/reversal-link` | banking:write | `{ original_id }` (BNK-121) |
 | POST | `/bank-transactions/duplicates/{id}/resolve` | banking:write | `{ decision: "same" \| "separate" }` (BNK-110) |
 | POST | `/bank-transactions/{id}/voucher` | vouchers:write | Creates a prefilled voucher draft (P2) |
-| GET/POST/PATCH | `/matching-rules` | banking:write | Created as `mode: "suggest"` via API (BNK-054); `POST /matching-rules/preview` dry run |
+| GET/POST/PATCH | `/matching-rules`, `/matching-rules/{id}` | GET + preview banking:read, POST/PATCH banking:write (§11) | Created as `mode: "suggest"` via API (BNK-054); `POST /matching-rules/preview` dry run |
 | GET | `/cash` | banking:read | Balance and movements with running balance (`from`, `to`) |
 | POST | `/cash/transfers` | banking:write | `{ kind: "deposit_to_bank" \| "private_withdrawal", date, amount_cents, bank_account_id?, note?, backdate_reason? }` |
 | POST | `/cash/transfers/{id}/reverse` | banking:write | `{ reason }` |
