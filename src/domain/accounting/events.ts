@@ -424,7 +424,9 @@ export type BusinessEvent =
   | BankTransactionMarkReversedEvent
   | OpeningBalanceEvent
   | AssetDepreciationEvent
-  | AssetDisposalEvent;
+  | AssetDisposalEvent
+  | ManualEntryEvent
+  | ManualEntryReversedEvent;
 
 /** Events that mirror earlier entries instead of using the matrix. */
 export type ReversalEvent =
@@ -432,9 +434,11 @@ export type ReversalEvent =
   | InvoiceCancelledEvent
   | PaymentReversedEvent
   | CashTransferReversedEvent
-  | BankTransactionMarkReversedEvent;
+  | BankTransactionMarkReversedEvent
+  | ManualEntryReversedEvent;
 
 export const isReversalEvent = (e: BusinessEvent): e is ReversalEvent =>
+  e.kind === "manual_entry_reversed" ||
   e.kind === "voucher_reversed" ||
   e.kind === "invoice_cancelled" ||
   e.kind === "payment_reversed" ||
@@ -490,6 +494,9 @@ export function sourceOf(e: BusinessEvent): JournalSource {
       return { kind: "asset_depreciation", id: assetDepreciationSourceId(e.assetId, e.period) };
     case "asset_disposal":
       return { kind: "asset_depreciation", id: assetDisposalSourceId(e.assetId) };
+    case "manual_entry":
+    case "manual_entry_reversed":
+      return { kind: "manual", id: e.manualEntryId };
   }
 }
 
@@ -515,6 +522,8 @@ export function reversedSourceOf(e: ReversalEvent): JournalSource {
       return { kind: "cashTransfer", id: e.originalCashTransferId };
     case "bank_transaction_mark_reversed":
       return { kind: "bankTransaction", id: e.transactionId };
+    case "manual_entry_reversed":
+      return { kind: "manual", id: e.manualEntryId };
   }
 }
 
@@ -555,3 +564,34 @@ export interface AssetDisposalEvent {
 /** The journal source id of an AfA entry: one per (asset, period) — the idempotency key of AST-009. */
 export const assetDepreciationSourceId = (assetId: string, period: string): string => `${assetId}:${period}`;
 export const assetDisposalSourceId = (assetId: string): string => `${assetId}:disposal`;
+
+// ── manual entries (ACC-011, GOBD-07) ───────────────────────────────────────────────────────────────────
+
+/** One line of a manual entry as built by `buildManualLines` (explicit account or VAT role, one side). */
+export interface ManualPostingLine {
+  account?: string;
+  role?: string;
+  debitCents: number;
+  creditCents: number;
+  taxKey?: string;
+  taxPointDate?: string;
+  contactId?: string;
+  costCenterId?: string;
+}
+
+/** M1: a manual entry; the user picks the date, so a locked period refuses it (E-ACC-04). */
+export interface ManualEntryEvent {
+  kind: "manual_entry";
+  manualEntryId: string;
+  date: string;
+  text: string;
+  lines: ManualPostingLine[];
+}
+
+/** „Gegenbuchung“ of a manual entry (Generalumkehr, dated by the user in an open period). */
+export interface ManualEntryReversedEvent {
+  kind: "manual_entry_reversed";
+  manualEntryId: string;
+  date: string;
+  reason: string;
+}

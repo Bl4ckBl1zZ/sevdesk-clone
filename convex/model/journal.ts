@@ -289,6 +289,11 @@ async function persist(ctx: ModelCtx, posting: Posting, a: PersistArgs) {
     ...(l.contactId !== undefined ? { contactId: contacts.get(l.contactId) as Id<"contacts"> } : {}),
     ...(l.taxPointDate !== undefined ? { taxPointDate: l.taxPointDate } : {}),
     ...(l.taxPeriod !== undefined ? { taxPeriod: l.taxPeriod } : {}),
+    ...(l.costCenterId !== undefined ? { costCenterId: l.costCenterId } : {}),
+    // ACC-023: the EUR line keeps its foreign-currency source amount and rate.
+    ...(l.currency !== undefined ? { currency: l.currency } : {}),
+    ...(l.amountFx !== undefined ? { amountFx: l.amountFx } : {}),
+    ...(l.fxRate !== undefined ? { fxRate: l.fxRate } : {}),
   }));
   const value = {
     seq,

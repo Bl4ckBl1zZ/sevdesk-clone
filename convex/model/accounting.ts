@@ -2,6 +2,15 @@ import { bankLedgerIncomplete, UNJOURNALISED_TX_STATUSES } from "../../src/domai
 import type { OpeningBalancePart, OpeningReceivable } from "../../src/domain/accounting/events";
 import { openingSourceId } from "../../src/domain/accounting/events";
 import {
+  type JournalFilter,
+  type JournalSort,
+  matchesJournalFilter,
+  type ReportEntry,
+  type SearchableEntry,
+  sortJournal,
+  validateJournalFilter,
+} from "../../src/domain/accounting/journal-search";
+import {
   chartAt,
   fiscalYearEnd,
   fiscalYearOf,
@@ -11,6 +20,7 @@ import {
 import { explanationText } from "../../src/domain/accounting/post";
 import { roleMappingView } from "../../src/domain/accounting/resolve";
 import { roleLabel, STATIC_ROLES } from "../../src/domain/accounting/roles";
+import { CSV_DIRECT_MAX_ROWS } from "../../src/domain/csv/export";
 import { type ChartAccount, chartAccounts, seededAccount } from "../../src/domain/rules/accounting";
 import { berlinCalendarDate } from "../../src/domain/time/berlin";
 import { type CalendarDate, calendarDate, isCalendarDate } from "../../src/domain/time/calendar-date";
@@ -82,6 +92,11 @@ export interface JournalLineView {
   taxKey?: string;
   taxPointDate?: string;
   contactId?: string;
+  costCenterId?: string;
+  /** ACC-023: foreign-currency source amount (minor units) with the rate used. */
+  currency?: string;
+  amountFx?: number;
+  fxRate?: { rate: string; source: string; date: string };
 }
 
 export interface JournalEntryView {
@@ -106,8 +121,12 @@ export interface JournalEntryView {
   locked: boolean;
 }
 
-export async function journalEntryView(ctx: ReadCtx, e: Doc<"journalEntries">): Promise<JournalEntryView> {
-  const name = await accountNamer(ctx);
+export async function journalEntryView(
+  ctx: ReadCtx,
+  e: Doc<"journalEntries">,
+  namer?: (account: string, date: string) => string,
+): Promise<JournalEntryView> {
+  const name = namer ?? (await accountNamer(ctx));
   const reversedBy = await reversalOf(ctx, e._id);
   const original = e.reversalOfId ? await ctx.db.get(e.reversalOfId) : null;
   return {
@@ -133,6 +152,10 @@ export async function journalEntryView(ctx: ReadCtx, e: Doc<"journalEntries">): 
       ...(l.taxKey ? { taxKey: l.taxKey } : {}),
       ...(l.taxPointDate ? { taxPointDate: l.taxPointDate } : {}),
       ...(l.contactId ? { contactId: l.contactId } : {}),
+      ...(l.costCenterId ? { costCenterId: l.costCenterId } : {}),
+      ...(l.currency ? { currency: l.currency } : {}),
+      ...(l.amountFx !== undefined ? { amountFx: l.amountFx } : {}),
+      ...(l.fxRate ? { fxRate: { rate: l.fxRate.rate, source: l.fxRate.source, date: l.fxRate.date } } : {}),
     })),
     ...(original ? { reversalOfSeq: original.seq } : {}),
     ...(reversedBy ? { reversedBySeq: reversedBy.seq } : {}),
@@ -140,6 +163,126 @@ export async function journalEntryView(ctx: ReadCtx, e: Doc<"journalEntries">): 
     actor: e.actor,
     locked: e.lockedAt !== undefined,
   };
+}
+
+// ── journal search & report (ACC-025, RPT-008) ──────────────────────────────────────────────────────────
+
+export interface JournalSearchArgs extends JournalFilter {
+  sort?: JournalSort;
+  offset?: number;
+  limit?: number;
+}
+
+const searchable = (e: Doc<"journalEntries">, reversed: boolean): SearchableEntry => ({
+  seq: e.seq,
+  date: e.date,
+  text: e.text,
+  source: e.source,
+  lines: e.lines.map((l) => ({
+    account: l.account,
+    debitCents: l.debitCents,
+    creditCents: l.creditCents,
+    ...(l.contactId ? { contactId: l.contactId } : {}),
+  })),
+  late: e.latePosting !== undefined,
+  reversal: e.reversalOfId !== undefined,
+  reversed,
+  actor: e.actor,
+});
+
+/** Entries matching the filter, sorted (default newest `seq` first). Reads only the date range / account lines. */
+async function matchingEntries(ctx: ReadCtx, args: JournalSearchArgs): Promise<Doc<"journalEntries">[]> {
+  const valid = validateJournalFilter(args);
+  if (!valid.ok) throw appError("invalid_input", valid.error.message);
+  const from = args.from ?? "0000-01-01";
+  const to = args.to ?? "9999-12-31";
+  let docs: Doc<"journalEntries">[];
+  if (args.account) {
+    const account = args.account;
+    const lines = await ctx.db
+      .query("journalLines")
+      .withIndex("by_account_date_seq", (q) => q.eq("account", account).gte("date", from).lte("date", to))
+      .collect();
+    const ids = [...new Set(lines.map((l) => l.entryId))];
+    docs = (await Promise.all(ids.map((id) => ctx.db.get(id)))).filter((d): d is Doc<"journalEntries"> => !!d);
+  } else if (args.from || args.to) {
+    docs = await ctx.db
+      .query("journalEntries")
+      .withIndex("by_period", (q) => q.gte("period", from.slice(0, 7)).lte("period", to.slice(0, 7)))
+      .collect();
+  } else {
+    docs = await ctx.db.query("journalEntries").withIndex("by_seq").collect();
+  }
+  const { reversals, ...rest } = args;
+  const out: Doc<"journalEntries">[] = [];
+  for (const d of docs) {
+    if (!matchesJournalFilter(searchable(d, false), rest)) continue;
+    if (reversals) {
+      const reversed = (await reversalOf(ctx, d._id)) !== null;
+      if (!matchesJournalFilter(searchable(d, reversed), { reversals })) continue;
+    }
+    out.push(d);
+  }
+  return sortJournal(out, args.sort ?? "seq_desc");
+}
+
+export async function searchJournal(ctx: ReadCtx, args: JournalSearchArgs) {
+  const all = await matchingEntries(ctx, args);
+  const offset = Math.max(0, Math.trunc(args.offset ?? 0));
+  const limit = Math.min(200, Math.max(1, Math.trunc(args.limit ?? 50)));
+  const namer = await accountNamer(ctx);
+  const page = await Promise.all(all.slice(offset, offset + limit).map((e) => journalEntryView(ctx, e, namer)));
+  return {
+    page,
+    total: all.length,
+    offset,
+    limit,
+    totalCents: all.reduce((s, e) => s + e.lines.reduce((x, l) => x + l.debitCents, 0), 0),
+  };
+}
+
+/** RPT-008 Buchungsjournal rows for the CSV (≤ CSV_DIRECT_MAX_ROWS entries; larger ranges → narrower filter). */
+export async function journalReport(ctx: ReadCtx, args: JournalSearchArgs): Promise<ReportEntry[]> {
+  const all = await matchingEntries(ctx, { ...args, sort: args.sort ?? "seq_asc" });
+  if (all.length > CSV_DIRECT_MAX_ROWS) {
+    throw appError(
+      "invalid_input",
+      `Das Buchungsjournal umfasst ${all.length} Buchungen. Bitte den Zeitraum eingrenzen (höchstens ${CSV_DIRECT_MAX_ROWS}).`,
+    );
+  }
+  const namer = await accountNamer(ctx);
+  const centers = new Map((await ctx.db.query("costCenters").collect()).map((c) => [String(c._id), c]));
+  const out: ReportEntry[] = [];
+  for (const e of all) {
+    const v = await journalEntryView(ctx, e, namer);
+    out.push({
+      seq: v.seq,
+      date: v.date,
+      period: v.period,
+      text: v.text,
+      source: { id: v.source.id, label: v.source.label },
+      lines: v.lines.map((l) => {
+        const cc = l.costCenterId ? centers.get(l.costCenterId) : undefined;
+        return {
+          account: l.account,
+          accountName: l.accountName,
+          debitCents: l.debitCents,
+          creditCents: l.creditCents,
+          ...(l.taxKey ? { taxKey: l.taxKey } : {}),
+          ...(cc ? { costCenter: `${cc.number} ${cc.name}` } : {}),
+          ...(l.currency ? { currency: l.currency } : {}),
+          ...(l.amountFx !== undefined ? { amountFx: l.amountFx } : {}),
+        };
+      }),
+      ...(v.reversalOfSeq !== undefined ? { reversalOfSeq: v.reversalOfSeq } : {}),
+      ...(v.reversedBySeq !== undefined ? { reversedBySeq: v.reversedBySeq } : {}),
+      ...(v.latePostingReason ? { latePostingReason: v.latePostingReason } : {}),
+      ...(v.originalDate ? { originalDate: v.originalDate } : {}),
+      locked: v.locked,
+      actor: v.actor,
+    });
+  }
+  return out;
 }
 
 // ── chart of accounts (F08 §6 /buchhaltung/konten) ──────────────────────────────────────────────────────

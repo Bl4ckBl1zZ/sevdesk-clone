@@ -1,5 +1,6 @@
 import { describe, expect, test } from "vitest";
 import { buildManualLines, MANUAL_TEMPLATES, type ManualContext } from "./manual-entry";
+import { type PostingContext, postEvent, reversalPosting } from "./post";
 
 const TYPES: Record<string, "expense" | "revenue" | "asset" | "liability" | "bank" | "neutral"> = {
   "1800": "bank",
@@ -11,6 +12,12 @@ const TYPES: Record<string, "expense" | "revenue" | "asset" | "liability" | "ban
 const ctx: ManualContext = {
   accountType: (a) => TYPES[a] ?? null,
   vatAccounts: new Set(["3806"]),
+};
+
+const PCTX: PostingContext = {
+  taxationMethod: "soll",
+  legalForm: "einzelunternehmen",
+  ustvaPeriod: [{ year: 2026, period: "monthly" }],
 };
 
 const base = { date: "2026-05-04", text: "Umbuchung", attachmentCount: 1 };
@@ -76,14 +83,14 @@ describe("ACC-011 manual journal entries", () => {
       {
         ...base,
         lines: [
-          { account: "6815", debitCents: 11_900, creditCents: 0, taxKey: "VSt19" },
+          { account: "6815", debitCents: 11_900, creditCents: 0, taxKey: "VSt19", costCenterId: "kst1" },
           { account: "1800", debitCents: 0, creditCents: 11_900 },
         ],
       },
       ctx,
     );
     expect(r.ok && r.value.lines).toEqual([
-      { account: "6815", debitCents: 10_000, creditCents: 0, taxKey: "VSt19" },
+      { account: "6815", debitCents: 10_000, creditCents: 0, taxKey: "VSt19", costCenterId: "kst1" },
       { role: "vat.input.19", debitCents: 1_900, creditCents: 0, taxPointDate: "2026-05-04" },
       { account: "1800", debitCents: 0, creditCents: 11_900 },
     ]);
@@ -128,6 +135,34 @@ describe("ACC-011 manual journal entries", () => {
     expect(r.ok && r.value.warnings.map((w) => w.code)).toEqual(["E-ACC-10"]);
     const ack = buildManualLines(input, { ...ctx, acknowledged: ["E-ACC-10"] });
     expect(ack.ok && ack.value.warnings).toEqual([]);
+  });
+
+  test("ACC-011 the M1 posting is user-dated, keeps cost centres and gives VAT lines their UStVA period", () => {
+    const built = buildManualLines(
+      {
+        ...base,
+        lines: [
+          { account: "6815", debitCents: 11_900, creditCents: 0, taxKey: "VSt19", costCenterId: "kst1" },
+          { account: "1800", debitCents: 0, creditCents: 11_900 },
+        ],
+      },
+      ctx,
+    );
+    if (!built.ok) throw new Error(built.error.message);
+    const r = postEvent(
+      { kind: "manual_entry", manualEntryId: "m1", date: "2026-05-04", text: "Umbuchung", lines: built.value.lines },
+      PCTX,
+    );
+    if (!r.ok || r.value.kind !== "entry") throw new Error("no entry");
+    expect(r.value.posting).toMatchObject({ explanation: "M1", dating: "user", source: { kind: "manual", id: "m1" } });
+    expect(r.value.posting.lines[0]).toMatchObject({ costCenterId: "kst1" });
+    expect(r.value.posting.lines[1]).toMatchObject({ role: "vat.input.19", taxPeriod: "2026-05" });
+    const back = reversalPosting(
+      { kind: "manual_entry_reversed", manualEntryId: "m1", date: "2026-06-01", reason: "Fehler" },
+      { lines: r.value.posting.lines, text: "Umbuchung" },
+      PCTX,
+    );
+    expect(back).toMatchObject({ explanation: "M-storno", dating: "user", text: "Gegenbuchung: Umbuchung" });
   });
 
   test("ACC-011 templates name a role, the bank account or an account per chart on every line", () => {

@@ -5,7 +5,7 @@ import { RoleGate } from "@/components/auth/role-gate";
 import { PageBody } from "@/components/layout/list-layout";
 import { PageHeader } from "@/components/layout/page-header";
 
-type AccountingPageKey = "journal" | "konten" | "eroeffnung" | "anlagen" | "festschreibung";
+type AccountingPageKey = "journal" | "journalNeu" | "konten" | "eroeffnung" | "anlagen" | "festschreibung";
 
 export async function accountingMetadata(page: AccountingPageKey): Promise<Metadata> {
   const t = await getTranslations("pages");

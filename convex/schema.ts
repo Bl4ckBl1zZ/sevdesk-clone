@@ -1329,6 +1329,30 @@ export default defineSchema({
     actor: vActor,
   }).index("by_year_month", ["year", "month"]),
 
+  // manualEntries 🔒 append-only (F08 ACC-011, GOBD-07): the manual entry as entered (gross lines with tax keys,
+  // template, confirmed warnings, attachments). Its journal entry has source `manual:<_id>`; a „Gegenbuchung“ is the
+  // reversal entry of that source (state derived from journalEntries.by_reversalOf, never stored here).
+  manualEntries: defineTable({
+    date: v.string(),
+    text: v.string(),
+    longText: v.optional(v.string()),
+    templateKey: v.optional(v.string()),
+    lines: v.array(
+      v.object({
+        account: v.string(),
+        debitCents: v.number(),
+        creditCents: v.number(),
+        taxKey: v.optional(v.string()),
+        costCenterId: v.optional(v.id("costCenters")),
+        contactId: v.optional(v.id("contacts")),
+      }),
+    ),
+    attachments: v.array(vFileRef),
+    acknowledgedWarnings: v.optional(v.array(v.string())),
+    recordedAt: v.number(),
+    actor: vActor,
+  }).index("by_date", ["date"]),
+
   // openingItems 🔒 — open receivables carried into the books by the opening balance (ACC-013, P1 subset): the
   // original document reference and VAT split (Ist) so later payments (target kind "opening_item") clear them.
   openingItems: defineTable({

@@ -78,6 +78,8 @@ export const IMMUTABILITY_MATRIX: Readonly<Record<string, TableRule>> = {
   datevAcceptance: APPEND_ONLY,
   allocations: APPEND_ONLY,
   depreciationRuns: APPEND_ONLY,
+  // F08 ACC-011: a manual entry as entered; corrections are Gegenbuchungen (reversal entries), never edits.
+  manualEntries: APPEND_ONLY,
   bankTransactionRevisions: APPEND_ONLY,
   // F08 read model of journal lines: written with its entry, never changed (03 §8, RI-12 consistency check).
   journalLines: APPEND_ONLY,

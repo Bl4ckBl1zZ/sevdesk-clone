@@ -5,6 +5,7 @@ import { beforeEach, describe, expect, test, vi } from "vitest";
 import { renderWithIntl } from "@/i18n/test-utils";
 import { ChartOfAccounts } from "./chart-of-accounts";
 import { JournalViewer } from "./journal-viewer";
+import { ManualEntryEditor } from "./manual-entry-editor";
 import { OpeningBalanceWizard } from "./opening-balance-wizard";
 
 const backend = vi.hoisted(() => ({
@@ -16,13 +17,18 @@ vi.mock("@/components/convex/convex-provider", () => ({
   ConvexGuard: ({ children }: { children: React.ReactNode }) => children,
 }));
 vi.mock("@/hooks/use-authed-query", () => ({
-  useAuthedQuery: (ref: unknown) => backend.data[getFunctionName(ref as never)],
+  useAuthedQuery: (ref: unknown, args: unknown) => {
+    const name = getFunctionName(ref as never);
+    if (name === "accounting:searchJournal") backend.paginatedArgs.push(args);
+    return backend.data[name];
+  },
   useAuthedPaginatedQuery: (ref: unknown, args: unknown) => {
     backend.paginatedArgs.push(args);
     return { results: backend.data[getFunctionName(ref as never)] ?? [], status: "Exhausted", loadMore: vi.fn() };
   },
 }));
 vi.mock("convex/react", () => ({
+  useConvex: () => ({ query: vi.fn().mockResolvedValue([]) }),
   useMutation: (ref: unknown) => {
     const name = getFunctionName(ref as never);
     backend.mutations[name] ??= vi.fn().mockResolvedValue({ status: "posted", seq: 1 });
@@ -31,6 +37,9 @@ vi.mock("convex/react", () => ({
 }));
 const toast = vi.hoisted(() => ({ success: vi.fn(), error: vi.fn() }));
 vi.mock("sonner", () => ({ toast }));
+const router = vi.hoisted(() => ({ push: vi.fn() }));
+vi.mock("next/navigation", () => ({ useRouter: () => router }));
+vi.mock("@/components/banking/shared", () => ({ uploadFile: vi.fn().mockResolvedValue("storage1") }));
 
 const entry = {
   id: "e1",
@@ -85,6 +94,7 @@ beforeEach(() => {
   toast.error.mockReset();
   backend.data = {
     "accounting:listJournal": [entry],
+    "accounting:searchJournal": { page: [entry], total: 1, offset: 0, limit: 50, totalCents: 119000 },
     "accounting:chartOfAccounts": {
       fiscalYear: 2026,
       from: "2026-01-01",
@@ -219,11 +229,89 @@ describe("Journal (F08 §6)", () => {
     expect(screen.queryByRole("button", { name: /Bearbeiten|Löschen/ })).toBeNull();
   });
 
-  test("ACC-001 the month filter is passed to the query", async () => {
+  test("ACC-025 the month, source and amount filters are passed to the search query", async () => {
     renderWithIntl(<JournalViewer />);
     const month = screen.getByLabelText("Monat");
     await userEvent.type(month, "2026-03");
-    expect(backend.paginatedArgs.at(-1)).toEqual({ period: "2026-03" });
+    expect(backend.paginatedArgs.at(-1)).toEqual({ from: "2026-03-01", to: "2026-03-31", limit: 50 });
+    await userEvent.selectOptions(screen.getByLabelText("Herkunft"), "manual");
+    await userEvent.type(screen.getByLabelText("Betrag ab (€)"), "100");
+    await userEvent.click(screen.getByRole("checkbox", { name: "Nur Nachbuchungen" }));
+    expect(backend.paginatedArgs.at(-1)).toEqual({
+      from: "2026-03-01",
+      to: "2026-03-31",
+      sourceKind: "manual",
+      minCents: 10_000,
+      late: true,
+      limit: 50,
+    });
+    expect(screen.getByText("1 Buchung · Summe 1.190,00 €")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Buchungsjournal (CSV)" })).toBeInTheDocument();
+  });
+
+  test("ACC-011 „Manuelle Buchung“ and „Gegenbuchung“ appear only with write access and only for manual entries", async () => {
+    const manual = { ...entry, id: "e9", seq: 9, source: { kind: "manual", id: "m1", label: "Manuelle Buchung" } };
+    const { reversedBySeq: _r, ...open } = manual;
+    backend.data["accounting:searchJournal"] = { page: [open], total: 1, offset: 0, limit: 50, totalCents: 119000 };
+    const { unmount } = renderWithIntl(<JournalViewer />);
+    expect(screen.queryByRole("link", { name: "Manuelle Buchung" })).toBeNull();
+    await userEvent.click(within(screen.getByRole("table")).getByRole("button", { name: "Buchung 9 öffnen" }));
+    expect(within(await screen.findByRole("dialog")).queryByRole("button", { name: "Gegenbuchung" })).toBeNull();
+    unmount();
+
+    renderWithIntl(<JournalViewer canWrite />);
+    expect(screen.getByRole("link", { name: "Manuelle Buchung" })).toHaveAttribute("href", "/buchhaltung/journal/neu");
+    await userEvent.click(within(screen.getByRole("table")).getByRole("button", { name: "Buchung 9 öffnen" }));
+    await userEvent.click(within(await screen.findByRole("dialog")).getByRole("button", { name: "Gegenbuchung" }));
+    const dialog = await screen.findByRole("dialog", { name: "Gegenbuchung zu Buchung 9" });
+    await userEvent.type(within(dialog).getByLabelText("Grund"), "Falsches Konto");
+    await userEvent.click(within(dialog).getByRole("button", { name: "Gegenbuchung buchen" }));
+    expect(backend.mutations["manualEntries:reverse"]).toHaveBeenCalledWith(
+      expect.objectContaining({ entryId: "e9", reason: "Falsches Konto" }),
+    );
+  });
+});
+
+describe("Manuelle Buchung (F08 §6 /buchhaltung/journal/neu)", () => {
+  test("ACC-011 E-ACC-01 E-ACC-02 live balance, net/VAT preview and booking only with a Beleg", async () => {
+    backend.data["manualEntries:templates"] = [];
+    backend.data["lookups:listCostCenters"] = [];
+    backend.data["contacts:options"] = [];
+    const roles = (backend.data["accounting:chartOfAccounts"] as { roles: unknown[] }).roles;
+    roles.push({ role: "vat.output.19", label: "USt 19 %", account: "1776", source: "seed", uncertain: false });
+    renderWithIntl(<ManualEntryEditor />);
+    expect(screen.getByText("Manuelle Buchungen bitte am Desktop erfassen.")).toBeInTheDocument();
+    await userEvent.type(screen.getByLabelText("Buchungstext"), "Bareinnahme");
+    await userEvent.type(screen.getByLabelText("Konto Zeile 1"), "1200");
+    await userEvent.type(screen.getByLabelText("Soll Zeile 1"), "119");
+    await userEvent.type(screen.getByLabelText("Konto Zeile 2"), "8400");
+    await userEvent.type(screen.getByLabelText("Haben Zeile 2"), "100");
+    expect(screen.getByText("Soll 119,00 € · Haben 100,00 € · Differenz 19,00 €")).toBeInTheDocument();
+    await userEvent.clear(screen.getByLabelText("Haben Zeile 2"));
+    await userEvent.type(screen.getByLabelText("Haben Zeile 2"), "119");
+    await userEvent.selectOptions(screen.getByLabelText("Steuerschlüssel Zeile 2"), "USt19");
+    expect(screen.getByText("Soll 119,00 € · Haben 119,00 € · Differenz 0,00 €")).toBeInTheDocument();
+    const preview = screen.getByRole("table", { name: "Vorschau der Journalzeilen" });
+    expect(within(preview).getByText("100,00 €")).toBeInTheDocument();
+    expect(within(preview).getByText("19,00 €")).toBeInTheDocument();
+    const submit = screen.getByRole("button", { name: "Buchen" });
+    expect(submit).toBeDisabled();
+    await userEvent.upload(
+      screen.getByLabelText(/Beleg hierher ziehen/),
+      new File(["%PDF"], "quittung.pdf", { type: "application/pdf" }),
+    );
+    expect(submit).toBeEnabled();
+    await userEvent.click(submit);
+    expect(backend.mutations["manualEntries:create"]).toHaveBeenCalledWith(
+      expect.objectContaining({
+        text: "Bareinnahme",
+        lines: [
+          { account: "1200", debitCents: 11_900, creditCents: 0 },
+          { account: "8400", debitCents: 0, creditCents: 11_900, taxKey: "USt19" },
+        ],
+        attachments: [{ storageId: "storage1", name: "quittung.pdf" }],
+      }),
+    );
   });
 });
 

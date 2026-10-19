@@ -486,6 +486,11 @@
       "title": "Belege nacheinander bearbeiten",
       "description": "Entwürfe prüfen, buchen und weiter",
       "empty": "Keine Belege ausgewählt."
+    },
+    "journalNeu": {
+      "title": "Manuelle Buchung",
+      "description": "Buchung mit Beleg direkt im Journal erfassen",
+      "empty": "Noch keine manuellen Buchungen vorhanden."
     }
   },
   "settings": {
@@ -1432,7 +1437,7 @@
     "amountLabel": "Betrag in Euro",
     "invalidAmount": "Bitte einen gültigen Betrag eingeben, z. B. 1.234,56.",
     "journal": {
-      "readOnly": "Das Journal ist unveränderbar (GoBD). Korrekturen entstehen ausschließlich als Gegenbuchung, z. B. durch eine Stornorechnung.",
+      "readOnly": "Das Journal ist unveränderbar (GoBD). Korrekturen entstehen ausschließlich als Gegenbuchung, z. B. durch eine Stornorechnung oder die Gegenbuchung einer manuellen Buchung.",
       "periodLabel": "Monat",
       "tableLabel": "Buchungsjournal",
       "columns": {
@@ -1463,7 +1468,56 @@
       "recorded": "Erfasst am {at} von {actor}",
       "locked": "festgeschrieben",
       "taxPoint": "Steuerzeitpunkt {date}",
-      "sum": "Summe"
+      "sum": "Summe",
+      "print": "Drucken / PDF",
+      "newManual": "Manuelle Buchung",
+      "exportCsv": "Buchungsjournal (CSV)",
+      "filters": "Journal filtern",
+      "from": "Von",
+      "to": "Bis",
+      "accountFilter": "Konto",
+      "sourceKind": "Herkunft",
+      "all": "Alle",
+      "sourceKinds": {
+        "salesDocument": "Verkaufsbeleg",
+        "voucher": "Beleg",
+        "payment": "Zahlung",
+        "bankTransaction": "Banktransaktion",
+        "cashTransfer": "Barbewegung",
+        "asset_depreciation": "Abschreibung / Anlagenabgang",
+        "manual": "Manuelle Buchung",
+        "opening_balance": "Eröffnungsbilanz"
+      },
+      "textFilter": "Text oder Nr.",
+      "minAmount": "Betrag ab (€)",
+      "maxAmount": "Betrag bis (€)",
+      "reversals": "Stornos",
+      "reversalsOnly": "Nur Stornos und stornierte",
+      "reversalsExclude": "Ohne Stornos",
+      "actor": "Erfasst von",
+      "sort": "Sortierung",
+      "sorts": {
+        "seq_desc": "Nr. absteigend",
+        "seq_asc": "Nr. aufsteigend",
+        "date_desc": "Datum absteigend",
+        "date_asc": "Datum aufsteigend"
+      },
+      "lateOnly": "Nur Nachbuchungen",
+      "invalidAmount": "Bitte gültige Beträge eingeben, z. B. 1.234,56.",
+      "resetFilters": "Filter zurücksetzen",
+      "emptyFiltered": "Keine Buchungen für diese Filter.",
+      "resultCount": "{count, plural, one {# Buchung} other {# Buchungen}} · Summe {sum}",
+      "fx": "{amount} {currency} zum Kurs {rate}",
+      "reverse": "Gegenbuchung",
+      "reverseDialog": {
+        "title": "Gegenbuchung zu Buchung {seq}",
+        "description": "Die Buchung wird mit vertauschten Seiten gegengebucht (Generalumkehr). Das Datum muss in einem offenen Zeitraum liegen.",
+        "date": "Buchungsdatum der Gegenbuchung",
+        "reason": "Grund",
+        "cancel": "Abbrechen",
+        "submit": "Gegenbuchung buchen",
+        "done": "Gegenbuchung Nr. {seq} gebucht."
+      }
     },
     "konten": {
       "tabAccounts": "Konten",
@@ -5190,5 +5244,59 @@
       "done": "erledigt",
       "overdue": "überfällig"
     }
+  },
+  "manualEntry": {
+    "mobileNotice": "Manuelle Buchungen bitte am Desktop erfassen.",
+    "intro": "Jede Buchung braucht einen Beleg (GoBD). Zeilen mit Steuerschlüssel werden brutto erfasst und automatisch in Netto und Steuer aufgeteilt.",
+    "template": "Vorlage",
+    "noTemplate": "Keine Vorlage",
+    "date": "Buchungsdatum",
+    "text": "Buchungstext",
+    "lines": "Buchungszeilen",
+    "contactSearch": "Kontakt suchen",
+    "account": "Konto",
+    "debit": "Soll",
+    "credit": "Haben",
+    "taxKey": "Steuer",
+    "costCenter": "Kostenstelle",
+    "contact": "Kontakt",
+    "removeLine": "Zeile entfernen",
+    "accountOf": "Konto Zeile {n}",
+    "debitOf": "Soll Zeile {n}",
+    "creditOf": "Haben Zeile {n}",
+    "taxKeyOf": "Steuerschlüssel Zeile {n}",
+    "costCenterOf": "Kostenstelle Zeile {n}",
+    "contactOf": "Kontakt Zeile {n}",
+    "removeLineOf": "Zeile {n} entfernen",
+    "types": {
+      "asset": "Aktivkonto",
+      "liability": "Passivkonto",
+      "equity": "Kapitalkonto",
+      "revenue": "Erlöskonto",
+      "expense": "Aufwandskonto",
+      "neutral": "Neutrales Konto",
+      "bank": "Bankkonto"
+    },
+    "unknownAccount": "Konto nicht vorhanden",
+    "taxKeys": {
+      "USt19": "USt 19 %",
+      "USt7": "USt 7 %",
+      "VSt19": "VSt 19 %",
+      "VSt7": "VSt 7 %"
+    },
+    "addLine": "Zeile hinzufügen",
+    "balance": "Soll {debit} · Haben {credit} · Differenz {diff}",
+    "invalidAmount": "Bitte gültige Beträge eingeben, z. B. 1.234,56.",
+    "attachments": "Beleg",
+    "dropZone": "Beleg hierher ziehen oder auswählen (PDF oder Bild, höchstens 10)",
+    "attachmentRequired": "Noch kein Beleg angehängt – ohne Beleg kann nicht gebucht werden.",
+    "removeFile": "{name} entfernen",
+    "longText": "Notiz (optional)",
+    "preview": "Vorschau der Journalzeilen",
+    "vatLine": "Steuer",
+    "vatAck": "Direktbuchung auf ein Umsatzsteuerkonto ohne Bemessungsgrundlage – die UStVA-Kennzahl wird nicht befüllt. Trotzdem buchen.",
+    "cancel": "Abbrechen",
+    "submit": "Buchen",
+    "done": "Buchung Nr. {seq} gebucht."
   }
 }

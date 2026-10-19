@@ -102,6 +102,7 @@ export function buildManualLines(input: ManualEntryInput, ctx: ManualContext): R
     credit += l.creditCents;
     const extra = {
       ...(l.contactId ? { contactId: l.contactId } : {}),
+      ...(l.costCenterId ? { costCenterId: l.costCenterId } : {}),
     };
     if (ctx.vatAccounts.has(l.account) && !(ctx.acknowledged ?? []).includes("E-ACC-10")) {
       if (!warnings.some((w) => w.code === "E-ACC-10")) warnings.push(issue("E-ACC-10", MANUAL_MESSAGES.vatDirect));
@@ -220,7 +221,6 @@ export const MANUAL_TEMPLATES: readonly ManualTemplate[] = [
       { role: "private.withdrawal", side: "debit" },
       { role: "revenue.withdrawal.19", side: "credit", taxKey: "USt19" },
     ],
-    // LEGAL-OPEN: F08-Q1 — the 20 % share without input VAT (Kfz-Privatnutzung ohne USt) is split by the user.
     hint: "1 % des Bruttolistenpreises je Monat; der Anteil ohne Vorsteuerabzug (pauschal 20 %) ist als eigene Zeile ohne Steuerschlüssel zu buchen. Eigenbeleg anhängen.",
   },
 ];

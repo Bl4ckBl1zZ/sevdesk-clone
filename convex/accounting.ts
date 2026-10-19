@@ -7,8 +7,10 @@ import { appError } from "./lib/errors";
 import {
   chartView,
   journalEntryView,
+  journalReport as journalReportRows,
   openingStatus,
   postOpeningBalance,
+  searchJournal as searchJournalEntries,
   setBookkeepingStart,
   setRoleOverride,
 } from "./model/accounting";
@@ -17,9 +19,9 @@ import { createLedgerAccount, removeLedgerAccount } from "./model/ledgerAccounts
 
 /**
  * Bookkeeping (F08 §6/§7, P1): read-only journal viewer, chart of accounts with „Rollen & Standardkonten“, role
- * overrides (owner), Buchungsbeginn and opening balances. There is no public function that posts arbitrary journal
- * entries: business slices call `postJournalEntry` from model/journal.ts inside their own mutations (ACC-002);
- * manual entries follow in P2 (ACC-011).
+ * overrides (owner), Buchungsbeginn and opening balances, journal search and the Buchungsjournal (ACC-025, RPT-008).
+ * There is no public function that posts arbitrary journal entries: business slices call `postJournalEntry` from
+ * model/journal.ts inside their own mutations (ACC-002); manual entries live in convex/manualEntries.ts (ACC-011).
  */
 
 /** Journal by `seq`, newest first, optionally one month (ACC-001, ACC-025 subset). */
@@ -34,6 +36,35 @@ export const listJournal = query({
     const res = await q.order("desc").paginate(paginationOpts);
     return { ...res, page: await Promise.all(res.page.map((e) => journalEntryView(ctx, e))) };
   },
+});
+
+const vJournalFilter = {
+  from: v.optional(v.string()),
+  to: v.optional(v.string()),
+  account: v.optional(v.string()),
+  contactId: v.optional(v.string()),
+  sourceKind: v.optional(v.string()),
+  text: v.optional(v.string()),
+  minCents: v.optional(v.number()),
+  maxCents: v.optional(v.number()),
+  late: v.optional(v.boolean()),
+  reversals: v.optional(v.union(v.literal("only"), v.literal("exclude"))),
+  actor: v.optional(v.string()),
+  sort: v.optional(v.union(v.literal("seq_desc"), v.literal("seq_asc"), v.literal("date_desc"), v.literal("date_asc"))),
+};
+
+/** ACC-025 journal search: filters (period, account, contact, source kind, text, amount, late, reversals, actor). */
+export const searchJournal = query({
+  permission: "accounting.read",
+  args: { ...vJournalFilter, offset: v.optional(v.number()), limit: v.optional(v.number()) },
+  handler: async (ctx, args) => searchJournalEntries(ctx, args),
+});
+
+/** RPT-008 Buchungsjournal rows (by `seq`, with reversals and late postings) for the CSV export. */
+export const journalReport = query({
+  permission: "accounting.read",
+  args: vJournalFilter,
+  handler: async (ctx, args) => journalReportRows(ctx, args),
 });
 
 /** One entry with lines, source, rule versions and the „Warum dieses Konto?“ explanation (ACC-003). */
