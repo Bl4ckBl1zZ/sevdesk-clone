@@ -1,0 +1,287 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE DataSet SYSTEM "gdpdu-01-09-2004.dtd">
+<DataSet>
+  <Version>1.0</Version>
+  <DataSupplier><Name>Muster Handwerk GmbH</Name><Location>Aachen</Location><Comment>Rechnungen 1.0.0, Export-Schema gdpdu-v1, Wirtschaftsjahr 2026</Comment></DataSupplier>
+  <Media>
+    <Name>Datenträger 1</Name>
+    <Table>
+      <URL>firma.csv</URL><Name>Firma</Name><Description>Unternehmensstammdaten je Version (gültig ab/bis)</Description>
+      <UTF8/><DecimalSymbol>,</DecimalSymbol><DigitGroupingSymbol>.</DigitGroupingSymbol>
+      <VariableLength>
+        <ColumnDelimiter>;</ColumnDelimiter><RecordDelimiter>&#13;&#10;</RecordDelimiter><TextEncapsulator>"</TextEncapsulator>
+        <VariablePrimaryKey><Name>version</Name><Description>Version der Unternehmensdaten</Description><Numeric/></VariablePrimaryKey>
+        <VariableColumn><Name>gueltig_ab</Name><Description>Gültig ab</Description><Date><Format>DD.MM.YYYY</Format></Date></VariableColumn>
+        <VariableColumn><Name>gueltig_bis</Name><Description>Abgelöst am (leer = aktuell)</Description><Date><Format>DD.MM.YYYY</Format></Date></VariableColumn>
+        <VariableColumn><Name>name</Name><Description>Firma / Name</Description><AlphaNumeric/></VariableColumn>
+        <VariableColumn><Name>rechtsform</Name><Description>Rechtsform</Description><AlphaNumeric/></VariableColumn>
+        <VariableColumn><Name>anschrift</Name><Description>Anschrift</Description><AlphaNumeric/></VariableColumn>
+        <VariableColumn><Name>steuernummer</Name><Description>Steuernummer</Description><AlphaNumeric/></VariableColumn>
+        <VariableColumn><Name>ust_idnr</Name><Description>Umsatzsteuer-Identifikationsnummer</Description><AlphaNumeric/></VariableColumn>
+        <VariableColumn><Name>kontenrahmen</Name><Description>Kontenrahmen im Exportjahr</Description><AlphaNumeric/></VariableColumn>
+        <VariableColumn><Name>gewinnermittlung</Name><Description>Gewinnermittlungsart im Exportjahr (EÜR/Bilanz)</Description><AlphaNumeric/></VariableColumn>
+        <VariableColumn><Name>versteuerung</Name><Description>Soll- oder Ist-Versteuerung im Exportjahr</Description><AlphaNumeric/></VariableColumn>
+        <VariableColumn><Name>kleinunternehmer</Name><Description>Kleinunternehmerregelung § 19 UStG im Exportjahr (ja/nein)</Description><AlphaNumeric/></VariableColumn>
+        <VariableColumn><Name>wirtschaftsjahr_beginn</Name><Description>Beginn des Wirtschaftsjahres (Monat)</Description><Numeric/></VariableColumn>
+      </VariableLength>
+    </Table>
+    <Table>
+      <URL>konten.csv</URL><Name>Konten</Name><Description>Kontenplan inkl. Personenkonten</Description>
+      <UTF8/><DecimalSymbol>,</DecimalSymbol><DigitGroupingSymbol>.</DigitGroupingSymbol>
+      <VariableLength>
+        <ColumnDelimiter>;</ColumnDelimiter><RecordDelimiter>&#13;&#10;</RecordDelimiter><TextEncapsulator>"</TextEncapsulator>
+        <VariablePrimaryKey><Name>kontonummer</Name><Description>Kontonummer</Description><AlphaNumeric/></VariablePrimaryKey>
+        <VariableColumn><Name>bezeichnung</Name><Description>Kontobezeichnung</Description><AlphaNumeric/></VariableColumn>
+        <VariableColumn><Name>kontoart</Name><Description>Kontoart</Description><AlphaNumeric/></VariableColumn>
+        <VariableColumn><Name>euer_zeile</Name><Description>EÜR-Zuordnung</Description><AlphaNumeric/></VariableColumn>
+        <VariableColumn><Name>automatikkonto</Name><Description>Automatikkonto (Umsatzsteuer wird aus dem Konto abgeleitet, ja/nein)</Description><AlphaNumeric/></VariableColumn>
+      </VariableLength>
+    </Table>
+    <Table>
+      <URL>kontakte.csv</URL><Name>Kontakte</Name><Description>Debitoren und Kreditoren (gesperrte Kontakte eingeschlossen, Art. 17 Abs. 3 lit. b DSGVO)</Description>
+      <UTF8/><DecimalSymbol>,</DecimalSymbol><DigitGroupingSymbol>.</DigitGroupingSymbol>
+      <VariableLength>
+        <ColumnDelimiter>;</ColumnDelimiter><RecordDelimiter>&#13;&#10;</RecordDelimiter><TextEncapsulator>"</TextEncapsulator>
+        <VariablePrimaryKey><Name>kontakt_id</Name><Description>Interne ID</Description><AlphaNumeric/></VariablePrimaryKey>
+        <VariableColumn><Name>kontaktnummer</Name><Description>Kontaktnummer</Description><AlphaNumeric/></VariableColumn>
+        <VariableColumn><Name>art</Name><Description>Organisation oder Person</Description><AlphaNumeric/></VariableColumn>
+        <VariableColumn><Name>name</Name><Description>Name</Description><AlphaNumeric/></VariableColumn>
+        <VariableColumn><Name>anschrift</Name><Description>Rechnungsanschrift</Description><AlphaNumeric/></VariableColumn>
+        <VariableColumn><Name>ust_idnr</Name><Description>USt-IdNr.</Description><AlphaNumeric/></VariableColumn>
+        <VariableColumn><Name>steuernummer</Name><Description>Steuernummer</Description><AlphaNumeric/></VariableColumn>
+        <VariableColumn><Name>debitorenkonto</Name><Description>Debitorenkonto</Description><AlphaNumeric/></VariableColumn>
+        <VariableColumn><Name>kreditorenkonto</Name><Description>Kreditorenkonto</Description><AlphaNumeric/></VariableColumn>
+        <VariableColumn><Name>gesperrt</Name><Description>Gesperrt nach Art. 18 DSGVO (ja/nein)</Description><AlphaNumeric/></VariableColumn>
+      </VariableLength>
+    </Table>
+    <Table>
+      <URL>buchungen.csv</URL><Name>Buchungen</Name><Description>Buchungsjournal</Description>
+      <Validity><Range><From>01.01.2026</From><To>31.12.2026</To></Range><Format>DD.MM.YYYY</Format></Validity>
+      <UTF8/><DecimalSymbol>,</DecimalSymbol><DigitGroupingSymbol>.</DigitGroupingSymbol>
+      <VariableLength>
+        <ColumnDelimiter>;</ColumnDelimiter><RecordDelimiter>&#13;&#10;</RecordDelimiter><TextEncapsulator>"</TextEncapsulator>
+        <VariablePrimaryKey><Name>seq</Name><Description>Laufende Buchungsnummer</Description><Numeric/></VariablePrimaryKey>
+        <VariableColumn><Name>datum</Name><Description>Buchungsdatum</Description><Date><Format>DD.MM.YYYY</Format></Date></VariableColumn>
+        <VariableColumn><Name>belegdatum</Name><Description>Ursprüngliches Datum (Nachbuchung)</Description><Date><Format>DD.MM.YYYY</Format></Date></VariableColumn>
+        <VariableColumn><Name>periode</Name><Description>Buchungsperiode (JJJJ-MM)</Description><AlphaNumeric/></VariableColumn>
+        <VariableColumn><Name>text</Name><Description>Buchungstext</Description><AlphaNumeric/></VariableColumn>
+        <VariableColumn><Name>quelle_art</Name><Description>Art des Ursprungsbelegs</Description><AlphaNumeric/></VariableColumn>
+        <VariableColumn><Name>quelle_id</Name><Description>ID des Ursprungsbelegs</Description><AlphaNumeric/></VariableColumn>
+        <VariableColumn><Name>storno_von</Name><Description>Storniert Buchung (seq)</Description><Numeric/></VariableColumn>
+        <VariableColumn><Name>erfasst_am</Name><Description>Erfassungszeitpunkt (UTC, ISO 8601)</Description><AlphaNumeric/></VariableColumn>
+        <VariableColumn><Name>festgeschrieben_am</Name><Description>Festschreibung (UTC, ISO 8601)</Description><AlphaNumeric/></VariableColumn>
+        <VariableColumn><Name>akteur</Name><Description>Erfasst von</Description><AlphaNumeric/></VariableColumn>
+      </VariableLength>
+    </Table>
+    <Table>
+      <URL>buchungszeilen.csv</URL><Name>Buchungszeilen</Name><Description>Zeilen der Buchungen (Soll/Haben je Konto)</Description>
+      <Validity><Range><From>01.01.2026</From><To>31.12.2026</To></Range><Format>DD.MM.YYYY</Format></Validity>
+      <UTF8/><DecimalSymbol>,</DecimalSymbol><DigitGroupingSymbol>.</DigitGroupingSymbol>
+      <VariableLength>
+        <ColumnDelimiter>;</ColumnDelimiter><RecordDelimiter>&#13;&#10;</RecordDelimiter><TextEncapsulator>"</TextEncapsulator>
+        <VariablePrimaryKey><Name>seq</Name><Description>Buchungsnummer</Description><Numeric/></VariablePrimaryKey>
+        <VariablePrimaryKey><Name>zeile</Name><Description>Zeilennummer</Description><Numeric/></VariablePrimaryKey>
+        <VariableColumn><Name>konto</Name><Description>Konto</Description><AlphaNumeric/></VariableColumn>
+        <VariableColumn><Name>soll</Name><Description>Soll (EUR)</Description><Numeric><Accuracy>2</Accuracy></Numeric></VariableColumn>
+        <VariableColumn><Name>haben</Name><Description>Haben (EUR)</Description><Numeric><Accuracy>2</Accuracy></Numeric></VariableColumn>
+        <VariableColumn><Name>steuerschluessel</Name><Description>Steuerschlüssel</Description><AlphaNumeric/></VariableColumn>
+        <VariableColumn><Name>steuerperiode</Name><Description>Steuerperiode</Description><AlphaNumeric/></VariableColumn>
+        <VariableColumn><Name>kostenstelle</Name><Description>Kostenstelle</Description><AlphaNumeric/></VariableColumn>
+        <VariableColumn><Name>kontakt_id</Name><Description>Kontakt</Description><AlphaNumeric/></VariableColumn>
+        <ForeignKey><Name>seq</Name><References>Buchungen</References></ForeignKey>
+        <ForeignKey><Name>konto</Name><References>Konten</References></ForeignKey>
+      </VariableLength>
+    </Table>
+    <Table>
+      <URL>rechnungen.csv</URL><Name>Ausgangsbelege</Name><Description>Ausgangsrechnungen, Gutschriften, Stornos und Korrekturen</Description>
+      <Validity><Range><From>01.01.2026</From><To>31.12.2026</To></Range><Format>DD.MM.YYYY</Format></Validity>
+      <UTF8/><DecimalSymbol>,</DecimalSymbol><DigitGroupingSymbol>.</DigitGroupingSymbol>
+      <VariableLength>
+        <ColumnDelimiter>;</ColumnDelimiter><RecordDelimiter>&#13;&#10;</RecordDelimiter><TextEncapsulator>"</TextEncapsulator>
+        <VariablePrimaryKey><Name>beleg_id</Name><Description>Interne ID</Description><AlphaNumeric/></VariablePrimaryKey>
+        <VariableColumn><Name>art</Name><Description>Belegart</Description><AlphaNumeric/></VariableColumn>
+        <VariableColumn><Name>nummer</Name><Description>Belegnummer</Description><AlphaNumeric/></VariableColumn>
+        <VariableColumn><Name>belegdatum</Name><Description>Belegdatum</Description><Date><Format>DD.MM.YYYY</Format></Date></VariableColumn>
+        <VariableColumn><Name>leistungsdatum</Name><Description>Leistungsdatum oder -zeitraum</Description><AlphaNumeric/></VariableColumn>
+        <VariableColumn><Name>faellig_am</Name><Description>Fälligkeit</Description><Date><Format>DD.MM.YYYY</Format></Date></VariableColumn>
+        <VariableColumn><Name>kontakt_id</Name><Description>Kontakt</Description><AlphaNumeric/></VariableColumn>
+        <VariableColumn><Name>empfaenger</Name><Description>Empfänger (Name laut Beleg)</Description><AlphaNumeric/></VariableColumn>
+        <VariableColumn><Name>steuerfall</Name><Description>Steuerfall</Description><AlphaNumeric/></VariableColumn>
+        <VariableColumn><Name>waehrung</Name><Description>Währung</Description><AlphaNumeric/></VariableColumn>
+        <VariableColumn><Name>netto</Name><Description>Netto</Description><Numeric><Accuracy>2</Accuracy></Numeric></VariableColumn>
+        <VariableColumn><Name>umsatzsteuer</Name><Description>Umsatzsteuer</Description><Numeric><Accuracy>2</Accuracy></Numeric></VariableColumn>
+        <VariableColumn><Name>brutto</Name><Description>Brutto</Description><Numeric><Accuracy>2</Accuracy></Numeric></VariableColumn>
+        <VariableColumn><Name>status</Name><Description>Status</Description><AlphaNumeric/></VariableColumn>
+        <VariableColumn><Name>storniert_durch</Name><Description>Storniert durch (Beleg)</Description><AlphaNumeric/></VariableColumn>
+        <VariableColumn><Name>korrigiert</Name><Description>Korrigiert (Beleg)</Description><AlphaNumeric/></VariableColumn>
+        <VariableColumn><Name>datei_sha256</Name><Description>SHA-256 der Originaldatei</Description><AlphaNumeric/></VariableColumn>
+        <ForeignKey><Name>kontakt_id</Name><References>Kontakte</References></ForeignKey>
+      </VariableLength>
+    </Table>
+    <Table>
+      <URL>rechnungspositionen.csv</URL><Name>Ausgangsbelegpositionen</Name><Description>Positionen der Ausgangsbelege</Description>
+      <Validity><Range><From>01.01.2026</From><To>31.12.2026</To></Range><Format>DD.MM.YYYY</Format></Validity>
+      <UTF8/><DecimalSymbol>,</DecimalSymbol><DigitGroupingSymbol>.</DigitGroupingSymbol>
+      <VariableLength>
+        <ColumnDelimiter>;</ColumnDelimiter><RecordDelimiter>&#13;&#10;</RecordDelimiter><TextEncapsulator>"</TextEncapsulator>
+        <VariablePrimaryKey><Name>beleg_id</Name><Description>Beleg</Description><AlphaNumeric/></VariablePrimaryKey>
+        <VariablePrimaryKey><Name>pos</Name><Description>Position</Description><Numeric/></VariablePrimaryKey>
+        <VariableColumn><Name>bezeichnung</Name><Description>Bezeichnung</Description><AlphaNumeric/></VariableColumn>
+        <VariableColumn><Name>menge</Name><Description>Menge</Description><AlphaNumeric/></VariableColumn>
+        <VariableColumn><Name>einheit</Name><Description>Einheit (UN/ECE Rec. 20)</Description><AlphaNumeric/></VariableColumn>
+        <VariableColumn><Name>einzelpreis</Name><Description>Einzelpreis (bis zu 4 Nachkommastellen)</Description><AlphaNumeric/></VariableColumn>
+        <VariableColumn><Name>netto</Name><Description>Nettobetrag der Position</Description><Numeric><Accuracy>2</Accuracy></Numeric></VariableColumn>
+        <VariableColumn><Name>ust_kategorie</Name><Description>USt-Kategorie (EN 16931)</Description><AlphaNumeric/></VariableColumn>
+        <VariableColumn><Name>ust_satz</Name><Description>USt-Satz in Prozent</Description><AlphaNumeric/></VariableColumn>
+        <ForeignKey><Name>beleg_id</Name><References>Ausgangsbelege</References></ForeignKey>
+      </VariableLength>
+    </Table>
+    <Table>
+      <URL>eingangsbelege.csv</URL><Name>Eingangsbelege</Name><Description>Eingangsrechnungen und sonstige Ausgabenbelege</Description>
+      <Validity><Range><From>01.01.2026</From><To>31.12.2026</To></Range><Format>DD.MM.YYYY</Format></Validity>
+      <UTF8/><DecimalSymbol>,</DecimalSymbol><DigitGroupingSymbol>.</DigitGroupingSymbol>
+      <VariableLength>
+        <ColumnDelimiter>;</ColumnDelimiter><RecordDelimiter>&#13;&#10;</RecordDelimiter><TextEncapsulator>"</TextEncapsulator>
+        <VariablePrimaryKey><Name>voucher_id</Name><Description>Interne ID</Description><AlphaNumeric/></VariablePrimaryKey>
+        <VariableColumn><Name>interne_nummer</Name><Description>Interne Belegnummer</Description><AlphaNumeric/></VariableColumn>
+        <VariableColumn><Name>lieferanten_nummer</Name><Description>Rechnungsnummer des Lieferanten</Description><AlphaNumeric/></VariableColumn>
+        <VariableColumn><Name>lieferant</Name><Description>Lieferant</Description><AlphaNumeric/></VariableColumn>
+        <VariableColumn><Name>kontakt_id</Name><Description>Kontakt</Description><AlphaNumeric/></VariableColumn>
+        <VariableColumn><Name>belegdatum</Name><Description>Belegdatum</Description><Date><Format>DD.MM.YYYY</Format></Date></VariableColumn>
+        <VariableColumn><Name>eingang</Name><Description>Eingang (UTC, ISO 8601)</Description><AlphaNumeric/></VariableColumn>
+        <VariableColumn><Name>steuerregel</Name><Description>Steuerregel</Description><AlphaNumeric/></VariableColumn>
+        <VariableColumn><Name>waehrung</Name><Description>Währung</Description><AlphaNumeric/></VariableColumn>
+        <VariableColumn><Name>netto</Name><Description>Netto</Description><Numeric><Accuracy>2</Accuracy></Numeric></VariableColumn>
+        <VariableColumn><Name>vorsteuer</Name><Description>Umsatzsteuer/Vorsteuer</Description><Numeric><Accuracy>2</Accuracy></Numeric></VariableColumn>
+        <VariableColumn><Name>brutto</Name><Description>Brutto</Description><Numeric><Accuracy>2</Accuracy></Numeric></VariableColumn>
+        <VariableColumn><Name>status</Name><Description>Status</Description><AlphaNumeric/></VariableColumn>
+        <VariableColumn><Name>datei_sha256</Name><Description>SHA-256 der Originaldatei</Description><AlphaNumeric/></VariableColumn>
+      </VariableLength>
+    </Table>
+    <Table>
+      <URL>eingangsbelegpositionen.csv</URL><Name>Eingangsbelegpositionen</Name><Description>Positionen der Eingangsbelege</Description>
+      <Validity><Range><From>01.01.2026</From><To>31.12.2026</To></Range><Format>DD.MM.YYYY</Format></Validity>
+      <UTF8/><DecimalSymbol>,</DecimalSymbol><DigitGroupingSymbol>.</DigitGroupingSymbol>
+      <VariableLength>
+        <ColumnDelimiter>;</ColumnDelimiter><RecordDelimiter>&#13;&#10;</RecordDelimiter><TextEncapsulator>"</TextEncapsulator>
+        <VariablePrimaryKey><Name>voucher_id</Name><Description>Beleg</Description><AlphaNumeric/></VariablePrimaryKey>
+        <VariablePrimaryKey><Name>pos</Name><Description>Position</Description><Numeric/></VariablePrimaryKey>
+        <VariableColumn><Name>konto</Name><Description>Konto</Description><AlphaNumeric/></VariableColumn>
+        <VariableColumn><Name>netto</Name><Description>Netto</Description><Numeric><Accuracy>2</Accuracy></Numeric></VariableColumn>
+        <VariableColumn><Name>ust_satz</Name><Description>USt-Satz in Prozent</Description><AlphaNumeric/></VariableColumn>
+        <VariableColumn><Name>umsatzsteuer</Name><Description>Umsatzsteuer</Description><Numeric><Accuracy>2</Accuracy></Numeric></VariableColumn>
+        <VariableColumn><Name>nicht_abziehbar</Name><Description>Nicht abziehbarer Anteil in Prozent</Description><AlphaNumeric/></VariableColumn>
+        <ForeignKey><Name>voucher_id</Name><References>Eingangsbelege</References></ForeignKey>
+      </VariableLength>
+    </Table>
+    <Table>
+      <URL>zahlungen.csv</URL><Name>Zahlungen</Name><Description>Zahlungen auf Belege</Description>
+      <Validity><Range><From>01.01.2026</From><To>31.12.2026</To></Range><Format>DD.MM.YYYY</Format></Validity>
+      <UTF8/><DecimalSymbol>,</DecimalSymbol><DigitGroupingSymbol>.</DigitGroupingSymbol>
+      <VariableLength>
+        <ColumnDelimiter>;</ColumnDelimiter><RecordDelimiter>&#13;&#10;</RecordDelimiter><TextEncapsulator>"</TextEncapsulator>
+        <VariablePrimaryKey><Name>zahlung_id</Name><Description>Interne ID</Description><AlphaNumeric/></VariablePrimaryKey>
+        <VariableColumn><Name>ziel_art</Name><Description>Art des Zahlungsziels</Description><AlphaNumeric/></VariableColumn>
+        <VariableColumn><Name>ziel_id</Name><Description>Zahlungsziel</Description><AlphaNumeric/></VariableColumn>
+        <VariableColumn><Name>belegnummer</Name><Description>Belegnummer des Ziels</Description><AlphaNumeric/></VariableColumn>
+        <VariableColumn><Name>datum</Name><Description>Zahlungsdatum</Description><Date><Format>DD.MM.YYYY</Format></Date></VariableColumn>
+        <VariableColumn><Name>betrag</Name><Description>Betrag</Description><Numeric><Accuracy>2</Accuracy></Numeric></VariableColumn>
+        <VariableColumn><Name>waehrung</Name><Description>Währung</Description><AlphaNumeric/></VariableColumn>
+        <VariableColumn><Name>quelle</Name><Description>Quelle (Bank, Kasse, manuell)</Description><AlphaNumeric/></VariableColumn>
+        <VariableColumn><Name>differenzen</Name><Description>Differenzen (Skonto, Gebühren, …)</Description><AlphaNumeric/></VariableColumn>
+        <VariableColumn><Name>storniert_durch</Name><Description>Storniert durch (Zahlung)</Description><AlphaNumeric/></VariableColumn>
+        <VariableColumn><Name>storno_von</Name><Description>Storniert Zahlung</Description><AlphaNumeric/></VariableColumn>
+      </VariableLength>
+    </Table>
+    <Table>
+      <URL>bankumsaetze.csv</URL><Name>Bankumsaetze</Name><Description>Gebuchte Bankumsätze</Description>
+      <Validity><Range><From>01.01.2026</From><To>31.12.2026</To></Range><Format>DD.MM.YYYY</Format></Validity>
+      <UTF8/><DecimalSymbol>,</DecimalSymbol><DigitGroupingSymbol>.</DigitGroupingSymbol>
+      <VariableLength>
+        <ColumnDelimiter>;</ColumnDelimiter><RecordDelimiter>&#13;&#10;</RecordDelimiter><TextEncapsulator>"</TextEncapsulator>
+        <VariablePrimaryKey><Name>umsatz_id</Name><Description>Interne ID</Description><AlphaNumeric/></VariablePrimaryKey>
+        <VariableColumn><Name>konto</Name><Description>Bankkonto (IBAN oder Name)</Description><AlphaNumeric/></VariableColumn>
+        <VariableColumn><Name>buchungsdatum</Name><Description>Buchungsdatum</Description><Date><Format>DD.MM.YYYY</Format></Date></VariableColumn>
+        <VariableColumn><Name>wertstellung</Name><Description>Wertstellung</Description><Date><Format>DD.MM.YYYY</Format></Date></VariableColumn>
+        <VariableColumn><Name>betrag</Name><Description>Betrag</Description><Numeric><Accuracy>2</Accuracy></Numeric></VariableColumn>
+        <VariableColumn><Name>waehrung</Name><Description>Währung</Description><AlphaNumeric/></VariableColumn>
+        <VariableColumn><Name>gegenseite</Name><Description>Gegenseite</Description><AlphaNumeric/></VariableColumn>
+        <VariableColumn><Name>gegenseite_iban</Name><Description>IBAN der Gegenseite</Description><AlphaNumeric/></VariableColumn>
+        <VariableColumn><Name>verwendungszweck</Name><Description>Verwendungszweck</Description><AlphaNumeric/></VariableColumn>
+        <VariableColumn><Name>status</Name><Description>Status</Description><AlphaNumeric/></VariableColumn>
+        <VariableColumn><Name>quelle</Name><Description>Quelle (Kontoauszug-Import oder Bankanbindung)</Description><AlphaNumeric/></VariableColumn>
+      </VariableLength>
+    </Table>
+    <Table>
+      <URL>kassenbewegungen.csv</URL><Name>Kassenbewegungen</Name><Description>Bewegungen auf dem Kassenkonto aus dem Journal (kein Kassenbuch)</Description>
+      <Validity><Range><From>01.01.2026</From><To>31.12.2026</To></Range><Format>DD.MM.YYYY</Format></Validity>
+      <UTF8/><DecimalSymbol>,</DecimalSymbol><DigitGroupingSymbol>.</DigitGroupingSymbol>
+      <VariableLength>
+        <ColumnDelimiter>;</ColumnDelimiter><RecordDelimiter>&#13;&#10;</RecordDelimiter><TextEncapsulator>"</TextEncapsulator>
+        <VariablePrimaryKey><Name>seq</Name><Description>Buchungsnummer</Description><Numeric/></VariablePrimaryKey>
+        <VariablePrimaryKey><Name>zeile</Name><Description>Zeilennummer</Description><Numeric/></VariablePrimaryKey>
+        <VariableColumn><Name>datum</Name><Description>Datum</Description><Date><Format>DD.MM.YYYY</Format></Date></VariableColumn>
+        <VariableColumn><Name>text</Name><Description>Buchungstext</Description><AlphaNumeric/></VariableColumn>
+        <VariableColumn><Name>quelle_art</Name><Description>Art des Ursprungs (Zahlung, Bargeldtransfer)</Description><AlphaNumeric/></VariableColumn>
+        <VariableColumn><Name>quelle_id</Name><Description>Ursprung</Description><AlphaNumeric/></VariableColumn>
+        <VariableColumn><Name>betrag</Name><Description>Betrag (Einnahme positiv, Ausgabe negativ)</Description><Numeric><Accuracy>2</Accuracy></Numeric></VariableColumn>
+        <VariableColumn><Name>saldo</Name><Description>Laufender Saldo</Description><Numeric><Accuracy>2</Accuracy></Numeric></VariableColumn>
+        <ForeignKey><Name>seq</Name><References>Buchungen</References></ForeignKey>
+      </VariableLength>
+    </Table>
+    <Table>
+      <URL>nummernregister.csv</URL><Name>Nummernregister</Name><Description>Alle vergebenen Belegnummern mit Status</Description>
+      <Validity><Range><From>01.01.2026</From><To>31.12.2026</To></Range><Format>DD.MM.YYYY</Format></Validity>
+      <UTF8/><DecimalSymbol>,</DecimalSymbol><DigitGroupingSymbol>.</DigitGroupingSymbol>
+      <VariableLength>
+        <ColumnDelimiter>;</ColumnDelimiter><RecordDelimiter>&#13;&#10;</RecordDelimiter><TextEncapsulator>"</TextEncapsulator>
+        <VariablePrimaryKey><Name>nummer</Name><Description>Nummer</Description><AlphaNumeric/></VariablePrimaryKey>
+        <VariableColumn><Name>belegart</Name><Description>Belegart</Description><AlphaNumeric/></VariableColumn>
+        <VariableColumn><Name>beleg_id</Name><Description>Beleg</Description><AlphaNumeric/></VariableColumn>
+        <VariableColumn><Name>periode</Name><Description>Nummernkreis-Periode</Description><AlphaNumeric/></VariableColumn>
+        <VariableColumn><Name>zaehler</Name><Description>Zähler</Description><Numeric/></VariableColumn>
+        <VariableColumn><Name>vergeben_am</Name><Description>Vergeben am (UTC, ISO 8601)</Description><AlphaNumeric/></VariableColumn>
+        <VariableColumn><Name>status</Name><Description>Status</Description><AlphaNumeric/></VariableColumn>
+      </VariableLength>
+    </Table>
+    <Table>
+      <URL>dokumente.csv</URL><Name>Dokumentenindex</Name><Description>Archivierte Dateien (Originale) mit Prüfsumme</Description>
+      <Validity><Range><From>01.01.2026</From><To>31.12.2026</To></Range><Format>DD.MM.YYYY</Format></Validity>
+      <UTF8/><DecimalSymbol>,</DecimalSymbol><DigitGroupingSymbol>.</DigitGroupingSymbol>
+      <VariableLength>
+        <ColumnDelimiter>;</ColumnDelimiter><RecordDelimiter>&#13;&#10;</RecordDelimiter><TextEncapsulator>"</TextEncapsulator>
+        <VariablePrimaryKey><Name>datei_id</Name><Description>Interne ID</Description><AlphaNumeric/></VariablePrimaryKey>
+        <VariableColumn><Name>entitaet</Name><Description>Zugehöriger Datensatz (Tabelle)</Description><AlphaNumeric/></VariableColumn>
+        <VariableColumn><Name>entitaet_id</Name><Description>Zugehöriger Datensatz (ID)</Description><AlphaNumeric/></VariableColumn>
+        <VariableColumn><Name>art</Name><Description>Dateiart</Description><AlphaNumeric/></VariableColumn>
+        <VariableColumn><Name>dateiname</Name><Description>Dateiname im Ordner belege/ (leer = nicht enthalten)</Description><AlphaNumeric/></VariableColumn>
+        <VariableColumn><Name>sha256</Name><Description>SHA-256</Description><AlphaNumeric/></VariableColumn>
+        <VariableColumn><Name>bytes</Name><Description>Größe in Bytes</Description><Numeric/></VariableColumn>
+        <VariableColumn><Name>mime</Name><Description>MIME-Typ</Description><AlphaNumeric/></VariableColumn>
+        <VariableColumn><Name>erstellt_am</Name><Description>Erstellt (UTC, ISO 8601)</Description><AlphaNumeric/></VariableColumn>
+      </VariableLength>
+    </Table>
+    <Table>
+      <URL>protokoll.csv</URL><Name>Protokoll</Name><Description>Änderungsprotokoll (Hash-Kette) einschließlich Löschnachweisen</Description>
+      <Validity><Range><From>01.01.2026</From><To>31.12.2026</To></Range><Format>DD.MM.YYYY</Format></Validity>
+      <UTF8/><DecimalSymbol>,</DecimalSymbol><DigitGroupingSymbol>.</DigitGroupingSymbol>
+      <VariableLength>
+        <ColumnDelimiter>;</ColumnDelimiter><RecordDelimiter>&#13;&#10;</RecordDelimiter><TextEncapsulator>"</TextEncapsulator>
+        <VariablePrimaryKey><Name>seq</Name><Description>Laufende Nummer</Description><Numeric/></VariablePrimaryKey>
+        <VariableColumn><Name>zeit_utc</Name><Description>Zeitpunkt (UTC, ISO 8601)</Description><AlphaNumeric/></VariableColumn>
+        <VariableColumn><Name>zeit_berlin</Name><Description>Zeitpunkt (Europe/Berlin)</Description><AlphaNumeric/></VariableColumn>
+        <VariableColumn><Name>akteur</Name><Description>Akteur</Description><AlphaNumeric/></VariableColumn>
+        <VariableColumn><Name>rolle</Name><Description>Rolle</Description><AlphaNumeric/></VariableColumn>
+        <VariableColumn><Name>kanal</Name><Description>Kanal</Description><AlphaNumeric/></VariableColumn>
+        <VariableColumn><Name>aktion</Name><Description>Aktion</Description><AlphaNumeric/></VariableColumn>
+        <VariableColumn><Name>tabelle</Name><Description>Entität (Tabelle)</Description><AlphaNumeric/></VariableColumn>
+        <VariableColumn><Name>entitaet_id</Name><Description>Entität (ID)</Description><AlphaNumeric/></VariableColumn>
+        <VariableColumn><Name>bezeichnung</Name><Description>Entität (Bezeichnung)</Description><AlphaNumeric/></VariableColumn>
+        <VariableColumn><Name>grund</Name><Description>Begründung</Description><AlphaNumeric/></VariableColumn>
+        <VariableColumn><Name>aenderung</Name><Description>Änderung (JSON)</Description><AlphaNumeric/></VariableColumn>
+        <VariableColumn><Name>hash</Name><Description>Hash</Description><AlphaNumeric/></VariableColumn>
+        <VariableColumn><Name>vorheriger_hash</Name><Description>Vorheriger Hash</Description><AlphaNumeric/></VariableColumn>
+      </VariableLength>
+    </Table>
+  </Media>
+</DataSet>

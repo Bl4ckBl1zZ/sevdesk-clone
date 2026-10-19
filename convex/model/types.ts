@@ -18,6 +18,8 @@ export interface ActorContext {
   scopes?: string[];
   userAgent?: string;
   requestId?: string;
+  /** F12 AUD-023: role `auditor` — the granted fiscal years (year-scoped data outside them is invisible). */
+  auditorYears?: number[];
 }
 
 /** What the wrappers add to every ctx. */

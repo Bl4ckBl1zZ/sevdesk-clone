@@ -1,0 +1,5 @@
+"1200";"Bank";"asset";"NONE";"nein"
+"1400";"Forderungen aus Lieferungen und Leistungen";"asset";"NONE";"nein"
+"1776";"Umsatzsteuer 19 %";"liability";"UST";"nein"
+"8400";"Erlöse 19 % USt";"revenue";"BE";"ja"
+"8736";"Gewährte Skonti 19 % USt";"revenue";"BE";"ja"

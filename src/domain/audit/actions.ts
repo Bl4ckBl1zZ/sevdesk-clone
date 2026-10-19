@@ -131,7 +131,18 @@ const GROUPS: Record<string, readonly string[] | "*"> = {
   member: ["create", "role_change", "extend", "expire", "expired", "disable", "revoke_sessions"],
   invite: ["create", "resend", "revoke", "accept"],
   // F09 EXP-016: `datev_acceptance` (advisor test import recorded), `datev_test_download` („Testexport“ confirmation)
-  export: ["datev", "gdpdu", "full", "csv", "audit", "bulk", "datev_acceptance", "datev_test_download", "dsgvo"],
+  export: [
+    "datev",
+    "gdpdu",
+    "full",
+    "csv",
+    "audit",
+    "bulk",
+    "datev_acceptance",
+    "datev_test_download",
+    "dsgvo",
+    "gdpdu_download",
+  ],
   // F09 EXP-026 background jobs (jobs table): lifecycle and the 30-day result expiry.
   job: ["create", "start", "progress", "done", "fail", "cancel", "expire"],
   // F09 sevdesk export import: project lifecycle, files, mapping, resolutions, preview, commit batches, presets.

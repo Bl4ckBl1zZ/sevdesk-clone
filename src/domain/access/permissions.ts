@@ -138,6 +138,12 @@ export const PERMISSIONS = {
    * audit entry and the derived `firstExportedAt` cache are recorded.
    */
   "documents.export": { roles: ALL, scope: "documents:read", write: false },
+  /** F09 EXP-017 GDPdU (Z3) export per fiscal year: owner in the UI, API with `exports:run` (F09 §7). */
+  "exports.gdpdu": { roles: ["owner"], scope: "exports:run", write: false },
+  /**
+   * F12 AUD-023: the generated Z3 packages — the auditor downloads those of the granted fiscal years (UI only).
+   */
+  "exports.gdpdu.read": { roles: ["owner", "bookkeeper", "auditor"], scope: null, write: false },
   /** F12 PRV-003 retention worklist and Löschläufe history (owner, bookkeeper; UI only). */
   "retention.read": { roles: ["owner", "bookkeeper"], scope: null, write: false },
   /** F12 PRV-005 purge wizard: owner only, fresh session, never via REST/MCP (E-PRV-05, 05 §2.2). */

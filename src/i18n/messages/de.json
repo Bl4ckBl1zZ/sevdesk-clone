@@ -4162,6 +4162,21 @@
       "snapshotNote": "Die wiederherstellbare Sicherung ist die tägliche Datensicherung (convex-export). Der Vollexport ist die lesbare Kopie für die Aufbewahrung; bewahren Sie ihn in der EU auf (§ 146 Abs. 2 AO).",
       "start": "Vollexport erstellen",
       "started": "Der Vollexport läuft im Hintergrund. Sie werden benachrichtigt."
+    },
+    "gdpdu": {
+      "title": "GDPdU / Z3 (Datenträgerüberlassung)",
+      "description": "Daten eines Wirtschaftsjahres für die Betriebsprüfung: CSV-Tabellen mit index.xml nach dem Beschreibungsstandard (DTD geprüft), auf Wunsch mit den Originalbelegen.",
+      "year": "Wirtschaftsjahr",
+      "encoding": "Zeichensatz",
+      "utf8": "UTF-8 (empfohlen)",
+      "ansi": "ANSI (Windows-1252)",
+      "includeFiles": "Originalbelege beifügen",
+      "start": "GDPdU-Export erstellen",
+      "started": "Der GDPdU-Export läuft im Hintergrund. Sie werden benachrichtigt.",
+      "empty": "Noch kein GDPdU-Export erstellt.",
+      "listLabel": "GDPdU-Exporte",
+      "packageLine": "Wirtschaftsjahr {year}",
+      "download": "{name} herunterladen"
     }
   },
   "privacy": {

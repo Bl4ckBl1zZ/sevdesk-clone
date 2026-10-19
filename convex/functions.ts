@@ -14,6 +14,7 @@ import {
   query as rawQuery,
 } from "./_generated/server";
 import { resolveActor } from "./lib/actor";
+import { auditorScopedDb } from "./lib/auditorScope";
 import { appError } from "./lib/errors";
 import { consumeConfirmToken } from "./model/confirmTokens";
 import { guardedDb, newWriteStats, type WriteStats } from "./model/db";
@@ -183,7 +184,10 @@ export const query = tagged(
     args: {},
     input: async (ctx, _args, extra: { permission: Permission }) => {
       const a = await resolveActor(ctx, extra.permission, { checkSession: false, now: Date.now() });
-      return { ctx: fields(a), args: {} };
+      if (a.role !== "auditor") return { ctx: fields(a), args: {} };
+      // F12 AUD-023: year-scoped tables only show the granted fiscal years to an auditor.
+      const startMonth = (await ctx.db.query("companyProfile").first())?.fiscalYearStartMonth ?? 1;
+      return { ctx: { ...fields(a), db: auditorScopedDb(ctx.db, a.auditorYears ?? [], startMonth) }, args: {} };
     },
   }),
 );

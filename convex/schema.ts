@@ -982,6 +982,21 @@ export default defineSchema({
     purgeBatchId: v.id("purgeBatches"),
     exportedTo: v.optional(v.string()),
   }).index("by_seq", ["seq"]),
+  // gdpduExports 🔒 (F09 EXP-017, F12 AUD-023): append-only list of generated Z3 packages per fiscal year; the file is
+  // kept (not a 30-day job result) so the auditor of the granted years can download it from the UI.
+  gdpduExports: defineTable({
+    year: v.number(),
+    encoding: v.union(v.literal("utf8"), v.literal("ansi")),
+    includeFiles: v.boolean(),
+    jobId: v.id("jobs"),
+    storageId: v.id("_storage"),
+    name: v.string(),
+    sha256: v.string(),
+    bytes: v.number(),
+    counts: v.record(v.string(), v.number()),
+    createdAt: v.number(),
+    actor: vActor,
+  }).index("by_year", ["year", "createdAt"]),
   // dsgvoRequests (PRV-010): the request register (not GoBD-protected; every change audited).
   dsgvoRequests: defineTable({
     contactId: v.optional(v.id("contacts")),

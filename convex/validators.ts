@@ -105,6 +105,7 @@ export const vActorContext = v.object({
   scopes: v.optional(v.array(v.string())),
   userAgent: v.optional(v.string()),
   requestId: v.optional(v.string()),
+  auditorYears: v.optional(v.array(v.number())),
 });
 
 // ── F08 journal (03 §8) ───────────────────────────────────────────────────────────────────────────────

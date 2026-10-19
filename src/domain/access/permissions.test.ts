@@ -79,6 +79,8 @@ const EXPECTED: Record<Permission, readonly MemberRole[]> = {
   "vouchers.approve": ["owner", "bookkeeper"],
   "vouchers.pay": ["owner", "bookkeeper"],
   "exports.full": ["owner"],
+  "exports.gdpdu": ["owner"],
+  "exports.gdpdu.read": ["owner", "bookkeeper", "auditor"],
   "retention.read": ["owner", "bookkeeper"],
   "retention.purge": ["owner"],
   "retention.hold": ["owner"],
