@@ -3,6 +3,7 @@
  * Importing this module validates every table (defineRuleTable throws on inconsistent data).
  */
 import { ACCOUNTING_RULE_TABLES } from "./accounting";
+import { AFA_RULES } from "./afa";
 import { BASISZINSSATZ } from "./basiszinssatz";
 import { EINVOICE_OBLIGATION } from "./einvoice-obligation";
 import { EU_VAT_TERRITORY } from "./eu-vat-countries";
@@ -42,6 +43,7 @@ export const ALL_RULE_TABLES: readonly RuleTable<unknown>[] = [
   TIMELY_RECORDING,
   RETENTION_YEARS,
   ASSET_THRESHOLDS,
+  AFA_RULES,
   INVOICING_DEADLINE,
   EINVOICE_OBLIGATION,
   ...Object.values(NOTE_TEXTS),

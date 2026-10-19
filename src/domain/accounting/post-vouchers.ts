@@ -77,6 +77,24 @@ function share(amount: number, bp: number): [number, number] {
   return [amount - part, part];
 }
 
+/**
+ * F08 AST-002: what an expense line debits to its base account (net if input VAT is deducted or self-assessed,
+ * else gross; minus a private share) — the acquisition cost of the asset created from the line (E-AST-12).
+ */
+export function voucherLineBaseCents(
+  l: Pick<VoucherPostingLine, "netCents" | "vatCents" | "nonDeductibleShareBp">,
+  taxRule: string,
+  companyIsKu: boolean,
+): number {
+  const deductible = !companyIsKu && taxRule === "input_vat_deductible";
+  const base = deductible || SELF_ASSESSMENT[taxRule] ? l.netCents : l.netCents + l.vatCents;
+  return share(base, l.nonDeductibleShareBp ?? 0)[0];
+}
+
+/** Input VAT on the line was deducted (§ 3 Abs. 1b S. 2 UStG: a later withdrawal is taxable). */
+export const voucherInputVatDeducted = (taxRule: string, companyIsKu: boolean): boolean =>
+  !companyIsKu && (taxRule === "input_vat_deductible" || SELF_ASSESSMENT[taxRule] !== undefined);
+
 export interface VoucherPostingResult {
   lines: RoleLine[];
   explanation: string;

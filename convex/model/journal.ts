@@ -32,6 +32,7 @@ import type { Doc, Id } from "../_generated/dataModel";
 import { appError, type ErrorCode } from "../lib/errors";
 import { auditedInsert } from "./audit";
 import { getCompanyProfile } from "./companyProfile";
+import { ledgerAccountsOf } from "./ledgerAccounts";
 import type { ModelCtx, ReadCtx } from "./types";
 
 /**
@@ -139,9 +140,12 @@ export async function resolveContextAt(ctx: ReadCtx, date: CalendarDate): Promis
   const profile = await getCompanyProfile(ctx);
   const chart = chartAt(profile?.chartOfAccounts ?? [], profile?.fiscalYearStartMonth ?? 1, date);
   const banks = await ctx.db.query("bankAccounts").collect();
+  const ledger = await ledgerAccountsOf(ctx, chart);
   return {
     chart,
     date,
+    customAccounts: ledger.custom.filter((a) => !a.archived),
+    archivedAccounts: ledger.archived,
     overrides: await roleOverrides(ctx, chart),
     bankAccounts: banks.map((b) => ({
       id: b._id,

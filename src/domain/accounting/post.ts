@@ -19,6 +19,8 @@ import type { CalendarDate } from "../time/calendar-date";
 import { calendarDate } from "../time/calendar-date";
 import type {
   AdvancePaymentReceivedEvent,
+  AssetDepreciationEvent,
+  AssetDisposalEvent,
   BankTransactionMarkedEvent,
   BusinessEvent,
   CashTransferEvent,
@@ -187,6 +189,14 @@ export const EXPLANATIONS: Readonly<Record<string, string>> = {
   "V-storno": "Storno eines Belegs: Generalumkehr der Buchung im offenen Zeitraum (§ 17 UStG).",
   "V-correction":
     "Belegkorrektur: Generalumkehr der bisherigen Buchung, danach Neubuchung mit den korrigierten Werten.",
+  // ── assets (F08 §4.2.5) ──
+  D1: "Planmäßige Abschreibung (AfA) des Monats: Abschreibungen an Anlagenkonto (§ 7 EStG).",
+  D2: "Geringwertiges Wirtschaftsgut: Sofortabschreibung im Monat der Anschaffung (§ 6 Abs. 2 EStG).",
+  D3: "Sammelposten: jährliche Auflösung um ein Fünftel (§ 6 Abs. 2a EStG).",
+  D4: "Anlagenverkauf mit Buchgewinn: der Restbuchwert wird ausgebucht; der Erlös steht auf der Verkaufsrechnung.",
+  D5: "Anlagenverkauf mit Buchverlust (oder zum Buchwert): der Restbuchwert wird ausgebucht; der Erlös steht auf der Verkaufsrechnung.",
+  D6: "Verschrottung: der Restbuchwert wird als Aufwand ausgebucht.",
+  D7: "Entnahme eines Anlageguts: unentgeltliche Wertabgabe zum Teilwert (mit Umsatzsteuer, wenn Vorsteuer abgezogen wurde) und Ausbuchung des Restbuchwerts.",
 };
 
 export const explanationText = (key: string): string => EXPLANATIONS[key] ?? key;
@@ -934,7 +944,67 @@ export function postEvent(
       return postBankMark(e, ctx);
     case "opening_balance":
       return postOpening(e, ctx);
+    case "asset_depreciation":
+      return postAssetDepreciation(e, ctx);
+    case "asset_disposal":
+      return postAssetDisposal(e, ctx);
   }
+}
+
+// ── assets (D1–D7) ──────────────────────────────────────────────────────────────────────────────────────
+
+function postAssetDepreciation(e: AssetDepreciationEvent, ctx: PostingContext): Result<PostingOutcome, PostingIssue> {
+  if (!isInt(e.amountCents) || e.amountCents < 0) return err(invalid("Der AfA-Betrag ist ungültig."));
+  if (e.amountCents === 0) return ok({ kind: "none", reason: "zero_amount" });
+  const explanation = e.afaRole === "afa.gwg" ? "D2" : e.afaRole === "afa.pool" ? "D3" : "D1";
+  return entry(e, ctx, {
+    date: e.date,
+    text: textWith(`AfA ${e.period.slice(5, 7)}/${e.period.slice(0, 4)} ${e.inventoryNumber}`, e.name),
+    explanation,
+    lines: [...debit(R(e.afaRole), e.amountCents), ...credit({ account: e.assetAccount }, e.amountCents)],
+    dating: "external",
+  });
+}
+
+function postAssetDisposal(e: AssetDisposalEvent, ctx: PostingContext): Result<PostingOutcome, PostingIssue> {
+  if (!isInt(e.rbwCents) || e.rbwCents < 0) return err(invalid("Der Restbuchwert ist ungültig."));
+  const lines: RoleLine[] = [];
+  let explanation = "D6";
+  if (e.disposalKind === "sale") {
+    explanation = e.gain ? "D4" : "D5";
+    lines.push(...debit(R(e.gain ? "disposal.rbw.gain" : "disposal.rbw.loss"), e.rbwCents));
+  } else if (e.disposalKind === "scrap") {
+    lines.push(...debit(R("disposal.rbw.loss"), e.rbwCents));
+  } else {
+    if (isCorporation(ctx.legalForm)) {
+      return err(
+        issue(
+          "private_withdrawal_corporation",
+          `Bei einer ${LEGAL_FORM_DE[ctx.legalForm] ?? "Kapitalgesellschaft"} gibt es keine Privatentnahmen. Bitte die Überlassung an den Gesellschafter als Verkauf erfassen.`,
+        ),
+      );
+    }
+    explanation = "D7";
+    const w = e.withdrawal ?? { teilwertCents: 0, vatCents: 0 };
+    if (!isInt(w.teilwertCents) || w.teilwertCents < 0 || !isInt(w.vatCents) || w.vatCents < 0) {
+      return err(invalid("Teilwert oder Umsatzsteuer der Entnahme sind ungültig."));
+    }
+    lines.push(...debit(R("private.withdrawal"), w.teilwertCents + w.vatCents));
+    lines.push(
+      ...credit(R("revenue.withdrawal.19"), w.teilwertCents, w.vatCents > 0 ? { taxKey: "USt19" } : {}),
+      ...credit(R("vat.output.19"), w.vatCents, { taxPointDate: e.date }),
+    );
+    lines.push(...debit(R("disposal.rbw.loss"), e.rbwCents));
+  }
+  lines.push(...credit({ account: e.assetAccount }, e.rbwCents));
+  if (lines.length === 0) return ok({ kind: "none", reason: "zero_amount" });
+  return entry(e, ctx, {
+    date: e.date,
+    text: textWith(`Anlagenabgang ${e.inventoryNumber}`, e.name),
+    explanation,
+    lines: withTaxPeriods(lines, ctx),
+    dating: "external",
+  });
 }
 
 // ── reversals (Generalumkehr, ACC-004) ──────────────────────────────────────────────────────────────────

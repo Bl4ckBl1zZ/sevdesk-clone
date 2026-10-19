@@ -1,5 +1,7 @@
 import { paginationOptsValidator } from "convex/server";
 import { v } from "convex/values";
+import { berlinCalendarDate } from "../src/domain/time/berlin";
+import { calendarDate } from "../src/domain/time/calendar-date";
 import { mutation, query } from "./functions";
 import { appError } from "./lib/errors";
 import {
@@ -10,6 +12,8 @@ import {
   setBookkeepingStart,
   setRoleOverride,
 } from "./model/accounting";
+import { resolveContextAt } from "./model/journal";
+import { createLedgerAccount, removeLedgerAccount } from "./model/ledgerAccounts";
 
 /**
  * Bookkeeping (F08 §6/§7, P1): read-only journal viewer, chart of accounts with „Rollen & Standardkonten“, role
@@ -100,5 +104,40 @@ export const postOpeningBalancePart = mutation({
     return r.status === "posted"
       ? { status: r.status, seq: r.entries[0]?.seq ?? null }
       : { status: r.status, seq: null };
+  },
+});
+
+const vAccountType = v.union(
+  v.literal("asset"),
+  v.literal("liability"),
+  v.literal("equity"),
+  v.literal("revenue"),
+  v.literal("expense"),
+  v.literal("neutral"),
+);
+
+/** ACC-009: a custom Sachkonto in the chart of the current fiscal year (range per type, E-ACC-07). */
+export const createAccount = mutation({
+  permission: "accounting.write",
+  args: {
+    number: v.string(),
+    name: v.string(),
+    type: vAccountType,
+    euerKey: v.optional(v.string()),
+    taxKeyDefault: v.optional(v.string()),
+  },
+  handler: async (ctx, args) => {
+    const rctx = await resolveContextAt(ctx, calendarDate(berlinCalendarDate(ctx.now())));
+    await createLedgerAccount(ctx, { ...args, chart: rctx.chart });
+  },
+});
+
+/** ACC-009 „Entfernen“: unused custom accounts are deleted, everything else archived (E-ACC-06). */
+export const removeAccount = mutation({
+  permission: "accounting.write",
+  args: { number: v.string() },
+  handler: async (ctx, { number }) => {
+    const rctx = await resolveContextAt(ctx, calendarDate(berlinCalendarDate(ctx.now())));
+    return removeLedgerAccount(ctx, { chart: rctx.chart, number, resolve: rctx });
   },
 });

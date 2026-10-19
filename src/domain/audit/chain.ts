@@ -49,7 +49,11 @@ export interface IntegrityFinding {
     | "checkpoint_mismatch"
     | "checkpoint_signature"
     // F06 VOU-126: a voucher original / Eigenbeleg / E-Rechnung XML is missing or its SHA-256 changed
-    | "file_hash_mismatch";
+    | "file_hash_mismatch"
+    // F08 ACC-020: journal seq gap, unbalanced entry, entry recorded after its period's lock (RI-13)
+    | "journal_seq_gap"
+    | "journal_unbalanced"
+    | "journal_after_lock";
   severity: FindingSeverity;
   detail: string;
   entity?: { table: string; id: string };

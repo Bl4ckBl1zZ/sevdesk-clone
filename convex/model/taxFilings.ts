@@ -1,7 +1,7 @@
 import { endOfMonth, periodOf } from "../../src/domain/accounting/period";
 import type { LockReason } from "../../src/domain/accounting/period-lock";
 import { monthsBetween, planLock } from "../../src/domain/accounting/period-lock";
-import { roundHalfAway } from "../../src/domain/money";
+import { formatCents, roundHalfAway } from "../../src/domain/money";
 import { elsterGuideFor } from "../../src/domain/rules/elster";
 import { retentionUntilFor } from "../../src/domain/rules/retention";
 import { ustvaMappingFor } from "../../src/domain/rules/ustva";
@@ -567,7 +567,7 @@ export interface SubmissionInput {
   valuesDifferReason?: string;
 }
 
-const formatEur = (c: number) => `${(c / 100).toFixed(2).replace(".", ",")}`;
+const formatEur = (c: number) => formatCents(c);
 
 /**
  * Records the manual Mein ELSTER submission: validates (E-UVA-01/02/03/04/05/18/19/20), freezes values and

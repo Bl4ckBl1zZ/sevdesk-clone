@@ -315,6 +315,14 @@ export const IMMUTABILITY_MATRIX: Readonly<Record<string, TableRule>> = {
     frozenWhen: (doc) => doc.parentStatus !== undefined && doc.parentStatus !== "draft",
     fields: { invoicedQtyMilli: "mutable", deliveredQtyMilli: "mutable" },
   },
+  // F08 AST-001: editable until the first AfA, a disposal or voiding; then only disposal (once) and notes (03 §11).
+  assets: {
+    kind: "guarded",
+    frozenWhen: (doc) =>
+      doc.firstDepreciationAt !== undefined || doc.disposal !== undefined || doc.voidedAt !== undefined,
+    fields: { disposal: "once", notes: "mutable", firstDepreciationAt: "once" },
+    message: "Anschaffungskosten können nach der ersten AfA nicht mehr geändert werden.",
+  },
   // F08 TAX-021: a submission record is frozen from insert; a later correction only supersedes it (TAX-007).
   taxFilings: {
     kind: "guarded",

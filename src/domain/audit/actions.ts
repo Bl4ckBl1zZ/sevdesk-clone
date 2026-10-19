@@ -99,7 +99,7 @@ const GROUPS: Record<string, readonly string[] | "*"> = {
   journal: ["post", "reverse", "manual", "opening_balance"],
   period: ["lock"],
   tax_filing: ["submit", "correct", "sondervorauszahlung", "supersede"],
-  asset: ["create", "depreciate", "dispose", "depreciation_skip", "note"],
+  asset: ["create", "update", "void", "depreciate", "dispose", "depreciation_skip", "note", "run"],
   // F08 ACC-009 custom accounts
   ledger_account: ["create", "archive"],
   contact: "*",

@@ -26,6 +26,7 @@ import {
   resolveContextAt,
   reversalOf,
 } from "./journal";
+import { ledgerAccountsOf } from "./ledgerAccounts";
 import type { ModelCtx, ReadCtx } from "./types";
 
 /**
@@ -58,10 +59,13 @@ async function profileOrThrow(ctx: ReadCtx) {
 async function accountNamer(ctx: ReadCtx) {
   const profile = await getCompanyProfile(ctx);
   const banks = await ctx.db.query("bankAccounts").collect();
+  const custom = (await ctx.db.query("ledgerAccounts").collect()).filter((r) => !r.isSystem);
   return (account: string, date: string): string => {
     const chart = chartAt(profile?.chartOfAccounts ?? [], profile?.fiscalYearStartMonth ?? 1, date);
     const bank = banks.find((b) => b.ledgerAccount === account);
     if (bank) return bank.name;
+    const own = custom.find((r) => r.chart === chart && r.number === account);
+    if (own) return own.name;
     return seededAccount(chart, calendarDate(date), account)?.name ?? account;
   };
 }
@@ -155,6 +159,9 @@ export interface AccountView {
   roles: string[];
   /** ACC-027: bank ledger account with not yet journalised transactions → „unvollständig (P1)“. */
   incomplete?: boolean;
+  /** ACC-009: owner-created account / archived (no new postings, E-ACC-06). */
+  custom?: boolean;
+  archived?: boolean;
 }
 
 export async function chartView(ctx: ReadCtx, now: number, fiscalYear?: number) {
@@ -181,6 +188,26 @@ export async function chartView(ctx: ReadCtx, now: number, fiscalYear?: number) 
       ...base,
       roles: [],
     });
+  }
+  // ACC-009: custom accounts and archive markers
+  const ledger = await ledgerAccountsOf(ctx, rctx.chart);
+  for (const a of ledger.custom) {
+    accounts.set(a.number, {
+      number: a.number,
+      name: a.name,
+      type: a.type,
+      automaticVatAccount: false,
+      euerKey: a.euerKey,
+      bwaGroup: a.bwaGroup,
+      verified: true,
+      ...base,
+      roles: [],
+      custom: true,
+    });
+  }
+  for (const nr of ledger.archived) {
+    const a = accounts.get(nr);
+    if (a) a.archived = true;
   }
   for (const b of await ctx.db.query("bankAccounts").collect()) {
     const statuses: string[] = [];

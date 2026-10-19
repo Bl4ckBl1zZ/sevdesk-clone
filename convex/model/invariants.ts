@@ -407,10 +407,14 @@ export async function checkJournalInvariants(ctx: ReadCtx): Promise<InvariantVio
   if (entries.length === 0 && lines.length === 0) return [];
   const banks = await ctx.db.query("bankAccounts").collect();
   const bankLedgers = new Set(banks.map((b) => b.ledgerAccount));
+  // ACC-009: custom accounts (archived ones included — their old postings stay valid).
+  const custom = new Set((await ctx.db.query("ledgerAccounts").collect()).map((a) => `${a.chart}:${a.number}`));
   const profile = await ctx.db.query("companyProfile").first();
   const chartOn = (date: string) => chartAt(profile?.chartOfAccounts ?? [], profile?.fiscalYearStartMonth ?? 1, date);
   const accountExists = (account: string, date: string) =>
-    bankLedgers.has(account) || (isCalendarDate(date) && seededAccount(chartOn(date), date, account) !== null);
+    bankLedgers.has(account) ||
+    (isCalendarDate(date) &&
+      (custom.has(`${chartOn(date)}:${account}`) || seededAccount(chartOn(date), date, account) !== null));
   const out: InvariantViolation[] = checkJournal(
     entries.map((e) => ({
       id: String(e._id),

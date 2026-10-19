@@ -31,6 +31,10 @@ export interface ResolveContext {
   date: CalendarDate;
   overrides: readonly RoleOverride[];
   bankAccounts: readonly { id: string; ledgerAccount: string; archived?: boolean }[];
+  /** ACC-009: owner-created Sachkonten of the chart (`ledgerAccounts`, not archived). */
+  customAccounts?: readonly ChartAccount[];
+  /** ACC-009 / E-ACC-06: archived account numbers (seeded or custom) — no new postings. */
+  archivedAccounts?: ReadonlySet<string>;
 }
 
 export type ResolveIssue = Issue<"role_unmapped" | "account_unknown" | "account_archived" | "rule_missing">;
@@ -51,7 +55,9 @@ export function postableAccounts(ctx: ResolveContext): Result<Map<string, ChartA
   const seed = chartAccounts(ctx.chart, ctx.date);
   if (!seed.ok) return err(seed.error);
   const map = new Map<string, ChartAccount | null>(seed.value.map((a) => [a.number, a]));
+  for (const a of ctx.customAccounts ?? []) if (!map.has(a.number)) map.set(a.number, a);
   for (const b of ctx.bankAccounts) if (!map.has(b.ledgerAccount)) map.set(b.ledgerAccount, null);
+  for (const nr of ctx.archivedAccounts ?? []) map.delete(nr);
   return ok(map);
 }
 
@@ -126,6 +132,11 @@ export function resolveLines(
       if (r.value.account === null) return err(roleUnmappedIssue(l.role));
       if (r.value.source === "override") versions.add(r.value.version);
       account = r.value.account;
+    }
+    if (ctx.archivedAccounts?.has(account)) {
+      return err(
+        issue("account_archived", `Konto ${account} ist archiviert und kann nicht bebucht werden.`, { account }),
+      );
     }
     if (!accounts.value.has(account)) {
       return err(

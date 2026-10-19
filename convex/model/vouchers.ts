@@ -32,11 +32,13 @@ import type {
   vVoucherLineInput,
   vVoucherPaymentInput,
 } from "../voucherValidators";
+import { assertVoucherAssetsReversible, createAssetsForVoucher, voidVoucherAssets } from "./assets";
 import { auditedDelete, auditedInsert, auditedPatch } from "./audit";
 import type { FileRefValue } from "./bankImport";
 import { getCompanyProfile } from "./companyProfile";
 import { markInboxConverted, releaseInboxDraft } from "./inboxLinks";
 import { postJournalEntry, roleOverrides } from "./journal";
+import { ledgerAccountsOf } from "./ledgerAccounts";
 import { assignCounterNumber } from "./numberRanges";
 import { closedPeriods } from "./payments";
 import type { ModelCtx, ReadCtx } from "./types";
@@ -133,9 +135,12 @@ export async function accountContextAt(ctx: ReadCtx, date: CalendarDate): Promis
     overrides[o.role] = o.account;
   }
   const banks = await ctx.db.query("bankAccounts").collect();
+  const ledger = await ledgerAccountsOf(ctx, chart);
   const acc = accountContextFor(chart, date, {
     bankLedgerAccounts: banks.map((b) => b.ledgerAccount).filter((a): a is string => !!a),
     roleOverrides: overrides,
+    customAccounts: ledger.custom.filter((a) => !a.archived),
+    archivedAccounts: ledger.archived,
   });
   if (!acc) throw appError("posting_rejected", "Für dieses Datum ist kein Kontenrahmen hinterlegt.");
   return acc;
@@ -902,6 +907,17 @@ export async function finalizeVoucher(ctx: ModelCtx, args: FinalizeArgs): Promis
       { action: "voucher.finalize", label: number },
     );
   }
+  // F08 AST-002: asset records for the lines with an „Anlagegut?“ decision, in the booking transaction.
+  await createAssetsForVoucher(ctx, {
+    voucher: booked,
+    number,
+    eurLines: check.eurLines,
+    ku: c.ku,
+    accounts: {
+      gwg: c.vctx.accounts.roleAccounts["asset.gwg"] ?? null,
+      pool: c.vctx.accounts.roleAccounts["asset.pool"] ?? null,
+    },
+  });
   await learnSupplier(ctx, booked, c.lines, effective, "learn");
   let paymentId: Id<"payments"> | undefined;
   if (payment.settles) {
@@ -976,6 +992,7 @@ export async function correctVoucher(
   // Duplicate findings of the booked voucher itself were decided at booking.
   const warnings = p.check.warnings.filter((w) => !w.code.startsWith("duplicate_"));
   blockOnWarnings(warnings, [...(args.acknowledgeWarnings ?? []), ...(v.acknowledgedWarnings ?? [])]);
+  await assertVoucherAssetsReversible(ctx, v._id);
   const entries = await activeBookingEntries(ctx, v);
   const originalDate = entries.map((e) => e.date).sort()[0] ?? v.documentDate ?? berlinCalendarDate(ctx.now());
   const number = v.internalNumber as string;
@@ -1023,6 +1040,17 @@ export async function correctVoucher(
       { action: "voucher.correct", label: number },
     );
   }
+  await voidVoucherAssets(ctx, v._id, reason);
+  await createAssetsForVoucher(ctx, {
+    voucher: corrected,
+    number,
+    eurLines: p.check.eurLines,
+    ku: p.context.ku,
+    accounts: {
+      gwg: p.context.vctx.accounts.roleAccounts["asset.gwg"] ?? null,
+      pool: p.context.vctx.accounts.roleAccounts["asset.pool"] ?? null,
+    },
+  });
   if (p.context.lines.length > 0) await learnSupplier(ctx, corrected, p.context.lines, effective, "correct");
   // The payable may have changed: re-derive the status from the payments (refused if overpaid).
   await refreshVoucher(ctx, v._id, "voucher.correct");
@@ -1039,6 +1067,8 @@ export async function cancelVoucher(ctx: ModelCtx, args: { id: Id<"vouchers">; r
   if ((await activePayments(ctx, v._id)).length > 0) {
     throw appError("invalid_input", VOUCHER_ERRORS.activePayments, { reason: "ACTIVE_PAYMENTS" });
   }
+  await assertVoucherAssetsReversible(ctx, v._id);
+  await voidVoucherAssets(ctx, v._id, reason);
   const today = berlinCalendarDate(ctx.now());
   const number = v.internalNumber ?? "";
   const rev = await postJournalEntry(ctx, {

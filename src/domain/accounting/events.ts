@@ -422,7 +422,9 @@ export type BusinessEvent =
   | CashTransferReversedEvent
   | BankTransactionMarkedEvent
   | BankTransactionMarkReversedEvent
-  | OpeningBalanceEvent;
+  | OpeningBalanceEvent
+  | AssetDepreciationEvent
+  | AssetDisposalEvent;
 
 /** Events that mirror earlier entries instead of using the matrix. */
 export type ReversalEvent =
@@ -484,6 +486,10 @@ export function sourceOf(e: BusinessEvent): JournalSource {
       return { kind: "bankTransaction", id: e.transactionId };
     case "opening_balance":
       return { kind: "opening_balance", id: openingSourceId(e.fiscalYear, e.part) };
+    case "asset_depreciation":
+      return { kind: "asset_depreciation", id: assetDepreciationSourceId(e.assetId, e.period) };
+    case "asset_disposal":
+      return { kind: "asset_depreciation", id: assetDisposalSourceId(e.assetId) };
   }
 }
 
@@ -511,3 +517,41 @@ export function reversedSourceOf(e: ReversalEvent): JournalSource {
       return { kind: "bankTransaction", id: e.transactionId };
   }
 }
+
+// ── assets (F08 AST-009/AST-010, posting matrix D1–D8) ──────────────────────────────────────────────────
+
+/** D1–D3: one AfA entry per asset and month (pool: last month of the fiscal year); dated on the month end. */
+export interface AssetDepreciationEvent {
+  kind: "asset_depreciation";
+  assetId: string;
+  inventoryNumber: string;
+  name: string;
+  /** `YYYY-MM` of the plan row. */
+  period: string;
+  /** Last day of `period` (externally dated: a locked month moves to the first open period, E-AST-14). */
+  date: string;
+  amountCents: number;
+  /** The asset's account (credited). */
+  assetAccount: string;
+  afaRole: "afa.tangible" | "afa.vehicle" | "afa.intangible" | "afa.gwg" | "afa.pool";
+}
+
+/** D4–D7: the remaining book value leaves the asset account; a withdrawal also posts the Wertabgabe. */
+export interface AssetDisposalEvent {
+  kind: "asset_disposal";
+  assetId: string;
+  inventoryNumber: string;
+  name: string;
+  date: string;
+  disposalKind: "sale" | "scrap" | "withdrawal";
+  assetAccount: string;
+  rbwCents: number;
+  /** Sale: proceeds above the RBW (D4) or not (D5). */
+  gain?: boolean;
+  /** Withdrawal (D7): Teilwert net and the VAT (only if input VAT was deducted, § 3 Abs. 1b S. 2 UStG). */
+  withdrawal?: { teilwertCents: number; vatCents: number };
+}
+
+/** The journal source id of an AfA entry: one per (asset, period) — the idempotency key of AST-009. */
+export const assetDepreciationSourceId = (assetId: string, period: string): string => `${assetId}:${period}`;
+export const assetDisposalSourceId = (assetId: string): string => `${assetId}:disposal`;

@@ -1228,6 +1228,107 @@ export default defineSchema({
     .index("by_kind_period", ["kind", "period"])
     .index("by_period", ["period"]),
 
+  // ledgerAccounts (03 §8, F08 ACC-009) — owner-created Sachkonten (`isSystem: false`) and archive markers of seeded
+  // accounts (`isSystem: true`, the seed itself stays rule data). Custom accounts without postings may be deleted;
+  // any account with postings is only archived (`archivedAt`), which blocks new postings (E-ACC-06).
+  ledgerAccounts: defineTable({
+    chart: v.union(v.literal("SKR03"), v.literal("SKR04")),
+    number: v.string(),
+    name: v.string(),
+    type: v.union(
+      v.literal("asset"),
+      v.literal("liability"),
+      v.literal("equity"),
+      v.literal("revenue"),
+      v.literal("expense"),
+      v.literal("neutral"),
+    ),
+    euerKey: v.string(),
+    bwaGroup: v.string(),
+    taxKeyDefault: v.optional(v.string()),
+    isSystem: v.boolean(),
+    archivedAt: v.optional(v.number()),
+    recordedAt: v.number(),
+    actor: vActor,
+  }).index("by_chart_number", ["chart", "number"]),
+
+  // assets 🔒 (03 §8, F08 AST-001…AST-010) — asset register. Editable until the first AfA posting
+  // (`firstDepreciationAt`); afterwards only `disposal` (once) and `notes` change (AST-001, E-AST-10). Assets created
+  // from a voucher line that still need method/useful life carry `setupRequired` (E-AST-11; skipped by the AfA run).
+  // A booked voucher that is cancelled or corrected before any AfA voids its assets (`voidedAt`).
+  assets: defineTable({
+    inventoryNumber: v.string(),
+    name: v.string(),
+    account: v.string(),
+    assetClass: v.union(v.literal("movable"), v.literal("immovable"), v.literal("intangible")),
+    acquisitionDate: v.string(),
+    costCents: v.number(),
+    /** Input VAT was deducted on the purchase (D7: the withdrawal then carries VAT; E-AST-12 cost = gross if not). */
+    inputVatDeducted: v.boolean(),
+    voucherId: v.optional(v.id("vouchers")),
+    voucherLineId: v.optional(v.id("voucherLines")),
+    method: v.union(
+      v.literal("linear"),
+      v.literal("degressive"),
+      v.literal("gwg"),
+      v.literal("pool"),
+      v.literal("ev_special"),
+    ),
+    setupRequired: v.optional(v.boolean()),
+    usefulLifeMonths: v.optional(v.number()),
+    usefulLifeKey: v.optional(v.string()),
+    degressiveRateBp: v.optional(v.number()),
+    evScheduleBp: v.optional(v.array(v.number())),
+    evQualified: v.optional(v.boolean()),
+    poolYear: v.optional(v.number()),
+    erinnerungswert: v.boolean(),
+    costCenterId: v.optional(v.id("costCenters")),
+    notes: v.optional(v.string()),
+    disposal: v.optional(
+      v.object({
+        date: v.string(),
+        kind: v.union(v.literal("sale"), v.literal("scrap"), v.literal("withdrawal")),
+        proceedsCents: v.optional(v.number()),
+        teilwertCents: v.optional(v.number()),
+        vatCents: v.optional(v.number()),
+        documentId: v.optional(v.id("salesDocuments")),
+        rbwCents: v.number(),
+        journalEntryId: v.optional(v.id("journalEntries")),
+        recordedAt: v.number(),
+      }),
+    ),
+    firstDepreciationAt: v.optional(v.number()),
+    voidedAt: v.optional(v.number()),
+    voidReason: v.optional(v.string()),
+    ruleVersion: v.string(),
+    recordedAt: v.number(),
+    actor: vActor,
+  })
+    .index("by_inventoryNumber", ["inventoryNumber"])
+    .index("by_voucher", ["voucherId"])
+    .index("by_acquisitionDate", ["acquisitionDate"]),
+
+  // depreciationRuns 🔒 append-only (03 §8, AST-009): one row per run with the posted entries and the findings
+  // (locked month → late posting, E-AST-14; incomplete setup, E-AST-11). Idempotency per (asset, period) is the
+  // journal source `asset_depreciation:<assetId>:<YYYY-MM>`.
+  depreciationRuns: defineTable({
+    year: v.number(),
+    month: v.optional(v.number()),
+    trigger: v.union(v.literal("cron"), v.literal("manual"), v.literal("disposal")),
+    entries: v.array(
+      v.object({
+        assetId: v.id("assets"),
+        period: v.string(),
+        amountCents: v.number(),
+        journalEntryId: v.id("journalEntries"),
+        latePosting: v.optional(v.string()),
+      }),
+    ),
+    findings: v.array(v.object({ assetId: v.optional(v.id("assets")), code: v.string(), message: v.string() })),
+    at: v.number(),
+    actor: vActor,
+  }).index("by_year_month", ["year", "month"]),
+
   // openingItems 🔒 — open receivables carried into the books by the opening balance (ACC-013, P1 subset): the
   // original document reference and VAT split (Ist) so later payments (target kind "opening_item") clear them.
   openingItems: defineTable({
