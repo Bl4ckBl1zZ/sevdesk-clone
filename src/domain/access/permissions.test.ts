@@ -23,6 +23,8 @@ const EXPECTED: Record<Permission, readonly MemberRole[]> = {
   "workspace.overview": ["owner", "bookkeeper", "viewer"],
   "settings.ownerOnly": ["owner"],
   "integrations.manage": ["owner"],
+  "notifications.read": ["owner", "bookkeeper", "viewer"],
+  "notifications.write": ["owner", "bookkeeper"],
   "audit.read": ["owner", "bookkeeper", "viewer", "auditor"],
   "integrity.read": ["owner", "bookkeeper", "auditor"],
   "integrity.acknowledge": ["owner"],

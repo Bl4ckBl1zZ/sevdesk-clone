@@ -48,6 +48,8 @@ export const SYSTEM_JOBS = [
   "cron.products.applyScheduledPrices", // F03 PRD-031, 02 §7 products.applyScheduledPrices
   "cron.api.cleanup", // 05 §3/§7, 06 §2.3: expired idempotency records and confirm tokens, access log > 90 days
   "cron.deadlines.notify", // 02 §7 deadlines.notify (F04 SND-21 to-dos)
+  "cron.notifications.maintain", // F12 NTF-001/006: purge read > 90 days, escalate unresolved errors after 24 h
+  "notifications.deliver", // F12 NTF-003/004: e-mail (Cloudflare Email Sending) and ntfy delivery of one notification
   "cron.recurring.generate", // 02 §7 recurring.generate (F04 REC-05), daily 06:00 Europe/Berlin
   "cron.dunning.run", // 02 §7 dunning.run (F05 DUN-030): drafts or finalises reminders, never sends
   "cron.receivables.refreshOverdue", // 02 §7 receivables.refreshOverdue (F05 PAY-044, DUN-053 „Bald fällig“ to-dos)

@@ -93,10 +93,27 @@ function comparable(audited: Record<string, unknown>, actual: Record<string, unk
     if (skip.includes(k)) continue;
     const v = audited[k];
     if (v === REDACTED || isEncryptedValue(v)) continue;
-    if (v !== undefined) a[k] = v;
-    if (actual[k] !== undefined) b[k] = actual[k];
+    const [av, bv] = nestedComparable(v, actual[k]);
+    if (av !== undefined) a[k] = av;
+    if (bv !== undefined) b[k] = bv;
   }
   return [canonicalize(a), canonicalize(b)] as const;
+}
+
+/** Secrets redacted inside nested objects (e.g. `notificationSettings.ntfy.encryptedToken`) are skipped as well. */
+function nestedComparable(audited: unknown, actual: unknown): [unknown, unknown] {
+  const isObj = (x: unknown): x is Record<string, unknown> => x !== null && typeof x === "object" && !Array.isArray(x);
+  if (!isObj(audited) || !isObj(actual)) return [audited, actual];
+  const a: Record<string, unknown> = {};
+  const b: Record<string, unknown> = {};
+  for (const k of new Set([...Object.keys(audited), ...Object.keys(actual)])) {
+    const v = audited[k];
+    if (v === REDACTED || isEncryptedValue(v)) continue;
+    const [av, bv] = nestedComparable(v, actual[k]);
+    if (av !== undefined) a[k] = av;
+    if (bv !== undefined) b[k] = bv;
+  }
+  return [a, b];
 }
 
 export async function checkInvariants(ctx: ReadCtx): Promise<InvariantViolation[]> {

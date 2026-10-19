@@ -532,6 +532,16 @@ export default defineSchema({
   // 03 §10 notificationSettings (singleton; P0: the owner notification address, F01 SET-009a)
   notificationSettings: defineTable({
     email: v.optional(v.object({ address: v.string(), digest: v.boolean() })),
+    /** F12 NTF-004: ntfy server, topic, encrypted access token, „Details senden", consecutive failures (E-NTF-01). */
+    ntfy: v.optional(
+      v.object({
+        serverUrl: v.string(),
+        topic: v.string(),
+        encryptedToken: v.optional(v.string()),
+        sendDetails: v.boolean(),
+        failures: v.optional(v.number()),
+      }),
+    ),
     channelsByKind: v.record(
       v.string(),
       v.object({ inApp: v.boolean(), email: v.boolean(), ntfy: v.boolean(), digest: v.boolean() }),

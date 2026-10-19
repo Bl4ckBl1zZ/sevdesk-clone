@@ -116,3 +116,12 @@ export async function shredContactKey(ctx: ModelCtx, contactId: string): Promise
   await ctx.db.patch("contactKeys", row._id, { wrappedKey: undefined, shreddedAt: ctx.now() });
   return true;
 }
+
+/** Small integration secrets at rest (e.g. the ntfy access token, NTF-004), wrapped with `APP_ENCRYPTION_KEY`. */
+export async function encryptSecret(plain: string): Promise<string> {
+  return aesEncrypt(await kek(), new TextEncoder().encode(plain));
+}
+
+export async function decryptSecret(packed: string): Promise<string> {
+  return new TextDecoder().decode(await aesDecrypt(await kek(), packed));
+}

@@ -113,7 +113,7 @@ const GROUPS: Record<string, readonly string[] | "*"> = {
   retention: ["purge", "anchor"],
   system: ["startup", "migration", "restore", "restore_drill"],
   // 03 §10 notifications / to-dos (F04 SND-21): created by `deadlines.notify`, closed by the resolving act.
-  notification: ["create", "resolve", "read"],
+  notification: ["create", "update", "resolve", "read", "escalate", "purge", "deliver"],
   // F04 §3.4 recurring invoice templates (REC-01…16): configuration changes, skipped periods, generation runs.
   recurring: ["create", "update", "pause", "resume", "skip", "delete", "archive", "automation_confirm", "generate"],
 };

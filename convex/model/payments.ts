@@ -8,6 +8,7 @@ import type {
 import { taxationMethodAt } from "../../src/domain/accounting/period";
 import { derivePaymentStatus, NEGATIVE_OPEN_MESSAGE, type StatusRow } from "../../src/domain/documents/payment-status";
 import { isArchiveOnlyImport } from "../../src/domain/import/sevdesk/types";
+import { formatEuro } from "../../src/domain/money/format";
 import { PAY_MESSAGES } from "../../src/domain/payments/messages";
 import { computeOpenItems, type OpenItemDocument, type SettlementRow } from "../../src/domain/payments/open-items";
 import {
@@ -40,6 +41,7 @@ import { cashOpeningDate } from "./cash";
 import { getCompanyProfile } from "./companyProfile";
 import { onSettlementChanged as dunningOnSettlementChanged } from "./dunning";
 import { entriesBySource, postJournalEntry, previewJournal } from "./journal";
+import { notifyKind } from "./notifications";
 import { snapshotOf } from "./salesDocuments";
 import { creditedCentsOf } from "./settlement";
 import type { ModelCtx, ReadCtx } from "./types";
@@ -541,6 +543,15 @@ export interface SettlementChange {
  */
 export async function onSettlementChanged(ctx: ModelCtx, change: SettlementChange): Promise<void> {
   await dunningOnSettlementChanged(ctx, change);
+  // NTF-007 (F12 §4.8 `invoice.paid`): raised here, so payments recorded via UI, REST, MCP or bank matching notify.
+  if (change.after.paymentStatus === "paid" && change.before.paymentStatus !== "paid") {
+    const doc = await ctx.db.get(change.documentId);
+    await notifyKind(ctx, "invoice.paid", {
+      title: doc?.number ? `Rechnung ${doc.number} ist vollständig bezahlt` : "Rechnung vollständig bezahlt",
+      link: `/rechnungen/${change.documentId}`,
+      entity: { table: "salesDocuments", id: change.documentId },
+    });
+  }
 }
 
 async function refreshTarget(ctx: ModelCtx, row: { target: PaymentTargetRef }, settles: number, action: string) {
@@ -653,6 +664,14 @@ export async function recordPayment(ctx: ModelCtx, args: RecordArgs): Promise<Re
   }
   if (args.source.kind === "bank" && plan.totalCents > 0) {
     await applyAllocation(ctx, { transactionId: args.source.transactionId, deltaCents: plan.totalCents });
+  }
+  // NTF-007 `payment.received` (info, in-app): one per recorded payment source and day.
+  if (plan.totalCents > 0 && ids[0]) {
+    await notifyKind(ctx, "payment.received", {
+      title: `Zahlung über ${formatEuro(plan.totalCents)} erfasst`,
+      link: plan.rows[0]?.target.kind === "salesDocument" ? `/rechnungen/${plan.rows[0].target.id}` : "/bank",
+      entity: { table: "payments", id: ids[0] },
+    });
   }
   return {
     paymentIds: ids,

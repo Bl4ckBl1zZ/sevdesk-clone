@@ -3806,5 +3806,66 @@
     "protocolCreate": "Protokoll erzeugen",
     "protocolCreated": "Importprotokoll erzeugt.",
     "failed": "Der Import wurde abgebrochen: {error}"
+  },
+  "notificationCenter": {
+    "bell": "Benachrichtigungen",
+    "bellUnread": "Benachrichtigungen, {count} ungelesen",
+    "filterSeverity": "Schweregrad",
+    "all": "Alle",
+    "unreadOnly": "Nur ungelesene",
+    "markAllRead": "Alle als gelesen markieren",
+    "allMarked": "Alle Benachrichtigungen als gelesen markiert.",
+    "markRead": "Gelesen",
+    "markReadLabel": "„{title}“ als gelesen markieren",
+    "unread": "Neu",
+    "count": "{count}× aufgetreten",
+    "loading": "Wird geladen …",
+    "empty": "Keine Benachrichtigungen.",
+    "emptyHint": "Hinweise zu Fristen, Zahlungen und dem Systemzustand erscheinen hier.",
+    "listLabel": "Benachrichtigungen",
+    "severity": {
+      "critical": "Kritisch",
+      "error": "Fehler",
+      "warning": "Warnung",
+      "info": "Info"
+    },
+    "settings": {
+      "loading": "Wird geladen …",
+      "saved": "Gespeichert.",
+      "matrixTitle": "Kanäle je Benachrichtigungsart",
+      "matrixHint": "Kritische Meldungen gehen immer in der App und per E-Mail ein und können nicht abbestellt werden.",
+      "kind": "Art",
+      "channel": {
+        "inApp": "In der App",
+        "email": "E-Mail",
+        "ntfy": "ntfy",
+        "digest": "Zusammenfassung"
+      },
+      "severity": {
+        "critical": "Kritisch",
+        "error": "Fehler",
+        "warning": "Warnung",
+        "info": "Info"
+      },
+      "locked": "nicht abbestellbar",
+      "lockedHint": "Kritische Meldungen können nicht abbestellt werden.",
+      "emailTitle": "E-Mail-Adresse für Benachrichtigungen",
+      "emailHint": "Versand über Cloudflare Email Sending. Die E-Mail enthält nur einen kurzen Hinweis und den Link in die App.",
+      "emailMissing": "Noch keine Adresse hinterlegt (Einrichtung › Benachrichtigungen).",
+      "ntfyTitle": "ntfy (Push-Benachrichtigungen)",
+      "ntfyHint": "Empfohlen ist ein selbst betriebener ntfy-Server. Standardmäßig werden keine Kundennamen oder Beträge übertragen.",
+      "ntfyServer": "Server-Adresse",
+      "ntfyTopic": "Thema",
+      "ntfyToken": "Zugangstoken (optional)",
+      "ntfyTokenSet": "Gespeichert – leer lassen, um es zu behalten",
+      "ntfyDetails": "Details senden",
+      "ntfyDetailsHint": "Mit „Details senden“ enthalten Push-Nachrichten und E-Mails Titel und Text der Benachrichtigung, z. B. Kundennamen und Beträge.",
+      "ntfyPublicWarning": "ntfy.sh ist ein externer Dienst außerhalb Ihrer Kontrolle. Bitte im Verzeichnis der externen Dienste dokumentieren und „Details senden“ ausgeschaltet lassen (DSGVO).",
+      "ntfyFailing": "ntfy-Benachrichtigungen konnten nicht zugestellt werden.",
+      "ntfyTest": "Test senden",
+      "ntfyRemove": "ntfy entfernen",
+      "ntfyRemoved": "ntfy entfernt.",
+      "save": "Speichern"
+    }
   }
 }

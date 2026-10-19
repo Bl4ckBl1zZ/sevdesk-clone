@@ -55,6 +55,7 @@ import { afterChainFinalize, chainFinalizePatch, chainJournalEvent, loadRelation
 import { postJournalEntry } from "./journal";
 import { defaultLayout } from "./layouts";
 import { listCustomFieldDefs, listPaymentMethods, listUnits } from "./lookups";
+import { type NotificationInput, notify } from "./notifications";
 import { assignCounterNumber, listDefaultRanges, registerDerivedNumber } from "./numberRanges";
 import { turnoverTotals } from "./turnover";
 import type { ModelCtx, ReadCtx } from "./types";
@@ -1541,40 +1542,9 @@ const sendLogRowsAfter = async (ctx: ReadCtx, id: Id<"salesDocuments">) => sendL
 
 // ── to-dos (SND-21, 03 §10) ──────────────────────────────────────────────────────────────────────────────────
 
-interface NotificationInput {
-  kind: string;
-  severity: Doc<"notifications">["severity"];
-  title: string;
-  body?: string;
-  link?: string;
-  entity?: { table: string; id: string };
-  dedupeKey: string;
-}
-
+/** F04/F05 to-dos go through the shared notification model (F12 NTF-006: dedupe counter, delivery per kind). */
 export async function upsertNotification(ctx: ModelCtx, n: NotificationInput): Promise<Id<"notifications">> {
-  const existing = await ctx.db
-    .query("notifications")
-    .withIndex("by_dedupe", (q) => q.eq("dedupeKey", n.dedupeKey))
-    .first();
-  if (existing && existing.resolvedAt === undefined) return existing._id;
-  if (existing) {
-    await auditedPatch(
-      ctx,
-      "notifications",
-      existing._id,
-      { resolvedAt: undefined, readAt: undefined, count: existing.count + 1, title: n.title },
-      {
-        action: "notification.create",
-      },
-    );
-    return existing._id;
-  }
-  return auditedInsert(
-    ctx,
-    "notifications",
-    { ...n, count: 1, createdAt: ctx.now() },
-    { action: "notification.create", label: n.title },
-  );
+  return notify(ctx, n);
 }
 
 export async function resolveNotifications(

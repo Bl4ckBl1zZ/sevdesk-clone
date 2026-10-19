@@ -1,9 +1,9 @@
 "use client";
 
-import { BellIcon, SearchIcon } from "lucide-react";
-import Link from "next/link";
+import { SearchIcon } from "lucide-react";
 import { usePathname } from "next/navigation";
 import { useTranslations } from "next-intl";
+import { NotificationBell } from "@/components/notifications/notification-center";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { SidebarTrigger, useSidebar } from "@/components/ui/sidebar";
@@ -47,13 +47,10 @@ export function TopBar() {
         <div className="hidden md:block">
           <CreateDropdown />
         </div>
-        <Link
-          href="/benachrichtigungen"
-          aria-label={t("shell.notifications")}
+        <NotificationBell
+          label={t("shell.notifications")}
           className={cn(buttonVariants({ variant: "ghost", size: "icon" }), "hidden md:inline-flex")}
-        >
-          <BellIcon aria-hidden="true" />
-        </Link>
+        />
         <div className="hidden md:block">
           <ThemeToggle />
         </div>

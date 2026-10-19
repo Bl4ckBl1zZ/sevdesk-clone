@@ -49,4 +49,8 @@ crons.cron("receivables.refreshOverdue (CET)", "15 23 * * *", internal.dunning.r
 crons.cron("dunning.run (CEST)", "0 5 * * *", internal.dunning.runCron, {});
 crons.cron("dunning.run (CET)", "0 6 * * *", internal.dunning.runCron, {});
 
+// notifications.maintain — hourly: read notifications older than 90 days are purged (not GoBD-relevant) and unresolved
+// `error` notifications older than 24 h are re-sent once (F12 NTF-001, NTF-006).
+crons.cron("notifications.maintain", "40 * * * *", internal.notifications.maintainCron, {});
+
 export default crons;

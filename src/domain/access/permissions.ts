@@ -60,6 +60,9 @@ export const PERMISSIONS = {
   "settings.ownerOnly": { roles: ["owner"], scope: null, write: true },
   /** Integration credentials, auth-mail test, R2 tests (F01 SET-106/107/115). */
   "integrations.manage": { roles: ["owner"], scope: null, write: true },
+  /** F12 NTF-001: bell, list and read state (shared per instance); auditors never see operational notifications. */
+  "notifications.read": { roles: STAFF_READ, scope: "settings:read", write: false },
+  "notifications.write": { roles: ["owner", "bookkeeper"], scope: "settings:write", write: true },
   "audit.read": { roles: ALL, scope: "audit:read", write: false },
   "integrity.read": { roles: ["owner", "bookkeeper", "auditor"], scope: "audit:read", write: false },
   "integrity.acknowledge": { roles: ["owner"], scope: null, write: true },
