@@ -1,9 +1,9 @@
 import { decodeJwt, decodeProtectedHeader } from "jose";
 import { beforeAll, describe, expect, test } from "vitest";
-import { ebRow, FakeEnableBanking } from "../../../test/fakes/enable-banking";
-import { createEnableBankingProvider } from "./enable-banking";
-import { FeedHttpError } from "./feed";
-import { generateApplicationKey, publicKeyOf } from "./keys";
+import { ebRow, FakeEnableBanking } from "../../test/fakes/enable-banking";
+import { FeedHttpError } from "./bankFeedProvider";
+import { generateApplicationKey, publicKeyOf } from "./bankKeys";
+import { createEnableBankingProvider } from "./enableBanking";
 
 let key: { privateKeyPem: string; publicKeyPem: string };
 beforeAll(async () => {

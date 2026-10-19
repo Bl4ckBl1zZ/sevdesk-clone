@@ -6,7 +6,7 @@
  *
  * No `import "server-only"`: the Convex actions (convex/bankFeedNode.ts) import this module.
  */
-import type { EbAccount, EbAmount, EbTransaction } from "../../domain/banking/sources/enable-banking";
+import type { EbAccount, EbAmount, EbTransaction } from "../../src/domain/banking/sources/enable-banking";
 
 export interface Aspsp {
   name: string;

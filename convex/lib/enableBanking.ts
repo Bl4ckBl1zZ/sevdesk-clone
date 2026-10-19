@@ -9,8 +9,8 @@
  *  - Error texts are redacted (no JWT, key, code or session id, BNK-013).
  */
 import { importPKCS8, SignJWT } from "jose";
-import { redactText } from "../../domain/banking/feed/redact";
-import type { EbAccount, EbTransaction } from "../../domain/banking/sources/enable-banking";
+import { redactText } from "../../src/domain/banking/feed/redact";
+import type { EbAccount, EbTransaction } from "../../src/domain/banking/sources/enable-banking";
 import {
   type Aspsp,
   type Balance,
@@ -22,7 +22,7 @@ import {
   type FetchOptions,
   type FetchResult,
   type PsuHeaders,
-} from "./feed";
+} from "./bankFeedProvider";
 
 export const ENABLE_BANKING_API_URL = "https://api.enablebanking.com";
 export const JWT_TTL_SECONDS = 3600;

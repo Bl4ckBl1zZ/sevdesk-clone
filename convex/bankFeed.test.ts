@@ -1,8 +1,8 @@
 import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
-import { generateApplicationKey } from "../src/server/bank/keys";
 import { ebRow, type FakeBankAccount, FakeEnableBanking } from "../test/fakes/enable-banking";
 import { api, internal } from "./_generated/api";
 import type { Doc, Id } from "./_generated/dataModel";
+import { generateApplicationKey } from "./lib/bankKeys";
 import { errorCode } from "./lib/errors";
 import { patchCompanyProfile } from "./model/companyProfile";
 import { makeT, SYSTEM_AUTH, type TestT } from "./test.setup";
