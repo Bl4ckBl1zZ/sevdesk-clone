@@ -12,8 +12,8 @@ Ansprechpartner | Hans Bauer
 Telefon | +49 89 7654321
 E-Mail | info@bauer-elektro.de
 Rechnung RE-2026-0122
-Pos. | Bezeichnung | Menge Einheit | Einzelpreis netto | Gesamt netto
-1 | Erneuerung Unterverteilung Einfamilienhaus | 1 pauschal | 18.000,00 € | 18.000,00 €
+Pos. | Bezeichnung | Menge Einheit | Einzelpreis brutto | Gesamt brutto
+1 | Erneuerung Unterverteilung Einfamilienhaus | 1 pauschal | 21.420,00 € | 21.420,00 €
 Summe netto | 18.000,00 €
 zzgl. 19 % USt auf 18.000,00 € | 3.420,00 €
 Gesamtbetrag | 21.420,00 €

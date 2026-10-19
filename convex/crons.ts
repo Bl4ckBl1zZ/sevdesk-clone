@@ -12,6 +12,18 @@ const crons = cronJobs();
 crons.cron("integrity.verify (CEST)", "0 0 * * *", internal.integrity.verifyCron, {});
 crons.cron("integrity.verify (CET)", "0 1 * * *", internal.integrity.verifyCron, {});
 
+// backups.verify — AUD-026 daily 05:30 Europe/Berlin (hourly tick, runs in the 05:xx Berlin hour)
+crons.cron("backups.verify", "30 * * * *", internal.backups.verifyCron, {});
+
+// verfahrensdoku.watch — AUD-025 / E-AUD-41 daily 07:00 UTC
+crons.cron("verfahrensdoku.watch", "0 7 * * *", internal.verfahrensdoku.watchCron, {});
+
+// system.clock — AUD-019 clock check every 10 minutes (no-op without CLOCK_REFERENCE_URL)
+crons.interval("system.clock", { minutes: 10 }, internal.system.clockCron, {});
+
+// integrity.startup — AUD-014 fast check (checkpoint signature + head continuity) every 6 hours
+crons.interval("integrity.startup", { hours: 6 }, internal.integrity.startupCron, {});
+
 // integrity.checkpoint — daily 02:30 Europe/Berlin; the hourly run also retries failed R2 uploads (AUD-016)
 crons.cron("integrity.checkpoint", "30 * * * *", internal.integrity.checkpointCron, {});
 
@@ -49,6 +61,12 @@ crons.cron("receivables.refreshOverdue (CET)", "15 23 * * *", internal.dunning.r
 crons.cron("dunning.run (CEST)", "0 5 * * *", internal.dunning.runCron, {});
 crons.cron("dunning.run (CET)", "0 6 * * *", internal.dunning.runCron, {});
 
+// notifications.maintain — hourly: read notifications older than 90 days are purged (not GoBD-relevant) and unresolved
+// `error` notifications older than 24 h are re-sent once (F12 NTF-001, NTF-006).
+crons.cron("notifications.maintain", "40 * * * *", internal.notifications.maintainCron, {});
+
+// jobs.expire — daily 03:15 UTC: export job results older than 30 days are removed from storage (F09 EXP-026).
+crons.cron("jobs.expire", "15 3 * * *", internal.jobs.expireCron, {});
 // recurringVouchers.generate — daily 06:15 Europe/Berlin (04:15 / 05:15 UTC; F06 VOU-064). Idempotent per (template,
 // occurrence date), so the second registration of the day finds nothing due.
 crons.cron("recurringVouchers.generate (CEST)", "15 4 * * *", internal.vouchers.generateRecurringCron, {});

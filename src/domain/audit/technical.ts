@@ -8,7 +8,14 @@
  *
  * Writes to them need no audit entry (convex/model/db.ts) and the RI-15 replay ignores them.
  */
-export const TECHNICAL_TABLES: readonly string[] = ["devMailbox", "apiRequestLog", "idempotencyKeys", "confirmTokens"];
+export const TECHNICAL_TABLES: readonly string[] = [
+  "devMailbox",
+  "apiRequestLog",
+  "idempotencyKeys",
+  "confirmTokens",
+  // F12 AUD-019: rolling 7-day log of the clock check (status changes are audited as system.clock)
+  "clockReadings",
+];
 
 export const TECHNICAL_FIELDS: Readonly<Record<string, readonly string[]>> = {
   apiKeys: ["lastUsedAt"],

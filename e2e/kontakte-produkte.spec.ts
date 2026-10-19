@@ -24,7 +24,7 @@ test.describe.configure({ mode: "serial" });
 
 const h1 = (page: Page, name: string) => page.getByRole("heading", { level: 1, name });
 
-test("CON-001 CON-003 CON-120 an organisation is created with address and e-mail and gets a timeline note", async ({
+test("CON-001 CON-003 CON-120 PAY-004 an organisation is created with address and e-mail and gets a timeline note", async ({
   page,
   expectNoAxeViolations,
 }) => {
@@ -61,6 +61,13 @@ test("CON-001 CON-003 CON-120 an organisation is created with address and e-mail
   await page.getByRole("tab", { name: "Steuer & E-Rechnung" }).click();
   await expect(page.getByRole("heading", { name: "Abgeleiteter Steuerfall" })).toBeVisible();
   await expect(page.getByText("Keine USt-IdNr hinterlegt.")).toBeVisible();
+  await expectNoAxeViolations();
+
+  // PAY-004: a customer has the „Offene Posten" tab (empty before the first invoice).
+  await page.getByRole("tab", { name: "Offene Posten" }).click();
+  await expect(page.getByRole("heading", { name: "Zahlungshistorie" })).toBeVisible();
+  await expect(page.getByText("Keine offenen Posten.")).toBeVisible();
+  await expect(page.getByText("Noch keine bezahlten Rechnungen")).toBeVisible();
   await expectNoAxeViolations();
 });
 

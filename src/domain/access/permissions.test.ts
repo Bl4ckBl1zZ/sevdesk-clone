@@ -23,6 +23,8 @@ const EXPECTED: Record<Permission, readonly MemberRole[]> = {
   "workspace.overview": ["owner", "bookkeeper", "viewer"],
   "settings.ownerOnly": ["owner"],
   "integrations.manage": ["owner"],
+  "notifications.read": ["owner", "bookkeeper", "viewer"],
+  "notifications.write": ["owner", "bookkeeper"],
   "audit.read": ["owner", "bookkeeper", "viewer", "auditor"],
   "integrity.read": ["owner", "bookkeeper", "auditor"],
   "integrity.acknowledge": ["owner"],
@@ -71,6 +73,7 @@ const EXPECTED: Record<Permission, readonly MemberRole[]> = {
   "vouchers.correct": ["owner", "bookkeeper"],
   "vouchers.approve": ["owner", "bookkeeper"],
   "vouchers.pay": ["owner", "bookkeeper"],
+  "exports.full": ["owner"],
 };
 
 describe("permission matrix (02 §4.3)", () => {

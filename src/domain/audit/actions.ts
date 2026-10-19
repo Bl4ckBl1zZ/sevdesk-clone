@@ -28,6 +28,11 @@ const GROUPS: Record<string, readonly string[] | "*"> = {
     "register_status",
     "accept",
     "reject",
+    // F04 DOC-18 / INV-30 attachments (drafts) and proofs (finalised documents)
+    "attachment_add",
+    "attachment_update",
+    "attachment_remove",
+    "evidence_add",
     "withdraw",
     "download_original",
     // F04 quotes, orders, delivery notes, proforma and conversions (QUO-04…15, DOC-33)
@@ -100,7 +105,7 @@ const GROUPS: Record<string, readonly string[] | "*"> = {
   project: "*",
   time_entry: "*",
   settings: "*", // settings.<section>.update
-  rule_override: ["add"],
+  rule_override: ["add", "delete"],
   api_key: ["create", "revoke"],
   webhook: "*", // webhook.endpoint.*
   auth: ["sign_in", "sign_out", "passkey_add", "passkey_remove", "totp_enable", "totp_disable", "otp_mail_failed"],
@@ -108,7 +113,9 @@ const GROUPS: Record<string, readonly string[] | "*"> = {
   // `revoke_sessions`: „Sitzungen abmelden" (04 §4.10) without deactivating the member.
   member: ["create", "role_change", "extend", "expire", "expired", "disable", "revoke_sessions"],
   invite: ["create", "resend", "revoke", "accept"],
-  export: ["datev", "gdpdu", "full", "csv"],
+  export: ["datev", "gdpdu", "full", "csv", "audit", "bulk"],
+  // F09 EXP-026 background jobs (jobs table): lifecycle and the 30-day result expiry.
+  job: ["create", "start", "progress", "done", "fail", "cancel", "expire"],
   // F09 sevdesk export import: project lifecycle, files, mapping, resolutions, preview, commit batches, presets.
   import: [
     "create",
@@ -127,13 +134,14 @@ const GROUPS: Record<string, readonly string[] | "*"> = {
     "protocol", // IMP-024: the import protocol PDF attached to the committed import
   ],
   integrity: ["run", "checkpoint", "acknowledge"],
-  security: ["write_rejected", "access_denied"],
+  security: ["write_rejected", "access_denied", "secret_screen"],
   auditor: ["access"],
   dsgvo: "*", // dsgvo.request.* | restrict | export
   retention: ["purge", "anchor"],
-  system: ["startup", "migration", "restore", "restore_drill"],
+  verfahrensdoku: ["update_inputs", "release", "supersede"],
+  system: ["startup", "migration", "restore", "restore_drill", "clock"],
   // 03 §10 notifications / to-dos (F04 SND-21): created by `deadlines.notify`, closed by the resolving act.
-  notification: ["create", "resolve", "read"],
+  notification: ["create", "update", "resolve", "read", "escalate", "purge", "deliver"],
   // F04 §3.4 recurring invoice templates (REC-01…16): configuration changes, skipped periods, generation runs.
   recurring: ["create", "update", "pause", "resume", "skip", "delete", "archive", "automation_confirm", "generate"],
 };

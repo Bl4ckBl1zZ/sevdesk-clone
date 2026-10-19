@@ -25,6 +25,24 @@ describe("number formats (F01 SET-056…058, UST-06)", () => {
     expect(code(`${"A".repeat(30)}{##########}`)).toBe("format_too_long");
   });
 
+  test("DATEV-04 UST-06 every number a valid format can produce fits DATEV Belegfeld 1 (OPOS matching key)", () => {
+    // DATEV OPOS matches invoice and payment by Belegfeld 1: ≤ 36 characters from [A-Za-z0-9$%&*+-/].
+    const BELEGFELD_1 = /^[A-Za-z0-9$%&*+\-/]{1,36}$/;
+    const counters = [1, 9_999, 10_000_000_000 - 1];
+    for (const r of SEEDED_RANGES) {
+      for (const c of counters) {
+        for (const n of previewNumbers(r.format, { year: 2026, month: 12 }, c)) {
+          expect(n, `${r.key} ${n}`).toMatch(BELEGFELD_1);
+        }
+      }
+    }
+    // the validator refuses every format whose output DATEV could not take
+    expect(code("RE_{YYYY}-{####}")).toBe("format_illegal_char");
+    expect(code("RE.{####}")).toBe("format_illegal_char");
+    expect(code(`${"R".repeat(25)}{##########}`)).toBe("ok");
+    expect(code(`${"R".repeat(26)}{##########}`)).toBe("format_too_long");
+  });
+
   test("SET-055 preview, period keys and the seeded ranges are valid", () => {
     expect(previewNumbers("RE-{YYYY}-{####}", { year: 2026, month: 10 }, 7)).toEqual([
       "RE-2026-0007",

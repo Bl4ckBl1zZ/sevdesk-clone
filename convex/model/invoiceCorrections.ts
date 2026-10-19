@@ -25,6 +25,7 @@ import { isCalendarDate } from "../../src/domain/time/calendar-date";
 import type { Doc, Id } from "../_generated/dataModel";
 import { appError } from "../lib/errors";
 import { auditedInsert, auditedPatch } from "./audit";
+import { assertClockOk } from "./clock";
 import { onDocumentCancelled as dunningOnCancelled } from "./dunning";
 import { chainMembers, groupsOfDoc, setRegisterStatus, storedSnapshot } from "./invoiceChains";
 import { postJournalEntry } from "./journal";
@@ -159,6 +160,7 @@ export async function cancelDocument(
   id: Id<"salesDocuments">,
   o: CancelOptions,
 ): Promise<{ id: Id<"salesDocuments">; number: string }> {
+  await assertClockOk(ctx); // AUD-019 / EC-027: no business date while the clock is off by > 60 s
   const original = await getDocument(ctx, id);
   const guard = cancellationGuard(await cancelTargetOf(ctx, original));
   if (guard) throw appError("conflict", guard.message, { reason: guard.code });

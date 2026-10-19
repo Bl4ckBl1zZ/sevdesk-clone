@@ -3,6 +3,7 @@ import { api } from "./_generated/api";
 import type { Doc, Id } from "./_generated/dataModel";
 import { finalizedInvoice } from "./invoices.fixtures";
 import { errorCode } from "./lib/errors";
+import { auditedInsert } from "./model/audit";
 import { autoApplyMatches } from "./model/matching";
 import { bookedTransaction } from "./payments.fixtures";
 import { makeT, type TestT } from "./test.setup";
@@ -215,6 +216,37 @@ describe("BNK-043 auto-apply and BNK-047 unmatch", () => {
     await owner.mutation(api.matching.unmatch, { transactionId: tx, reason: "Falsche Zuordnung durch Automatik" });
     expect((await docOf(t, id)).paymentStatus).toBe("open");
     expect((await txOf(t, tx)).status).toBe("open");
+  });
+
+  test("BNK-047 PAY-041 „Zuordnung aufheben“ reverses the allocation, dated today when the original period is locked", async () => {
+    let { t, owner, bankAccount, number, id } = await setup();
+    const tx = await bookedTransaction(t, bankAccount, {
+      bookingDate: "2026-10-12",
+      amountCents: 119_000,
+      purpose: number,
+    });
+    await owner.mutation(api.matching.confirm, {
+      transactionId: tx,
+      allocations: [{ target: { kind: "salesDocument", id }, amountCents: 119_000 }],
+    });
+    expect((await docOf(t, id)).paymentStatus).toBe("paid");
+    await t.model(OWNER, (ctx) =>
+      auditedInsert(
+        ctx,
+        "periods",
+        { period: "2026-10", status: "locked", lockedAt: Date.now(), lockedBy: "user:test-owner", reason: "manual" },
+        { action: "period.lock" },
+      ),
+    );
+    owner = await jump(t, "2026-11-03T10:00:00Z");
+    await owner.mutation(api.matching.unmatch, { transactionId: tx, reason: "Zahlung gehört zu anderem Kunden" });
+    const pays = await owner.query(api.payments.forDocument, { documentId: id });
+    const reversal = pays.payments.find((p) => p.reversalOfId);
+    expect(reversal?.date).toBe("2026-11-03");
+    expect((await docOf(t, id)).paymentStatus).toBe("open");
+    expect((await txOf(t, tx)).status).toBe("open");
+    // the original allocation stays (GoBD): one payment plus its reversal
+    expect(pays.payments).toHaveLength(2);
   });
 
   test("BNK-043 a Skonto or partial candidate is never auto-applied", async () => {

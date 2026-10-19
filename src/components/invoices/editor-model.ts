@@ -25,6 +25,10 @@ export interface EditorLine {
   readonly vatRateKey: string;
   readonly productType: "good" | "service";
   readonly reverseCharge13b: string;
+  /** PRD-053: revenue account copied from the product, editable per line in drafts ("" = default mapping). */
+  readonly revenueAccount: string;
+  /** DOC-53: line cost centre ("" = the document's). */
+  readonly costCenterId: string;
   readonly isLaborCost: boolean;
   /** Quotes only (DOC-04, QUO-02): not in the totals, chosen on conversion. */
   readonly optional: boolean;
@@ -55,6 +59,7 @@ export interface EditorState {
   readonly orderReference: string;
   readonly kleinbetrag: boolean;
   readonly constructionWork: boolean;
+  readonly marginScheme: boolean;
   readonly einvoiceFormat: string;
   readonly bankAccountId: string;
   readonly paymentMethodId: string;
@@ -67,6 +72,12 @@ export interface EditorState {
   readonly deliveryTerms: string;
   /** Delivery notes (QUO-09): print prices and totals. */
   readonly showPrices: boolean;
+  /** DOC-53: document cost centre, tags and custom fields. */
+  readonly costCenterId: string;
+  readonly tags: readonly string[];
+  readonly customFields: Readonly<Record<string, string | number | boolean>>;
+  /** DOC-54: "" = the default layout of the document type. */
+  readonly layoutId: string;
   readonly lines: readonly EditorLine[];
 }
 
@@ -100,6 +111,8 @@ export function emptyLine(kind: DraftLineValues["kind"] = "item"): EditorLine {
     vatRateKey: "standard",
     productType: "service",
     reverseCharge13b: "",
+    revenueAccount: "",
+    costCenterId: "",
     isLaborCost: false,
     optional: false,
     extra: {},
@@ -128,6 +141,7 @@ export function emptyEditor(today: string, defaults: Partial<EditorState> = {}):
     orderReference: "",
     kleinbetrag: false,
     constructionWork: false,
+    marginScheme: false,
     einvoiceFormat: "",
     bankAccountId: "",
     paymentMethodId: "",
@@ -137,6 +151,10 @@ export function emptyEditor(today: string, defaults: Partial<EditorState> = {}):
     validUntil: "",
     deliveryTerms: "",
     showPrices: false,
+    costCenterId: "",
+    tags: [],
+    customFields: {},
+    layoutId: "",
     lines: [emptyLine()],
     ...defaults,
   };
@@ -154,6 +172,8 @@ export function lineFromValues(l: DraftLineValues): EditorLine {
     vatRateKey,
     productType,
     reverseCharge13b,
+    revenueAccount,
+    costCenterId,
     isLaborCost,
     optional,
     ...extra
@@ -170,6 +190,8 @@ export function lineFromValues(l: DraftLineValues): EditorLine {
     vatRateKey: vatRateKey ?? "standard",
     productType: productType ?? "service",
     reverseCharge13b: reverseCharge13b ?? "",
+    revenueAccount: revenueAccount ?? "",
+    costCenterId: costCenterId ?? "",
     isLaborCost: isLaborCost ?? false,
     optional: optional ?? false,
     extra,
@@ -199,6 +221,7 @@ export function editorFromValues(v: DraftValues): EditorState {
     orderReference: v.orderReference ?? "",
     kleinbetrag: v.kleinbetrag ?? false,
     constructionWork: v.constructionWork ?? false,
+    marginScheme: v.marginScheme ?? false,
     einvoiceFormat: v.einvoiceFormat ?? "",
     bankAccountId: v.bankAccountId ?? "",
     paymentMethodId: v.paymentMethodId ?? "",
@@ -208,6 +231,10 @@ export function editorFromValues(v: DraftValues): EditorState {
     validUntil: v.validUntil ?? "",
     deliveryTerms: v.deliveryTerms ?? "",
     showPrices: v.showPrices ?? false,
+    costCenterId: v.costCenterId ?? "",
+    tags: v.tags ?? [],
+    customFields: v.customFields ?? {},
+    layoutId: v.layoutId ?? "",
     lines: v.lines.map(lineFromValues),
   };
 }
@@ -249,6 +276,10 @@ function lineToValues(l: EditorLine, index: number, errors: EditorError[], type:
   } else delete out.discount;
   if (opt(l.reverseCharge13b)) out.reverseCharge13b = l.reverseCharge13b;
   else delete out.reverseCharge13b;
+  if (opt(l.revenueAccount)) out.revenueAccount = l.revenueAccount.trim();
+  else delete out.revenueAccount;
+  if (l.costCenterId) out.costCenterId = l.costCenterId;
+  else delete out.costCenterId;
   if (l.isLaborCost) out.isLaborCost = true;
   else delete out.isLaborCost;
   if (l.optional && typeFeatures(type).optionalLines) out.optional = true;
@@ -297,6 +328,7 @@ export function toDraftValues(s: EditorState): { values: DraftValues; errors: Ed
     showEpcQr: s.showEpcQr,
     ...(s.kleinbetrag && f.invoiceFlags ? { kleinbetrag: true } : {}),
     ...(s.constructionWork && f.invoiceFlags ? { constructionWork: true } : {}),
+    ...(s.marginScheme && f.invoiceFlags ? { marginScheme: true } : {}),
     ...(opt(s.subject) ? { subject: s.subject.trim() } : {}),
     ...(opt(s.headText) ? { headText: s.headText.trim() } : {}),
     ...(opt(s.footText) ? { footText: s.footText.trim() } : {}),
@@ -307,6 +339,10 @@ export function toDraftValues(s: EditorState): { values: DraftValues; errors: Ed
     ...(f.validUntil && s.validUntil ? { validUntil: s.validUntil as CalendarDate } : {}),
     ...(f.deliveryTerms && opt(s.deliveryTerms) ? { deliveryTerms: s.deliveryTerms.trim() } : {}),
     ...(f.showPrices && s.showPrices ? { showPrices: true } : {}),
+    ...(s.costCenterId ? { costCenterId: s.costCenterId } : {}),
+    ...(s.tags.length ? { tags: [...s.tags] } : {}),
+    ...(Object.keys(s.customFields).length ? { customFields: { ...s.customFields } } : {}),
+    ...(s.layoutId ? { layoutId: s.layoutId } : {}),
     lines: s.lines.map((l, i) => lineToValues(l, i, errors, s.type)),
   };
   return { values, errors };

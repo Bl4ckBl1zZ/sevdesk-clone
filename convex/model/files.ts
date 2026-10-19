@@ -34,6 +34,11 @@ export async function fileReferences(ctx: ReadCtx, storageId: Id<"_storage">): P
   for (const c of await ctx.db.query("cashTransfers").collect()) {
     if (c.eigenbelegFile?.storageId === storageId) refs.push(`cashTransfers ${String(c._id)}`);
   }
+  // F04 DOC-18 / INV-30: document attachments and proofs are part of the (retained) document.
+  for (const d of await ctx.db.query("salesDocuments").collect()) {
+    const files = [...(d.attachments ?? []).map((a) => a.file), ...(d.evidence ?? []).map((e) => e.file)];
+    if (files.some((f) => f.storageId === storageId)) refs.push(`salesDocuments ${d.number ?? String(d._id)}`);
+  }
   for (const e of await ctx.db.query("journalEntries").collect()) {
     if (e.attachments?.some((f) => f.storageId === storageId)) refs.push(`journalEntries ${e.seq}`);
   }

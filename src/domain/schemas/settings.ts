@@ -10,9 +10,10 @@ import { electronicFormatIBAN, isValidBIC, isValidIBAN } from "ibantools";
 import { z } from "zod";
 import { fieldsFor, LEGAL_FORMS } from "../company/legal-forms";
 import { validateDatevKeys } from "../datev/keys";
-import { parseCents } from "../money/parse";
+import { parseBasisPoints, parseCents } from "../money/parse";
 import { MAX_START_VALUE, MIN_START_VALUE, RESET_POLICIES, SEEDED_RANGES, validateFormat } from "../numbering/format";
 import { isEuEeaCountry } from "../rules/eu-eea";
+import { OVERRIDE_RULE_SETS } from "../rules/overrides";
 import { checkKuStart } from "../tax/kleinunternehmer";
 import { isBundesland, normalizeTaxNumber } from "../tax/tax-number";
 import { validateVatId } from "../tax/vat-id";
@@ -174,6 +175,10 @@ export const taxSchema = z
     vatId: trimmed().transform((v) => v.replace(/\s+/g, "").toUpperCase()),
     isKleinunternehmer: z.enum(["yes", "no"]),
     kuValidFrom: trimmed(),
+    /** KU-04 / SET-033: date the waiver (§ 19 Abs. 2 UStG) was declared to the Finanzamt (§ 19 Abs. 3 UStG since 2025, before: Abs. 2); empty = no waiver. */
+    kuWaiverDate: trimmed()
+      .refine((v) => v === "" || isCalendarDate(v), "Bitte ein gültiges Datum angeben.")
+      .default(""),
     taxationMethod: z.enum(["soll", "ist"]),
     istConfirmed: z.boolean(),
     ustvaPeriod: z.enum(USTVA_PERIODS),
@@ -299,6 +304,7 @@ export const taxDefaults = (legalForm: CompanyValues["legalForm"]): TaxFormValue
   vatId: "",
   isKleinunternehmer: "no",
   kuValidFrom: "",
+  kuWaiverDate: "",
   taxationMethod: "soll",
   istConfirmed: false,
   ustvaPeriod: "quarterly",
@@ -422,3 +428,41 @@ export const numberRangeCreateSchema = z
   });
 export type NumberRangeCreateFormValues = z.input<typeof numberRangeCreateSchema>;
 export type NumberRangeCreateValues = z.output<typeof numberRangeCreateSchema>;
+
+/** "1,27" → 127 bp, "-0,88" → -88; "" or invalid → undefined. */
+const percentBp = (value: string): number | undefined => {
+  const r = parseBasisPoints(value.trim());
+  return value.trim() !== "" && r.ok ? r.value : undefined;
+};
+
+/** F01 SET-121: a rule override as typed in Einstellungen › Regeln (rate in percent, dates ISO). */
+export const ruleOverrideSchema = z
+  .object({
+    ruleSet: z.enum(OVERRIDE_RULE_SETS),
+    tableId: trimmed().min(1, "Bitte eine Regel wählen."),
+    validFrom: trimmed().refine(isCalendarDate, "Bitte ein gültiges „Gültig ab“-Datum angeben."),
+    validTo: trimmed()
+      .default("")
+      .refine((s) => s === "" || isCalendarDate(s), "Bitte ein gültiges Enddatum angeben."),
+    rate: trimmed().max(20).default(""),
+    de: optionalText(1000).default(""),
+    en: optionalText(1000).default(""),
+    source: trimmed()
+      .min(1, "Bitte eine Quelle angeben (z. B. Link zur Bundesbank-Mitteilung).")
+      .max(500, "Höchstens 500 Zeichen."),
+  })
+  .superRefine((r, ctx) => {
+    if (r.ruleSet !== "noteText" && percentBp(r.rate) === undefined) {
+      ctx.addIssue({ code: "custom", path: ["rate"], message: "Bitte einen Satz in Prozent angeben, z. B. 1,27." });
+    }
+  })
+  .transform((r) => ({
+    ruleSet: r.ruleSet,
+    tableId: r.tableId,
+    validFrom: r.validFrom,
+    ...(r.validTo ? { validTo: r.validTo } : {}),
+    ...(r.ruleSet === "noteText" ? { de: r.de, en: r.en } : { rateBp: percentBp(r.rate) }),
+    source: r.source,
+  }));
+export type RuleOverrideFormValues = z.input<typeof ruleOverrideSchema>;
+export type RuleOverrideValues = z.output<typeof ruleOverrideSchema>;

@@ -53,6 +53,10 @@ const productObject = z.object({
   exemptionReasonCode: trimmed(),
   placeOfSupplyRule: z.enum(["", ...PLACE_OF_SUPPLY_RULES]),
   reverseCharge13b: trimmed(),
+  /** PRD-050: revenue account of the company chart (checked against the chart in the mutation); empty = default. */
+  revenueAccountOverride: trimmed()
+    .regex(/^(\d{4,8})?$/, "Bitte eine Kontonummer mit 4 bis 8 Ziffern angeben.")
+    .optional(),
   /** Percent "60" or "62,5" (PRD-040). */
   laborCostShare: trimmed(),
   categoryId: trimmed(),
@@ -90,6 +94,7 @@ export function toProductInput(v: ProductObject): ProductInput {
     ...(v.exemptionReasonCode ? { exemptionReasonCode: v.exemptionReasonCode } : {}),
     ...(v.placeOfSupplyRule && v.type === "service" ? { placeOfSupplyRule: v.placeOfSupplyRule } : {}),
     ...(v.reverseCharge13b ? { reverseCharge13b: v.reverseCharge13b } : {}),
+    ...(v.revenueAccountOverride ? { revenueAccountOverride: v.revenueAccountOverride } : {}),
     ...(labor !== undefined ? { laborCostShareBp: labor } : {}),
     ...(v.categoryId ? { categoryId: v.categoryId } : {}),
     extraUnits: v.extraUnits.map((u) => {
@@ -177,6 +182,7 @@ export interface ProductRecord {
   exemptionReasonCode?: string | undefined;
   placeOfSupplyRule?: string | undefined;
   reverseCharge13b?: string | undefined;
+  revenueAccountOverride?: string | undefined;
   laborCostShareBp?: number | undefined;
   categoryId?: string | undefined;
   extraUnits: readonly { unitCode: string; factorMilli: number }[];
@@ -202,6 +208,7 @@ export function productFormFromRecord(p: ProductRecord): ProductFormValues {
     exemptionReasonCode: p.exemptionReasonCode ?? "",
     placeOfSupplyRule: (p.placeOfSupplyRule ?? "") as ProductFormValues["placeOfSupplyRule"],
     reverseCharge13b: p.reverseCharge13b ?? "",
+    revenueAccountOverride: p.revenueAccountOverride ?? "",
     laborCostShare: p.laborCostShareBp !== undefined ? formatBasisPoints(p.laborCostShareBp) : "",
     categoryId: p.categoryId ?? "",
     extraUnits: p.extraUnits.map((u) => ({ unitCode: u.unitCode, factor: formatMilli(u.factorMilli) })),

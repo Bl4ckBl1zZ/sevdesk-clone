@@ -8,6 +8,8 @@ import type {
 import { taxationMethodAt } from "../../src/domain/accounting/period";
 import { derivePaymentStatus, NEGATIVE_OPEN_MESSAGE, type StatusRow } from "../../src/domain/documents/payment-status";
 import { isArchiveOnlyImport } from "../../src/domain/import/sevdesk/types";
+import { formatEuro } from "../../src/domain/money/format";
+import { averageDaysToPay, type PaidInvoice } from "../../src/domain/payments/customer";
 import { PAY_MESSAGES } from "../../src/domain/payments/messages";
 import { computeOpenItems, type OpenItemDocument, type SettlementRow } from "../../src/domain/payments/open-items";
 import {
@@ -37,9 +39,11 @@ import { settleOpeningItem } from "./accounting";
 import { auditedInsert, auditedPatch } from "./audit";
 import { applyAllocation, requireTransaction } from "./bankTransactions";
 import { cashOpeningDate } from "./cash";
+import { assertClockOk } from "./clock";
 import { getCompanyProfile } from "./companyProfile";
 import { onSettlementChanged as dunningOnSettlementChanged } from "./dunning";
 import { entriesBySource, postJournalEntry, previewJournal } from "./journal";
+import { notifyKind } from "./notifications";
 import { snapshotOf } from "./salesDocuments";
 import { creditedCentsOf } from "./settlement";
 import type { ModelCtx, ReadCtx } from "./types";
@@ -545,6 +549,15 @@ export interface SettlementChange {
  */
 export async function onSettlementChanged(ctx: ModelCtx, change: SettlementChange): Promise<void> {
   await dunningOnSettlementChanged(ctx, change);
+  // NTF-007 (F12 §4.8 `invoice.paid`): raised here, so payments recorded via UI, REST, MCP or bank matching notify.
+  if (change.after.paymentStatus === "paid" && change.before.paymentStatus !== "paid") {
+    const doc = await ctx.db.get(change.documentId);
+    await notifyKind(ctx, "invoice.paid", {
+      title: doc?.number ? `Rechnung ${doc.number} ist vollständig bezahlt` : "Rechnung vollständig bezahlt",
+      link: `/rechnungen/${change.documentId}`,
+      entity: { table: "salesDocuments", id: change.documentId },
+    });
+  }
 }
 
 async function refreshTarget(ctx: ModelCtx, row: { target: PaymentTargetRef }, settles: number, action: string) {
@@ -597,6 +610,7 @@ const groupId = (now: number) => `pg_${now.toString(36)}_${Math.floor(Math.rando
  * reason, `period_locked`, or `invalid_input`/`WARNINGS_UNACKNOWLEDGED` when a ⚑ warning was not acknowledged.
  */
 export async function recordPayment(ctx: ModelCtx, args: RecordArgs): Promise<RecordResult> {
+  await assertClockOk(ctx); // AUD-019 / EC-027: no business date while the clock is off by > 60 s
   const { plan, targets, tx } = await planFor(ctx, args, ctx.now());
   const missing = unacknowledged(plan, args.acknowledgeWarnings ?? []);
   if (missing.length > 0) {
@@ -660,6 +674,14 @@ export async function recordPayment(ctx: ModelCtx, args: RecordArgs): Promise<Re
   }
   if (args.source.kind === "bank" && plan.totalCents > 0) {
     await applyAllocation(ctx, { transactionId: args.source.transactionId, deltaCents: plan.totalCents });
+  }
+  // NTF-007 `payment.received` (info, in-app): one per recorded payment source and day.
+  if (plan.totalCents > 0 && ids[0]) {
+    await notifyKind(ctx, "payment.received", {
+      title: `Zahlung über ${formatEuro(plan.totalCents)} erfasst`,
+      link: plan.rows[0]?.target.kind === "salesDocument" ? `/rechnungen/${plan.rows[0].target.id}` : "/bank",
+      entity: { table: "payments", id: ids[0] },
+    });
   }
   return {
     paymentIds: ids,
@@ -1213,6 +1235,11 @@ export interface InvoicePaymentInput {
 export async function invoicePaymentArgs(ctx: ReadCtx, input: InvoicePaymentInput): Promise<RecordArgs> {
   const doc = await ctx.db.get(input.documentId);
   if (!doc) throw appError("not_found", "Die Rechnung existiert nicht.");
+  // PAY-034 / EC-121: a cancelled invoice (open amount 0) takes no payment — say why instead of „Betrag übersteigt…".
+  if (doc.status === "cancelled" || doc.type === "cancellation") {
+    throw appError("invalid_input", PAY_MESSAGES.cancelled, { reason: "CANCELLED" });
+  }
+  if (doc.status === "draft") throw appError("invalid_input", PAY_MESSAGES.draft, { reason: "DRAFT" });
   if (doc.paymentStatus === "written_off") {
     throw appError("invalid_input", PAY_MESSAGES.writtenOff, { reason: "WRITTEN_OFF" });
   }
@@ -1335,4 +1362,70 @@ export async function openItemsAsOf(
     ...(args.edges ? { edges: args.edges } : {}),
     contactNames: names,
   });
+}
+
+// ── PAY-004 per-customer view (Kontakt › „Offene Posten") ──────────────────────────────────────────────────────
+
+const HISTORY_LIMIT = 200;
+
+/**
+ * Open items and credit (as of today), payment history and the average days to pay of one contact. An organisation
+ * includes the documents and payments of its persons (a person under an organisation bills it, CON-009).
+ */
+export async function contactReceivables(ctx: ReadCtx, contactId: Id<"contacts">, today: string) {
+  const persons = await ctx.db
+    .query("contacts")
+    .withIndex("by_parent", (q) => q.eq("parentId", contactId))
+    .collect();
+  const ids = [contactId, ...persons.map((p) => p._id)];
+  const items: Awaited<ReturnType<typeof openItemsAsOf>>["items"] = [];
+  const totals = { openCents: 0, overdueCents: 0, dueWithin7Cents: 0 };
+  const payments: PaymentDoc[] = [];
+  const paid: PaidInvoice[] = [];
+  let creditCents = 0;
+  for (const cid of ids) {
+    const open = await openItemsAsOf(ctx, { asOf: today, contactId: cid });
+    items.push(...open.items);
+    totals.openCents += open.totals.openCents;
+    totals.overdueCents += open.totals.overdueCents;
+    totals.dueWithin7Cents += open.totals.dueWithin7Cents;
+    creditCents += await creditBalance(ctx, cid);
+    payments.push(
+      ...(await ctx.db
+        .query("payments")
+        .withIndex("by_contact", (q) => q.eq("contactId", cid))
+        .collect()),
+    );
+    for (const d of await ctx.db
+      .query("salesDocuments")
+      .withIndex("by_contact", (q) => q.eq("contactId", cid))
+      .collect()) {
+      if (!PAYABLE_TYPES.has(d.type) || d.paymentStatus !== "paid" || !d.documentDate) continue;
+      const st = await documentSettlement(ctx, d._id);
+      if (st.paidOn && st.receivedCents > 0) paid.push({ documentDate: d.documentDate, paidOn: st.paidOn });
+    }
+  }
+  items.sort((a, b) => (a.dueDate ?? a.documentDate).localeCompare(b.dueDate ?? b.documentDate));
+  payments.sort((a, b) => b.date.localeCompare(a.date) || b.recordedAt - a.recordedAt);
+  return {
+    items,
+    totals,
+    creditCents,
+    averageDaysToPay: averageDaysToPay(paid),
+    paidInvoices: paid.length,
+    truncated: payments.length > HISTORY_LIMIT,
+    payments: payments.slice(0, HISTORY_LIMIT).map((p) => ({
+      paymentId: p._id,
+      date: p.date,
+      number: p.number ?? null,
+      targetKind: p.target.kind,
+      targetId: p.target.id as string,
+      amountCents: p.amountCents,
+      differencesCents: p.differences.reduce((x, d) => x + d.amountCents, 0),
+      currency: p.currency,
+      source: p.source.kind,
+      reversed: p.reversedById !== undefined,
+      reversal: p.reversalOfId !== undefined,
+    })),
+  };
 }

@@ -188,6 +188,8 @@
         "open": "Offen",
         "partiallyPaid": "Teilbezahlt",
         "rowLabel": "{label}: {count, plural, one {# Rechnung} other {# Rechnungen}}, {amount}",
+        "dueWithin7": "davon in 7 Tagen fällig ({count})",
+        "credit": "Kundenguthaben",
         "create": "Rechnung schreiben"
       },
       "ku": {
@@ -200,6 +202,15 @@
         "noRule": "Für {year} ist noch keine Umsatzgrenze hinterlegt.",
         "warn": "Grenze zu {percent} % erreicht",
         "exceeded": "Grenze überschritten – bitte Steuerstatus prüfen"
+      },
+      "monitors": {
+        "title": "Umsatzgrenzen",
+        "kuPrior": "Gesamtumsatz {year} (Vorjahr)",
+        "kuPriorLabel": "Gesamtumsatz {year}: {percent} % der Vorjahresgrenze von {limit}",
+        "kuPriorHint": "Liegt der Vorjahresumsatz über {limit}, gilt die Kleinunternehmerregelung im laufenden Jahr nicht.",
+        "oss": "EU-Fernverkäufe an Privatkunden (laufendes Jahr)",
+        "ossLabel": "EU-Fernverkäufe: {percent} % der Lieferschwelle von {limit}",
+        "ossHint": "Vorjahr: {prior}. Oberhalb von {limit} gilt die Umsatzsteuer des Bestimmungslands (OSS); solche Rechnungen werden gesperrt."
       },
       "bank": {
         "title": "Bank",
@@ -218,6 +229,7 @@
         "medium": "Gut",
         "complete": "Vollständig",
         "unassigned": "Zahlungen ohne Zuordnung: {count}",
+        "stale": "{count, plural, one {# Zahlung ist} other {# Zahlungen sind}} seit mehr als {days} Tagen nicht zugeordnet (zeitgerechte Erfassung, GoBD).",
         "action": "Zuordnen",
         "explanation": "Anteil Ihrer Bankumsätze, die einer Rechnung, Zahlung oder Buchung zugeordnet sind. Ignorierte Umsätze zählen nicht mit.",
         "empty": "Noch keine Bankumsätze vorhanden."
@@ -636,7 +648,14 @@
         "quote": "Angebot",
         "reminder": "Mahnung",
         "delivery_note": "Lieferschein"
-      }
+      },
+      "versions": "Versionen",
+      "historyTitle": "Versionen von „{name}“",
+      "historyDescription": "Jede Änderung ist eine eigene Version. Fertiggestellte Belege behalten ihre Version; Wiederherstellen legt eine neue Version mit den alten Einstellungen an.",
+      "current": "aktuell",
+      "usedBy": "in {count, plural, one {# Beleg} other {# Belegen}} verwendet",
+      "restore": "Diese Version wiederherstellen",
+      "restored": "Version {from} als Version {to} wiederhergestellt."
     },
     "textTemplates": {
       "title": "Textvorlagen",
@@ -838,6 +857,7 @@
       "operationsTitle": "Betrieb",
       "operationsDescription": "Serverstandort, Zugriffskonzept und Wiederherstellungsproben (monatlich).",
       "securityLink": "Sicherheit",
+      "backupsLink": "Datensicherungen",
       "serverLocation": "Serverstandort",
       "accessConcept": "Zugriffskonzept",
       "accessConceptValue": "Nur im Tailnet unter {domain}",
@@ -883,6 +903,62 @@
     "verfahrensdoku": {
       "stand": "Stand: {date}. Erzeugt aus den erfassten Einstellungen.",
       "download": "Als Markdown herunterladen"
+    },
+    "numberRegister": {
+      "title": "Nummernregister",
+      "description": "Alle vergebenen Nummern eines Nummernkreises mit Status und Beleg sowie der Lückenbericht (GoBD).",
+      "range": "Nummernkreis",
+      "period": "Zeitraum",
+      "allPeriods": "Alle Zeiträume",
+      "status": "Status",
+      "allStatuses": "Alle",
+      "number": "Nummer",
+      "type": "Art",
+      "assignedAt": "Vergeben am",
+      "document": "Beleg",
+      "open": "Öffnen",
+      "imported": "importiert",
+      "empty": "Keine Nummern in dieser Auswahl.",
+      "csv": "Als CSV herunterladen",
+      "gaps": "Lückenbericht",
+      "noGaps": "Keine Lücken.",
+      "gapRange": "{from}–{to}",
+      "unexplained": "unerklärt",
+      "truncated": "Es werden die ersten 5.000 Einträge berücksichtigt.",
+      "back": "Zurück zu den Nummernkreisen"
+    },
+    "rules": {
+      "overridesTitle": "Eigene Überschreibungen",
+      "overridesDescription": "Zusätzliche Zeilen zu den ausgelieferten Regeltabellen, z. B. ein neuer Basiszinssatz vor dem nächsten Update. Eine Überschreibung gilt in ihrem Zeitraum vor der ausgelieferten Regel. Wurde sie in einem fertiggestellten Dokument verwendet, ist sie gesperrt; korrigieren Sie sie mit einer neuen Zeile.",
+      "noOverrides": "Keine eigenen Überschreibungen.",
+      "add": "Überschreibung hinzufügen",
+      "addTitle": "Überschreibung hinzufügen",
+      "addDescription": "Gilt ab dem Datum für alle danach fertiggestellten Dokumente. Bitte die Quelle angeben.",
+      "added": "Überschreibung gespeichert.",
+      "ruleSet": "Regelart",
+      "table": "Regel",
+      "validFrom": "Gültig ab",
+      "validTo": "Gültig bis (optional)",
+      "rate": "Satz in %",
+      "textDe": "Hinweistext (Deutsch)",
+      "textEn": "Hinweistext (Englisch)",
+      "sourceField": "Quelle",
+      "sourceHint": "Link oder Fundstelle, z. B. die Bundesbank-Mitteilung.",
+      "source": "Quelle",
+      "validity": "Gültigkeit",
+      "value": "Wert",
+      "origin": "Herkunft",
+      "originCode": "Release",
+      "originOverride": "Überschreibung",
+      "current": "aktuell",
+      "open": "offen",
+      "locked": "gesperrt",
+      "delete": "Löschen",
+      "deleteTitle": "Überschreibung „{label}“ löschen?",
+      "deleteDescription": "Nur möglich, solange kein fertiggestelltes Dokument die Überschreibung verwendet hat. Die Löschung wird protokolliert.",
+      "reason": "Begründung (mindestens 5 Zeichen)",
+      "deleted": "Überschreibung gelöscht.",
+      "showTables": "{count, plural, one {# Tabelle anzeigen} other {# Tabellen anzeigen}}"
     }
   },
   "auth": {
@@ -1154,6 +1230,10 @@
       "kuYes": "Ja, Kleinunternehmer",
       "kuNo": "Nein, Regelbesteuerung",
       "kuSince": "Kleinunternehmer seit",
+      "kuWaiverDate": "Verzicht auf die Kleinunternehmerregelung erklärt am",
+      "kuWaiverDateHint": "Nur ausfüllen, wenn Sie gegenüber dem Finanzamt nach § 19 Abs. 3 UStG verzichtet haben. Der Verzicht bindet 5 Kalenderjahre.",
+      "kuReason": "Begründung für die Änderung",
+      "kuReasonHint": "Nur nötig, wenn die Änderung bereits fertiggestellte Rechnungen betrifft oder eine Verzichtsbindung aufhebt.",
       "method": "Versteuerung",
       "methodSoll": "Soll-Versteuerung (nach vereinbarten Entgelten)",
       "methodSollHint": "Umsatzsteuer entsteht mit der Leistung — der Normalfall.",
@@ -1320,7 +1400,33 @@
     "acknowledgeDescription": "Beschreiben Sie Ursache und Maßnahmen. Die Bestätigung ändert keine Daten und wird protokolliert; danach ist das Fertigstellen wieder möglich.",
     "note": "Notiz",
     "acknowledgeConfirm": "Bestätigen",
-    "acknowledged": "Integritätsfehler bestätigt."
+    "acknowledged": "Integritätsfehler bestätigt.",
+    "clockWarning": "Uhrzeit-Abweichung: {detail} Bitte die Zeitsynchronisation (NTP) des Servers prüfen.",
+    "clockError": "Uhrzeit-Abweichung: {detail} Fertigstellen, Stornieren, Versandmarkierungen und Zahlungen sind gesperrt, bis die Serveruhr korrigiert ist.",
+    "panel": {
+      "title": "Integritätsstatus",
+      "description": "Hash-Kette des Änderungsprotokolls, signierte Prüfpunkte und Serveruhr (GoBD, Unveränderbarkeit).",
+      "lastRun": "Letzte Prüfung",
+      "never": "Noch keine Prüfung",
+      "runOk": "{date}: in Ordnung ({scope})",
+      "runFailed": "{date}: {count, plural, one {# Befund} other {# Befunde}} ({scope})",
+      "scopes": {
+        "incremental": "inkrementell",
+        "full": "vollständig",
+        "startup": "Startprüfung"
+      },
+      "checkpoint": "Letzter signierter Prüfpunkt",
+      "noCheckpoint": "Noch kein Prüfpunkt",
+      "checkpointValue": "{date} · bis seq {seq}",
+      "uploaded": "extern gespeichert: {target}",
+      "notUploaded": "noch nicht extern gespeichert",
+      "head": "Protokollkopf",
+      "headValue": "seq {seq} · {hash}",
+      "noHead": "Noch keine Einträge",
+      "clock": "Serveruhr",
+      "clockUnknown": "Noch nicht gemessen (CLOCK_REFERENCE_URL nicht gesetzt)",
+      "findingsLabel": "Befunde der letzten Prüfung"
+    }
   },
   "accounting": {
     "amountLabel": "Betrag in Euro",
@@ -1367,6 +1473,8 @@
       "searchPlaceholder": "Nummer oder Bezeichnung",
       "usedOnly": "Nur bebuchte Konten",
       "tableLabel": "Konten",
+      "incomplete": "unvollständig (P1)",
+      "incompleteHint": "Bankumsätze ohne Rechnungszuordnung werden erst mit der Belegbuchung (P2) gebucht. Der Saldo dieses Bankkontos im Journal ist bis dahin unvollständig.",
       "columns": {
         "number": "Konto",
         "name": "Bezeichnung",
@@ -1632,7 +1740,8 @@
         "master": "Stammdaten",
         "addresses": "Adressen & Kommunikation",
         "tax": "Steuer & E-Rechnung",
-        "persons": "Ansprechpartner"
+        "persons": "Ansprechpartner",
+        "receivables": "Offene Posten"
       },
       "facts": "Eckdaten",
       "number": "Nummer",
@@ -1936,7 +2045,10 @@
       "saved": "Produkt gespeichert.",
       "warnings": "Hinweise",
       "clearExtraUnitsTitle": "Basiseinheit ändern?",
-      "clearExtraUnitsConfirm": "Zusatzeinheiten entfernen und speichern"
+      "clearExtraUnitsConfirm": "Zusatzeinheiten entfernen und speichern",
+      "revenueAccountOverride": "Erlöskonto (abweichend)",
+      "revenueAccountDefault": "Standard laut Kontenrahmen",
+      "revenueAccountHint": "Gilt nur für Inlandspositionen (19 %, 7 %, 0 %, steuerfrei). Bei EU-, Export-, § 13b- und Kleinunternehmer-Positionen wird das Standardkonto verwendet. Ein Automatikkonto muss zum Steuersatz passen."
     },
     "detail": {
       "tabs": {
@@ -2193,6 +2305,16 @@
       "bic": "BIC",
       "holder": "Kontoinhaber",
       "showOnInvoices": "Auf Rechnungen angeben",
+      "kind": "Kontoart",
+      "kinds": {
+        "bank": "Bankkonto",
+        "clearing": "Verrechnungskonto",
+        "paypal": "PayPal"
+      },
+      "ledgerAccount": "Finanzkonto (optional)",
+      "ledgerAccountHint": "Leer lassen für das nächste freie Konto im Kontenrahmen (SKR03 1200–1299, SKR04 1800–1899).",
+      "openingDate": "Anfangsbestand zum (optional)",
+      "openingAmount": "Anfangsbestand in Kontowährung (optional)",
       "saved": "Bankkonto angelegt."
     },
     "statements": {
@@ -2506,11 +2628,6 @@
       "action": "Erste Rechnung erstellen",
       "draft": "Entwurf",
       "loadMore": "Weitere laden",
-      "invoicingDeadline": {
-        "warning": "Rechnung fällig",
-        "escalation": "Rechnungsfrist überschritten",
-        "hint": "§ 14 Abs. 2 UStG: Rechnung innerhalb von 6 Monaten nach der Lieferung"
-      },
       "columns": {
         "status": "Status",
         "number": "Nummer",
@@ -2564,6 +2681,11 @@
           "noResults": "Keine Lieferscheine gefunden.",
           "action": "Ersten Lieferschein erstellen"
         }
+      },
+      "invoicingDeadline": {
+        "warning": "Rechnung fällig",
+        "escalation": "Rechnungsfrist überschritten",
+        "hint": "§ 14 Abs. 2 UStG: Rechnung innerhalb von 6 Monaten nach der Lieferung"
       }
     },
     "todos": {
@@ -2647,6 +2769,12 @@
       "flags": "Optionen",
       "kleinbetrag": "Kleinbetragsrechnung (bis 250 € brutto)",
       "constructionWork": "Bauleistung",
+      "marginScheme": "Differenzbesteuerung (§ 25a UStG) oder Reiseleistung (§ 25 UStG)",
+      "kuSwitch": "Steuerstatus jetzt umstellen",
+      "kuSwitchTitle": "Kleinunternehmergrenze überschritten",
+      "kuSwitchDescription": "Mit dieser Rechnung wird die Umsatzgrenze nach § 19 Abs. 1 UStG überschritten. Ab dem Leistungsdatum gilt die Regelbesteuerung: Diese und alle folgenden Rechnungen werden mit Umsatzsteuer ausgestellt. Der Eintrag wird im Steuerstatus gespeichert und protokolliert.",
+      "kuSwitchConfirm": "Regelbesteuerung eintragen",
+      "kuSwitched": "Regelbesteuerung eingetragen – die Rechnung wird jetzt mit Umsatzsteuer berechnet.",
       "showEpcQr": "Überweisungs-QR-Code drucken",
       "taxCase": "Steuerfall",
       "er03": "E-Rechnungspflicht",
@@ -2683,7 +2811,12 @@
         "up": "Position {n} nach oben",
         "down": "Position {n} nach unten",
         "remove": "Position {n} entfernen",
-        "optional": "Optionale Position (nicht in der Summe)"
+        "optional": "Optionale Position (nicht in der Summe)",
+        "revenueAccount": "Erlöskonto",
+        "revenueAccountDefault": "Standard",
+        "revenueAccountHint": "Nur für Inlandspositionen; vom Produkt übernommen.",
+        "costCenter": "Kostenstelle",
+        "costCenterDocument": "wie Beleg"
       },
       "deliveryDate": "Lieferdatum",
       "supplyIsDocumentDateLetter": "Leistungsdatum = Belegdatum",
@@ -2697,7 +2830,12 @@
       "pricesHidden": "Der Lieferschein wird ohne Preise gedruckt; die Preise bleiben für die Rechnung erhalten.",
       "finalizeTitleDoc": "{label} fertigstellen?",
       "finalizeDescriptionLetter": "Der Beleg erhält seine Nummer und das heutige Datum und kann danach nicht mehr geändert werden (GoBD). Änderungen erfolgen über eine neue Version oder einen neuen Beleg.",
-      "finalizedDoc": "{label} {number} fertiggestellt."
+      "finalizedDoc": "{label} {number} fertiggestellt.",
+      "costCenter": "Kostenstelle",
+      "costCenterNone": "Keine Kostenstelle",
+      "tags": "Tags",
+      "layout": "Layout",
+      "layoutDefault": "Standard der Belegart ({name})"
     },
     "detail": {
       "notFound": "Rechnung nicht gefunden.",
@@ -2745,7 +2883,15 @@
       "retract": "Zurücknehmen",
       "retractTitle": "Versandmarkierung zurücknehmen?",
       "retractHint": "Die Markierung bleibt protokolliert. Bitte begründen, warum sie zurückgenommen wird.",
-      "retractDone": "Markierung zurückgenommen."
+      "retractDone": "Markierung zurückgenommen.",
+      "registerAssigned": "vergeben am {at}",
+      "registerStatus": {
+        "issued": "ausgegeben",
+        "cancelled_by_storno": "storniert",
+        "corrected": "korrigiert"
+      },
+      "registerImported": "importiert",
+      "registerLink": "Im Nummernregister anzeigen"
     },
     "mark": {
       "title": "Als versendet markieren",
@@ -2759,6 +2905,49 @@
       "electronic": "Elektronisch übermittelt",
       "note": "Hinweis",
       "files": "Übergebene Dateien"
+    },
+    "bulk": {
+      "label": "Sammelaktionen",
+      "selectAll": "Alle auswählen",
+      "select": "{label} auswählen",
+      "selected": "{count} ausgewählt",
+      "tooMany": "Höchstens {max} Dokumente pro Auftrag.",
+      "export": "Sammel-Export",
+      "mark": "Sammel-Markierung",
+      "started": "Der Auftrag läuft im Hintergrund.",
+      "toJobs": "Zu den Exporten",
+      "markTitle": "{count} Dokumente als versendet markieren",
+      "markHint": "Jedes Dokument wird einzeln mit den Dateien seines Standard-Exports geprüft. Nicht markierbare Dokumente werden übersprungen und im Auftrag aufgelistet.",
+      "sentOn": "Versendet am",
+      "channel": "Kanal",
+      "note": "Notiz (optional)",
+      "cancel": "Abbrechen",
+      "markConfirm": "Markieren"
+    },
+    "duplicate": {
+      "label": "Duplizieren",
+      "done": "Kopie als Entwurf angelegt."
+    },
+    "attachments": {
+      "title": "Anhänge und Nachweise",
+      "empty": "Keine Anhänge.",
+      "includeInExport": "Im Export-ZIP",
+      "embedInXml": "In E-Rechnung einbetten",
+      "download": "{name} herunterladen",
+      "remove": "{name} entfernen",
+      "removed": "Anhang entfernt.",
+      "added": "Anhang hinzugefügt.",
+      "add": "Anhang hinzufügen (höchstens {max})",
+      "hint": "PDF, PNG, JPEG, XLSX, CSV oder TXT, je Datei höchstens 10 MB. Anhänge werden mit dem Fertigstellen eingefroren.",
+      "frozen": "Anhänge sind mit dem Fertigstellen eingefroren (Prüfsumme im Beleg-Snapshot).",
+      "evidenceTitle": "Nachweise",
+      "evidenceHint": "Nachweise (z. B. Gelangensbestätigung, CMR, Ausfuhrnachweis) werden nach dem Fertigstellen ergänzt. Sie sind nicht Teil des Belegs und können nicht gelöscht werden.",
+      "kind": "Art des Nachweises",
+      "file": "Datei",
+      "note": "Notiz (optional)",
+      "fileMissing": "Bitte eine Datei auswählen.",
+      "evidenceAdd": "Nachweis hinzufügen",
+      "evidenceAdded": "Nachweis hinzugefügt."
     }
   },
   "documents": {
@@ -2897,6 +3086,10 @@
       "reason": "Grund (wird auf der Stornorechnung gedruckt, optional)",
       "done": "Stornorechnung {number} erstellt.",
       "xmlInvalid": "Die E-Rechnung der Stornorechnung ist ungültig."
+    },
+    "paidStorno": {
+      "correction": "Rechnungskorrektur erstellen",
+      "payments": "Zahlungszuordnung prüfen"
     },
     "chain": {
       "nextAdvance": "Weitere Abschlagsrechnung",
@@ -3064,6 +3257,30 @@
         "open": "Offen",
         "status": "Status"
       }
+    },
+    "contactReceivables": {
+      "summary": "Übersicht",
+      "open": "Offen",
+      "overdue": "Davon überfällig",
+      "credit": "Guthaben",
+      "averageDaysToPay": "Ø Zahlungsdauer",
+      "noPaidInvoices": "Noch keine bezahlten Rechnungen",
+      "days": "{days} Tage (aus {count, plural, one {# Rechnung} other {# Rechnungen}})",
+      "items": "Offene Posten",
+      "noItems": "Keine offenen Posten.",
+      "number": "Nummer",
+      "date": "Datum",
+      "due": "Fällig",
+      "openAmount": "Offen",
+      "overdueDays": "{days, plural, one {# Tag} other {# Tage}} überfällig",
+      "history": "Zahlungshistorie",
+      "noPayments": "Noch keine Zahlungen erfasst.",
+      "source": "Quelle",
+      "amount": "Betrag",
+      "creditRow": "Guthaben",
+      "reversed": "storniert",
+      "reversal": "Storno",
+      "truncated": "Es werden die letzten 200 Zahlungen angezeigt."
     }
   },
   "recurring": {
@@ -3813,6 +4030,199 @@
     "protocolCreate": "Protokoll erzeugen",
     "protocolCreated": "Importprotokoll erzeugt.",
     "failed": "Der Import wurde abgebrochen: {error}"
+  },
+  "notificationCenter": {
+    "bell": "Benachrichtigungen",
+    "bellUnread": "Benachrichtigungen, {count} ungelesen",
+    "filterSeverity": "Schweregrad",
+    "all": "Alle",
+    "unreadOnly": "Nur ungelesene",
+    "markAllRead": "Alle als gelesen markieren",
+    "allMarked": "Alle Benachrichtigungen als gelesen markiert.",
+    "markRead": "Gelesen",
+    "markReadLabel": "„{title}“ als gelesen markieren",
+    "unread": "Neu",
+    "count": "{count}× aufgetreten",
+    "loading": "Wird geladen …",
+    "empty": "Keine Benachrichtigungen.",
+    "emptyHint": "Hinweise zu Fristen, Zahlungen und dem Systemzustand erscheinen hier.",
+    "listLabel": "Benachrichtigungen",
+    "severity": {
+      "critical": "Kritisch",
+      "error": "Fehler",
+      "warning": "Warnung",
+      "info": "Info"
+    },
+    "settings": {
+      "loading": "Wird geladen …",
+      "saved": "Gespeichert.",
+      "matrixTitle": "Kanäle je Benachrichtigungsart",
+      "matrixHint": "Kritische Meldungen gehen immer in der App und per E-Mail ein und können nicht abbestellt werden.",
+      "kind": "Art",
+      "channel": {
+        "inApp": "In der App",
+        "email": "E-Mail",
+        "ntfy": "ntfy",
+        "digest": "Zusammenfassung"
+      },
+      "severity": {
+        "critical": "Kritisch",
+        "error": "Fehler",
+        "warning": "Warnung",
+        "info": "Info"
+      },
+      "locked": "nicht abbestellbar",
+      "lockedHint": "Kritische Meldungen können nicht abbestellt werden.",
+      "emailTitle": "E-Mail-Adresse für Benachrichtigungen",
+      "emailHint": "Versand über Cloudflare Email Sending. Die E-Mail enthält nur einen kurzen Hinweis und den Link in die App.",
+      "emailMissing": "Noch keine Adresse hinterlegt (Einrichtung › Benachrichtigungen).",
+      "ntfyTitle": "ntfy (Push-Benachrichtigungen)",
+      "ntfyHint": "Empfohlen ist ein selbst betriebener ntfy-Server. Standardmäßig werden keine Kundennamen oder Beträge übertragen.",
+      "ntfyServer": "Server-Adresse",
+      "ntfyTopic": "Thema",
+      "ntfyToken": "Zugangstoken (optional)",
+      "ntfyTokenSet": "Gespeichert – leer lassen, um es zu behalten",
+      "ntfyDetails": "Details senden",
+      "ntfyDetailsHint": "Mit „Details senden“ enthalten Push-Nachrichten und E-Mails Titel und Text der Benachrichtigung, z. B. Kundennamen und Beträge.",
+      "ntfyPublicWarning": "ntfy.sh ist ein externer Dienst außerhalb Ihrer Kontrolle. Bitte im Verzeichnis der externen Dienste dokumentieren und „Details senden“ ausgeschaltet lassen (DSGVO).",
+      "ntfyFailing": "ntfy-Benachrichtigungen konnten nicht zugestellt werden.",
+      "ntfyTest": "Test senden",
+      "ntfyRemove": "ntfy entfernen",
+      "ntfyRemoved": "ntfy entfernt.",
+      "save": "Speichern"
+    }
+  },
+  "audit": {
+    "seq": "seq",
+    "reason": "Begründung",
+    "showDiff": "Änderungen anzeigen",
+    "before": "Vorher",
+    "after": "Nachher",
+    "channel": {
+      "ui": "App",
+      "api": "API",
+      "mcp": "MCP",
+      "cron": "Zeitplan",
+      "system": "System",
+      "import": "Import",
+      "portal": "Portal"
+    },
+    "channelLabel": "Kanal",
+    "presets": "Schnellfilter",
+    "apiKeyPreset": "API-Schlüssel {name}",
+    "from": "Von",
+    "to": "Bis",
+    "actorKind": "Akteur",
+    "actorKinds": {
+      "user": "Mitglied",
+      "api-key": "API-Schlüssel",
+      "mcp": "Claude (MCP)",
+      "system": "System"
+    },
+    "all": "Alle",
+    "entityTable": "Tabelle",
+    "text": "Suche",
+    "head": "Kettenende: seq {seq} · {hash}",
+    "chainOk": "Protokollkette verifiziert bis seq {seq} (aktuell seq {head}).",
+    "chainFailed": "Letzte Integritätsprüfung mit Befunden (verifiziert bis seq {seq}, aktuell seq {head}).",
+    "chainNever": "Die Protokollkette wurde noch nicht geprüft (aktuell seq {head}).",
+    "exportCsv": "Export CSV",
+    "exportJson": "Export JSON",
+    "loading": "Wird geladen …",
+    "empty": "Keine Protokolleinträge für diese Filter.",
+    "emptyHint": "Ändern Sie den Zeitraum oder die Filter.",
+    "listLabel": "Protokolleinträge",
+    "more": "Ältere Einträge laden",
+    "historyTitle": "Verlauf",
+    "historyEmpty": "Noch keine Protokolleinträge."
+  },
+  "exports": {
+    "menu": "Export",
+    "menuLabel": "Export als CSV",
+    "excel": "CSV (Excel)",
+    "technical": "CSV (technisch)",
+    "downloaded": "{rows} Zeilen exportiert.",
+    "jobStarted": "{rows} Zeilen – der Export läuft im Hintergrund.",
+    "toJobs": "Zu den Exporten",
+    "noJobs": "Noch keine Export-Aufträge.",
+    "noJobsHint": "Große Exporte (über 5.000 Zeilen) und Sammel-Exporte erscheinen hier und bleiben 30 Tage herunterladbar.",
+    "jobsLabel": "Export-Aufträge",
+    "progress": "{label}: {pct} %",
+    "skipped": "{count} übersprungen",
+    "download": "{name} herunterladen",
+    "cancel": "Abbrechen",
+    "cancelled": "Auftrag abgebrochen.",
+    "full": {
+      "title": "Vollexport",
+      "description": "Alle Tabellen als NDJSON, alle gespeicherten Dateien (PDF, XML, Belege, Anhänge) mit SHA-256, Manifest mit Prüfkettenkopf und eine Anleitung (README) in einer ZIP-Datei – lesbar ohne die Anwendung.",
+      "snapshotNote": "Die wiederherstellbare Sicherung ist die tägliche Datensicherung (convex-export). Der Vollexport ist die lesbare Kopie für die Aufbewahrung; bewahren Sie ihn in der EU auf (§ 146 Abs. 2 AO).",
+      "start": "Vollexport erstellen",
+      "started": "Der Vollexport läuft im Hintergrund. Sie werden benachrichtigt."
+    }
+  },
+  "privacy": {
+    "tabs": {
+      "services": "Externe Dienste",
+      "retention": "Aufbewahrung",
+      "art30": "Verzeichnis (Art. 30)",
+      "requests": "Anfragen"
+    },
+    "requestsLater": "Das Register für Datenschutzanfragen (Auskunft, Löschung, Sperrung) folgt in einer späteren Version. Anfragen bitte bis dahin außerhalb der App dokumentieren.",
+    "servicesLabel": "Externe Dienste",
+    "avvConfirmed": "AVV bestätigt am {date}",
+    "avvMissing": "AVV fehlt",
+    "data": "Daten",
+    "dpaLink": "Auftragsverarbeitungsvertrag des Anbieters",
+    "confirm": "AVV für {name} bestätigen",
+    "withdraw": "Bestätigung zurücknehmen",
+    "confirmed": "AVV-Bestätigung gespeichert.",
+    "withdrawn": "AVV-Bestätigung zurückgenommen.",
+    "retentionHint": "Aufbewahrungsfristen nach § 147 AO und § 257 HGB (Regeltabelle {version}). Die Frist endet am 31.12. des Jahres der Entstehung plus Jahre; vorher wird nichts gelöscht.",
+    "class": "Klasse",
+    "years": "Jahre",
+    "records": "Datensätze",
+    "download": "Als Datei herunterladen",
+    "controller": "Verantwortlicher",
+    "purpose": "Zweck",
+    "legalBasis": "Rechtsgrundlage",
+    "recipients": "Empfänger",
+    "thirdCountry": "Drittlandübermittlung",
+    "retention": "Löschfrist"
+  },
+  "backups": {
+    "title": "Datensicherungen",
+    "description": "Neueste Sicherung je Quelle im R2-Backup-Bucket (nur lesender Zugriff). Grenzen: Datenbank und Convex-Export über 26 Stunden Warnung, über 50 Stunden Fehler; Convex-Volume über 8 Tage Warnung.",
+    "notConfigured": "Nicht eingerichtet: Für die Anzeige werden R2_BACKUP_BUCKET und ein nur lesender Zugang (R2_BACKUP_READONLY_ACCESS_KEY_ID, R2_BACKUP_READONLY_SECRET_ACCESS_KEY) in der Convex-Umgebung benötigt.",
+    "sources": "Sicherungen",
+    "status": {
+      "ok": "Aktuell",
+      "warning": "Veraltet",
+      "error": "Fehlt oder zu alt",
+      "unknown": "Unbekannt"
+    },
+    "checkpointLatest": "Letzter Prüfpunkt im Prüfpunkt-Bucket: {date}.",
+    "checkpointNone": "Im Prüfpunkt-Bucket liegt noch kein Prüfpunkt.",
+    "bucketLock": {
+      "present": "Bucket-Sperre (Aufbewahrungsregel) ist aktiv.",
+      "absent": "Keine Bucket-Sperre eingerichtet (empfohlen, nicht erforderlich).",
+      "unknown": "Ob eine Bucket-Sperre besteht, ist mit diesem Zugang nicht lesbar."
+    },
+    "refresh": "Neu prüfen"
+  },
+  "verfahrensdoku": {
+    "diffLine": "{label}: {before} → {after}",
+    "optional": "optional",
+    "save": "Angaben speichern",
+    "saved": "Angaben gespeichert.",
+    "release": "Freigeben",
+    "released": "Version {version} freigegeben.",
+    "versions": "Freigegebene Versionen",
+    "noVersions": "Noch keine Version freigegeben.",
+    "versionLine": "Version {version}, gültig ab {validFrom} (freigegeben {at})",
+    "superseded": "abgelöst",
+    "current": "aktuell",
+    "needsUpdate": "Aktualisierung erforderlich",
+    "download": "Version {version} herunterladen"
   },
   "einvoiceView": {
     "invoice": "Rechnung {number}",

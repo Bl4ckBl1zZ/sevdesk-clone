@@ -13,6 +13,7 @@ import { getCompanyProfile } from "./model/companyProfile";
 import {
   applyCredit as applyCreditModel,
   attachReceipt,
+  contactReceivables as contactReceivablesModel,
   creditBalance,
   documentSettlement,
   invoicePaymentArgs,
@@ -206,6 +207,13 @@ export const openItems = query({
     const items = r.items.filter((i) => (!a.overdueOnly || i.overdue) && (!a.bucket || i.bucket === a.bucket));
     return { ...r, items, today };
   },
+});
+
+/** PAY-004: Kontakt › „Offene Posten": open items, payment history, credit and average days to pay. */
+export const contactReceivables = query({
+  permission: "payments.read",
+  args: { contactId: v.id("contacts") },
+  handler: async (ctx, { contactId }) => contactReceivablesModel(ctx, contactId, berlinCalendarDate(ctx.now())),
 });
 
 export const contactCredit = query({

@@ -1,6 +1,8 @@
 import { describe, expect, test } from "vitest";
+import { differenceWire } from "../schemas/api/payments";
 import {
   allocationsForInvoice,
+  DIFFERENCE_REASONS,
   limitationDate,
   type PaymentInput,
   type PlanContext,
@@ -68,6 +70,29 @@ describe("planPayment (F05 §4.1, PAY-010 ff.)", () => {
   test("T05-011 PAY-012 partial payment leaves the remainder open", () => {
     const r = planPayment(pay(50000), ctx());
     expect(r.ok && r.value.rows[0]?.openAfterCents).toBe(69000);
+  });
+
+  test("PAY-028 „partial“ and „collective“ are no selectable difference reasons; both are expressed without a difference", () => {
+    expect(DIFFERENCE_REASONS).not.toContain("partial");
+    expect(DIFFERENCE_REASONS).not.toContain("collective");
+    for (const reason of ["partial", "collective"]) {
+      expect(differenceWire.safeParse({ reason, amount_cents: 100 }).success, reason).toBe(false);
+    }
+    expect(differenceWire.safeParse({ reason: "skonto", amount_cents: 100 }).success).toBe(true);
+    // a partial payment = no difference at all; the remainder stays open
+    const partial = planPayment(pay(50000), ctx());
+    expect(partial.ok && partial.value.rows[0]).toMatchObject({ differences: [], openAfterCents: 69000 });
+    // a combined payment = several allocations from one source, still without a difference
+    const combined = planPayment(
+      pay(238000, {
+        allocations: [
+          { target: INV.ref, amountCents: 119000 },
+          { target: INV2.ref, amountCents: 119000 },
+        ],
+      }),
+      ctx(),
+    );
+    expect(combined.ok && combined.value.rows.map((r) => r.differences.length)).toEqual([0, 0]);
   });
 
   test("T05-012 PAY-013 Sammelzahlung from one bank transaction over two invoices", () => {

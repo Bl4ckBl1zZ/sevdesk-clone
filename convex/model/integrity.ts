@@ -1,6 +1,8 @@
+import { berlinCalendarDate } from "../../src/domain/time/berlin";
 import type { Doc, Id } from "../_generated/dataModel";
 import { appError } from "../lib/errors";
 import { auditedInsert, auditedPatch } from "./audit";
+import { notifyKind } from "./notifications";
 import type { ModelCtx, ReadCtx } from "./types";
 
 /** integrityRuns / integrityCheckpoints writes (03 §10, F12 AUD-013/AUD-015/AUD-016). */
@@ -14,12 +16,23 @@ export async function recordIntegrityRun(
   },
 ): Promise<Id<"integrityRuns">> {
   const ok = !run.findings.some((f) => f.severity === "error");
-  return auditedInsert(
+  const id = await auditedInsert(
     ctx,
     "integrityRuns",
     { at: ctx.now(), ok, scope: run.scope, lastVerifiedSeq: run.lastVerifiedSeq, findings: run.findings },
     { action: "integrity.run", label: ok ? "ok" : `${run.findings.length} Befund(e)` },
   );
+  // NTF-007: the cron raises the critical notification (in-app, e-mail, ntfy; cannot be switched off, NTF-002).
+  if (!ok) {
+    const first = run.findings.find((f) => f.severity === "error");
+    await notifyKind(ctx, "integrity.failed", {
+      title: "Integritätsprüfung fehlgeschlagen",
+      ...(first ? { body: first.detail } : {}),
+      link: "/einstellungen/system/integritaet",
+      dedupeKey: `integrity.failed|${berlinCalendarDate(ctx.now())}`,
+    });
+  }
+  return id;
 }
 
 /** AUD-015 / E-AUD-16: acknowledging a failed run needs a note; it never alters data. */
@@ -70,6 +83,15 @@ export async function recordCheckpointUpload(
 ): Promise<void> {
   const cp = await ctx.db.get(id);
   if (!cp) throw appError("not_found");
+  // F12 §4.8: `checkpoint.upload_failed` after the second failed attempt for the same checkpoint.
+  if (!result.ok && cp.uploadStatus === "failed") {
+    await notifyKind(ctx, "checkpoint.upload_failed", {
+      title: `Prüfpunkt vom ${cp.date} konnte nicht in den externen Speicher hochgeladen werden`,
+      body: result.detail.slice(0, 300),
+      link: "/einstellungen/system/integritaet",
+      entity: { table: "integrityCheckpoints", id },
+    });
+  }
   await auditedPatch(
     ctx,
     "integrityCheckpoints",

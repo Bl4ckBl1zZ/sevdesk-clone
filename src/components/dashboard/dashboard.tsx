@@ -95,6 +95,9 @@ export function DashboardView({ data, todos }: { data: DashboardData; todos?: Re
         {data.receivables &&
           slot(<ReceivablesCard r={data.receivables} canWrite={can(data.role, "documents.write")} />)}
         {data.ku && slot(<KuCard ku={data.ku} />)}
+        {data.monitors &&
+          (data.monitors.ku.length > 0 || data.monitors.oss || data.monitors.notices.length > 0) &&
+          slot(<MonitorsCard monitors={data.monitors} />)}
         {data.bank && slot(<BankCard bank={data.bank} />)}
         {data.bank && slot(<MatchingCard m={data.matching} canMatch={can(data.role, "banking.match")} />)}
         {data.topCustomers && slot(<TopCustomersCard customers={data.topCustomers} />)}
@@ -272,6 +275,16 @@ function ReceivablesCard({ r, canWrite }: { r: NonNullable<DashboardData["receiv
             );
           })}
         </ul>
+        <dl className="mt-2 grid grid-cols-[1fr_auto] gap-x-3 gap-y-1 text-muted-foreground text-sm">
+          <dt>{t("dueWithin7", { count: r.dueWithin7.count })}</dt>
+          <dd className="text-right tabular-nums">{formatEuro(r.dueWithin7.cents)}</dd>
+          <dt>
+            <Link href={"/auswertungen/offene-posten" as Route} className="underline-offset-4 hover:underline">
+              {t("credit")}
+            </Link>
+          </dt>
+          <dd className="text-right tabular-nums">{formatEuro(r.creditCents)}</dd>
+        </dl>
       </CardContent>
       {canWrite && (
         <CardFooter className="mt-auto">
@@ -337,6 +350,70 @@ function KuCard({ ku }: { ku: NonNullable<DashboardData["ku"]> }) {
               </p>
             )}
           </>
+        )}
+      </CardContent>
+    </Widget>
+  );
+}
+
+// ── TAX-012 prior-year KU bar, TAX-013 800k notices, TAX-017 OSS threshold ─────────────────────────────
+
+function MonitorsCard({ monitors }: { monitors: NonNullable<DashboardData["monitors"]> }) {
+  const t = useTranslations("pages.start.monitors");
+  const prior = monitors.ku.find((b) => b.key === "ku_prior_year");
+  const oss = monitors.oss;
+  const ossPercent = oss ? Math.min(100, Math.floor((oss.currentYearEurCents * 100) / Math.max(1, oss.limitCents))) : 0;
+  return (
+    <Widget title={t("title")}>
+      <CardContent className="flex flex-col gap-4">
+        {prior && (
+          <div className="flex flex-col gap-1.5">
+            <SummaryBox label={t("kuPrior", { year: prior.year })} value={formatEuro(prior.amountCents)} />
+            <Progress
+              value={Math.min(100, Math.floor(prior.bp / 100))}
+              aria-label={t("kuPriorLabel", {
+                year: prior.year,
+                percent: Math.floor(prior.bp / 100),
+                limit: formatEuro(prior.limitCents),
+              })}
+              className={cn(
+                prior.level === "exceeded" || prior.level === "warn_95"
+                  ? "[&_[data-slot=progress-indicator]]:bg-danger"
+                  : prior.level === "warn_80"
+                    ? "[&_[data-slot=progress-indicator]]:bg-warning"
+                    : "",
+              )}
+            />
+            <p className="text-muted-foreground text-sm">{t("kuPriorHint", { limit: formatEuro(prior.limitCents) })}</p>
+          </div>
+        )}
+        {oss && (
+          <div className="flex flex-col gap-1.5">
+            <SummaryBox label={t("oss")} value={formatEuro(oss.currentYearEurCents)} />
+            <Progress
+              value={ossPercent}
+              aria-label={t("ossLabel", { percent: ossPercent, limit: formatEuro(oss.limitCents) })}
+            />
+            <p className="text-muted-foreground text-sm">
+              {t("ossHint", { prior: formatEuro(oss.priorYearEurCents), limit: formatEuro(oss.limitCents) })}
+            </p>
+          </div>
+        )}
+        {monitors.notices.length > 0 && (
+          <ul className="flex flex-col gap-2 text-sm">
+            {monitors.notices.map((n) => (
+              <li key={n.code + n.message} className="flex items-start gap-2">
+                <AlertTriangleIcon
+                  aria-hidden="true"
+                  className={cn(
+                    "mt-0.5 size-4 shrink-0",
+                    n.severity === "warning" ? "text-warning" : "text-muted-foreground",
+                  )}
+                />
+                <span>{n.message}</span>
+              </li>
+            ))}
+          </ul>
         )}
       </CardContent>
     </Widget>
@@ -435,6 +512,11 @@ function MatchingCard({ m, canMatch }: { m: DashboardData["matching"]; canMatch:
               </div>
             </div>
             <p className="text-sm">{t("unassigned", { count: m.unassigned })}</p>
+            {m.stale.count > 0 && m.stale.days !== null && (
+              <p role="status" className="text-sm text-warning">
+                {t("stale", { count: m.stale.count, days: m.stale.days })}
+              </p>
+            )}
           </>
         )}
         <p className="text-muted-foreground text-sm">{t("explanation")}</p>

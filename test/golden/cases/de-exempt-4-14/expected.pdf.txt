@@ -12,7 +12,7 @@ Ansprechpartner | Erika Musterfrau
 Telefon | +49 30 1234567
 E-Mail | rechnung@muster-design.de
 Rechnung RE-2026-0042
-Pos. | Bezeichnung | Menge Einheit | Einzelpreis netto | Gesamt netto
+Pos. | Bezeichnung | Menge Einheit | Einzelpreis brutto | Gesamt brutto
 1 | Physiotherapie (6 Behandlungen) | 6 Stk. | 50,00 € | 300,00 €
 Summe netto | 300,00 €
 Gesamtbetrag | 300,00 €

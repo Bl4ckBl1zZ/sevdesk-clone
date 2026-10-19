@@ -43,11 +43,19 @@ import { vActorContext } from "./validators";
 export const SYSTEM_JOBS = [
   "cron.integrity.verify",
   "cron.integrity.checkpoint",
+  "cron.backups.verify", // F12 AUD-026 / 02 §7 backups.verify: lists the R2 backup bucket (read-only), notifies stale
+  "cron.verfahrensdoku.watch", // F12 AUD-025 / E-AUD-41: daily watch-list check → verfahrensdoku.outdated
+  "verfahrensdoku.release", // F12 AUD-025: read side of the owner's release action (Markdown + sources)
+  "cron.system.clock", // F12 AUD-019: clock check every 10 minutes (reference CLOCK_REFERENCE_URL)
   "cron.members.expire",
   "cron.invariants.check",
   "cron.products.applyScheduledPrices", // F03 PRD-031, 02 §7 products.applyScheduledPrices
   "cron.api.cleanup", // 05 §3/§7, 06 §2.3: expired idempotency records and confirm tokens, access log > 90 days
   "cron.deadlines.notify", // 02 §7 deadlines.notify (F04 SND-21 to-dos)
+  "cron.notifications.maintain", // F12 NTF-001/006: purge read > 90 days, escalate unresolved errors after 24 h
+  "notifications.deliver", // F12 NTF-003/004: e-mail (Cloudflare Email Sending) and ntfy delivery of one notification
+  "exports.run", // F09 EXP-026 / F04 SND-20: job workers (CSV, bulk export ZIP, bulk mark) — file storage only
+  "cron.jobs.expire", // F09 EXP-026: job results older than 30 days are removed from storage
   "cron.recurring.generate", // 02 §7 recurring.generate (F04 REC-05), daily 06:00 Europe/Berlin
   "cron.dunning.run", // 02 §7 dunning.run (F05 DUN-030): drafts or finalises reminders, never sends
   "cron.receivables.refreshOverdue", // 02 §7 receivables.refreshOverdue (F05 PAY-044, DUN-053 „Bald fällig“ to-dos)
@@ -60,6 +68,7 @@ export const SYSTEM_JOBS = [
   "auth", // member created by the sign-up trigger, OTP throttle, auth-mail failures
   "test", // IS_TEST-only fixtures for the E2E journeys (convex/testFixtures.ts); refuse to run otherwise
   "migration", // migrations:run — the runner then acts as system:migration.<name> (AUD-028)
+  "system.restore", // F09 EXP-024 ops only (npx convex run restore:preflight / restore:complete) → system.restore
 ] as const;
 export type SystemJob = (typeof SYSTEM_JOBS)[number];
 

@@ -11,6 +11,7 @@ import {
   layoutSchema,
   numberRangeCreateSchema,
   numberRangesSchema,
+  ruleOverrideSchema,
   taxSchema,
   validateLogoFile,
 } from "../src/domain/schemas/settings";
@@ -21,6 +22,7 @@ import {
   taxFormFromProfile,
   taxPatchFromForm,
 } from "../src/domain/settings/profile";
+import { taxScope as taxScopeOf } from "../src/domain/tax/scope";
 import { berlinCalendarDate } from "../src/domain/time/berlin";
 import { internal } from "./_generated/api";
 import type { Doc } from "./_generated/dataModel";
@@ -44,11 +46,14 @@ import { datevExportCount, finalisedDocumentsForKu } from "./model/documentHisto
 import { countDraftsUsingCompanyData } from "./model/files";
 import { getIntegration, recordIntegrationTest } from "./model/integrations";
 import { journalFiscalYears } from "./model/journal";
+import { confirmKuLimitCrossed as confirmKuLimitCrossedModel } from "./model/kuMonitor";
 import {
   createLayout,
   currentVersion,
   defaultLayout,
+  layoutHistory as layoutHistoryModel,
   listLayouts,
+  restoreLayoutVersion as restoreLayoutVersionModel,
   saveDefaultLayout,
   setLayoutDefaults as setLayoutDefaultsModel,
 } from "./model/layouts";
@@ -61,8 +66,14 @@ import {
   listDefaultRanges,
   listRanges,
   nextValue,
+  registerView,
   saveRanges,
 } from "./model/numberRanges";
+import {
+  addRuleOverride as addRuleOverrideModel,
+  deleteRuleOverride as deleteRuleOverrideModel,
+  ruleOverviewView,
+} from "./model/ruleOverrides";
 import { seedSettingsDefaults } from "./model/seeds";
 import { setupChecklist, setupFacts } from "./model/setup";
 
@@ -192,6 +203,21 @@ export const getSetupChecklist = query({
   },
 });
 
+/** F08 TAX-014: EÜR availability and the AO-07 notice of the tax pages (from the legal form and profit method). */
+export const taxScope = query({
+  permission: "settings.read",
+  args: {},
+  handler: async (ctx) => {
+    const profile = await getCompanyProfile(ctx);
+    const year = Number(berlinCalendarDate(ctx.now()).slice(0, 4));
+    const method = [...(profile?.profitMethod ?? [])]
+      .filter((p) => p.validFromFiscalYear <= year)
+      .sort((a, b) => a.validFromFiscalYear - b.validFromFiscalYear)
+      .at(-1)?.method;
+    return taxScopeOf({ legalForm: profile?.legalForm, profitMethod: method });
+  },
+});
+
 /** SET-001: whether the setup is complete (any signed-in member; drives the redirect to /einrichtung). */
 export const setupStatus = query({
   permission: "session.self",
@@ -253,6 +279,20 @@ export const saveCompanyProfile = mutation({
       action: "settings.company.update",
       ...(expectedVersion !== undefined ? { expectedVersion } : {}),
     });
+  },
+});
+
+/**
+ * F01 SET-035 / F08 TAX-012 / EC-060: the owner confirms the blocking KU dialog of a draft that crosses the limit;
+ * `system:ku-monitor` appends regular taxation from the supply date (owner-only, never via API/MCP).
+ */
+export const confirmKuLimitCrossed = mutation({
+  permission: "settings.ownerOnly",
+  args: { documentId: v.string() },
+  handler: async (ctx, { documentId }) => {
+    const id = ctx.db.normalizeId("salesDocuments", documentId);
+    if (!id) throw appError("not_found");
+    return confirmKuLimitCrossedModel(ctx, id);
   },
 });
 
@@ -367,6 +407,17 @@ export const listNumberRanges = query({
   },
 });
 
+/** SET-063: register viewer (issued numbers with status and document link) and gap report of one range. */
+export const numberRegister = query({
+  permission: "settings.read",
+  args: {
+    rangeId: v.id("numberRanges"),
+    periodKey: v.optional(v.string()),
+    status: v.optional(v.union(v.literal("issued"), v.literal("cancelled_by_storno"), v.literal("corrected"))),
+  },
+  handler: async (ctx, a) => registerView(ctx, a),
+});
+
 /** SET-055: an additional range (collision-checked, SET-060). */
 export const createNumberRange = mutation({
   permission: "settings.write",
@@ -469,6 +520,41 @@ export const createLayoutVariant = mutation({
   permission: "settings.write",
   args: { values: v.any() },
   handler: async (ctx, { values }) => createLayout(ctx, parse(layoutCreateSchema, values).name),
+});
+
+/** SET-076: version history of a layout with diff summaries. */
+export const layoutHistory = query({
+  permission: "settings.read",
+  args: { layoutId: v.id("layouts") },
+  handler: async (ctx, { layoutId }) => layoutHistoryModel(ctx, layoutId),
+});
+
+/** SET-076: „Diese Version wiederherstellen“ (new version with the old config). */
+export const restoreLayoutVersion = mutation({
+  permission: "settings.write",
+  args: { layoutId: v.id("layouts"), versionId: v.id("layoutVersions") },
+  handler: async (ctx, { layoutId, versionId }) => restoreLayoutVersionModel(ctx, layoutId, versionId),
+});
+
+/** SET-120: Einstellungen › Regeln — shipped tables, owner overrides and the rows effective today. */
+export const ruleOverview = query({
+  permission: "settings.read",
+  args: {},
+  handler: async (ctx) => ruleOverviewView(ctx, berlinCalendarDate(ctx.now())),
+});
+
+/** SET-121: add an owner override (owner only; mandatory source; overlapping overrides refused). */
+export const addRuleOverride = mutation({
+  permission: "settings.write",
+  args: { values: v.any() },
+  handler: async (ctx, { values }) => addRuleOverrideModel(ctx, parse(ruleOverrideSchema, values)),
+});
+
+/** SET-123: delete an override no finalised document used (audited); referenced → RULE_ROW_LOCKED. */
+export const deleteRuleOverride = mutation({
+  permission: "settings.write",
+  args: { id: v.id("ruleOverrides"), reason: v.string() },
+  handler: async (ctx, { id, reason }) => deleteRuleOverrideModel(ctx, id, reason),
 });
 
 /** SET-074: default layout per document type. */

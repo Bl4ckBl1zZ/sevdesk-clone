@@ -10,6 +10,7 @@ import { useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { useEffect, useId, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
+import { CustomFieldsEditor, TagPicker } from "@/components/catalog/custom-fields";
 import { ConfirmDialog, selectClass, todayBerlin, useRun } from "@/components/catalog/shared";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -80,6 +81,7 @@ export function InvoiceEditor({
   const createDraft = useMutation(api.invoices.createDraft);
   const updateDraft = useMutation(api.invoices.updateDraft);
   const deleteDraft = useMutation(api.invoices.deleteDraft);
+  const confirmKuLimit = useMutation(api.settings.confirmKuLimitCrossed);
   const finalize = useAction(api.invoices.finalize);
   const [state, setState] = useState<EditorState>(() =>
     initial
@@ -106,12 +108,16 @@ export function InvoiceEditor({
   const [saving, setSaving] = useState(false);
   const [confirmFinalize, setConfirmFinalize] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
+  const [confirmKu, setConfirmKu] = useState(false);
   const [contactQuery, setContactQuery] = useState("");
   const appliedDefaults = useRef<string | null>(initial ? (initial.contactId ?? "") : null);
 
   const contacts = useAuthedQuery(api.contacts.options, contactQuery ? { q: contactQuery } : {}) ?? [];
   const products = useAuthedQuery(api.products.options, {}) ?? [];
   const units = useAuthedQuery(api.lookups.listUnits, {}) ?? [];
+  const revenueAccounts = useAuthedQuery(api.products.revenueAccounts, {})?.accounts ?? [];
+  const activeCostCenters = (useAuthedQuery(api.lookups.listCostCenters, {}) ?? []).filter((c) => !c.archivedAt);
+  const layouts = useAuthedQuery(api.settings.listLayoutsWithDefaults, {}) ?? [];
   const defaults = useAuthedQuery(
     api.invoices.draftDefaults,
     state.contactId ? { contactId: state.contactId as Id<"contacts"> } : {},
@@ -484,6 +490,8 @@ export function InvoiceEditor({
                       undefined
                     }
                     currency={state.currency}
+                    revenueAccounts={revenueAccounts}
+                    costCenters={activeCostCenters}
                     onChange={(patch) => setLine(l.key, patch)}
                     onRemove={() => set({ lines: state.lines.filter((x) => x.key !== l.key) })}
                     onMove={(d) => move(i, d)}
@@ -611,6 +619,58 @@ export function InvoiceEditor({
                   className="h-11 md:h-9"
                 />
               </div>
+              {layouts.length > 1 && (
+                <div className="flex flex-col gap-1.5">
+                  <label htmlFor={`${ids.buyerRef}-layout`} className="font-medium text-sm">
+                    {t("layout")}
+                  </label>
+                  <select
+                    id={`${ids.buyerRef}-layout`}
+                    className={selectClass}
+                    value={state.layoutId}
+                    onChange={(e) => set({ layoutId: e.target.value })}
+                  >
+                    <option value="">
+                      {t("layoutDefault", {
+                        name: layouts.find((l) => l.isDefaultFor.includes(type))?.name ?? "Standard",
+                      })}
+                    </option>
+                    {layouts.map((l) => (
+                      <option key={l.layoutId} value={l.layoutId}>
+                        {l.name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              )}
+              {activeCostCenters.length > 0 && (
+                <div className="flex flex-col gap-1.5">
+                  <label htmlFor={`${ids.buyerRef}-cc`} className="font-medium text-sm">
+                    {t("costCenter")}
+                  </label>
+                  <select
+                    id={`${ids.buyerRef}-cc`}
+                    className={selectClass}
+                    value={state.costCenterId}
+                    onChange={(e) => set({ costCenterId: e.target.value })}
+                  >
+                    <option value="">{t("costCenterNone")}</option>
+                    {activeCostCenters.map((c) => (
+                      <option key={c.costCenterId} value={c.costCenterId}>
+                        {c.number} {c.name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              )}
+              <div className="flex flex-col gap-3 @lg/editor:col-span-2">
+                <TagPicker value={[...state.tags]} onChange={(tags) => set({ tags })} legend={t("tags")} />
+                <CustomFieldsEditor
+                  entity="document"
+                  value={{ ...state.customFields }}
+                  onChange={(customFields) => set({ customFields })}
+                />
+              </div>
               {features.deliveryTerms && (
                 <div className="flex flex-col gap-1.5 @lg/editor:col-span-2">
                   <label htmlFor={ids.deliveryTerms} className="font-medium text-sm">
@@ -683,6 +743,17 @@ export function InvoiceEditor({
                       {t("constructionWork")}
                     </label>
                   )}
+                  {features.invoiceFlags && (
+                    <label className="flex min-h-11 items-center gap-2 text-sm md:min-h-9">
+                      <input
+                        type="checkbox"
+                        className="size-5 accent-primary md:size-4"
+                        checked={state.marginScheme}
+                        onChange={(e) => set({ marginScheme: e.target.checked })}
+                      />
+                      {t("marginScheme")}
+                    </label>
+                  )}
                   {features.epcQr && (
                     <label className="flex min-h-11 items-center gap-2 text-sm md:min-h-9">
                       <input
@@ -736,6 +807,11 @@ export function InvoiceEditor({
                 })),
               ]}
             />
+            {id && findings.some((f) => f.code === "ku_threshold_crossed") && (
+              <Button variant="outline" className="h-11 md:h-9" onClick={() => setConfirmKu(true)}>
+                {t("kuSwitch")}
+              </Button>
+            )}
           </aside>
         </div>
       </div>
@@ -799,6 +875,19 @@ export function InvoiceEditor({
           )}
         </ConfirmDialog>
       )}
+      {confirmKu && id && (
+        <ConfirmDialog
+          title={t("kuSwitchTitle")}
+          description={t("kuSwitchDescription")}
+          confirmLabel={t("kuSwitchConfirm")}
+          destructive
+          onConfirm={async () => {
+            const r = await run(() => confirmKuLimit({ documentId: id }), t("kuSwitched"));
+            if (r.ok) setConfirmKu(false);
+          }}
+          onClose={() => setConfirmKu(false)}
+        />
+      )}
       {confirmDelete && id && (
         <ConfirmDialog
           title={t("deleteTitle")}
@@ -825,6 +914,8 @@ export function LineEditor({
   vatLabel,
   lineNet,
   currency,
+  revenueAccounts = [],
+  costCenters = [],
   onChange,
   onRemove,
   onMove,
@@ -837,6 +928,10 @@ export function LineEditor({
   vatLabel?: { vatCategory: string; vatRateBp: number };
   lineNet?: number;
   currency: string;
+  /** PRD-053: revenue accounts of the company chart for the per-line select. */
+  revenueAccounts?: readonly { number: string; name: string }[];
+  /** DOC-53: active cost centres for the per-line select. */
+  costCenters?: readonly { costCenterId: string; number: string; name: string }[];
   onChange: (patch: Partial<EditorLine>) => void;
   onRemove: () => void;
   onMove: (d: -1 | 1) => void;
@@ -954,7 +1049,7 @@ export function LineEditor({
           </select>
         </div>
       </div>
-      <div className="grid grid-cols-1 gap-3 @2xl/line:grid-cols-[minmax(0,2fr)_10rem_minmax(0,1fr)]">
+      <div className="grid grid-cols-1 gap-3 @2xl/line:grid-cols-[minmax(0,2fr)_10rem_minmax(0,1fr)_10rem_10rem]">
         <div className="flex flex-col gap-1.5">
           <label htmlFor={field("desc")} className="font-medium text-sm">
             {t("description")}
@@ -998,6 +1093,51 @@ export function LineEditor({
             ))}
           </select>
         </div>
+        <div className="flex flex-col gap-1.5">
+          <label htmlFor={field("revenue")} className="font-medium text-sm">
+            {t("revenueAccount")}
+          </label>
+          <select
+            id={field("revenue")}
+            className={selectClass}
+            value={line.revenueAccount}
+            aria-describedby={field("revenue-hint")}
+            onChange={(e) => onChange({ revenueAccount: e.target.value })}
+          >
+            <option value="">{t("revenueAccountDefault")}</option>
+            {line.revenueAccount && !revenueAccounts.some((a) => a.number === line.revenueAccount) && (
+              <option value={line.revenueAccount}>{line.revenueAccount}</option>
+            )}
+            {revenueAccounts.map((a) => (
+              <option key={a.number} value={a.number}>
+                {a.number} {a.name}
+              </option>
+            ))}
+          </select>
+          <span id={field("revenue-hint")} className="text-muted-foreground text-xs">
+            {t("revenueAccountHint")}
+          </span>
+        </div>
+        {costCenters.length > 0 && (
+          <div className="flex flex-col gap-1.5">
+            <label htmlFor={field("cc")} className="font-medium text-sm">
+              {t("costCenter")}
+            </label>
+            <select
+              id={field("cc")}
+              className={selectClass}
+              value={line.costCenterId}
+              onChange={(e) => onChange({ costCenterId: e.target.value })}
+            >
+              <option value="">{t("costCenterDocument")}</option>
+              {costCenters.map((c) => (
+                <option key={c.costCenterId} value={c.costCenterId}>
+                  {c.number} {c.name}
+                </option>
+              ))}
+            </select>
+          </div>
+        )}
       </div>
       <div className="flex flex-wrap items-center justify-between gap-2">
         <label className="flex min-h-11 items-center gap-2 text-sm md:min-h-9">

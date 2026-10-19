@@ -1,5 +1,7 @@
 import { BUYERS, makeSnapshot, SELLERS } from "@test/factories/snapshot";
 import { describe, expect, test } from "vitest";
+import { paymentMeansFor, paymentTermsText } from "../einvoice/payment";
+import { girocodeFor } from "../epc/girocode";
 import type { SnapshotInputItem } from "./build-snapshot";
 import { buildRenderModel, DEFAULT_LAYOUT, type RenderLayout } from "./render-model";
 
@@ -191,5 +193,80 @@ describe("buildRenderModel (App. F)", () => {
     const r2 = on.rows[0];
     expect(r2?.kind === "item" && [r2.itemNumber, r2.description]).toEqual(["Art.-Nr. A-1", "Details"]);
     expect(on.senderLine).toBe("Muster Design GmbH · Hauptstraße 1 · 10115 Berlin");
+  });
+});
+
+describe("consumer gross prices (DOC-48, MISC-03, PAngV)", () => {
+  test("DOC-48 MISC-03 a consumer document entered net still prints gross unit prices and gross line amounts", () => {
+    const s = makeSnapshot({ buyer: BUYERS.consumer, priceMode: "net", lines: [item({ unitPriceMicros: 2_100_800 })] });
+    const m = buildRenderModel(s);
+    expect(m.columns.map((c) => c.label)).toEqual(expect.arrayContaining(["Einzelpreis brutto", "Gesamt brutto"]));
+    const row = m.rows[0];
+    expect(row?.kind === "item" && [row.unitPrice, row.amount]).toEqual(["250,00 €", "250,00 €"]);
+    expect(m.totals.at(-1)).toMatchObject({ label: "Gesamtbetrag", value: "250,00 €" });
+    // businesses keep net columns; delivery notes have no prices at all
+    const b2b = buildRenderModel(makeSnapshot({ priceMode: "net", lines: [item()] }));
+    expect(b2b.columns.map((c) => c.label)).toEqual(expect.arrayContaining(["Einzelpreis netto", "Gesamt netto"]));
+    const quote = buildRenderModel(
+      makeSnapshot({
+        type: "quote",
+        buyer: BUYERS.consumer,
+        priceMode: "net",
+        einvoice: { format: "none" },
+        lines: [item()],
+      }),
+    );
+    expect(quote.columns.map((c) => c.label)).toContain("Einzelpreis brutto");
+  });
+});
+
+describe("payable ≤ 0 (INV-33, MISC-01)", () => {
+  const consumerFinal = (deductedNet: number) => {
+    const vat = Math.round(deductedNet * 0.19);
+    return makeSnapshot({
+      type: "final_invoice",
+      buyer: BUYERS.consumer,
+      priceMode: "gross",
+      chain: { orderLabel: { de: "Auftrag", en: "order" }, orderNumber: "AB-1", orderDate: "2026-08-03" },
+      lines: [item({ unitPriceMicros: 11_900_000 })],
+      deductions: [
+        {
+          advanceNumber: "RE-1",
+          advanceDate: "2026-08-10",
+          byGroup: [
+            { category: "S", rateBp: 1900, netCents: deductedNet, vatCents: vat, grossCents: deductedNet + vat },
+          ],
+          deductedGrossCents: deductedNet + vat,
+          partiallyPaid: false,
+        },
+      ],
+    });
+  };
+
+  test("INV-33 a consumer refund: no EPC QR, no § 286 note, „Der Betrag wird erstattet“, BT-81 97 or 58", () => {
+    const s = consumerFinal(200_000);
+    expect(s.totals.payableCents).toBeLessThan(0);
+    expect(girocodeFor(s)).toBeNull();
+    expect(s.notes.map((n) => n.id)).not.toContain("b2c_286");
+    const m = buildRenderModel(s);
+    expect(m.payment.epcPayload).toBeNull();
+    expect(m.payment.lines).toContain("Der Betrag wird erstattet.");
+    expect(m.payment.bank).toBeUndefined();
+    expect(paymentMeansFor(s).code).toBe("97");
+    expect(paymentMeansFor({ ...s, payment: { ...s.payment, refundIban: "DE89370400440532013000" } }).code).toBe("58");
+    expect(paymentTermsText(s)).toBe("Der Betrag wird erstattet oder verrechnet.");
+  });
+
+  test("INV-33 payable exactly 0: „Kein Zahlbetrag“, no QR, no § 286 note, BT-81 97", () => {
+    const s = consumerFinal(100_000);
+    expect(s.totals.payableCents).toBe(0);
+    expect(girocodeFor(s)).toBeNull();
+    expect(s.notes.map((n) => n.id)).not.toContain("b2c_286");
+    expect(buildRenderModel(s).payment.lines).toContain("Kein Zahlbetrag.");
+    expect(paymentMeansFor(s).code).toBe("97");
+    // the same consumer invoice with an amount due keeps the QR and the § 286 note
+    const due = makeSnapshot({ buyer: BUYERS.consumer, priceMode: "gross" });
+    expect(girocodeFor(due)).not.toBeNull();
+    expect(due.notes.map((n) => n.id)).toContain("b2c_286");
   });
 });

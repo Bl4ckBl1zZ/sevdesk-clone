@@ -9,12 +9,22 @@ import {
   monthlyResult,
   monthWindow,
   receivablesSummary,
+  staleUnassigned,
   subtractMonths,
   TOP_CUSTOMERS_MONTHS,
   topCustomers,
 } from "../../src/domain/reports/dashboard";
 import { type AccountType, chartAccounts } from "../../src/domain/rules/accounting";
+import { lookupRule } from "../../src/domain/rules/rule-table";
+import { OSS_THRESHOLD } from "../../src/domain/rules/thresholds";
 import type { MemberRole } from "../../src/domain/schemas/actor";
+import {
+  eightHundredKMonitor,
+  gesamtumsatzContribution,
+  gesamtumsatzOfYear,
+  kuMonitor,
+  turnoverYear,
+} from "../../src/domain/tax/turnover";
 import { berlinCalendarDate } from "../../src/domain/time/berlin";
 import type { Doc } from "../_generated/dataModel";
 import { accountsOverview } from "./bankViews";
@@ -22,6 +32,7 @@ import { getCompanyProfile } from "./companyProfile";
 import { resolveContextAt } from "./journal";
 import { getMemberByAuthUserId } from "./members";
 import { openItemsAsOf } from "./payments";
+import { turnoverRows } from "./turnover";
 import type { ReadCtx } from "./types";
 
 /**
@@ -64,12 +75,19 @@ export async function dashboardOverview(
   }
 
   // DASH-004 Ausstehende Rechnungen
-  const receivables = allowed(role, "payments.read")
-    ? receivablesSummary((await openItemsAsOf(ctx, { asOf: today })).items)
+  // PAY-007: plus „davon in 7 Tagen fällig“ and the customer credit balances (secondary lines, rows stay disjoint).
+  const openItems = allowed(role, "payments.read") ? await openItemsAsOf(ctx, { asOf: today }) : null;
+  const receivables = openItems
+    ? receivablesSummary(openItems.items, { today, creditCents: openItems.totals.creditCents })
     : null;
 
   // DASH-005 Kleinunternehmergrenze + DASH-008 Top 5 Kunden (finalised invoices)
   let ku = null;
+  let monitors: {
+    ku: ReturnType<typeof kuMonitor>;
+    oss: { currentYearEurCents: number; priorYearEurCents: number; limitCents: number } | null;
+    notices: ReturnType<typeof eightHundredKMonitor>;
+  } | null = null;
   let customers = null;
   if (allowed(role, "documents.read")) {
     const since = subtractMonths(today, TOP_CUSTOMERS_MONTHS);
@@ -89,17 +107,43 @@ export async function dashboardOverview(
       }
     }
     const dated = docs.filter((d): d is Doc<"salesDocuments"> & { documentDate: string } => !!d.documentDate);
+    // TAX-012/DOC-56: Gesamtumsatz = net EUR of every invoice-family document incl. Storno/credit, by supply year.
+    const rows = await turnoverRows(ctx);
     ku = kuProgress({
       today,
       kleinunternehmer: profile?.kleinunternehmer ?? [],
       foundedOn: profile?.foundedOn,
-      invoices: dated.map((d) => ({
-        documentDate: d.documentDate,
-        grossCents: d.totals.grossCents,
-        status: d.status,
-        type: d.type,
+      invoices: rows.map((r) => ({
+        documentDate: r.supplyEnd ?? r.documentDate ?? today,
+        grossCents: gesamtumsatzContribution(r),
+        status: "finalized",
+        type: "invoice",
       })),
     });
+    const year = Number(today.slice(0, 4));
+    const priorYearCents = gesamtumsatzOfYear(rows, year - 1);
+    const currentYearCents = gesamtumsatzOfYear(rows, year);
+    const ossYear = (y: number) => rows.reduce((s, r) => (turnoverYear(r) === y ? s + r.ossNetEurCents : s), 0);
+    const method = [...(profile?.taxationMethod ?? [])].sort((a, b) => a.validFrom.localeCompare(b.validFrom)).at(-1);
+    const ossRule = lookupRule(OSS_THRESHOLD, today);
+    monitors = {
+      ku: ku ? kuMonitor({ today, priorYearCents, currentYearCents, foundedOn: profile?.foundedOn }) : [],
+      oss:
+        ossRule.ok && (ossYear(year) > 0 || ossYear(year - 1) > 0)
+          ? {
+              currentYearEurCents: ossYear(year),
+              priorYearEurCents: ossYear(year - 1),
+              limitCents: ossRule.value.value.limitCents,
+            }
+          : null,
+      notices: eightHundredKMonitor({
+        today,
+        priorYearCents,
+        currentYearCents,
+        taxationMethod: method?.method ?? "soll",
+        bookkeepingDuty: (profile?.profitMethod ?? []).some((p) => p.method === "bilanz"),
+      }),
+    };
     customers = topCustomers(
       dated.map((d) => ({
         contactId: d.contactId,
@@ -116,7 +160,10 @@ export async function dashboardOverview(
 
   // DASH-006 Bank + DASH-007 Zuordnungsquote
   let bank = null;
-  let matching = matchedShare({});
+  let matching: ReturnType<typeof matchedShare> & { stale: ReturnType<typeof staleUnassigned> } = {
+    ...matchedShare({}),
+    stale: { count: 0, days: null },
+  };
   if (allowed(role, "banking.read")) {
     const accounts = (await accountsOverview(ctx)).filter((a) => a.kind === "bank" && a.currency === "EUR");
     const txs = [];
@@ -146,15 +193,18 @@ export async function dashboardOverview(
       txs,
     );
     const counts: Record<string, number> = {};
+    const unassignedRows: { status: string; bookingDate: string }[] = [];
     for (const status of BANK_STATUSES) {
-      counts[status] = (
-        await ctx.db
-          .query("bankTransactions")
-          .withIndex("by_status", (q) => q.eq("status", status))
-          .collect()
-      ).length;
+      const rows = await ctx.db
+        .query("bankTransactions")
+        .withIndex("by_status", (q) => q.eq("status", status))
+        .collect();
+      counts[status] = rows.length;
+      if (status === "open" || status === "partially_matched") {
+        unassignedRows.push(...rows.map((r) => ({ status: r.status, bookingDate: r.bookingDate })));
+      }
     }
-    matching = matchedShare(counts);
+    matching = { ...matchedShare(counts), stale: staleUnassigned(unassignedRows, today) };
   }
 
   // DASH-009 Verlauf (audit log readers only)
@@ -178,6 +228,8 @@ export async function dashboardOverview(
     result,
     receivables,
     ku,
+    /** TAX-012 (prior/current year bars), TAX-013 (800k notices), TAX-017 (OSS progress). */
+    monitors,
     bank,
     matching,
     topCustomers: customers,

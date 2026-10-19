@@ -210,7 +210,12 @@ async function assertAccountFree(
   if (hit && hit._id !== self) fail({ ...datevAccountTaken(account, hit.displayName), field });
 }
 
-async function assertCustomFields(ctx: ReadCtx, entity: "contact" | "product", values: Record<string, unknown>) {
+async function assertCustomFields(
+  ctx: ReadCtx,
+  entity: "contact" | "product" | "document",
+  values: Record<string, unknown>,
+  opts: { skipRequired?: boolean } = {},
+) {
   const defs = (await ctx.db.query("customFieldDefs").collect()).filter((d) => d.entity === entity && !d.archivedAt);
   const byKey = new Map(defs.map((d) => [d.key, d]));
   for (const [key, value] of Object.entries(values)) {
@@ -221,6 +226,7 @@ async function assertCustomFields(ctx: ReadCtx, entity: "contact" | "product", v
     if (!r.ok) fail({ code: r.error.code, message: r.error.message, field: `customFields.${key}` });
   }
   for (const def of defs) {
+    if (opts.skipRequired) break;
     if (def.required && (values[def.key] === undefined || values[def.key] === "")) {
       fail({
         code: "CUSTOM_FIELD_VALUE_INVALID",

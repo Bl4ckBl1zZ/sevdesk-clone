@@ -67,6 +67,40 @@ async function withCorrectionRange(owner: Owner) {
 
 const journal = (t: TestT) => t.run((ctx) => ctx.db.query("journalEntries").collect());
 
+// ── Duplizieren (DOC-35) ────────────────────────────────────────────────────────────────────────────────────────
+
+describe("DOC-35 Duplizieren", { timeout: 30_000 }, () => {
+  test("DOC-35 a finalised, paid invoice duplicates into a fresh draft; a Storno cannot be duplicated", async () => {
+    const t = makeT();
+    const { owner, id } = await finalizedInvoice(t);
+    await receive(t, owner, id, 10_000);
+    const original = await doc(t, id);
+    const { id: copyId } = await owner.mutation(api.invoices.duplicate, { id });
+    const copy = await doc(t, copyId);
+    expect(copy).toMatchObject({ type: "invoice", status: "draft", contactId: original.contactId });
+    expect(copy.number).toBeUndefined();
+    expect(copy.documentDate).toBeUndefined();
+    expect(copy.paymentStatus).toBeUndefined();
+    expect(copy.openAmountCents).toBeUndefined();
+    expect(copy.totals.netCents).toBe(original.totals.netCents);
+    const lines = await t.run((ctx) =>
+      ctx.db
+        .query("documentLines")
+        .withIndex("by_document", (q) => q.eq("documentId", copyId))
+        .collect(),
+    );
+    expect(lines.length).toBeGreaterThan(0);
+    const audit = await t.run((ctx) => ctx.db.query("auditLog").collect());
+    expect(audit.some((a) => a.entity.id === copyId && a.reason?.startsWith("Dupliziert aus RE-"))).toBe(true);
+
+    const fresh = await finalizedInvoice(makeT());
+    const storno = await fresh.owner.mutation(api.corrections.cancel, { id: fresh.id });
+    const e = await fresh.owner.mutation(api.invoices.duplicate, { id: storno.id }).catch((x: unknown) => x);
+    expect(errorCode(e)).toBe("invalid_input");
+    expect(dataOf(e).reason).toBe("NOT_DUPLICABLE");
+  });
+});
+
 // ── Storno ──────────────────────────────────────────────────────────────────────────────────────────────────────
 
 describe("INV-10 INV-11 Storno", { timeout: 30_000 }, () => {
@@ -117,6 +151,35 @@ describe("INV-10 INV-11 Storno", { timeout: 30_000 }, () => {
     expect(errorCode(e)).toBe("conflict");
     expect(dataOf(e).reason).toBe("storno_paid_invoice");
     expect((await doc(t, id)).status).not.toBe("cancelled");
+  });
+
+  test("PAY-034 EC-121 Storno is blocked while payments are not reversed; after reversal the cancelled invoice takes no new payment", async () => {
+    const t = makeT();
+    const { owner, id } = await finalizedInvoice(t);
+    const account = await t.run(async (ctx) => defaultInvoiceAccount(ctx));
+    if (!account) throw new Error("no invoice bank account");
+    const pay = (amountCents: number) =>
+      owner.mutation(api.payments.recordForInvoice, {
+        documentId: id,
+        source: { kind: "clearing", accountId: account._id },
+        date: "2026-10-12",
+        amountCents,
+      });
+    const r = await pay(10_000);
+    const blocked = await owner.mutation(api.corrections.cancel, { id }).catch((x: unknown) => x);
+    expect(dataOf(blocked).reason).toBe("storno_paid_invoice");
+    // The block message names both paths: Rechnungskorrektur + Erstattung, or reverse the allocation first.
+    expect((blocked as Error).message).toMatch(/Rechnungskorrektur/);
+    expect((blocked as Error).message).toMatch(/Zahlungszuordnung/);
+    await owner.mutation(api.payments.reverse, {
+      paymentId: r.paymentIds[0] as Id<"payments">,
+      reason: "Falsch zugeordnet",
+    });
+    await owner.mutation(api.corrections.cancel, { id });
+    expect((await doc(t, id)).status).toBe("cancelled");
+    const e = await pay(5_000).catch((x: unknown) => x);
+    expect(errorCode(e)).toBe("invalid_input");
+    expect(String(dataOf(e).message)).toContain("Die Rechnung ist storniert.");
   });
 
   test("EC-075 a Storno cannot be cancelled and an invoice cannot be cancelled twice", async () => {
@@ -347,6 +410,27 @@ describe("INV-03 INV-06 INV-07 advance and final invoices", { timeout: 30_000 },
     const s = await snapshot(t, a);
     expect(s?.notes.find((n) => n.id === "advance_info")?.de).toContain("1. Abschlagsrechnung zu Auftrag B-4711");
     expect((await journal(t)).some((e) => e.source.id === advanceId)).toBe(false);
+  });
+
+  test("PAY-017 UST-40 a payment on an advance posts S10: output VAT due on receipt (Mindest-Ist) also when Soll-taxing", async () => {
+    const t = makeT();
+    const { owner, advanceId } = await finalizedAdvance(t);
+    const profile = await t.run(async (ctx) => ctx.db.query("companyProfile").first());
+    expect(profile?.taxationMethod.at(-1)?.method ?? "soll").toBe("soll");
+    await receive(t, owner, advanceId, 119_000);
+    await settle(t);
+    const entries = (await journal(t)).filter((e) => e.explanation === "S10");
+    expect(entries).toHaveLength(1);
+    const e = entries[0] as Doc<"journalEntries">;
+    expect(e.date).toBe("2026-10-12");
+    const vat = e.lines.filter((l) => l.role?.startsWith("vat.output"));
+    expect(vat).toHaveLength(1);
+    expect(vat[0]).toMatchObject({ creditCents: 19_000, taxPointDate: "2026-10-12", taxPeriod: "2026-10" });
+    const advance = e.lines.filter((l) => l.role?.startsWith("advance.received"));
+    expect(advance.reduce((s, l) => s + l.creditCents, 0)).toBe(100_000);
+    expect(e.lines.reduce((s, l) => s + l.debitCents, 0)).toBe(119_000);
+    // the advance's open amount derives from the payment (gross 357 000 − 119 000)
+    expect((await doc(t, advanceId)).openAmountCents).toBe(238_000);
   });
 
   test("INV-06 INV-09 RI-08 a paid advance is deducted in the final invoice with the received amounts (S11)", async () => {

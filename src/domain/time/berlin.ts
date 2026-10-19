@@ -35,3 +35,8 @@ export function berlinEndOfDay(date: CalendarDate): number {
   instant = nextMidnightUtc - tzOffset(BUSINESS_TIME_ZONE, new Date(instant)) * MS_PER_MINUTE;
   return instant - 1;
 }
+
+/** First millisecond of `date` in Europe/Berlin (presets such as „heute 00:00“, F12 AUD-006). */
+export function berlinStartOfDay(date: CalendarDate): number {
+  return berlinEndOfDay(fromEpochDay(toEpochDay(date) - 1)) + 1;
+}

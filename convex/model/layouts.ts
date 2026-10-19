@@ -1,4 +1,5 @@
 import { SALES_DOC_TYPES, setDefaultLayout } from "../../src/domain/documents/layout";
+import { layoutDiffSummary, sameLayoutConfig } from "../../src/domain/documents/layout-history";
 import type { LayoutValues } from "../../src/domain/schemas/settings";
 import type { Doc, Id } from "../_generated/dataModel";
 import { appError } from "../lib/errors";
@@ -38,6 +39,23 @@ export async function defaultLayout(
   if (!layout) return null;
   const version = layout.currentVersionId ? await ctx.db.get(layout.currentVersionId) : null;
   return { layout, version };
+}
+
+/**
+ * DOC-54 / SET-074: the layout a document renders with — the draft's own choice, else the default layout of its type,
+ * else the invoice default. Its current version is frozen in the snapshot (`layoutVersionId`).
+ */
+export async function layoutForDocument(
+  ctx: ReadCtx,
+  doc: { type: string; layoutId?: Id<"layouts"> },
+): Promise<{ layout: Doc<"layouts">; version: Doc<"layoutVersions"> | null } | null> {
+  const layouts = await ctx.db.query("layouts").collect();
+  const layout =
+    (doc.layoutId ? layouts.find((l) => l._id === doc.layoutId) : undefined) ??
+    layouts.find((l) => l.isDefaultFor.includes(doc.type as Doc<"layouts">["isDefaultFor"][number])) ??
+    layouts.find((l) => l.isDefaultFor.includes("invoice"));
+  if (!layout) return null;
+  return { layout, version: layout.currentVersionId ? await ctx.db.get(layout.currentVersionId) : null };
 }
 
 export async function countLayouts(ctx: ReadCtx): Promise<number> {
@@ -134,4 +152,77 @@ export async function setLayoutDefaults(ctx: ModelCtx, layoutId: Id<"layouts">, 
       { action: "settings.layout.update", label: l.name },
     );
   }
+}
+
+// ── SET-076 version history ─────────────────────────────────────────────────────────────────────────────────────
+
+/** All versions of a layout (newest first) with the diff summary and how many finalised documents use them. */
+export async function layoutHistory(ctx: ReadCtx, layoutId: Id<"layouts">) {
+  const layout = await ctx.db.get(layoutId);
+  if (!layout) throw appError("not_found", "Layout nicht gefunden.");
+  const versions = (
+    await ctx.db
+      .query("layoutVersions")
+      .withIndex("by_layout_version", (q) => q.eq("layoutId", layoutId))
+      .collect()
+  ).sort((a, b) => a.version - b.version);
+  const used = new Map<string, number>();
+  for (const s of await ctx.db.query("documentSnapshots").collect()) {
+    used.set(s.layoutVersionId, (used.get(s.layoutVersionId) ?? 0) + 1);
+  }
+  return {
+    name: layout.name,
+    versions: versions
+      .map((v, i) => ({
+        versionId: v._id,
+        version: v.version,
+        createdAt: v.createdAt,
+        current: v._id === layout.currentVersionId,
+        summary: layoutDiffSummary(i > 0 ? (versions[i - 1]?.config ?? null) : null, v.config),
+        usedBy: used.get(v._id) ?? 0,
+      }))
+      .reverse(),
+  };
+}
+
+/**
+ * SET-076 „Diese Version wiederherstellen“: appends a new version with the old config and makes it current. Old
+ * versions are never changed or deleted (GOBD-06).
+ */
+export async function restoreLayoutVersion(
+  ctx: ModelCtx,
+  layoutId: Id<"layouts">,
+  versionId: Id<"layoutVersions">,
+): Promise<{ version: number }> {
+  const layout = await ctx.db.get(layoutId);
+  const old = await ctx.db.get(versionId);
+  if (!layout || old?.layoutId !== layoutId) throw appError("not_found", "Version nicht gefunden.");
+  const current = await currentVersion(ctx, layout);
+  if (current && sameLayoutConfig(current.config, old.config)) {
+    throw appError("invalid_input", "Diese Version entspricht bereits der aktuellen Version.", {
+      reason: "LAYOUT_VERSION_CURRENT",
+    });
+  }
+  const latest = (
+    await ctx.db
+      .query("layoutVersions")
+      .withIndex("by_layout_version", (q) => q.eq("layoutId", layoutId))
+      .collect()
+  ).reduce((m, v) => Math.max(m, v.version), 0);
+  const version = latest + 1;
+  const reason = `Wiederhergestellt aus Version ${old.version}`;
+  const newId = await auditedInsert(
+    ctx,
+    "layoutVersions",
+    { layoutId, version, config: old.config, createdAt: ctx.now() },
+    { action: "settings.layout.update", label: `${layout.name} v${version}`, reason },
+  );
+  await auditedPatch(
+    ctx,
+    "layouts",
+    layoutId,
+    { currentVersionId: newId },
+    { action: "settings.layout.update", label: layout.name, reason },
+  );
+  return { version };
 }

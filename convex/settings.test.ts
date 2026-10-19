@@ -4,6 +4,7 @@ import type { MemberRole } from "../src/domain/schemas/actor";
 import { SCOPES } from "../src/domain/schemas/scopes";
 import { type CompanyValues, companyDefaults, taxDefaults } from "../src/domain/schemas/settings";
 import { api, components, internal } from "./_generated/api";
+import type { Id } from "./_generated/dataModel";
 import { WRAPPER_TAG, type WrapperMeta } from "./functions";
 import * as integrityModule from "./integrity";
 import * as invitesModule from "./invites";
@@ -83,12 +84,14 @@ const ARGS: Record<string, Record<string, unknown>> = {
   "settings:saveBankAccount": { values: BANK },
   "settings:saveLayout": { values: LAYOUT },
   "settings:saveNumberRanges": { values: RANGES },
+  "settings:confirmKuLimitCrossed": { documentId: "kein-dokument" },
   "members:disable": { memberId: "placeholder", reason: "test" },
   "settings:createNumberRange": {
     values: { name: "Extra", docTypes: ["proforma"], format: "PX-{YYYY}-{###}", resetPolicy: "yearly", startValue: 1 },
   },
   "settings:deactivateNumberRange": { rangeId: "placeholder" },
   "settings:deleteNumberRange": { rangeId: "placeholder" },
+  "settings:numberRegister": { rangeId: "placeholder" },
   "members:changeRole": { memberId: "placeholder", role: "bookkeeper" },
   "members:extend": { memberId: "placeholder", expiresAt: Date.now() + 5 * DAY },
   "members:revokeSessions": { memberId: "placeholder" },
@@ -101,6 +104,19 @@ const ARGS: Record<string, Record<string, unknown>> = {
   "settings:archiveBankAccount": { bankAccountId: "placeholder" },
   "settings:createLayoutVariant": { values: { name: "Variante" } },
   "settings:setLayoutDefaults": { layoutId: "placeholder", docTypes: ["quote"] },
+  "settings:layoutHistory": { layoutId: "placeholder" },
+  "settings:restoreLayoutVersion": { layoutId: "placeholder", versionId: "placeholder" },
+  "settings:addRuleOverride": {
+    values: {
+      ruleSet: "basiszinssatz",
+      tableId: "basiszinssatz",
+      validFrom: "2031-01-01",
+      validTo: "2031-06-30",
+      rate: "1,5",
+      source: "Bundesbank",
+    },
+  },
+  "settings:deleteRuleOverride": { id: "placeholder", reason: "Tippfehler korrigiert" },
   "settings:layoutPreviewData": {},
   "lookups:saveTextTemplate": {
     values: {
@@ -199,6 +215,7 @@ async function callers(t: TestT): Promise<Record<string, { caller: Caller; role?
 const bankAccountOf = new WeakMap<TestT, string>();
 const UNIT_PLACEHOLDER_CODES = ["XBA", "XBB", "XBC", "XBD", "XBE", "XBF", "XBG", "XBH", "XBI", "XBJ", "XBK", "XBL"];
 let unitPlaceholderCount = 0;
+let overrideYear = 2040;
 
 async function resolvePlaceholders(t: TestT, args: Record<string, unknown>): Promise<Record<string, unknown>> {
   const out = { ...args };
@@ -245,6 +262,29 @@ async function resolvePlaceholders(t: TestT, args: Record<string, unknown>): Pro
     out.layoutId = await t.model({ actor: "user:seed", role: "owner", channel: "ui" }, async (ctx) =>
       (await import("./model/layouts")).createLayout(ctx, `L${Math.random()}`),
     );
+  }
+  if (out.id === "placeholder") {
+    overrideYear += 1;
+    const year = overrideYear;
+    out.id = await t.model(
+      { actor: "user:seed", role: "owner", channel: "ui" },
+      async (ctx) =>
+        (
+          await (
+            await import("./model/ruleOverrides")
+          ).addRuleOverride(ctx, {
+            ruleSet: "basiszinssatz",
+            tableId: "basiszinssatz",
+            validFrom: `${year}-01-01`,
+            validTo: `${year}-06-30`,
+            rateBp: 100,
+            source: "Testquelle",
+          })
+        ).id,
+    );
+  }
+  if (out.versionId === "placeholder") {
+    out.versionId = await t.run(async (ctx) => (await ctx.db.get(out.layoutId as Id<"layouts">))?.currentVersionId);
   }
   if (out.templateId === "placeholder") {
     out.templateId = await t.model({ actor: "user:seed", role: "owner", channel: "ui" }, async (ctx) =>

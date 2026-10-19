@@ -24,6 +24,21 @@ describe("runbooks", () => {
     }
   });
 
+  test("EXP-024 the restore runbook checks for an empty target before the import and records the restore after it", () => {
+    const md = readFileSync(join(dir, "restore.md"), "utf8");
+    for (const required of [
+      "restore:preflight",
+      "restore:complete",
+      "E-EXP-38",
+      "E-EXP-40",
+      "E-EXP-41",
+      "system.restore",
+    ]) {
+      expect(md, required).toContain(required);
+    }
+    expect(md.indexOf("restore:preflight")).toBeLessThan(md.indexOf("--replace-all"));
+  });
+
   test("DSGVO-05 relative links between runbooks resolve", () => {
     for (const file of readdirSync(dir).filter((f) => f.endsWith(".md"))) {
       const md = readFileSync(join(dir, file), "utf8");

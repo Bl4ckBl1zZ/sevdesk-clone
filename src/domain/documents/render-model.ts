@@ -8,6 +8,9 @@ import { geschaeftsbriefFooter } from "../company/footer";
 import { footerItems } from "../company/legal-forms";
 import { girocodeFor } from "../epc/girocode";
 import { SEED_UNITS } from "../lookups/units";
+import { netToGrossMicros } from "../money/convert";
+import { roundHalfAway } from "../money/rounding";
+import { vatCents } from "../money/vat";
 import { lookupNoteText } from "../rules/note-texts";
 import type { CalendarDate } from "../time/calendar-date";
 import { type DocLanguage, formatAmount, formatDate, formatQuantity, formatRate, formatUnitPrice } from "./i18n";
@@ -365,6 +368,23 @@ function copyStamp(s: DocumentSnapshot): string {
   return s.language === "en" ? row.value.value.en : row.value.value.de;
 }
 
+/** DOC-48: a net unit price shown gross for a consumer, rounded half-up to whole cents (display only). */
+const grossUnitForDisplay = (netMicros: number, rateBp: number): number =>
+  Number(roundHalfAway(BigInt(netToGrossMicros(netMicros, rateBp)), 100n)) * 100;
+
+/** DOC-48: document types a consumer sees with gross prices (quotes, orders, invoices; delivery notes carry none). */
+const CONSUMER_GROSS_TYPES: readonly string[] = [
+  "quote",
+  "order_confirmation",
+  "proforma",
+  "invoice",
+  "advance_invoice",
+  "partial_invoice",
+  "final_invoice",
+  "correction",
+  "cancellation",
+];
+
 export function buildRenderModel(
   s: DocumentSnapshot,
   layout: RenderLayout = DEFAULT_LAYOUT,
@@ -376,7 +396,11 @@ export function buildRenderModel(
   const fd = (d: string) => formatDate(d, lang);
   const isKu = s.taxCase === "kleinunternehmer" || s.totals.byGroup.some((g) => g.category === "KU");
   const priced = s.type !== "delivery_note" || s.flags.showPrices === true;
-  const gross = s.priceMode === "gross";
+  // DOC-48, MISC-03 (PAngV): consumer quotes, orders and invoices always show gross prices; net-mode documents of a
+  // consumer print gross values derived per line (display only; the totals stay those of the snapshot).
+  const consumerGross =
+    s.priceMode === "net" && s.buyer.isConsumer && !s.buyer.isPublicAuthority && CONSUMER_GROSS_TYPES.includes(s.type);
+  const gross = s.priceMode === "gross" || consumerGross;
   const items = s.lines.filter((x): x is SnapshotItemLine => x.kind === "item");
   const rates = new Set(billableItems(s).map((x) => `${x.vatCategory}${x.vatRateBp}`));
   const showVat = priced && !isKu && (rates.size > 1 || layout.printOptions.vatPerLine);
@@ -440,7 +464,11 @@ export function buildRenderModel(
   const rows: RenderRow[] = s.lines.map((x): RenderRow => {
     if (x.kind === "subtotal") return { kind: "subtotal", text: x.text, amount: priced ? money(x.amountCents) : "" };
     if (x.kind !== "item") return { kind: x.kind, text: x.text };
-    const amountCents = gross ? (x.grossCents ?? x.netCents) : x.netCents;
+    const amountCents = consumerGross
+      ? x.netCents + vatCents(x.netCents, x.vatRateBp)
+      : gross
+        ? (x.grossCents ?? x.netCents)
+        : x.netCents;
     const amount = priced ? (x.optional ? `(${money(amountCents)})` : money(amountCents)) : "";
     const discount = x.discount
       ? x.discount.kind === "percent"
@@ -457,7 +485,7 @@ export function buildRenderModel(
       quantity: formatQuantity(x.quantityMilli, lang),
       unit: unitLabel(x, lang),
       unitPrice: priced
-        ? `${formatUnitPrice(x.unitPriceMicros, lang)}${lang === "de" ? ` ${s.currency === "EUR" ? "€" : s.currency}` : ""}`
+        ? `${formatUnitPrice(consumerGross ? grossUnitForDisplay(x.unitPriceMicros, x.vatRateBp) : x.unitPriceMicros, lang)}${lang === "de" ? ` ${s.currency === "EUR" ? "€" : s.currency}` : ""}`
         : "",
       vat: showVat ? `${formatRate(x.vatRateBp, lang)} %` : "",
       discount: showDiscount ? discount : "",

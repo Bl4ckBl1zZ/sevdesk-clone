@@ -72,6 +72,8 @@ export interface SnapshotInputItem {
   readonly period?: { readonly from: string; readonly to: string };
   readonly itemNumber?: string;
   readonly buyerItemNumber?: string;
+  /** DOC-53: cost centre number (DATEV KOST1). */
+  readonly costCenter?: string;
   readonly optional?: boolean;
   readonly isLaborCost?: boolean;
 }
@@ -748,6 +750,7 @@ function buildLines(input: SnapshotInput, t: DocumentTotals): SnapshotLine[] {
       ...(l.period ? { period: l.period } : {}),
       ...(l.itemNumber ? { itemNumber: l.itemNumber } : {}),
       ...(l.buyerItemNumber ? { buyerItemNumber: l.buyerItemNumber } : {}),
+      ...(l.costCenter ? { costCenter: l.costCenter } : {}),
       ...(l.optional ? { optional: true } : {}),
       ...(l.isLaborCost ? { isLaborCost: true } : {}),
     };

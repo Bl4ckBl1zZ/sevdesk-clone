@@ -14,26 +14,58 @@ const trimmed = () => z.string().trim();
  * A statement account: Revolut Business pockets share one IBAN across currencies (research 13 §2), so the IBAN is
  * unique per currency, not globally. Non-EUR pockets may have no IBAN of their own.
  */
-export const statementAccountSchema = z.object({
-  name: trimmed().min(1, "Bitte einen Namen angeben.").max(60, "Höchstens 60 Zeichen."),
-  currency: trimmed()
-    .transform((v) => v.toUpperCase())
-    .refine((v) => /^[A-Z]{3}$/.test(v), "Bitte einen ISO-Währungscode angeben (z. B. EUR, USD)."),
-  iban: trimmed()
-    .transform((v) => (v ? (electronicFormatIBAN(v) ?? v) : ""))
-    .refine((v) => v === "" || isValidIBAN(v), "Die IBAN ist ungültig."),
-  bic: trimmed()
-    .transform((v) => v.replace(/\s+/g, "").toUpperCase())
-    .refine((v) => v === "" || isValidBIC(v), "Die BIC ist ungültig."),
-  accountHolder: trimmed()
-    .min(1, "Kontoinhaber fehlt oder ist länger als 70 Zeichen.")
-    .max(70, "Kontoinhaber fehlt oder ist länger als 70 Zeichen."),
-  showOnInvoices: z.boolean(),
-});
+export const BANK_ACCOUNT_KINDS = ["bank", "clearing", "paypal"] as const;
+
+export const statementAccountSchema = z
+  .object({
+    /** BNK-001: `bank` (IBAN), `clearing` (Verrechnungskonto) or `paypal`. */
+    kind: z.enum(BANK_ACCOUNT_KINDS).default("bank"),
+    name: trimmed().min(1, "Bitte einen Namen angeben.").max(60, "Höchstens 60 Zeichen."),
+    currency: trimmed()
+      .transform((v) => v.toUpperCase())
+      .refine((v) => /^[A-Z]{3}$/.test(v), "Bitte einen ISO-Währungscode angeben (z. B. EUR, USD)."),
+    iban: trimmed()
+      .transform((v) => (v ? (electronicFormatIBAN(v) ?? v) : ""))
+      .refine((v) => v === "" || isValidIBAN(v), "Die IBAN ist ungültig."),
+    bic: trimmed()
+      .transform((v) => v.replace(/\s+/g, "").toUpperCase())
+      .refine((v) => v === "" || isValidBIC(v), "Die BIC ist ungültig."),
+    accountHolder: trimmed()
+      .min(1, "Kontoinhaber fehlt oder ist länger als 70 Zeichen.")
+      .max(70, "Kontoinhaber fehlt oder ist länger als 70 Zeichen."),
+    showOnInvoices: z.boolean(),
+    /** BNK-001: own ledger account (Finanzkonto); empty = the next free account of the chart's bank range. */
+    ledgerAccount: trimmed()
+      .default("")
+      .refine((v) => v === "" || /^\d{4,8}$/.test(v), "Bitte eine Kontonummer mit 4–8 Ziffern angeben."),
+    /** BNK-001: opening balance (date + German amount); both or neither. */
+    openingDate: trimmed()
+      .default("")
+      .refine((v) => v === "" || isCalendarDate(v), "Bitte ein gültiges Datum angeben."),
+    openingAmount: trimmed()
+      .default("")
+      .refine((v) => v === "" || parseCents(v).ok, "Bitte einen Betrag wie 1.234,56 angeben."),
+  })
+  .superRefine((v, ctx) => {
+    if (v.kind !== "bank" && v.iban !== "") {
+      ctx.addIssue({ code: "custom", path: ["iban"], message: "Nur Bankkonten haben eine IBAN." });
+    }
+    if ((v.openingDate === "") !== (v.openingAmount === "")) {
+      ctx.addIssue({
+        code: "custom",
+        path: [v.openingDate === "" ? "openingDate" : "openingAmount"],
+        message: "Für den Anfangsbestand bitte Datum und Betrag angeben.",
+      });
+    }
+  });
 export type StatementAccountFormValues = z.input<typeof statementAccountSchema>;
 export type StatementAccountValues = z.output<typeof statementAccountSchema>;
 
 export const emptyStatementAccountForm = (): StatementAccountFormValues => ({
+  kind: "bank",
+  ledgerAccount: "",
+  openingDate: "",
+  openingAmount: "",
   name: "",
   currency: "EUR",
   iban: "",

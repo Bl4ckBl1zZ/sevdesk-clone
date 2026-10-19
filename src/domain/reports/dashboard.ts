@@ -16,9 +16,9 @@
 
 import type { AccountType } from "../rules/accounting/types";
 import { lookupRule } from "../rules/rule-table";
-import { KLEINUNTERNEHMER_LIMITS } from "../rules/thresholds";
+import { KLEINUNTERNEHMER_LIMITS, TIMELY_RECORDING } from "../rules/thresholds";
 import type { KuEntry } from "../tax/ku-history";
-import { type CalendarDate, calendarDate, daysInMonth } from "../time/calendar-date";
+import { addDays, type CalendarDate, calendarDate, daysInMonth } from "../time/calendar-date";
 
 // ── DASH-001 greeting ─────────────────────────────────────────────────────────────────────────────────
 
@@ -147,6 +147,7 @@ export interface ReceivableItem {
   paidCents: number;
   overdue: boolean;
   currency: string;
+  dueDate?: string | undefined;
 }
 
 export interface Bucket {
@@ -162,24 +163,41 @@ export interface ReceivablesSummary {
   open: Bucket;
   /** „Teilbezahlt“: not yet due, partially paid. */
   partiallyPaid: Bucket;
+  /** PAY-007: subset of „Offen“ + „Teilbezahlt“ due within the next 7 days (not a fourth disjoint row). */
+  dueWithin7: Bucket;
+  /** PAY-007: Σ customer credit balances (overpayments/credit notes not yet refunded or applied). */
+  creditCents: number;
 }
 
-export function receivablesSummary(items: readonly ReceivableItem[]): ReceivablesSummary {
+export function receivablesSummary(
+  items: readonly ReceivableItem[],
+  opts: { today?: CalendarDate; creditCents?: number } = {},
+): ReceivablesSummary {
   const s: ReceivablesSummary = {
     totalCents: 0,
     overdue: { count: 0, cents: 0 },
     open: { count: 0, cents: 0 },
     partiallyPaid: { count: 0, cents: 0 },
+    dueWithin7: { count: 0, cents: 0 },
+    creditCents: opts.creditCents ?? 0,
   };
+  const horizon = opts.today ? addDays(opts.today, DUE_SOON_DAYS) : null;
   for (const i of items) {
     if (i.openCents <= 0 || i.currency !== "EUR") continue;
     const b = i.overdue ? s.overdue : i.paidCents > 0 ? s.partiallyPaid : s.open;
     b.count++;
     b.cents += i.openCents;
     s.totalCents += i.openCents;
+    if (!i.overdue && horizon && i.dueDate && i.dueDate <= horizon) {
+      s.dueWithin7.count++;
+      s.dueWithin7.cents += i.openCents;
+    }
   }
   return s;
 }
+
+/** PAY-007 „in 7 Tagen fällig“ horizon (UI heuristic of 04 §4.7, not legal data). */
+export const DUE_SOON_DAYS = 7;
 
 // ── DASH-005 Kleinunternehmergrenze ───────────────────────────────────────────────────────────────────
 
@@ -329,6 +347,24 @@ export interface MatchedShare {
   unassigned: number;
   percent: number | null;
   level: "low" | "medium" | "complete" | null;
+}
+
+/**
+ * GOBD-04 „Unbooked > 10 days“: unassigned bank transactions (`open`, `partially_matched`) booked more than
+ * `unbookedDays` (rule `gobd_timely_recording`) before today.
+ */
+export function staleUnassigned(
+  rows: readonly { status: string; bookingDate: string }[],
+  today: CalendarDate,
+): { count: number; days: number | null } {
+  const rule = lookupRule(TIMELY_RECORDING, today);
+  if (!rule.ok) return { count: 0, days: null };
+  const days = rule.value.value.unbookedDays;
+  const cutoff = addDays(today, -days);
+  const count = rows.filter(
+    (r) => (UNASSIGNED as readonly string[]).includes(r.status) && r.bookingDate < cutoff,
+  ).length;
+  return { count, days };
 }
 
 export function matchedShare(counts: Readonly<Partial<Record<string, number>>>): MatchedShare {

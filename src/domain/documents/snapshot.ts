@@ -147,6 +147,8 @@ export interface SnapshotItemLine {
   /** BG-26 */ readonly period?: { readonly from: string; readonly to: string };
   /** BT-155 */ readonly itemNumber?: string;
   /** BT-156 */ readonly buyerItemNumber?: string;
+  /** DOC-53: cost centre number (DATEV KOST1); internal, never printed. */
+  readonly costCenter?: string;
   /** Quotes only: excluded from totals and XML (QUO-02). */
   readonly optional?: boolean;
   /** §35a (MISC-07). */

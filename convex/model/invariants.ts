@@ -19,12 +19,14 @@ import { isChainType } from "../../src/domain/documents/relations";
 import type { DocumentSnapshot } from "../../src/domain/documents/snapshot";
 import { ROLE_MAPPING_ROWS, seededAccount } from "../../src/domain/rules/accounting";
 import { defaultInterestRateBp } from "../../src/domain/rules/basiszinssatz";
+import { groupOverrides, overrideRowId } from "../../src/domain/rules/overrides";
 import { berlinCalendarDate } from "../../src/domain/time/berlin";
 import { type CalendarDate, isCalendarDate } from "../../src/domain/time/calendar-date";
 import { checkVoucherBelege } from "../../src/domain/vouchers/invariants";
 import type { Doc, TableNames } from "../_generated/dataModel";
 import { instanceName } from "../lib/env";
 import schema from "../schema";
+import { listRuleOverrides } from "./ruleOverrides";
 import type { ReadCtx } from "./types";
 
 /**
@@ -94,10 +96,27 @@ function comparable(audited: Record<string, unknown>, actual: Record<string, unk
     if (skip.includes(k)) continue;
     const v = audited[k];
     if (v === REDACTED || isEncryptedValue(v)) continue;
-    if (v !== undefined) a[k] = v;
-    if (actual[k] !== undefined) b[k] = actual[k];
+    const [av, bv] = nestedComparable(v, actual[k]);
+    if (av !== undefined) a[k] = av;
+    if (bv !== undefined) b[k] = bv;
   }
   return [canonicalize(a), canonicalize(b)] as const;
+}
+
+/** Secrets redacted inside nested objects (e.g. `notificationSettings.ntfy.encryptedToken`) are skipped as well. */
+function nestedComparable(audited: unknown, actual: unknown): [unknown, unknown] {
+  const isObj = (x: unknown): x is Record<string, unknown> => x !== null && typeof x === "object" && !Array.isArray(x);
+  if (!isObj(audited) || !isObj(actual)) return [audited, actual];
+  const a: Record<string, unknown> = {};
+  const b: Record<string, unknown> = {};
+  for (const k of new Set([...Object.keys(audited), ...Object.keys(actual)])) {
+    const v = audited[k];
+    if (v === REDACTED || isEncryptedValue(v)) continue;
+    const [av, bv] = nestedComparable(v, actual[k]);
+    if (av !== undefined) a[k] = av;
+    if (bv !== undefined) b[k] = bv;
+  }
+  return [a, b];
 }
 
 export async function checkInvariants(ctx: ReadCtx): Promise<InvariantViolation[]> {
@@ -154,6 +173,20 @@ export async function checkInvariants(ctx: ReadCtx): Promise<InvariantViolation[
       });
     }
   }
+  // RI-20 (F12 PRV-002) — no record is deleted before its retentionUntil. P1 has no purge (tombstones are P3), so every
+  // audited deletion of a record that still was within retention is a violation.
+  for (const e of entries) {
+    const diff = e.diff as { before?: { retentionUntil?: unknown }; after?: unknown } | undefined;
+    const until = diff?.before?.retentionUntil;
+    if (!diff?.before || diff.after !== undefined || typeof until !== "string") continue;
+    if (berlinCalendarDate(e.at) <= until) {
+      out.push({
+        id: "RI-20",
+        severity: "ERROR",
+        message: `${e.entity.table}/${e.entity.id} wurde vor Ablauf der Aufbewahrungsfrist (${until}) gelöscht (seq ${e.seq}).`,
+      });
+    }
+  }
   out.push(...(await checkJournalInvariants(ctx)));
   out.push(...(await checkDocumentInvariants(ctx)));
   out.push(...(await checkDunningInvariants(ctx)));
@@ -163,10 +196,12 @@ export async function checkInvariants(ctx: ReadCtx): Promise<InvariantViolation[
 
 /**
  * RI-24 (F05 MAHN-02/03): no consumer reminder carries the 40 € flat fee, and every printed interest segment uses
- * the Basiszinssatz + 5/9 points valid at its start.
+ * the Basiszinssatz + 5/9 points valid at its start — the shipped row, or the owner override the reminder recorded in
+ * its `ruleVersions` (SET-122; reminders without the entry predate overrides and used the shipped table).
  */
 export async function checkDunningInvariants(ctx: ReadCtx): Promise<InvariantViolation[]> {
   const out: InvariantViolation[] = [];
+  const overrides = new Map((await listRuleOverrides(ctx)).map((o) => [overrideRowId(o.id), o]));
   for (const r of await ctx.db
     .query("salesDocuments")
     .withIndex("by_type_status_date", (q) => q.eq("type", "reminder"))
@@ -178,9 +213,23 @@ export async function checkDunningInvariants(ctx: ReadCtx): Promise<InvariantVio
     if (consumer && r.reminder.flatFee40Cents > 0) {
       out.push({ id: "RI-24", severity: "ERROR", message: `${name}: 40-€-Pauschale gegenüber einem Verbraucher.` });
     }
+    const versions =
+      (r.reminder.interestSegments ?? []).length > 0
+        ? ((
+            await ctx.db
+              .query("documentSnapshots")
+              .withIndex("by_document", (q) => q.eq("documentId", r._id))
+              .first()
+          )?.ruleVersions ?? {})
+        : {};
     for (const seg of r.reminder.interestSegments ?? []) {
       if (r.reminder.manual?.interestCents !== undefined) break;
-      const rate = defaultInterestRateBp(seg.from as CalendarDate, consumer ? "b2c" : "b2b");
+      const used = overrides.get(versions[`basiszins:${seg.from}`] ?? "");
+      const rate = defaultInterestRateBp(
+        seg.from as CalendarDate,
+        consumer ? "b2c" : "b2b",
+        used ? groupOverrides([used]).basiszinssatz : [],
+      );
       if (rate.ok && rate.value.rateBp !== seg.rateBp) {
         out.push({
           id: "RI-24",

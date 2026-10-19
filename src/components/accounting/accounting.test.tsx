@@ -107,6 +107,21 @@ beforeEach(() => {
           roles: ["cash"],
         },
         {
+          number: "1200",
+          name: "Bank – Revolut",
+          type: "bank",
+          automaticVatAccount: false,
+          euerKey: "NONE",
+          bwaGroup: "NONE",
+          verified: true,
+          debitCents: 50000,
+          creditCents: 0,
+          balanceCents: 50000,
+          used: true,
+          roles: [],
+          incomplete: true,
+        },
+        {
           number: "8400",
           name: "Erlöse 19 % USt",
           type: "revenue",
@@ -221,6 +236,11 @@ describe("Kontenplan (F08 §6)", () => {
     expect(within(table).getAllByText(/⚠ ungeprüft/)).toHaveLength(1);
     await userEvent.click(screen.getByLabelText("Nur bebuchte Konten"));
     expect(within(table).queryByText("Kasse")).toBeNull();
+  });
+
+  test("ACC-027 a bank ledger balance with unjournalised transactions is labelled „unvollständig (P1)“", () => {
+    renderWithIntl(<ChartOfAccounts isOwner={false} />);
+    expect(screen.getAllByText("unvollständig (P1)").length).toBeGreaterThan(0);
   });
 
   test("ACC-008 TST-ACC-39 the roles tab flags unmapped and uncertain roles; only the owner may assign", async () => {

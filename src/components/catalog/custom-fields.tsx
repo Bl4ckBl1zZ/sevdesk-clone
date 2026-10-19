@@ -16,7 +16,7 @@ export function CustomFieldsEditor({
   value,
   onChange,
 }: {
-  entity: "contact" | "product";
+  entity: "contact" | "product" | "document";
   value: Record<string, Value>;
   onChange: (next: Record<string, Value>) => void;
 }) {

@@ -11,6 +11,7 @@ import {
   monthlyResult,
   monthWindow,
   receivablesSummary,
+  staleUnassigned,
   subtractMonths,
   topCustomers,
 } from "./dashboard";
@@ -116,6 +117,23 @@ describe("DASH-003 month window and monthly result from the journal", () => {
   });
 });
 
+describe("GOBD-04 unbooked > 10 days", () => {
+  test("GOBD-04 unassigned bank transactions older than the rule's 10 days are counted; assigned or recent ones not", () => {
+    const today = d("2026-10-19");
+    const s = staleUnassigned(
+      [
+        { status: "open", bookingDate: "2026-10-08" },
+        { status: "partially_matched", bookingDate: "2026-10-01" },
+        { status: "open", bookingDate: "2026-10-09" },
+        { status: "matched", bookingDate: "2026-09-01" },
+        { status: "ignored", bookingDate: "2026-09-01" },
+      ],
+      today,
+    );
+    expect(s).toEqual({ count: 2, days: 10 });
+  });
+});
+
 describe("DASH-004 Ausstehende Rechnungen", () => {
   test("DASH-004 disjoint buckets: overdue first, then partially paid, else open; they sum to the total", () => {
     const s = receivablesSummary([
@@ -139,7 +157,25 @@ describe("DASH-004 Ausstehende Rechnungen", () => {
       overdue: { count: 0, cents: 0 },
       open: { count: 0, cents: 0 },
       partiallyPaid: { count: 0, cents: 0 },
+      dueWithin7: { count: 0, cents: 0 },
+      creditCents: 0,
     });
+  });
+  test("PAY-007 due within 7 days is a subset of the not-overdue rows; credit balances are passed through", () => {
+    const today = "2026-10-18" as CalendarDate;
+    const s = receivablesSummary(
+      [
+        { openCents: 10_000, paidCents: 0, overdue: true, currency: "EUR", dueDate: "2026-10-10" },
+        { openCents: 20_000, paidCents: 0, overdue: false, currency: "EUR", dueDate: "2026-10-25" },
+        { openCents: 7_000, paidCents: 3_000, overdue: false, currency: "EUR", dueDate: "2026-10-18" },
+        { openCents: 4_000, paidCents: 0, overdue: false, currency: "EUR", dueDate: "2026-10-26" },
+        { openCents: 9_000, paidCents: 0, overdue: false, currency: "USD", dueDate: "2026-10-20" },
+      ],
+      { today, creditCents: 3_500 },
+    );
+    expect(s.dueWithin7).toEqual({ count: 2, cents: 27_000 });
+    expect(s.creditCents).toBe(3_500);
+    expect(s.overdue.cents + s.open.cents + s.partiallyPaid.cents).toBe(s.totalCents);
   });
 });
 

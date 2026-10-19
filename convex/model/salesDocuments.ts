@@ -1,7 +1,8 @@
 import type { InvoiceFinalisedEvent } from "../../src/domain/accounting/events";
+import { chartAt } from "../../src/domain/accounting/period";
 import { validateCompanyForDocuments } from "../../src/domain/company/validate";
 import { ADDRESS_REMOVED_WARNING, attentionLine } from "../../src/domain/contacts/snapshot";
-import { buildSnapshot } from "../../src/domain/documents/build-snapshot";
+import { buildSnapshot, type SnapshotInput } from "../../src/domain/documents/build-snapshot";
 import { revisionNumber } from "../../src/domain/documents/conversion";
 import {
   type ArchivedArtifact,
@@ -23,7 +24,8 @@ import type {
   DraftLine,
   ResolvedDraft,
 } from "../../src/domain/documents/draft";
-import { resolveDraft } from "../../src/domain/documents/draft";
+import { ossNetEurCentsOf, resolveDraft } from "../../src/domain/documents/draft";
+import { type DuplicateSource, duplicateValues } from "../../src/domain/documents/duplicate";
 import { buildSnapshotInput, retentionClassFor, retentionUntil } from "../../src/domain/documents/finalize";
 import { transition } from "../../src/domain/documents/lifecycle";
 import {
@@ -37,6 +39,7 @@ import {
 } from "../../src/domain/documents/snapshot";
 import { blocking, type Finding, validateDocument } from "../../src/domain/documents/validate";
 import type { ValidateOptions, ValidationResult } from "../../src/domain/documents/validate/index";
+import type { GroupedOverrides } from "../../src/domain/rules/overrides";
 import { isVatRateKey, VAT_RATE_KEY_LABELS } from "../../src/domain/rules/vat-rates";
 import type { DraftValues, MarkSentValues } from "../../src/domain/schemas/documents";
 import { companyForValidation, type ProfileData } from "../../src/domain/settings/profile";
@@ -46,18 +49,30 @@ import type { Doc, Id } from "../_generated/dataModel";
 import { appError } from "../lib/errors";
 import { appendAudit, auditedDelete, auditedInsert, auditedPatch } from "./audit";
 import { defaultInvoiceAccount } from "./bankAccounts";
+import { assertClockOk } from "./clock";
 import { getCompanyProfile } from "./companyProfile";
-import { contactAddresses, contactChannels, defaultAddressOf, getContact } from "./contacts";
+import {
+  assertCustomFields,
+  assertTags,
+  contactAddresses,
+  contactChannels,
+  defaultAddressOf,
+  getContact,
+} from "./contacts";
+import { frozenAttachments } from "./documentAttachments";
 import { chainContextFor, chainReferencesFor, inChain, recomputeChainOf } from "./documentChains";
 import { assertRetractionAllowed, onDispatchChanged as dunningDispatchChanged, lateMarkWarning } from "./dunning";
 import { unacknowledgedFailure } from "./integrity";
 import { afterChainFinalize, chainFinalizePatch, chainJournalEvent, loadRelations } from "./invoiceChains";
 import { postJournalEntry } from "./journal";
-import { defaultLayout } from "./layouts";
+import { layoutForDocument } from "./layouts";
 import { listCustomFieldDefs, listPaymentMethods, listUnits } from "./lookups";
+import { type NotificationInput, notify } from "./notifications";
 import { assignCounterNumber, listDefaultRanges, registerDerivedNumber } from "./numberRanges";
+import { loadRuleOverrides } from "./ruleOverrides";
+import { turnoverTotals } from "./turnover";
 import type { ModelCtx, ReadCtx } from "./types";
-import { contactChecks } from "./vatChecks";
+import { contactChecks, vatCheckFollowUp } from "./vatChecks";
 
 /**
  * Sales documents (F04) — the only writer of `salesDocuments`, `documentLines`, `documentSnapshots`,
@@ -163,6 +178,7 @@ const LINE_FIELDS = [
   "isLaborCost",
   "itemNumber",
   "revenueAccount",
+  "costCenterId",
   "optional",
   "sourceLineId",
 ] as const;
@@ -177,13 +193,16 @@ export function draftFromDoc(
   d: SalesDocumentDoc,
   lines: readonly DocumentLineDoc[],
   billing?: SnapshotAddress,
+  defaultDelivery?: SnapshotAddress,
 ): DraftDocument {
+  // DOC-23: a draft without its own delivery address uses the contact's default delivery address (drafts only).
+  const delivery = d.deliveryAddress ?? (d.status === "draft" ? defaultDelivery : undefined);
   return {
     type: d.type,
     ...(d.correctionKind ? { correctionKind: d.correctionKind } : {}),
     ...(d.contactId ? { contactId: d.contactId } : {}),
     ...(billing ? { billingAddress: billing } : {}),
-    ...(d.deliveryAddress ? { deliveryAddress: d.deliveryAddress } : {}),
+    ...(delivery ? { deliveryAddress: delivery } : {}),
     ...(d.supplyDate ? { supplyDate: d.supplyDate } : {}),
     supplyDateMode: d.supplyDateMode,
     ...(d.documentDate && d.status === "draft" ? { documentDate: d.documentDate } : {}),
@@ -205,12 +224,19 @@ export function draftFromDoc(
     ...(d.kleinbetrag ? { kleinbetrag: true } : {}),
     ...(d.propertyRelated ? { propertyRelated: true } : {}),
     ...(d.constructionWork ? { constructionWork: true } : {}),
+    ...(d.marginScheme ? { marginScheme: true } : {}),
     ...(d.documentDiscount ? { documentDiscount: d.documentDiscount } : {}),
     language: d.language,
     ...(d.einvoice.format ? { einvoiceFormat: d.einvoice.format } : {}),
     ...(d.validUntil ? { validUntil: d.validUntil } : {}),
     ...(d.deliveryTerms ? { deliveryTerms: d.deliveryTerms } : {}),
     ...(d.showPrices ? { showPrices: true } : {}),
+    ...(d.tags?.length ? { tags: d.tags } : {}),
+    ...(d.customFields && Object.keys(d.customFields).length
+      ? { customFields: d.customFields as Record<string, string | number | boolean> }
+      : {}),
+    ...(d.costCenterId ? { costCenterId: d.costCenterId } : {}),
+    ...(d.layoutId ? { layoutId: d.layoutId } : {}),
     lines: [...lines].sort((a, b) => a.position - b.position).map(lineFromDoc),
   };
 }
@@ -262,6 +288,8 @@ export interface ContactRead {
   billingAddressId?: Id<"contactAddresses">;
   warnings: Finding[];
   printableCustomFields: { label: string; value: string }[];
+  /** DOC-23: the contact's default delivery address (BG-13/BG-15), used while the draft names none. */
+  defaultDelivery?: SnapshotAddress;
 }
 
 /** Buyer block as frozen now (DOC-22, CON-009/180): a person under an organisation bills the organisation. */
@@ -315,6 +343,9 @@ export async function readContact(
     isConsumer: src.isConsumer,
     isPublicAuthority: src.isPublicAuthority,
   };
+  const defaultDelivery =
+    defaultAddressOf(own, "delivery") ??
+    (parent ? defaultAddressOf(await contactAddresses(ctx, parent._id), "delivery") : undefined);
   const checks = src.vatId ? (await contactChecks(ctx, src._id)).filter((c) => c.vatId === src.vatId) : [];
   const defs = (await listCustomFieldDefs(ctx)).filter(
     (d) => d.entity === "contact" && d.printOnDocuments && !d.archivedAt,
@@ -358,6 +389,7 @@ export async function readContact(
     ...(address ? { billingAddressId: address._id } : {}),
     warnings,
     printableCustomFields,
+    ...(defaultDelivery ? { defaultDelivery: postal(defaultDelivery.address, buyerName) } : {}),
   };
 }
 
@@ -366,6 +398,10 @@ export interface LoadedContext {
   contact: ContactRead | null;
   layoutVersionId: string;
   postalDeliveryDays: number;
+  /** DOC-53: printable document custom fields. */
+  printableDocumentFields: { label: string; value: string }[];
+  /** SET-122: owner rule overrides (VAT rates go into `ctx`, note texts into the snapshot builder). */
+  ruleOverrides: GroupedOverrides;
 }
 
 /** Everything `validateDocument` needs, read in the current transaction. */
@@ -414,15 +450,17 @@ export async function loadDocumentContext(
   const method = (doc.paymentMethodId ? methods.find((m) => m._id === doc.paymentMethodId) : undefined) ??
     methods.find((m) => m.isDefault && m.active) ?? { kind: "transfer" as const, text: "Überweisung" };
   const units = (await listUnits(ctx)).filter((u) => u.archivedAt === undefined);
-  const layout = await defaultLayout(ctx);
+  const layout = await layoutForDocument(ctx, doc);
   const locked = (await ctx.db.query("periods").collect())
     .filter((p) => p.status !== "open")
     .map((p) => p.period)
     .sort()
     .at(-1);
   const recentInvoices: { number: string; documentDate: string; grossCents: number; supplyEnd?: string }[] = [];
-  let kuYearTurnoverCents = 0;
-  const year = today.slice(0, 4);
+  // KU-01/DOC-56/TAX-017: turnover of the supply year (net EUR, all invoice-family documents incl. Storno/credit).
+  const supplyYear = Number((doc.supplyDate ? supplyEndOf(doc.supplyDate) : (doc.documentDate ?? today)).slice(0, 4));
+  const turnover = carriesReceivable(doc.type) ? await turnoverTotals(ctx, supplyYear, doc._id) : null;
+  const kuYearTurnoverCents = turnover?.gesamtumsatz.currentYearCents ?? 0;
   if (doc.contactId) {
     for (const d of await ctx.db
       .query("salesDocuments")
@@ -438,20 +476,15 @@ export async function loadDocumentContext(
       });
     }
   }
-  if (profile?.kleinunternehmer.some((k) => k.isKU)) {
-    for (const d of await ctx.db
-      .query("salesDocuments")
-      .withIndex("by_type_status_date", (q) => q.eq("type", "invoice"))
-      .collect()) {
-      if (d.status === "draft" || d.status === "cancelled" || !d.documentDate?.startsWith(year)) continue;
-      kuYearTurnoverCents += d.totals.grossCents;
-    }
-  }
   const chain = await chainContextFor(ctx, doc, draftLines ?? []);
   const relations = await loadRelations(ctx, doc);
+  const ruleOverrides = await loadRuleOverrides(ctx);
   return {
     ctx: {
       ...chain,
+      ...(Object.keys(ruleOverrides.vatRateOverrides).length
+        ? { vatRateOverrides: ruleOverrides.vatRateOverrides }
+        : {}),
       ...(relations ? { relations } : {}),
       today,
       setupComplete: profile?.setupCompletedAt !== undefined,
@@ -475,8 +508,19 @@ export async function loadDocumentContext(
       ...(locked ? { lockedThrough: `${locked}-31` } : {}),
       recentInvoices,
       kuYearTurnoverCents,
+      ...(turnover ? { ossTurnover: turnover.oss } : {}),
+      // PRD-052: chart of the fiscal year for the per-line revenue account check at finalisation.
+      chart: chartAt(profile?.chartOfAccounts ?? [], profile?.fiscalYearStartMonth ?? 1, doc.documentDate ?? today),
+      costCenterNumbers: Object.fromEntries(
+        (await ctx.db.query("costCenters").collect()).map((c) => [c._id as string, c.number]),
+      ),
+      requiredDocumentFields: (await listCustomFieldDefs(ctx))
+        .filter((d) => d.entity === "document" && d.required && !d.archivedAt)
+        .map((d) => ({ key: d.key, label: d.label })),
     },
     contact,
+    printableDocumentFields: await printableDocumentFields(ctx, doc),
+    ruleOverrides,
     layoutVersionId: layout?.version?._id ?? "default",
     postalDeliveryDays: profile?.receivables.postalDeliveryDays ?? 3,
   };
@@ -494,7 +538,7 @@ export async function validateStored(
 ): Promise<{ loaded: LoadedContext; draft: DraftDocument; result: ValidationResult }> {
   const lines = await documentLines(ctx, doc._id);
   const loaded = await loadDocumentContext(ctx, doc, now, lines);
-  const draft = draftFromDoc(doc, lines, loaded.contact?.context.buyer.address);
+  const draft = draftFromDoc(doc, lines, loaded.contact?.context.buyer.address, loaded.contact?.defaultDelivery);
   const result = validateDocument(draft, loaded.ctx, opts);
   const extra = loaded.contact?.warnings ?? [];
   return { loaded, draft, result: extra.length ? { ...result, findings: [...result.findings, ...extra] } : result };
@@ -544,6 +588,7 @@ function headerFrom(values: DraftValues) {
     ...(values.kleinbetrag ? { kleinbetrag: true } : {}),
     ...(values.propertyRelated ? { propertyRelated: true } : {}),
     ...(values.constructionWork ? { constructionWork: true } : {}),
+    ...(values.marginScheme ? { marginScheme: true } : {}),
     ...(values.documentDiscount ? { documentDiscount: values.documentDiscount } : {}),
     language: values.language,
     ...(values.internalNote ? { internalNote: values.internalNote } : {}),
@@ -552,6 +597,8 @@ function headerFrom(values: DraftValues) {
       ? { deliveryTerms: values.deliveryTerms.trim() }
       : {}),
     ...(values.showPrices && values.type === "delivery_note" ? { showPrices: true } : {}),
+    ...(values.costCenterId ? { costCenterId: values.costCenterId as Id<"costCenters"> } : {}),
+    ...(values.layoutId ? { layoutId: values.layoutId as Id<"layouts"> } : {}),
     ...(values.chainOrder?.number.trim()
       ? { chainOrder: { ...values.chainOrder, number: values.chainOrder.number.trim() } }
       : {}),
@@ -577,6 +624,7 @@ const CLEARABLE = [
   "kleinbetrag",
   "propertyRelated",
   "constructionWork",
+  "marginScheme",
   "documentDiscount",
   "internalNote",
   "taxCaseOverridden",
@@ -585,6 +633,8 @@ const CLEARABLE = [
   "deliveryTerms",
   "showPrices",
   "chainOrder",
+  "costCenterId",
+  "layoutId",
 ] as const;
 
 function lineRow(
@@ -685,6 +735,66 @@ async function resolveForSave(ctx: ReadCtx, doc: SalesDocumentDoc, values: Draft
   return { loaded, resolved: resolveDraft(draft, loaded.ctx) };
 }
 
+/**
+ * DOC-53: tags, document custom fields (types checked; `required` is enforced at finalisation, drafts always save)
+ * and cost centres (document and lines; must exist).
+ */
+async function documentAssignments(
+  ctx: ReadCtx,
+  values: DraftValues,
+): Promise<{ tags: Id<"tags">[]; customFields: Record<string, string | number | boolean> }> {
+  const tags = await assertTags(ctx, values.tags ?? []);
+  const customFields = values.customFields ?? {};
+  await assertCustomFields(ctx, "document", customFields, { skipRequired: true });
+  const centres = [values.costCenterId, ...values.lines.map((l) => l.costCenterId)].filter((x): x is string => !!x);
+  for (const c of new Set(centres)) {
+    const id = ctx.db.normalizeId("costCenters", c);
+    const row = id ? await ctx.db.get(id) : null;
+    // An archived cost centre stays valid on documents that already carry it (Duplizieren); the editor offers only
+    // active ones.
+    if (!row) {
+      throw appError("invalid_input", "Unbekannte Kostenstelle.", {
+        reason: "COST_CENTER_UNKNOWN",
+        field: "costCenterId",
+      });
+    }
+  }
+  if (values.layoutId) {
+    const id = ctx.db.normalizeId("layouts", values.layoutId);
+    if (!id || !(await ctx.db.get(id))) {
+      throw appError("invalid_input", "Unbekanntes Layout.", { reason: "LAYOUT_UNKNOWN", field: "layoutId" });
+    }
+  }
+  return { tags, customFields };
+}
+
+/** DOC-53 / CON-*: printed custom fields = the contact's then the document's (definitions with `printOnDocuments`). */
+/** SET-122: owner note-text overrides for the snapshot builder (none → the shipped texts). */
+export function noteOverridesOf(loaded: { ruleOverrides: GroupedOverrides }): Pick<SnapshotInput, "noteOverrides"> {
+  const n = loaded.ruleOverrides.noteOverrides;
+  return Object.keys(n).length ? { noteOverrides: n } : {};
+}
+
+function printedFields(loaded: {
+  contact: { printableCustomFields: { label: string; value: string }[] } | null;
+  printableDocumentFields: { label: string; value: string }[];
+}): { customFields?: { label: string; value: string }[] } {
+  const all = [...(loaded.contact?.printableCustomFields ?? []), ...loaded.printableDocumentFields];
+  return all.length ? { customFields: all } : {};
+}
+
+/** DOC-53: the document's printable custom fields (definitions with `printOnDocuments`). */
+async function printableDocumentFields(
+  ctx: ReadCtx,
+  doc: SalesDocumentDoc,
+): Promise<{ label: string; value: string }[]> {
+  const values = doc.customFields ?? {};
+  return (await listCustomFieldDefs(ctx))
+    .filter((d) => d.entity === "document" && d.printOnDocuments && !d.archivedAt)
+    .filter((d) => values[d.key] !== undefined && values[d.key] !== "")
+    .map((d) => ({ label: d.label, value: String(values[d.key]) }));
+}
+
 /** Chain relations a conversion or revision sets on the new draft (DOC-33/34, QUO-06/11). */
 export interface DraftRelations {
   originId?: Id<"salesDocuments">;
@@ -718,8 +828,7 @@ export async function createDraft(
     einvoice: values.einvoiceFormat ? { format: values.einvoiceFormat } : {},
     totals: { netCents: 0, vatCents: 0, grossCents: 0, advancesDeductedGrossCents: 0, payableCents: 0, byGroup: [] },
     retentionClass: retentionClassFor(values.type),
-    tags: [],
-    customFields: {},
+    ...(await documentAssignments(ctx, values)),
     createdBy: ctx.actor,
     channel: ctx.actorContext.channel === "cron" ? ("system" as const) : ctx.actorContext.channel,
     version: 1,
@@ -768,6 +877,14 @@ export async function createDraft(
   return id;
 }
 
+/** F04 DOC-35 „Duplizieren“: a new draft from any document except cancellation/correction/reminder. */
+export async function duplicateDocument(ctx: ModelCtx, id: Id<"salesDocuments">): Promise<Id<"salesDocuments">> {
+  const doc = await getDocument(ctx, id);
+  const r = duplicateValues(draftFromDoc(doc, await documentLines(ctx, id)) as unknown as DuplicateSource);
+  if (!r.ok) throw appError("invalid_input", r.message, { reason: "NOT_DUPLICABLE" });
+  return createDraft(ctx, r.values, {}, { reason: `Dupliziert aus ${doc.number ?? "Entwurf"}` });
+}
+
 export async function updateDraft(
   ctx: ModelCtx,
   id: Id<"salesDocuments">,
@@ -795,6 +912,7 @@ export async function updateDraft(
     ? (await ctx.db.get(values.contactId as Id<"contacts">))?.displayName
     : undefined;
   header.einvoice = values.einvoiceFormat ? { format: values.einvoiceFormat } : {};
+  Object.assign(header, await documentAssignments(ctx, values));
   const probe = { ...doc, ...header } as SalesDocumentDoc;
   const { resolved, loaded } = await resolveForSave(ctx, probe, { ...values, lines }, ctx.now());
   header.taxCase = resolved.taxCase;
@@ -938,7 +1056,9 @@ export async function finalizePreview(
   });
   const snap = buildSnapshot({
     ...input,
-    ...(loaded.contact?.printableCustomFields.length ? { customFields: loaded.contact.printableCustomFields } : {}),
+    ...printedFields(loaded),
+    ...noteOverridesOf(loaded),
+    ...frozenAttachments(doc),
   });
   if (!snap.ok) {
     return {
@@ -990,6 +1110,7 @@ export async function commitFinalization(
   version: number,
   o: FinalizeOptions & { validation: "passed" | "skipped" | "not_required" },
 ): Promise<CommitResult> {
+  await assertClockOk(ctx); // AUD-019 / EC-027: no business date while the clock is off by > 60 s
   const stored = await getDocument(ctx, id);
   if (stored.status !== "draft") {
     if (stored.finalizedFromVersion === version && stored.number) {
@@ -1022,7 +1143,9 @@ export async function commitFinalization(
   });
   const built = buildSnapshot({
     ...input,
-    ...(loaded.contact?.printableCustomFields.length ? { customFields: loaded.contact.printableCustomFields } : {}),
+    ...printedFields(loaded),
+    ...noteOverridesOf(loaded),
+    ...frozenAttachments(doc),
   });
   if (!built.ok) throw appError("validation_failed", built.error.message, { reason: built.error.code });
   const snapshot = built.value;
@@ -1090,6 +1213,10 @@ export async function commitFinalization(
       finalizedFromVersion: version,
       retentionClass: retentionClassFor(doc.type),
       retentionUntil: retentionUntil(doc.type, documentDate),
+      // UVA-07/TAX-017: the OSS-relevant net in EUR, frozen with the document (summed by the EU-wide monitor).
+      ...(carriesReceivable(stored.type)
+        ? { ossNetEurCents: ossNetEurCentsOf(draft, loaded.ctx, result.resolved) }
+        : {}),
       ...chainPatch,
     },
     { action: "document.finalize", label: assigned.number, ...(reasons.length ? { reason: reasons.join(" · ") } : {}) },
@@ -1111,6 +1238,9 @@ export async function commitFinalization(
   const finalized = await getDocument(ctx, id);
   if (await inChain(ctx, finalized)) await recomputeChainOf(ctx, finalized, "document.progress");
   if (finalized.recurringOccurrence) await afterRecurringFinalize(ctx, finalized);
+  if (result.overriddenVatCheck && stored.contactId) {
+    await vatCheckFollowUp(ctx, { contactId: stored.contactId, number: assigned.number, ...result.overriddenVatCheck });
+  }
   return { status: "finalized", number: assigned.number, idempotentReplay: false };
 }
 
@@ -1409,6 +1539,7 @@ export async function markSent(
   id: Id<"salesDocuments">,
   values: MarkSentValues,
 ): Promise<{ sendLogId: Id<"sendLog">; firstEffective: boolean; warnings: Finding[] }> {
+  await assertClockOk(ctx); // AUD-019 / EC-027: no business date while the clock is off by > 60 s
   const { doc, profile, r, errors } = await checkMarkSent(ctx, id, values, ctx.now());
   if (errors.length > 0) {
     throw appError("mark_sent_invalid", errors[0]?.message, {
@@ -1530,40 +1661,9 @@ const sendLogRowsAfter = async (ctx: ReadCtx, id: Id<"salesDocuments">) => sendL
 
 // ── to-dos (SND-21, 03 §10) ──────────────────────────────────────────────────────────────────────────────────
 
-interface NotificationInput {
-  kind: string;
-  severity: Doc<"notifications">["severity"];
-  title: string;
-  body?: string;
-  link?: string;
-  entity?: { table: string; id: string };
-  dedupeKey: string;
-}
-
+/** F04/F05 to-dos go through the shared notification model (F12 NTF-006: dedupe counter, delivery per kind). */
 export async function upsertNotification(ctx: ModelCtx, n: NotificationInput): Promise<Id<"notifications">> {
-  const existing = await ctx.db
-    .query("notifications")
-    .withIndex("by_dedupe", (q) => q.eq("dedupeKey", n.dedupeKey))
-    .first();
-  if (existing && existing.resolvedAt === undefined) return existing._id;
-  if (existing) {
-    await auditedPatch(
-      ctx,
-      "notifications",
-      existing._id,
-      { resolvedAt: undefined, readAt: undefined, count: existing.count + 1, title: n.title },
-      {
-        action: "notification.create",
-      },
-    );
-    return existing._id;
-  }
-  return auditedInsert(
-    ctx,
-    "notifications",
-    { ...n, count: 1, createdAt: ctx.now() },
-    { action: "notification.create", label: n.title },
-  );
+  return notify(ctx, n);
 }
 
 export async function resolveNotifications(

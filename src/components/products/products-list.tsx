@@ -9,7 +9,6 @@ import Link from "next/link";
 import { useTranslations } from "next-intl";
 import { useId, useMemo } from "react";
 import {
-  downloadCsv,
   formatDate,
   formatPercentBp,
   formatPrice,
@@ -20,12 +19,14 @@ import {
   useUrlState,
 } from "@/components/catalog/shared";
 import { ConvexGuard } from "@/components/convex/convex-provider";
+import { downloadText, ExportMenu } from "@/components/exports/export-menu";
 import { EmptyState } from "@/components/layout/empty-state";
 import { ListLayout, StatusFilter } from "@/components/layout/list-layout";
 import { ListSearch } from "@/components/layout/list-search";
 import { Badge } from "@/components/ui/badge";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { type CsvVariant, csvFileName, formatTextCsv } from "@/domain/csv/export";
 import { PRODUCT_TYPE_LABELS, PRODUCT_TYPES } from "@/domain/products/product";
 import { useAuthedQuery } from "@/hooks/use-authed-query";
 import { cn } from "@/lib/utils";
@@ -84,9 +85,12 @@ function ProductsListInner() {
   const typeId = useId();
   const catId = useId();
 
-  const exportCsv = async () => {
+  /** CON-143 / PRD-085 rows of the current filter; EXP-021 both variants, EXP-022 guard in the Excel variant. */
+  const exportCsv = async (variant: CsvVariant) => {
     const r = await run(() => convex.query(api.products.exportRows, args), t("exported"));
-    if (r.ok) downloadCsv(r.value, `produkte-${new Date().toISOString().slice(0, 10)}.csv`);
+    if (!r.ok) return;
+    const day = new Date().toISOString().slice(0, 10);
+    downloadText(csvFileName("produkte", variant, day), formatTextCsv(r.value, variant));
   };
 
   const filters = (
@@ -149,9 +153,7 @@ function ProductsListInner() {
             {t("import")}
           </Link>
         )}
-        <Button variant="outline" className="h-11 md:h-9" onClick={() => void exportCsv()}>
-          {t("export")}
-        </Button>
+        <ExportMenu local={(variant) => exportCsv(variant)} />
         {canWrite && (
           <Link href="/produkte/neu" className={cn(buttonVariants(), "hidden h-9 md:inline-flex")}>
             <PlusIcon aria-hidden="true" />

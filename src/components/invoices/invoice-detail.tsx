@@ -9,6 +9,7 @@ import type { Route } from "next";
 import Link from "next/link";
 import { useTranslations } from "next-intl";
 import { useId, useState } from "react";
+import { EntityHistory } from "@/components/audit/entity-history";
 import {
   ConfirmDialog,
   formatDate,
@@ -37,6 +38,7 @@ import { Textarea } from "@/components/ui/textarea";
 import {
   EXPORT_ENTRY_LABELS,
   type ExportEntry,
+  POSTAL_HINT,
   SEND_CHANNEL_LABELS,
   SEND_CHANNELS,
   type SendChannel,
@@ -47,8 +49,10 @@ import type { DocumentSnapshot } from "@/domain/documents/snapshot";
 import { formatMicros, formatMilli } from "@/domain/money/format";
 import type { DraftValues } from "@/domain/schemas/documents";
 import { useAuthedQuery } from "@/hooks/use-authed-query";
+import { AttachmentsSection } from "./attachments-section";
 import { CorrectionActions, DraftBanner, docTypeKey, RelationsPanel } from "./corrections";
 import { ChainCard, DocumentFlowActions } from "./document-actions";
+import { DuplicateButton } from "./duplicate-button";
 import { InvoiceEditor } from "./invoice-editor";
 import { DECISION_LABELS, downloadExport, FORMAT_LABELS, InvoiceStatusBadge, money } from "./invoice-shared";
 
@@ -115,6 +119,7 @@ function InvoiceDetailInner({ id }: { id: Id<"salesDocuments"> }) {
           title={draftTitle}
           description={data.doc.contactName ?? t("noCustomer")}
           breadcrumbs={[...crumbs, { label: draftTitle }]}
+          actions={<DuplicateButton doc={data.doc} />}
         />
         <PageBody>
           <DraftBanner type={data.doc.type} correctionKind={data.doc.correctionKind ?? null} />
@@ -130,7 +135,9 @@ function InvoiceDetailInner({ id }: { id: Id<"salesDocuments"> }) {
           ) : (
             <p>{t("readOnlyDraft")}</p>
           )}
+          <AttachmentsSection id={id} draft files={data.files} />
           <ChainCard chain={chain} />
+          <EntityHistory table="salesDocuments" id={id} />
         </PageBody>
       </>
     );
@@ -147,6 +154,7 @@ function InvoiceDetailInner({ id }: { id: Id<"salesDocuments"> }) {
         actions={
           <>
             <CorrectionActions doc={data.doc} snapshot={data.snapshot as DocumentSnapshot | null} />
+            <DuplicateButton doc={data.doc} />
             <FinalActions data={data} />
           </>
         }
@@ -167,7 +175,9 @@ function InvoiceDetailInner({ id }: { id: Id<"salesDocuments"> }) {
         {data.doc.status !== "cancelled" && <PaymentsSection documentId={data.doc._id} number={number} />}
         {data.doc.status !== "cancelled" && <InvoiceDunningSection invoiceId={data.doc._id} type={data.doc.type} />}
         <Files data={data} />
+        <AttachmentsSection id={data.doc._id} draft={false} files={data.files} />
         <SendLog data={data} />
+        <EntityHistory table="salesDocuments" id={data.doc._id} />
       </DetailLayout>
     </>
   );
@@ -224,7 +234,7 @@ function FinalActions({ data }: { data: Detail }) {
         id: data.doc._id,
         request: { entry, ...(original ? { original: true } : {}), ...(reason ? { reason } : {}) },
       });
-      await downloadExport(res.files, res.zipName);
+      await downloadExport([...res.files, ...res.attachments], res.zipName);
       return res;
     }, t("exported"));
     return r.ok;
@@ -252,6 +262,10 @@ function FinalActions({ data }: { data: Detail }) {
               </DropdownMenuItem>
             </>
           )}
+          <DropdownMenuSeparator />
+          <p className="px-2 py-1.5 text-muted-foreground text-xs" data-testid="postal-hint">
+            {POSTAL_HINT}
+          </p>
         </DropdownMenuContent>
       </DropdownMenu>
       {canSend && (
@@ -474,17 +488,44 @@ function Facts({ data }: { data: Detail }) {
             ? [{ label: tDoc("cancellation"), value: d.cancellation.reason }]
             : []),
           { label: t("sentOn"), value: formatDate(d.sentOn) },
-          ...(data.register
-            ? [{ label: t("register"), value: `${data.register.number} (${formatDateTime(data.register.assignedAt)})` }]
-            : []),
         ]}
       />
+      {data.register && <RegisterEntry entry={data.register} />}
       {data.doc.contactId && (
         <Link href={`/kontakte/${data.doc.contactId}` as Route} className="text-sm underline">
           {t("toContact")}
         </Link>
       )}
     </section>
+  );
+}
+
+/** DOC-39: the number register row („Nummernkreis-Eintrag“) with the link to the F01 register / gap report. */
+function RegisterEntry({ entry }: { entry: NonNullable<Detail["register"]> }) {
+  const t = useTranslations("invoices.detail");
+  const canSettings = useCan("settings.read");
+  const href =
+    entry.rangeId &&
+    (`/einstellungen/nummernkreise/register?range=${entry.rangeId}${entry.periodKey ? `&period=${entry.periodKey}` : ""}` as Route);
+  return (
+    <div className="flex flex-col gap-1 border-t pt-3 text-sm" data-testid="register-entry">
+      <span className="font-medium">{t("register")}</span>
+      <span>
+        {entry.number}
+        {entry.rangeName ? ` · ${entry.rangeName}` : ""}
+        {entry.periodKey ? ` · ${entry.periodKey}` : ""}
+      </span>
+      <span className="text-muted-foreground">
+        {t("registerAssigned", { at: formatDateTime(entry.assignedAt) })} ·{" "}
+        {t(`registerStatus.${entry.status}` as "registerStatus.issued")}
+        {entry.imported ? ` · ${t("registerImported")}` : ""}
+      </span>
+      {href && canSettings && (
+        <Link href={href} className="underline">
+          {t("registerLink")}
+        </Link>
+      )}
+    </div>
   );
 }
 

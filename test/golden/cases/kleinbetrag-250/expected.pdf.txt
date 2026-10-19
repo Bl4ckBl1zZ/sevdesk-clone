@@ -12,8 +12,8 @@ Ansprechpartner | Erika Musterfrau
 Telefon | +49 30 1234567
 E-Mail | rechnung@muster-design.de
 Rechnung RE-2026-0042
-Pos. | Bezeichnung | Menge Einheit | Einzelpreis netto | Gesamt netto
-1 | Druckerpapier A4, 20 Pakete | 1 pauschal | 210,08 € | 210,08 €
+Pos. | Bezeichnung | Menge Einheit | Einzelpreis brutto | Gesamt brutto
+1 | Druckerpapier A4, 20 Pakete | 1 pauschal | 250,00 € | 250,00 €
 Summe netto | 210,08 €
 zzgl. 19 % USt auf 210,08 € | 39,92 €
 Gesamtbetrag | 250,00 €

@@ -6,6 +6,8 @@ import {
   type WriteChange,
 } from "../../src/domain/audit/immutability";
 import { isTechnicalPatch, TECHNICAL_TABLES } from "../../src/domain/audit/technical";
+import { isRetained, retentionMessage } from "../../src/domain/rules/retention";
+import { berlinCalendarDate } from "../../src/domain/time/berlin";
 import type { DatabaseWriter } from "../_generated/server";
 import { appError } from "../lib/errors";
 
@@ -77,6 +79,24 @@ export function guardedDb(db: DatabaseWriter, stats: WriteStats): DatabaseWriter
     }
   };
 
+  /**
+   * F12 PRV-002 / RI-20: no record that carries `retentionUntil` is deleted before that date, on any path and for any
+   * table (protected or not). Class `none` records (drafts, notifications) carry no `retentionUntil`.
+   */
+  const retentionGuard = async (table: string | undefined, id: AnyId) => {
+    const stored = table ? await raw.get(table, id) : await raw.get(id);
+    const until = stored?.retentionUntil;
+    if (typeof until !== "string") return;
+    const today = berlinCalendarDate(Date.now());
+    if (!isRetained(until, today)) return;
+    const label = typeof stored?.number === "string" ? stored.number : "Dieser Datensatz";
+    throw appError("immutable_record", retentionMessage(label, until), {
+      reason: "RETENTION_ACTIVE",
+      table: table ?? "",
+      retentionUntil: until,
+    });
+  };
+
   const count = (table: string | undefined) => {
     if (table !== undefined && AUDIT_EXEMPT.has(table)) return;
     stats.writes++;
@@ -103,6 +123,7 @@ export function guardedDb(db: DatabaseWriter, stats: WriteStats): DatabaseWriter
     },
     delete: async (...args: unknown[]) => {
       const { table, id } = split(args, 1);
+      await retentionGuard(table, id);
       await guard(table, id, { op: "delete" });
       count(table);
       return raw.delete?.apply(db, args);

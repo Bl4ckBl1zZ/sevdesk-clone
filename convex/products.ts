@@ -1,12 +1,14 @@
 import { paginationOptsValidator } from "convex/server";
 import { v } from "convex/values";
 import { filter } from "convex-helpers/server/filter";
+import { chartAt } from "../src/domain/accounting/period";
 import { normalizeSearchQuery } from "../src/domain/contacts/core";
 import { render } from "../src/domain/numbering/format";
 import { categoryPath } from "../src/domain/products/categories";
 import { PRODUCT_EXPORT_HEADERS, productExportRow, productImportForm, productRow } from "../src/domain/products/csv-io";
 import { computeMargin, priceViews, resolveRate } from "../src/domain/products/pricing";
 import { rateChangeBanner, upcomingRateChanges } from "../src/domain/products/rate-change";
+import { revenueAccountOptions } from "../src/domain/products/revenue-account";
 import {
   categorySchema,
   customerPriceSchema,
@@ -21,6 +23,7 @@ import { isTest } from "./lib/env";
 import { appError } from "./lib/errors";
 import { parse } from "./lib/parse";
 import { berlinParts } from "./lib/time";
+import { getCompanyProfile } from "./model/companyProfile";
 import { companyContext } from "./model/contacts";
 import { listDefaultRanges, nextValue } from "./model/numberRanges";
 import {
@@ -451,5 +454,17 @@ export const exportRows = query({
       );
     }
     return rows;
+  },
+});
+
+/** PRD-050/053: revenue accounts of the company chart (product form and per-line select). */
+export const revenueAccounts = query({
+  permission: "products.read",
+  args: {},
+  handler: async (ctx) => {
+    const today = berlinCalendarDate(ctx.now());
+    const profile = await getCompanyProfile(ctx);
+    const chart = chartAt(profile?.chartOfAccounts ?? [], profile?.fiscalYearStartMonth ?? 1, today);
+    return { chart, accounts: revenueAccountOptions(chart, today) };
   },
 });

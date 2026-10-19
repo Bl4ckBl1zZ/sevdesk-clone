@@ -15,7 +15,7 @@ import { PageBody } from "@/components/layout/list-layout";
 import { useZodForm } from "@/components/setup/use-zod-form";
 import { Badge } from "@/components/ui/badge";
 import { Button, buttonVariants } from "@/components/ui/button";
-import { emptyStatementAccountForm, statementAccountSchema } from "@/domain/schemas/banking";
+import { BANK_ACCOUNT_KINDS, emptyStatementAccountForm, statementAccountSchema } from "@/domain/schemas/banking";
 import { useAuthedQuery } from "@/hooks/use-authed-query";
 import { cn } from "@/lib/utils";
 import { DuplicatesPanel } from "./duplicates-panel";
@@ -172,6 +172,13 @@ function AccountDialog({ onClose }: { onClose: () => void }) {
       onSubmit={submit}
       submitting={form.formState.isSubmitting}
     >
+      <SelectField
+        form={form}
+        name="kind"
+        label={t("kind")}
+        required
+        options={BANK_ACCOUNT_KINDS.map((k) => ({ value: k, label: t(`kinds.${k}`) }))}
+      />
       <TextField form={form} name="name" label={t("name")} required placeholder="Revolut EUR" />
       <SelectField
         form={form}
@@ -184,6 +191,16 @@ function AccountDialog({ onClose }: { onClose: () => void }) {
       <TextField form={form} name="bic" label={t("bic")} autoComplete="off" />
       <TextField form={form} name="accountHolder" label={t("holder")} required />
       <CheckboxField form={form} name="showOnInvoices" label={t("showOnInvoices")} />
+      <TextField
+        form={form}
+        name="ledgerAccount"
+        label={t("ledgerAccount")}
+        description={t("ledgerAccountHint")}
+        inputMode="numeric"
+        autoComplete="off"
+      />
+      <TextField form={form} name="openingDate" label={t("openingDate")} type="date" />
+      <TextField form={form} name="openingAmount" label={t("openingAmount")} inputMode="decimal" placeholder="0,00" />
     </FormDialog>
   );
 }

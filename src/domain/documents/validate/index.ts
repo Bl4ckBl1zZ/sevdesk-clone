@@ -13,16 +13,19 @@ import { validateLeitwegId } from "../../einvoice/leitweg-id";
 import { isSupportedCurrency } from "../../money/currencies";
 import { formatBasisPoints, formatEuro, formatMilli } from "../../money/format";
 import { lineAmountCents } from "../../money/line";
+import { revenueAccountIssue } from "../../products/revenue-account";
 import { isEuVatCountry, isEuVatPrefix } from "../../rules/eu-vat-countries";
 import { lookupRule } from "../../rules/rule-table";
 import { isWithinKleinbetragLimit, KLEINUNTERNEHMER_LIMITS } from "../../rules/thresholds";
 import { TAX_CASE_LABELS } from "../../tax/tax-case";
+import { ossBlock } from "../../tax/turnover";
 import { validateVatId } from "../../tax/vat-id";
 import { addDays, type CalendarDate, daysBetween, formatGermanDate } from "../../time/calendar-date";
 import { DOC_TYPE_PLURAL_DE } from "../doc-types";
 import {
   type DocumentContext,
   type DraftDocument,
+  ossNetEurCentsOf,
   type ResolvedDraft,
   resolveDraft,
   supplyRange,
@@ -39,6 +42,7 @@ export { blocking, type Finding, isBlocking } from "./finding";
 
 const INVOICE_TYPES: readonly SalesDocType[] = ["invoice", "advance_invoice", "partial_invoice", "final_invoice"];
 const MAX_LINES = 2000;
+const DOMESTIC_CATEGORIES: readonly string[] = ["S", "Z", "E"];
 const MAX_AMOUNT_CENTS = 9_999_999_999_999;
 const GENERIC = new Set([
   "leistung",
@@ -59,6 +63,8 @@ export interface ValidationResult {
   readonly findings: readonly Finding[];
   readonly resolved: ResolvedDraft;
   readonly einvoice: EinvoicePlan;
+  /** INV-28 / EC-044: the VAT-ID check was released by an audited override → the check must be repeated later. */
+  readonly overriddenVatCheck?: { readonly vatId: string; readonly qualifiedRequired: boolean } | undefined;
 }
 
 export interface ValidateOptions {
@@ -77,6 +83,7 @@ export function validateDocument(
   const einvoice = planEinvoice(draft, ctx, resolved);
   const out: Finding[] = [];
   const push = (f: Finding) => out.push(f);
+  let overriddenVatCheck: ValidationResult["overriddenVatCheck"];
   const isInvoice = INVOICE_TYPES.includes(draft.type);
   const c = ctx.contact;
   const items = draft.lines.filter((l) => l.kind === "item" && !l.optional);
@@ -131,6 +138,18 @@ export function validateDocument(
         },
       ),
     );
+  }
+
+  // DOC-53: required document custom fields.
+  for (const f of ctx.requiredDocumentFields ?? []) {
+    const value = draft.customFields?.[f.key];
+    if (value === undefined || value === "") {
+      push(
+        finding("custom_field_missing", "E", "DOC-53", "pflichtangaben", `Pflichtfeld „${f.label}“ fehlt.`, {
+          field: `customFields.${f.key}`,
+        }),
+      );
+    }
   }
 
   // ── §5.1.1 parties ──────────────────────────────────────────────────────────────────────────────────────────
@@ -449,6 +468,20 @@ export function validateDocument(
           "UST-02",
           "hinweise",
           `Diese Rechnung muss bis ${de(deadline)} ausgestellt werden (§ 14a UStG).`,
+          {
+            params: { date: deadline },
+          },
+        ),
+      );
+    } else {
+      // INV-27: the editor always names the deadline; it becomes a warning 3 days before.
+      push(
+        finding(
+          "deadline_14a_info",
+          "I",
+          "UST-02",
+          "hinweise",
+          `Rechnung bis ${de(deadline)} ausstellen (§ 14a UStG).`,
           {
             params: { date: deadline },
           },
@@ -813,6 +846,24 @@ export function validateDocument(
         ),
       );
     }
+    // PRD-051/052 (PRD-E17/E18): a line revenue account (domestic lines only) must still be a revenue account whose
+    // automatic VAT matches the line's actual rate.
+    if (l.kind === "item" && l.revenueAccount && ctx.chart && DOMESTIC_CATEGORIES.includes(r.vatCategory)) {
+      const issue = revenueAccountIssue({
+        chart: ctx.chart,
+        account: l.revenueAccount,
+        date: docDate ?? today,
+        rates: [{ category: r.vatCategory, rateBp: r.vatRateBp }],
+      });
+      if (issue) {
+        push(
+          finding(issue.code.toLowerCase(), "E", "PRD-052", "steuern", `Position ${n}: ${issue.message}`, {
+            field: `lines.${r.index}.revenueAccount`,
+            params: { n, account: l.revenueAccount },
+          }),
+        );
+      }
+    }
     if (r.vatCategory === "AE" && taxCase === "domestic" && c?.isConsumer) {
       push(
         finding(
@@ -905,6 +956,45 @@ export function validateDocument(
       }
     }
   }
+  // UST-24, DOC-45, EC-056: margin schemes and travel services are blocked even with a tax-case override.
+  if (draft.marginScheme && resolved.derivation.kind !== "blocked") {
+    push(
+      finding(
+        "margin_scheme_blocked",
+        "E",
+        "UST-24",
+        "steuern",
+        "Differenzbesteuerung und Reiseleistungen (§§ 25, 25a UStG) werden in dieser Version nicht unterstützt. Bitte mit einem Steuerberater abstimmen.",
+        { field: "marginScheme" },
+      ),
+    );
+  }
+  // UVA-07, TAX-017, DOC-45, EC-057: EU-wide OSS threshold (P1 block; destination taxation is P4).
+  if (isInvoice) {
+    const thisOss = ossNetEurCentsOf(draft, ctx, resolved);
+    const block = ossBlock({
+      thisNetEurCents: thisOss,
+      priorYearEurCents: ctx.ossTurnover?.priorYearEurCents ?? 0,
+      currentYearEurCents: ctx.ossTurnover?.currentYearEurCents ?? 0,
+      date: (range?.to ?? docDate) as CalendarDate,
+    });
+    if (block) {
+      push(finding(block.code, "E", "UVA-07", "steuern", block.message, { field: "contactId", params: block.params }));
+    }
+  }
+  // DOC-23: goods leaving Germany need the delivery address (the destination country drives the tax case, EC-042).
+  if (isInvoice && (taxCase === "intra_community_supply" || taxCase === "export") && !draft.deliveryAddress) {
+    push(
+      finding(
+        "delivery_address_missing",
+        "E",
+        "DOC-23",
+        "pflichtangaben",
+        "Lieferadresse fehlt. Bei innergemeinschaftlichen Lieferungen und Ausfuhren ist die Lieferanschrift Pflicht.",
+        { field: "deliveryAddress" },
+      ),
+    );
+  }
   if (c && (taxCase === "eu_b2b_service" || taxCase === "intra_community_supply")) {
     const label = TAX_CASE_LABELS[taxCase];
     const vatId = c.vatId;
@@ -952,6 +1042,9 @@ export function validateDocument(
         today,
         recheckDone: true,
       });
+      if (gate.kind === "blocked" && gate.overridable && opts.vatCheckOverride) {
+        overriddenVatCheck = { vatId, qualifiedRequired: taxCase === "intra_community_supply" };
+      }
       if (gate.kind === "blocked" && !(gate.overridable && opts.vatCheckOverride)) {
         const mismatch = gate.code === "VAT_CHECK_NOT_QUALIFIED" && c.vatChecks[0]?.qualified !== undefined;
         push(
@@ -1265,7 +1358,7 @@ export function validateDocument(
     }
   }
   out.push(...chainFindings(draft, ctx, resolved));
-  return { findings: dedupe(out), resolved, einvoice };
+  return { findings: dedupe(out), resolved, einvoice, ...(overriddenVatCheck ? { overriddenVatCheck } : {}) };
 }
 
 function dedupe(findings: Finding[]): Finding[] {

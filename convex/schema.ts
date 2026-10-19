@@ -533,11 +533,29 @@ export default defineSchema({
   // 03 §10 notificationSettings (singleton; P0: the owner notification address, F01 SET-009a)
   notificationSettings: defineTable({
     email: v.optional(v.object({ address: v.string(), digest: v.boolean() })),
+    /** F12 NTF-004: ntfy server, topic, encrypted access token, „Details senden", consecutive failures (E-NTF-01). */
+    ntfy: v.optional(
+      v.object({
+        serverUrl: v.string(),
+        topic: v.string(),
+        encryptedToken: v.optional(v.string()),
+        sendDetails: v.boolean(),
+        failures: v.optional(v.number()),
+      }),
+    ),
     channelsByKind: v.record(
       v.string(),
       v.object({ inApp: v.boolean(), email: v.boolean(), ntfy: v.boolean(), digest: v.boolean() }),
     ),
   }),
+
+  // F12 PRV-016 / F01 SET-109/114: the owner's AVV (Auftragsverarbeitungsvertrag) confirmation per external service.
+  serviceConfirmations: defineTable({
+    serviceId: v.string(),
+    confirmedAt: v.number(),
+    confirmedBy: vActor,
+    note: v.optional(v.string()),
+  }).index("by_service", ["serviceId"]),
 
   // 03 §1 Templates and lookups — integrations (only the parts P0 uses: cloudflare_email, r2_checkpoint)
   integrations: defineTable({
@@ -865,6 +883,31 @@ export default defineSchema({
     acknowledgedBy: v.optional(vActor),
   }).index("by_at", ["at"]),
 
+  // F12 AUD-024 verfahrensdokuInputs — the owner's structured inputs (singleton, audited)
+  verfahrensdokuInputs: defineTable({ values: v.record(v.string(), v.string()), updatedAt: v.number() }),
+  // F12 AUD-025 verfahrensdokuVersions 🔒 — released versions; only supersededAt/retentionUntil are set once
+  // (P1: Markdown file with SHA-256 instead of PDF/A, see the report)
+  verfahrensdokuVersions: defineTable({
+    version: v.number(),
+    validFrom: v.string(),
+    releasedAt: v.number(),
+    releasedBy: vActor,
+    sourceJson: v.string(),
+    file: vFileRef,
+    supersededAt: v.optional(v.number()),
+    retentionUntil: v.optional(v.string()),
+    watchSnapshot: v.record(v.string(), v.string()),
+  }).index("by_version", ["version"]),
+
+  // F12 AUD-019 clockReadings — technical rolling log (7 days) of the 10-minute clock check; not business data.
+  clockReadings: defineTable({
+    at: v.number(),
+    offsetMs: v.union(v.number(), v.null()),
+    reference: v.string(),
+    status: v.union(v.literal("ok"), v.literal("warning"), v.literal("error"), v.literal("unknown")),
+    detail: v.string(),
+  }).index("by_at", ["at"]),
+
   // 03 §10 apiKeys (the key itself is stored as SHA-256 only; prefix = public key id in api-key:/mcp: actors)
   // 03 §10 restoreDrills 🔒 (AUD-027, SEC-05): every restore drill and production restore is recorded, append-only.
   restoreDrills: defineTable({
@@ -1092,6 +1135,19 @@ export default defineSchema({
     .index("by_date", ["date", "seq"])
     .index("by_contact", ["contactId", "date"]),
 
+  // 03 §1 ruleOverrides (F01 SET-121…123): owner rows on top of the shipped rule tables in src/domain/rules. Never
+  // updated; the row id is `override:<_id>`. Referenced by a finalised document (documentSnapshots.ruleVersions) →
+  // locked; unreferenced rows may be deleted (audited).
+  ruleOverrides: defineTable({
+    ruleSet: v.union(v.literal("basiszinssatz"), v.literal("taxRate"), v.literal("noteText")),
+    tableId: v.string(),
+    validFrom: v.string(),
+    validTo: v.optional(v.string()),
+    value: v.union(v.object({ rateBp: v.number() }), v.object({ de: v.string(), en: v.string() })),
+    source: v.string(),
+    addedAt: v.number(),
+  }).index("by_ruleSet", ["ruleSet", "tableId"]),
+
   // accountRoleMappings 🔒 — owner overrides of the shipped mapping (rule data roles-2026.2 in
   // src/domain/rules/accounting); append-only versions, resolution = latest validFrom ≤ posting date (ACC-008).
   accountRoleMappings: defineTable({
@@ -1260,6 +1316,8 @@ export default defineSchema({
     propertyRelated: v.optional(v.boolean()),
     kleinbetrag: v.optional(v.boolean()),
     constructionWork: v.optional(v.boolean()),
+    /** UST-24: margin scheme / travel service declared (always blocked at finalisation). */
+    marginScheme: v.optional(v.boolean()),
     documentDiscount: v.optional(
       v.object({
         kind: v.union(v.literal("percent"), v.literal("amount")),
@@ -1356,9 +1414,34 @@ export default defineSchema({
     lockedAt: v.optional(v.number()),
     retentionClass: v.union(v.literal("vouchers8"), v.literal("letters6")),
     retentionUntil: v.optional(v.string()),
+    /** UVA-07/TAX-017: OSS-relevant net in EUR (§ 3c Abs. 4 UStG), set at finalisation of invoice-family documents. */
+    ossNetEurCents: v.optional(v.number()),
     tags: v.array(v.id("tags")),
     customFields: v.record(v.string(), v.any()),
     internalNote: v.optional(v.string()),
+    /** DOC-53: cost centre of the document (DATEV KOST1 default for its lines). */
+    costCenterId: v.optional(v.id("costCenters")),
+    /** DOC-18: ≤ 10 attachments, frozen at finalisation (`includeInExport` SND-16, `embedInXml` BG-24). */
+    attachments: v.optional(
+      v.array(v.object({ file: vFileRef, embedInXml: v.boolean(), includeInExport: v.boolean() })),
+    ),
+    /** INV-30: proofs appended after finalisation; append-only, not part of the snapshot. */
+    evidence: v.optional(
+      v.array(
+        v.object({
+          file: vFileRef,
+          kind: v.union(
+            v.literal("gelangensbestaetigung"),
+            v.literal("cmr"),
+            v.literal("ausfuhrnachweis"),
+            v.literal("other"),
+          ),
+          note: v.optional(v.string()),
+          addedAt: v.number(),
+          actor: vActor,
+        }),
+      ),
+    ),
     // ── quotes, order confirmations, delivery notes, proforma and conversions (F04 §3.2 QUO, §4.3) ─────────────
     /** Quotes: 1, 2, … (QUO-06); not the OCC counter `version`. */
     revision: v.optional(v.number()),
@@ -1506,6 +1589,8 @@ export default defineSchema({
     lineNetCents: v.optional(v.number()),
     isLaborCost: v.optional(v.boolean()),
     revenueAccount: v.optional(v.string()),
+    /** DOC-53: line cost centre (DATEV KOST1). */
+    costCenterId: v.optional(v.id("costCenters")),
     itemNumber: v.optional(v.string()),
     /** Quotes only (DOC-04, QUO-02): excluded from totals and VAT. */
     optional: v.optional(v.boolean()),
@@ -1571,6 +1656,53 @@ export default defineSchema({
 
   // 03 §10 notifications (in-app to-dos; unprotected, audited). `resolvedAt` (03 delta): closed by the resolving
   // act (SND-21: the sent mark, a Storno or a withdrawal) — open to-dos have no `resolvedAt`.
+  // 03 §10 jobs (F09 EXP-026, F04 SND-20): background exports with progress, cancel and a 30-day result file.
+  jobs: defineTable({
+    kind: v.union(
+      v.literal("csv_export"),
+      v.literal("bulk_export"),
+      v.literal("bulk_mark_sent"),
+      v.literal("pdf_zip"),
+      v.literal("datev_export"),
+      v.literal("gdpdu_export"),
+      v.literal("full_export"),
+      v.literal("verfahrensdoku_pdf"),
+    ),
+    status: v.union(
+      v.literal("queued"),
+      v.literal("running"),
+      v.literal("done"),
+      v.literal("failed"),
+      v.literal("cancelled"),
+    ),
+    progress: v.object({ done: v.number(), total: v.number() }),
+    /** Kind-specific parameters (validated by the starting mutation). */
+    params: v.any(),
+    label: v.string(),
+    resultStorageId: v.optional(v.id("_storage")),
+    resultName: v.optional(v.string()),
+    resultSha256: v.optional(v.string()),
+    resultBytes: v.optional(v.number()),
+    /** Documents skipped by bulk jobs with the German reason (SND-20). */
+    skipped: v.optional(v.array(v.object({ id: v.string(), label: v.string(), reason: v.string() }))),
+    error: v.optional(v.string()),
+    actor: vActor,
+    /** The creator's actor context (channel, role, label) so the export audit entry is attributed to it (EXP-026). */
+    by: v.object({
+      actor: vActor,
+      channel: vChannel,
+      role: v.optional(vMemberRole),
+      label: v.optional(v.string()),
+      requestId: v.optional(v.string()),
+    }),
+    createdAt: v.number(),
+    finishedAt: v.optional(v.number()),
+    /** Result download until (createdAt + 30 days); the file is removed afterwards. */
+    expiresAt: v.optional(v.number()),
+  })
+    .index("by_actor", ["actor", "createdAt"])
+    .index("by_status", ["status", "createdAt"]),
+
   notifications: defineTable({
     kind: v.string(),
     severity: v.union(v.literal("info"), v.literal("warning"), v.literal("error"), v.literal("critical")),

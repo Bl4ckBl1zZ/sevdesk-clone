@@ -1,3 +1,4 @@
+import { SecretScreenLog } from "@/components/audit/audit-watchers";
 import { RoleGate } from "@/components/auth/role-gate";
 import { ApiKeysAdmin } from "@/components/settings/api-keys-admin";
 import { SettingsPage, settingsMetadata } from "@/components/settings/settings-page";
@@ -9,6 +10,7 @@ export default function Page() {
     <SettingsPage item="api">
       <RoleGate permission="apiKeys.read">
         <ApiKeysAdmin />
+        <SecretScreenLog screen="API-Schlüssel" />
       </RoleGate>
     </SettingsPage>
   );

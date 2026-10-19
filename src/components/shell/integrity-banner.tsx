@@ -31,7 +31,29 @@ export function IntegrityBanner() {
   return (
     <ConvexGuard>
       <IntegrityBannerInner />
+      <ClockBanner />
     </ConvexGuard>
+  );
+}
+
+/** F12 AUD-019 / GOBD-22: clock skew > 2 s → warning banner; > 60 s → finalising and dated actions are refused. */
+function ClockBanner() {
+  const t = useTranslations("integrity");
+  const me = useAuthedQuery(api.members.me, {});
+  const canRead = Boolean(me && canDo(me.role, "integrity.read"));
+  const clock = useAuthedQuery(api.system.clock, {}, canRead);
+  if (!clock || (clock.status !== "warning" && clock.status !== "error")) return null;
+  return (
+    <div
+      role={clock.status === "error" ? "alert" : "status"}
+      className={
+        clock.status === "error"
+          ? "border-danger border-b bg-danger/10 px-4 py-3 text-sm"
+          : "border-warning border-b bg-warning/10 px-4 py-3 text-sm"
+      }
+    >
+      {t(clock.status === "error" ? "clockError" : "clockWarning", { detail: clock.detail })}
+    </div>
   );
 }
 

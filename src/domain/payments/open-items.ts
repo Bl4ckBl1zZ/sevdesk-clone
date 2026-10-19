@@ -5,6 +5,8 @@
  * As-of (PAY-003): documents with `documentDate ≤ asOf`, payment rows with `date ≤ asOf`. A reversal is a row of its
  * own with negated amounts and its own date, so a payment reversed after the as-of date still counts (T05-002).
  */
+import { type CsvVariant, formatCsv } from "../csv/export";
+import { OPEN_ITEM_COLUMNS } from "../csv/lists";
 import { type CalendarDate, daysBetween } from "../time/calendar-date";
 
 export const DEFAULT_AGING_EDGES = [30, 60, 90] as const;
@@ -163,28 +165,10 @@ export function computeOpenItems(input: {
   };
 }
 
-/** PAY-006 OPOS CSV: `;`, decimal comma, UTF-8 with BOM. */
-export function openItemsCsv(r: OpenItemsResult): string {
-  const money = (c: number) => {
-    const neg = c < 0;
-    const s = Math.abs(c).toString().padStart(3, "0");
-    return `${neg ? "-" : ""}${s.slice(0, -2)},${s.slice(-2)}`;
-  };
-  const de = (d?: string) => (d ? `${d.slice(8, 10)}.${d.slice(5, 7)}.${d.slice(0, 4)}` : "");
-  const esc = (s: string) => (/[;"\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s);
-  const head = "Nr.;Kunde;Rechnungsdatum;Fällig;Tage überfällig;Betrag;Bezahlt;Offen;Status";
-  const lines = r.items.map((i) =>
-    [
-      esc(i.number),
-      esc(i.contactName),
-      de(i.documentDate),
-      de(i.dueDate),
-      String(i.daysOverdue),
-      money(i.payableCents),
-      money(i.paidCents),
-      money(i.openCents),
-      i.overdue ? "überfällig" : "offen",
-    ].join(";"),
-  );
-  return `﻿${[head, ...lines].join("\r\n")}\r\n`;
+/**
+ * PAY-006 OPOS CSV through the shared list exporter (F09 EXP-021): „CSV (Excel)" by default — `;`, decimal comma,
+ * UTF-8 with BOM and the formula-injection guard (EXP-022) — or „CSV (technisch)".
+ */
+export function openItemsCsv(r: OpenItemsResult, variant: CsvVariant = "excel"): string {
+  return formatCsv(OPEN_ITEM_COLUMNS, r.items, variant);
 }

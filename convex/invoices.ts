@@ -23,8 +23,15 @@ import { defaultInvoiceAccount } from "./model/bankAccounts";
 import { getCompanyProfile } from "./model/companyProfile";
 import { getContact } from "./model/contacts";
 import { deliveryNoteDeadline, runUninvoicedSupplyDeadlines } from "./model/deliveryDeadlines";
+import {
+  addAttachment as addAttachmentModel,
+  addEvidence as addEvidenceModel,
+  attachmentsView,
+  updateAttachment as updateAttachmentModel,
+} from "./model/documentAttachments";
 import { runQuoteDeadlines } from "./model/documentFlows";
 import { listPaymentMethods } from "./model/lookups";
+import { registerEntryOf } from "./model/numberRanges";
 import {
   archivedArtifacts,
   checkMarkSent,
@@ -35,6 +42,7 @@ import {
   documentArtifacts,
   documentLines,
   draftFromDoc,
+  duplicateDocument,
   type FinalizeOptions,
   finalizePreview,
   getDocument,
@@ -253,6 +261,7 @@ export const get = query({
       displayStatus: displayStatusOf(doc, today),
       today,
       productChanged,
+      files: attachmentsView(doc),
     };
     if (doc.status === "draft") {
       const { result, loaded } = await validateStored(ctx, doc, now);
@@ -311,12 +320,8 @@ export const get = query({
     const artifacts = await documentArtifacts(ctx, id);
     const log = await sendLogOf(ctx, id);
     const effective = effectiveMark(sendLogRows(log));
-    const register = doc.number
-      ? await ctx.db
-          .query("numberRegister")
-          .withIndex("by_normalized", (q) => q.eq("normalized", (doc.number ?? "").toUpperCase()))
-          .first()
-      : null;
+    // DOC-39: the register row (range, status) of the number, linked to the F01 register viewer (SET-063).
+    const register = doc.number ? await registerEntryOf(ctx, doc.number) : null;
     const format = doc.einvoice.format ?? "none";
     return {
       ...base,
@@ -354,14 +359,7 @@ export const get = query({
         archivedArtifacts(artifacts),
         await lastExportArtifactIds(ctx, id),
       ),
-      register: register
-        ? {
-            number: register.number,
-            status: register.status,
-            assignedAt: register.assignedAt,
-            periodKey: register.periodKey ?? null,
-          }
-        : null,
+      register,
     };
   },
 });
@@ -381,6 +379,8 @@ export const check = query({
       type: draftValues.type,
       status: "draft",
       ...(draftValues.chainOrder ? { chainOrder: draftValues.chainOrder } : {}),
+      // The turnover monitors look at the supply year of the edited values (KU-01, TAX-017).
+      ...(draftValues.supplyDate ? { supplyDate: draftValues.supplyDate } : {}),
       ...(draftValues.contactId ? { contactId: draftValues.contactId as Id<"contacts"> } : { contactId: undefined }),
       ...(draftValues.bankAccountId
         ? { bankAccountId: draftValues.bankAccountId as Id<"bankAccounts"> }
@@ -395,6 +395,10 @@ export const check = query({
       // Not part of the editable values (set when the correction draft is created, INV-12/13).
       ...(probe.correctionKind ? { correctionKind: probe.correctionKind } : {}),
       ...(loaded.contact?.context.buyer.address ? { billingAddress: loaded.contact.context.buyer.address } : {}),
+      // DOC-23: the contact's default delivery address while the draft names none (same as the commit).
+      ...(!draftValues.deliveryAddress && loaded.contact?.defaultDelivery
+        ? { deliveryAddress: loaded.contact.defaultDelivery }
+        : {}),
     };
     const r = validateDocument(draft, loaded.ctx);
     const t = r.resolved.totals;
@@ -569,6 +573,73 @@ export const updateDraft = mutation({
   },
   handler: async (ctx, { id, version, values, billingAddressId }) =>
     updateDraftModel(ctx, id, version, parse(draftSchema, values), billingAddressId ? { billingAddressId } : {}),
+});
+
+/** F04 DOC-35 „Duplizieren“ (new draft of the same type; advance/partial/final → invoice). */
+export const duplicate = mutation({
+  permission: "documents.write",
+  args: { id: v.id("salesDocuments") },
+  handler: async (ctx, { id }) => ({ id: await duplicateDocument(ctx, id) }),
+});
+
+// ── DOC-18 attachments (drafts) and INV-30 proofs („Nachweise“, finalised documents) ───────────────────────────
+
+export const generateAttachmentUploadUrl = mutation({
+  permission: "documents.write",
+  args: {},
+  handler: async (ctx) => ctx.storage.generateUploadUrl(),
+});
+
+export const addAttachment = mutation({
+  permission: "documents.write",
+  args: {
+    id: v.id("salesDocuments"),
+    storageId: v.id("_storage"),
+    name: v.string(),
+    embedInXml: v.optional(v.boolean()),
+    includeInExport: v.optional(v.boolean()),
+  },
+  handler: async (ctx, { id, ...a }) => addAttachmentModel(ctx, id, a),
+});
+
+export const updateAttachment = mutation({
+  permission: "documents.write",
+  args: {
+    id: v.id("salesDocuments"),
+    sha256: v.string(),
+    embedInXml: v.optional(v.boolean()),
+    includeInExport: v.optional(v.boolean()),
+    remove: v.optional(v.boolean()),
+  },
+  handler: async (ctx, { id, sha256, ...flags }) => updateAttachmentModel(ctx, id, sha256, flags),
+});
+
+export const addEvidence = mutation({
+  permission: "documents.write",
+  args: {
+    id: v.id("salesDocuments"),
+    storageId: v.id("_storage"),
+    name: v.string(),
+    kind: v.union(
+      v.literal("gelangensbestaetigung"),
+      v.literal("cmr"),
+      v.literal("ausfuhrnachweis"),
+      v.literal("other"),
+    ),
+    note: v.optional(v.string()),
+  },
+  handler: async (ctx, { id, ...e }) => addEvidenceModel(ctx, id, e),
+});
+
+/** Download URL of an attachment or proof (by its frozen sha256). */
+export const attachmentUrl = query({
+  permission: "documents.read",
+  args: { id: v.id("salesDocuments"), sha256: v.string() },
+  handler: async (ctx, { id, sha256 }) => {
+    const doc = await ctx.db.get(id);
+    const file = [...(doc?.attachments ?? []), ...(doc?.evidence ?? [])].find((a) => a.file.sha256 === sha256)?.file;
+    return file ? await ctx.storage.getUrl(file.storageId) : null;
+  },
 });
 
 export const deleteDraft = mutation({
@@ -766,10 +837,15 @@ export const exportInput = systemQuery({
     const doc = await getDocument(ctx, id);
     return {
       status: doc.status,
+      type: doc.type,
       number: doc.number ?? null,
       format: doc.einvoice.format ?? "none",
       artifactStatus: doc.artifactStatus ?? null,
       marked: doc.sentAt !== undefined,
+      // DOC-18: attachments flagged includeInExport travel with the export bundle (SND-16)
+      attachments: (doc.attachments ?? [])
+        .filter((a) => a.includeInExport)
+        .map((a) => ({ name: a.file.name, sha256: a.file.sha256, mime: a.file.mime, storageId: a.file.storageId })),
       artifacts: (await documentArtifacts(ctx, id)).map((a) => ({
         _id: a._id,
         kind: a.kind,
@@ -803,6 +879,10 @@ export const renderInput = systemQuery({
       layoutConfig: layoutVersion?.config ?? null,
       logoStorageId: profile?.logoStorageId ?? null,
       hasArtifacts: (await documentArtifacts(ctx, id)).some((a) => (a.variant ?? "original") !== "copy"),
+      // DOC-18: attachments embedded as BG-24 in the XML (frozen with the snapshot hashes)
+      xmlAttachments: (doc.attachments ?? [])
+        .filter((a) => a.embedInXml)
+        .map((a) => ({ name: a.file.name, sha256: a.file.sha256, mime: a.file.mime, storageId: a.file.storageId })),
     };
   },
 });

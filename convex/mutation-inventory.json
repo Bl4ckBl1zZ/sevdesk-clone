@@ -94,6 +94,42 @@
     "wrapper": "mutation",
     "permission": "apiKeys.revoke"
   },
+  "auditLog:actors": {
+    "kind": "query",
+    "visibility": "public",
+    "wrapper": "query",
+    "permission": "audit.read"
+  },
+  "auditLog:entityHistory": {
+    "kind": "query",
+    "visibility": "public",
+    "wrapper": "query",
+    "permission": "audit.read"
+  },
+  "auditLog:exportLog": {
+    "kind": "mutation",
+    "visibility": "public",
+    "wrapper": "mutation",
+    "permission": "audit.read"
+  },
+  "auditLog:latestExternalChange": {
+    "kind": "query",
+    "visibility": "public",
+    "wrapper": "query",
+    "permission": "audit.read"
+  },
+  "auditLog:recordAccess": {
+    "kind": "mutation",
+    "visibility": "public",
+    "wrapper": "mutation",
+    "permission": "session.self"
+  },
+  "auditLog:search": {
+    "kind": "query",
+    "visibility": "public",
+    "wrapper": "query",
+    "permission": "audit.read"
+  },
   "auth:onCreate": {
     "kind": "mutation",
     "visibility": "internal",
@@ -144,6 +180,24 @@
     "visibility": "public",
     "wrapper": "action",
     "permission": "integrations.manage"
+  },
+  "backups:recordCheck": {
+    "kind": "mutation",
+    "visibility": "internal",
+    "wrapper": "systemMutation",
+    "job": "cron.backups.verify"
+  },
+  "backups:status": {
+    "kind": "action",
+    "visibility": "public",
+    "wrapper": "action",
+    "permission": "settings.read"
+  },
+  "backups:verifyCron": {
+    "kind": "action",
+    "visibility": "internal",
+    "wrapper": "systemAction",
+    "job": "cron.backups.verify"
   },
   "banking:account": {
     "kind": "query",
@@ -294,6 +348,60 @@
     "visibility": "public",
     "wrapper": "query",
     "permission": "banking.read"
+  },
+  "bulk:jobDone": {
+    "kind": "mutation",
+    "visibility": "internal",
+    "wrapper": "systemMutation",
+    "job": "exports.run"
+  },
+  "bulk:jobFailed": {
+    "kind": "mutation",
+    "visibility": "internal",
+    "wrapper": "systemMutation",
+    "job": "exports.run"
+  },
+  "bulk:jobInput": {
+    "kind": "query",
+    "visibility": "internal",
+    "wrapper": "systemQuery",
+    "job": "exports.run"
+  },
+  "bulk:jobStep": {
+    "kind": "mutation",
+    "visibility": "internal",
+    "wrapper": "systemMutation",
+    "job": "exports.run"
+  },
+  "bulk:markInput": {
+    "kind": "query",
+    "visibility": "internal",
+    "wrapper": "systemQuery",
+    "job": "exports.run"
+  },
+  "bulk:markJob": {
+    "kind": "action",
+    "visibility": "internal",
+    "wrapper": "systemAction",
+    "job": "exports.run"
+  },
+  "bulk:markOne": {
+    "kind": "mutation",
+    "visibility": "internal",
+    "wrapper": "actorMutation",
+    "permission": "invoices.send"
+  },
+  "bulk:startExport": {
+    "kind": "mutation",
+    "visibility": "public",
+    "wrapper": "mutation",
+    "permission": "documents.export"
+  },
+  "bulk:startMarkSent": {
+    "kind": "mutation",
+    "visibility": "public",
+    "wrapper": "mutation",
+    "permission": "invoices.send"
   },
   "cash:overview": {
     "kind": "query",
@@ -691,6 +799,12 @@
     "wrapper": "query",
     "permission": "dashboard.read"
   },
+  "documentArtifacts:bulkExportJob": {
+    "kind": "action",
+    "visibility": "internal",
+    "wrapper": "systemAction",
+    "job": "exports.run"
+  },
   "documentArtifacts:exportFiles": {
     "kind": "action",
     "visibility": "public",
@@ -936,6 +1050,78 @@
     "visibility": "public",
     "wrapper": "mutation",
     "permission": "dunning.write"
+  },
+  "exports:csv": {
+    "kind": "mutation",
+    "visibility": "public",
+    "wrapper": "mutation",
+    "permission": "documents.export"
+  },
+  "exports:jobDone": {
+    "kind": "mutation",
+    "visibility": "internal",
+    "wrapper": "systemMutation",
+    "job": "exports.run"
+  },
+  "exports:jobFailed": {
+    "kind": "mutation",
+    "visibility": "internal",
+    "wrapper": "systemMutation",
+    "job": "exports.run"
+  },
+  "exports:jobInput": {
+    "kind": "query",
+    "visibility": "internal",
+    "wrapper": "systemQuery",
+    "job": "exports.run"
+  },
+  "exports:jobStep": {
+    "kind": "mutation",
+    "visibility": "internal",
+    "wrapper": "systemMutation",
+    "job": "exports.run"
+  },
+  "exports:runCsvJob": {
+    "kind": "action",
+    "visibility": "internal",
+    "wrapper": "systemAction",
+    "job": "exports.run"
+  },
+  "fullExport:done": {
+    "kind": "mutation",
+    "visibility": "internal",
+    "wrapper": "systemMutation",
+    "job": "exports.run"
+  },
+  "fullExport:meta": {
+    "kind": "query",
+    "visibility": "internal",
+    "wrapper": "systemQuery",
+    "job": "exports.run"
+  },
+  "fullExport:start": {
+    "kind": "mutation",
+    "visibility": "public",
+    "wrapper": "mutation",
+    "permission": "exports.full"
+  },
+  "fullExport:storagePage": {
+    "kind": "query",
+    "visibility": "internal",
+    "wrapper": "systemQuery",
+    "job": "exports.run"
+  },
+  "fullExport:tablePage": {
+    "kind": "query",
+    "visibility": "internal",
+    "wrapper": "systemQuery",
+    "job": "exports.run"
+  },
+  "fullExportJob:run": {
+    "kind": "action",
+    "visibility": "internal",
+    "wrapper": "systemAction",
+    "job": "exports.run"
   },
   "idempotency:begin": {
     "kind": "mutation",
@@ -1387,6 +1573,12 @@
     "wrapper": "systemMutation",
     "job": "cron.integrity.checkpoint"
   },
+  "integrity:startupCron": {
+    "kind": "action",
+    "visibility": "internal",
+    "wrapper": "systemAction",
+    "job": "cron.integrity.verify"
+  },
   "integrity:state": {
     "kind": "query",
     "visibility": "internal",
@@ -1447,6 +1639,18 @@
     "wrapper": "mutation",
     "permission": "invites.manage"
   },
+  "invoices:addAttachment": {
+    "kind": "mutation",
+    "visibility": "public",
+    "wrapper": "mutation",
+    "permission": "documents.write"
+  },
+  "invoices:addEvidence": {
+    "kind": "mutation",
+    "visibility": "public",
+    "wrapper": "mutation",
+    "permission": "documents.write"
+  },
   "invoices:artifactFailure": {
     "kind": "mutation",
     "visibility": "internal",
@@ -1458,6 +1662,12 @@
     "visibility": "internal",
     "wrapper": "systemMutation",
     "job": "documents.pipeline"
+  },
+  "invoices:attachmentUrl": {
+    "kind": "query",
+    "visibility": "public",
+    "wrapper": "query",
+    "permission": "documents.read"
   },
   "invoices:check": {
     "kind": "query",
@@ -1489,6 +1699,12 @@
     "wrapper": "query",
     "permission": "documents.read"
   },
+  "invoices:duplicate": {
+    "kind": "mutation",
+    "visibility": "public",
+    "wrapper": "mutation",
+    "permission": "documents.write"
+  },
   "invoices:exportInput": {
     "kind": "query",
     "visibility": "internal",
@@ -1506,6 +1722,12 @@
     "visibility": "public",
     "wrapper": "query",
     "permission": "documents.read"
+  },
+  "invoices:generateAttachmentUploadUrl": {
+    "kind": "mutation",
+    "visibility": "public",
+    "wrapper": "mutation",
+    "permission": "documents.write"
   },
   "invoices:get": {
     "kind": "query",
@@ -1591,11 +1813,41 @@
     "wrapper": "query",
     "permission": "documents.read"
   },
+  "invoices:updateAttachment": {
+    "kind": "mutation",
+    "visibility": "public",
+    "wrapper": "mutation",
+    "permission": "documents.write"
+  },
   "invoices:updateDraft": {
     "kind": "mutation",
     "visibility": "public",
     "wrapper": "mutation",
     "permission": "documents.write"
+  },
+  "jobs:cancel": {
+    "kind": "mutation",
+    "visibility": "public",
+    "wrapper": "mutation",
+    "permission": "documents.export"
+  },
+  "jobs:expireCron": {
+    "kind": "mutation",
+    "visibility": "internal",
+    "wrapper": "systemMutation",
+    "job": "cron.jobs.expire"
+  },
+  "jobs:list": {
+    "kind": "query",
+    "visibility": "public",
+    "wrapper": "query",
+    "permission": "documents.export"
+  },
+  "jobs:resultUrl": {
+    "kind": "query",
+    "visibility": "public",
+    "wrapper": "query",
+    "permission": "documents.export"
   },
   "lookups:archiveCostCenter": {
     "kind": "mutation",
@@ -1819,6 +2071,90 @@
     "wrapper": "systemMutation",
     "job": "migration"
   },
+  "notifications:deliver": {
+    "kind": "action",
+    "visibility": "internal",
+    "wrapper": "systemAction",
+    "job": "notifications.deliver"
+  },
+  "notifications:deliveryInput": {
+    "kind": "query",
+    "visibility": "internal",
+    "wrapper": "systemQuery",
+    "job": "notifications.deliver"
+  },
+  "notifications:list": {
+    "kind": "query",
+    "visibility": "public",
+    "wrapper": "query",
+    "permission": "notifications.read"
+  },
+  "notifications:maintainCron": {
+    "kind": "mutation",
+    "visibility": "internal",
+    "wrapper": "systemMutation",
+    "job": "cron.notifications.maintain"
+  },
+  "notifications:markAllRead": {
+    "kind": "mutation",
+    "visibility": "public",
+    "wrapper": "mutation",
+    "permission": "notifications.write"
+  },
+  "notifications:markRead": {
+    "kind": "mutation",
+    "visibility": "public",
+    "wrapper": "mutation",
+    "permission": "notifications.write"
+  },
+  "notifications:ntfyConfig": {
+    "kind": "query",
+    "visibility": "internal",
+    "wrapper": "systemQuery",
+    "job": "notifications.deliver"
+  },
+  "notifications:recordNtfy": {
+    "kind": "mutation",
+    "visibility": "internal",
+    "wrapper": "systemMutation",
+    "job": "notifications.deliver"
+  },
+  "notifications:recordNtfyTest": {
+    "kind": "mutation",
+    "visibility": "internal",
+    "wrapper": "actorMutation",
+    "permission": "integrations.manage"
+  },
+  "notifications:saveNtfy": {
+    "kind": "mutation",
+    "visibility": "public",
+    "wrapper": "mutation",
+    "permission": "settings.ownerOnly"
+  },
+  "notifications:setChannels": {
+    "kind": "mutation",
+    "visibility": "public",
+    "wrapper": "mutation",
+    "permission": "settings.ownerOnly"
+  },
+  "notifications:settings": {
+    "kind": "query",
+    "visibility": "public",
+    "wrapper": "query",
+    "permission": "settings.read"
+  },
+  "notifications:testNtfy": {
+    "kind": "action",
+    "visibility": "public",
+    "wrapper": "action",
+    "permission": "integrations.manage"
+  },
+  "notifications:unreadCount": {
+    "kind": "query",
+    "visibility": "public",
+    "wrapper": "query",
+    "permission": "notifications.read"
+  },
   "payments:applyCredit": {
     "kind": "mutation",
     "visibility": "public",
@@ -1832,6 +2168,12 @@
     "permission": "payments.receipt"
   },
   "payments:contactCredit": {
+    "kind": "query",
+    "visibility": "public",
+    "wrapper": "query",
+    "permission": "payments.read"
+  },
+  "payments:contactReceivables": {
     "kind": "query",
     "visibility": "public",
     "wrapper": "query",
@@ -1933,6 +2275,30 @@
     "wrapper": "mutation",
     "permission": "payments.write"
   },
+  "privacy:art30": {
+    "kind": "query",
+    "visibility": "public",
+    "wrapper": "query",
+    "permission": "settings.read"
+  },
+  "privacy:confirmAvv": {
+    "kind": "mutation",
+    "visibility": "public",
+    "wrapper": "mutation",
+    "permission": "settings.ownerOnly"
+  },
+  "privacy:externalServices": {
+    "kind": "query",
+    "visibility": "public",
+    "wrapper": "query",
+    "permission": "settings.read"
+  },
+  "privacy:retention": {
+    "kind": "query",
+    "visibility": "public",
+    "wrapper": "query",
+    "permission": "settings.read"
+  },
   "products:applyScheduledPricesCron": {
     "kind": "mutation",
     "visibility": "internal",
@@ -2022,6 +2388,12 @@
     "visibility": "public",
     "wrapper": "mutation",
     "permission": "products.write"
+  },
+  "products:revenueAccounts": {
+    "kind": "query",
+    "visibility": "public",
+    "wrapper": "query",
+    "permission": "products.read"
   },
   "products:saveCategory": {
     "kind": "mutation",
@@ -2185,7 +2557,43 @@
     "wrapper": "mutation",
     "permission": "documents.write"
   },
+  "restore:complete": {
+    "kind": "action",
+    "visibility": "internal",
+    "wrapper": "systemAction",
+    "job": "system.restore"
+  },
+  "restore:headState": {
+    "kind": "query",
+    "visibility": "internal",
+    "wrapper": "systemQuery",
+    "job": "system.restore"
+  },
+  "restore:preflight": {
+    "kind": "query",
+    "visibility": "internal",
+    "wrapper": "systemQuery",
+    "job": "system.restore"
+  },
+  "restore:recordFailure": {
+    "kind": "mutation",
+    "visibility": "internal",
+    "wrapper": "systemMutation",
+    "job": "system.restore"
+  },
+  "restore:recordRestore": {
+    "kind": "mutation",
+    "visibility": "internal",
+    "wrapper": "systemMutation",
+    "job": "system.restore"
+  },
   "settings:addBankAccount": {
+    "kind": "mutation",
+    "visibility": "public",
+    "wrapper": "mutation",
+    "permission": "settings.write"
+  },
+  "settings:addRuleOverride": {
     "kind": "mutation",
     "visibility": "public",
     "wrapper": "mutation",
@@ -2204,6 +2612,12 @@
     "permission": "settings.read"
   },
   "settings:completeSetup": {
+    "kind": "mutation",
+    "visibility": "public",
+    "wrapper": "mutation",
+    "permission": "settings.ownerOnly"
+  },
+  "settings:confirmKuLimitCrossed": {
     "kind": "mutation",
     "visibility": "public",
     "wrapper": "mutation",
@@ -2233,6 +2647,12 @@
     "wrapper": "mutation",
     "permission": "settings.write"
   },
+  "settings:deleteRuleOverride": {
+    "kind": "mutation",
+    "visibility": "public",
+    "wrapper": "mutation",
+    "permission": "settings.write"
+  },
   "settings:generateLogoUploadUrl": {
     "kind": "mutation",
     "visibility": "public",
@@ -2246,6 +2666,12 @@
     "permission": "settings.read"
   },
   "settings:getSetupState": {
+    "kind": "query",
+    "visibility": "public",
+    "wrapper": "query",
+    "permission": "settings.read"
+  },
+  "settings:layoutHistory": {
     "kind": "query",
     "visibility": "public",
     "wrapper": "query",
@@ -2275,11 +2701,29 @@
     "wrapper": "query",
     "permission": "settings.read"
   },
+  "settings:numberRegister": {
+    "kind": "query",
+    "visibility": "public",
+    "wrapper": "query",
+    "permission": "settings.read"
+  },
   "settings:recordStorageTest": {
     "kind": "mutation",
     "visibility": "internal",
     "wrapper": "actorMutation",
     "permission": "integrations.manage"
+  },
+  "settings:restoreLayoutVersion": {
+    "kind": "mutation",
+    "visibility": "public",
+    "wrapper": "mutation",
+    "permission": "settings.write"
+  },
+  "settings:ruleOverview": {
+    "kind": "query",
+    "visibility": "public",
+    "wrapper": "query",
+    "permission": "settings.read"
   },
   "settings:runAccessChecks": {
     "kind": "action",
@@ -2346,6 +2790,12 @@
     "visibility": "public",
     "wrapper": "query",
     "permission": "session.self"
+  },
+  "settings:taxScope": {
+    "kind": "query",
+    "visibility": "public",
+    "wrapper": "query",
+    "permission": "settings.read"
   },
   "settings:testCheckpointStorage": {
     "kind": "action",
@@ -2437,11 +2887,29 @@
     "wrapper": "query",
     "permission": "integrations.manage"
   },
+  "system:clock": {
+    "kind": "query",
+    "visibility": "public",
+    "wrapper": "query",
+    "permission": "integrity.read"
+  },
+  "system:clockCron": {
+    "kind": "action",
+    "visibility": "internal",
+    "wrapper": "systemAction",
+    "job": "cron.system.clock"
+  },
   "system:overview": {
     "kind": "query",
     "visibility": "public",
     "wrapper": "query",
     "permission": "settings.read"
+  },
+  "system:recordClock": {
+    "kind": "mutation",
+    "visibility": "internal",
+    "wrapper": "systemMutation",
+    "job": "cron.system.clock"
   },
   "system:recordRestoreDrill": {
     "kind": "mutation",
@@ -2520,6 +2988,48 @@
     "visibility": "internal",
     "wrapper": "actorMutation",
     "permission": "contacts.write"
+  },
+  "verfahrensdoku:commitRelease": {
+    "kind": "mutation",
+    "visibility": "internal",
+    "wrapper": "actorMutation",
+    "permission": "settings.ownerOnly"
+  },
+  "verfahrensdoku:release": {
+    "kind": "action",
+    "visibility": "public",
+    "wrapper": "action",
+    "permission": "settings.ownerOnly"
+  },
+  "verfahrensdoku:releaseInput": {
+    "kind": "query",
+    "visibility": "internal",
+    "wrapper": "systemQuery",
+    "job": "verfahrensdoku.release"
+  },
+  "verfahrensdoku:saveInputs": {
+    "kind": "mutation",
+    "visibility": "public",
+    "wrapper": "mutation",
+    "permission": "settings.ownerOnly"
+  },
+  "verfahrensdoku:versionUrl": {
+    "kind": "query",
+    "visibility": "public",
+    "wrapper": "query",
+    "permission": "settings.read"
+  },
+  "verfahrensdoku:view": {
+    "kind": "query",
+    "visibility": "public",
+    "wrapper": "query",
+    "permission": "settings.read"
+  },
+  "verfahrensdoku:watchCron": {
+    "kind": "mutation",
+    "visibility": "internal",
+    "wrapper": "systemMutation",
+    "job": "cron.verfahrensdoku.watch"
   },
   "voucherIntegrity:voucherFilesPage": {
     "kind": "query",

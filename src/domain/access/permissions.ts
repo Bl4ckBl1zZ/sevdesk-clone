@@ -60,6 +60,9 @@ export const PERMISSIONS = {
   "settings.ownerOnly": { roles: ["owner"], scope: null, write: true },
   /** Integration credentials, auth-mail test, R2 tests (F01 SET-106/107/115). */
   "integrations.manage": { roles: ["owner"], scope: null, write: true },
+  /** F12 NTF-001: bell, list and read state (shared per instance); auditors never see operational notifications. */
+  "notifications.read": { roles: STAFF_READ, scope: "settings:read", write: false },
+  "notifications.write": { roles: ["owner", "bookkeeper"], scope: "settings:write", write: true },
   "audit.read": { roles: ALL, scope: "audit:read", write: false },
   "integrity.read": { roles: ["owner", "bookkeeper", "auditor"], scope: "audit:read", write: false },
   "integrity.acknowledge": { roles: ["owner"], scope: null, write: true },
@@ -135,6 +138,8 @@ export const PERMISSIONS = {
    * audit entry and the derived `firstExportedAt` cache are recorded.
    */
   "documents.export": { roles: ALL, scope: "documents:read", write: false },
+  /** F09 EXP-023 Vollexport (all tables and files leave the system): owner only; API `POST /exports/full` (05 §4). */
+  "exports.full": { roles: ["owner"], scope: "exports:run", write: false },
   /**
    * DOC-24 finalise (⚠, irreversible number assignment; fresh session, 02 §4.2). MCP: confirm token from
    * `document_preview` (intent finalize), bound to id + version + the finalisation options (06 §3.4).

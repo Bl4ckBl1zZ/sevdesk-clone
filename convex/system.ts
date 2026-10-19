@@ -1,8 +1,11 @@
 import { v } from "convex/values";
 import { restoreDrillStatus } from "../src/domain/system/health";
 import { berlinCalendarDate } from "../src/domain/time/berlin";
-import { action, mutation, query } from "./functions";
-import { env } from "./lib/env";
+import { internal } from "./_generated/api";
+import { action, mutation, query, systemAction, systemMutation } from "./functions";
+import { clockOffsetMs } from "./lib/clock";
+import { env, isTest } from "./lib/env";
+import { clockView, recordClockReading } from "./model/clock";
 import { getCompanyProfile } from "./model/companyProfile";
 import { getIntegration } from "./model/integrations";
 import {
@@ -171,4 +174,31 @@ export const verifyEmailToken = action({
       };
     }
   },
+});
+
+// ── AUD-019 clock monitoring ─────────────────────────────────────────────────────────────────────────
+
+export const recordClock = systemMutation({
+  job: "cron.system.clock",
+  args: { offsetMs: v.union(v.number(), v.null()), reference: v.string() },
+  handler: async (ctx, args) => recordClockReading(ctx, args),
+});
+
+/** Every 10 minutes: Convex runtime clock vs. CLOCK_REFERENCE_URL (HTTP Date); skipped when not configured. */
+export const clockCron = systemAction({
+  job: "cron.system.clock",
+  args: { force: v.optional(v.boolean()) },
+  handler: async (ctx, { force }): Promise<string | null> => {
+    if (isTest() && !force) return null;
+    const reference = env("CLOCK_REFERENCE_URL");
+    if (!reference) return null;
+    return ctx.runMutation(internal.system.recordClock, { offsetMs: await clockOffsetMs(), reference });
+  },
+});
+
+/** SET-132 / GOBD-22: the latest clock reading for the integrity panel and the banner. */
+export const clock = query({
+  permission: "integrity.read",
+  args: {},
+  handler: async (ctx) => clockView(ctx),
 });

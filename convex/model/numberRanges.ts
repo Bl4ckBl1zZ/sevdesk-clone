@@ -1,3 +1,4 @@
+import { documentPath } from "../../src/domain/documents/doc-types";
 import {
   normalizeNumber,
   periodKey,
@@ -5,6 +6,7 @@ import {
   validateFormat,
   type YearMonth,
 } from "../../src/domain/numbering/format";
+import { type DocumentedGap, parseDocumentedGap, registerGaps } from "../../src/domain/numbering/gaps";
 import {
   assignNumber,
   checkDeactivateRange,
@@ -410,4 +412,94 @@ export async function registerDerivedNumber(
     },
     { action: input.action, label: input.number },
   );
+}
+
+// ── SET-063 register viewer and gap report (DOC-39 links here) ───────────────────────────────────────────────────
+
+const REGISTER_LIMIT = 5000;
+const SALES_TYPES = new Set([
+  "invoice",
+  "advance_invoice",
+  "partial_invoice",
+  "final_invoice",
+  "cancellation",
+  "correction",
+  "quote",
+  "order_confirmation",
+  "delivery_note",
+  "proforma",
+  "reminder",
+]);
+
+function registerLink(docType: string, documentId: string | undefined): string | null {
+  if (!documentId) return null;
+  if (SALES_TYPES.has(docType)) return documentPath(docType as Parameters<typeof documentPath>[0], documentId);
+  if (docType === "contact") return `/kontakte/${documentId}`;
+  if (docType === "product") return `/produkte/${documentId}`;
+  return null;
+}
+
+export async function registerView(
+  ctx: ReadCtx,
+  f: { rangeId: Id<"numberRanges">; periodKey?: string; status?: Doc<"numberRegister">["status"] },
+) {
+  const range = await ctx.db.get(f.rangeId);
+  if (!range) throw appError("not_found", "Nummernkreis nicht gefunden.");
+  const all = await ctx.db
+    .query("numberRegister")
+    .withIndex("by_range", (q) => q.eq("rangeId", f.rangeId))
+    .take(REGISTER_LIMIT + 1);
+  const periods = [...new Set(all.map((r) => r.periodKey ?? ""))].filter(Boolean).sort().reverse();
+  const inPeriod = f.periodKey ? all.filter((r) => r.periodKey === f.periodKey) : all;
+  const documented: DocumentedGap[] = [];
+  for (const c of await ctx.db
+    .query("numberCounters")
+    .withIndex("by_range_period", (q) => q.eq("rangeId", f.rangeId))
+    .collect()) {
+    for (const a of await ctx.db
+      .query("auditLog")
+      .withIndex("by_entity", (q) => q.eq("entity.table", "numberCounters").eq("entity.id", c._id))
+      .collect()) {
+      const gap = parseDocumentedGap(a.reason);
+      if (gap) documented.push({ periodKey: c.periodKey, ...gap });
+    }
+  }
+  return {
+    range: { name: range.name, format: range.format, startValue: range.startValue },
+    periods,
+    truncated: all.length > REGISTER_LIMIT,
+    rows: inPeriod
+      .filter((r) => !f.status || r.status === f.status)
+      .sort((a, b) => (b.counter ?? 0) - (a.counter ?? 0) || b.assignedAt - a.assignedAt)
+      .map((r) => ({
+        number: r.number,
+        docType: r.docType,
+        periodKey: r.periodKey ?? null,
+        counter: r.counter ?? null,
+        assignedAt: r.assignedAt,
+        status: r.status,
+        imported: r.imported === true,
+        link: registerLink(r.docType, r.documentId),
+      })),
+    gaps: registerGaps(inPeriod, range.startValue, documented),
+  };
+}
+
+/** DOC-39: the register row of a document number (range, period, status) for the detail page. */
+export async function registerEntryOf(ctx: ReadCtx, number: string) {
+  const row = await ctx.db
+    .query("numberRegister")
+    .withIndex("by_normalized", (q) => q.eq("normalized", normalizeNumber(number)))
+    .first();
+  if (!row) return null;
+  const range = row.rangeId ? await ctx.db.get(row.rangeId) : null;
+  return {
+    number: row.number,
+    assignedAt: row.assignedAt,
+    status: row.status,
+    rangeId: row.rangeId ?? null,
+    rangeName: range?.name ?? null,
+    periodKey: row.periodKey ?? null,
+    imported: row.imported === true,
+  };
 }

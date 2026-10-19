@@ -125,7 +125,20 @@ export function CorrectionActions({
           }}
         />
       )}
-      {storno && <StornoDialog id={doc._id} onClose={() => setStorno(false)} />}
+      {storno && (
+        <StornoDialog
+          id={doc._id}
+          onClose={() => setStorno(false)}
+          {...(isFamily && canWrite
+            ? {
+                onCorrection: () => {
+                  setStorno(false);
+                  setAssistant(true);
+                },
+              }
+            : {})}
+        />
+      )}
       {final && <FinalWizard id={doc._id} onClose={() => setFinal(false)} />}
     </>
   );
@@ -233,6 +246,9 @@ function CorrectionAssistant({
                   {o.disabled}
                 </span>
               )}
+              {o.disabled && path === o.value && stornoBlocked?.code === "storno_paid_invoice" && (
+                <PaidStornoPaths onCorrection={() => setPath("credit")} onClose={onClose} />
+              )}
             </span>
           </label>
         ))}
@@ -328,7 +344,44 @@ function CreditLine({
 
 // ── Storno (INV-10/11) ───────────────────────────────────────────────────────────────────────────────────────────
 
-export function StornoDialog({ id, onClose }: { id: Id<"salesDocuments">; onClose: () => void }) {
+/**
+ * PAY-034 / EC-074: a paid invoice cannot be cancelled. The block names both legal paths and links to them:
+ * Rechnungskorrektur (+ Erstattung/Guthaben) if it was really paid, or release the wrong allocation first (PAY-040).
+ */
+function PaidStornoPaths({ onCorrection, onClose }: { onCorrection?: () => void; onClose: () => void }) {
+  const t = useTranslations("invoiceCorrections.paidStorno");
+  return (
+    <span className="mt-1 flex flex-wrap gap-2" data-testid="paid-storno-paths">
+      {onCorrection && (
+        <Button type="button" variant="outline" size="sm" className="min-h-11 md:min-h-8" onClick={onCorrection}>
+          {t("correction")}
+        </Button>
+      )}
+      <Button
+        type="button"
+        variant="outline"
+        size="sm"
+        className="min-h-11 md:min-h-8"
+        onClick={() => {
+          onClose();
+          document.getElementById("payments-heading")?.scrollIntoView({ block: "start" });
+        }}
+      >
+        {t("payments")}
+      </Button>
+    </span>
+  );
+}
+
+export function StornoDialog({
+  id,
+  onClose,
+  onCorrection,
+}: {
+  id: Id<"salesDocuments">;
+  onClose: () => void;
+  onCorrection?: () => void;
+}) {
   const t = useTranslations("invoiceCorrections.storno");
   const router = useRouter();
   const run = useRun();
@@ -376,6 +429,9 @@ export function StornoDialog({ id, onClose }: { id: Id<"salesDocuments">; onClos
           data-testid="storno-blocked"
         >
           {blocked.message}
+          {blocked.code === "storno_paid_invoice" && (
+            <PaidStornoPaths onClose={onClose} {...(onCorrection ? { onCorrection } : {})} />
+          )}
         </p>
       ) : (
         <div className="flex flex-col gap-3 text-sm">
