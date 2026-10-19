@@ -19,6 +19,7 @@ import {
   KU_WAIVER_RULES,
   OSS_THRESHOLD,
   PAYMENT_TERM_LIMITS,
+  TIMELY_RECORDING,
   VERZUG_SURCHARGES,
 } from "./thresholds";
 import { VAT_RATE_KEYS } from "./vat-rates";
@@ -34,6 +35,7 @@ export const ALL_RULE_TABLES: readonly RuleTable<unknown>[] = [
   OSS_THRESHOLD,
   BOOKKEEPING_DUTY_LIMITS,
   IST_TAXATION_LIMIT,
+  TIMELY_RECORDING,
   RETENTION_YEARS,
   EINVOICE_OBLIGATION,
   ...Object.values(NOTE_TEXTS),

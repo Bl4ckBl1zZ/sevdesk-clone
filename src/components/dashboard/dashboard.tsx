@@ -512,6 +512,11 @@ function MatchingCard({ m, canMatch }: { m: DashboardData["matching"]; canMatch:
               </div>
             </div>
             <p className="text-sm">{t("unassigned", { count: m.unassigned })}</p>
+            {m.stale.count > 0 && m.stale.days !== null && (
+              <p role="status" className="text-sm text-warning">
+                {t("stale", { count: m.stale.count, days: m.stale.days })}
+              </p>
+            )}
           </>
         )}
         <p className="text-muted-foreground text-sm">{t("explanation")}</p>

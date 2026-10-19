@@ -16,7 +16,7 @@
 
 import type { AccountType } from "../rules/accounting/types";
 import { lookupRule } from "../rules/rule-table";
-import { KLEINUNTERNEHMER_LIMITS } from "../rules/thresholds";
+import { KLEINUNTERNEHMER_LIMITS, TIMELY_RECORDING } from "../rules/thresholds";
 import type { KuEntry } from "../tax/ku-history";
 import { addDays, type CalendarDate, calendarDate, daysInMonth } from "../time/calendar-date";
 
@@ -347,6 +347,24 @@ export interface MatchedShare {
   unassigned: number;
   percent: number | null;
   level: "low" | "medium" | "complete" | null;
+}
+
+/**
+ * GOBD-04 „Unbooked > 10 days“: unassigned bank transactions (`open`, `partially_matched`) booked more than
+ * `unbookedDays` (rule `gobd_timely_recording`) before today.
+ */
+export function staleUnassigned(
+  rows: readonly { status: string; bookingDate: string }[],
+  today: CalendarDate,
+): { count: number; days: number | null } {
+  const rule = lookupRule(TIMELY_RECORDING, today);
+  if (!rule.ok) return { count: 0, days: null };
+  const days = rule.value.value.unbookedDays;
+  const cutoff = addDays(today, -days);
+  const count = rows.filter(
+    (r) => (UNASSIGNED as readonly string[]).includes(r.status) && r.bookingDate < cutoff,
+  ).length;
+  return { count, days };
 }
 
 export function matchedShare(counts: Readonly<Partial<Record<string, number>>>): MatchedShare {

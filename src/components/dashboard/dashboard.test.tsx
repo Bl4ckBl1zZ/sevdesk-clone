@@ -69,7 +69,14 @@ const full: DashboardData = {
       { id: "t2", bookingDate: "2026-10-12", amountCents: 50_000, label: "Muster GmbH" },
     ],
   },
-  matching: { total: 10, assigned: 9, unassigned: 1, percent: 90, level: "medium" },
+  matching: {
+    total: 10,
+    assigned: 9,
+    unassigned: 1,
+    percent: 90,
+    level: "medium",
+    stale: { count: 1, days: 10 },
+  },
   topCustomers: [
     { contactId: "c1", name: "Muster GmbH", amountCents: 75_000 },
     { contactId: "c2", name: "Beispiel AG", amountCents: 50_000 },
@@ -101,7 +108,14 @@ const empty: DashboardData = {
   ku: null,
   monitors: { ku: [], oss: null, notices: [] },
   bank: { accountCount: 0, totalCents: 0, accountsWithoutBalance: 0, latest: [] },
-  matching: { total: 0, assigned: 0, unassigned: 0, percent: null, level: null },
+  matching: {
+    total: 0,
+    assigned: 0,
+    unassigned: 0,
+    percent: null,
+    level: null,
+    stale: { count: 0, days: null },
+  },
   topCustomers: [],
   activity: [],
 };
@@ -262,6 +276,13 @@ describe("DASH-001…009 Übersicht", () => {
     expect(c.getByText("Zahlungen ohne Zuordnung: 1")).toBeInTheDocument();
     expect(c.getByRole("img", { name: "Zuordnungsquote 90 %" })).toBeInTheDocument();
     expect(c.getByRole("link", { name: "Zuordnen" })).toHaveAttribute("href", "/bank/zuordnungen");
+  });
+
+  test("GOBD-04 the Zuordnungsquote card lists payments unassigned for more than 10 days", () => {
+    renderWithIntl(<DashboardView data={full} />);
+    expect(card("Zuordnungsquote").getByRole("status")).toHaveTextContent(
+      "1 Zahlung ist seit mehr als 10 Tagen nicht zugeordnet",
+    );
   });
 
   test("DASH-007 zero transactions → empty text, no percentage", () => {

@@ -11,6 +11,7 @@ import {
   monthlyResult,
   monthWindow,
   receivablesSummary,
+  staleUnassigned,
   subtractMonths,
   topCustomers,
 } from "./dashboard";
@@ -113,6 +114,23 @@ describe("DASH-003 month window and monthly result from the journal", () => {
   test("DASH-003 lines on unknown accounts are ignored", () => {
     const r = monthlyResult([{ date: "2026-10-01", account: "9999", debitCents: 0, creditCents: 1 }], types, TODAY);
     expect(r.incomeCents).toBe(0);
+  });
+});
+
+describe("GOBD-04 unbooked > 10 days", () => {
+  test("GOBD-04 unassigned bank transactions older than the rule's 10 days are counted; assigned or recent ones not", () => {
+    const today = d("2026-10-19");
+    const s = staleUnassigned(
+      [
+        { status: "open", bookingDate: "2026-10-08" },
+        { status: "partially_matched", bookingDate: "2026-10-01" },
+        { status: "open", bookingDate: "2026-10-09" },
+        { status: "matched", bookingDate: "2026-09-01" },
+        { status: "ignored", bookingDate: "2026-09-01" },
+      ],
+      today,
+    );
+    expect(s).toEqual({ count: 2, days: 10 });
   });
 });
 

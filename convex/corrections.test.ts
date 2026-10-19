@@ -67,6 +67,40 @@ async function withCorrectionRange(owner: Owner) {
 
 const journal = (t: TestT) => t.run((ctx) => ctx.db.query("journalEntries").collect());
 
+// ── Duplizieren (DOC-35) ────────────────────────────────────────────────────────────────────────────────────────
+
+describe("DOC-35 Duplizieren", { timeout: 30_000 }, () => {
+  test("DOC-35 a finalised, paid invoice duplicates into a fresh draft; a Storno cannot be duplicated", async () => {
+    const t = makeT();
+    const { owner, id } = await finalizedInvoice(t);
+    await receive(t, owner, id, 10_000);
+    const original = await doc(t, id);
+    const { id: copyId } = await owner.mutation(api.invoices.duplicate, { id });
+    const copy = await doc(t, copyId);
+    expect(copy).toMatchObject({ type: "invoice", status: "draft", contactId: original.contactId });
+    expect(copy.number).toBeUndefined();
+    expect(copy.documentDate).toBeUndefined();
+    expect(copy.paymentStatus).toBeUndefined();
+    expect(copy.openAmountCents).toBeUndefined();
+    expect(copy.totals.netCents).toBe(original.totals.netCents);
+    const lines = await t.run((ctx) =>
+      ctx.db
+        .query("documentLines")
+        .withIndex("by_document", (q) => q.eq("documentId", copyId))
+        .collect(),
+    );
+    expect(lines.length).toBeGreaterThan(0);
+    const audit = await t.run((ctx) => ctx.db.query("auditLog").collect());
+    expect(audit.some((a) => a.entity.id === copyId && a.reason?.startsWith("Dupliziert aus RE-"))).toBe(true);
+
+    const fresh = await finalizedInvoice(makeT());
+    const storno = await fresh.owner.mutation(api.corrections.cancel, { id: fresh.id });
+    const e = await fresh.owner.mutation(api.invoices.duplicate, { id: storno.id }).catch((x: unknown) => x);
+    expect(errorCode(e)).toBe("invalid_input");
+    expect(dataOf(e).reason).toBe("NOT_DUPLICABLE");
+  });
+});
+
 // ── Storno ──────────────────────────────────────────────────────────────────────────────────────────────────────
 
 describe("INV-10 INV-11 Storno", { timeout: 30_000 }, () => {

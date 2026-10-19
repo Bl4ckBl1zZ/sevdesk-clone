@@ -9,6 +9,7 @@ import {
   monthlyResult,
   monthWindow,
   receivablesSummary,
+  staleUnassigned,
   subtractMonths,
   TOP_CUSTOMERS_MONTHS,
   topCustomers,
@@ -159,7 +160,10 @@ export async function dashboardOverview(
 
   // DASH-006 Bank + DASH-007 Zuordnungsquote
   let bank = null;
-  let matching = matchedShare({});
+  let matching: ReturnType<typeof matchedShare> & { stale: ReturnType<typeof staleUnassigned> } = {
+    ...matchedShare({}),
+    stale: { count: 0, days: null },
+  };
   if (allowed(role, "banking.read")) {
     const accounts = (await accountsOverview(ctx)).filter((a) => a.kind === "bank" && a.currency === "EUR");
     const txs = [];
@@ -189,15 +193,18 @@ export async function dashboardOverview(
       txs,
     );
     const counts: Record<string, number> = {};
+    const unassignedRows: { status: string; bookingDate: string }[] = [];
     for (const status of BANK_STATUSES) {
-      counts[status] = (
-        await ctx.db
-          .query("bankTransactions")
-          .withIndex("by_status", (q) => q.eq("status", status))
-          .collect()
-      ).length;
+      const rows = await ctx.db
+        .query("bankTransactions")
+        .withIndex("by_status", (q) => q.eq("status", status))
+        .collect();
+      counts[status] = rows.length;
+      if (status === "open" || status === "partially_matched") {
+        unassignedRows.push(...rows.map((r) => ({ status: r.status, bookingDate: r.bookingDate })));
+      }
     }
-    matching = matchedShare(counts);
+    matching = { ...matchedShare(counts), stale: staleUnassigned(unassignedRows, today) };
   }
 
   // DASH-009 Verlauf (audit log readers only)

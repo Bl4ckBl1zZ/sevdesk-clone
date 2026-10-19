@@ -179,3 +179,20 @@ export const lookupPaymentTermLimits = (
   date: CalendarDate,
   overrides: readonly RuleOverride<PaymentTermLimits>[] = [],
 ): Result<RuleRow<PaymentTermLimits>, RuleMissing> => lookupRule(PAYMENT_TERM_LIMITS, date, overrides);
+
+export interface TimelyRecording {
+  /** GOBD-04: unbooked (unassigned) bank transactions older than this many days are listed for follow-up. */
+  readonly unbookedDays: number;
+}
+
+/**
+ * GoBD „zeitgerechte Erfassung“: unbare Geschäftsvorfälle innerhalb von zehn Tagen (GoBD Rz. 47–50). Data, not a
+ * literal in logic (CLAUDE.md rule 2).
+ */
+export const TIMELY_RECORDING = defineRuleTable<TimelyRecording>("gobd_timely_recording", [
+  {
+    validFrom: "2015-01-01",
+    value: { unbookedDays: 10 },
+    source: "GoBD Rz. 47–50 (BMF-Schreiben vom 14.11.2014, 28.11.2019 und 11.03.2024)",
+  },
+]);

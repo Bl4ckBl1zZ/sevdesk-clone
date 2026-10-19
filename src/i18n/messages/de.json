@@ -227,6 +227,7 @@
         "medium": "Gut",
         "complete": "Vollständig",
         "unassigned": "Zahlungen ohne Zuordnung: {count}",
+        "stale": "{count, plural, one {# Zahlung ist} other {# Zahlungen sind}} seit mehr als {days} Tagen nicht zugeordnet (zeitgerechte Erfassung, GoBD).",
         "action": "Zuordnen",
         "explanation": "Anteil Ihrer Bankumsätze, die einer Rechnung, Zahlung oder Buchung zugeordnet sind. Ignorierte Umsätze zählen nicht mit.",
         "empty": "Noch keine Bankumsätze vorhanden."
@@ -2190,7 +2191,11 @@
       "holder": "Kontoinhaber",
       "showOnInvoices": "Auf Rechnungen angeben",
       "kind": "Kontoart",
-      "kinds": { "bank": "Bankkonto", "clearing": "Verrechnungskonto", "paypal": "PayPal" },
+      "kinds": {
+        "bank": "Bankkonto",
+        "clearing": "Verrechnungskonto",
+        "paypal": "PayPal"
+      },
       "ledgerAccount": "Finanzkonto (optional)",
       "ledgerAccountHint": "Leer lassen für das nächste freie Konto im Kontenrahmen (SKR03 1200–1299, SKR04 1800–1899).",
       "openingDate": "Anfangsbestand zum (optional)",
@@ -2780,6 +2785,10 @@
       "note": "Notiz (optional)",
       "cancel": "Abbrechen",
       "markConfirm": "Markieren"
+    },
+    "duplicate": {
+      "label": "Duplizieren",
+      "done": "Kopie als Entwurf angelegt."
     }
   },
   "documents": {

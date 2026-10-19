@@ -98,3 +98,15 @@ test("SET-114 PRV-001 PRV-015 /einstellungen/datenschutz lists external services
   expect((await download).suggestedFilename()).toBe("verzeichnis-art30.md");
   await expectNoAxeViolations();
 });
+
+test("DOC-35 „Duplizieren“ on an invoice opens a new draft", async ({ page, expectNoAxeViolations }) => {
+  await page.goto("/rechnungen");
+  await expect(h1(page, "Rechnungen")).toBeVisible();
+  const first = page.getByRole("link", { name: /^RE-/ }).filter({ visible: true }).first();
+  test.skip((await first.count()) === 0, "no finalised invoice in this journey");
+  await first.click();
+  await page.getByRole("button", { name: "Duplizieren" }).click();
+  await expect(page).toHaveURL(/\/rechnungen\/[a-z0-9]+$/);
+  await expect(h1(page, /Entwurf/)).toBeVisible();
+  await expectNoAxeViolations();
+});

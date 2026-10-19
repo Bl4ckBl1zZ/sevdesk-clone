@@ -34,6 +34,7 @@ import {
   documentArtifacts,
   documentLines,
   draftFromDoc,
+  duplicateDocument,
   type FinalizeOptions,
   finalizePreview,
   getDocument,
@@ -568,6 +569,13 @@ export const updateDraft = mutation({
   },
   handler: async (ctx, { id, version, values, billingAddressId }) =>
     updateDraftModel(ctx, id, version, parse(draftSchema, values), billingAddressId ? { billingAddressId } : {}),
+});
+
+/** F04 DOC-35 „Duplizieren“ (new draft of the same type; advance/partial/final → invoice). */
+export const duplicate = mutation({
+  permission: "documents.write",
+  args: { id: v.id("salesDocuments") },
+  handler: async (ctx, { id }) => ({ id: await duplicateDocument(ctx, id) }),
 });
 
 export const deleteDraft = mutation({

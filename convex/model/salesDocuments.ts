@@ -24,6 +24,7 @@ import type {
   ResolvedDraft,
 } from "../../src/domain/documents/draft";
 import { ossNetEurCentsOf, resolveDraft } from "../../src/domain/documents/draft";
+import { type DuplicateSource, duplicateValues } from "../../src/domain/documents/duplicate";
 import { buildSnapshotInput, retentionClassFor, retentionUntil } from "../../src/domain/documents/finalize";
 import { transition } from "../../src/domain/documents/lifecycle";
 import {
@@ -774,6 +775,14 @@ export async function createDraft(
     { action },
   );
   return id;
+}
+
+/** F04 DOC-35 „Duplizieren“: a new draft from any document except cancellation/correction/reminder. */
+export async function duplicateDocument(ctx: ModelCtx, id: Id<"salesDocuments">): Promise<Id<"salesDocuments">> {
+  const doc = await getDocument(ctx, id);
+  const r = duplicateValues(draftFromDoc(doc, await documentLines(ctx, id)) as unknown as DuplicateSource);
+  if (!r.ok) throw appError("invalid_input", r.message, { reason: "NOT_DUPLICABLE" });
+  return createDraft(ctx, r.values, {}, { reason: `Dupliziert aus ${doc.number ?? "Entwurf"}` });
 }
 
 export async function updateDraft(

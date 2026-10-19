@@ -51,6 +51,7 @@ import type { DraftValues } from "@/domain/schemas/documents";
 import { useAuthedQuery } from "@/hooks/use-authed-query";
 import { CorrectionActions, DraftBanner, docTypeKey, RelationsPanel } from "./corrections";
 import { ChainCard, DocumentFlowActions } from "./document-actions";
+import { DuplicateButton } from "./duplicate-button";
 import { InvoiceEditor } from "./invoice-editor";
 import { DECISION_LABELS, downloadExport, FORMAT_LABELS, InvoiceStatusBadge, money } from "./invoice-shared";
 
@@ -117,6 +118,7 @@ function InvoiceDetailInner({ id }: { id: Id<"salesDocuments"> }) {
           title={draftTitle}
           description={data.doc.contactName ?? t("noCustomer")}
           breadcrumbs={[...crumbs, { label: draftTitle }]}
+          actions={<DuplicateButton doc={data.doc} />}
         />
         <PageBody>
           <DraftBanner type={data.doc.type} correctionKind={data.doc.correctionKind ?? null} />
@@ -150,6 +152,7 @@ function InvoiceDetailInner({ id }: { id: Id<"salesDocuments"> }) {
         actions={
           <>
             <CorrectionActions doc={data.doc} snapshot={data.snapshot as DocumentSnapshot | null} />
+            <DuplicateButton doc={data.doc} />
             <FinalActions data={data} />
           </>
         }
