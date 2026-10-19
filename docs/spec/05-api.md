@@ -244,7 +244,7 @@ F07 §7 is normative; summary:
 | POST | `/bank-transactions/{id}/match` (`{ targets: [{ kind: invoice \| opening_item \| credit \| payment \| correction, id, amount_cents, differences? }], remainder?: credit \| unallocated, acknowledge_warnings? }`; `correction` = refund of a Rechnungskorrektur from an outgoing debit, F05 PAY-033 b) | banking:write |
 | POST | `/bank-transactions/{id}/unmatch` (`{ reason }`; F05 reversal of the transaction's payments, BNK-047) | payments:write |
 | POST | `/bank-transactions/{id}/mark` (`private\|transfer\|cash_withdrawal\|ignored\|loan`) | banking:write |
-| GET/POST/PATCH | `/matching-rules` | banking:write |
+| GET/POST/PATCH | `/matching-rules`, `/matching-rules/{id}` (prefix `mrl_`; always stored as `suggest`, BNK-054; action field `apply`) | GET banking:read, POST/PATCH banking:write (2026-10-19, F07 §11) |
 | GET | `/cash` (balance + movements with running balance), `/cash/report` (PDF/CSV) | banking:read |
 | POST | `/cash/transfers` (`{ kind: "deposit_to_bank" \| "private_withdrawal", date, amount_cents, bank_account_id?, note?, backdate_reason? }`; never-negative check, F07 CSH-024/026; ATM withdrawals into the till come from marking the bank debit, CSH-025), `/cash/transfers/{id}/reverse` (`{ reason }`) | banking:write |
 
