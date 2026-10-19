@@ -21,6 +21,7 @@ import {
 } from "@/domain/documents/render-model";
 import type { DocumentSnapshot } from "@/domain/documents/snapshot";
 import { artifactKindFor } from "@/domain/einvoice/format";
+import type { XmlAttachment } from "@/domain/einvoice/model";
 import { type SerializedEinvoice, serializeEinvoice } from "@/domain/einvoice/serialize";
 import { registerPdfFonts } from "./fonts";
 import { type PdfLogo, SalesDocument } from "./sales-document";
@@ -31,6 +32,8 @@ export interface RenderArtifactsOptions {
   readonly logo?: PdfLogo | null;
   /** PDF CreationDate/ModDate and attachment dates; default `documentDate`T00:00:00Z. */
   readonly createdAt?: Date;
+  /** DOC-18: attachments embedded in the e-invoice XML as BG-24 (`embedInXml`). */
+  readonly xmlAttachments?: readonly XmlAttachment[];
 }
 
 export interface RenderedArtifacts {
@@ -119,7 +122,11 @@ export async function renderArtifacts(
     };
   }
 
-  const einvoice = serializeEinvoice(snapshot, format);
+  const einvoice = serializeEinvoice(
+    snapshot,
+    format,
+    options.xmlAttachments?.length ? { attachments: options.xmlAttachments } : {},
+  );
   const xml = new TextEncoder().encode(einvoice.xml);
   const xmlSha256 = await sha256Hex(xml);
   const meta = {

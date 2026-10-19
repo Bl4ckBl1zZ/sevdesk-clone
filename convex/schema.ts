@@ -1405,6 +1405,27 @@ export default defineSchema({
     tags: v.array(v.id("tags")),
     customFields: v.record(v.string(), v.any()),
     internalNote: v.optional(v.string()),
+    /** DOC-18: ≤ 10 attachments, frozen at finalisation (`includeInExport` SND-16, `embedInXml` BG-24). */
+    attachments: v.optional(
+      v.array(v.object({ file: vFileRef, embedInXml: v.boolean(), includeInExport: v.boolean() })),
+    ),
+    /** INV-30: proofs appended after finalisation; append-only, not part of the snapshot. */
+    evidence: v.optional(
+      v.array(
+        v.object({
+          file: vFileRef,
+          kind: v.union(
+            v.literal("gelangensbestaetigung"),
+            v.literal("cmr"),
+            v.literal("ausfuhrnachweis"),
+            v.literal("other"),
+          ),
+          note: v.optional(v.string()),
+          addedAt: v.number(),
+          actor: vActor,
+        }),
+      ),
+    ),
     // ── quotes, order confirmations, delivery notes, proforma and conversions (F04 §3.2 QUO, §4.3) ─────────────
     /** Quotes: 1, 2, … (QUO-06); not the OCC counter `version`. */
     revision: v.optional(v.number()),

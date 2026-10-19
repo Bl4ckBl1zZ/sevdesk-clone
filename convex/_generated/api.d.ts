@@ -79,6 +79,7 @@ import type * as model_csvExports from "../model/csvExports.js";
 import type * as model_dashboard from "../model/dashboard.js";
 import type * as model_db from "../model/db.js";
 import type * as model_devMailbox from "../model/devMailbox.js";
+import type * as model_documentAttachments from "../model/documentAttachments.js";
 import type * as model_documentChains from "../model/documentChains.js";
 import type * as model_documentFlows from "../model/documentFlows.js";
 import type * as model_documentHistory from "../model/documentHistory.js";
@@ -211,6 +212,7 @@ declare const fullApi: ApiFromModules<{
   "model/dashboard": typeof model_dashboard;
   "model/db": typeof model_db;
   "model/devMailbox": typeof model_devMailbox;
+  "model/documentAttachments": typeof model_documentAttachments;
   "model/documentChains": typeof model_documentChains;
   "model/documentFlows": typeof model_documentFlows;
   "model/documentHistory": typeof model_documentHistory;

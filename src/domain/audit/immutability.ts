@@ -175,7 +175,8 @@ export const IMMUTABILITY_MATRIX: Readonly<Record<string, TableRule>> = {
       zugang: "mutable",
       overdueNotifiedAt: "mutable",
       collection: "mutable",
-      evidence: "mutable",
+      // INV-30: proofs are appended after finalisation; existing entries never change (03 §4).
+      evidence: "append",
       acceptance: "once",
       rejection: "once",
       received: "once",

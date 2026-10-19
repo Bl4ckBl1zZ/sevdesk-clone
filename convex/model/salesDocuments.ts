@@ -50,6 +50,7 @@ import { defaultInvoiceAccount } from "./bankAccounts";
 import { assertClockOk } from "./clock";
 import { getCompanyProfile } from "./companyProfile";
 import { contactAddresses, contactChannels, defaultAddressOf, getContact } from "./contacts";
+import { frozenAttachments } from "./documentAttachments";
 import { chainContextFor, chainReferencesFor, inChain, recomputeChainOf } from "./documentChains";
 import { assertRetractionAllowed, onDispatchChanged as dunningDispatchChanged, lateMarkWarning } from "./dunning";
 import { unacknowledgedFailure } from "./integrity";
@@ -957,6 +958,7 @@ export async function finalizePreview(
   const snap = buildSnapshot({
     ...input,
     ...(loaded.contact?.printableCustomFields.length ? { customFields: loaded.contact.printableCustomFields } : {}),
+    ...frozenAttachments(doc),
   });
   if (!snap.ok) {
     return {
@@ -1042,6 +1044,7 @@ export async function commitFinalization(
   const built = buildSnapshot({
     ...input,
     ...(loaded.contact?.printableCustomFields.length ? { customFields: loaded.contact.printableCustomFields } : {}),
+    ...frozenAttachments(doc),
   });
   if (!built.ok) throw appError("validation_failed", built.error.message, { reason: built.error.code });
   const snapshot = built.value;

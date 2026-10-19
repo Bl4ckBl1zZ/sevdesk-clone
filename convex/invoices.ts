@@ -22,6 +22,12 @@ import { parse } from "./lib/parse";
 import { defaultInvoiceAccount } from "./model/bankAccounts";
 import { getCompanyProfile } from "./model/companyProfile";
 import { getContact } from "./model/contacts";
+import {
+  addAttachment as addAttachmentModel,
+  addEvidence as addEvidenceModel,
+  attachmentsView,
+  updateAttachment as updateAttachmentModel,
+} from "./model/documentAttachments";
 import { runQuoteDeadlines } from "./model/documentFlows";
 import { listPaymentMethods } from "./model/lookups";
 import {
@@ -247,6 +253,7 @@ export const get = query({
       displayStatus: displayStatusOf(doc, today),
       today,
       productChanged,
+      files: attachmentsView(doc),
     };
     if (doc.status === "draft") {
       const { result, loaded } = await validateStored(ctx, doc, now);
@@ -578,6 +585,66 @@ export const duplicate = mutation({
   handler: async (ctx, { id }) => ({ id: await duplicateDocument(ctx, id) }),
 });
 
+// ── DOC-18 attachments (drafts) and INV-30 proofs („Nachweise“, finalised documents) ───────────────────────────
+
+export const generateAttachmentUploadUrl = mutation({
+  permission: "documents.write",
+  args: {},
+  handler: async (ctx) => ctx.storage.generateUploadUrl(),
+});
+
+export const addAttachment = mutation({
+  permission: "documents.write",
+  args: {
+    id: v.id("salesDocuments"),
+    storageId: v.id("_storage"),
+    name: v.string(),
+    embedInXml: v.optional(v.boolean()),
+    includeInExport: v.optional(v.boolean()),
+  },
+  handler: async (ctx, { id, ...a }) => addAttachmentModel(ctx, id, a),
+});
+
+export const updateAttachment = mutation({
+  permission: "documents.write",
+  args: {
+    id: v.id("salesDocuments"),
+    sha256: v.string(),
+    embedInXml: v.optional(v.boolean()),
+    includeInExport: v.optional(v.boolean()),
+    remove: v.optional(v.boolean()),
+  },
+  handler: async (ctx, { id, sha256, ...flags }) => updateAttachmentModel(ctx, id, sha256, flags),
+});
+
+export const addEvidence = mutation({
+  permission: "documents.write",
+  args: {
+    id: v.id("salesDocuments"),
+    storageId: v.id("_storage"),
+    name: v.string(),
+    kind: v.union(
+      v.literal("gelangensbestaetigung"),
+      v.literal("cmr"),
+      v.literal("ausfuhrnachweis"),
+      v.literal("other"),
+    ),
+    note: v.optional(v.string()),
+  },
+  handler: async (ctx, { id, ...e }) => addEvidenceModel(ctx, id, e),
+});
+
+/** Download URL of an attachment or proof (by its frozen sha256). */
+export const attachmentUrl = query({
+  permission: "documents.read",
+  args: { id: v.id("salesDocuments"), sha256: v.string() },
+  handler: async (ctx, { id, sha256 }) => {
+    const doc = await ctx.db.get(id);
+    const file = [...(doc?.attachments ?? []), ...(doc?.evidence ?? [])].find((a) => a.file.sha256 === sha256)?.file;
+    return file ? await ctx.storage.getUrl(file.storageId) : null;
+  },
+});
+
 export const deleteDraft = mutation({
   permission: "documents.write",
   args: { id: v.id("salesDocuments") },
@@ -777,6 +844,10 @@ export const exportInput = systemQuery({
       format: doc.einvoice.format ?? "none",
       artifactStatus: doc.artifactStatus ?? null,
       marked: doc.sentAt !== undefined,
+      // DOC-18: attachments flagged includeInExport travel with the export bundle (SND-16)
+      attachments: (doc.attachments ?? [])
+        .filter((a) => a.includeInExport)
+        .map((a) => ({ name: a.file.name, sha256: a.file.sha256, mime: a.file.mime, storageId: a.file.storageId })),
       artifacts: (await documentArtifacts(ctx, id)).map((a) => ({
         _id: a._id,
         kind: a.kind,
@@ -810,6 +881,10 @@ export const renderInput = systemQuery({
       layoutConfig: layoutVersion?.config ?? null,
       logoStorageId: profile?.logoStorageId ?? null,
       hasArtifacts: (await documentArtifacts(ctx, id)).some((a) => (a.variant ?? "original") !== "copy"),
+      // DOC-18: attachments embedded as BG-24 in the XML (frozen with the snapshot hashes)
+      xmlAttachments: (doc.attachments ?? [])
+        .filter((a) => a.embedInXml)
+        .map((a) => ({ name: a.file.name, sha256: a.file.sha256, mime: a.file.mime, storageId: a.file.storageId })),
     };
   },
 });

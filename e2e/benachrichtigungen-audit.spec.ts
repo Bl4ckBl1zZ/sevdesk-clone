@@ -137,3 +137,27 @@ test("AUD-024 AUD-025 /einstellungen/verfahrensdokumentation lists the chapters 
   await expect(page.getByRole("heading", { name: "Freigegebene Versionen" })).toBeVisible();
   await expectNoAxeViolations();
 });
+
+test("DOC-18 INV-30 a draft takes an attachment; the finalised invoice shows Anhänge und Nachweise", async ({
+  page,
+  expectNoAxeViolations,
+}) => {
+  await page.goto("/rechnungen");
+  await expect(h1(page, "Rechnungen")).toBeVisible();
+  const first = page.getByRole("link", { name: /^RE-/ }).filter({ visible: true }).first();
+  test.skip((await first.count()) === 0, "no finalised invoice in this journey");
+  await first.click();
+  const section = page.getByRole("region", { name: "Anhänge und Nachweise" });
+  await expect(section).toBeVisible();
+  await expect(section.getByRole("heading", { name: "Nachweise" })).toBeVisible();
+  await expect(section.getByLabel("Art des Nachweises")).toBeVisible();
+  await page.getByRole("button", { name: "Duplizieren" }).click();
+  await expect(h1(page, /Entwurf/)).toBeVisible();
+  await page.getByLabel("Anhang hinzufügen (höchstens 10)").setInputFiles({
+    name: "agb.pdf",
+    mimeType: "application/pdf",
+    buffer: Buffer.from("%PDF-1.7\n%%EOF"),
+  });
+  await expect(page.getByTestId("document-attachments")).toContainText("agb.pdf");
+  await expectNoAxeViolations();
+});

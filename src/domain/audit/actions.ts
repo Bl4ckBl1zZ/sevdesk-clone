@@ -28,6 +28,11 @@ const GROUPS: Record<string, readonly string[] | "*"> = {
     "register_status",
     "accept",
     "reject",
+    // F04 DOC-18 / INV-30 attachments (drafts) and proofs (finalised documents)
+    "attachment_add",
+    "attachment_update",
+    "attachment_remove",
+    "evidence_add",
     "withdraw",
     "download_original",
     // F04 quotes, orders, delivery notes, proforma and conversions (QUO-04…15, DOC-33)

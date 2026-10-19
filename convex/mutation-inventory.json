@@ -1339,6 +1339,18 @@
     "wrapper": "mutation",
     "permission": "invites.manage"
   },
+  "invoices:addAttachment": {
+    "kind": "mutation",
+    "visibility": "public",
+    "wrapper": "mutation",
+    "permission": "documents.write"
+  },
+  "invoices:addEvidence": {
+    "kind": "mutation",
+    "visibility": "public",
+    "wrapper": "mutation",
+    "permission": "documents.write"
+  },
   "invoices:artifactFailure": {
     "kind": "mutation",
     "visibility": "internal",
@@ -1350,6 +1362,12 @@
     "visibility": "internal",
     "wrapper": "systemMutation",
     "job": "documents.pipeline"
+  },
+  "invoices:attachmentUrl": {
+    "kind": "query",
+    "visibility": "public",
+    "wrapper": "query",
+    "permission": "documents.read"
   },
   "invoices:check": {
     "kind": "query",
@@ -1404,6 +1422,12 @@
     "visibility": "public",
     "wrapper": "query",
     "permission": "documents.read"
+  },
+  "invoices:generateAttachmentUploadUrl": {
+    "kind": "mutation",
+    "visibility": "public",
+    "wrapper": "mutation",
+    "permission": "documents.write"
   },
   "invoices:get": {
     "kind": "query",
@@ -1488,6 +1512,12 @@
     "visibility": "public",
     "wrapper": "query",
     "permission": "documents.read"
+  },
+  "invoices:updateAttachment": {
+    "kind": "mutation",
+    "visibility": "public",
+    "wrapper": "mutation",
+    "permission": "documents.write"
   },
   "invoices:updateDraft": {
     "kind": "mutation",

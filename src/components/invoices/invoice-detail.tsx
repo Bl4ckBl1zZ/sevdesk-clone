@@ -49,6 +49,7 @@ import type { DocumentSnapshot } from "@/domain/documents/snapshot";
 import { formatMicros, formatMilli } from "@/domain/money/format";
 import type { DraftValues } from "@/domain/schemas/documents";
 import { useAuthedQuery } from "@/hooks/use-authed-query";
+import { AttachmentsSection } from "./attachments-section";
 import { CorrectionActions, DraftBanner, docTypeKey, RelationsPanel } from "./corrections";
 import { ChainCard, DocumentFlowActions } from "./document-actions";
 import { DuplicateButton } from "./duplicate-button";
@@ -134,6 +135,7 @@ function InvoiceDetailInner({ id }: { id: Id<"salesDocuments"> }) {
           ) : (
             <p>{t("readOnlyDraft")}</p>
           )}
+          <AttachmentsSection id={id} draft files={data.files} />
           <ChainCard chain={chain} />
           <EntityHistory table="salesDocuments" id={id} />
         </PageBody>
@@ -173,6 +175,7 @@ function InvoiceDetailInner({ id }: { id: Id<"salesDocuments"> }) {
         {data.doc.status !== "cancelled" && <PaymentsSection documentId={data.doc._id} number={number} />}
         {data.doc.status !== "cancelled" && <InvoiceDunningSection invoiceId={data.doc._id} type={data.doc.type} />}
         <Files data={data} />
+        <AttachmentsSection id={data.doc._id} draft={false} files={data.files} />
         <SendLog data={data} />
         <EntityHistory table="salesDocuments" id={data.doc._id} />
       </DetailLayout>
@@ -231,7 +234,7 @@ function FinalActions({ data }: { data: Detail }) {
         id: data.doc._id,
         request: { entry, ...(original ? { original: true } : {}), ...(reason ? { reason } : {}) },
       });
-      await downloadExport(res.files, res.zipName);
+      await downloadExport([...res.files, ...res.attachments], res.zipName);
       return res;
     }, t("exported"));
     return r.ok;

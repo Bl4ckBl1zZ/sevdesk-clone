@@ -2816,6 +2816,27 @@
     "duplicate": {
       "label": "Duplizieren",
       "done": "Kopie als Entwurf angelegt."
+    },
+    "attachments": {
+      "title": "Anhänge und Nachweise",
+      "empty": "Keine Anhänge.",
+      "includeInExport": "Im Export-ZIP",
+      "embedInXml": "In E-Rechnung einbetten",
+      "download": "{name} herunterladen",
+      "remove": "{name} entfernen",
+      "removed": "Anhang entfernt.",
+      "added": "Anhang hinzugefügt.",
+      "add": "Anhang hinzufügen (höchstens {max})",
+      "hint": "PDF, PNG, JPEG, XLSX, CSV oder TXT, je Datei höchstens 10 MB. Anhänge werden mit dem Fertigstellen eingefroren.",
+      "frozen": "Anhänge sind mit dem Fertigstellen eingefroren (Prüfsumme im Beleg-Snapshot).",
+      "evidenceTitle": "Nachweise",
+      "evidenceHint": "Nachweise (z. B. Gelangensbestätigung, CMR, Ausfuhrnachweis) werden nach dem Fertigstellen ergänzt. Sie sind nicht Teil des Belegs und können nicht gelöscht werden.",
+      "kind": "Art des Nachweises",
+      "file": "Datei",
+      "note": "Notiz (optional)",
+      "fileMissing": "Bitte eine Datei auswählen.",
+      "evidenceAdd": "Nachweis hinzufügen",
+      "evidenceAdded": "Nachweis hinzugefügt."
     }
   },
   "documents": {

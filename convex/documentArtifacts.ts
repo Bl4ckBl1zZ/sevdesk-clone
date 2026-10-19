@@ -14,6 +14,7 @@ import {
 } from "../src/domain/documents/dispatch";
 import { DEFAULT_LAYOUT, type RenderLayout } from "../src/domain/documents/render-model";
 import type { DocumentSnapshot } from "../src/domain/documents/snapshot";
+import type { XmlAttachment } from "../src/domain/einvoice/model";
 import { exportRequestSchema } from "../src/domain/schemas/documents";
 import { readEmbeddedFiles } from "../src/pdf/embedded-files";
 import { renderArtifacts } from "../src/pdf/render-artifacts";
@@ -65,6 +66,29 @@ async function store(ctx: ActionCtx, bytes: Uint8Array, mime: string): Promise<I
 const equalBytes = (a: Uint8Array, b: Uint8Array) => a.length === b.length && a.every((x, i) => x === b[i]);
 
 /** renderArtifacts: PDF/A-3b, final XML, embed/separate, validate, archive with sha256 → `ready` (or retry). */
+/**
+ * DOC-18 BG-24: the attachments flagged `embedInXml`, loaded from storage and checked against the hashes frozen in
+ * the snapshot (a mismatch blocks the render instead of embedding other bytes).
+ */
+async function loadXmlAttachments(
+  ctx: { storage: { get: (id: Id<"_storage">) => Promise<Blob | null> } },
+  list: readonly { name: string; sha256: string; mime: string; storageId: Id<"_storage"> }[],
+  snapshot: DocumentSnapshot,
+): Promise<XmlAttachment[]> {
+  const out: XmlAttachment[] = [];
+  for (const [i, a] of list.entries()) {
+    if (!snapshot.attachments?.some((s) => s.sha256 === a.sha256 && s.embedInXml)) continue;
+    const blob = await ctx.storage.get(a.storageId);
+    if (!blob) throw new Error(`Anhang ${a.name} fehlt im Speicher`);
+    const bytes = new Uint8Array(await blob.arrayBuffer());
+    if ((await sha256Hex(bytes)) !== a.sha256) throw new Error(`Anhang ${a.name}: Prüfsumme weicht ab`);
+    let bin = "";
+    for (let o = 0; o < bytes.length; o += 0x8000) bin += String.fromCharCode(...bytes.subarray(o, o + 0x8000));
+    out.push({ id: `ANLAGE-${i + 1}`, description: a.name, base64: btoa(bin), mime: a.mime, filename: a.name });
+  }
+  return out;
+}
+
 export const render = systemAction({
   job: "documents.pipeline",
   args: { id: v.id("salesDocuments") },
@@ -75,9 +99,11 @@ export const render = systemAction({
     try {
       const snapshot = JSON.parse(input.snapshotJson) as DocumentSnapshot;
       const createdAt = new Date(input.finalizedAt ?? Date.now());
+      const xmlAttachments = await loadXmlAttachments(ctx, input.xmlAttachments, snapshot);
       const r = await renderArtifacts(snapshot, layoutOf(input.layoutConfig), "original", {
         logo: await loadLogo(ctx, input.logoStorageId),
         createdAt,
+        ...(xmlAttachments.length ? { xmlAttachments } : {}),
       });
       const files: {
         kind: "pdf" | "zugferd_pdf" | "xrechnung_xml" | "validation_report_kosit" | "validation_report_mustang";
@@ -204,6 +230,14 @@ export interface ExportedFile {
   mime: string;
 }
 
+/** DOC-18: an attachment that travels with the ZIP bundle (no artifact id; never used for the sent mark). */
+export interface ExportedAttachment {
+  name: string;
+  url: string;
+  sha256: string;
+  mime: string;
+}
+
 /**
  * „Exportieren“ (SND-16): serves archived bytes — originals while unmarked, the archived "Kopie" once marked
  * (rendered and archived on first use, DOC-32); „Original erneut exportieren“ needs a reason (SND-05, EC-099).
@@ -213,9 +247,19 @@ export interface ExportedFile {
 export const exportFiles = action({
   permission: "documents.export",
   args: { id: v.id("salesDocuments"), request: v.any() },
-  handler: async (ctx, { id, request }): Promise<{ files: ExportedFile[]; zipName: string | null }> => {
+  handler: async (
+    ctx,
+    { id, request },
+  ): Promise<{ files: ExportedFile[]; attachments: ExportedAttachment[]; zipName: string | null }> => {
     const req = parse(exportRequestSchema, request);
-    const { number, files } = await collectExportFiles(ctx, id, req);
+    const { number, files, attachments: attached } = await collectExportFiles(ctx, id, req);
+    const attachments: ExportedAttachment[] = [];
+    if (req.entry === "zip") {
+      for (const a of attached) {
+        const url = await ctx.storage.getUrl(a.storageId);
+        if (url) attachments.push({ name: `Anlagen/${a.name}`, url, sha256: a.sha256, mime: a.mime });
+      }
+    }
     const out: ExportedFile[] = [];
     for (const f of files) {
       const url = await ctx.storage.getUrl(f.storageId);
@@ -230,7 +274,7 @@ export const exportFiles = action({
       original: req.original === true,
       ...(req.reason ? { reason: req.reason } : {}),
     });
-    return { files: out, zipName: req.entry === "zip" ? zipFileName(number) : null };
+    return { files: out, attachments, zipName: req.entry === "zip" ? zipFileName(number) : null };
   },
 });
 
@@ -250,7 +294,12 @@ async function collectExportFiles(
   ctx: ActionCtx & { actorContext: ActorContext },
   id: Id<"salesDocuments">,
   req: { entry: string; original?: boolean | undefined; reason?: string | undefined },
-): Promise<{ number: string; type: string; files: CollectedFile[] }> {
+): Promise<{
+  number: string;
+  type: string;
+  files: CollectedFile[];
+  attachments: { name: string; sha256: string; mime: string; storageId: Id<"_storage"> }[];
+}> {
   const input = await ctx.runQuery(internal.invoices.exportInput, { id });
   if (input.status === "draft" || !input.number)
     throw appError("document_not_draft", "Entwürfe können nicht exportiert werden.");
@@ -311,7 +360,7 @@ async function collectExportFiles(
       storageId: a.storageId,
     });
   }
-  return { number: input.number, type: input.type, files };
+  return { number: input.number, type: input.type, files, attachments: input.attachments };
 }
 
 /**
@@ -338,7 +387,7 @@ export const bulkExportJob = systemAction({
         try {
           const c = await collectExportFiles(actorCtx, id, { entry: "default" });
           const folder = c.number.replaceAll("/", "-");
-          for (const f of c.files) {
+          for (const f of [...c.files, ...c.attachments.map((a) => ({ ...a, name: `Anlagen/${a.name}` }))]) {
             const blob = await ctx.storage.get(f.storageId);
             if (!blob) throw appError("artifacts_not_ready");
             zipFiles[`${folder}/${f.name}`] = new Uint8Array(await blob.arrayBuffer());
