@@ -80,3 +80,21 @@ test("EXP-021 SND-20 SND-09 the invoice list offers Export ▾ and the bulk bar;
   await expect(h1(page, "Export")).toBeVisible();
   await expectNoAxeViolations();
 });
+
+test("SET-114 PRV-001 PRV-015 /einstellungen/datenschutz lists external services, retention and the Art. 30 record", async ({
+  page,
+  expectNoAxeViolations,
+}) => {
+  await page.goto("/einstellungen/datenschutz");
+  await expect(h1(page, "Datenschutz")).toBeVisible();
+  const services = page.getByRole("list", { name: "Externe Dienste" });
+  await expect(services).toContainText("Tailscale");
+  await expect(services).toContainText("BZSt");
+  await page.getByRole("tab", { name: "Aufbewahrung" }).click();
+  await expect(page.getByRole("rowheader", { name: /Buchungsbelege/ })).toBeVisible();
+  await page.getByRole("tab", { name: "Verzeichnis (Art. 30)" }).click();
+  const download = page.waitForEvent("download");
+  await page.getByRole("button", { name: "Als Datei herunterladen" }).click();
+  expect((await download).suggestedFilename()).toBe("verzeichnis-art30.md");
+  await expectNoAxeViolations();
+});

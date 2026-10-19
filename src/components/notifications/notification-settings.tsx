@@ -124,6 +124,7 @@ function NtfyCard({
   const [topic, setTopic] = useState(ntfy?.topic ?? "");
   const [token, setToken] = useState("");
   const [sendDetails, setSendDetails] = useState(ntfy?.sendDetails ?? false);
+  const [regionWarning, setRegionWarning] = useState<string | null>(null);
   useEffect(() => {
     setServerUrl(ntfy?.serverUrl ?? "");
     setTopic(ntfy?.topic ?? "");
@@ -144,12 +145,21 @@ function NtfyCard({
             void run(
               () => save({ ntfy: { serverUrl, topic, ...(token ? { token } : {}), sendDetails } }),
               t("saved"),
-            ).then((r) => r.ok && setToken(""));
+            ).then((r) => {
+              if (!r.ok) return;
+              setToken("");
+              setRegionWarning(r.value?.warning ?? null);
+            });
           }}
         >
           {isPublic && (
             <p role="note" className="rounded-md border border-warning/50 bg-warning/10 p-3 text-sm">
               {t("ntfyPublicWarning")}
+            </p>
+          )}
+          {regionWarning && (
+            <p role="alert" className="rounded-md border border-warning/50 bg-warning/10 p-3 text-sm">
+              {regionWarning}
             </p>
           )}
           {ntfy && ntfy.failures >= 3 && (

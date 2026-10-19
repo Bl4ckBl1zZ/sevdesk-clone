@@ -1909,6 +1909,30 @@
     "wrapper": "mutation",
     "permission": "payments.write"
   },
+  "privacy:art30": {
+    "kind": "query",
+    "visibility": "public",
+    "wrapper": "query",
+    "permission": "settings.read"
+  },
+  "privacy:confirmAvv": {
+    "kind": "mutation",
+    "visibility": "public",
+    "wrapper": "mutation",
+    "permission": "settings.ownerOnly"
+  },
+  "privacy:externalServices": {
+    "kind": "query",
+    "visibility": "public",
+    "wrapper": "query",
+    "permission": "settings.read"
+  },
+  "privacy:retention": {
+    "kind": "query",
+    "visibility": "public",
+    "wrapper": "query",
+    "permission": "settings.read"
+  },
   "products:applyScheduledPricesCron": {
     "kind": "mutation",
     "visibility": "internal",

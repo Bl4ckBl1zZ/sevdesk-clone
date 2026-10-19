@@ -150,4 +150,15 @@ describe("notification settings (NTF-002, NTF-004)", () => {
     await userEvent.click(screen.getByRole("button", { name: "Test senden" }));
     expect(toast.success).toHaveBeenCalledWith("Testnachricht gesendet.");
   });
+
+  test("SET-048 a non-EU ntfy server shows the region warning after saving", async () => {
+    backend.mutations["notifications:saveNtfy"] = vi
+      .fn()
+      .mockResolvedValue({ warning: "ntfy (ntfy.sh) verarbeitet Daten außerhalb der EU." });
+    renderWithIntl(<NotificationSettings />);
+    await userEvent.click(screen.getByRole("button", { name: "Speichern" }));
+    expect(
+      screen.getAllByRole("alert").some((a) => a.textContent?.includes("ntfy (ntfy.sh) verarbeitet Daten außerhalb")),
+    ).toBe(true);
+  });
 });

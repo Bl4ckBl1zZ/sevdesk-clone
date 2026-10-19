@@ -548,6 +548,14 @@ export default defineSchema({
     ),
   }),
 
+  // F12 PRV-016 / F01 SET-109/114: the owner's AVV (Auftragsverarbeitungsvertrag) confirmation per external service.
+  serviceConfirmations: defineTable({
+    serviceId: v.string(),
+    confirmedAt: v.number(),
+    confirmedBy: vActor,
+    note: v.optional(v.string()),
+  }).index("by_service", ["serviceId"]),
+
   // 03 §1 Templates and lookups — integrations (only the parts P0 uses: cloudflare_email, r2_checkpoint)
   integrations: defineTable({
     kind: v.union(

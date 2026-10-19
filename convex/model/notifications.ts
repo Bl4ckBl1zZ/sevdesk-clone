@@ -10,6 +10,7 @@ import {
   NTFY_FAILURES_BEFORE_WARNING,
   purgeDue,
 } from "../../src/domain/notifications/catalog";
+import { isEuRegion, nonEuWarning, regionOfEndpoint } from "../../src/domain/privacy/external-services";
 import { berlinCalendarDate } from "../../src/domain/time/berlin";
 import { internal } from "../_generated/api";
 import type { Doc, Id } from "../_generated/dataModel";
@@ -227,7 +228,7 @@ export async function setKindChannels(ctx: ModelCtx, kind: string, channels: Not
 export async function saveNtfy(
   ctx: ModelCtx,
   input: { serverUrl: string; topic: string; token?: string; clearToken?: boolean; sendDetails: boolean } | null,
-): Promise<void> {
+): Promise<{ warning: string | null }> {
   const s = await ensureSettings(ctx);
   if (input === null) {
     await auditedPatch(
@@ -237,7 +238,7 @@ export async function saveNtfy(
       { ntfy: undefined },
       { action: "settings.notifications.update", label: "ntfy" },
     );
-    return;
+    return { warning: null };
   }
   const serverUrl = input.serverUrl.trim();
   const problem = ntfyServerProblem(serverUrl);
@@ -263,6 +264,9 @@ export async function saveNtfy(
     },
     { action: "settings.notifications.update", label: "ntfy" },
   );
+  // SET-048: a non-EU (or unknown-region) endpoint warns on save; it never blocks.
+  const host = new URL(serverUrl).hostname;
+  return { warning: isEuRegion(regionOfEndpoint(serverUrl)) ? null : nonEuWarning(`ntfy (${host})`) };
 }
 
 /** E-NTF-01: consecutive ntfy failures; the third raises an in-app/e-mail warning, a success resets the counter. */

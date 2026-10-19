@@ -3946,5 +3946,34 @@
     "download": "{name} herunterladen",
     "cancel": "Abbrechen",
     "cancelled": "Auftrag abgebrochen."
+  },
+  "privacy": {
+    "tabs": {
+      "services": "Externe Dienste",
+      "retention": "Aufbewahrung",
+      "art30": "Verzeichnis (Art. 30)",
+      "requests": "Anfragen"
+    },
+    "requestsLater": "Das Register für Datenschutzanfragen (Auskunft, Löschung, Sperrung) folgt in einer späteren Version. Anfragen bitte bis dahin außerhalb der App dokumentieren.",
+    "servicesLabel": "Externe Dienste",
+    "avvConfirmed": "AVV bestätigt am {date}",
+    "avvMissing": "AVV fehlt",
+    "data": "Daten",
+    "dpaLink": "Auftragsverarbeitungsvertrag des Anbieters",
+    "confirm": "AVV für {name} bestätigen",
+    "withdraw": "Bestätigung zurücknehmen",
+    "confirmed": "AVV-Bestätigung gespeichert.",
+    "withdrawn": "AVV-Bestätigung zurückgenommen.",
+    "retentionHint": "Aufbewahrungsfristen nach § 147 AO und § 257 HGB (Regeltabelle {version}). Die Frist endet am 31.12. des Jahres der Entstehung plus Jahre; vorher wird nichts gelöscht.",
+    "class": "Klasse",
+    "years": "Jahre",
+    "records": "Datensätze",
+    "download": "Als Datei herunterladen",
+    "controller": "Verantwortlicher",
+    "purpose": "Zweck",
+    "legalBasis": "Rechtsgrundlage",
+    "recipients": "Empfänger",
+    "thirdCountry": "Drittlandübermittlung",
+    "retention": "Löschfrist"
   }
 }
