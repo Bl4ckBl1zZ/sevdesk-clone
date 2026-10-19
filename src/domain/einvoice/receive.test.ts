@@ -225,7 +225,7 @@ describe("addressee check (INB-044, EC-INB-08)", () => {
 describe("supplier E-Rechnung obligation (INB-047, ER-03 inverse, EC-INB-10)", () => {
   const base = { isEInvoice: false, supplierCountryCode: "DE", supplierIsKu: false, b2b: true, grossEurCents: 50_000 };
 
-  test("INB-047 T06-047 EC-102 PDF from a domestic supplier, supply 2028-02-01, 500 € → warning", () => {
+  test("INB-047 EC-INB-10 T06-047 EC-102 PDF from a domestic supplier, supply 2028-02-01, 500 € → warning", () => {
     expect(supplierEinvoiceObligation({ ...base, supplyEnd: "2028-02-01" })).toEqual({
       severity: "warning",
       code: "einvoice_required_from_supplier",

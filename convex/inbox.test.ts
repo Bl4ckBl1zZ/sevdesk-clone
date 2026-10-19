@@ -127,6 +127,22 @@ describe("capture (INB-001…003, INB-020, VOU-050)", () => {
     expect((await voucherOf(t, it.voucherId as never)).originalFiles).toHaveLength(3);
   });
 
+  test("EC-INB-20 GOBD-04 T06-006 a capture uploaded days later keeps clientCapturedAt and the server capturedAt", async () => {
+    const t = makeT();
+    const owner = await setup(t);
+    const taken = Date.now() - 3 * 24 * 3_600_000;
+    const r = await ingest(t, owner, [{ bytes: pdfBytes("offline"), name: "foto.pdf", clientCapturedAt: taken }], {
+      via: "app",
+    });
+    const it = await item(t, r.id);
+    expect(it.clientCapturedAt).toBe(taken);
+    expect(it.files[0]?.clientCapturedAt).toBe(taken);
+    // GOBD-04 counts from the server's capture time, never from the client clock.
+    expect(it.capturedAt).toBeGreaterThan(taken + 2 * 24 * 3_600_000);
+    expect(it.files[0]?.capturedAt).toBe(it.capturedAt);
+    await settleInbox(t);
+  });
+
   test("VOU-050 EC-160 T06-095 the same file again is a duplicate; „Trotzdem verarbeiten“ needs a reason", async () => {
     const t = makeT();
     const owner = await setup(t);
