@@ -121,7 +121,10 @@ export const IMMUTABILITY_MATRIX: Readonly<Record<string, TableRule>> = {
   openingItems: { kind: "guarded", fields: { openAmountCents: "mutable", lockedAt: "once" } },
   // journalEntryIds grows: the entry is posted after the row exists (it references the row), and the T5 bank leg of a
   // deposit is posted when the bank credit is matched (03 §11 amended, F07 P1).
-  cashTransfers: { kind: "guarded", fields: { bankTransactionId: "once", journalEntryIds: "append" } },
+  cashTransfers: {
+    kind: "guarded",
+    fields: { bankTransactionId: "once", journalEntryIds: "append", lockedAt: "once" },
+  },
   // F07 BNK-122: booked bank data never changes; only the allocation/marking state, the source list (append) and a
   // one-time fill of empty counterparty fields (BNK-031).
   bankTransactions: {

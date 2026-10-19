@@ -119,6 +119,7 @@ import type * as model_notificationSettings from "../model/notificationSettings.
 import type * as model_notifications from "../model/notifications.js";
 import type * as model_numberRanges from "../model/numberRanges.js";
 import type * as model_payments from "../model/payments.js";
+import type * as model_periodLock from "../model/periodLock.js";
 import type * as model_privacy from "../model/privacy.js";
 import type * as model_products from "../model/products.js";
 import type * as model_recurring from "../model/recurring.js";
@@ -141,6 +142,7 @@ import type * as model_voucherViews from "../model/voucherViews.js";
 import type * as model_vouchers from "../model/vouchers.js";
 import type * as paymentValidators from "../paymentValidators.js";
 import type * as payments from "../payments.js";
+import type * as periods from "../periods.js";
 import type * as privacy from "../privacy.js";
 import type * as products from "../products.js";
 import type * as productsApi from "../productsApi.js";
@@ -276,6 +278,7 @@ declare const fullApi: ApiFromModules<{
   "model/notifications": typeof model_notifications;
   "model/numberRanges": typeof model_numberRanges;
   "model/payments": typeof model_payments;
+  "model/periodLock": typeof model_periodLock;
   "model/privacy": typeof model_privacy;
   "model/products": typeof model_products;
   "model/recurring": typeof model_recurring;
@@ -298,6 +301,7 @@ declare const fullApi: ApiFromModules<{
   "model/vouchers": typeof model_vouchers;
   paymentValidators: typeof paymentValidators;
   payments: typeof payments;
+  periods: typeof periods;
   privacy: typeof privacy;
   products: typeof products;
   productsApi: typeof productsApi;

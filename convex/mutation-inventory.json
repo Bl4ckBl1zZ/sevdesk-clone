@@ -2275,6 +2275,24 @@
     "wrapper": "mutation",
     "permission": "payments.write"
   },
+  "periods:lock": {
+    "kind": "mutation",
+    "visibility": "public",
+    "wrapper": "mutation",
+    "permission": "accounting.lock"
+  },
+  "periods:lockPreview": {
+    "kind": "query",
+    "visibility": "public",
+    "wrapper": "query",
+    "permission": "accounting.read"
+  },
+  "periods:overview": {
+    "kind": "query",
+    "visibility": "public",
+    "wrapper": "query",
+    "permission": "accounting.read"
+  },
   "privacy:art30": {
     "kind": "query",
     "visibility": "public",

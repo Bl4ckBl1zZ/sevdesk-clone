@@ -403,6 +403,8 @@ export default defineSchema({
     reversalOfId: v.optional(v.id("cashTransfers")),
     reason: v.optional(v.string()),
     recordedAt: v.number(),
+    /** F08 ACC-015: set once by the Festschreibung of the month. */
+    lockedAt: v.optional(v.number()),
     actor: vActor,
   })
     .index("by_date", ["date"])

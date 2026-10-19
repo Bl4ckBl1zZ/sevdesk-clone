@@ -64,6 +64,13 @@ export const ERRORS = {
   retraction_invalid: "Die Versandmarkierung kann nicht zurückgenommen werden.",
   resend_original_reason: "Bitte begründen, warum das Original erneut exportiert wird (wird protokolliert).",
   clock_skew: "Die Serveruhr weicht zu stark ab. Fertigstellen ist gesperrt, bis die Uhrzeit korrigiert ist.",
+  // F08 P2: Festschreibung, Steuermeldungen, Anlagen
+  period_lock_blocked: "Die Festschreibung ist nicht möglich.",
+  transfer_ticket_required: "Bitte das Transferticket aus dem ELSTER-Übermittlungsprotokoll eintragen.",
+  sheet_changed: "Die Werte haben sich seit dem Öffnen der Ausfüllhilfe geändert.",
+  cross_check_mismatch: "Der Kontrollwert aus ELSTER weicht von der Buchhaltung ab.",
+  filing_blocked: "Die Meldung kann noch nicht erfasst werden.",
+  asset_rejected: "Die Anlagenbuchung ist nicht möglich.",
 } as const;
 
 export type ErrorCode = keyof typeof ERRORS;
