@@ -142,12 +142,11 @@ describe("confirm tokens for ⚠ MCP tools (06 §2.3)", () => {
     expect(
       await codeOf(mcp.mutation(api.confirmTokens.issue, { intent: "rm_rf", args: {}, entities: [], tokenHash: hash })),
     ).toBe("invalid_input");
-    expect(
-      await codeOf(
-        // export_datev (F09) has no permission yet; document_finalize became available with the F04 preview slice.
-        mcp.mutation(api.confirmTokens.issue, { intent: "export_datev", args: {}, entities: [], tokenHash: hash }),
-      ),
-    ).toBe("invalid_input");
+    // export_datev became available with the F09 DATEV slice: issuing it needs its scope (exports:run).
+    const datev = { intent: "export_datev", args: {}, entities: [], tokenHash: hash };
+    expect(await codeOf(mcp.mutation(api.confirmTokens.issue, datev))).toBe("forbidden_scope");
+    const exporter = await t.asMcp(["exports:run"]);
+    await expect(exporter.mutation(api.confirmTokens.issue, datev)).resolves.toBeTruthy();
   });
 
   test("MCP-004 REST keys and the UI merge without a token (the token rule is MCP-only)", async () => {

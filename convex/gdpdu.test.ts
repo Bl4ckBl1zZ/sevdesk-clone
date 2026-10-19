@@ -107,12 +107,15 @@ describe("GDPdU Z3 export (EXP-017, EXP-018, GOBD-11)", { timeout: 120_000 }, ()
     expect(row?.name).toBe("gdpdu-2026-ansi.zip");
   });
 
-  test("EXP-017 only the owner starts it; API keys need exports:run; a future year is refused", async () => {
+  test("EXP-017 owner and bookkeeper start it (02 §4.3), not the viewer; API keys need exports:run; a future year is refused", async () => {
     const t = makeT();
     const f = await finalizedInvoice(t);
-    const bk = await t.asUser("bookkeeper");
+    const viewer = await t.asUser("viewer");
     const args = { year: 2026, encoding: "utf8" as const, includeFiles: false };
-    expect(dataOf(await catching(bk.mutation(api.gdpdu.start, args))).code).toBe("forbidden_role");
+    expect(dataOf(await catching(viewer.mutation(api.gdpdu.start, args))).code).toBe("forbidden_role");
+    const bk = await t.asUser("bookkeeper");
+    await expect(bk.mutation(api.gdpdu.start, args)).resolves.toMatchObject({ jobId: expect.any(String) });
+    await settle(t);
     const key = await t.asApiKey(["documents:read"]);
     expect(dataOf(await catching(key.mutation(api.gdpdu.start, args))).code).toBe("forbidden_scope");
     expect(dataOf(await catching(f.owner.mutation(api.gdpdu.start, { ...args, year: 2027 }))).message).toBe(

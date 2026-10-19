@@ -57,6 +57,8 @@ export interface DatevBeleg {
   guid?: string;
   /** Internal document id (Beleginfo „Beleg-ID“). */
   internalId?: string;
+  /** Vouchers: the supplier's invoice number (Zusatzinformation „Lieferanten-Rechnungsnr.“, EXP-005 decided default ⚠). */
+  supplierNumber?: string;
 }
 
 export interface DatevMapContext {
@@ -101,6 +103,20 @@ export const DATEV_MESSAGES = {
   vatDerived: (seq: number) =>
     `Buchung ${seq}: Umbuchung der Umsatzsteuer (Ist-Versteuerung bzw. § 13b/innergemeinschaftlicher Erwerb) übernimmt DATEV über die Automatikkonten.`,
   personalRange: (nr: string) => `Personenkonto ${nr} liegt außerhalb des Debitoren-/Kreditorenbereichs.`,
+  keysMissing: "Für den DATEV-Export fehlen Berater- und/oder Mandantennummer (Einstellungen › Unternehmen › DATEV).",
+  twoYears: "Der Zeitraum umfasst zwei Wirtschaftsjahre – es werden zwei Dateien erzeugt.",
+  transliterated: (n: number, a: string, b: string) =>
+    `${n} Zeichen wurden für DATEV umgeschrieben (z. B. „${a}“ → „${b}“).`,
+  missingFiles: (n: number) => `Für ${n} Buchungen fehlt die Belegdatei.`,
+  accountsAssigned: (n: number) => `${n} Kontakten wurden Debitoren-/Kreditorennummern zugewiesen.`,
+  accountsToAssign: (n: number) => `${n} Kontakten werden beim Export Debitoren-/Kreditorennummern zugewiesen.`,
+  running: "Für diesen Zeitraum läuft bereits ein Export.",
+  notAccepted:
+    "DATEV-Import noch nicht von einem Steuerberater bestätigt. Die Datei ist als Testexport gekennzeichnet.",
+  rangeInvalid: "Bitte einen gültigen Zeitraum wählen (Beginn vor Ende, höchstens zwei Wirtschaftsjahre).",
+  nothingSelected: "Bitte mindestens einen Umfang auswählen.",
+  diff: (added: number, removed: number) =>
+    `Gegenüber dem letzten Export: ${added} neue und ${removed} entfallene Buchungszeilen.`,
 } as const;
 
 const BELEGFELD_RE = /^[A-Za-z0-9$%&*+\-/]{0,36}$/;
@@ -399,6 +415,8 @@ export function mapEntries(entries: readonly DatevJournalEntry[], ctx: DatevMapC
         Beleglink: txt(beleg.guid ? `BEDI "${beleg.guid}"` : undefined),
         "Beleginfo - Art 1": txt(beleg.internalId ? "Beleg-ID" : undefined),
         "Beleginfo - Inhalt 1": txt(beleg.internalId),
+        "Zusatzinformation - Art 1": txt(beleg.supplierNumber ? "Lieferanten-Rechnungsnr." : undefined),
+        "Zusatzinformation - Inhalt 1": txt(beleg.supplierNumber?.slice(0, 210)),
         "KOST1 - Kostenstelle": txt(
           it.line.costCenterId ? (ctx.costCenterCode?.(it.line.costCenterId) ?? it.line.costCenterId) : undefined,
         ),

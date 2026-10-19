@@ -997,6 +997,49 @@ export default defineSchema({
     createdAt: v.number(),
     actor: vActor,
   }).index("by_year", ["year", "createdAt"]),
+  // datevExports 🔒 (F09 EXP-009/010): append-only export history; downloads re-serve the stored ZIP (never
+  // regenerated). `journalLineIds` = `${entryId}:${lineIndex}` exactly exported; `files[].rowsSha256` hashes the data
+  // rows of each Buchungsstapel file (without the header line, which carries the creation time) — the E-EXP-04
+  // „identical content" check of a full re-export of a festgeschrieben range.
+  datevExports: defineTable({
+    from: v.string(),
+    to: v.string(),
+    scope: v.array(
+      v.union(
+        v.literal("revenue"),
+        v.literal("vouchers"),
+        v.literal("payments"),
+        v.literal("assets"),
+        v.literal("manual"),
+        v.literal("master_data"),
+        v.literal("documents"),
+      ),
+    ),
+    mode: v.union(v.literal("new"), v.literal("full")),
+    formatVersion: v.union(v.literal(12), v.literal(13)),
+    festschreibung: v.boolean(),
+    isRepeat: v.boolean(),
+    doNotReimport: v.optional(v.boolean()),
+    journalLineIds: v.array(v.string()),
+    rowCount: v.number(),
+    sumUmsatzCents: v.number(),
+    file: vFileRef,
+    files: v.array(v.object({ name: v.string(), sha256: v.string(), rowsSha256: v.optional(v.string()) })),
+    validationReport: v.optional(v.any()),
+    jobId: v.id("jobs"),
+    actor: vActor,
+    at: v.number(),
+  }).index("by_from", ["from", "at"]),
+  // datevAcceptance (F09 EXP-016): the advisor's test-import result — append-only, not a go-live gate.
+  datevAcceptance: defineTable({
+    testedOn: v.string(),
+    formatVersion: v.union(v.literal(12), v.literal(13)),
+    buKeysConfirmed: v.boolean(),
+    advisorName: v.optional(v.string()),
+    remarks: v.optional(v.string()),
+    recordedAt: v.number(),
+    actor: vActor,
+  }).index("by_recordedAt", ["recordedAt"]),
   // dsgvoRequests (PRV-010): the request register (not GoBD-protected; every change audited).
   dsgvoRequests: defineTable({
     contactId: v.optional(v.id("contacts")),
@@ -1422,6 +1465,8 @@ export default defineSchema({
     supplyDate: v.optional(vSupplyDate),
     supplyDateMode: v.union(v.literal("explicit"), v.literal("document_date")),
     dueDate: v.optional(v.string()),
+    /** F09 E-EXP-10: DATEV-safe alias for a legacy number with characters DATEV rejects (set once, audited). */
+    datevBelegnummer: v.optional(v.string()),
     currency: v.string(),
     fxRateToEur: v.optional(vFxRate),
     priceMode: vPriceMode,

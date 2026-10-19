@@ -138,8 +138,23 @@ export const PERMISSIONS = {
    * audit entry and the derived `firstExportedAt` cache are recorded.
    */
   "documents.export": { roles: ALL, scope: "documents:read", write: false },
-  /** F09 EXP-017 GDPdU (Z3) export per fiscal year: owner in the UI, API with `exports:run` (F09 §7). */
-  "exports.gdpdu": { roles: ["owner"], scope: "exports:run", write: false },
+  /**
+   * F09 EXP-017 GDPdU (Z3) export per fiscal year: owner and bookkeeper (02 §4.3 role matrix: "DATEV/GDPdU
+   * exports"), API with `exports:run` (F09 §7).
+   */
+  "exports.gdpdu": { roles: ["owner", "bookkeeper"], scope: "exports:run", write: false },
+  /**
+   * F09 EXP-001…016 DATEV export (validate, start; owner and bookkeeper per 02 §4.3). Writes: the audited
+   * personal-account assignment (EXP-006) and the history row. ⚠ for MCP (06 §2: it can lock a period) — confirm
+   * token from `preview_action {action: "export_datev"}`.
+   */
+  "exports.datev": { roles: ["owner", "bookkeeper"], scope: "exports:run", write: true, confirm: "export_datev" },
+  /** F09 EXP-007 the DATEV dry run („Prüfen", REST `…/validate`, MCP preview): reads only, no confirm token. */
+  "exports.datev.validate": { roles: ["owner", "bookkeeper"], scope: "exports:run", write: false },
+  /** F09 EXP-009 DATEV export history and the download of the stored ZIP (audited). */
+  "exports.datev.read": { roles: ["owner", "bookkeeper"], scope: "exports:run", write: false },
+  /** F09 EXP-016 recording the advisor's test-import result (owner; UI only). */
+  "exports.datev.acceptance": { roles: ["owner"], scope: null, write: true },
   /**
    * F12 AUD-023: the generated Z3 packages — the auditor downloads those of the granted fiscal years (UI only).
    */

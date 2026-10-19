@@ -45,6 +45,8 @@ const GROUPS: Record<string, readonly string[] | "*"> = {
     "progress",
     // F05 PAY-052 manual Zugang override
     "zugang_override",
+    // F09 E-EXP-10 DATEV-safe alias for a legacy document number
+    "datev_alias",
     // F09 IMP-003 archived historic document from the sevdesk export
     "import",
   ],
@@ -142,6 +144,7 @@ const GROUPS: Record<string, readonly string[] | "*"> = {
     "datev_test_download",
     "dsgvo",
     "gdpdu_download",
+    "datev_download",
   ],
   // F09 EXP-026 background jobs (jobs table): lifecycle and the 30-day result expiry.
   job: ["create", "start", "progress", "done", "fail", "cancel", "expire"],

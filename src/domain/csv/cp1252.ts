@@ -80,6 +80,8 @@ export interface AnsiResult {
   bytes: Uint8Array;
   /** Distinct characters that could not be represented (written as "?"). */
   unmappable: string[];
+  /** Distinct characters written as a replacement: [original, replacement] (DATEV E-EXP-15 warning). */
+  transliterated: [string, string][];
 }
 
 function byteOf(cp: number): number | undefined {
@@ -91,6 +93,7 @@ function byteOf(cp: number): number | undefined {
 export function encodeCp1252(text: string): AnsiResult {
   const out: number[] = [];
   const unmappable = new Set<string>();
+  const replaced = new Map<string, string>();
   for (const ch of text.normalize("NFC")) {
     const cp = ch.codePointAt(0) as number;
     const direct = byteOf(cp);
@@ -101,6 +104,7 @@ export function encodeCp1252(text: string): AnsiResult {
     const alt = ANSI_TRANSLITERATION[ch];
     if (alt !== undefined) {
       for (const a of alt) out.push(byteOf(a.codePointAt(0) as number) ?? 0x3f);
+      replaced.set(ch, alt);
       continue;
     }
     // Decomposed fallback: a base letter plus combining marks (e.g. "ș" → "s").
@@ -108,12 +112,13 @@ export function encodeCp1252(text: string): AnsiResult {
     const baseByte = base.length === 1 ? byteOf(base.codePointAt(0) as number) : undefined;
     if (baseByte !== undefined) {
       out.push(baseByte);
+      replaced.set(ch, base);
       continue;
     }
     unmappable.add(ch);
     out.push(0x3f);
   }
-  return { bytes: Uint8Array.from(out), unmappable: [...unmappable] };
+  return { bytes: Uint8Array.from(out), unmappable: [...unmappable], transliterated: [...replaced] };
 }
 
 /** Decodes Windows-1252 bytes (tests, DATEV round trips). */

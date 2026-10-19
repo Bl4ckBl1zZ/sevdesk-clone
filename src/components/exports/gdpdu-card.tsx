@@ -15,7 +15,7 @@ import { Label } from "@/components/ui/label";
 import { useAuthedQuery } from "@/hooks/use-authed-query";
 
 /**
- * F09 EXP-017/018 „GDPdU/Z3" card on /export: the owner creates the package per fiscal year (encoding, originals);
+ * F09 EXP-017/018 „GDPdU/Z3" card on /export: owner and bookkeeper create the package per fiscal year (encoding, originals);
  * the list of generated packages is shown to owner, bookkeeper and — limited to the granted years — the auditor
  * (F12 AUD-023). Every download is audited.
  */

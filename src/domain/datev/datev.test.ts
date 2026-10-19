@@ -197,6 +197,26 @@ describe("journal → DATEV rows (EXP-005, EXP-006, §4.1.4)", () => {
     expect(cellOf(row, "Umsatz (ohne Soll/Haben-Kz)")).toBe("119,00");
   });
 
+  test("EXP-005 vouchers: Belegfeld 1 = internal number, the supplier's number in Zusatzinformation „Lieferanten-Rechnungsnr.“", () => {
+    const r = mapEntries(
+      [
+        entry(
+          [
+            L("4970", "expense.x", 10000, 0, { taxKey: "VSt19" }),
+            L("1576", "vat.input.19", 1900, 0),
+            L("1600", "payable", 0, 11900, { contactId: "s1" }),
+          ],
+          { source: { kind: "voucher", id: "v1" } },
+        ),
+      ],
+      ctx({ beleg: () => ({ belegfeld1: "ER-2026-0007", supplierNumber: "LF 4711/26", internalId: "v1" }) }),
+    );
+    const row = r.rows[0] as Record<string, unknown>;
+    expect(cellOf(row, "Belegfeld 1")).toBe("ER-2026-0007");
+    expect(cellOf(row, "Zusatzinformation - Art 1")).toBe("Lieferanten-Rechnungsnr.");
+    expect(cellOf(row, "Zusatzinformation - Inhalt 1")).toBe("LF 4711/26");
+  });
+
   test("EXP-005 Skonto: bank and the automatic Skonto account against the debtor; DATEV's VAT equals the booked correction", () => {
     const r = mapEntries(
       [
