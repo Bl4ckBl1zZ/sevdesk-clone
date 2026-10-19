@@ -17,6 +17,7 @@ import { appError } from "../lib/errors";
 import { auditedInsert, auditedPatch } from "./audit";
 import { getCompanyProfile } from "./companyProfile";
 import { contactAddresses, defaultAddressOf, fail, getContact } from "./contacts";
+import { notify } from "./notifications";
 import type { ModelCtx, ReadCtx } from "./types";
 
 /**
@@ -134,7 +135,52 @@ export async function recordCheck(
       { action: "contact.vat_check", label: c.number },
     );
   }
+  if (r.status === "valid") {
+    await resolveVatCheckFollowUps(ctx, contactId, vatId, isQualified(r.provider, r.status, r.qualified));
+  }
   return id;
+}
+
+// ── INV-28 / EC-044 follow-up task ────────────────────────────────────────────────────────────────────────────
+
+export const VAT_CHECK_FOLLOW_UP = "vat_check_followup";
+
+/**
+ * INV-28 / EC-044: a K/AE document finalised with an audited override of the VAT-ID check opens a to-do on the
+ * contact. It stays open until a valid check (qualified for an intra-Community supply) is recorded.
+ */
+export async function vatCheckFollowUp(
+  ctx: ModelCtx,
+  a: { contactId: Id<"contacts">; vatId: string; qualifiedRequired: boolean; number: string },
+): Promise<void> {
+  await notify(ctx, {
+    kind: VAT_CHECK_FOLLOW_UP,
+    severity: "warning",
+    title: `USt-IdNr. ${a.vatId} nachträglich prüfen (${a.number})`,
+    body: a.qualifiedRequired
+      ? "Die innergemeinschaftliche Lieferung wurde ohne gültige qualifizierte Bestätigung fertiggestellt. Bitte die qualifizierte Abfrage beim BZSt nachholen und das Ergebnis aufbewahren."
+      : "Der Beleg wurde ohne gültige Bestätigung der USt-IdNr. fertiggestellt. Bitte die Prüfung nachholen.",
+    link: `/kontakte/${a.contactId}`,
+    entity: { table: "contacts", id: a.contactId },
+    dedupeKey: `${VAT_CHECK_FOLLOW_UP}|${a.contactId}|${a.vatId}|${a.qualifiedRequired ? "qualified" : "simple"}`,
+  });
+}
+
+async function resolveVatCheckFollowUps(
+  ctx: ModelCtx,
+  contactId: Id<"contacts">,
+  vatId: string,
+  qualified: boolean,
+): Promise<void> {
+  for (const n of await ctx.db
+    .query("notifications")
+    .withIndex("by_entity", (q) => q.eq("entity.table", "contacts").eq("entity.id", contactId))
+    .collect()) {
+    if (n.kind !== VAT_CHECK_FOLLOW_UP || n.resolvedAt !== undefined) continue;
+    if (!n.dedupeKey.includes(`|${vatId}|`)) continue;
+    if (n.dedupeKey.endsWith("|qualified") && !qualified) continue;
+    await auditedPatch(ctx, "notifications", n._id, { resolvedAt: ctx.now() }, { action: "notification.resolve" });
+  }
 }
 
 /** CON-058: a reused check becomes the contact's status again (no new evidence row). */

@@ -63,7 +63,7 @@ import { type NotificationInput, notify } from "./notifications";
 import { assignCounterNumber, listDefaultRanges, registerDerivedNumber } from "./numberRanges";
 import { turnoverTotals } from "./turnover";
 import type { ModelCtx, ReadCtx } from "./types";
-import { contactChecks } from "./vatChecks";
+import { contactChecks, vatCheckFollowUp } from "./vatChecks";
 
 /**
  * Sales documents (F04) — the only writer of `salesDocuments`, `documentLines`, `documentSnapshots`,
@@ -1140,6 +1140,9 @@ export async function commitFinalization(
   const finalized = await getDocument(ctx, id);
   if (await inChain(ctx, finalized)) await recomputeChainOf(ctx, finalized, "document.progress");
   if (finalized.recurringOccurrence) await afterRecurringFinalize(ctx, finalized);
+  if (result.overriddenVatCheck && stored.contactId) {
+    await vatCheckFollowUp(ctx, { contactId: stored.contactId, number: assigned.number, ...result.overriddenVatCheck });
+  }
   return { status: "finalized", number: assigned.number, idempotentReplay: false };
 }
 

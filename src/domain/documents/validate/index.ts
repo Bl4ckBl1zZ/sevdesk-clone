@@ -63,6 +63,8 @@ export interface ValidationResult {
   readonly findings: readonly Finding[];
   readonly resolved: ResolvedDraft;
   readonly einvoice: EinvoicePlan;
+  /** INV-28 / EC-044: the VAT-ID check was released by an audited override → the check must be repeated later. */
+  readonly overriddenVatCheck?: { readonly vatId: string; readonly qualifiedRequired: boolean } | undefined;
 }
 
 export interface ValidateOptions {
@@ -81,6 +83,7 @@ export function validateDocument(
   const einvoice = planEinvoice(draft, ctx, resolved);
   const out: Finding[] = [];
   const push = (f: Finding) => out.push(f);
+  let overriddenVatCheck: ValidationResult["overriddenVatCheck"];
   const isInvoice = INVOICE_TYPES.includes(draft.type);
   const c = ctx.contact;
   const items = draft.lines.filter((l) => l.kind === "item" && !l.optional);
@@ -1027,6 +1030,9 @@ export function validateDocument(
         today,
         recheckDone: true,
       });
+      if (gate.kind === "blocked" && gate.overridable && opts.vatCheckOverride) {
+        overriddenVatCheck = { vatId, qualifiedRequired: taxCase === "intra_community_supply" };
+      }
       if (gate.kind === "blocked" && !(gate.overridable && opts.vatCheckOverride)) {
         const mismatch = gate.code === "VAT_CHECK_NOT_QUALIFIED" && c.vatChecks[0]?.qualified !== undefined;
         push(
@@ -1340,7 +1346,7 @@ export function validateDocument(
     }
   }
   out.push(...chainFindings(draft, ctx, resolved));
-  return { findings: dedupe(out), resolved, einvoice };
+  return { findings: dedupe(out), resolved, einvoice, ...(overriddenVatCheck ? { overriddenVatCheck } : {}) };
 }
 
 function dedupe(findings: Finding[]): Finding[] {
