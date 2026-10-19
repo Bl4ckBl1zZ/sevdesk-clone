@@ -46,9 +46,12 @@ async function fillDraft(page: Page, opts: { supplier: string; number: string; a
   await page.getByTestId("voucher-supplier").fill(opts.supplier);
   await page.getByTestId("voucher-document-number").fill(opts.number);
   await page.getByTestId("voucher-document-date").fill(todayBerlin());
+  // An expense account, not the first option: „0027 – EDV-Software“ is an asset account, which needs the
+  // GWG/Anlage decision (asset_decision_required) before „Buchen“ unlocks.
   const account = page.getByTestId("line-0-account");
-  await expect(account.locator("option").nth(1)).toBeAttached({ timeout: 20_000 });
-  await account.selectOption({ index: 1 });
+  const office = account.locator("option", { hasText: "Bürobedarf" }).first();
+  await expect(office).toBeAttached({ timeout: 20_000 });
+  await account.selectOption((await office.getAttribute("value")) ?? "");
   await page.getByTestId("line-0-amount").fill(opts.amount);
   await page.getByTestId("line-0-rate").fill("19");
   await page.getByTestId("voucher-save").click();
@@ -81,15 +84,21 @@ test("VOU-120 VOU-001 VOU-007 VOU-138 upload → draft → Buchen with „Privat
 });
 
 test("VOU-100 the batch queue books two drafts one after the other", async ({ page }) => {
+  // Unique per run: on phones the drafts stay unbooked, and the backend is shared between runs.
+  const run = Date.now().toString(36);
   for (const seed of ["queue-a", "queue-b"]) {
     await uploadDraft(page, seed);
-    await fillDraft(page, { supplier: `Queue ${seed}`, number: `Q-${seed}-${Date.now()}`, amount: "23,80" });
+    await fillDraft(page, { supplier: `Queue ${seed} ${run}`, number: `Q-${seed}-${run}`, amount: "23,80" });
   }
   await page.goto("/belege?status=draft");
-  const boxes = page.getByRole("checkbox", { name: /Queue queue-/ });
-  await expect(boxes).toHaveCount(2, { timeout: 20_000 });
-  // Phones show cards without checkboxes; the queue is a desktop workflow (keyboard).
-  if (!(await boxes.first().isVisible())) return;
+  // Both drafts are listed (table cell on desktop, card link on phones).
+  const names = new RegExp(`^Queue queue-[ab] ${run}$`);
+  await expect(page.getByText(names).filter({ visible: true })).toHaveCount(2, { timeout: 20_000 });
+  // Phones show cards without checkboxes (the table is display:none, so its checkboxes are not in the
+  // accessibility tree); the queue is a desktop workflow (keyboard).
+  const boxes = page.getByRole("checkbox", { name: new RegExp(`Queue queue-[ab] ${run}`) });
+  if ((await boxes.count()) === 0) return;
+  await expect(boxes).toHaveCount(2);
   await boxes.nth(0).check();
   await boxes.nth(1).check();
   await page.getByTestId("open-queue").click();
