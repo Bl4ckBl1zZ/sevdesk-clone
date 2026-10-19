@@ -5,6 +5,7 @@ import { lookupBasiszinssatz } from "./basiszinssatz";
 import {
   basiszinsRuleVersions,
   checkOverride,
+  effectiveOverrides,
   groupOverrides,
   type OverrideInput,
   overrideLockIssue,
@@ -134,6 +135,40 @@ describe("rule overrides (F01 SET-121…123)", () => {
       message:
         "Diese Regel wurde bereits in fertiggestellten Dokumenten verwendet. Bitte eine neue Zeile mit neuem Gültigkeitsdatum anlegen.",
     });
+  });
+
+  test("SET-123 a new row supersedes an open-ended override from its start date (the stored row stays unchanged)", () => {
+    const jan: StoredOverride = {
+      id: "o1",
+      ruleSet: "basiszinssatz",
+      tableId: "basiszinssatz",
+      validFrom: "2027-01-01",
+      value: { rateBp: 150 },
+      source: "BBk Januar",
+    };
+    expect(
+      checkOverride(basis({ validFrom: "2027-07-01", validTo: undefined, rateBp: 200 }), [jan]).error,
+    ).toBeUndefined();
+    expect(checkOverride(basis({ validFrom: "2027-01-01", validTo: undefined }), [jan]).error?.code).toBe(
+      "RULE_OVERLAP",
+    );
+    const jul: StoredOverride = {
+      ...jan,
+      id: "o2",
+      validFrom: "2027-07-01",
+      value: { rateBp: 200 },
+      source: "BBk Juli",
+    };
+    expect(effectiveOverrides([jul, jan]).find((o) => o.id === "o1")?.validTo).toBe("2027-06-30");
+    expect(jan.validTo).toBeUndefined();
+    const g = groupOverrides([jan, jul]);
+    const june = lookupBasiszinssatz("2027-06-30" as CalendarDate, g.basiszinssatz);
+    const july = lookupBasiszinssatz("2027-07-01" as CalendarDate, g.basiszinssatz);
+    expect([june.ok && june.value.rowId, july.ok && july.value.rowId]).toEqual(["override:o1", "override:o2"]);
+    const row = ruleOverview(ALL_RULE_TABLES, [jan, jul], "2027-03-01" as CalendarDate)
+      .find((x) => x.id === "basiszinssatz")
+      ?.rows.find((r) => r.overrideId === "o1");
+    expect(row).toMatchObject({ validTo: "2027-06-30", current: true });
   });
 
   test("SET-120 the overview lists every shipped table with source, validity and the row effective today", () => {

@@ -160,7 +160,6 @@ describe("SET-120 … SET-123 rule overrides", { timeout: 60_000 }, () => {
       ruleSet: "basiszinssatz",
       tableId: "basiszinssatz",
       validFrom: "2026-07-01",
-      validTo: "2026-12-31",
       rate: "5",
       source: "Testmitteilung der Bundesbank",
     });
@@ -181,5 +180,18 @@ describe("SET-120 … SET-123 rule overrides", { timeout: 60_000 }, () => {
       owner.mutation(api.settings.deleteRuleOverride, { id: overrideId, reason: "Satz war falsch" }),
     );
     expect(dataOf(locked).reason).toBe("RULE_ROW_LOCKED");
+    // The locked open-ended row is corrected by a new row: it ends the day before the new row starts.
+    await addOverride(owner, {
+      ruleSet: "basiszinssatz",
+      tableId: "basiszinssatz",
+      validFrom: "2027-01-01",
+      rate: "4,5",
+      source: "Folgemitteilung der Bundesbank",
+    });
+    const basis = (await owner.query(api.settings.ruleOverview, {})).tables.find((x) => x.id === "basiszinssatz");
+    expect(basis?.rows.filter((r) => r.origin === "override").map((r) => [r.validFrom, r.validTo])).toEqual([
+      ["2026-07-01", "2026-12-31"],
+      ["2027-01-01", undefined],
+    ]);
   });
 });

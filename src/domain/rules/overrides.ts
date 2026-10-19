@@ -13,7 +13,7 @@
 import { rateSuffix } from "../accounting/roles";
 import { formatBasisPoints } from "../money/format";
 import { type Issue, issue } from "../result";
-import { type CalendarDate, isCalendarDate } from "../time/calendar-date";
+import { addDays, type CalendarDate, isCalendarDate } from "../time/calendar-date";
 import { BASISZINSSATZ, type BasiszinssatzValue } from "./basiszinssatz";
 import { NOTE_TEXTS, type NoteTextId, type NoteTextValue } from "./note-texts";
 import { lookupRule, type RuleOverride, type RuleTable, ruleRowId, validateRuleEntries } from "./rule-table";
@@ -175,11 +175,21 @@ export function checkOverride(input: OverrideInput, existing: readonly StoredOve
     value = { rateBp };
   }
   const sameTable = existing.filter((o) => o.ruleSet === input.ruleSet && o.tableId === input.tableId);
-  const overlap = validateRuleEntries(
-    `${input.tableId} overrides`,
-    [...sameTable, { validFrom: input.validFrom, validTo: input.validTo, value, source: input.source }],
-    { allowGaps: true },
-  ).find((i) => i.code === "rule_overlap");
+  const candidate: StoredOverride = {
+    id: "new",
+    ruleSet: input.ruleSet,
+    tableId: input.tableId,
+    validFrom: input.validFrom,
+    validTo: input.validTo,
+    value,
+    source: input.source,
+  };
+  const duplicate = sameTable.some((o) => o.validFrom === input.validFrom);
+  const overlap =
+    duplicate ||
+    validateRuleEntries(`${input.tableId} overrides`, effectiveOverrides([...sameTable, candidate]), {
+      allowGaps: true,
+    }).some((i) => i.code === "rule_overlap");
   if (overlap) {
     return fail(
       "RULE_OVERLAP",
@@ -187,6 +197,32 @@ export function checkOverride(input: OverrideInput, existing: readonly StoredOve
     );
   }
   return { value, warnings };
+}
+
+/**
+ * SET-123 „correct it by adding a new row": an open-ended override ends the day before the next override of the same
+ * table starts (the stored row is not changed). Explicit `validTo` ranges are kept; overlaps between them are refused
+ * when the row is added.
+ */
+export function effectiveOverrides(rows: readonly StoredOverride[]): StoredOverride[] {
+  const byTable = new Map<string, StoredOverride[]>();
+  for (const o of rows) {
+    const key = `${o.ruleSet}|${o.tableId}`;
+    byTable.set(key, [...(byTable.get(key) ?? []), o]);
+  }
+  const out: StoredOverride[] = [];
+  for (const list of byTable.values()) {
+    const sorted = [...list].sort((a, b) => (a.validFrom < b.validFrom ? -1 : a.validFrom > b.validFrom ? 1 : 0));
+    sorted.forEach((o, i) => {
+      const next = sorted[i + 1];
+      out.push(
+        o.validTo === undefined && next && next.validFrom > o.validFrom
+          ? { ...o, validTo: addDays(next.validFrom as CalendarDate, -1) }
+          : o,
+      );
+    });
+  }
+  return out;
 }
 
 /** The lookup inputs of the domain functions (DocumentContext, snapshot builder, dunning claim). */
@@ -208,7 +244,9 @@ export function groupOverrides(rows: readonly StoredOverride[]): GroupedOverride
   const vat: Record<string, RuleOverride<VatRateValue>[]> = {};
   const notes: Record<string, RuleOverride<NoteTextValue>[]> = {};
   const basis: RuleOverride<BasiszinssatzValue>[] = [];
-  const sorted = [...rows].sort((a, b) => (a.validFrom < b.validFrom ? -1 : a.validFrom > b.validFrom ? 1 : 0));
+  const sorted = effectiveOverrides(rows).sort((a, b) =>
+    a.validFrom < b.validFrom ? -1 : a.validFrom > b.validFrom ? 1 : 0,
+  );
   for (const o of sorted) {
     if (o.ruleSet === "basiszinssatz" && "rateBp" in o.value) basis.push(entryOf(o, { rateBp: o.value.rateBp }));
     if (o.ruleSet === "taxRate" && "rateBp" in o.value) {
@@ -310,7 +348,7 @@ export function ruleOverview(
   return tables.map((table) => {
     const { group, overridable } = groupOf(table);
     const own = overridable
-      ? overrides.filter((o) => o.ruleSet === overridable && o.tableId === table.id)
+      ? effectiveOverrides(overrides.filter((o) => o.ruleSet === overridable && o.tableId === table.id))
       : ([] as StoredOverride[]);
     const effective = lookupRule(
       table,

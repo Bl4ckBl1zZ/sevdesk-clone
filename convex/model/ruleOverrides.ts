@@ -44,7 +44,9 @@ async function referencedRuleVersions(ctx: ReadCtx): Promise<Record<string, stri
 
 export async function ruleOverviewView(ctx: ReadCtx, today: CalendarDate) {
   const overrides = await listRuleOverrides(ctx);
-  const versions = await referencedRuleVersions(ctx);
+  // Scans the snapshots only while overrides exist (the usual state is none). LIMIT: reads every snapshot's
+  // ruleVersions; a `firstReferencedAt` stamp on the override at finalisation would make this O(overrides).
+  const versions = overrides.length > 0 ? await referencedRuleVersions(ctx) : [];
   return {
     tables: ruleOverview(ALL_RULE_TABLES, overrides, today),
     overrides: overrides.map((o) => ({ ...o, locked: overrideLockIssue(o.id, versions) !== null })),
@@ -81,12 +83,12 @@ export async function addRuleOverride(
 export async function deleteRuleOverride(ctx: ModelCtx, id: Id<"ruleOverrides">, reason: string): Promise<void> {
   const row = await ctx.db.get(id);
   if (!row) throw appError("not_found");
-  const locked = overrideLockIssue(id, await referencedRuleVersions(ctx));
-  if (locked) throw appError("conflict", locked.message, { reason: locked.code });
   const why = reason.trim();
   if (why.length < 5) {
     throw appError("invalid_input", "Bitte eine Begründung angeben (mindestens 5 Zeichen).", { field: "reason" });
   }
+  const locked = overrideLockIssue(id, await referencedRuleVersions(ctx));
+  if (locked) throw appError("conflict", locked.message, { reason: locked.code });
   await auditedDelete(ctx, "ruleOverrides", id, {
     action: "rule_override.delete",
     label: `${row.tableId} ab ${row.validFrom}`,
