@@ -107,7 +107,7 @@ test("DOC-35 „Duplizieren“ on an invoice opens a new draft", async ({ page, 
   await first.click();
   await page.getByRole("button", { name: "Duplizieren" }).click();
   await expect(page).toHaveURL(/\/rechnungen\/[a-z0-9]+$/);
-  await expect(h1(page, /Entwurf/)).toBeVisible();
+  await expect(h1(page, "Rechnungsentwurf")).toBeVisible();
   await expectNoAxeViolations();
 });
 
@@ -120,7 +120,7 @@ test("SET-132 AUD-026 /einstellungen/system shows the integrity status; Datensic
   await expect(page.getByTestId("integrity-head")).toBeVisible();
   await page.getByRole("link", { name: "Datensicherungen" }).click();
   await expect(page).toHaveURL(/\/einstellungen\/system\/backups$/);
-  await expect(page.getByText("Datensicherungen").first()).toBeVisible();
+  await expect(h1(page, "Datensicherungen")).toBeVisible();
   await expect(page.getByRole("button", { name: "Neu prüfen" })).toBeVisible();
   await expectNoAxeViolations();
 });
@@ -152,7 +152,7 @@ test("DOC-18 INV-30 a draft takes an attachment; the finalised invoice shows Anh
   await expect(section.getByRole("heading", { name: "Nachweise" })).toBeVisible();
   await expect(section.getByLabel("Art des Nachweises")).toBeVisible();
   await page.getByRole("button", { name: "Duplizieren" }).click();
-  await expect(h1(page, /Entwurf/)).toBeVisible();
+  await expect(h1(page, "Rechnungsentwurf")).toBeVisible();
   await page.getByLabel("Anhang hinzufügen (höchstens 10)").setInputFiles({
     name: "agb.pdf",
     mimeType: "application/pdf",

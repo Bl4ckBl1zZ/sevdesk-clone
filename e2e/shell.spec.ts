@@ -2,7 +2,7 @@ import { ownerStorageState } from "./backend";
 import { expect, test } from "./fixtures";
 
 /**
- * App shell navigation (04-ui-ux §3) as the signed-in owner. Needs the backend and runs after e2e/journey.spec.ts
+ * App shell navigation (04-ui-ux §3) as the signed-in owner. Needs the backend and runs after e2e/00-journey.spec.ts
  * in the same project (single worker, files in order), which created the owner and completed the setup.
  */
 const STATE = (project: string) => `test-results/.auth/owner-${project}-shell.json`;

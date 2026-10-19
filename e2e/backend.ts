@@ -112,7 +112,7 @@ export async function isFirstRun(baseURL: string): Promise<boolean> {
 }
 
 /**
- * Signed-in owner session for specs that need the app shell. Expects the journey (e2e/journey.spec.ts) to have
+ * Signed-in owner session for specs that need the app shell. Expects the journey (e2e/00-journey.spec.ts) to have
  * created the owner and completed the setup in this project; returns null otherwise so the spec can skip.
  */
 export async function ownerStorageState(

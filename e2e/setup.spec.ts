@@ -4,7 +4,7 @@ import { expect, test } from "./fixtures";
 /**
  * Setup wizard pages (F01 §6.2) as the signed-in owner after the journey completed the setup: every step renders
  * accessibly with the stored data and validation still blocks „Weiter“. The first-run flow itself (mandatory
- * passkey, resume, completion) is e2e/journey.spec.ts.
+ * passkey, resume, completion) is e2e/00-journey.spec.ts.
  */
 const STATE = (project: string) => `test-results/.auth/owner-${project}-setup.json`;
 let ready = false;
