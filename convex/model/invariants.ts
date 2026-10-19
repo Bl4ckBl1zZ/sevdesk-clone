@@ -170,6 +170,20 @@ export async function checkInvariants(ctx: ReadCtx): Promise<InvariantViolation[
       });
     }
   }
+  // RI-20 (F12 PRV-002) — no record is deleted before its retentionUntil. P1 has no purge (tombstones are P3), so every
+  // audited deletion of a record that still was within retention is a violation.
+  for (const e of entries) {
+    const diff = e.diff as { before?: { retentionUntil?: unknown }; after?: unknown } | undefined;
+    const until = diff?.before?.retentionUntil;
+    if (!diff?.before || diff.after !== undefined || typeof until !== "string") continue;
+    if (berlinCalendarDate(e.at) <= until) {
+      out.push({
+        id: "RI-20",
+        severity: "ERROR",
+        message: `${e.entity.table}/${e.entity.id} wurde vor Ablauf der Aufbewahrungsfrist (${until}) gelöscht (seq ${e.seq}).`,
+      });
+    }
+  }
   out.push(...(await checkJournalInvariants(ctx)));
   out.push(...(await checkDocumentInvariants(ctx)));
   out.push(...(await checkDunningInvariants(ctx)));

@@ -9,8 +9,18 @@ import { EU_VAT_TERRITORY } from "./eu-vat-countries";
 import { EXEMPTION_REASONS } from "./exemption-reasons";
 import { NOTE_TEXTS } from "./note-texts";
 import { RC13B_TYPES } from "./rc13b-types";
+import { RETENTION_YEARS } from "./retention";
 import type { RuleTable } from "./rule-table";
-import { KLEINBETRAG_LIMIT, KLEINUNTERNEHMER_LIMITS, PAYMENT_TERM_LIMITS, VERZUG_SURCHARGES } from "./thresholds";
+import {
+  BOOKKEEPING_DUTY_LIMITS,
+  IST_TAXATION_LIMIT,
+  KLEINBETRAG_LIMIT,
+  KLEINUNTERNEHMER_LIMITS,
+  KU_WAIVER_RULES,
+  OSS_THRESHOLD,
+  PAYMENT_TERM_LIMITS,
+  VERZUG_SURCHARGES,
+} from "./thresholds";
 import { VAT_RATE_KEYS } from "./vat-rates";
 
 export const ALL_RULE_TABLES: readonly RuleTable<unknown>[] = [
@@ -20,6 +30,11 @@ export const ALL_RULE_TABLES: readonly RuleTable<unknown>[] = [
   PAYMENT_TERM_LIMITS,
   KLEINUNTERNEHMER_LIMITS,
   KLEINBETRAG_LIMIT,
+  KU_WAIVER_RULES,
+  OSS_THRESHOLD,
+  BOOKKEEPING_DUTY_LIMITS,
+  IST_TAXATION_LIMIT,
+  RETENTION_YEARS,
   EINVOICE_OBLIGATION,
   ...Object.values(NOTE_TEXTS),
   EU_VAT_TERRITORY,

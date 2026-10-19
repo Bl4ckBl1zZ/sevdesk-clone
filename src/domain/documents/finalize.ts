@@ -5,6 +5,7 @@
  */
 import { formatCents } from "../money/format";
 import { lookupExemptionReason } from "../rules/exemption-reasons";
+import { retentionUntilFor } from "../rules/retention";
 import { renderTemplate } from "../templates/placeholders";
 import { addDays, type CalendarDate, formatGermanDate } from "../time/calendar-date";
 import { finalDeductions } from "./advances";
@@ -28,8 +29,7 @@ export const retentionClassFor = (type: SalesDocType): RetentionClass =>
 
 /** 31.12. of (document year + N): vouchers8 → 8 years, letters6 → 6 years (T-DOC-026). */
 export function retentionUntil(type: SalesDocType, documentDate: string): string {
-  const years = retentionClassFor(type) === "vouchers8" ? 8 : 6;
-  return `${Number(documentDate.slice(0, 4)) + years}-12-31`;
+  return retentionUntilFor(retentionClassFor(type), documentDate) as string;
 }
 
 // ── dates ───────────────────────────────────────────────────────────────────────────────────────────────────────

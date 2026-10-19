@@ -5,6 +5,7 @@
  * for K/AE (CON-056/057, RI-16). Pure: the HTTP call is done by the Convex action with these shapes.
  */
 import { evatrStatus } from "../rules/evatr-status";
+import { retentionUntilFor } from "../rules/retention";
 import type { TaxCase } from "../tax/tax-case";
 import { addDays, type CalendarDate, formatGermanDate } from "../time/calendar-date";
 import type { PostalAddress } from "./address";
@@ -192,7 +193,7 @@ export function mapViesResponse(httpStatus: number, body: unknown): ProviderOutc
 // ── evidence and status ───────────────────────────────────────────────────────────────────────────────
 /** CON-053: end of the check year + 10 years (e.g. checked 2026-10-12 → 2036-12-31). */
 export function vatCheckRetentionUntil(checkedOn: CalendarDate): string {
-  return `${Number(checkedOn.slice(0, 4)) + 10}-12-31`;
+  return retentionUntilFor("books10", checkedOn) as string;
 }
 
 /**

@@ -3,6 +3,7 @@
  * declaration honoured) → format detection (CAMT.053, MT940, Revolut CSV) → the format's parser.
  */
 import { err, type Result } from "../result";
+import { retentionUntilFor } from "../rules/retention";
 import { parseCamt053 } from "./sources/camt053";
 import { parseMt940 } from "./sources/mt940";
 import { parseRevolutCsv } from "./sources/revolut-csv";
@@ -46,7 +47,8 @@ export function decodeStatement(bytes: Uint8Array): Result<string, UnreadableFil
  * Retention of an archived bank statement (F07 BNK-030: class `vouchers8`, bank statements are Buchungsbelege;
  * § 147 Abs. 3/4 AO: 8 years from the end of the calendar year of the period end).
  */
-export const statementRetentionUntil = (periodTo: string): string => `${Number(periodTo.slice(0, 4)) + 8}-12-31`;
+/** PRV-001: bank statements are Buchungsbelege (vouchers8, rule table `retention-2026.1`). */
+export const statementRetentionUntil = (periodTo: string): string => retentionUntilFor("vouchers8", periodTo) as string;
 
 export function detectStatementFormat(text: string, fileName = ""): StatementFormat | null {
   const head = text.slice(0, 4000).replace(/^﻿/, "");
