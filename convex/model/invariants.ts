@@ -21,6 +21,7 @@ import { ROLE_MAPPING_ROWS, seededAccount } from "../../src/domain/rules/account
 import { defaultInterestRateBp } from "../../src/domain/rules/basiszinssatz";
 import { berlinCalendarDate } from "../../src/domain/time/berlin";
 import { type CalendarDate, isCalendarDate } from "../../src/domain/time/calendar-date";
+import { checkVoucherBelege } from "../../src/domain/vouchers/invariants";
 import type { Doc, TableNames } from "../_generated/dataModel";
 import { instanceName } from "../lib/env";
 import schema from "../schema";
@@ -156,6 +157,7 @@ export async function checkInvariants(ctx: ReadCtx): Promise<InvariantViolation[
   out.push(...(await checkJournalInvariants(ctx)));
   out.push(...(await checkDocumentInvariants(ctx)));
   out.push(...(await checkDunningInvariants(ctx)));
+  out.push(...(await checkVoucherInvariants(ctx)));
   return out;
 }
 
@@ -327,6 +329,26 @@ export async function checkDocumentInvariants(ctx: ReadCtx): Promise<InvariantVi
     ),
   );
   return out;
+}
+
+/** RI-21 (F06 vouchers): booked vouchers have a Beleg; the pure check lives in src/domain/vouchers/invariants.ts. */
+export async function checkVoucherInvariants(ctx: ReadCtx): Promise<InvariantViolation[]> {
+  const vouchers = await ctx.db.query("vouchers").collect();
+  if (vouchers.length === 0) return [];
+  const withReference = new Set(
+    (await ctx.db.query("recurringVouchers").collect()).filter((r) => r.referenceFile).map((r) => String(r._id)),
+  );
+  return checkVoucherBelege(
+    vouchers.map((v) => ({
+      id: String(v._id),
+      label: v.internalNumber ?? v.documentNumber ?? String(v._id),
+      status: v.status,
+      kind: v.kind,
+      files: v.originalFiles,
+      eigenbelegApproved: v.eigenbeleg?.approvedAt !== undefined,
+      recurringReference: v.recurringVoucherId !== undefined && withReference.has(String(v.recurringVoucherId)),
+    })),
+  );
 }
 
 /** RI-11 and RI-12 (F08 journal) over the whole journal; the pure checks live in src/domain/accounting/invariants.ts. */
