@@ -63,6 +63,7 @@ import {
   listDefaultRanges,
   listRanges,
   nextValue,
+  registerView,
   saveRanges,
 } from "./model/numberRanges";
 import { seedSettingsDefaults } from "./model/seeds";
@@ -396,6 +397,17 @@ export const listNumberRanges = query({
       })),
     );
   },
+});
+
+/** SET-063: register viewer (issued numbers with status and document link) and gap report of one range. */
+export const numberRegister = query({
+  permission: "settings.read",
+  args: {
+    rangeId: v.id("numberRanges"),
+    periodKey: v.optional(v.string()),
+    status: v.optional(v.union(v.literal("issued"), v.literal("cancelled_by_storno"), v.literal("corrected"))),
+  },
+  handler: async (ctx, a) => registerView(ctx, a),
 });
 
 /** SET-055: an additional range (collision-checked, SET-060). */

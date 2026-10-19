@@ -875,6 +875,29 @@
     "verfahrensdoku": {
       "stand": "Stand: {date}. Erzeugt aus den erfassten Einstellungen.",
       "download": "Als Markdown herunterladen"
+    },
+    "numberRegister": {
+      "title": "Nummernregister",
+      "description": "Alle vergebenen Nummern eines Nummernkreises mit Status und Beleg sowie der Lückenbericht (GoBD).",
+      "range": "Nummernkreis",
+      "period": "Zeitraum",
+      "allPeriods": "Alle Zeiträume",
+      "status": "Status",
+      "allStatuses": "Alle",
+      "number": "Nummer",
+      "type": "Art",
+      "assignedAt": "Vergeben am",
+      "document": "Beleg",
+      "open": "Öffnen",
+      "imported": "importiert",
+      "empty": "Keine Nummern in dieser Auswahl.",
+      "csv": "Als CSV herunterladen",
+      "gaps": "Lückenbericht",
+      "noGaps": "Keine Lücken.",
+      "gapRange": "{from}–{to}",
+      "unexplained": "unerklärt",
+      "truncated": "Es werden die ersten 5.000 Einträge berücksichtigt.",
+      "back": "Zurück zu den Nummernkreisen"
     }
   },
   "auth": {
@@ -2786,7 +2809,15 @@
       "retract": "Zurücknehmen",
       "retractTitle": "Versandmarkierung zurücknehmen?",
       "retractHint": "Die Markierung bleibt protokolliert. Bitte begründen, warum sie zurückgenommen wird.",
-      "retractDone": "Markierung zurückgenommen."
+      "retractDone": "Markierung zurückgenommen.",
+      "registerAssigned": "vergeben am {at}",
+      "registerStatus": {
+        "issued": "ausgegeben",
+        "cancelled_by_storno": "storniert",
+        "corrected": "korrigiert"
+      },
+      "registerImported": "importiert",
+      "registerLink": "Im Nummernregister anzeigen"
     },
     "mark": {
       "title": "Als versendet markieren",

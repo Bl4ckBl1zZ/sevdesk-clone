@@ -488,17 +488,44 @@ function Facts({ data }: { data: Detail }) {
             ? [{ label: tDoc("cancellation"), value: d.cancellation.reason }]
             : []),
           { label: t("sentOn"), value: formatDate(d.sentOn) },
-          ...(data.register
-            ? [{ label: t("register"), value: `${data.register.number} (${formatDateTime(data.register.assignedAt)})` }]
-            : []),
         ]}
       />
+      {data.register && <RegisterEntry entry={data.register} />}
       {data.doc.contactId && (
         <Link href={`/kontakte/${data.doc.contactId}` as Route} className="text-sm underline">
           {t("toContact")}
         </Link>
       )}
     </section>
+  );
+}
+
+/** DOC-39: the number register row („Nummernkreis-Eintrag“) with the link to the F01 register / gap report. */
+function RegisterEntry({ entry }: { entry: NonNullable<Detail["register"]> }) {
+  const t = useTranslations("invoices.detail");
+  const canSettings = useCan("settings.read");
+  const href =
+    entry.rangeId &&
+    (`/einstellungen/nummernkreise/register?range=${entry.rangeId}${entry.periodKey ? `&period=${entry.periodKey}` : ""}` as Route);
+  return (
+    <div className="flex flex-col gap-1 border-t pt-3 text-sm" data-testid="register-entry">
+      <span className="font-medium">{t("register")}</span>
+      <span>
+        {entry.number}
+        {entry.rangeName ? ` · ${entry.rangeName}` : ""}
+        {entry.periodKey ? ` · ${entry.periodKey}` : ""}
+      </span>
+      <span className="text-muted-foreground">
+        {t("registerAssigned", { at: formatDateTime(entry.assignedAt) })} ·{" "}
+        {t(`registerStatus.${entry.status}` as "registerStatus.issued")}
+        {entry.imported ? ` · ${t("registerImported")}` : ""}
+      </span>
+      {href && canSettings && (
+        <Link href={href} className="underline">
+          {t("registerLink")}
+        </Link>
+      )}
+    </div>
   );
 }
 

@@ -161,3 +161,21 @@ test("DOC-18 INV-30 a draft takes an attachment; the finalised invoice shows Anh
   await expect(page.getByTestId("document-attachments")).toContainText("agb.pdf");
   await expectNoAxeViolations();
 });
+
+test("DOC-39 T-DOC-043 the invoice shows its Nummernkreis-Eintrag and links to the register with the gap report", async ({
+  page,
+  expectNoAxeViolations,
+}) => {
+  await page.goto("/rechnungen");
+  await expect(h1(page, "Rechnungen")).toBeVisible();
+  const first = page.getByRole("link", { name: /^RE-/ }).filter({ visible: true }).first();
+  test.skip((await first.count()) === 0, "no finalised invoice in this journey");
+  await first.click();
+  const entry = page.getByTestId("register-entry");
+  await expect(entry).toContainText("Nummernkreis-Eintrag");
+  await entry.getByRole("link", { name: "Im Nummernregister anzeigen" }).click();
+  await expect(page).toHaveURL(/\/einstellungen\/nummernkreise\/register\?range=/);
+  await expect(page.getByTestId("number-register")).toBeVisible();
+  await expect(page.getByText("Lückenbericht")).toBeVisible();
+  await expectNoAxeViolations();
+});

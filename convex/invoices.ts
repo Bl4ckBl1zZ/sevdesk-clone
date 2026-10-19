@@ -30,6 +30,7 @@ import {
 } from "./model/documentAttachments";
 import { runQuoteDeadlines } from "./model/documentFlows";
 import { listPaymentMethods } from "./model/lookups";
+import { registerEntryOf } from "./model/numberRanges";
 import {
   archivedArtifacts,
   checkMarkSent,
@@ -312,12 +313,8 @@ export const get = query({
     const artifacts = await documentArtifacts(ctx, id);
     const log = await sendLogOf(ctx, id);
     const effective = effectiveMark(sendLogRows(log));
-    const register = doc.number
-      ? await ctx.db
-          .query("numberRegister")
-          .withIndex("by_normalized", (q) => q.eq("normalized", (doc.number ?? "").toUpperCase()))
-          .first()
-      : null;
+    // DOC-39: the register row (range, status) of the number, linked to the F01 register viewer (SET-063).
+    const register = doc.number ? await registerEntryOf(ctx, doc.number) : null;
     const format = doc.einvoice.format ?? "none";
     return {
       ...base,
@@ -355,14 +352,7 @@ export const get = query({
         archivedArtifacts(artifacts),
         await lastExportArtifactIds(ctx, id),
       ),
-      register: register
-        ? {
-            number: register.number,
-            status: register.status,
-            assignedAt: register.assignedAt,
-            periodKey: register.periodKey ?? null,
-          }
-        : null,
+      register,
     };
   },
 });
