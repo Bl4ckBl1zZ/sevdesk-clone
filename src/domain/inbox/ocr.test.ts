@@ -46,6 +46,8 @@ describe("OCR post-validation (INB-026)", () => {
     expect(parseOcrDecimal("1234.56", 2)).toBe(123456n);
     expect(parseOcrDecimal("1.234,56", 2)).toBe(123456n);
     expect(parseOcrDecimal("1234,56", 2)).toBe(123456n);
+    expect(parseOcrDecimal("1\u00a0234,56", 2)).toBe(123456n);
+    expect(parseOcrDecimal("2 222.22", 2)).toBe(222222n);
     expect(parseOcrDecimal("0.1", 2)).toBe(10n);
     expect(parseOcrDecimal("-12.00 €", 2)).toBe(-1200n);
     expect(parseOcrDecimal("19", 2)).toBe(1900n);

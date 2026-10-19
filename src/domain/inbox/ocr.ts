@@ -85,7 +85,7 @@ export interface OcrAssessment {
 export function parseOcrDecimal(input: string | null | undefined, scale: number): bigint | null {
   if (input === null || input === undefined) return null;
   const s = input
-    .replace(/[\s {2}]+/g, "")
+    .replace(/\s+/g, "") // \s covers NBSP and narrow NBSP
     .replace(/(EUR|€|%)/gi, "")
     .trim();
   if (!s) return null;
