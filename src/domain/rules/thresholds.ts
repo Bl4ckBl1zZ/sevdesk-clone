@@ -32,6 +32,78 @@ export const KLEINUNTERNEHMER_LIMITS = defineRuleTable<KleinunternehmerLimits>("
   },
 ]);
 
+export interface KuWaiverRules {
+  /** The waiver binds for at least this many calendar years, counted from the first waived year. */
+  readonly bindingYears: number;
+  /**
+   * Latest declaration: end of February of (waived year + n); `null` = no fixed deadline in this rule row
+   * (before JStG 2024 the waiver could be declared until the assessment became final — not checked).
+   */
+  readonly declarationYearsAfter: number | null;
+}
+
+/** KU-04, F01 SET-033: looked up by the first waived year (1 January). */
+export const KU_WAIVER_RULES = defineRuleTable<KuWaiverRules>("ku_waiver", [
+  {
+    validFrom: "1980-01-01",
+    validTo: "2024-12-31",
+    value: { bindingYears: 5, declarationYearsAfter: null },
+    source: "§ 19 Abs. 2 UStG a. F. (Bindung mindestens fünf Kalenderjahre)",
+  },
+  {
+    validFrom: "2025-01-01",
+    value: { bindingYears: 5, declarationYearsAfter: 2 },
+    source:
+      "§ 19 Abs. 3 UStG i. d. F. JStG 2024 (BGBl. 2024 I Nr. 387): Erklärung bis Ende Februar des zweitfolgenden Jahres",
+  },
+]);
+
+export interface OssThreshold {
+  /** EU-wide Entgelte (net, EUR) of B2C distance sales and TBE services in the prior and current year (§ 3c Abs. 4). */
+  readonly limitCents: number;
+}
+
+/** UVA-07, TAX-017: above this the place of supply moves to the destination state (OSS, P4). */
+export const OSS_THRESHOLD = defineRuleTable<OssThreshold>("oss_threshold", [
+  {
+    validFrom: "2021-07-01",
+    value: { limitCents: 1_000_000 },
+    source:
+      "§ 3c Abs. 4 UStG i. d. F. Gesetz zur Umsetzung des Digitalpakets (BGBl. 2020 I S. 3096), Art. 59c MwStSystRL",
+  },
+]);
+
+export interface BookkeepingDutyLimits {
+  /** § 141 Abs. 1 Nr. 1 AO: Umsatz of the calendar year (per § 241a HGB for Einzelkaufleute alike). */
+  readonly turnoverCents: number;
+  /** § 141 Abs. 1 Nr. 4 AO: Gewinn aus Gewerbebetrieb of the fiscal year. */
+  readonly profitCents: number;
+}
+
+/** TAX-013 (a): looked up by the year whose figures are evaluated (1 January). Earlier years are not monitored. */
+export const BOOKKEEPING_DUTY_LIMITS = defineRuleTable<BookkeepingDutyLimits>("bookkeeping_duty_limits", [
+  {
+    validFrom: "2024-01-01",
+    value: { turnoverCents: 80_000_000, profitCents: 8_000_000 },
+    source:
+      "§ 141 Abs. 1 AO, § 241a HGB i. d. F. Wachstumschancengesetz (BGBl. 2024 I Nr. 108), ab Wirtschaftsjahr 2024",
+  },
+]);
+
+export interface IstTaxationLimit {
+  /** § 20 Satz 1 Nr. 1 UStG: Gesamtumsatz of the prior calendar year. */
+  readonly priorYearLimitCents: number;
+}
+
+/** TAX-013 (c): looked up by the year in which Ist-Versteuerung would continue (1 January). */
+export const IST_TAXATION_LIMIT = defineRuleTable<IstTaxationLimit>("ist_taxation_limit", [
+  {
+    validFrom: "2024-01-01",
+    value: { priorYearLimitCents: 80_000_000 },
+    source: "§ 20 Satz 1 Nr. 1 UStG i. d. F. Wachstumschancengesetz (BGBl. 2024 I Nr. 108)",
+  },
+]);
+
 export interface KleinbetragLimit {
   /** Gross amount in EUR (DOC-56: evaluated in EUR). */
   readonly limitCents: number;

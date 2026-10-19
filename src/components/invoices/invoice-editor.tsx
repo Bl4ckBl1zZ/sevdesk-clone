@@ -80,6 +80,7 @@ export function InvoiceEditor({
   const createDraft = useMutation(api.invoices.createDraft);
   const updateDraft = useMutation(api.invoices.updateDraft);
   const deleteDraft = useMutation(api.invoices.deleteDraft);
+  const confirmKuLimit = useMutation(api.settings.confirmKuLimitCrossed);
   const finalize = useAction(api.invoices.finalize);
   const [state, setState] = useState<EditorState>(() =>
     initial
@@ -106,6 +107,7 @@ export function InvoiceEditor({
   const [saving, setSaving] = useState(false);
   const [confirmFinalize, setConfirmFinalize] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
+  const [confirmKu, setConfirmKu] = useState(false);
   const [contactQuery, setContactQuery] = useState("");
   const appliedDefaults = useRef<string | null>(initial ? (initial.contactId ?? "") : null);
 
@@ -683,6 +685,17 @@ export function InvoiceEditor({
                       {t("constructionWork")}
                     </label>
                   )}
+                  {features.invoiceFlags && (
+                    <label className="flex min-h-11 items-center gap-2 text-sm md:min-h-9">
+                      <input
+                        type="checkbox"
+                        className="size-5 accent-primary md:size-4"
+                        checked={state.marginScheme}
+                        onChange={(e) => set({ marginScheme: e.target.checked })}
+                      />
+                      {t("marginScheme")}
+                    </label>
+                  )}
                   {features.epcQr && (
                     <label className="flex min-h-11 items-center gap-2 text-sm md:min-h-9">
                       <input
@@ -736,6 +749,11 @@ export function InvoiceEditor({
                 })),
               ]}
             />
+            {id && findings.some((f) => f.code === "ku_threshold_crossed") && (
+              <Button variant="outline" className="h-11 md:h-9" onClick={() => setConfirmKu(true)}>
+                {t("kuSwitch")}
+              </Button>
+            )}
           </aside>
         </div>
       </div>
@@ -798,6 +816,19 @@ export function InvoiceEditor({
             </ul>
           )}
         </ConfirmDialog>
+      )}
+      {confirmKu && id && (
+        <ConfirmDialog
+          title={t("kuSwitchTitle")}
+          description={t("kuSwitchDescription")}
+          confirmLabel={t("kuSwitchConfirm")}
+          destructive
+          onConfirm={async () => {
+            const r = await run(() => confirmKuLimit({ documentId: id }), t("kuSwitched"));
+            if (r.ok) setConfirmKu(false);
+          }}
+          onClose={() => setConfirmKu(false)}
+        />
       )}
       {confirmDelete && id && (
         <ConfirmDialog

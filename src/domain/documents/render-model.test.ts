@@ -196,6 +196,30 @@ describe("buildRenderModel (App. F)", () => {
   });
 });
 
+describe("consumer gross prices (DOC-48, MISC-03, PAngV)", () => {
+  test("DOC-48 MISC-03 a consumer document entered net still prints gross unit prices and gross line amounts", () => {
+    const s = makeSnapshot({ buyer: BUYERS.consumer, priceMode: "net", lines: [item({ unitPriceMicros: 2_100_800 })] });
+    const m = buildRenderModel(s);
+    expect(m.columns.map((c) => c.label)).toEqual(expect.arrayContaining(["Einzelpreis brutto", "Gesamt brutto"]));
+    const row = m.rows[0];
+    expect(row?.kind === "item" && [row.unitPrice, row.amount]).toEqual(["250,00 €", "250,00 €"]);
+    expect(m.totals.at(-1)).toMatchObject({ label: "Gesamtbetrag", value: "250,00 €" });
+    // businesses keep net columns; delivery notes have no prices at all
+    const b2b = buildRenderModel(makeSnapshot({ priceMode: "net", lines: [item()] }));
+    expect(b2b.columns.map((c) => c.label)).toEqual(expect.arrayContaining(["Einzelpreis netto", "Gesamt netto"]));
+    const quote = buildRenderModel(
+      makeSnapshot({
+        type: "quote",
+        buyer: BUYERS.consumer,
+        priceMode: "net",
+        einvoice: { format: "none" },
+        lines: [item()],
+      }),
+    );
+    expect(quote.columns.map((c) => c.label)).toContain("Einzelpreis brutto");
+  });
+});
+
 describe("payable ≤ 0 (INV-33, MISC-01)", () => {
   const consumerFinal = (deductedNet: number) => {
     const vat = Math.round(deductedNet * 0.19);

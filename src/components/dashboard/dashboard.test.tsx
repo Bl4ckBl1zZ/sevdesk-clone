@@ -43,6 +43,21 @@ const full: DashboardData = {
     shareBp: 2_500,
     level: "ok",
   },
+  monitors: {
+    ku: [
+      { key: "ku_prior_year", year: 2025, amountCents: 2_100_000, limitCents: 2_500_000, bp: 8_400, level: "warn_80" },
+      { key: "ku_current_year", year: 2026, amountCents: 2_500_000, limitCents: 10_000_000, bp: 2_500, level: "ok" },
+    ],
+    oss: { currentYearEurCents: 250_000, priorYearEurCents: 0, limitCents: 1_000_000 },
+    notices: [
+      {
+        code: "er03_mandatory_next_year",
+        severity: "warning",
+        message:
+          "Gesamtumsatz 2026: 800.000,01 € (über 800.000,00 €). Ab 01.01.2027 müssen Sie B2B-Rechnungen im Inland als E-Rechnung ausstellen.",
+      },
+    ],
+  },
   bank: {
     accountCount: 1,
     totalCents: 1_234_567,
@@ -80,6 +95,7 @@ const empty: DashboardData = {
     partiallyPaid: { count: 0, cents: 0 },
   },
   ku: null,
+  monitors: { ku: [], oss: null, notices: [] },
   bank: { accountCount: 0, totalCents: 0, accountsWithoutBalance: 0, latest: [] },
   matching: { total: 0, assigned: 0, unassigned: 0, percent: null, level: null },
   topCustomers: [],
@@ -98,6 +114,28 @@ const card = (title: string) => {
   if (!region) throw new Error(`no section for ${title}`);
   return within(region);
 };
+
+describe("turnover monitors (TAX-012, TAX-013, TAX-017)", () => {
+  test("TAX-012 TAX-013 the card shows the prior-year KU bar, the OSS progress and the 800k notices", () => {
+    renderWithIntl(<DashboardView data={full} />);
+    const c = card("Umsatzgrenzen");
+    expect(c.getByText("Gesamtumsatz 2025 (Vorjahr)")).toBeInTheDocument();
+    expect(
+      c.getByRole("progressbar", { name: named("Gesamtumsatz 2025: 84 % der Vorjahresgrenze von 25.000,00 €") }),
+    ).toBeInTheDocument();
+    expect(
+      c.getByRole("progressbar", { name: named("EU-Fernverkäufe: 25 % der Lieferschwelle von 10.000,00 €") }),
+    ).toBeInTheDocument();
+    expect(
+      c.getByText(/Ab 01.01.2027 müssen Sie B2B-Rechnungen im Inland als E-Rechnung ausstellen/),
+    ).toBeInTheDocument();
+  });
+
+  test("TAX-012 without monitor data the card is not shown", () => {
+    renderWithIntl(<DashboardView data={empty} />);
+    expect(screen.queryByRole("heading", { level: 2, name: "Umsatzgrenzen" })).toBeNull();
+  });
+});
 
 describe("DASH-001…009 Übersicht", () => {
   test("DASH-001 greets the member by first name", () => {
@@ -276,7 +314,9 @@ describe("MOT-003…005 motion on the Übersicht (04-ui-ux §7.1)", () => {
     const chart = screen.getByRole("img", { name: /Einnahmen und Ausgaben/ });
     const bars = chart.querySelectorAll(".animate-grow-y");
     expect(bars.length).toBeGreaterThan(0);
-    const indicator = screen.getByRole("progressbar").querySelector("[data-slot=progress-indicator]");
+    const indicator = card("Kleinunternehmergrenze")
+      .getByRole("progressbar")
+      .querySelector("[data-slot=progress-indicator]");
     expect(indicator?.className).toMatch(/animate-grow-x/);
   });
 });

@@ -23,7 +23,7 @@ import type {
   DraftLine,
   ResolvedDraft,
 } from "../../src/domain/documents/draft";
-import { resolveDraft } from "../../src/domain/documents/draft";
+import { ossNetEurCentsOf, resolveDraft } from "../../src/domain/documents/draft";
 import { buildSnapshotInput, retentionClassFor, retentionUntil } from "../../src/domain/documents/finalize";
 import { transition } from "../../src/domain/documents/lifecycle";
 import {
@@ -56,6 +56,7 @@ import { postJournalEntry } from "./journal";
 import { defaultLayout } from "./layouts";
 import { listCustomFieldDefs, listPaymentMethods, listUnits } from "./lookups";
 import { assignCounterNumber, listDefaultRanges, registerDerivedNumber } from "./numberRanges";
+import { turnoverTotals } from "./turnover";
 import type { ModelCtx, ReadCtx } from "./types";
 import { contactChecks } from "./vatChecks";
 
@@ -177,13 +178,16 @@ export function draftFromDoc(
   d: SalesDocumentDoc,
   lines: readonly DocumentLineDoc[],
   billing?: SnapshotAddress,
+  defaultDelivery?: SnapshotAddress,
 ): DraftDocument {
+  // DOC-23: a draft without its own delivery address uses the contact's default delivery address (drafts only).
+  const delivery = d.deliveryAddress ?? (d.status === "draft" ? defaultDelivery : undefined);
   return {
     type: d.type,
     ...(d.correctionKind ? { correctionKind: d.correctionKind } : {}),
     ...(d.contactId ? { contactId: d.contactId } : {}),
     ...(billing ? { billingAddress: billing } : {}),
-    ...(d.deliveryAddress ? { deliveryAddress: d.deliveryAddress } : {}),
+    ...(delivery ? { deliveryAddress: delivery } : {}),
     ...(d.supplyDate ? { supplyDate: d.supplyDate } : {}),
     supplyDateMode: d.supplyDateMode,
     ...(d.documentDate && d.status === "draft" ? { documentDate: d.documentDate } : {}),
@@ -205,6 +209,7 @@ export function draftFromDoc(
     ...(d.kleinbetrag ? { kleinbetrag: true } : {}),
     ...(d.propertyRelated ? { propertyRelated: true } : {}),
     ...(d.constructionWork ? { constructionWork: true } : {}),
+    ...(d.marginScheme ? { marginScheme: true } : {}),
     ...(d.documentDiscount ? { documentDiscount: d.documentDiscount } : {}),
     language: d.language,
     ...(d.einvoice.format ? { einvoiceFormat: d.einvoice.format } : {}),
@@ -262,6 +267,8 @@ export interface ContactRead {
   billingAddressId?: Id<"contactAddresses">;
   warnings: Finding[];
   printableCustomFields: { label: string; value: string }[];
+  /** DOC-23: the contact's default delivery address (BG-13/BG-15), used while the draft names none. */
+  defaultDelivery?: SnapshotAddress;
 }
 
 /** Buyer block as frozen now (DOC-22, CON-009/180): a person under an organisation bills the organisation. */
@@ -315,6 +322,9 @@ export async function readContact(
     isConsumer: src.isConsumer,
     isPublicAuthority: src.isPublicAuthority,
   };
+  const defaultDelivery =
+    defaultAddressOf(own, "delivery") ??
+    (parent ? defaultAddressOf(await contactAddresses(ctx, parent._id), "delivery") : undefined);
   const checks = src.vatId ? (await contactChecks(ctx, src._id)).filter((c) => c.vatId === src.vatId) : [];
   const defs = (await listCustomFieldDefs(ctx)).filter(
     (d) => d.entity === "contact" && d.printOnDocuments && !d.archivedAt,
@@ -358,6 +368,7 @@ export async function readContact(
     ...(address ? { billingAddressId: address._id } : {}),
     warnings,
     printableCustomFields,
+    ...(defaultDelivery ? { defaultDelivery: postal(defaultDelivery.address, buyerName) } : {}),
   };
 }
 
@@ -421,8 +432,10 @@ export async function loadDocumentContext(
     .sort()
     .at(-1);
   const recentInvoices: { number: string; documentDate: string; grossCents: number; supplyEnd?: string }[] = [];
-  let kuYearTurnoverCents = 0;
-  const year = today.slice(0, 4);
+  // KU-01/DOC-56/TAX-017: turnover of the supply year (net EUR, all invoice-family documents incl. Storno/credit).
+  const supplyYear = Number((doc.supplyDate ? supplyEndOf(doc.supplyDate) : (doc.documentDate ?? today)).slice(0, 4));
+  const turnover = carriesReceivable(doc.type) ? await turnoverTotals(ctx, supplyYear, doc._id) : null;
+  const kuYearTurnoverCents = turnover?.gesamtumsatz.currentYearCents ?? 0;
   if (doc.contactId) {
     for (const d of await ctx.db
       .query("salesDocuments")
@@ -436,15 +449,6 @@ export async function loadDocumentContext(
         grossCents: d.totals.grossCents,
         ...(d.supplyDate ? { supplyEnd: supplyEndOf(d.supplyDate) } : {}),
       });
-    }
-  }
-  if (profile?.kleinunternehmer.some((k) => k.isKU)) {
-    for (const d of await ctx.db
-      .query("salesDocuments")
-      .withIndex("by_type_status_date", (q) => q.eq("type", "invoice"))
-      .collect()) {
-      if (d.status === "draft" || d.status === "cancelled" || !d.documentDate?.startsWith(year)) continue;
-      kuYearTurnoverCents += d.totals.grossCents;
     }
   }
   const chain = await chainContextFor(ctx, doc, draftLines ?? []);
@@ -475,6 +479,7 @@ export async function loadDocumentContext(
       ...(locked ? { lockedThrough: `${locked}-31` } : {}),
       recentInvoices,
       kuYearTurnoverCents,
+      ...(turnover ? { ossTurnover: turnover.oss } : {}),
     },
     contact,
     layoutVersionId: layout?.version?._id ?? "default",
@@ -494,7 +499,7 @@ export async function validateStored(
 ): Promise<{ loaded: LoadedContext; draft: DraftDocument; result: ValidationResult }> {
   const lines = await documentLines(ctx, doc._id);
   const loaded = await loadDocumentContext(ctx, doc, now, lines);
-  const draft = draftFromDoc(doc, lines, loaded.contact?.context.buyer.address);
+  const draft = draftFromDoc(doc, lines, loaded.contact?.context.buyer.address, loaded.contact?.defaultDelivery);
   const result = validateDocument(draft, loaded.ctx, opts);
   const extra = loaded.contact?.warnings ?? [];
   return { loaded, draft, result: extra.length ? { ...result, findings: [...result.findings, ...extra] } : result };
@@ -544,6 +549,7 @@ function headerFrom(values: DraftValues) {
     ...(values.kleinbetrag ? { kleinbetrag: true } : {}),
     ...(values.propertyRelated ? { propertyRelated: true } : {}),
     ...(values.constructionWork ? { constructionWork: true } : {}),
+    ...(values.marginScheme ? { marginScheme: true } : {}),
     ...(values.documentDiscount ? { documentDiscount: values.documentDiscount } : {}),
     language: values.language,
     ...(values.internalNote ? { internalNote: values.internalNote } : {}),
@@ -577,6 +583,7 @@ const CLEARABLE = [
   "kleinbetrag",
   "propertyRelated",
   "constructionWork",
+  "marginScheme",
   "documentDiscount",
   "internalNote",
   "taxCaseOverridden",
@@ -1090,6 +1097,10 @@ export async function commitFinalization(
       finalizedFromVersion: version,
       retentionClass: retentionClassFor(doc.type),
       retentionUntil: retentionUntil(doc.type, documentDate),
+      // UVA-07/TAX-017: the OSS-relevant net in EUR, frozen with the document (summed by the EU-wide monitor).
+      ...(carriesReceivable(stored.type)
+        ? { ossNetEurCents: ossNetEurCentsOf(draft, loaded.ctx, result.resolved) }
+        : {}),
       ...chainPatch,
     },
     { action: "document.finalize", label: assigned.number, ...(reasons.length ? { reason: reasons.join(" · ") } : {}) },

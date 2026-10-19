@@ -12,7 +12,7 @@ Ansprechpartner | Hans Bauer
 Telefon | +49 89 7654321
 E-Mail | info@bauer-elektro.de
 Rechnung RE-2026-0042
-Pos. | Bezeichnung | Menge Einheit | Einzelpreis netto | Gesamt netto
+Pos. | Bezeichnung | Menge Einheit | Einzelpreis brutto | Gesamt brutto
 1 | Photovoltaikanlage 9,8 kWp inkl. Montage | 1 pauschal | 8.000,00 € | 8.000,00 €
 Summe netto | 8.000,00 €
 zzgl. 0 % USt auf 8.000,00 € | 0,00 €

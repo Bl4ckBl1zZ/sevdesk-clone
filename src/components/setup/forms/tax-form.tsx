@@ -101,6 +101,17 @@ export function TaxForm({
         {isKu === "yes" && (
           <TextField form={form} name="kuValidFrom" label={t("kuSince")} type="date" required className="max-w-xs" />
         )}
+        {isKu === "no" && (
+          <TextField
+            form={form}
+            name="kuWaiverDate"
+            label={t("kuWaiverDate")}
+            description={t("kuWaiverDateHint")}
+            type="date"
+            className="max-w-xs"
+          />
+        )}
+        <TextField form={form} name="kuReason" label={t("kuReason")} description={t("kuReasonHint")} />
       </Section>
 
       <Section id={sectionId("versteuerung")} title={tTabs("versteuerung")}>

@@ -83,6 +83,7 @@ const ARGS: Record<string, Record<string, unknown>> = {
   "settings:saveBankAccount": { values: BANK },
   "settings:saveLayout": { values: LAYOUT },
   "settings:saveNumberRanges": { values: RANGES },
+  "settings:confirmKuLimitCrossed": { documentId: "kein-dokument" },
   "members:disable": { memberId: "placeholder", reason: "test" },
   "settings:createNumberRange": {
     values: { name: "Extra", docTypes: ["proforma"], format: "PX-{YYYY}-{###}", resetPolicy: "yearly", startValue: 1 },

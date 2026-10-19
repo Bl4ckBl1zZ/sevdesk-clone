@@ -299,8 +299,14 @@ export function taxPatchFromForm(
       ? [] // never KU: regular taxation is the default without an entry
       : upsertEffective(
           current.kleinunternehmer,
-          { validFrom: kuFrom, isKU: v.isKleinunternehmer === "yes" },
-          (e) => e.isKU === (v.isKleinunternehmer === "yes"),
+          {
+            validFrom: kuFrom,
+            isKU: v.isKleinunternehmer === "yes",
+            ...(v.isKleinunternehmer === "no" && v.kuWaiverDate ? { waiverDate: v.kuWaiverDate } : {}),
+          },
+          (e) =>
+            e.isKU === (v.isKleinunternehmer === "yes") &&
+            (v.isKleinunternehmer === "yes" || !v.kuWaiverDate || e.waiverDate === v.kuWaiverDate),
         );
 
   const kuCheck = checkKuHistoryChange(
@@ -429,6 +435,7 @@ export function taxFormFromProfile(
     vatId: p.vatId ?? "",
     isKleinunternehmer: ku?.isKU ? "yes" : "no",
     kuValidFrom: ku?.isKU ? ku.validFrom : "",
+    kuWaiverDate: !ku?.isKU && ku?.waiverDate ? ku.waiverDate : "",
     taxationMethod: method?.method ?? "soll",
     istConfirmed: method?.method === "ist",
     ustvaPeriod: period?.period ?? "quarterly",

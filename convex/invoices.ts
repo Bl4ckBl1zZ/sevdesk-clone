@@ -374,6 +374,8 @@ export const check = query({
       type: draftValues.type,
       status: "draft",
       ...(draftValues.chainOrder ? { chainOrder: draftValues.chainOrder } : {}),
+      // The turnover monitors look at the supply year of the edited values (KU-01, TAX-017).
+      ...(draftValues.supplyDate ? { supplyDate: draftValues.supplyDate } : {}),
       ...(draftValues.contactId ? { contactId: draftValues.contactId as Id<"contacts"> } : { contactId: undefined }),
       ...(draftValues.bankAccountId
         ? { bankAccountId: draftValues.bankAccountId as Id<"bankAccounts"> }
@@ -388,6 +390,10 @@ export const check = query({
       // Not part of the editable values (set when the correction draft is created, INV-12/13).
       ...(probe.correctionKind ? { correctionKind: probe.correctionKind } : {}),
       ...(loaded.contact?.context.buyer.address ? { billingAddress: loaded.contact.context.buyer.address } : {}),
+      // DOC-23: the contact's default delivery address while the draft names none (same as the commit).
+      ...(!draftValues.deliveryAddress && loaded.contact?.defaultDelivery
+        ? { deliveryAddress: loaded.contact.defaultDelivery }
+        : {}),
     };
     const r = validateDocument(draft, loaded.ctx);
     const t = r.resolved.totals;

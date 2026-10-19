@@ -12,9 +12,9 @@ Ansprechpartner | Hans Bauer
 Telefon | +49 89 7654321
 E-Mail | info@bauer-elektro.de
 Rechnung RE-2026-0121
-Pos. | Bezeichnung | Menge Einheit | Einzelpreis netto | Gesamt netto
-1 | Arbeitszeit Elektriker | 12,5 Std. | 64,00 € | 800,00 €
-2 | Material: Leitungen, Dosen, Schalter | 1 pauschal | 400,00 € | 400,00 €
+Pos. | Bezeichnung | Menge Einheit | Einzelpreis brutto | Gesamt brutto
+1 | Arbeitszeit Elektriker | 12,5 Std. | 76,16 € | 952,00 €
+2 | Material: Leitungen, Dosen, Schalter | 1 pauschal | 476,00 € | 476,00 €
 Summe netto | 1.200,00 €
 zzgl. 19 % USt auf 1.200,00 € | 228,00 €
 Gesamtbetrag | 1.428,00 €

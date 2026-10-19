@@ -55,6 +55,7 @@ export interface EditorState {
   readonly orderReference: string;
   readonly kleinbetrag: boolean;
   readonly constructionWork: boolean;
+  readonly marginScheme: boolean;
   readonly einvoiceFormat: string;
   readonly bankAccountId: string;
   readonly paymentMethodId: string;
@@ -128,6 +129,7 @@ export function emptyEditor(today: string, defaults: Partial<EditorState> = {}):
     orderReference: "",
     kleinbetrag: false,
     constructionWork: false,
+    marginScheme: false,
     einvoiceFormat: "",
     bankAccountId: "",
     paymentMethodId: "",
@@ -199,6 +201,7 @@ export function editorFromValues(v: DraftValues): EditorState {
     orderReference: v.orderReference ?? "",
     kleinbetrag: v.kleinbetrag ?? false,
     constructionWork: v.constructionWork ?? false,
+    marginScheme: v.marginScheme ?? false,
     einvoiceFormat: v.einvoiceFormat ?? "",
     bankAccountId: v.bankAccountId ?? "",
     paymentMethodId: v.paymentMethodId ?? "",
@@ -297,6 +300,7 @@ export function toDraftValues(s: EditorState): { values: DraftValues; errors: Ed
     showEpcQr: s.showEpcQr,
     ...(s.kleinbetrag && f.invoiceFlags ? { kleinbetrag: true } : {}),
     ...(s.constructionWork && f.invoiceFlags ? { constructionWork: true } : {}),
+    ...(s.marginScheme && f.invoiceFlags ? { marginScheme: true } : {}),
     ...(opt(s.subject) ? { subject: s.subject.trim() } : {}),
     ...(opt(s.headText) ? { headText: s.headText.trim() } : {}),
     ...(opt(s.footText) ? { footText: s.footText.trim() } : {}),

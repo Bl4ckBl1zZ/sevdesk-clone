@@ -206,3 +206,34 @@ describe("tax settings DATEV section (F01 SET-044)", () => {
     expect(onValid).not.toHaveBeenCalled();
   });
 });
+
+describe("tax settings Kleinunternehmer waiver (F01 KU-04, SET-033)", () => {
+  test("KU-04 a regular taxpayer can enter the waiver date and a reason; both reach the saved values", async () => {
+    const { TaxForm } = await import("./forms/tax-form");
+    const { taxDefaults } = await import("@/domain/schemas/settings");
+    const onValid = vi.fn();
+    renderWithIntl(
+      <TaxForm
+        id="tax"
+        currentYear={2026}
+        defaultValues={{
+          ...taxDefaults("einzelunternehmen"),
+          isKleinunternehmer: "no",
+          taxNumberState: "NW",
+          taxNumber: "201/123/45678",
+          priorYearTurnover: "0,00",
+        }}
+        onValid={onValid}
+      />,
+    );
+    expect(screen.queryByLabelText("Kleinunternehmer seit")).toBeNull();
+    await userEvent.type(screen.getByLabelText("Verzicht auf die Kleinunternehmerregelung erklärt am"), "2026-01-01");
+    await userEvent.type(screen.getByLabelText("Begründung für die Änderung"), "Verzicht beim Finanzamt erklärt");
+    (document.getElementById("tax") as HTMLFormElement).requestSubmit();
+    await waitFor(() => expect(onValid).toHaveBeenCalled());
+    expect(onValid.mock.calls[0]?.[0]).toMatchObject({
+      kuWaiverDate: "2026-01-01",
+      kuReason: "Verzicht beim Finanzamt erklärt",
+    });
+  });
+});

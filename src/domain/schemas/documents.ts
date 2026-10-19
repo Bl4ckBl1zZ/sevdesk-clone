@@ -118,6 +118,8 @@ export const draftSchema = z.object({
   kleinbetrag: z.boolean().optional(),
   propertyRelated: z.boolean().optional(),
   constructionWork: z.boolean().optional(),
+  /** UST-24: margin scheme / travel service declared — finalisation is always blocked (out of scope v1). */
+  marginScheme: z.boolean().optional(),
   documentDiscount: z
     .object({
       kind: z.enum(["percent", "amount"]),

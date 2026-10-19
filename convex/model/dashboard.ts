@@ -14,7 +14,16 @@ import {
   topCustomers,
 } from "../../src/domain/reports/dashboard";
 import { type AccountType, chartAccounts } from "../../src/domain/rules/accounting";
+import { lookupRule } from "../../src/domain/rules/rule-table";
+import { OSS_THRESHOLD } from "../../src/domain/rules/thresholds";
 import type { MemberRole } from "../../src/domain/schemas/actor";
+import {
+  eightHundredKMonitor,
+  gesamtumsatzContribution,
+  gesamtumsatzOfYear,
+  kuMonitor,
+  turnoverYear,
+} from "../../src/domain/tax/turnover";
 import { berlinCalendarDate } from "../../src/domain/time/berlin";
 import type { Doc } from "../_generated/dataModel";
 import { accountsOverview } from "./bankViews";
@@ -22,6 +31,7 @@ import { getCompanyProfile } from "./companyProfile";
 import { resolveContextAt } from "./journal";
 import { getMemberByAuthUserId } from "./members";
 import { openItemsAsOf } from "./payments";
+import { turnoverRows } from "./turnover";
 import type { ReadCtx } from "./types";
 
 /**
@@ -70,6 +80,11 @@ export async function dashboardOverview(
 
   // DASH-005 Kleinunternehmergrenze + DASH-008 Top 5 Kunden (finalised invoices)
   let ku = null;
+  let monitors: {
+    ku: ReturnType<typeof kuMonitor>;
+    oss: { currentYearEurCents: number; priorYearEurCents: number; limitCents: number } | null;
+    notices: ReturnType<typeof eightHundredKMonitor>;
+  } | null = null;
   let customers = null;
   if (allowed(role, "documents.read")) {
     const since = subtractMonths(today, TOP_CUSTOMERS_MONTHS);
@@ -89,17 +104,43 @@ export async function dashboardOverview(
       }
     }
     const dated = docs.filter((d): d is Doc<"salesDocuments"> & { documentDate: string } => !!d.documentDate);
+    // TAX-012/DOC-56: Gesamtumsatz = net EUR of every invoice-family document incl. Storno/credit, by supply year.
+    const rows = await turnoverRows(ctx);
     ku = kuProgress({
       today,
       kleinunternehmer: profile?.kleinunternehmer ?? [],
       foundedOn: profile?.foundedOn,
-      invoices: dated.map((d) => ({
-        documentDate: d.documentDate,
-        grossCents: d.totals.grossCents,
-        status: d.status,
-        type: d.type,
+      invoices: rows.map((r) => ({
+        documentDate: r.supplyEnd ?? r.documentDate ?? today,
+        grossCents: gesamtumsatzContribution(r),
+        status: "finalized",
+        type: "invoice",
       })),
     });
+    const year = Number(today.slice(0, 4));
+    const priorYearCents = gesamtumsatzOfYear(rows, year - 1);
+    const currentYearCents = gesamtumsatzOfYear(rows, year);
+    const ossYear = (y: number) => rows.reduce((s, r) => (turnoverYear(r) === y ? s + r.ossNetEurCents : s), 0);
+    const method = [...(profile?.taxationMethod ?? [])].sort((a, b) => a.validFrom.localeCompare(b.validFrom)).at(-1);
+    const ossRule = lookupRule(OSS_THRESHOLD, today);
+    monitors = {
+      ku: ku ? kuMonitor({ today, priorYearCents, currentYearCents, foundedOn: profile?.foundedOn }) : [],
+      oss:
+        ossRule.ok && (ossYear(year) > 0 || ossYear(year - 1) > 0)
+          ? {
+              currentYearEurCents: ossYear(year),
+              priorYearEurCents: ossYear(year - 1),
+              limitCents: ossRule.value.value.limitCents,
+            }
+          : null,
+      notices: eightHundredKMonitor({
+        today,
+        priorYearCents,
+        currentYearCents,
+        taxationMethod: method?.method ?? "soll",
+        bookkeepingDuty: (profile?.profitMethod ?? []).some((p) => p.method === "bilanz"),
+      }),
+    };
     customers = topCustomers(
       dated.map((d) => ({
         contactId: d.contactId,
@@ -178,6 +219,8 @@ export async function dashboardOverview(
     result,
     receivables,
     ku,
+    /** TAX-012 (prior/current year bars), TAX-013 (800k notices), TAX-017 (OSS progress). */
+    monitors,
     bank,
     matching,
     topCustomers: customers,

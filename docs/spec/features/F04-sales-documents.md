@@ -612,6 +612,7 @@ Validators live in `src/domain/documents/validate/*.ts` and return `{ code, seve
 | `date_before_original` | E | cancellation, correction | document date < original's date | Das Datum darf nicht vor dem Datum der Originalrechnung ({date}) liegen. | UST-30 |
 | `final_date_before_advance` | E | final_invoice | date < a deducted advance's date | Das Datum der Schlussrechnung darf nicht vor dem Datum der Abschlagsrechnung {number} ({date}) liegen. | UST-41 |
 | `valid_until_before_date` | E | quote | validUntil < document date | „Gültig bis“ darf nicht vor dem Angebotsdatum liegen. | — |
+| `deadline_14a_info` | I | eu_b2b_service, intra_community_supply | today < deadline − 3 days (INV-27 "the editor shows …"; added 2026-10-19 so the deadline is visible before the warning window) | Rechnung bis {date} ausstellen (§ 14a UStG). | UST-02 |
 | `deadline_14a` | W | eu_b2b_service, intra_community_supply | today ≥ deadline − 3 days | Diese Rechnung muss bis {date} ausgestellt werden (§ 14a UStG). | UST-02 |
 | `deadline_14a_missed` | W | same | today > deadline | Die Frist nach § 14a UStG ({date}) ist überschritten – bitte umgehend ausstellen. | UST-02 |
 | `clock_skew` | E | all | server clock skew > 60 s | Die Serverzeit weicht um {seconds} s ab. Fertigstellen ist gesperrt, damit kein falsches Datum vergeben wird. | GOBD-22 |
@@ -677,6 +678,7 @@ Validators live in `src/domain/documents/validate/*.ts` and return `{ code, seve
 | `category_o_mixed` | E | O lines | O mixed with any other category | „Nicht im Inland steuerbar“ kann nicht mit anderen Steuerkategorien in einem Dokument kombiniert werden. | UST-23 |
 | `proof_missing_igl` | W | finalised K invoice | no Gelangensbestätigung/CMR attached | Gelangensnachweis fehlt (Gelangensbestätigung oder CMR). Ohne Nachweis ist die Steuerbefreiung gefährdet. | UST-21 |
 | `proof_missing_export` | W | finalised G invoice | no Ausfuhrnachweis | Ausfuhrnachweis fehlt (z. B. ATLAS-Ausgangsvermerk). | UST-23 |
+| `delivery_address_missing` | E | intra_community_supply, export | no delivery address on the document (the contact's default delivery address is applied to drafts first; DOC-23, added 2026-10-19 because DOC-23 says "mandatory" without a code) | Lieferadresse fehlt. Bei innergemeinschaftlichen Lieferungen und Ausfuhren ist die Lieferanschrift Pflicht. | UST-21, UST-23 |
 | `margin_scheme_blocked` | E | any | tax case/notes for §25/§25a requested | Differenzbesteuerung und Reiseleistungen (§§ 25, 25a UStG) werden in dieser Version nicht unterstützt. Bitte mit einem Steuerberater abstimmen. | UST-24 |
 | `oss_threshold_exceeded` | E | EU B2C | EU distance sales (current or prior year) > 10.000 € | Ihre EU-Fernverkäufe an Privatkunden überschreiten 10.000 €. Das OSS-Verfahren wird erst in einer späteren Version unterstützt; diese Rechnung kann nicht mit deutscher Umsatzsteuer ausgestellt werden. | UVA-07 |
 | `place_of_supply_ambiguous` | E | any | non-DE customer, service product without `placeOfSupplyRule` decision | Für „{product}“ ist der Leistungsort nicht eindeutig (z. B. Grundstück, Veranstaltung). Bitte Leistungsort-Regel wählen. | UST-23 |

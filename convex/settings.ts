@@ -21,6 +21,7 @@ import {
   taxFormFromProfile,
   taxPatchFromForm,
 } from "../src/domain/settings/profile";
+import { taxScope as taxScopeOf } from "../src/domain/tax/scope";
 import { berlinCalendarDate } from "../src/domain/time/berlin";
 import { internal } from "./_generated/api";
 import type { Doc } from "./_generated/dataModel";
@@ -44,6 +45,7 @@ import { datevExportCount, finalisedDocumentsForKu } from "./model/documentHisto
 import { countDraftsUsingCompanyData } from "./model/files";
 import { getIntegration, recordIntegrationTest } from "./model/integrations";
 import { journalFiscalYears } from "./model/journal";
+import { confirmKuLimitCrossed as confirmKuLimitCrossedModel } from "./model/kuMonitor";
 import {
   createLayout,
   currentVersion,
@@ -192,6 +194,21 @@ export const getSetupChecklist = query({
   },
 });
 
+/** F08 TAX-014: EÜR availability and the AO-07 notice of the tax pages (from the legal form and profit method). */
+export const taxScope = query({
+  permission: "settings.read",
+  args: {},
+  handler: async (ctx) => {
+    const profile = await getCompanyProfile(ctx);
+    const year = Number(berlinCalendarDate(ctx.now()).slice(0, 4));
+    const method = [...(profile?.profitMethod ?? [])]
+      .filter((p) => p.validFromFiscalYear <= year)
+      .sort((a, b) => a.validFromFiscalYear - b.validFromFiscalYear)
+      .at(-1)?.method;
+    return taxScopeOf({ legalForm: profile?.legalForm, profitMethod: method });
+  },
+});
+
 /** SET-001: whether the setup is complete (any signed-in member; drives the redirect to /einrichtung). */
 export const setupStatus = query({
   permission: "session.self",
@@ -253,6 +270,20 @@ export const saveCompanyProfile = mutation({
       action: "settings.company.update",
       ...(expectedVersion !== undefined ? { expectedVersion } : {}),
     });
+  },
+});
+
+/**
+ * F01 SET-035 / F08 TAX-012 / EC-060: the owner confirms the blocking KU dialog of a draft that crosses the limit;
+ * `system:ku-monitor` appends regular taxation from the supply date (owner-only, never via API/MCP).
+ */
+export const confirmKuLimitCrossed = mutation({
+  permission: "settings.ownerOnly",
+  args: { documentId: v.string() },
+  handler: async (ctx, { documentId }) => {
+    const id = ctx.db.normalizeId("salesDocuments", documentId);
+    if (!id) throw appError("not_found");
+    return confirmKuLimitCrossedModel(ctx, id);
   },
 });
 

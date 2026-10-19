@@ -1259,6 +1259,8 @@ export default defineSchema({
     propertyRelated: v.optional(v.boolean()),
     kleinbetrag: v.optional(v.boolean()),
     constructionWork: v.optional(v.boolean()),
+    /** UST-24: margin scheme / travel service declared (always blocked at finalisation). */
+    marginScheme: v.optional(v.boolean()),
     documentDiscount: v.optional(
       v.object({
         kind: v.union(v.literal("percent"), v.literal("amount")),
@@ -1355,6 +1357,8 @@ export default defineSchema({
     lockedAt: v.optional(v.number()),
     retentionClass: v.union(v.literal("vouchers8"), v.literal("letters6")),
     retentionUntil: v.optional(v.string()),
+    /** UVA-07/TAX-017: OSS-relevant net in EUR (§ 3c Abs. 4 UStG), set at finalisation of invoice-family documents. */
+    ossNetEurCents: v.optional(v.number()),
     tags: v.array(v.id("tags")),
     customFields: v.record(v.string(), v.any()),
     internalNote: v.optional(v.string()),

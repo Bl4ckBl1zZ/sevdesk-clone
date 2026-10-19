@@ -12,8 +12,11 @@ import type { GateCheck } from "../contacts/vat-check";
 import type { PreferredFormat } from "../einvoice/format";
 import { fcToEurCents, parseFxRate } from "../money/convert";
 import type { LineDiscount } from "../money/line";
+import { roundHalfAway } from "../money/rounding";
 import { type Issue, issue } from "../result";
-import { lookupVatRate, lookupVatRateForPeriod } from "../rules/vat-rates";
+import type { RuleOverride } from "../rules/rule-table";
+import { lookupVatRate, lookupVatRateForPeriod, type VatRateValue } from "../rules/vat-rates";
+import { ossRelevantNetCents } from "../tax/turnover";
 import type { VatCategory } from "../tax/vat-category";
 import type { CalendarDate } from "../time/calendar-date";
 import type { DocumentRelations } from "./relations";
@@ -106,6 +109,8 @@ export interface DraftDocument {
   readonly kleinbetrag?: boolean | undefined;
   readonly propertyRelated?: boolean | undefined;
   readonly constructionWork?: boolean | undefined;
+  /** UST-24, DOC-45: the owner declared a margin scheme or travel service (§§ 25, 25a UStG) — always blocked. */
+  readonly marginScheme?: boolean | undefined;
   readonly documentDiscount?:
     | {
         readonly kind: "percent" | "amount";
@@ -189,6 +194,16 @@ export interface DocumentContext {
   }[];
   /** KU companies: current calendar year turnover of finalised invoices (EUR cents, KU-01). */
   readonly kuYearTurnoverCents?: number | undefined;
+  /**
+   * UVA-07/TAX-017: EU-wide OSS-relevant net EUR (§ 3c Abs. 4 UStG) of the finalised documents in the prior and
+   * the current calendar year of this document's supply, without this document.
+   */
+  readonly ossTurnover?: { readonly priorYearEurCents: number; readonly currentYearEurCents: number } | undefined;
+  /**
+   * Owner rule overrides per VAT key (F01 SET-121/123) and the Stichtag simulation of the tests (MISC-09, DOC-57):
+   * they win over the shipped rows for their validity range.
+   */
+  readonly vatRateOverrides?: Readonly<Record<string, readonly RuleOverride<VatRateValue>[]>> | undefined;
   /**
    * Converted drafts (§4.3.3, QUO-10/13): per source line the quantity not yet billed by other finalised invoices,
    * keyed by `sourceLineId`. Lines without an entry are not limited.
@@ -323,6 +338,7 @@ export function resolveDraft(draft: DraftDocument, ctx: DocumentContext): Resolv
       vatRateKey: l.vatRateKey,
     })),
     override: draft.taxCaseOverride?.taxCase,
+    marginScheme: draft.marginScheme === true,
     date: refDate as CalendarDate,
   });
   const taxCase: DerivableTaxCase = derivation.kind === "ok" ? derivation.taxCase : "domestic";
@@ -348,8 +364,13 @@ export function resolveDraft(draft: DraftDocument, ctx: DocumentContext): Resolv
     const key = l.vatRateKey ?? "standard";
     const lookup =
       range.from === range.to
-        ? lookupVatRate(key, range.from as CalendarDate)
-        : lookupVatRateForPeriod(key, range.from as CalendarDate, range.to as CalendarDate);
+        ? lookupVatRate(key, range.from as CalendarDate, ctx.vatRateOverrides?.[key])
+        : lookupVatRateForPeriod(
+            key,
+            range.from as CalendarDate,
+            range.to as CalendarDate,
+            ctx.vatRateOverrides?.[key],
+          );
     let rateIssue: Issue | undefined;
     let rateCategory: "S" | "Z" | "E" = "S";
     let rateBp = 0;
@@ -445,4 +466,37 @@ export function toEur(cents: number, draft: Pick<DraftDocument, "currency" | "fx
   if (draft.currency === "EUR" || !draft.fxRateToEur) return cents;
   const rate = parseFxRate(draft.fxRateToEur.rate);
   return rate.ok ? fcToEurCents(cents, rate.value) : cents;
+}
+
+/**
+ * UVA-07/TAX-017: the document's OSS-relevant net in EUR (§ 3c Abs. 4 UStG; DOC-56). Line nets are scaled to the
+ * document net so a document-level allowance or charge is reflected; optional quote lines never count.
+ */
+export function ossNetEurCentsOf(draft: DraftDocument, ctx: DocumentContext, resolved: ResolvedDraft): number {
+  const c = ctx.contact;
+  if (!c || !resolved.totals) return 0;
+  const items = draft.lines.filter((l) => l.kind === "item");
+  const nets = items.map((l, k) => (l.optional ? 0 : (resolved.itemNetCents[k] ?? 0)));
+  const relevant = ossRelevantNetCents({
+    buyer: {
+      isConsumer: c.isConsumer,
+      isPublicAuthority: c.isPublicAuthority,
+      hasValidVatId: !!c.vatId && c.vatIdStatus?.status === "valid",
+      countryCode: c.countryCode,
+    },
+    deliveryCountry: draft.deliveryAddress?.countryCode,
+    lines: items.map((l, k) => ({
+      productType: l.productType,
+      placeOfSupplyRule: l.placeOfSupplyRule,
+      netEurCents: nets[k] ?? 0,
+    })),
+    date: (supplyRange(resolved.supplyDate)?.to ?? resolved.documentDate) as CalendarDate,
+  });
+  const lineSum = nets.reduce((s, n) => s + n, 0);
+  if (relevant === 0 || lineSum === 0) return 0;
+  const scaled =
+    lineSum === resolved.totals.taxExclusiveCents
+      ? relevant
+      : Number(roundHalfAway(BigInt(relevant) * BigInt(resolved.totals.taxExclusiveCents), BigInt(lineSum)));
+  return toEur(scaled, draft);
 }

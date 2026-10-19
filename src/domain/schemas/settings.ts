@@ -174,6 +174,10 @@ export const taxSchema = z
     vatId: trimmed().transform((v) => v.replace(/\s+/g, "").toUpperCase()),
     isKleinunternehmer: z.enum(["yes", "no"]),
     kuValidFrom: trimmed(),
+    /** KU-04 / SET-033: date the waiver (§ 19 Abs. 2 UStG) was declared to the Finanzamt (§ 19 Abs. 3 UStG since 2025, before: Abs. 2); empty = no waiver. */
+    kuWaiverDate: trimmed()
+      .refine((v) => v === "" || isCalendarDate(v), "Bitte ein gültiges Datum angeben.")
+      .default(""),
     taxationMethod: z.enum(["soll", "ist"]),
     istConfirmed: z.boolean(),
     ustvaPeriod: z.enum(USTVA_PERIODS),
@@ -299,6 +303,7 @@ export const taxDefaults = (legalForm: CompanyValues["legalForm"]): TaxFormValue
   vatId: "",
   isKleinunternehmer: "no",
   kuValidFrom: "",
+  kuWaiverDate: "",
   taxationMethod: "soll",
   istConfirmed: false,
   ustvaPeriod: "quarterly",
