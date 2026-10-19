@@ -699,6 +699,21 @@ export function bookedEvent(
     lines: postingLines,
     ...(v.bewirtung ? { bewirtungOccasion: v.bewirtung.occasionType } : {}),
     ...(v.taxPayment ? { taxPaymentSubtype: v.taxPayment.subtype } : {}),
+    // ACC-023: the EUR posting keeps the source currency, gross amount and rate on the open item.
+    ...(v.currency !== "EUR" && v.fxRateToEur
+      ? {
+          fx: {
+            currency: v.currency,
+            grossFxCents: lines.reduce((s, l) => s + l.netCents + l.vatCents, 0),
+            fxRate: {
+              rate: v.fxRateToEur.rate,
+              source: v.fxRateToEur.source,
+              ...(v.fxRateToEur.sourceText ? { sourceText: v.fxRateToEur.sourceText } : {}),
+              date: v.fxRateToEur.date,
+            },
+          },
+        }
+      : {}),
   };
 }
 

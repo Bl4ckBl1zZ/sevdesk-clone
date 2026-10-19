@@ -354,6 +354,20 @@ export interface VoucherBookedEvent {
   lines: VoucherPostingLine[];
   bewirtungOccasion?: "geschaeftlich" | "arbeitnehmer";
   taxPaymentSubtype?: "ust_prepayment" | "sondervorauszahlung" | "ust_annual" | "gewerbesteuer" | "est_private" | "kst";
+  /**
+   * ACC-023 / MISC-08: a foreign-currency voucher is posted in EUR; the open item (payable/receivable) keeps the
+   * currency, the gross source amount (minor units) and the rate used, so the settlement can derive the FX result.
+   */
+  fx?: {
+    currency: string;
+    grossFxCents: number;
+    fxRate: {
+      rate: string;
+      source: "bmf_monthly" | "ecb_daily" | "manual" | "transaction";
+      sourceText?: string;
+      date: string;
+    };
+  };
 }
 
 /**

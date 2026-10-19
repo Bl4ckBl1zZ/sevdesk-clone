@@ -26,7 +26,7 @@ import { shareOfSettlement } from "./pro-rata";
 import { bankRole, rateSuffix } from "./roles";
 
 type Target = { role: string } | { account: string };
-type Extra = Pick<RoleLine, "contactId" | "taxKey" | "taxPointDate">;
+type Extra = Pick<RoleLine, "contactId" | "taxKey" | "taxPointDate" | "currency" | "amountFx" | "fxRate">;
 
 function debit(target: Target, cents: number, extra: Extra = {}): RoleLine[] {
   if (cents === 0) return [];
@@ -35,8 +35,15 @@ function debit(target: Target, cents: number, extra: Extra = {}): RoleLine[] {
   if (extra.contactId !== undefined) clean.contactId = extra.contactId;
   if (extra.taxKey !== undefined) clean.taxKey = extra.taxKey;
   if (extra.taxPointDate !== undefined) clean.taxPointDate = extra.taxPointDate;
+  if (extra.currency !== undefined) clean.currency = extra.currency;
+  if (extra.amountFx !== undefined) clean.amountFx = extra.amountFx;
+  if (extra.fxRate !== undefined) clean.fxRate = extra.fxRate;
   return [{ ...target, ...sides, ...clean }];
 }
+
+/** ACC-023: FX fields of the open item of a foreign-currency voucher (none for EUR). */
+const fxOf = (e: VoucherBookedEvent): Extra =>
+  e.fx ? { currency: e.fx.currency, amountFx: e.fx.grossFxCents, fxRate: e.fx.fxRate } : {};
 const credit = (target: Target, cents: number, extra: Extra = {}) => debit(target, -cents, extra);
 const R = (role: string): Target => ({ role });
 
@@ -166,7 +173,7 @@ export function postVoucherBooked(
       }
       gross += l.netCents + l.vatCents;
     }
-    lines.push(...debit(R("receivable"), gross, contact));
+    lines.push(...debit(R("receivable"), gross, { ...contact, ...fxOf(e) }));
     return ok({ lines, explanation: "VE", text: textWith(head, e.counterpartyName) });
   }
 
@@ -231,7 +238,7 @@ export function postVoucherBooked(
     if (bizVat !== 0) lines.push(...debit(R(`vat.input.${suffix}`), bizVat, { taxPointDate: inputTp }));
     if (privBase + privVat !== 0) lines.push(...debit(R(privateRole), privBase + privVat));
   }
-  lines.push(...credit(R("payable"), payable, contact));
+  lines.push(...credit(R("payable"), payable, { ...contact, ...fxOf(e) }));
 
   const explanation = bewirtung
     ? "V5"
