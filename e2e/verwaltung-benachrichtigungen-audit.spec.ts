@@ -149,7 +149,7 @@ test("DOC-18 INV-30 a draft takes an attachment; the finalised invoice shows Anh
   await first.click();
   const section = page.getByRole("region", { name: "Anhänge und Nachweise" });
   await expect(section).toBeVisible();
-  await expect(section.getByRole("heading", { name: "Nachweise" })).toBeVisible();
+  await expect(section.getByRole("heading", { name: "Nachweise", exact: true })).toBeVisible();
   await expect(section.getByLabel("Art des Nachweises")).toBeVisible();
   await page.getByRole("button", { name: "Duplizieren" }).click();
   await expect(h1(page, "Rechnungsentwurf")).toBeVisible();
