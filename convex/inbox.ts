@@ -90,7 +90,12 @@ export type InboxRow = Awaited<ReturnType<typeof rowOf>>;
 
 export const list = query({
   permission: "vouchers.read",
-  args: { filter: v.optional(v.string()), limit: v.optional(v.number()) },
+  args: {
+    filter: v.optional(v.string()),
+    source: v.optional(v.string()),
+    classification: v.optional(v.string()),
+    limit: v.optional(v.number()),
+  },
   handler: async (ctx, args) => {
     const filter = (INBOX_FILTERS as readonly string[]).includes(args.filter ?? "")
       ? (args.filter as InboxFilter)
@@ -100,6 +105,8 @@ export const list = query({
     const rows: InboxRow[] = [];
     for (const item of items) {
       if (!matchesInboxFilter(item, filter, now)) continue;
+      if (args.source && item.source !== args.source) continue;
+      if (args.classification && item.classification !== args.classification) continue;
       rows.push(await rowOf(ctx, item));
       if (rows.length >= Math.min(args.limit ?? 200, 200)) break;
     }

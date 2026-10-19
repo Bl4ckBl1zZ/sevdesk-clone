@@ -45,6 +45,30 @@ async function readJson(request: Request): Promise<unknown> {
   }
 }
 
+async function readForm(request: Request): Promise<FormData> {
+  try {
+    return await request.formData();
+  } catch {
+    throw new ApiProblem("bad_request", { detail: "Der multipart-Body ist ungültig." });
+  }
+}
+
+function textFields(form: FormData): Record<string, string> {
+  const out: Record<string, string> = {};
+  for (const [k, v] of form) if (typeof v === "string") out[k] = v;
+  return out;
+}
+
+async function fileDigests(form: FormData): Promise<{ field: string; name: string; sha256: string }[]> {
+  const out: { field: string; name: string; sha256: string }[] = [];
+  for (const [k, v] of form) {
+    if (typeof v !== "string") {
+      out.push({ field: k, name: v.name, sha256: await sha256Hex(new Uint8Array(await v.arrayBuffer())) });
+    }
+  }
+  return out;
+}
+
 function hasScope(key: KeyInfo, scope: string | readonly string[]): boolean {
   const wanted = typeof scope === "string" ? [scope] : scope;
   return wanted.some((s) => key.scopes.includes(s));
@@ -123,7 +147,15 @@ export async function handleApiRequest(request: Request, routes: readonly Compil
     if (!query.success) return problemResponse("bad_request", ctx, { errors: zodErrors(query.error) });
     let body: unknown;
     let rawBody: unknown;
-    if (def.body) {
+    let form: FormData | undefined;
+    if (def.body && def.multipart && /^multipart\/form-data\b/i.test(request.headers.get("content-type") ?? "")) {
+      form = await readForm(request);
+      const fields = textFields(form);
+      rawBody = { ...fields, files: await fileDigests(form) };
+      const parsed = def.body.safeParse(fields);
+      if (!parsed.success) return problemResponse("validation_failed", ctx, { errors: zodErrors(parsed.error) });
+      body = parsed.data;
+    } else if (def.body) {
       rawBody = await readJson(request);
       const parsed = def.body.safeParse(rawBody ?? {});
       if (!parsed.success) return problemResponse("validation_failed", ctx, { errors: zodErrors(parsed.error) });
@@ -175,6 +207,7 @@ export async function handleApiRequest(request: Request, routes: readonly Compil
           request,
           requestId: ctx.requestId,
           ifMatch: null,
+          ...(form ? { form } : {}),
         });
         return jsonResponse(out.status ?? def.response.status, out.body, ctx, out.headers);
       }
@@ -189,6 +222,7 @@ export async function handleApiRequest(request: Request, routes: readonly Compil
         request,
         requestId: ctx.requestId,
         ifMatch,
+        ...(form ? { form } : {}),
       });
       result = jsonResponse(out.status ?? def.response.status, out.body, ctx, out.headers);
     } catch (e) {

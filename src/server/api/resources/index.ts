@@ -4,6 +4,7 @@ import { contactsResource } from "./contacts";
 import { correctionsResource } from "./corrections";
 import { documentsResource } from "./documents";
 import { dunningResource } from "./dunning";
+import { inboxResource } from "./inbox";
 import { metaResource } from "./meta";
 import { paymentsResource } from "./payments";
 import { productsResource } from "./products";
@@ -27,6 +28,7 @@ export const RESOURCES: readonly Resource[] = [
   dunningResource,
   vouchersResource,
   recurringVouchersResource,
+  inboxResource,
 ];
 
 export const ROUTES = compileRoutes(RESOURCES);
