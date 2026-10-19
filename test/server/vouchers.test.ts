@@ -252,3 +252,82 @@ describe("MCP voucher tools (06 §3)", { timeout: 60_000 }, () => {
     ]);
   });
 });
+
+describe("REST /recurring-vouchers and duplicate resolution (F06 §7.1)", { timeout: 60_000 }, () => {
+  test("VOU-064 create, read, pause and run a recurring voucher template", async () => {
+    const t = setup();
+    await setupCompany(t);
+    const key = (await t.asApiKey(["vouchers:read", "vouchers:write"])).key;
+    const created = await call("POST", "/recurring-vouchers", {
+      key,
+      body: {
+        name: "Miete Büro",
+        template: {
+          supplier_name: "Immobilien Meyer",
+          tax_rule: "no_input_vat",
+          lines: [{ account: "6310", description: "Miete", amount_cents: 50_000, vat_rate_bp: 0 }],
+        },
+        interval: "P1M",
+        first_date: TODAY,
+      },
+    });
+    expect(created.status, JSON.stringify(await created.clone().json())).toBe(201);
+    const tpl = await json(created);
+    expect(String(tpl.id)).toMatch(/^rvo_/);
+    expect(tpl).toMatchObject({
+      name: "Miete Büro",
+      interval: "P1M",
+      next_date: TODAY,
+      active: true,
+      create_as: "draft",
+      supplier_name: "Immobilien Meyer",
+    });
+    expect((tpl.upcoming as string[])[0]).toBe(TODAY);
+
+    const run = await json(await call("POST", `/recurring-vouchers/${tpl.id}/run-now`, { key }));
+    expect(run.created as string[]).toHaveLength(1);
+    expect((run.created as string[])[0]).toMatch(/^vou_/);
+    const draft = await json(await call("GET", `/vouchers/${(run.created as string[])[0]}`, { key }));
+    expect(draft).toMatchObject({
+      status: "draft",
+      supplier_name: "Immobilien Meyer",
+      totals: { gross_cents: 50_000 },
+    });
+    // Idempotent per occurrence: running again on the same day creates nothing.
+    expect((await json(await call("POST", `/recurring-vouchers/${tpl.id}/run-now`, { key }))).created).toEqual([]);
+
+    const got = await json(await call("GET", `/recurring-vouchers/${tpl.id}`, { key }));
+    const paused = await call("PATCH", `/recurring-vouchers/${tpl.id}`, {
+      key,
+      body: { active: false, version: got.version },
+    });
+    expect(paused.status).toBe(200);
+    expect(await json(paused)).toMatchObject({ active: false, upcoming: [] });
+    const list = await json(await call("GET", "/recurring-vouchers", { key }));
+    expect((list.data as Json[]).map((r) => r.id)).toEqual([tpl.id]);
+    expect((await call("GET", "/recurring-vouchers/rec_abcdefghijklmnop1234", { key })).status).toBe(404);
+  });
+
+  test("VOU-053 „Keine Dublette“ stores the pair; „Ist Dublette“ deletes the draft", async () => {
+    const t = setup();
+    await setupCompany(t);
+    const key = (await t.asApiKey(["vouchers:read", "vouchers:write"])).key;
+    const body = draftBody({ document_number: "RE-4711" });
+    const a = await json(await call("POST", "/vouchers", { key, body }));
+    const b = await json(await call("POST", "/vouchers", { key, body }));
+    const c = await json(await call("POST", "/vouchers", { key, body }));
+
+    const kept = await call("POST", `/vouchers/${b.id}/duplicate-resolution`, {
+      key,
+      body: { is_duplicate: false, of_id: a.id },
+    });
+    expect(kept.status).toBe(200);
+    expect((await json(kept)).id).toBe(b.id);
+
+    const removed = await json(
+      await call("POST", `/vouchers/${c.id}/duplicate-resolution`, { key, body: { is_duplicate: true, of_id: a.id } }),
+    );
+    expect(removed).toEqual({ id: c.id, deleted: true });
+    expect((await call("GET", `/vouchers/${c.id}`, { key })).status).toBe(404);
+  });
+});

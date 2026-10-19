@@ -5,6 +5,13 @@ import { z } from "zod";
 import { encodeId } from "@/domain/api/ids";
 import { listQuery, prefixedId } from "@/domain/schemas/api/common";
 import {
+  duplicateResolutionWire,
+  type RecurringVoucherRecord,
+  recurringVoucherArgs,
+  recurringVoucherOut,
+  recurringVoucherPatchWire,
+  recurringVoucherWire,
+  serializeRecurringVoucher,
   serializeVoucher,
   serializeVoucherRow,
   type VoucherDetailRecord,
@@ -318,6 +325,147 @@ export const vouchersResource = defineResource("vouchers", "Belege (Ausgaben)", 
       const raw = rawId("vouchers", p.id);
       await convex.mutation(api.vouchers.cancel, { id: raw as VId, reason: body.reason });
       return { body: await voucherWire(convex, raw) };
+    },
+  }),
+  defineEndpoint({
+    method: "POST",
+    path: "/vouchers/{id}/duplicate-resolution",
+    operationId: "resolveVoucherDuplicate",
+    summary: "Dubletten-Verdacht auflösen",
+    description:
+      "VOU-053: `is_duplicate: true` löscht den Entwurf (Löschung mit Inhalt protokolliert); `false` speichert das Paar als „Keine Dublette“ — es wird nie wieder gewarnt.",
+    tag: "Belege",
+    scope: "vouchers:write",
+    params,
+    body: duplicateResolutionWire,
+    response: { status: 200, description: "Ergebnis" },
+    errors: ["not_found", "validation_failed"],
+    handler: async ({ convex, params: p, body }) => {
+      const raw = rawId("vouchers", p.id);
+      const other = rawId("vouchers", body.of_id);
+      if (body.is_duplicate) {
+        await convex.mutation(api.vouchers.deleteDraft, { id: raw as VId });
+        return { body: { id: p.id, deleted: true } };
+      }
+      await convex.mutation(api.vouchers.dismissDuplicateOf, { id: raw as VId, otherId: other as VId });
+      return { body: await voucherWire(convex, raw) };
+    },
+  }),
+]);
+
+// ── /recurring-vouchers (VOU-064/065) ───────────────────────────────────────────────────────────────────
+
+type RId = Id<"recurringVouchers">;
+const recParams = z.object({ id: prefixedId("recurringVouchers") });
+
+function recArgsOrThrow(body: Parameters<typeof recurringVoucherArgs>[0]) {
+  const { args, issues } = recurringVoucherArgs(body);
+  if (issues.length > 0) {
+    throw new ApiProblem("validation_failed", {
+      errors: issues.map((i) => ({ code: "invalid", field: i.field, message: i.message })),
+    });
+  }
+  return args;
+}
+
+async function loadRecurring(convex: ConvexCaller, raw: string) {
+  const rows = (await convex.query(api.vouchers.recurringList, {})) as unknown as RecurringVoucherRecord[];
+  const row = rows.find((r) => r._id === raw);
+  if (!row) throw new ApiProblem("not_found", { detail: "Wiederkehrender Beleg nicht gefunden." });
+  return serializeRecurringVoucher(row);
+}
+
+export const recurringVouchersResource = defineResource("recurring-vouchers", "Wiederkehrende Belege", [
+  defineEndpoint({
+    method: "GET",
+    path: "/recurring-vouchers",
+    operationId: "listRecurringVouchers",
+    summary: "Wiederkehrende Belege",
+    description: "Vorlagen für wiederkehrende Ausgaben (Miete, Abos) mit den nächsten drei Terminen.",
+    tag: "Belege",
+    scope: "vouchers:read",
+    response: { status: 200, description: "Alle Vorlagen" },
+    handler: async ({ convex }) => {
+      const rows = (await convex.query(api.vouchers.recurringList, {})) as unknown as RecurringVoucherRecord[];
+      return { body: { data: rows.map(serializeRecurringVoucher), next_cursor: null } };
+    },
+  }),
+  defineEndpoint({
+    method: "POST",
+    path: "/recurring-vouchers",
+    operationId: "createRecurringVoucher",
+    summary: "Wiederkehrenden Beleg anlegen",
+    description:
+      "Erzeugt ab first_date je Termin einen Beleg (Entwurf oder — nur bei fehlerfreier Prüfung — gebucht). Verpasste Termine werden nachgeholt.",
+    tag: "Belege",
+    scope: "vouchers:write",
+    body: recurringVoucherWire,
+    response: { status: 201, schema: recurringVoucherOut, description: "Die Vorlage" },
+    errors: ["validation_failed"],
+    handler: async ({ convex, body }) => {
+      const id = await convex.mutation(api.vouchers.createRecurring, recArgsOrThrow(body) as never);
+      const out = await loadRecurring(convex, id);
+      return { status: 201, body: out, headers: { Location: `/api/v1/recurring-vouchers/${out.id}` } };
+    },
+  }),
+  defineEndpoint({
+    method: "GET",
+    path: "/recurring-vouchers/{id}",
+    operationId: "getRecurringVoucher",
+    summary: "Wiederkehrenden Beleg abrufen",
+    description: "Vorlage mit nächsten Terminen und den zuletzt erzeugten Belegen.",
+    tag: "Belege",
+    scope: "vouchers:read",
+    params: recParams,
+    response: { status: 200, schema: recurringVoucherOut, description: "Die Vorlage" },
+    errors: ["not_found"],
+    handler: async ({ convex, params: p }) => ({ body: await loadRecurring(convex, rawId("recurringVouchers", p.id)) }),
+  }),
+  defineEndpoint({
+    method: "PATCH",
+    path: "/recurring-vouchers/{id}",
+    operationId: "updateRecurringVoucher",
+    summary: "Wiederkehrenden Beleg ändern",
+    description: "Ändert die Vorlage oder pausiert sie (`active: false`); bereits erzeugte Belege bleiben unverändert.",
+    tag: "Belege",
+    scope: "vouchers:write",
+    params: recParams,
+    body: recurringVoucherPatchWire,
+    response: { status: 200, schema: recurringVoucherOut, description: "Die Vorlage" },
+    errors: ["not_found", "validation_failed", "conflict"],
+    handler: async ({ convex, params: p, body, ifMatch }) => {
+      const raw = rawId("recurringVouchers", p.id);
+      const { version, ...rest } = body;
+      const v = requireVersion(ifMatch, version);
+      await convex.mutation(api.vouchers.updateRecurring, {
+        id: raw as RId,
+        ...(v !== undefined ? { version: v } : {}),
+        patch: recArgsOrThrow(rest) as never,
+      });
+      return { body: await loadRecurring(convex, raw) };
+    },
+  }),
+  defineEndpoint({
+    method: "POST",
+    path: "/recurring-vouchers/{id}/run-now",
+    operationId: "runRecurringVoucher",
+    summary: "Fällige Belege jetzt erzeugen",
+    description: "Erzeugt die fälligen Termine sofort (derselbe idempotente Weg wie der nächtliche Job).",
+    tag: "Belege",
+    scope: "vouchers:write",
+    params: recParams,
+    response: { status: 200, description: "Erzeugte und gebuchte Belege" },
+    errors: ["not_found"],
+    handler: async ({ convex, params: p }) => {
+      const r = await convex.mutation(api.vouchers.generateRecurringNow, {
+        id: rawId("recurringVouchers", p.id) as RId,
+      });
+      return {
+        body: {
+          created: r.created.map((id) => encodeId("vouchers", id)),
+          booked: r.booked.map((id) => encodeId("vouchers", id)),
+        },
+      };
     },
   }),
 ]);

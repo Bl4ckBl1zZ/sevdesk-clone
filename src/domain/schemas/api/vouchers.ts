@@ -414,3 +414,192 @@ export function serializeVoucher(d: VoucherDetailRecord) {
     recorded_at: toInstant(v.recordedAt),
   };
 }
+
+// ── recurring vouchers (VOU-064/065, `/recurring-vouchers`) ─────────────────────────────────────────────
+
+export const RECURRING_VOUCHER_INTERVALS = [
+  "P1W",
+  "P2W",
+  "P1M",
+  "P2M",
+  "P3M",
+  "P6M",
+  "P1Y",
+  "P2Y",
+  "P3Y",
+  "P4Y",
+  "P5Y",
+] as const;
+
+export const recurringVoucherTemplateWire = z
+  .object({
+    direction: z.enum(["expense", "income"]).default("expense"),
+    kind: z.enum(["standard", "bewirtung", "eigenbeleg", "asset", "tax_payment", "private"]).default("standard"),
+    supplier_contact_id: prefixedId("contacts").optional(),
+    supplier_name: z.string().max(200).optional(),
+    supplier_vat_id: z.string().max(20).optional(),
+    document_number: z.string().max(100).optional().meta({ description: "Vertrags- oder Kundennummer" }),
+    currency: z
+      .string()
+      .regex(/^[A-Z]{3}$/)
+      .default("EUR"),
+    price_mode: z.enum(["net", "gross"]).default("gross"),
+    tax_rule: z.enum(VOUCHER_TAX_RULES),
+    lines: z.array(voucherLineWire).min(1).max(50),
+    internal_note: z.string().max(2000).optional(),
+  })
+  .strict();
+
+export const recurringVoucherWire = z
+  .object({
+    name: z.string().min(1).max(200),
+    template: recurringVoucherTemplateWire,
+    interval: z.enum(RECURRING_VOUCHER_INTERVALS),
+    first_date: isoDate,
+    end_date: isoDate.optional(),
+    create_as: z.enum(["open", "draft"]).default("draft").meta({
+      description: "open bucht nur, wenn die Prüfung ohne Fehler und Warnungen ist; sonst entsteht ein Entwurf",
+    }),
+    expected_mandate_ref: z.string().max(100).optional(),
+    expected_iban: z.string().max(40).optional(),
+    recurring_payment: z.boolean().optional(),
+  })
+  .strict();
+
+export const recurringVoucherPatchWire = z
+  .object({
+    name: z.string().min(1).max(200).optional(),
+    template: recurringVoucherTemplateWire.optional(),
+    interval: z.enum(RECURRING_VOUCHER_INTERVALS).optional(),
+    first_date: isoDate.optional(),
+    end_date: isoDate.optional(),
+    create_as: z.enum(["open", "draft"]).optional(),
+    expected_mandate_ref: z.string().max(100).optional(),
+    expected_iban: z.string().max(40).optional(),
+    recurring_payment: z.boolean().optional(),
+    active: z.boolean().optional(),
+    version: z.number().int().min(1).optional(),
+  })
+  .strict();
+
+type TemplateWire = z.infer<typeof recurringVoucherTemplateWire>;
+
+function templateArgs(t: TemplateWire, issues: WireIssue[]) {
+  const contact = t.supplier_contact_id ? decodeId("contacts", t.supplier_contact_id) : null;
+  if (t.supplier_contact_id && !contact) {
+    issues.push({ field: "template.supplier_contact_id", message: "Unbekannte Kontakt-ID." });
+  }
+  const { input } = wireToDraftInput({ lines: t.lines });
+  return {
+    direction: t.direction,
+    kind: t.kind,
+    ...(contact ? { supplierContactId: contact } : {}),
+    ...(t.supplier_name !== undefined ? { supplierName: t.supplier_name } : {}),
+    ...(t.supplier_vat_id !== undefined ? { supplierVatId: t.supplier_vat_id } : {}),
+    ...(t.document_number !== undefined ? { documentNumber: t.document_number } : {}),
+    currency: t.currency,
+    priceMode: t.price_mode,
+    taxRule: t.tax_rule,
+    lines: input.lines,
+    ...(t.internal_note !== undefined ? { internalNote: t.internal_note } : {}),
+  };
+}
+
+type RecurringWireInput = Omit<z.infer<typeof recurringVoucherPatchWire>, "version">;
+
+/** Wire → `vouchers.createRecurring` / `updateRecurring.patch` arguments. */
+export function recurringVoucherArgs(w: RecurringWireInput): { args: Record<string, unknown>; issues: WireIssue[] } {
+  const issues: WireIssue[] = [];
+  const args: Record<string, unknown> = {
+    ...(w.name !== undefined ? { name: w.name } : {}),
+    ...(w.template ? { template: templateArgs(w.template, issues) } : {}),
+    ...(w.interval ? { interval: w.interval } : {}),
+    ...(w.first_date ? { firstDate: w.first_date } : {}),
+    ...(w.end_date ? { endDate: w.end_date } : {}),
+    ...(w.create_as ? { createAs: w.create_as } : {}),
+    ...(w.expected_mandate_ref !== undefined ? { expectedMandateRef: w.expected_mandate_ref } : {}),
+    ...(w.expected_iban !== undefined ? { expectedIban: w.expected_iban } : {}),
+    ...(w.recurring_payment !== undefined ? { recurringPayment: w.recurring_payment } : {}),
+    ...(w.active !== undefined ? { active: w.active } : {}),
+  };
+  return { args, issues };
+}
+
+export interface RecurringVoucherRecord {
+  _id: string;
+  name: string;
+  interval: string;
+  firstDate: string;
+  nextDate: string;
+  endDate?: string;
+  active: boolean;
+  createAs: string;
+  template: {
+    direction: string;
+    kind: string;
+    supplierName?: string;
+    currency: string;
+    priceMode: string;
+    taxRule: string;
+    lines: { account: string; description?: string; amountCents: number; vatRateBp: number }[];
+  };
+  lastGeneratedIds: string[];
+  upcoming?: string[];
+  version: number;
+}
+
+export const recurringVoucherOut = z
+  .object({
+    id: z.string(),
+    name: z.string(),
+    interval: z.string(),
+    first_date: z.string(),
+    next_date: z.string(),
+    end_date: z.string().nullable(),
+    active: z.boolean(),
+    create_as: z.string(),
+    supplier_name: z.string().nullable(),
+    tax_rule: z.string(),
+    currency: z.string(),
+    price_mode: z.string(),
+    lines: z.array(z.record(z.string(), z.unknown())),
+    upcoming: z.array(z.string()),
+    last_generated_ids: z.array(z.string()),
+    version: z.number(),
+  })
+  .meta({ id: "RecurringVoucher" });
+
+export function serializeRecurringVoucher(r: RecurringVoucherRecord) {
+  return {
+    id: encodeId("recurringVouchers", r._id),
+    name: r.name,
+    interval: r.interval,
+    first_date: r.firstDate,
+    next_date: r.nextDate,
+    end_date: r.endDate ?? null,
+    active: r.active,
+    create_as: r.createAs,
+    supplier_name: r.template.supplierName ?? null,
+    tax_rule: r.template.taxRule,
+    currency: r.template.currency,
+    price_mode: r.template.priceMode,
+    lines: r.template.lines.map((l) => ({
+      account: l.account,
+      description: l.description ?? null,
+      amount_cents: l.amountCents,
+      vat_rate_bp: l.vatRateBp,
+    })),
+    upcoming: r.upcoming ?? [],
+    last_generated_ids: r.lastGeneratedIds.map((id) => encodeId("vouchers", id)),
+    version: r.version,
+  };
+}
+
+export const duplicateResolutionWire = z
+  .object({
+    is_duplicate: z
+      .boolean()
+      .meta({ description: "true: der Entwurf wird gelöscht (Löschung mit Inhalt protokolliert)" }),
+    of_id: prefixedId("vouchers"),
+  })
+  .strict();

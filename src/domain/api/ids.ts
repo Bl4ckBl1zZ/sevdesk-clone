@@ -40,6 +40,8 @@ export const ID_PREFIXES = {
   sendLog: "snd_",
   // F06 purchase vouchers (05 §3 „IDs“: `vou_`).
   vouchers: "vou_",
+  // F06 VOU-064 recurring voucher templates (`/recurring-vouchers`; 05 §3 had no prefix, `rec_` is F04's).
+  recurringVouchers: "rvo_",
 } as const;
 
 export type IdTable = keyof typeof ID_PREFIXES;
