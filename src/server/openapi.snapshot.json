@@ -20859,7 +20859,7 @@
       "get": {
         "operationId": "listVouchers",
         "summary": "Belege auflisten",
-        "description": "Neueste zuerst; `status` all, draft, open, paid, cancelled oder unbooked (Unbearbeitet > 10 Tage); `q` sucht in Lieferant und Nummern.\n\nScope: `vouchers:read`.",
+        "description": "Neueste zuerst; `status` all, draft, open, overdue (fällig), partially_paid, paid, cancelled oder unbooked (Unbearbeitet > 10 Tage); `q` sucht in Lieferant und Nummern.\n\nScope: `vouchers:read`.",
         "tags": [
           "Belege"
         ],
@@ -20905,6 +20905,8 @@
                 "all",
                 "draft",
                 "open",
+                "overdue",
+                "partially_paid",
                 "paid",
                 "cancelled",
                 "unbooked"

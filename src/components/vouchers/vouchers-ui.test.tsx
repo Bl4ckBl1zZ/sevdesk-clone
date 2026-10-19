@@ -17,7 +17,7 @@ vi.mock("@/components/convex/convex-provider", () => ({
 vi.mock("@/hooks/use-authed-query", () => ({
   useAuthedQuery: (ref: unknown, args: unknown) => {
     const name = getFunctionName(ref as never);
-    (backend.args[name] ??= []).push(args);
+    backend.args[name] = [...(backend.args[name] ?? []), args];
     const d = backend.data[name];
     return typeof d === "function" ? (d as (a: unknown) => unknown)(args) : d;
   },

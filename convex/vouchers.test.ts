@@ -1,4 +1,5 @@
 import { describe, expect, test } from "vitest";
+import { ersetzendesScannen } from "../src/domain/docs/ersetzendes-scannen";
 import { api, internal } from "./_generated/api";
 import type { Doc, Id } from "./_generated/dataModel";
 import { errorCode } from "./lib/errors";
@@ -794,5 +795,52 @@ describe("integrity (VOU-126, RI-21)", () => {
     );
     const bad = await t.action(internal.integrity.verify, { scope: "full" });
     expect(bad.findings.find((f) => f.kind === "file_hash_mismatch")?.detail).toContain("SHA-256 weicht ab");
+  });
+});
+
+describe("Verfahrensdokumentation (VOU-125)", () => {
+  test("VOU-125 GOBD-08 GOBD-10 the „Ersetzendes Scannen“ chapter is generated from members, keys and rules", async () => {
+    const t = makeT();
+    await setupCompany(t);
+    const owner = await t.asUser("owner");
+    await t.asMcp(["vouchers:read", "vouchers:write"]);
+    await t.asApiKey(["vouchers:read"]); // read-only keys do not capture receipts
+    const data = await owner.query(api.vouchers.scanningProcedure, {});
+    expect(data).toMatchObject({
+      companyName: "Muster Design",
+      captureWithinDays: 10,
+      retentionYears: 8,
+      paperDestructionAllowed: false,
+      channels: ["upload", "app", "mcp"],
+    });
+    expect(data.responsible.some((r) => r.endsWith("(Inhaber)"))).toBe(true);
+    const doc = ersetzendesScannen(data);
+    expect(doc.sections.map((s) => s.heading)).toEqual(
+      expect.arrayContaining(["Zuständigkeit", "Sicherung bei der Erfassung", "Qualitätskontrolle", "Aufbewahrung"]),
+    );
+    expect(JSON.stringify(doc)).toContain("MCP-Schnittstelle");
+  });
+});
+
+describe("list tabs (F06 §6.2)", () => {
+  test("VOU-130 VOU-111 tabs Fällig and Teilbezahlt; counts per tab", async () => {
+    const t = makeT();
+    await setupCompany(t);
+    const owner = await t.asUser("owner");
+    const due = await draft(t, owner, { dueDate: `${YEAR - 1}-12-31`, documentDate: `${YEAR - 1}-12-01` });
+    await owner.mutation(api.vouchers.finalize, { id: due, acknowledgeWarnings: ["late_booking", "period_closed"] });
+    const part = await draft(t, owner, { lines: [line({ amountCents: 23_800 })] });
+    await owner.mutation(api.vouchers.finalize, {
+      id: part,
+      payment: { method: "private", amountCents: 10_000 },
+    });
+    await draft(t, owner, { lines: [line({ amountCents: 4_760 })] });
+    const counts = await owner.query(api.vouchers.counts, {});
+    expect(counts).toMatchObject({ all: 3, draft: 1, open: 2, overdue: 1, partially_paid: 1, paid: 0 });
+    const page = await owner.query(api.vouchers.list, {
+      paginationOpts: { numItems: 10, cursor: null },
+      tab: "partially_paid",
+    });
+    expect(page.page.map((r) => r._id)).toEqual([part]);
   });
 });

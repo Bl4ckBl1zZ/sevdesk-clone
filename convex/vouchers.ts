@@ -9,6 +9,7 @@ import { allowedAccounts } from "../src/domain/vouchers/accounts";
 import { bewirtungEigenbelegContent } from "../src/domain/vouchers/bewirtung";
 import { checkUpload, pageCount } from "../src/domain/vouchers/capture";
 import { voucherEigenbelegContent } from "../src/domain/vouchers/eigenbeleg";
+import { UNBOOKED_DAYS } from "../src/domain/vouchers/missing-receipts";
 import { upcomingVoucherDates } from "../src/domain/vouchers/recurring";
 import { suggestAccount } from "../src/domain/vouchers/suggest";
 import { supplierKeys } from "../src/domain/vouchers/supplier-key";
@@ -173,6 +174,41 @@ export const missing = query({
   permission: "vouchers.read",
   args: {},
   handler: async (ctx) => missingReceipts(ctx, ctx.now()),
+});
+
+/**
+ * VOU-125 / GOBD-08: input of the Verfahrensdokumentation chapter „Ersetzendes Scannen“ from the settings — who
+ * captures (members with write access), the capture channels in use, the 10-day rule (GOBD-04), the retention class
+ * of Buchungsbelege (GOBD-20 `vouchers8`) and where the originals live.
+ */
+export const scanningProcedure = query({
+  permission: "vouchers.read",
+  args: {},
+  handler: async (ctx) => {
+    const profile = await getCompanyProfile(ctx);
+    const members = (await ctx.db.query("members").collect()).filter(
+      (m) => m.disabledAt === undefined && (m.role === "owner" || m.role === "bookkeeper"),
+    );
+    const keys = (await ctx.db.query("apiKeys").collect()).filter(
+      (k) => k.revokedAt === undefined && k.scopes.includes("vouchers:write"),
+    );
+    const channels: ("upload" | "app" | "api" | "mcp")[] = ["upload", "app"];
+    if (keys.some((k) => k.channel !== "mcp")) channels.push("api");
+    if (keys.some((k) => k.channel !== "api")) channels.push("mcp");
+    return {
+      today: berlinCalendarDate(ctx.now()),
+      companyName: profile?.name ?? "das Unternehmen",
+      responsible: members.map((m) => `${m.email} (${m.role === "owner" ? "Inhaber" : "Buchhaltung"})`),
+      channels,
+      captureWithinDays: UNBOOKED_DAYS,
+      // Paper originals are kept until the owner releases destruction in the Verfahrensdokumentation (conservative).
+      paperDestructionAllowed: false,
+      // GOBD-20 retention class `vouchers8` (§ 147 Abs. 3 AO, § 14b UStG), as for issued invoices (DOC-40).
+      retentionYears: 8,
+      storage:
+        "Dateispeicher der selbst betriebenen Convex-Instanz (Server in der EU), nächtliche verschlüsselte Sicherung in Cloudflare R2 (EU-Rechtsraum)",
+    };
+  },
 });
 
 export const unbooked = query({

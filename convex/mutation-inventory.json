@@ -2455,6 +2455,12 @@
     "wrapper": "query",
     "permission": "vouchers.read"
   },
+  "vouchers:scanningProcedure": {
+    "kind": "query",
+    "visibility": "public",
+    "wrapper": "query",
+    "permission": "vouchers.read"
+  },
   "vouchers:suggest": {
     "kind": "query",
     "visibility": "public",
