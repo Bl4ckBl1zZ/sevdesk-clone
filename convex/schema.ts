@@ -7,7 +7,7 @@ import {
   vBankTransactionStatus,
   vStatementFormat,
 } from "./bankValidators";
-import { vMatchProvenance, vPaymentDifference, vPaymentSource, vPaymentTarget } from "./paymentValidators";
+import { vMatchProvenance, vPaymentDifference, vStoredPaymentSource, vStoredPaymentTarget } from "./paymentValidators";
 import {
   vActor,
   vAuditorScope,
@@ -41,6 +41,7 @@ import {
   vVatCategory,
   vVatCheckStatus,
 } from "./validators";
+import { voucherTables } from "./voucherValidators";
 
 /**
  * Convex schema — P0 tables from docs/spec/03-data-model.md (the single source of truth; field names are
@@ -990,7 +991,7 @@ export default defineSchema({
   // bank allocation (PAY-016). Corrected by a reversal row, never edited (PAY-040); after insert only `reversedById`,
   // `lockedAt`, `reconciledTransactionId`, `receiptFile` (once) and `journalEntryIds` (append) change.
   payments: defineTable({
-    target: vPaymentTarget,
+    target: vStoredPaymentTarget,
     /** Denormalised: the contact of the target (contactCredit: the target id) — per-customer views (PAY-004). */
     contactId: v.optional(v.id("contacts")),
     /** Display cache: number of the target document. */
@@ -999,7 +1000,7 @@ export default defineSchema({
     amountCents: v.number(),
     currency: v.string(),
     eurAmountCents: v.optional(v.number()),
-    source: vPaymentSource,
+    source: vStoredPaymentSource,
     /** Denormalised from `source` (bank) for the transaction index (BNK-047 unmatch, EC-PAY-24). */
     bankTransactionId: v.optional(v.id("bankTransactions")),
     differences: v.array(vPaymentDifference),
@@ -1753,4 +1754,7 @@ export default defineSchema({
     kind: v.string(),
     at: v.number(),
   }).index("by_to", ["to", "at"]),
+
+  // ── F06 purchases (Belege) and inbox (03 §6) — defined in voucherValidators.ts ──────────────────────
+  ...voucherTables,
 });

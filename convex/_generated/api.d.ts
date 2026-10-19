@@ -93,6 +93,7 @@ import type * as model_numberRanges from "../model/numberRanges.js";
 import type * as model_payments from "../model/payments.js";
 import type * as model_products from "../model/products.js";
 import type * as model_recurring from "../model/recurring.js";
+import type * as model_recurringVouchers from "../model/recurringVouchers.js";
 import type * as model_salesDocuments from "../model/salesDocuments.js";
 import type * as model_seeds from "../model/seeds.js";
 import type * as model_settlement from "../model/settlement.js";
@@ -101,6 +102,10 @@ import type * as model_system from "../model/system.js";
 import type * as model_textTemplates from "../model/textTemplates.js";
 import type * as model_types from "../model/types.js";
 import type * as model_vatChecks from "../model/vatChecks.js";
+import type * as model_voucherPayments from "../model/voucherPayments.js";
+import type * as model_voucherStatus from "../model/voucherStatus.js";
+import type * as model_voucherViews from "../model/voucherViews.js";
+import type * as model_vouchers from "../model/vouchers.js";
 import type * as paymentValidators from "../paymentValidators.js";
 import type * as payments from "../payments.js";
 import type * as products from "../products.js";
@@ -113,6 +118,9 @@ import type * as system from "../system.js";
 import type * as testFixtures from "../testFixtures.js";
 import type * as validators from "../validators.js";
 import type * as vatIdChecks from "../vatIdChecks.js";
+import type * as voucherIntegrity from "../voucherIntegrity.js";
+import type * as voucherValidators from "../voucherValidators.js";
+import type * as vouchers from "../vouchers.js";
 
 import type {
   ApiFromModules,
@@ -206,6 +214,7 @@ declare const fullApi: ApiFromModules<{
   "model/payments": typeof model_payments;
   "model/products": typeof model_products;
   "model/recurring": typeof model_recurring;
+  "model/recurringVouchers": typeof model_recurringVouchers;
   "model/salesDocuments": typeof model_salesDocuments;
   "model/seeds": typeof model_seeds;
   "model/settlement": typeof model_settlement;
@@ -214,6 +223,10 @@ declare const fullApi: ApiFromModules<{
   "model/textTemplates": typeof model_textTemplates;
   "model/types": typeof model_types;
   "model/vatChecks": typeof model_vatChecks;
+  "model/voucherPayments": typeof model_voucherPayments;
+  "model/voucherStatus": typeof model_voucherStatus;
+  "model/voucherViews": typeof model_voucherViews;
+  "model/vouchers": typeof model_vouchers;
   paymentValidators: typeof paymentValidators;
   payments: typeof payments;
   products: typeof products;
@@ -226,6 +239,9 @@ declare const fullApi: ApiFromModules<{
   testFixtures: typeof testFixtures;
   validators: typeof validators;
   vatIdChecks: typeof vatIdChecks;
+  voucherIntegrity: typeof voucherIntegrity;
+  voucherValidators: typeof voucherValidators;
+  vouchers: typeof vouchers;
 }>;
 
 /**

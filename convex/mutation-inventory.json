@@ -2256,5 +2256,233 @@
     "visibility": "internal",
     "wrapper": "actorMutation",
     "permission": "contacts.write"
+  },
+  "voucherIntegrity:voucherFilesPage": {
+    "kind": "query",
+    "visibility": "internal",
+    "wrapper": "systemQuery",
+    "job": "cron.integrity.verify"
+  },
+  "vouchers:approveBewirtungBeleg": {
+    "kind": "action",
+    "visibility": "public",
+    "wrapper": "action",
+    "permission": "vouchers.approve"
+  },
+  "vouchers:approveBewirtungInternal": {
+    "kind": "mutation",
+    "visibility": "internal",
+    "wrapper": "actorMutation",
+    "permission": "vouchers.approve"
+  },
+  "vouchers:approveEigenbelegBeleg": {
+    "kind": "action",
+    "visibility": "public",
+    "wrapper": "action",
+    "permission": "vouchers.approve"
+  },
+  "vouchers:approveEigenbelegInternal": {
+    "kind": "mutation",
+    "visibility": "internal",
+    "wrapper": "actorMutation",
+    "permission": "vouchers.approve"
+  },
+  "vouchers:attachFile": {
+    "kind": "action",
+    "visibility": "public",
+    "wrapper": "action",
+    "permission": "vouchers.write"
+  },
+  "vouchers:attachFileInternal": {
+    "kind": "mutation",
+    "visibility": "internal",
+    "wrapper": "actorMutation",
+    "permission": "vouchers.write"
+  },
+  "vouchers:bankSuggestions": {
+    "kind": "query",
+    "visibility": "public",
+    "wrapper": "query",
+    "permission": "vouchers.read"
+  },
+  "vouchers:bewirtungContext": {
+    "kind": "query",
+    "visibility": "public",
+    "wrapper": "query",
+    "permission": "vouchers.approve"
+  },
+  "vouchers:cancel": {
+    "kind": "mutation",
+    "visibility": "public",
+    "wrapper": "mutation",
+    "permission": "vouchers.correct"
+  },
+  "vouchers:checkedComplete": {
+    "kind": "mutation",
+    "visibility": "public",
+    "wrapper": "mutation",
+    "permission": "vouchers.write"
+  },
+  "vouchers:correct": {
+    "kind": "mutation",
+    "visibility": "public",
+    "wrapper": "mutation",
+    "permission": "vouchers.correct"
+  },
+  "vouchers:counts": {
+    "kind": "query",
+    "visibility": "public",
+    "wrapper": "query",
+    "permission": "vouchers.read"
+  },
+  "vouchers:create": {
+    "kind": "mutation",
+    "visibility": "public",
+    "wrapper": "mutation",
+    "permission": "vouchers.write"
+  },
+  "vouchers:createRecurring": {
+    "kind": "mutation",
+    "visibility": "public",
+    "wrapper": "mutation",
+    "permission": "vouchers.write"
+  },
+  "vouchers:deleteDraft": {
+    "kind": "mutation",
+    "visibility": "public",
+    "wrapper": "mutation",
+    "permission": "vouchers.write"
+  },
+  "vouchers:dismissDuplicateOf": {
+    "kind": "mutation",
+    "visibility": "public",
+    "wrapper": "mutation",
+    "permission": "vouchers.write"
+  },
+  "vouchers:dueRecurring": {
+    "kind": "query",
+    "visibility": "internal",
+    "wrapper": "systemQuery",
+    "job": "cron.recurringVouchers.generate"
+  },
+  "vouchers:duplicate": {
+    "kind": "mutation",
+    "visibility": "public",
+    "wrapper": "mutation",
+    "permission": "vouchers.write"
+  },
+  "vouchers:eigenbelegContext": {
+    "kind": "query",
+    "visibility": "public",
+    "wrapper": "query",
+    "permission": "vouchers.approve"
+  },
+  "vouchers:finalize": {
+    "kind": "mutation",
+    "visibility": "public",
+    "wrapper": "mutation",
+    "permission": "vouchers.finalize"
+  },
+  "vouchers:generateRecurringCron": {
+    "kind": "action",
+    "visibility": "internal",
+    "wrapper": "systemAction",
+    "job": "cron.recurringVouchers.generate"
+  },
+  "vouchers:generateRecurringFor": {
+    "kind": "mutation",
+    "visibility": "internal",
+    "wrapper": "systemMutation",
+    "job": "cron.recurringVouchers.generate"
+  },
+  "vouchers:generateRecurringNow": {
+    "kind": "mutation",
+    "visibility": "public",
+    "wrapper": "mutation",
+    "permission": "vouchers.write"
+  },
+  "vouchers:generateUploadUrl": {
+    "kind": "mutation",
+    "visibility": "public",
+    "wrapper": "mutation",
+    "permission": "vouchers.write"
+  },
+  "vouchers:get": {
+    "kind": "query",
+    "visibility": "public",
+    "wrapper": "query",
+    "permission": "vouchers.read"
+  },
+  "vouchers:list": {
+    "kind": "query",
+    "visibility": "public",
+    "wrapper": "query",
+    "permission": "vouchers.read"
+  },
+  "vouchers:missing": {
+    "kind": "query",
+    "visibility": "public",
+    "wrapper": "query",
+    "permission": "vouchers.read"
+  },
+  "vouchers:options": {
+    "kind": "query",
+    "visibility": "public",
+    "wrapper": "query",
+    "permission": "vouchers.read"
+  },
+  "vouchers:preview": {
+    "kind": "query",
+    "visibility": "public",
+    "wrapper": "query",
+    "permission": "vouchers.read"
+  },
+  "vouchers:rebookPayment": {
+    "kind": "mutation",
+    "visibility": "public",
+    "wrapper": "mutation",
+    "permission": "vouchers.pay"
+  },
+  "vouchers:recordPayment": {
+    "kind": "mutation",
+    "visibility": "public",
+    "wrapper": "mutation",
+    "permission": "vouchers.pay"
+  },
+  "vouchers:recurringList": {
+    "kind": "query",
+    "visibility": "public",
+    "wrapper": "query",
+    "permission": "vouchers.read"
+  },
+  "vouchers:suggest": {
+    "kind": "query",
+    "visibility": "public",
+    "wrapper": "query",
+    "permission": "vouchers.read"
+  },
+  "vouchers:unbooked": {
+    "kind": "query",
+    "visibility": "public",
+    "wrapper": "query",
+    "permission": "vouchers.read"
+  },
+  "vouchers:updateDraft": {
+    "kind": "mutation",
+    "visibility": "public",
+    "wrapper": "mutation",
+    "permission": "vouchers.write"
+  },
+  "vouchers:updateRecurring": {
+    "kind": "mutation",
+    "visibility": "public",
+    "wrapper": "mutation",
+    "permission": "vouchers.write"
+  },
+  "vouchers:waiveReceipt": {
+    "kind": "mutation",
+    "visibility": "public",
+    "wrapper": "mutation",
+    "permission": "vouchers.write"
   }
 }

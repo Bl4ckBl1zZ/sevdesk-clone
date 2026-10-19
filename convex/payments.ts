@@ -45,6 +45,7 @@ const SOURCE_LABEL: Record<Doc<"payments">["source"]["kind"], string> = {
   cash: "Bar",
   credit: "Guthaben",
   adjustment: "Ausbuchung",
+  private: "Privat",
 };
 
 export async function paymentView(ctx: ReadCtx, p: Doc<"payments">) {

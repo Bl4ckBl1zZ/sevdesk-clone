@@ -49,4 +49,9 @@ crons.cron("receivables.refreshOverdue (CET)", "15 23 * * *", internal.dunning.r
 crons.cron("dunning.run (CEST)", "0 5 * * *", internal.dunning.runCron, {});
 crons.cron("dunning.run (CET)", "0 6 * * *", internal.dunning.runCron, {});
 
+// recurringVouchers.generate — daily 06:15 Europe/Berlin (04:15 / 05:15 UTC; F06 VOU-064). Idempotent per (template,
+// occurrence date), so the second registration of the day finds nothing due.
+crons.cron("recurringVouchers.generate (CEST)", "15 4 * * *", internal.vouchers.generateRecurringCron, {});
+crons.cron("recurringVouchers.generate (CET)", "15 5 * * *", internal.vouchers.generateRecurringCron, {});
+
 export default crons;

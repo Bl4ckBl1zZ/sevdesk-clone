@@ -45,7 +45,9 @@ const GROUPS: Record<string, readonly string[] | "*"> = {
   ],
   // F05 P1: refund of a credit balance, PAY-047 reconciliation of a manual payment, PAY-063 archived Quittung
   payment: ["record", "reverse", "receipt_print", "refund", "reconcile", "receipt"],
-  voucher: ["create", "update", "finalize", "replace_file", "cancel"],
+  // F06 P2: drafts, booking, corrections, files, approvals, duplicates, payment choice, supplier profiles,
+  // recurring templates and receipt waivers (voucher.create, voucher.finalize, voucher.correct, …)
+  voucher: "*",
   bank: [
     "connect",
     "consent_renew",

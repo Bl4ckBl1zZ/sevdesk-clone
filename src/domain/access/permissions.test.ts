@@ -64,6 +64,13 @@ const EXPECTED: Record<Permission, readonly MemberRole[]> = {
   "banking.match": ["owner", "bookkeeper"],
   // 04 §4.7 DASH-011: every member role reads the Übersicht; widgets are gated by their own read permission.
   "dashboard.read": ["owner", "bookkeeper", "viewer", "auditor"],
+  // F06 P2 vouchers: auditors read purchase vouchers (Z1), writes are bookkeeping work (02 §4.3).
+  "vouchers.read": ["owner", "bookkeeper", "viewer", "auditor"],
+  "vouchers.write": ["owner", "bookkeeper"],
+  "vouchers.finalize": ["owner", "bookkeeper"],
+  "vouchers.correct": ["owner", "bookkeeper"],
+  "vouchers.approve": ["owner", "bookkeeper"],
+  "vouchers.pay": ["owner", "bookkeeper"],
 };
 
 describe("permission matrix (02 §4.3)", () => {
