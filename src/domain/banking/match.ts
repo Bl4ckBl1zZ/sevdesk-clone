@@ -14,6 +14,7 @@ export const WEIGHTS_BP = {
   exact_amount: 4000,
   skonto_amount: 3500,
   existing_manual_payment: 4500,
+  recurring_expected: 2500,
   known_iban: 2000,
   name_similarity_max: 1500,
   name_similarity_min: 500,
@@ -87,8 +88,33 @@ export interface OpenRefund {
   currency: string;
 }
 
+/**
+ * BNK-049 (P2): an open purchase voucher (F06) as a candidate for an outgoing debit. `openCents` is in the voucher's
+ * booking currency EUR (the debit's currency for EUR pockets); `billOpenMinor` is the open amount in the voucher's own
+ * currency for foreign-currency vouchers (card payments in USD: `bill_amount`).
+ */
+export interface OpenVoucher {
+  id: string;
+  documentNumber?: string;
+  internalNumber?: string;
+  supplierName: string;
+  /** Supplier IBANs (voucher, payee, contact, learned aliases). */
+  ibans: readonly string[];
+  aliases?: readonly string[];
+  documentDate: string;
+  dueDate?: string;
+  openCents: number;
+  /** The voucher's currency. */
+  currency: string;
+  billOpenMinor?: number;
+  /** Generated from a recurring voucher (expected amount ±5 %, date ±5 days). */
+  recurring?: boolean;
+}
+
 export interface MatchInput {
   documents: readonly OpenDocument[];
+  /** Outgoing debits only (BNK-049): open purchase vouchers. */
+  vouchers?: readonly OpenVoucher[];
   manualPayments?: readonly ManualPayment[];
   credits?: readonly CreditBalanceCandidate[];
   /** Outgoing debits only (BNK-041): open refunds of credit corrections. */
@@ -388,6 +414,72 @@ function scoreRefund(
   };
 }
 
+/**
+ * BNK-049: a debit paying an open purchase voucher — the supplier's document number (or the voucher number), the
+ * exact open amount, the original/instructed amount for card payments in a foreign currency (`bill_amount`), the
+ * expected amount of a recurring voucher (±5 %, date ±5 days), merchant/supplier name and IBAN; card payments use a
+ * ±3-day date window. No pre-linking by a bank transaction ID (the Revolut Expenses source is removed).
+ */
+function scoreVoucher(tx: UnmatchedTransaction, v: OpenVoucher, text: string): Scored | null {
+  const amount = tx.openCents;
+  const reasons: MatchReason[] = [];
+  let bp = 0;
+  const numbers = [v.documentNumber, v.internalNumber].filter((n): n is string => !!n && n.length >= 3);
+  const byNumber = numbers.some((n) => {
+    const k = numberMatch(n, text);
+    return k === "full" || k === "body";
+  });
+  if (byNumber) {
+    bp += WEIGHTS_BP.number_in_purpose;
+    reasons.push("number_in_purpose");
+  }
+  const card = !!tx.merchantName;
+  const days = Math.abs(epochDay(tx.bookingDate) - epochDay(v.documentDate));
+  let kind: MatchCandidate["kind"] = "single";
+  const sameCurrency = v.currency === tx.currency;
+  const instructed = tx.instructedAmount;
+  if (sameCurrency && amount === v.openCents) {
+    bp += WEIGHTS_BP.exact_amount;
+    reasons.push("exact_amount");
+  } else if (
+    instructed &&
+    instructed.currency === v.currency &&
+    v.billOpenMinor !== undefined &&
+    instructed.amountMinor === v.billOpenMinor
+  ) {
+    bp += WEIGHTS_BP.exact_amount;
+    reasons.push("bill_amount");
+  } else if (v.recurring && sameCurrency && Math.abs(amount - v.openCents) * 100 <= v.openCents * 5 && days <= 5) {
+    bp += WEIGHTS_BP.recurring_expected;
+    reasons.push("recurring_expected");
+  } else if (byNumber && sameCurrency && amount < v.openCents) {
+    bp += WEIGHTS_BP.partial;
+    reasons.push("partial");
+    kind = "partial";
+  } else {
+    return null;
+  }
+  if (!sameCurrency && !(instructed && instructed.currency === v.currency)) return null;
+  if (tx.counterpartyIban && v.ibans.map(normIban).includes(normIban(tx.counterpartyIban))) {
+    bp += WEIGHTS_BP.known_iban;
+    reasons.push("known_iban");
+  }
+  const nb = nameBp(nameSimilarity(tx, [v.supplierName, ...(v.aliases ?? [])]));
+  if (nb > 0) {
+    bp += nb;
+    reasons.push("name_similarity");
+  }
+  const inWindow = card || v.recurring ? days <= (card ? 3 : 5) : dateSignal(tx.bookingDate, v) > 0;
+  if (inWindow) {
+    bp += WEIGHTS_BP.date_window;
+    reasons.push("date_window");
+  } else if (!card && !v.recurring) bp += dateSignal(tx.bookingDate, v);
+  return {
+    bp,
+    candidate: { kind, reasons, allocations: [{ target: { kind: "voucher", id: v.id }, amountCents: amount }] },
+  };
+}
+
 /** BNK-044 bounded exact subset-sum: fewest items first, then the oldest due dates. */
 export function subsetSum(
   items: readonly OpenDocument[],
@@ -470,6 +562,12 @@ export function scoreTransaction(
     if (refundTails.length > 1) for (const r of refundTails) refundKinds.set(r.id, null);
     for (const r of refunds) {
       const s = scoreRefund(tx, r, refundKinds.get(r.id) ?? null);
+      if (s) out.push(s);
+    }
+    // BNK-049: open purchase vouchers.
+    for (const v of input.vouchers ?? []) {
+      if (v.openCents <= 0 || !ok("voucher", v.id)) continue;
+      const s = scoreVoucher(tx, v, text);
       if (s) out.push(s);
     }
     return rank(out, thresholds);

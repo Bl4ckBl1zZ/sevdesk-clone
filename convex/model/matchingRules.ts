@@ -255,6 +255,8 @@ export async function voucherFromTransaction(
     taxRule?: DraftInput["taxRule"];
     ruleId?: Id<"matchingRules">;
     flags?: { statementIsBeleg?: true; receiptMissing?: true };
+    /** Supplier when the row names no counterparty (bank fees/interest: the account's bank). */
+    supplierFallback?: string;
   },
 ): Promise<Id<"vouchers">> {
   const tx = await requireTransaction(ctx, args.transactionId);
@@ -272,7 +274,7 @@ export async function voucherFromTransaction(
   const account = args.account ?? suggestion?.account;
   const instructed = tx.source.instructedAmount;
   const foreign = instructed && instructed.currency !== tx.currency;
-  const name = tx.source.merchantName ?? tx.counterpartyName;
+  const name = tx.source.merchantName ?? tx.counterpartyName ?? args.supplierFallback;
   const description = [tx.reference, tx.purpose].filter(Boolean).join(" ").slice(0, 200) || undefined;
   const taxRule = args.taxRule ?? (suggestion?.taxRule as DraftInput["taxRule"] | undefined);
   const input: DraftInput = {
@@ -327,6 +329,7 @@ export async function categorizeByRule(
     account: r.apply.account,
     ...(r.apply.taxRule ? { taxRule: r.apply.taxRule as DraftInput["taxRule"] } : {}),
     ruleId: r._id,
+    supplierFallback: (await ctx.db.get(tx.accountId))?.name ?? "Bank",
     flags: outcome.kind === "finalised" ? { statementIsBeleg: true } : { receiptMissing: true },
   });
   if (outcome.kind === "finalised") {
