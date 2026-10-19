@@ -113,7 +113,8 @@ function csp(n: string, config: ProxyConfig): string {
     "base-uri 'self'",
     "form-action 'self'",
     "frame-ancestors 'none'",
-    ...(config.dev ? [] : ["upgrade-insecure-requests"]),
+    // Only for an https app origin: WebKit applies it to http://localhost too and the page never loads (CI, local).
+    ...(config.dev || !config.appOrigin?.startsWith("https://") ? [] : ["upgrade-insecure-requests"]),
   ].join("; ");
 }
 

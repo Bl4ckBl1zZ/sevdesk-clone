@@ -149,6 +149,15 @@ describe("proxy: security headers (SEC-06)", () => {
     expect(res.headers.get("permissions-policy")).toContain("camera=(self)");
   });
 
+  test("SEC-06 upgrade-insecure-requests only when the app origin is https (WebKit would upgrade http://localhost)", () => {
+    const https = handleProxy(req("https://app.example.de/anmelden"), CONFIG);
+    expect(https.headers.get("content-security-policy")).toContain("upgrade-insecure-requests");
+    const local = { ...CONFIG, appOrigin: "http://localhost:3000", apiOrigin: undefined };
+    const http = handleProxy(req("http://localhost:3000/anmelden"), local);
+    expect(http.status).not.toBe(421);
+    expect(http.headers.get("content-security-policy")).not.toContain("upgrade-insecure-requests");
+  });
+
   test("SEC-06 each request gets a fresh nonce", () => {
     const a = handleProxy(req("https://app.example.de/anmelden"), CONFIG).headers.get("x-middleware-request-x-nonce");
     const b = handleProxy(req("https://app.example.de/anmelden"), CONFIG).headers.get("x-middleware-request-x-nonce");
