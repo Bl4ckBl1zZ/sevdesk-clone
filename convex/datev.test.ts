@@ -5,6 +5,7 @@ import { api } from "./_generated/api";
 import type { Id } from "./_generated/dataModel";
 import { finalizedInvoice, settle } from "./invoices.fixtures";
 import { patchCompanyProfile } from "./model/companyProfile";
+import { datevExportCount } from "./model/documentHistory";
 import { makeT, type TestT } from "./test.setup";
 
 /** F09 EXP-001…016 DATEV export: job, history, re-export (EC-174), acceptance and „Testexport" (EXP-016). */
@@ -91,6 +92,8 @@ describe("DATEV export (F09 EXP-001…016)", { timeout: 180_000 }, () => {
 
     const [row] = await exportsOf(t);
     expect(row).toMatchObject({ from: "2026-10-01", to: "2026-10-31", isRepeat: false, festschreibung: false });
+    // SET-E22: from now on the Sachkontenlänge is locked (settings consult the export history)
+    expect(await t.run((ctx) => datevExportCount(ctx))).toBe(1);
     expect(row?.file.name).toBe("DATEV_20261001_20261031_Testexport.zip");
     expect(row?.journalLineIds.length).toBe(entries.reduce((n, e) => n + e.lines.length, 0));
     const zip = await zipOf(t, row?._id as Id<"datevExports">);
