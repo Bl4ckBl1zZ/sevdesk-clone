@@ -1692,6 +1692,8 @@ export default defineSchema({
           columns: v.record(v.string(), v.string()),
           numberFormat: v.optional(v.union(v.literal("de"), v.literal("en"))),
           dateFormat: v.optional(v.union(v.literal("dmy"), v.literal("mdy"))),
+          /** F09 IMP-012: name of the saved preset the generic CSV mapping came from (part of the idempotency key). */
+          preset: v.optional(v.string()),
         }),
       ),
     ),

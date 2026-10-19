@@ -20,8 +20,8 @@ import type { PreviewPlan } from "./previews";
 /**
  * 06 §3 purchase voucher tools (F06 P2). Reads and drafts are free; `voucher_finalize` is ⚠ (assigns the Belegnummer and
  * books the journal) and needs a `preview_action` token whose arguments are built by the same `voucherFinalizeArgs`
- * as the act. `voucher_create_from_file` waits for the inbox/classification slice (INB-*); Bewirtung/Eigenbeleg
- * approval is a personal act and stays in the app.
+ * as the act. `voucher_create_from_file` and `inbox_list` live in ./inbox.ts; Bewirtung/Eigenbeleg approval is a personal
+ * act and stays in the app.
  */
 
 type VId = Id<"vouchers">;

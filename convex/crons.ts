@@ -54,4 +54,8 @@ crons.cron("dunning.run (CET)", "0 6 * * *", internal.dunning.runCron, {});
 crons.cron("recurringVouchers.generate (CEST)", "15 4 * * *", internal.vouchers.generateRecurringCron, {});
 crons.cron("recurringVouchers.generate (CET)", "15 5 * * *", internal.vouchers.generateRecurringCron, {});
 
+// inbox.pollR2 — every 5 min (02 §7, F06 INB-049): e-mail-in via Cloudflare Email Routing → Worker → R2. A no-op while
+// the R2 env is missing, the integration is disabled/without AVV, or polling is paused after 401/403 (EC-INB-29).
+crons.interval("inbox.pollR2", { minutes: 5 }, internal.inboxNode.pollR2, {});
+
 export default crons;

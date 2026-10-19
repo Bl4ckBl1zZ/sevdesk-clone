@@ -143,11 +143,12 @@ describe("mobile shell (04-ui-ux §3.3)", () => {
     expect(within(bar).getByRole("link", { name: "Übersicht" })).toHaveAttribute("href", "/");
     expect(within(bar).getByRole("link", { name: "Rechnungen" })).toHaveAttribute("aria-current", "page");
     expect(within(bar).getByRole("button", { name: "Neu erstellen" })).toBeInTheDocument();
-    expect(within(bar).getByRole("button", { name: "Beleg fotografieren oder hochladen" })).toBeInTheDocument();
+    // INB-003: „Beleg“ opens the multi-page camera capture of the Posteingang.
+    expect(within(bar).getByRole("link", { name: "Beleg fotografieren oder hochladen" })).toHaveAttribute(
+      "href",
+      "/posteingang?capture=1",
+    );
     expect(within(bar).getByRole("button", { name: "Mehr" })).toBeInTheDocument();
-    const file = bar.querySelector("input[type=file]");
-    expect(file).toHaveAttribute("capture", "environment");
-    expect(file).toHaveAttribute("accept", "image/*,application/pdf");
   });
 });
 

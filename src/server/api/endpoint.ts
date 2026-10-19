@@ -24,6 +24,8 @@ export interface HandlerContext<P, Q, B> {
   requestId: string;
   /** Raw `If-Match` value without quotes/`W/` (05 §3 Concurrency). */
   ifMatch: string | null;
+  /** The parsed `multipart/form-data` body of an endpoint with `multipart: true` (the zod body sees the text fields). */
+  form?: FormData;
 }
 
 export type HandlerResult = { status?: number; body?: unknown; headers?: Record<string, string> };
@@ -56,6 +58,11 @@ export interface EndpointDef<
   idempotency?: "required";
   /** Maps form issue paths from Convex validation to wire fields. */
   fieldMapper?: FieldMapper;
+  /**
+   * Also accept `multipart/form-data` (F06 INB-008 `POST /inbox-items`): the text fields are validated with `body`,
+   * the files reach the handler as `form`; the idempotency hash covers the text fields and each file's SHA-256.
+   */
+  multipart?: true;
   handler: (ctx: HandlerContext<z.output<P>, z.output<Q>, z.output<B>>) => Promise<HandlerResult>;
 }
 

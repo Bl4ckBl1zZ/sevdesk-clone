@@ -9,6 +9,7 @@ import { correctionTools } from "./tools/corrections";
 import { dispatchTools } from "./tools/dispatch";
 import { documentTools } from "./tools/documents";
 import { dunningTools } from "./tools/dunning";
+import { inboxTools } from "./tools/inbox";
 import { paymentTools } from "./tools/payments";
 import { previewTools } from "./tools/previews";
 import { productTools } from "./tools/products";
@@ -32,6 +33,7 @@ export const TOOLS: readonly RegisteredToolDef[] = [
   ...recurringTools,
   ...dunningTools,
   ...voucherTools,
+  ...inboxTools,
 ];
 
 /** 06 §1: ≤ 2,048 characters, German domain primer and the safety workflow. */

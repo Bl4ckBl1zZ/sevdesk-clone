@@ -613,6 +613,78 @@
     "wrapper": "action",
     "permission": "documents.read"
   },
+  "csvImports:commit": {
+    "kind": "action",
+    "visibility": "public",
+    "wrapper": "action",
+    "permission": "imports.commit"
+  },
+  "csvImports:commitRowsInternal": {
+    "kind": "mutation",
+    "visibility": "internal",
+    "wrapper": "actorMutation",
+    "permission": "imports.commit"
+  },
+  "csvImports:create": {
+    "kind": "mutation",
+    "visibility": "public",
+    "wrapper": "mutation",
+    "permission": "imports.run"
+  },
+  "csvImports:get": {
+    "kind": "query",
+    "visibility": "public",
+    "wrapper": "query",
+    "permission": "imports.read"
+  },
+  "csvImports:list": {
+    "kind": "query",
+    "visibility": "public",
+    "wrapper": "query",
+    "permission": "imports.read"
+  },
+  "csvImports:localState": {
+    "kind": "query",
+    "visibility": "public",
+    "wrapper": "query",
+    "permission": "imports.run"
+  },
+  "csvImports:preview": {
+    "kind": "action",
+    "visibility": "public",
+    "wrapper": "action",
+    "permission": "imports.run"
+  },
+  "csvImports:setFile": {
+    "kind": "action",
+    "visibility": "public",
+    "wrapper": "action",
+    "permission": "imports.run"
+  },
+  "csvImports:setFileInternal": {
+    "kind": "mutation",
+    "visibility": "internal",
+    "wrapper": "actorMutation",
+    "permission": "imports.run"
+  },
+  "csvImports:setMapping": {
+    "kind": "mutation",
+    "visibility": "public",
+    "wrapper": "mutation",
+    "permission": "imports.run"
+  },
+  "csvImports:setTarget": {
+    "kind": "mutation",
+    "visibility": "public",
+    "wrapper": "mutation",
+    "permission": "imports.run"
+  },
+  "csvImports:source": {
+    "kind": "query",
+    "visibility": "public",
+    "wrapper": "query",
+    "permission": "imports.run"
+  },
   "dashboard:overview": {
     "kind": "query",
     "visibility": "public",
@@ -1062,6 +1134,198 @@
     "visibility": "internal",
     "wrapper": "systemAction",
     "job": "imports.files"
+  },
+  "inbox:appendFilesInternal": {
+    "kind": "mutation",
+    "visibility": "internal",
+    "wrapper": "actorMutation",
+    "permission": "vouchers.write"
+  },
+  "inbox:beginInternal": {
+    "kind": "mutation",
+    "visibility": "internal",
+    "wrapper": "actorMutation",
+    "permission": "vouchers.write"
+  },
+  "inbox:classifyInput": {
+    "kind": "query",
+    "visibility": "internal",
+    "wrapper": "systemQuery",
+    "job": "inbox.classify"
+  },
+  "inbox:counts": {
+    "kind": "query",
+    "visibility": "public",
+    "wrapper": "query",
+    "permission": "vouchers.read"
+  },
+  "inbox:createDraft": {
+    "kind": "mutation",
+    "visibility": "public",
+    "wrapper": "mutation",
+    "permission": "vouchers.write"
+  },
+  "inbox:finishInternal": {
+    "kind": "mutation",
+    "visibility": "internal",
+    "wrapper": "actorMutation",
+    "permission": "vouchers.write"
+  },
+  "inbox:generateUploadUrl": {
+    "kind": "mutation",
+    "visibility": "public",
+    "wrapper": "mutation",
+    "permission": "vouchers.write"
+  },
+  "inbox:get": {
+    "kind": "query",
+    "visibility": "public",
+    "wrapper": "query",
+    "permission": "vouchers.read"
+  },
+  "inbox:ingest": {
+    "kind": "action",
+    "visibility": "public",
+    "wrapper": "action",
+    "permission": "vouchers.write"
+  },
+  "inbox:ingestBase64": {
+    "kind": "action",
+    "visibility": "public",
+    "wrapper": "action",
+    "permission": "vouchers.write"
+  },
+  "inbox:list": {
+    "kind": "query",
+    "visibility": "public",
+    "wrapper": "query",
+    "permission": "vouchers.read"
+  },
+  "inbox:mailParsedInternal": {
+    "kind": "mutation",
+    "visibility": "internal",
+    "wrapper": "actorMutation",
+    "permission": "vouchers.write"
+  },
+  "inbox:ocrPendingInternal": {
+    "kind": "mutation",
+    "visibility": "internal",
+    "wrapper": "actorMutation",
+    "permission": "vouchers.write"
+  },
+  "inbox:ocrStillActive": {
+    "kind": "query",
+    "visibility": "internal",
+    "wrapper": "systemQuery",
+    "job": "inbox.classify"
+  },
+  "inbox:ocrTestInput": {
+    "kind": "query",
+    "visibility": "internal",
+    "wrapper": "systemQuery",
+    "job": "inbox.classify"
+  },
+  "inbox:overrideDuplicate": {
+    "kind": "mutation",
+    "visibility": "public",
+    "wrapper": "mutation",
+    "permission": "vouchers.write"
+  },
+  "inbox:pollRunInternal": {
+    "kind": "mutation",
+    "visibility": "internal",
+    "wrapper": "systemMutation",
+    "job": "cron.inbox.pollR2"
+  },
+  "inbox:pollState": {
+    "kind": "query",
+    "visibility": "internal",
+    "wrapper": "systemQuery",
+    "job": "cron.inbox.pollR2"
+  },
+  "inbox:r2ObjectKnown": {
+    "kind": "query",
+    "visibility": "internal",
+    "wrapper": "systemQuery",
+    "job": "cron.inbox.pollR2"
+  },
+  "inbox:r2TestInternal": {
+    "kind": "mutation",
+    "visibility": "internal",
+    "wrapper": "actorMutation",
+    "permission": "integrations.manage"
+  },
+  "inbox:recordTestInternal": {
+    "kind": "mutation",
+    "visibility": "internal",
+    "wrapper": "actorMutation",
+    "permission": "integrations.manage"
+  },
+  "inbox:reject": {
+    "kind": "mutation",
+    "visibility": "public",
+    "wrapper": "mutation",
+    "permission": "vouchers.write"
+  },
+  "inbox:retryInternal": {
+    "kind": "mutation",
+    "visibility": "internal",
+    "wrapper": "actorMutation",
+    "permission": "vouchers.write"
+  },
+  "inbox:saveInbox": {
+    "kind": "mutation",
+    "visibility": "public",
+    "wrapper": "mutation",
+    "permission": "integrations.manage"
+  },
+  "inbox:saveOcr": {
+    "kind": "mutation",
+    "visibility": "public",
+    "wrapper": "mutation",
+    "permission": "integrations.manage"
+  },
+  "inbox:settings": {
+    "kind": "query",
+    "visibility": "public",
+    "wrapper": "query",
+    "permission": "settings.read"
+  },
+  "inbox:storeEmailInternal": {
+    "kind": "mutation",
+    "visibility": "internal",
+    "wrapper": "systemMutation",
+    "job": "cron.inbox.pollR2"
+  },
+  "inbox:storeInternal": {
+    "kind": "mutation",
+    "visibility": "internal",
+    "wrapper": "actorMutation",
+    "permission": "vouchers.write"
+  },
+  "inboxNode:classify": {
+    "kind": "action",
+    "visibility": "internal",
+    "wrapper": "systemAction",
+    "job": "inbox.classify"
+  },
+  "inboxNode:pollR2": {
+    "kind": "action",
+    "visibility": "internal",
+    "wrapper": "systemAction",
+    "job": "cron.inbox.pollR2"
+  },
+  "inboxNode:testClaude": {
+    "kind": "action",
+    "visibility": "public",
+    "wrapper": "action",
+    "permission": "integrations.manage"
+  },
+  "inboxNode:testR2": {
+    "kind": "action",
+    "visibility": "public",
+    "wrapper": "action",
+    "permission": "integrations.manage"
   },
   "integrity:acknowledge": {
     "kind": "mutation",

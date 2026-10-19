@@ -21,6 +21,16 @@ const GENERIC: readonly ProblemCode[] = ["unauthorized", "rate_limited", "intern
 
 const problemContent = { "application/problem+json": { schema: problemSchema } };
 
+/** `multipart/form-data` upload (F06 INB-008): one or more `file` parts (≤ 20 MB each) and an optional `note`. */
+const multipartSchema = z
+  .object({
+    file: z
+      .array(z.string().meta({ format: "binary" }))
+      .meta({ description: "Datei(en); auch als `file[]`. Jede Datei wird ein eigener Posteingangs-Eintrag." }),
+    note: z.string().max(1000).optional(),
+  })
+  .meta({ id: "MultipartUpload" });
+
 const rateHeaders = z.object({
   "RateLimit-Limit": z.string().meta({ description: "Bucket-Größe" }),
   "RateLimit-Remaining": z.string().meta({ description: "Verbleibende Anfragen" }),
@@ -84,7 +94,17 @@ function operation(e: AnyEndpoint): ZodOpenApiOperationObject {
       ...(e.query ? { query: e.query as z.ZodObject } : {}),
       ...(header ? { header } : {}),
     },
-    ...(e.body ? { requestBody: { required: true, content: { "application/json": { schema: e.body } } } } : {}),
+    ...(e.body
+      ? {
+          requestBody: {
+            required: true,
+            content: {
+              "application/json": { schema: e.body },
+              ...(e.multipart ? { "multipart/form-data": { schema: multipartSchema } } : {}),
+            },
+          },
+        }
+      : {}),
     responses: responses as ZodOpenApiOperationObject["responses"],
   };
 }
