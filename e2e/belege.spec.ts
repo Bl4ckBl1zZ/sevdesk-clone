@@ -106,6 +106,9 @@ test("VOU-100 the batch queue books two drafts one after the other", async ({ pa
   for (let i = 0; i < 2; i++) {
     await page.getByTestId("voucher-book").click();
     const dialog = page.getByRole("dialog", { name: "Beleg buchen" });
+    // The warnings (and their acknowledgement checkbox) arrive with the server preview; asking isVisible()
+    // before it is back skipped the checkbox and left „Buchen“ disabled.
+    await expect(dialog.getByTestId("journal-preview")).toBeVisible({ timeout: 20_000 });
     const ack = dialog.getByTestId("ack-warnings");
     if (await ack.isVisible()) await ack.check();
     await dialog.getByRole("button", { name: "Buchen", exact: true }).click();
