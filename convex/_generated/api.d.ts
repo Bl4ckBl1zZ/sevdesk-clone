@@ -11,6 +11,7 @@
 import type * as access from "../access.js";
 import type * as accounting from "../accounting.js";
 import type * as apiKeys from "../apiKeys.js";
+import type * as auditLog from "../auditLog.js";
 import type * as auth from "../auth.js";
 import type * as authMail from "../authMail.js";
 import type * as bankValidators from "../bankValidators.js";
@@ -58,6 +59,7 @@ import type * as migrations from "../migrations.js";
 import type * as model_accounting from "../model/accounting.js";
 import type * as model_apiKeys from "../model/apiKeys.js";
 import type * as model_audit from "../model/audit.js";
+import type * as model_auditViewer from "../model/auditViewer.js";
 import type * as model_bankAccounts from "../model/bankAccounts.js";
 import type * as model_bankImport from "../model/bankImport.js";
 import type * as model_bankTransactions from "../model/bankTransactions.js";
@@ -129,6 +131,7 @@ declare const fullApi: ApiFromModules<{
   access: typeof access;
   accounting: typeof accounting;
   apiKeys: typeof apiKeys;
+  auditLog: typeof auditLog;
   auth: typeof auth;
   authMail: typeof authMail;
   bankValidators: typeof bankValidators;
@@ -176,6 +179,7 @@ declare const fullApi: ApiFromModules<{
   "model/accounting": typeof model_accounting;
   "model/apiKeys": typeof model_apiKeys;
   "model/audit": typeof model_audit;
+  "model/auditViewer": typeof model_auditViewer;
   "model/bankAccounts": typeof model_bankAccounts;
   "model/bankImport": typeof model_bankImport;
   "model/bankTransactions": typeof model_bankTransactions;

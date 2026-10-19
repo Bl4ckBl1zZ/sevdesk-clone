@@ -88,7 +88,7 @@ const GROUPS: Record<string, readonly string[] | "*"> = {
   // `revoke_sessions`: „Sitzungen abmelden" (04 §4.10) without deactivating the member.
   member: ["create", "role_change", "extend", "expire", "expired", "disable", "revoke_sessions"],
   invite: ["create", "resend", "revoke", "accept"],
-  export: ["datev", "gdpdu", "full", "csv"],
+  export: ["datev", "gdpdu", "full", "csv", "audit"],
   // F09 sevdesk export import: project lifecycle, files, mapping, resolutions, preview, commit batches, presets.
   import: [
     "create",
@@ -107,7 +107,7 @@ const GROUPS: Record<string, readonly string[] | "*"> = {
     "protocol", // IMP-024: the import protocol PDF attached to the committed import
   ],
   integrity: ["run", "checkpoint", "acknowledge"],
-  security: ["write_rejected", "access_denied"],
+  security: ["write_rejected", "access_denied", "secret_screen"],
   auditor: ["access"],
   dsgvo: "*", // dsgvo.request.* | restrict | export
   retention: ["purge", "anchor"],

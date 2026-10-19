@@ -42,3 +42,21 @@ test("NTF-002 critical kinds are locked in the channel matrix", async ({ page, e
   await expect(page.getByRole("checkbox", { name: "Datensicherung veraltet: E-Mail" })).toBeEnabled();
   await expectNoAxeViolations();
 });
+
+test("AUD-006 AUD-008 the audit viewer filters by preset and offers the CSV/JSON export", async ({
+  page,
+  expectNoAxeViolations,
+}) => {
+  await page.goto("/einstellungen/audit");
+  await expect(h1(page, "Protokoll")).toBeVisible();
+  await expect(page.getByTestId("chain-status")).toBeVisible();
+  await page.getByRole("button", { name: "Was hat Claude heute geändert?" }).click();
+  await expect(page.getByRole("button", { name: "Was hat Claude heute geändert?" })).toHaveAttribute(
+    "aria-pressed",
+    "true",
+  );
+  const download = page.waitForEvent("download");
+  await page.getByRole("button", { name: "Export JSON" }).click();
+  expect((await download).suggestedFilename()).toMatch(/^audit-log-\d{4}-\d{2}-\d{2}\.json$/);
+  await expectNoAxeViolations();
+});

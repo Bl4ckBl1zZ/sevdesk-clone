@@ -3867,5 +3867,49 @@
       "ntfyRemoved": "ntfy entfernt.",
       "save": "Speichern"
     }
+  },
+  "audit": {
+    "seq": "seq",
+    "reason": "Begründung",
+    "showDiff": "Änderungen anzeigen",
+    "before": "Vorher",
+    "after": "Nachher",
+    "channel": {
+      "ui": "App",
+      "api": "API",
+      "mcp": "MCP",
+      "cron": "Zeitplan",
+      "system": "System",
+      "import": "Import",
+      "portal": "Portal"
+    },
+    "channelLabel": "Kanal",
+    "presets": "Schnellfilter",
+    "apiKeyPreset": "API-Schlüssel {name}",
+    "from": "Von",
+    "to": "Bis",
+    "actorKind": "Akteur",
+    "actorKinds": {
+      "user": "Mitglied",
+      "api-key": "API-Schlüssel",
+      "mcp": "Claude (MCP)",
+      "system": "System"
+    },
+    "all": "Alle",
+    "entityTable": "Tabelle",
+    "text": "Suche",
+    "head": "Kettenende: seq {seq} · {hash}",
+    "chainOk": "Protokollkette verifiziert bis seq {seq} (aktuell seq {head}).",
+    "chainFailed": "Letzte Integritätsprüfung mit Befunden (verifiziert bis seq {seq}, aktuell seq {head}).",
+    "chainNever": "Die Protokollkette wurde noch nicht geprüft (aktuell seq {head}).",
+    "exportCsv": "Export CSV",
+    "exportJson": "Export JSON",
+    "loading": "Wird geladen …",
+    "empty": "Keine Protokolleinträge für diese Filter.",
+    "emptyHint": "Ändern Sie den Zeitraum oder die Filter.",
+    "listLabel": "Protokolleinträge",
+    "more": "Ältere Einträge laden",
+    "historyTitle": "Verlauf",
+    "historyEmpty": "Noch keine Protokolleinträge."
   }
 }

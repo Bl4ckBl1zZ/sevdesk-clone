@@ -2,6 +2,7 @@
 
 import type * as React from "react";
 import { useRef } from "react";
+import { AuditWatchers } from "@/components/audit/audit-watchers";
 import { useSessionState } from "@/components/auth/session-provider";
 import { SidebarProvider } from "@/components/ui/sidebar";
 import { AppSidebar, SidebarAutoCollapse } from "./app-sidebar";
@@ -48,6 +49,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         <ShortcutHelpDialog />
         <GlobalShortcuts />
         <RouteFocus />
+        <AuditWatchers />
       </SidebarProvider>
     </ShellUiProvider>
   );

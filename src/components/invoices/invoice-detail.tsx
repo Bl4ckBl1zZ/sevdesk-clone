@@ -9,6 +9,7 @@ import type { Route } from "next";
 import Link from "next/link";
 import { useTranslations } from "next-intl";
 import { useId, useState } from "react";
+import { EntityHistory } from "@/components/audit/entity-history";
 import {
   ConfirmDialog,
   formatDate,
@@ -131,6 +132,7 @@ function InvoiceDetailInner({ id }: { id: Id<"salesDocuments"> }) {
             <p>{t("readOnlyDraft")}</p>
           )}
           <ChainCard chain={chain} />
+          <EntityHistory table="salesDocuments" id={id} />
         </PageBody>
       </>
     );
@@ -168,6 +170,7 @@ function InvoiceDetailInner({ id }: { id: Id<"salesDocuments"> }) {
         {data.doc.status !== "cancelled" && <InvoiceDunningSection invoiceId={data.doc._id} type={data.doc.type} />}
         <Files data={data} />
         <SendLog data={data} />
+        <EntityHistory table="salesDocuments" id={data.doc._id} />
       </DetailLayout>
     </>
   );

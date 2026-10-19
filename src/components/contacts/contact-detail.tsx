@@ -11,6 +11,7 @@ import { useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { useId, useState } from "react";
 import { useWatch } from "react-hook-form";
+import { EntityHistory } from "@/components/audit/entity-history";
 import { ConfirmDialog, formatDateTime, useCan, useRun } from "@/components/catalog/shared";
 import { ConvexGuard } from "@/components/convex/convex-provider";
 import { ContactDunningCard } from "@/components/dunning/contact-dunning-card";
@@ -117,6 +118,9 @@ function ContactDetailInner({ id }: { id: Id<"contacts"> }) {
             </TabsList>
             <TabsContent value="timeline" className="pt-4">
               <Timeline data={data} canWrite={canWrite && !archived} />
+              <div className="mt-4">
+                <EntityHistory table="contacts" id={id} />
+              </div>
             </TabsContent>
             <TabsContent value="master" className="pt-4">
               {canWrite ? <ContactForm key={c.version} contact={c} /> : <ReadOnlyMaster data={data} />}
