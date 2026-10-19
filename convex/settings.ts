@@ -50,7 +50,9 @@ import {
   createLayout,
   currentVersion,
   defaultLayout,
+  layoutHistory as layoutHistoryModel,
   listLayouts,
+  restoreLayoutVersion as restoreLayoutVersionModel,
   saveDefaultLayout,
   setLayoutDefaults as setLayoutDefaultsModel,
 } from "./model/layouts";
@@ -512,6 +514,20 @@ export const createLayoutVariant = mutation({
   permission: "settings.write",
   args: { values: v.any() },
   handler: async (ctx, { values }) => createLayout(ctx, parse(layoutCreateSchema, values).name),
+});
+
+/** SET-076: version history of a layout with diff summaries. */
+export const layoutHistory = query({
+  permission: "settings.read",
+  args: { layoutId: v.id("layouts") },
+  handler: async (ctx, { layoutId }) => layoutHistoryModel(ctx, layoutId),
+});
+
+/** SET-076: „Diese Version wiederherstellen“ (new version with the old config). */
+export const restoreLayoutVersion = mutation({
+  permission: "settings.write",
+  args: { layoutId: v.id("layouts"), versionId: v.id("layoutVersions") },
+  handler: async (ctx, { layoutId, versionId }) => restoreLayoutVersionModel(ctx, layoutId, versionId),
 });
 
 /** SET-074: default layout per document type. */

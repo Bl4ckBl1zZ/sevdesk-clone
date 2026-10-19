@@ -4,6 +4,7 @@ import type { MemberRole } from "../src/domain/schemas/actor";
 import { SCOPES } from "../src/domain/schemas/scopes";
 import { type CompanyValues, companyDefaults, taxDefaults } from "../src/domain/schemas/settings";
 import { api, components, internal } from "./_generated/api";
+import type { Id } from "./_generated/dataModel";
 import { WRAPPER_TAG, type WrapperMeta } from "./functions";
 import * as integrityModule from "./integrity";
 import * as invitesModule from "./invites";
@@ -103,6 +104,8 @@ const ARGS: Record<string, Record<string, unknown>> = {
   "settings:archiveBankAccount": { bankAccountId: "placeholder" },
   "settings:createLayoutVariant": { values: { name: "Variante" } },
   "settings:setLayoutDefaults": { layoutId: "placeholder", docTypes: ["quote"] },
+  "settings:layoutHistory": { layoutId: "placeholder" },
+  "settings:restoreLayoutVersion": { layoutId: "placeholder", versionId: "placeholder" },
   "settings:layoutPreviewData": {},
   "lookups:saveTextTemplate": {
     values: {
@@ -247,6 +250,9 @@ async function resolvePlaceholders(t: TestT, args: Record<string, unknown>): Pro
     out.layoutId = await t.model({ actor: "user:seed", role: "owner", channel: "ui" }, async (ctx) =>
       (await import("./model/layouts")).createLayout(ctx, `L${Math.random()}`),
     );
+  }
+  if (out.versionId === "placeholder") {
+    out.versionId = await t.run(async (ctx) => (await ctx.db.get(out.layoutId as Id<"layouts">))?.currentVersionId);
   }
   if (out.templateId === "placeholder") {
     out.templateId = await t.model({ actor: "user:seed", role: "owner", channel: "ui" }, async (ctx) =>

@@ -648,7 +648,14 @@
         "quote": "Angebot",
         "reminder": "Mahnung",
         "delivery_note": "Lieferschein"
-      }
+      },
+      "versions": "Versionen",
+      "historyTitle": "Versionen von „{name}“",
+      "historyDescription": "Jede Änderung ist eine eigene Version. Fertiggestellte Belege behalten ihre Version; Wiederherstellen legt eine neue Version mit den alten Einstellungen an.",
+      "current": "aktuell",
+      "usedBy": "in {count, plural, one {# Beleg} other {# Belegen}} verwendet",
+      "restore": "Diese Version wiederherstellen",
+      "restored": "Version {from} als Version {to} wiederhergestellt."
     },
     "textTemplates": {
       "title": "Textvorlagen",

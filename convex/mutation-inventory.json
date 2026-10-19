@@ -2587,6 +2587,12 @@
     "wrapper": "query",
     "permission": "settings.read"
   },
+  "settings:layoutHistory": {
+    "kind": "query",
+    "visibility": "public",
+    "wrapper": "query",
+    "permission": "settings.read"
+  },
   "settings:layoutPreviewData": {
     "kind": "query",
     "visibility": "public",
@@ -2622,6 +2628,12 @@
     "visibility": "internal",
     "wrapper": "actorMutation",
     "permission": "integrations.manage"
+  },
+  "settings:restoreLayoutVersion": {
+    "kind": "mutation",
+    "visibility": "public",
+    "wrapper": "mutation",
+    "permission": "settings.write"
   },
   "settings:runAccessChecks": {
     "kind": "action",

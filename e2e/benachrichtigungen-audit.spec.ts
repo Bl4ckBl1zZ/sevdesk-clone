@@ -193,3 +193,12 @@ test("DOC-53 DOC-54 PRD-053 the invoice editor offers layout, cost centre and th
     await expect(costCentre.locator("option").first()).toContainText("Keine Kostenstelle");
   await expectNoAxeViolations();
 });
+
+test("SET-076 the layout version history lists versions with their changes", async ({ page, expectNoAxeViolations }) => {
+  await page.goto("/einstellungen/layouts");
+  const versions = page.getByRole("button", { name: /^Versionen/ }).first();
+  test.skip((await versions.count()) === 0, "no layout yet in this journey");
+  await versions.click();
+  await expect(page.getByTestId("layout-history")).toContainText("Version 1");
+  await expectNoAxeViolations();
+});

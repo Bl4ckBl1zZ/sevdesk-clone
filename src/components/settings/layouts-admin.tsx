@@ -54,6 +54,7 @@ function LayoutsAdminInner() {
   const layouts = useAuthedQuery(api.settings.listLayoutsWithDefaults, {});
   const [creating, setCreating] = useState(false);
   const [editing, setEditing] = useState<Layout | null>(null);
+  const [history, setHistory] = useState<Layout | null>(null);
   if (layouts === undefined) return <div className="h-40" aria-busy="true" />;
   return (
     <>
@@ -93,10 +94,16 @@ function LayoutsAdminInner() {
                       : t("noDefaults")}
                   </span>
                 </div>
-                <Button variant="outline" size="sm" className="h-11 md:h-8" onClick={() => setEditing(l)}>
-                  {t("setDefaults")}
-                  <span className="sr-only"> ({l.name})</span>
-                </Button>
+                <div className="flex flex-wrap gap-2">
+                  <Button variant="outline" size="sm" className="h-11 md:h-8" onClick={() => setHistory(l)}>
+                    {t("versions")}
+                    <span className="sr-only"> ({l.name})</span>
+                  </Button>
+                  <Button variant="outline" size="sm" className="h-11 md:h-8" onClick={() => setEditing(l)}>
+                    {t("setDefaults")}
+                    <span className="sr-only"> ({l.name})</span>
+                  </Button>
+                </div>
               </li>
             ))}
           </ul>
@@ -105,6 +112,7 @@ function LayoutsAdminInner() {
       <PreviewCard layouts={layouts} />
       <CreateLayoutDialog open={creating} onOpenChange={setCreating} />
       {editing && <DefaultsDialog layout={editing} onClose={() => setEditing(null)} />}
+      {history && <HistoryDialog layout={history} onClose={() => setHistory(null)} />}
     </>
   );
 }
@@ -278,3 +286,82 @@ function DefaultsDialog({ layout, onClose }: { layout: Layout; onClose: () => vo
     </Dialog>
   );
 }
+
+/** SET-076: versions with date and diff summary; „Diese Version wiederherstellen“ appends a new version. */
+export function HistoryDialog({ layout, onClose }: { layout: Layout; onClose: () => void }) {
+  const t = useTranslations("settings.layouts");
+  const tCommon = useTranslations("common");
+  const data = useAuthedQuery(api.settings.layoutHistory, { layoutId: layout.layoutId as Id<"layouts"> });
+  const restore = useMutation(api.settings.restoreLayoutVersion);
+  const showError = useAdapterErrorToast();
+  const [busy, setBusy] = useState<string | null>(null);
+  const run = async (versionId: string, version: number) => {
+    setBusy(versionId);
+    try {
+      const r = await restore({
+        layoutId: layout.layoutId as Id<"layouts">,
+        versionId: versionId as Id<"layoutVersions">,
+      });
+      toast.success(t("restored", { from: version, to: r.version }));
+    } catch (e) {
+      showError(e);
+    } finally {
+      setBusy(null);
+    }
+  };
+  return (
+    <Dialog open onOpenChange={(open) => !open && onClose()}>
+      <DialogContent className="sm:max-w-2xl">
+        <DialogHeader>
+          <DialogTitle>{t("historyTitle", { name: layout.name })}</DialogTitle>
+          <DialogDescription>{t("historyDescription")}</DialogDescription>
+        </DialogHeader>
+        {data === undefined ? (
+          <div className="h-32" aria-busy="true" />
+        ) : (
+          <ol
+            className="flex max-h-[60vh] flex-col divide-y overflow-y-auto rounded-lg border"
+            data-testid="layout-history"
+          >
+            {data.versions.map((v) => (
+              <li key={v.versionId} className="flex flex-col gap-2 p-3 text-sm sm:flex-row sm:items-start">
+                <div className="flex min-w-0 flex-1 flex-col gap-1">
+                  <span className="flex flex-wrap items-center gap-2 font-medium">
+                    {t("version", { version: v.version })}
+                    {v.current && <Badge>{t("current")}</Badge>}
+                    <span className="font-normal text-muted-foreground">{dateTimeDe.format(v.createdAt)}</span>
+                  </span>
+                  <span>{v.summary.join(" · ")}</span>
+                  {v.usedBy > 0 && <span className="text-muted-foreground">{t("usedBy", { count: v.usedBy })}</span>}
+                </div>
+                {!v.current && (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="h-11 md:h-8"
+                    disabled={busy !== null}
+                    onClick={() => void run(v.versionId, v.version)}
+                  >
+                    {t("restore")}
+                    <span className="sr-only"> ({t("version", { version: v.version })})</span>
+                  </Button>
+                )}
+              </li>
+            ))}
+          </ol>
+        )}
+        <DialogFooter>
+          <Button variant="outline" className="h-11 md:h-9" onClick={onClose}>
+            {tCommon("close")}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+const dateTimeDe = new Intl.DateTimeFormat("de-DE", {
+  dateStyle: "medium",
+  timeStyle: "short",
+  timeZone: "Europe/Berlin",
+});
