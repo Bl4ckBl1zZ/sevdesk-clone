@@ -104,4 +104,26 @@ describe("Festschreibung (ACC-015…ACC-017)", () => {
       ["2026-03", "ustva_submitted"],
     ]);
   });
+
+  test("EC-076 ACC-006 a Storno of an invoice from a locked month is allowed and lands in the first open period", async () => {
+    const t = makeT();
+    const { customer } = await setupBooks(t, { bookkeepingStartDate: "2026-08-01" });
+    await post(t, invoiceEvent(customer, "d8", "2026-08-12", 10000));
+    const owner = await t.asUser("owner");
+    await owner.mutation(api.periods.lock, { period: "2026-08" });
+    await post(t, {
+      kind: "invoice_cancelled",
+      documentId: "st8",
+      documentNumber: "ST-8",
+      originalDocumentId: "d8",
+      date: "2026-08-20",
+    });
+    const entries = await t.run((ctx) => ctx.db.query("journalEntries").withIndex("by_seq").collect());
+    expect(entries.map((e) => [e.seq, e.period, e.reversalOfId !== undefined])).toEqual([
+      [1, "2026-08", false],
+      [2, "2026-09", true],
+    ]);
+    expect(entries[1]?.originalDate).toBe("2026-08-20");
+    expect(entries[1]?.latePosting?.reason).toMatch(/08\/2026/);
+  });
 });

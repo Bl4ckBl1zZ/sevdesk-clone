@@ -50,8 +50,32 @@ async function submitUstva(
   });
 }
 
+describe("UStVA drill-down (TAX-005)", () => {
+  test("TAX-005 TST-TAX-05 Kz 81 drills down to the journal entry and its document; the document links back to UStVA 09/2026 Kz 81", async () => {
+    const t = makeT();
+    const { customer } = await setupBooks(t);
+    await post(t, invoiceEvent(customer, "d9", "2026-09-10", 100000));
+    const u = await owner(t);
+    const view = await u.query(api.taxes.ustva, { period: SEP });
+    expect(view.drillDown["81"]).toEqual([
+      expect.objectContaining({
+        seq: 1,
+        date: "2026-09-10",
+        cents: 100000,
+        source: { kind: "salesDocument", id: "d9" },
+        href: "/rechnungen/d9",
+      }),
+    ]);
+    // Kz 83 is computed from the fields, so a document contributes to its base Kennzahl only
+    expect(await u.query(api.taxes.sourceKennzahlen, { kind: "salesDocument", id: "d9" })).toEqual([
+      { period: SEP, kz: "81" },
+    ]);
+    expect(await u.query(api.taxes.sourceKennzahlen, { kind: "salesDocument", id: "other" })).toEqual([]);
+  });
+});
+
 describe("UStVA submission records (TAX-006, TAX-007, TAX-021)", () => {
-  test("TAX-006 TAX-021 TST-TAX-06 recording the submission freezes values and drill-down, locks the months (ustva_submitted) and is audited", async () => {
+  test("TAX-006 TAX-021 UVA-04 TST-TAX-06 recording the submission freezes values and drill-down, locks the months (ustva_submitted) and is audited", async () => {
     const t = makeT();
     const { customer } = await setupBooks(t);
     await post(t, invoiceEvent(customer, "d9", "2026-09-10", 100000));

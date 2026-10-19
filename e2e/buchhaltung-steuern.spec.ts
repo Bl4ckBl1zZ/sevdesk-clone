@@ -90,6 +90,40 @@ test("TAX-003 TAX-011 TAX-020 UStVA: Kennzahlen step or Kleinunternehmer notice,
   await expectNoAxeViolations();
 });
 
+test("ACC-025 RPT-008 Journal: filters, Buchungsjournal export and „Manuelle Buchung“", async ({
+  page,
+  expectNoAxeViolations,
+}) => {
+  await page.goto("/buchhaltung/journal");
+  await expect(h1(page, "Journal")).toBeVisible();
+  await expect(page.getByRole("search", { name: "Journal filtern" })).toBeVisible();
+  await page.getByLabel("Herkunft").selectOption("manual");
+  await expect(page.getByRole("button", { name: "Buchungsjournal (CSV)" })).toBeEnabled();
+  await expectNoAxeViolations();
+  await page.getByRole("button", { name: "Filter zurücksetzen" }).click();
+  await page.getByRole("link", { name: "Manuelle Buchung" }).click();
+  await expect(h1(page, "Manuelle Buchung")).toBeVisible();
+  const desktop = (page.viewportSize()?.width ?? 0) >= 1200;
+  if (desktop) {
+    await expect(page.getByLabel("Buchungstext")).toBeVisible();
+    await page.getByLabel("Vorlage").selectOption("loan_payout");
+    await expect(page.getByLabel("Buchungstext")).toHaveValue("Darlehensauszahlung");
+    await expect(page.getByRole("button", { name: "Buchen" })).toBeDisabled();
+  } else {
+    await expect(page.getByText("Manuelle Buchungen bitte am Desktop erfassen.")).toBeVisible();
+  }
+  await expectNoAxeViolations();
+});
+
+test("ACC-009 Konten: „Konto anlegen“ dialog", async ({ page, expectNoAxeViolations }) => {
+  await page.goto("/buchhaltung/konten");
+  await page.getByRole("button", { name: "Konto anlegen" }).click();
+  const dialog = page.getByRole("dialog", { name: "Eigenes Sachkonto anlegen" });
+  await expect(dialog.getByLabel("Kontonummer (4-stellig)")).toBeVisible();
+  await expectNoAxeViolations();
+  await dialog.getByRole("button", { name: "Abbrechen" }).click();
+});
+
 test("TAX-009 ZM: rows and reconciliation", async ({ page, expectNoAxeViolations }) => {
   await page.goto("/steuern/zm");
   await expect(h1(page, "Zusammenfassende Meldung")).toBeVisible();
