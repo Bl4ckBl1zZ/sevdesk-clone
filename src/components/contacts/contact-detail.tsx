@@ -14,10 +14,10 @@ import { useWatch } from "react-hook-form";
 import { EntityHistory } from "@/components/audit/entity-history";
 import { ConfirmDialog, formatDateTime, useCan, useRun } from "@/components/catalog/shared";
 import { ConvexGuard } from "@/components/convex/convex-provider";
-import { ContactDunningCard } from "@/components/dunning/contact-dunning-card";
 import { SelectField } from "@/components/forms/fields";
 import { PageBody } from "@/components/layout/list-layout";
 import { PageHeader } from "@/components/layout/page-header";
+import { ContactReceivables } from "@/components/payments/contact-receivables";
 import { useZodForm } from "@/components/setup/use-zod-form";
 import { Badge } from "@/components/ui/badge";
 import { Button, buttonVariants } from "@/components/ui/button";
@@ -53,6 +53,7 @@ function ContactDetailInner({ id }: { id: Id<"contacts"> }) {
   const data = useAuthedQuery(api.contacts.get, { id });
   const canWrite = useCan("contacts.write");
   const canMerge = useCan("contacts.merge");
+  const canReadPayments = useCan("payments.read");
   const [tab, setTab] = useState("timeline");
 
   if (data === undefined) return <div className="h-96" aria-busy="true" />;
@@ -68,6 +69,8 @@ function ContactDetailInner({ id }: { id: Id<"contacts"> }) {
   }
   const c = data.contact;
   const archived = c.status === "archived";
+  // PAY-004: customers get the „Offene Posten" tab (open items, payment history, credit, dunning cases).
+  const showReceivables = canReadPayments && c.roles.includes("customer");
   return (
     <>
       <PageHeader
@@ -109,7 +112,14 @@ function ContactDetailInner({ id }: { id: Id<"contacts"> }) {
           <Tabs value={tab} onValueChange={(v) => setTab(String(v))} className="min-w-0">
             <TabsList className="h-auto w-full justify-start overflow-x-auto">
               {(
-                ["timeline", "master", "addresses", "tax", ...(c.kind === "organization" ? ["persons"] : [])] as const
+                [
+                  "timeline",
+                  ...(showReceivables ? ["receivables"] : []),
+                  "master",
+                  "addresses",
+                  "tax",
+                  ...(c.kind === "organization" ? ["persons"] : []),
+                ] as const
               ).map((k) => (
                 <TabsTrigger key={k} value={k} className="h-11 flex-none px-3 md:h-9">
                   {t(`tabs.${k as "timeline"}`)}
@@ -134,8 +144,12 @@ function ContactDetailInner({ id }: { id: Id<"contacts"> }) {
               <VatCheckCard data={data} canWrite={canWrite} />
               <ConsentCard data={data} canWrite={canWrite} />
               <CertificateCard data={data} canWrite={canWrite} />
-              {c.roles.includes("customer") && <ContactDunningCard contactId={c._id} />}
             </TabsContent>
+            {showReceivables && (
+              <TabsContent value="receivables" className="pt-4">
+                <ContactReceivables contactId={c._id} />
+              </TabsContent>
+            )}
             {c.kind === "organization" && (
               <TabsContent value="persons" className="pt-4">
                 <Persons data={data} canWrite={canWrite} />

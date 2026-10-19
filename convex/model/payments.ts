@@ -9,6 +9,7 @@ import { taxationMethodAt } from "../../src/domain/accounting/period";
 import { derivePaymentStatus, NEGATIVE_OPEN_MESSAGE, type StatusRow } from "../../src/domain/documents/payment-status";
 import { isArchiveOnlyImport } from "../../src/domain/import/sevdesk/types";
 import { formatEuro } from "../../src/domain/money/format";
+import { averageDaysToPay, type PaidInvoice } from "../../src/domain/payments/customer";
 import { PAY_MESSAGES } from "../../src/domain/payments/messages";
 import { computeOpenItems, type OpenItemDocument, type SettlementRow } from "../../src/domain/payments/open-items";
 import {
@@ -1361,4 +1362,70 @@ export async function openItemsAsOf(
     ...(args.edges ? { edges: args.edges } : {}),
     contactNames: names,
   });
+}
+
+// ── PAY-004 per-customer view (Kontakt › „Offene Posten") ──────────────────────────────────────────────────────
+
+const HISTORY_LIMIT = 200;
+
+/**
+ * Open items and credit (as of today), payment history and the average days to pay of one contact. An organisation
+ * includes the documents and payments of its persons (a person under an organisation bills it, CON-009).
+ */
+export async function contactReceivables(ctx: ReadCtx, contactId: Id<"contacts">, today: string) {
+  const persons = await ctx.db
+    .query("contacts")
+    .withIndex("by_parent", (q) => q.eq("parentId", contactId))
+    .collect();
+  const ids = [contactId, ...persons.map((p) => p._id)];
+  const items: Awaited<ReturnType<typeof openItemsAsOf>>["items"] = [];
+  const totals = { openCents: 0, overdueCents: 0, dueWithin7Cents: 0 };
+  const payments: PaymentDoc[] = [];
+  const paid: PaidInvoice[] = [];
+  let creditCents = 0;
+  for (const cid of ids) {
+    const open = await openItemsAsOf(ctx, { asOf: today, contactId: cid });
+    items.push(...open.items);
+    totals.openCents += open.totals.openCents;
+    totals.overdueCents += open.totals.overdueCents;
+    totals.dueWithin7Cents += open.totals.dueWithin7Cents;
+    creditCents += await creditBalance(ctx, cid);
+    payments.push(
+      ...(await ctx.db
+        .query("payments")
+        .withIndex("by_contact", (q) => q.eq("contactId", cid))
+        .collect()),
+    );
+    for (const d of await ctx.db
+      .query("salesDocuments")
+      .withIndex("by_contact", (q) => q.eq("contactId", cid))
+      .collect()) {
+      if (!PAYABLE_TYPES.has(d.type) || d.paymentStatus !== "paid" || !d.documentDate) continue;
+      const st = await documentSettlement(ctx, d._id);
+      if (st.paidOn && st.receivedCents > 0) paid.push({ documentDate: d.documentDate, paidOn: st.paidOn });
+    }
+  }
+  items.sort((a, b) => (a.dueDate ?? a.documentDate).localeCompare(b.dueDate ?? b.documentDate));
+  payments.sort((a, b) => b.date.localeCompare(a.date) || b.recordedAt - a.recordedAt);
+  return {
+    items,
+    totals,
+    creditCents,
+    averageDaysToPay: averageDaysToPay(paid),
+    paidInvoices: paid.length,
+    truncated: payments.length > HISTORY_LIMIT,
+    payments: payments.slice(0, HISTORY_LIMIT).map((p) => ({
+      paymentId: p._id,
+      date: p.date,
+      number: p.number ?? null,
+      targetKind: p.target.kind,
+      targetId: p.target.id as string,
+      amountCents: p.amountCents,
+      differencesCents: p.differences.reduce((x, d) => x + d.amountCents, 0),
+      currency: p.currency,
+      source: p.source.kind,
+      reversed: p.reversedById !== undefined,
+      reversal: p.reversalOfId !== undefined,
+    })),
+  };
 }

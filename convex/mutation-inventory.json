@@ -2137,6 +2137,12 @@
     "wrapper": "query",
     "permission": "payments.read"
   },
+  "payments:contactReceivables": {
+    "kind": "query",
+    "visibility": "public",
+    "wrapper": "query",
+    "permission": "payments.read"
+  },
   "payments:forDocument": {
     "kind": "query",
     "visibility": "public",

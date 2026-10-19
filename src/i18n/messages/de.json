@@ -1707,7 +1707,8 @@
         "master": "Stammdaten",
         "addresses": "Adressen & Kommunikation",
         "tax": "Steuer & E-Rechnung",
-        "persons": "Ansprechpartner"
+        "persons": "Ansprechpartner",
+        "receivables": "Offene Posten"
       },
       "facts": "Eckdaten",
       "number": "Nummer",
@@ -3223,6 +3224,30 @@
         "open": "Offen",
         "status": "Status"
       }
+    },
+    "contactReceivables": {
+      "summary": "Übersicht",
+      "open": "Offen",
+      "overdue": "Davon überfällig",
+      "credit": "Guthaben",
+      "averageDaysToPay": "Ø Zahlungsdauer",
+      "noPaidInvoices": "Noch keine bezahlten Rechnungen",
+      "days": "{days} Tage (aus {count, plural, one {# Rechnung} other {# Rechnungen}})",
+      "items": "Offene Posten",
+      "noItems": "Keine offenen Posten.",
+      "number": "Nummer",
+      "date": "Datum",
+      "due": "Fällig",
+      "openAmount": "Offen",
+      "overdueDays": "{days, plural, one {# Tag} other {# Tage}} überfällig",
+      "history": "Zahlungshistorie",
+      "noPayments": "Noch keine Zahlungen erfasst.",
+      "source": "Quelle",
+      "amount": "Betrag",
+      "creditRow": "Guthaben",
+      "reversed": "storniert",
+      "reversal": "Storno",
+      "truncated": "Es werden die letzten 200 Zahlungen angezeigt."
     }
   },
   "recurring": {
