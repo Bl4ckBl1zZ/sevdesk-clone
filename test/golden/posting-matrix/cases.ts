@@ -4,7 +4,7 @@
  * also writes the full resolved entries to `expected/<id>.journal.json` (change only with `pnpm golden:update`
  * and a written legal reason, CLAUDE.md rule 11).
  */
-import type { BusinessEvent, ReversalEvent } from "@/domain/accounting/events";
+import type { BusinessEvent, ReversalEvent, VoucherBookedEvent } from "@/domain/accounting/events";
 import type { PostingContext } from "@/domain/accounting/post";
 
 export type Side = "S" | "H";
@@ -46,6 +46,60 @@ const pay = {
   counterpartyName: "Muster GmbH",
 };
 const IST = { taxationMethod: "ist" as const };
+const vb = {
+  kind: "voucher_booked" as const,
+  voucherId: "v1",
+  number: "BE-2026-00001",
+  direction: "expense" as const,
+  voucherKind: "standard" as const,
+  taxRule: "input_vat_deductible",
+  companyIsKu: false,
+  date: "2026-03-10",
+  supplyDate: { kind: "date" as const, date: "2026-03-05" },
+  receivedDate: "2026-03-10",
+  contactId: "contact1",
+  counterpartyName: "Büro Schmidt GmbH",
+};
+/** Golden voucher lines name a role so one event resolves in both charts (the UI stores the chosen account). */
+const vl = (role: string, netCents: number, vatCents: number, vatRateBp: number, extra: object = {}) => ({
+  account: "",
+  role,
+  netCents,
+  vatCents,
+  vatRateBp,
+  ...extra,
+});
+const vp = {
+  kind: "voucher_paid" as const,
+  paymentId: "vpay1",
+  date: "2026-03-20",
+  direction: "expense" as const,
+  means: { kind: "bank_account" as const, bankAccountId: "bank1" },
+  amountCents: 11900,
+  voucher: { id: "v1", number: "BE-2026-00001" },
+  contactId: "contact1",
+  counterpartyName: "Büro Schmidt GmbH",
+  inputVatDeducted: true,
+};
+const KU = { companyIsKu: true, taxRule: "no_input_vat" };
+const B1_LINES = [
+  { account: "", netCents: 10000, vatCents: 700, vatRateBp: 700 },
+  { account: "", netCents: 5000, vatCents: 950, vatRateBp: 1900 },
+  { account: "", netCents: 1000, vatCents: 0, vatRateBp: 0 },
+];
+const tax = (
+  subtype: NonNullable<VoucherBookedEvent["taxPaymentSubtype"]>,
+  direction: "expense" | "income" = "expense",
+): VoucherBookedEvent => ({
+  ...vb,
+  voucherKind: "tax_payment",
+  taxRule: "no_input_vat",
+  direction,
+  taxPaymentSubtype: subtype,
+  contactId: "fa1",
+  counterpartyName: "Finanzamt",
+  lines: [{ account: "", netCents: 50000, vatCents: 0, vatRateBp: 0 }],
+});
 const g19 = (net: number, vat: number) => ({ category: "S" as const, rateBp: 1900, netCents: net, vatCents: vat });
 const g7 = (net: number, vat: number) => ({ category: "S" as const, rateBp: 700, netCents: net, vatCents: vat });
 const zero = (category: "K" | "G" | "O" | "E" | "AE" | "Z" | "KU", net: number) => ({
@@ -841,6 +895,472 @@ export const GOLDEN_CASES: readonly GoldenCase[] = [
         ["opening.debtors", "9008", "9008", "H", 59500],
         ["opening.gl", "9000", "9000", "S", 9500],
         ["vat.output.notdue.19", "1766", "3816", "H", 9500],
+      ],
+    },
+  },
+  // ── 4.2.3 purchase vouchers (P2, F06 VOU-020…027, VOU-061, VOU-065) ─────────────────────────────────────
+  {
+    id: "V1-input-vat-19",
+    covers: "V1, VOU-020, UST-15",
+    event: { ...vb, lines: [vl("expense.services", 10000, 1900, 1900)] },
+    expect: {
+      explanation: "V1",
+      lines: [
+        ["expense.services", "3100", "5900", "S", 10000],
+        ["vat.input.19", "1576", "1406", "S", 1900],
+        ["payable", "1600", "3300", "H", 11900],
+      ],
+    },
+  },
+  {
+    id: "V1-rate-16-unsupported-2026",
+    covers: "V1, VOU-004, F08-Q1 (no role for historical rates → blocked, never guessed)",
+    event: { ...vb, lines: [vl("expense.services", 10000, 1600, 1600)] },
+    expect: { error: "rate_not_supported" },
+  },
+  {
+    id: "V1-private-share-30",
+    covers: "V1 + private share, VOU-027 (expense and VAT reduced by the share → Privatentnahme)",
+    event: { ...vb, lines: [vl("expense.services", 10000, 1900, 1900, { nonDeductibleShareBp: 3000 })] },
+    expect: {
+      explanation: "V1",
+      lines: [
+        ["expense.services", "3100", "5900", "S", 7000],
+        ["vat.input.19", "1576", "1406", "S", 1330],
+        ["private.withdrawal", "1800", "2100", "S", 3570],
+        ["payable", "1600", "3300", "H", 11900],
+      ],
+    },
+  },
+  {
+    id: "V4-ku-company-gross-to-expense",
+    covers: "V4, VOU-021, VOU-026, KU-01",
+    event: { ...vb, ...KU, lines: [vl("expense.services", 10000, 1900, 1900)] },
+    expect: {
+      explanation: "V4",
+      lines: [
+        ["expense.services", "3100", "5900", "S", 11900],
+        ["payable", "1600", "3300", "H", 11900],
+      ],
+    },
+  },
+  {
+    id: "V5-bewirtung-golden-B1",
+    covers: "V5, MISC-05, VOU-061, T06-100 (golden B1: 112,00 / 48,00 / VSt 16,50)",
+    event: { ...vb, voucherKind: "bewirtung", bewirtungOccasion: "geschaeftlich", lines: B1_LINES },
+    expect: {
+      explanation: "V5",
+      lines: [
+        ["expense.entertainment", "4650", "6640", "S", 7000],
+        ["expense.entertainment.nd", "4654", "6644", "S", 3000],
+        ["vat.input.7", "1571", "1401", "S", 700],
+        ["expense.entertainment", "4650", "6640", "S", 3500],
+        ["expense.entertainment.nd", "4654", "6644", "S", 1500],
+        ["vat.input.19", "1576", "1406", "S", 950],
+        ["expense.entertainment", "4650", "6640", "S", 700],
+        ["expense.entertainment.nd", "4654", "6644", "S", 300],
+        ["payable", "1600", "3300", "H", 17650],
+      ],
+    },
+  },
+  {
+    id: "V5-bewirtung-golden-B2-ku",
+    covers: "V5 KU, MISC-05, VOU-061, KU-01, T06-101 (golden B2: gross split 123,55 / 52,95)",
+    event: { ...vb, ...KU, voucherKind: "bewirtung", bewirtungOccasion: "geschaeftlich", lines: B1_LINES },
+    expect: {
+      explanation: "V5",
+      lines: [
+        ["expense.entertainment", "4650", "6640", "S", 12355],
+        ["expense.entertainment.nd", "4654", "6644", "S", 5295],
+        ["payable", "1600", "3300", "H", 17650],
+      ],
+    },
+  },
+  {
+    id: "V5-staff-event",
+    covers: "V5 Arbeitnehmer, VOU-060 (100 % on expense.staff_events, no split)",
+    event: {
+      ...vb,
+      voucherKind: "bewirtung",
+      bewirtungOccasion: "arbeitnehmer",
+      lines: [{ account: "", netCents: 5000, vatCents: 950, vatRateBp: 1900 }],
+    },
+    expect: {
+      explanation: "V5",
+      lines: [
+        ["expense.staff_events", "4140", "6130", "S", 5000],
+        ["vat.input.19", "1576", "1406", "S", 950],
+        ["payable", "1600", "3300", "H", 5950],
+      ],
+    },
+  },
+  {
+    id: "V6-reverse-charge-eu-golden-V1",
+    covers: "V6, VOU-022, T06-070 (golden V1: 190/190, payable net), EC-164",
+    event: {
+      ...vb,
+      taxRule: "reverse_charge_eu",
+      counterpartyName: "Google Ireland Ltd.",
+      lines: [vl("expense.13b_eu.19", 100000, 0, 1900, { selfAssessedVatCents: 19000 })],
+    },
+    expect: {
+      explanation: "V6",
+      lines: [
+        ["expense.13b_eu.19", "3123", "5923", "S", 100000],
+        ["vat.output.13b.19", "1787", "3837", "H", 19000],
+        ["vat.input.13b.19", "1577", "1407", "S", 19000],
+        ["payable", "1600", "3300", "H", 100000],
+      ],
+    },
+  },
+  {
+    id: "V6-reverse-charge-eu-ku-golden-V2",
+    covers: "V6 KU, VOU-026, KU-01, T06-071 (golden V2: output 190, no input VAT) ⚠ expense.vat_nondeductible",
+    event: {
+      ...vb,
+      taxRule: "reverse_charge_eu",
+      companyIsKu: true,
+      counterpartyName: "Google Ireland Ltd.",
+      lines: [vl("expense.13b_eu.19", 100000, 0, 1900, { selfAssessedVatCents: 19000 })],
+    },
+    expect: {
+      explanation: "V6-ku",
+      lines: [
+        ["expense.13b_eu.19", "3123", "5923", "S", 100000],
+        ["vat.output.13b.19", "1787", "3837", "H", 19000],
+        ["expense.vat_nondeductible", "4300", "6860", "S", 19000],
+        ["payable", "1600", "3300", "H", 100000],
+      ],
+    },
+  },
+  {
+    id: "V7-reverse-charge-non-eu-golden-V3",
+    covers: "V7, VOU-022, VOU-028 (golden V3 EUR values 30,41 / 5,78)",
+    event: {
+      ...vb,
+      taxRule: "reverse_charge_non_eu",
+      lines: [vl("expense.13b_foreign.19", 3041, 0, 1900, { selfAssessedVatCents: 578 })],
+    },
+    expect: {
+      explanation: "V7",
+      lines: [
+        ["expense.13b_foreign.19", "3125", "5925", "S", 3041],
+        ["vat.output.13b.19", "1787", "3837", "H", 578],
+        ["vat.input.13b.19", "1577", "1407", "S", 578],
+        ["payable", "1600", "3300", "H", 3041],
+      ],
+    },
+  },
+  {
+    id: "V8-reverse-charge-13b-domestic",
+    covers: "V8, VOU-022",
+    event: {
+      ...vb,
+      taxRule: "reverse_charge_13b_de",
+      lines: [vl("expense.13b_domestic.19", 20000, 0, 1900, { selfAssessedVatCents: 3800 })],
+    },
+    expect: {
+      explanation: "V8",
+      lines: [
+        ["expense.13b_domestic.19", "3120", "5920", "S", 20000],
+        ["vat.output.13b.19", "1787", "3837", "H", 3800],
+        ["vat.input.13b.19", "1577", "1407", "S", 3800],
+        ["payable", "1600", "3300", "H", 20000],
+      ],
+    },
+  },
+  {
+    id: "V9-intra-community-acquisition",
+    covers: "V9, VOU-022, VOU-023",
+    event: {
+      ...vb,
+      taxRule: "intra_community_acquisition",
+      lines: [vl("expense.ige.19", 50000, 0, 1900, { selfAssessedVatCents: 9500 })],
+    },
+    expect: {
+      explanation: "V9",
+      lines: [
+        ["expense.ige.19", "3425", "5425", "S", 50000],
+        ["vat.output.ige.19", "1774", "3804", "H", 9500],
+        ["vat.input.ige.19", "1574", "1404", "S", 9500],
+        ["payable", "1600", "3300", "H", 50000],
+      ],
+    },
+  },
+  {
+    id: "V10-import-vat-customs-notice",
+    covers: "V10, VOU-024 (EUSt line on the vat.import account, duty to expense)",
+    event: {
+      ...vb,
+      taxRule: "import_vat",
+      counterpartyName: "Hauptzollamt",
+      lines: [vl("vat.import", 19000, 0, 0), vl("expense.goods.19", 2500, 0, 0)],
+    },
+    expect: {
+      explanation: "V10",
+      lines: [
+        ["vat.import", "1588", "1433", "S", 19000],
+        ["expense.goods.19", "3400", "5400", "S", 2500],
+        ["payable", "1600", "3300", "H", 21500],
+      ],
+    },
+  },
+  {
+    id: "V13-asset-gwg",
+    covers: "V13, VOU-065, AO-03 (GWG chosen → asset.gwg)",
+    event: {
+      ...vb,
+      voucherKind: "asset",
+      lines: [{ account: "", netCents: 60000, vatCents: 11400, vatRateBp: 1900, assetDecision: "gwg" as const }],
+    },
+    expect: {
+      explanation: "V13",
+      lines: [
+        ["asset.gwg", "0480", "0670", "S", 60000],
+        ["vat.input.19", "1576", "1406", "S", 11400],
+        ["payable", "1600", "3300", "H", 71400],
+      ],
+    },
+  },
+  {
+    id: "VE-income-voucher-output-vat",
+    covers: "VE, VOU-010 (income voucher, Soll)",
+    event: {
+      ...vb,
+      direction: "income",
+      taxRule: "output_vat",
+      counterpartyName: "Versicherung AG",
+      lines: [vl("revenue.domestic.19", 10000, 1900, 1900)],
+    },
+    expect: {
+      explanation: "VE",
+      lines: [
+        ["revenue.domestic.19", "8400", "4400", "H", 10000],
+        ["vat.output.19", "1776", "3806", "H", 1900],
+        ["receivable", "1400", "1200", "S", 11900],
+      ],
+    },
+  },
+  {
+    id: "V-storno-cancel",
+    covers: "V-storno, VOU-009 (Generalumkehr dated in the open period)",
+    event: {
+      kind: "voucher_reversed",
+      voucherId: "v1",
+      number: "BE-2026-00001",
+      date: "2026-04-15",
+      reason: "Doppelt erfasst",
+      mode: "cancel",
+    },
+    original: { ...vb, lines: [vl("expense.services", 10000, 1900, 1900)] },
+    expect: {
+      explanation: "V-storno",
+      lines: [
+        ["expense.services", "3100", "5900", "H", 10000],
+        ["vat.input.19", "1576", "1406", "H", 1900],
+        ["payable", "1600", "3300", "S", 11900],
+      ],
+    },
+  },
+  // ── voucher payments (V2/V3, T6, T7; VOU-131, VOU-132, VOU-137, VOU-138) ───────────────────────────────
+  {
+    id: "V2-voucher-paid-bank",
+    covers: "V2, VOU-131",
+    event: vp,
+    expect: {
+      explanation: "V2",
+      lines: [
+        ["payable", "1600", "3300", "S", 11900],
+        [BANK, "1200", "1800", "H", 11900],
+      ],
+    },
+  },
+  {
+    id: "V3-skonto-received",
+    covers: "V2+V3, VOU-132, UST-32, T06-147 (2 % Skonto: input VAT corrected pro rata)",
+    event: {
+      ...vp,
+      amountCents: 11662,
+      differences: [
+        { reason: "skonto", amountCents: 238, vatCorrection: [{ rateBp: 1900, netCents: 200, vatCents: 38 }] },
+      ],
+    },
+    expect: {
+      explanation: "V2+V3",
+      lines: [
+        ["payable", "1600", "3300", "S", 11900],
+        ["skonto.received.19", "3736", "5736", "H", 200],
+        ["vat.input.19", "1576", "1406", "H", 38],
+        [BANK, "1200", "1800", "H", 11662],
+      ],
+    },
+  },
+  {
+    id: "V3-skonto-received-ku",
+    covers: "V2+V3 KU, VOU-132 (no input VAT deducted → gross Skonto, LEGAL-OPEN F08-Q1)",
+    event: {
+      ...vp,
+      inputVatDeducted: false,
+      amountCents: 11662,
+      differences: [
+        { reason: "skonto", amountCents: 238, vatCorrection: [{ rateBp: 1900, netCents: 200, vatCents: 38 }] },
+      ],
+    },
+    expect: {
+      explanation: "V2+V3",
+      lines: [
+        ["payable", "1600", "3300", "S", 11900],
+        ["skonto.received.19", "3736", "5736", "H", 238],
+        [BANK, "1200", "1800", "H", 11662],
+      ],
+    },
+  },
+  {
+    id: "V2-bank-fee-difference",
+    covers: "V2 + fees, VOU-132 (we paid 1,50 € more than the voucher)",
+    event: { ...vp, amountCents: 12050, differences: [{ reason: "bank_fees", amountCents: -150 }] },
+    expect: {
+      explanation: "V2",
+      lines: [
+        ["payable", "1600", "3300", "S", 11900],
+        ["expense.bank_fees", "4970", "6855", "S", 150],
+        [BANK, "1200", "1800", "H", 12050],
+      ],
+    },
+  },
+  {
+    id: "T6-voucher-paid-cash",
+    covers: "T6, VOU-137, CSH-022",
+    event: { ...vp, means: { kind: "cash" } },
+    expect: {
+      explanation: "T6",
+      lines: [
+        ["payable", "1600", "3300", "S", 11900],
+        ["cash", "1000", "1600", "H", 11900],
+      ],
+    },
+  },
+  {
+    id: "T7-voucher-paid-private",
+    covers: "T7, VOU-138, CSH-023 (Privateinlage)",
+    event: { ...vp, means: { kind: "private" } },
+    expect: {
+      explanation: "T7",
+      lines: [
+        ["payable", "1600", "3300", "S", 11900],
+        ["private.deposit", "1890", "2180", "H", 11900],
+      ],
+    },
+  },
+  {
+    id: "T7-corporation-shareholder-unmapped",
+    covers: "T7 corporation, VOU-138, CSH-023, ACC-028, EC-VOU-42, E-ACC-30 (shareholder.clearing ships unmapped)",
+    ctx: { legalForm: "gmbh" },
+    event: { ...vp, means: { kind: "private" }, corporation: true },
+    expect: { error: "role_unmapped" },
+  },
+  {
+    id: "VE-pay-income-voucher-ist",
+    covers: "VE-pay, VOU-010 (Ist: the VAT becomes due with the payment)",
+    ctx: IST,
+    event: {
+      ...vp,
+      direction: "income",
+      ist: { notDueVat: [{ rateBp: 1900, vatCents: 1900 }], payableCents: 11900, settledBeforeCents: 0 },
+    },
+    expect: {
+      explanation: "VE-pay",
+      lines: [
+        [BANK, "1200", "1800", "S", 11900],
+        ["receivable", "1400", "1200", "H", 11900],
+        ["vat.output.notdue.19", "1766", "3816", "S", 1900],
+        ["vat.output.19", "1776", "3806", "H", 1900],
+      ],
+    },
+  },
+  // ── 4.2.6 tax payments (TAX-018) ────────────────────────────────────────────────────────────────────
+  {
+    id: "X1-ustva-payment",
+    covers: "X1, TAX-018",
+    event: tax("ust_prepayment"),
+    expect: {
+      explanation: "X1",
+      lines: [
+        ["vat.prepayment", "1780", "3820", "S", 50000],
+        ["payable", "1600", "3300", "H", 50000],
+      ],
+    },
+  },
+  {
+    id: "X2-ustva-refund",
+    covers: "X2, TAX-018",
+    event: tax("ust_prepayment", "income"),
+    expect: {
+      explanation: "X2",
+      lines: [
+        ["receivable", "1400", "1200", "S", 50000],
+        ["vat.prepayment", "1780", "3820", "H", 50000],
+      ],
+    },
+  },
+  {
+    id: "X3-sondervorauszahlung",
+    covers: "X3, TAX-018",
+    event: tax("sondervorauszahlung"),
+    expect: {
+      explanation: "X3",
+      lines: [
+        ["vat.special_prepayment", "1781", "3830", "S", 50000],
+        ["payable", "1600", "3300", "H", 50000],
+      ],
+    },
+  },
+  {
+    id: "X4-ust-annual-prior-year",
+    covers: "X4, TAX-018",
+    event: tax("ust_annual"),
+    expect: {
+      explanation: "X4",
+      lines: [
+        ["vat.prior_year", "1790", "3841", "S", 50000],
+        ["payable", "1600", "3300", "H", 50000],
+      ],
+    },
+  },
+  {
+    id: "X5-gewerbesteuer",
+    covers: "X5, TAX-018",
+    event: tax("gewerbesteuer"),
+    expect: {
+      explanation: "X5",
+      lines: [
+        ["expense.trade_tax", "4320", "7610", "S", 50000],
+        ["payable", "1600", "3300", "H", 50000],
+      ],
+    },
+  },
+  {
+    id: "X6-est-private",
+    covers: "X6, TAX-018 (no EÜR effect)",
+    event: tax("est_private"),
+    expect: {
+      explanation: "X6",
+      lines: [
+        ["private.taxes", "1810", "2150", "S", 50000],
+        ["payable", "1600", "3300", "H", 50000],
+      ],
+    },
+  },
+  {
+    id: "X7-kst-corporation",
+    covers: "X7, TAX-018",
+    ctx: { legalForm: "gmbh" },
+    event: tax("kst"),
+    expect: {
+      explanation: "X7",
+      lines: [
+        ["expense.corp_tax", "2200", "7600", "S", 50000],
+        ["payable", "1600", "3300", "H", 50000],
       ],
     },
   },

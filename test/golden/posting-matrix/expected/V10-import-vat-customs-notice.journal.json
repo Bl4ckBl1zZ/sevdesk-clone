@@ -1,0 +1,71 @@
+{
+  "case": "V10-import-vat-customs-notice",
+  "covers": "V10, VOU-024 (EUSt line on the vat.import account, duty to expense)",
+  "ruleVersion": "posting-2026.1",
+  "SKR03": {
+    "date": "2026-03-10",
+    "text": "Beleg BE-2026-00001 Hauptzollamt",
+    "explanation": "V10",
+    "roleMappingVersion": "roles-2026.2",
+    "source": {
+      "kind": "voucher",
+      "id": "v1"
+    },
+    "lines": [
+      {
+        "role": "vat.import",
+        "debitCents": 19000,
+        "creditCents": 0,
+        "taxKey": "EUSt",
+        "taxPointDate": "2026-03-10",
+        "account": "1588"
+      },
+      {
+        "role": "expense.goods.19",
+        "debitCents": 2500,
+        "creditCents": 0,
+        "account": "3400"
+      },
+      {
+        "role": "payable",
+        "debitCents": 0,
+        "creditCents": 21500,
+        "contactId": "contact1",
+        "account": "1600"
+      }
+    ]
+  },
+  "SKR04": {
+    "date": "2026-03-10",
+    "text": "Beleg BE-2026-00001 Hauptzollamt",
+    "explanation": "V10",
+    "roleMappingVersion": "roles-2026.2",
+    "source": {
+      "kind": "voucher",
+      "id": "v1"
+    },
+    "lines": [
+      {
+        "role": "vat.import",
+        "debitCents": 19000,
+        "creditCents": 0,
+        "taxKey": "EUSt",
+        "taxPointDate": "2026-03-10",
+        "account": "1433"
+      },
+      {
+        "role": "expense.goods.19",
+        "debitCents": 2500,
+        "creditCents": 0,
+        "account": "5400"
+      },
+      {
+        "role": "payable",
+        "debitCents": 0,
+        "creditCents": 21500,
+        "contactId": "contact1",
+        "account": "3300"
+      }
+    ]
+  }
+}

@@ -1,0 +1,81 @@
+{
+  "case": "VE-pay-income-voucher-ist",
+  "covers": "VE-pay, VOU-010 (Ist: the VAT becomes due with the payment)",
+  "ruleVersion": "posting-2026.1",
+  "SKR03": {
+    "date": "2026-03-20",
+    "text": "Eingang BE-2026-00001 Büro Schmidt GmbH",
+    "explanation": "VE-pay",
+    "roleMappingVersion": "roles-2026.2",
+    "source": {
+      "kind": "payment",
+      "id": "vpay1"
+    },
+    "lines": [
+      {
+        "role": "bank.bank1",
+        "debitCents": 11900,
+        "creditCents": 0,
+        "account": "1200"
+      },
+      {
+        "role": "receivable",
+        "debitCents": 0,
+        "creditCents": 11900,
+        "contactId": "contact1",
+        "account": "1400"
+      },
+      {
+        "role": "vat.output.notdue.19",
+        "debitCents": 1900,
+        "creditCents": 0,
+        "account": "1766"
+      },
+      {
+        "role": "vat.output.19",
+        "debitCents": 0,
+        "creditCents": 1900,
+        "taxPointDate": "2026-03-20",
+        "account": "1776"
+      }
+    ]
+  },
+  "SKR04": {
+    "date": "2026-03-20",
+    "text": "Eingang BE-2026-00001 Büro Schmidt GmbH",
+    "explanation": "VE-pay",
+    "roleMappingVersion": "roles-2026.2",
+    "source": {
+      "kind": "payment",
+      "id": "vpay1"
+    },
+    "lines": [
+      {
+        "role": "bank.bank1",
+        "debitCents": 11900,
+        "creditCents": 0,
+        "account": "1800"
+      },
+      {
+        "role": "receivable",
+        "debitCents": 0,
+        "creditCents": 11900,
+        "contactId": "contact1",
+        "account": "1200"
+      },
+      {
+        "role": "vat.output.notdue.19",
+        "debitCents": 1900,
+        "creditCents": 0,
+        "account": "3816"
+      },
+      {
+        "role": "vat.output.19",
+        "debitCents": 0,
+        "creditCents": 1900,
+        "taxPointDate": "2026-03-20",
+        "account": "3806"
+      }
+    ]
+  }
+}

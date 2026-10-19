@@ -1,0 +1,55 @@
+{
+  "case": "X3-sondervorauszahlung",
+  "covers": "X3, TAX-018",
+  "ruleVersion": "posting-2026.1",
+  "SKR03": {
+    "date": "2026-03-10",
+    "text": "Beleg BE-2026-00001 Finanzamt",
+    "explanation": "X3",
+    "roleMappingVersion": "roles-2026.2",
+    "source": {
+      "kind": "voucher",
+      "id": "v1"
+    },
+    "lines": [
+      {
+        "role": "vat.special_prepayment",
+        "debitCents": 50000,
+        "creditCents": 0,
+        "account": "1781"
+      },
+      {
+        "role": "payable",
+        "debitCents": 0,
+        "creditCents": 50000,
+        "contactId": "fa1",
+        "account": "1600"
+      }
+    ]
+  },
+  "SKR04": {
+    "date": "2026-03-10",
+    "text": "Beleg BE-2026-00001 Finanzamt",
+    "explanation": "X3",
+    "roleMappingVersion": "roles-2026.2",
+    "source": {
+      "kind": "voucher",
+      "id": "v1"
+    },
+    "lines": [
+      {
+        "role": "vat.special_prepayment",
+        "debitCents": 50000,
+        "creditCents": 0,
+        "account": "3830"
+      },
+      {
+        "role": "payable",
+        "debitCents": 0,
+        "creditCents": 50000,
+        "contactId": "fa1",
+        "account": "3300"
+      }
+    ]
+  }
+}

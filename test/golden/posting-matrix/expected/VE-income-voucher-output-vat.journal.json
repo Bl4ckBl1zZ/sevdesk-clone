@@ -1,0 +1,71 @@
+{
+  "case": "VE-income-voucher-output-vat",
+  "covers": "VE, VOU-010 (income voucher, Soll)",
+  "ruleVersion": "posting-2026.1",
+  "SKR03": {
+    "date": "2026-03-10",
+    "text": "Beleg BE-2026-00001 Versicherung AG",
+    "explanation": "VE",
+    "roleMappingVersion": "roles-2026.2",
+    "source": {
+      "kind": "voucher",
+      "id": "v1"
+    },
+    "lines": [
+      {
+        "role": "revenue.domestic.19",
+        "debitCents": 0,
+        "creditCents": 10000,
+        "taxKey": "USt19",
+        "account": "8400"
+      },
+      {
+        "role": "vat.output.19",
+        "debitCents": 0,
+        "creditCents": 1900,
+        "taxPointDate": "2026-03-05",
+        "account": "1776"
+      },
+      {
+        "role": "receivable",
+        "debitCents": 11900,
+        "creditCents": 0,
+        "contactId": "contact1",
+        "account": "1400"
+      }
+    ]
+  },
+  "SKR04": {
+    "date": "2026-03-10",
+    "text": "Beleg BE-2026-00001 Versicherung AG",
+    "explanation": "VE",
+    "roleMappingVersion": "roles-2026.2",
+    "source": {
+      "kind": "voucher",
+      "id": "v1"
+    },
+    "lines": [
+      {
+        "role": "revenue.domestic.19",
+        "debitCents": 0,
+        "creditCents": 10000,
+        "taxKey": "USt19",
+        "account": "4400"
+      },
+      {
+        "role": "vat.output.19",
+        "debitCents": 0,
+        "creditCents": 1900,
+        "taxPointDate": "2026-03-05",
+        "account": "3806"
+      },
+      {
+        "role": "receivable",
+        "debitCents": 11900,
+        "creditCents": 0,
+        "contactId": "contact1",
+        "account": "1200"
+      }
+    ]
+  }
+}

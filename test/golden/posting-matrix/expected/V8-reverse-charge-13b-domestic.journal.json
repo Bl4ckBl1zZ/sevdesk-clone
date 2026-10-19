@@ -1,0 +1,85 @@
+{
+  "case": "V8-reverse-charge-13b-domestic",
+  "covers": "V8, VOU-022",
+  "ruleVersion": "posting-2026.1",
+  "SKR03": {
+    "date": "2026-03-10",
+    "text": "Beleg BE-2026-00001 Büro Schmidt GmbH",
+    "explanation": "V8",
+    "roleMappingVersion": "roles-2026.2",
+    "source": {
+      "kind": "voucher",
+      "id": "v1"
+    },
+    "lines": [
+      {
+        "role": "expense.13b_domestic.19",
+        "debitCents": 20000,
+        "creditCents": 0,
+        "taxKey": "13b-Inl19",
+        "account": "3120"
+      },
+      {
+        "role": "vat.output.13b.19",
+        "debitCents": 0,
+        "creditCents": 3800,
+        "taxPointDate": "2026-03-10",
+        "account": "1787"
+      },
+      {
+        "role": "vat.input.13b.19",
+        "debitCents": 3800,
+        "creditCents": 0,
+        "taxPointDate": "2026-03-10",
+        "account": "1577"
+      },
+      {
+        "role": "payable",
+        "debitCents": 0,
+        "creditCents": 20000,
+        "contactId": "contact1",
+        "account": "1600"
+      }
+    ]
+  },
+  "SKR04": {
+    "date": "2026-03-10",
+    "text": "Beleg BE-2026-00001 Büro Schmidt GmbH",
+    "explanation": "V8",
+    "roleMappingVersion": "roles-2026.2",
+    "source": {
+      "kind": "voucher",
+      "id": "v1"
+    },
+    "lines": [
+      {
+        "role": "expense.13b_domestic.19",
+        "debitCents": 20000,
+        "creditCents": 0,
+        "taxKey": "13b-Inl19",
+        "account": "5920"
+      },
+      {
+        "role": "vat.output.13b.19",
+        "debitCents": 0,
+        "creditCents": 3800,
+        "taxPointDate": "2026-03-10",
+        "account": "3837"
+      },
+      {
+        "role": "vat.input.13b.19",
+        "debitCents": 3800,
+        "creditCents": 0,
+        "taxPointDate": "2026-03-10",
+        "account": "1407"
+      },
+      {
+        "role": "payable",
+        "debitCents": 0,
+        "creditCents": 20000,
+        "contactId": "contact1",
+        "account": "3300"
+      }
+    ]
+  }
+}

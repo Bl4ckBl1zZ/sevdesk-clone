@@ -1,0 +1,55 @@
+{
+  "case": "V2-voucher-paid-bank",
+  "covers": "V2, VOU-131",
+  "ruleVersion": "posting-2026.1",
+  "SKR03": {
+    "date": "2026-03-20",
+    "text": "Zahlung BE-2026-00001 Büro Schmidt GmbH",
+    "explanation": "V2",
+    "roleMappingVersion": "roles-2026.2",
+    "source": {
+      "kind": "payment",
+      "id": "vpay1"
+    },
+    "lines": [
+      {
+        "role": "payable",
+        "debitCents": 11900,
+        "creditCents": 0,
+        "contactId": "contact1",
+        "account": "1600"
+      },
+      {
+        "role": "bank.bank1",
+        "debitCents": 0,
+        "creditCents": 11900,
+        "account": "1200"
+      }
+    ]
+  },
+  "SKR04": {
+    "date": "2026-03-20",
+    "text": "Zahlung BE-2026-00001 Büro Schmidt GmbH",
+    "explanation": "V2",
+    "roleMappingVersion": "roles-2026.2",
+    "source": {
+      "kind": "payment",
+      "id": "vpay1"
+    },
+    "lines": [
+      {
+        "role": "payable",
+        "debitCents": 11900,
+        "creditCents": 0,
+        "contactId": "contact1",
+        "account": "3300"
+      },
+      {
+        "role": "bank.bank1",
+        "debitCents": 0,
+        "creditCents": 11900,
+        "account": "1800"
+      }
+    ]
+  }
+}

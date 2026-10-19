@@ -119,6 +119,9 @@ describe("TST-ACC-02 posting matrix golden cases (posting-2026.1 × SKR03/SKR04 
         "opening_balance",
         "payment_received",
         "payment_reversed",
+        "voucher_booked",
+        "voucher_paid",
+        "voucher_reversed",
         "writeoff_recovered",
       ].sort(),
     );

@@ -1,0 +1,71 @@
+{
+  "case": "V13-asset-gwg",
+  "covers": "V13, VOU-065, AO-03 (GWG chosen → asset.gwg)",
+  "ruleVersion": "posting-2026.1",
+  "SKR03": {
+    "date": "2026-03-10",
+    "text": "Beleg BE-2026-00001 Büro Schmidt GmbH",
+    "explanation": "V13",
+    "roleMappingVersion": "roles-2026.2",
+    "source": {
+      "kind": "voucher",
+      "id": "v1"
+    },
+    "lines": [
+      {
+        "role": "asset.gwg",
+        "debitCents": 60000,
+        "creditCents": 0,
+        "taxKey": "VSt19",
+        "account": "0480"
+      },
+      {
+        "role": "vat.input.19",
+        "debitCents": 11400,
+        "creditCents": 0,
+        "taxPointDate": "2026-03-10",
+        "account": "1576"
+      },
+      {
+        "role": "payable",
+        "debitCents": 0,
+        "creditCents": 71400,
+        "contactId": "contact1",
+        "account": "1600"
+      }
+    ]
+  },
+  "SKR04": {
+    "date": "2026-03-10",
+    "text": "Beleg BE-2026-00001 Büro Schmidt GmbH",
+    "explanation": "V13",
+    "roleMappingVersion": "roles-2026.2",
+    "source": {
+      "kind": "voucher",
+      "id": "v1"
+    },
+    "lines": [
+      {
+        "role": "asset.gwg",
+        "debitCents": 60000,
+        "creditCents": 0,
+        "taxKey": "VSt19",
+        "account": "0670"
+      },
+      {
+        "role": "vat.input.19",
+        "debitCents": 11400,
+        "creditCents": 0,
+        "taxPointDate": "2026-03-10",
+        "account": "1406"
+      },
+      {
+        "role": "payable",
+        "debitCents": 0,
+        "creditCents": 71400,
+        "contactId": "contact1",
+        "account": "3300"
+      }
+    ]
+  }
+}

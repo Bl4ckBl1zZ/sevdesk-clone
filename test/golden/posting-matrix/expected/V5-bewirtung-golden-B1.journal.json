@@ -1,0 +1,151 @@
+{
+  "case": "V5-bewirtung-golden-B1",
+  "covers": "V5, MISC-05, VOU-061, T06-100 (golden B1: 112,00 / 48,00 / VSt 16,50)",
+  "ruleVersion": "posting-2026.1",
+  "SKR03": {
+    "date": "2026-03-10",
+    "text": "Beleg BE-2026-00001 Büro Schmidt GmbH",
+    "explanation": "V5",
+    "roleMappingVersion": "roles-2026.2",
+    "source": {
+      "kind": "voucher",
+      "id": "v1"
+    },
+    "lines": [
+      {
+        "role": "expense.entertainment",
+        "debitCents": 7000,
+        "creditCents": 0,
+        "taxKey": "VSt7",
+        "account": "4650"
+      },
+      {
+        "role": "expense.entertainment.nd",
+        "debitCents": 3000,
+        "creditCents": 0,
+        "taxKey": "VSt7",
+        "account": "4654"
+      },
+      {
+        "role": "vat.input.7",
+        "debitCents": 700,
+        "creditCents": 0,
+        "taxPointDate": "2026-03-10",
+        "account": "1571"
+      },
+      {
+        "role": "expense.entertainment",
+        "debitCents": 3500,
+        "creditCents": 0,
+        "taxKey": "VSt19",
+        "account": "4650"
+      },
+      {
+        "role": "expense.entertainment.nd",
+        "debitCents": 1500,
+        "creditCents": 0,
+        "taxKey": "VSt19",
+        "account": "4654"
+      },
+      {
+        "role": "vat.input.19",
+        "debitCents": 950,
+        "creditCents": 0,
+        "taxPointDate": "2026-03-10",
+        "account": "1576"
+      },
+      {
+        "role": "expense.entertainment",
+        "debitCents": 700,
+        "creditCents": 0,
+        "account": "4650"
+      },
+      {
+        "role": "expense.entertainment.nd",
+        "debitCents": 300,
+        "creditCents": 0,
+        "account": "4654"
+      },
+      {
+        "role": "payable",
+        "debitCents": 0,
+        "creditCents": 17650,
+        "contactId": "contact1",
+        "account": "1600"
+      }
+    ]
+  },
+  "SKR04": {
+    "date": "2026-03-10",
+    "text": "Beleg BE-2026-00001 Büro Schmidt GmbH",
+    "explanation": "V5",
+    "roleMappingVersion": "roles-2026.2",
+    "source": {
+      "kind": "voucher",
+      "id": "v1"
+    },
+    "lines": [
+      {
+        "role": "expense.entertainment",
+        "debitCents": 7000,
+        "creditCents": 0,
+        "taxKey": "VSt7",
+        "account": "6640"
+      },
+      {
+        "role": "expense.entertainment.nd",
+        "debitCents": 3000,
+        "creditCents": 0,
+        "taxKey": "VSt7",
+        "account": "6644"
+      },
+      {
+        "role": "vat.input.7",
+        "debitCents": 700,
+        "creditCents": 0,
+        "taxPointDate": "2026-03-10",
+        "account": "1401"
+      },
+      {
+        "role": "expense.entertainment",
+        "debitCents": 3500,
+        "creditCents": 0,
+        "taxKey": "VSt19",
+        "account": "6640"
+      },
+      {
+        "role": "expense.entertainment.nd",
+        "debitCents": 1500,
+        "creditCents": 0,
+        "taxKey": "VSt19",
+        "account": "6644"
+      },
+      {
+        "role": "vat.input.19",
+        "debitCents": 950,
+        "creditCents": 0,
+        "taxPointDate": "2026-03-10",
+        "account": "1406"
+      },
+      {
+        "role": "expense.entertainment",
+        "debitCents": 700,
+        "creditCents": 0,
+        "account": "6640"
+      },
+      {
+        "role": "expense.entertainment.nd",
+        "debitCents": 300,
+        "creditCents": 0,
+        "account": "6644"
+      },
+      {
+        "role": "payable",
+        "debitCents": 0,
+        "creditCents": 17650,
+        "contactId": "contact1",
+        "account": "3300"
+      }
+    ]
+  }
+}

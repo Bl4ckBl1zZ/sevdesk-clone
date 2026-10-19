@@ -10,7 +10,13 @@ import { EXEMPTION_REASONS } from "./exemption-reasons";
 import { NOTE_TEXTS } from "./note-texts";
 import { RC13B_TYPES } from "./rc13b-types";
 import type { RuleTable } from "./rule-table";
-import { KLEINBETRAG_LIMIT, KLEINUNTERNEHMER_LIMITS, PAYMENT_TERM_LIMITS, VERZUG_SURCHARGES } from "./thresholds";
+import {
+  ASSET_THRESHOLDS,
+  KLEINBETRAG_LIMIT,
+  KLEINUNTERNEHMER_LIMITS,
+  PAYMENT_TERM_LIMITS,
+  VERZUG_SURCHARGES,
+} from "./thresholds";
 import { VAT_RATE_KEYS } from "./vat-rates";
 
 export const ALL_RULE_TABLES: readonly RuleTable<unknown>[] = [
@@ -20,6 +26,7 @@ export const ALL_RULE_TABLES: readonly RuleTable<unknown>[] = [
   PAYMENT_TERM_LIMITS,
   KLEINUNTERNEHMER_LIMITS,
   KLEINBETRAG_LIMIT,
+  ASSET_THRESHOLDS,
   EINVOICE_OBLIGATION,
   ...Object.values(NOTE_TEXTS),
   EU_VAT_TERRITORY,
