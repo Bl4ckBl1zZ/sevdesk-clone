@@ -16,6 +16,7 @@ import type * as auth from "../auth.js";
 import type * as authMail from "../authMail.js";
 import type * as bankValidators from "../bankValidators.js";
 import type * as banking from "../banking.js";
+import type * as bulk from "../bulk.js";
 import type * as cash from "../cash.js";
 import type * as confirmTokens from "../confirmTokens.js";
 import type * as contacts from "../contacts.js";
@@ -140,6 +141,7 @@ declare const fullApi: ApiFromModules<{
   authMail: typeof authMail;
   bankValidators: typeof bankValidators;
   banking: typeof banking;
+  bulk: typeof bulk;
   cash: typeof cash;
   confirmTokens: typeof confirmTokens;
   contacts: typeof contacts;

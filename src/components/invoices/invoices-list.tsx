@@ -5,7 +5,7 @@ import { PlusIcon, ReceiptIcon } from "lucide-react";
 import type { Route } from "next";
 import Link from "next/link";
 import { useTranslations } from "next-intl";
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import { formatDate, useAuthedPaginatedQuery, useCan, useUrlState } from "@/components/catalog/shared";
 import { ConvexGuard } from "@/components/convex/convex-provider";
 import { ExportMenu } from "@/components/exports/export-menu";
@@ -18,6 +18,7 @@ import type { DisplayStatus } from "@/domain/documents/display-status";
 import { type DraftType, documentPath, documentRoute } from "@/domain/documents/doc-types";
 import { useAuthedQuery } from "@/hooks/use-authed-query";
 import { cn } from "@/lib/utils";
+import { BulkActions } from "./bulk-actions";
 import { useDocTypeLabel } from "./corrections";
 import { InvoiceStatusBadge, money } from "./invoice-shared";
 
@@ -47,6 +48,15 @@ const percent = (bp: number | null) => (bp === null ? "—" : `${Math.floor(bp /
 function InvoicesListInner({ listType }: { listType: ListType }) {
   const tAll = useTranslations("invoices.list");
   const tType = useTranslations(`invoices.list.byType.${listType}`);
+  const tBulk = useTranslations("invoices.bulk");
+  const [selected, setSelected] = useState<Set<string>>(new Set());
+  const toggle = (id: string) =>
+    setSelected((cur) => {
+      const next = new Set(cur);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
   const typeLabel = useDocTypeLabel();
   const url = useUrlState();
   const tabs = TABS[listType];
@@ -140,6 +150,15 @@ function InvoicesListInner({ listType }: { listType: ListType }) {
         <Table>
           <TableHeader>
             <TableRow>
+              <TableHead className="w-10">
+                <input
+                  type="checkbox"
+                  className="size-4"
+                  aria-label={tBulk("selectAll")}
+                  checked={results.length > 0 && results.every((r) => selected.has(r._id))}
+                  onChange={(e) => setSelected(e.target.checked ? new Set(results.map((r) => r._id)) : new Set())}
+                />
+              </TableHead>
               <TableHead>{tAll("columns.status")}</TableHead>
               <TableHead>{tAll("columns.number")}</TableHead>
               <TableHead>{tAll("columns.customer")}</TableHead>
@@ -158,6 +177,15 @@ function InvoicesListInner({ listType }: { listType: ListType }) {
           <TableBody>
             {results.map((r) => (
               <TableRow key={r._id}>
+                <TableCell>
+                  <input
+                    type="checkbox"
+                    className="size-4"
+                    aria-label={tBulk("select", { label: label(r) })}
+                    checked={selected.has(r._id)}
+                    onChange={() => toggle(r._id)}
+                  />
+                </TableCell>
                 <TableCell>
                   <InvoiceStatusBadge token={r.displayStatus.token as DisplayStatus} label={r.displayStatus.label} />
                 </TableCell>
@@ -183,9 +211,16 @@ function InvoicesListInner({ listType }: { listType: ListType }) {
         </Table>
       }
       cards={results.map((r) => (
-        <article key={r._id} className="flex items-start justify-between gap-3 rounded-lg border p-3">
+        <article key={r._id} className="flex items-start gap-3 rounded-lg border p-3">
+          <input
+            type="checkbox"
+            className="mt-1 size-5"
+            aria-label={tBulk("select", { label: label(r) })}
+            checked={selected.has(r._id)}
+            onChange={() => toggle(r._id)}
+          />
           {/* items-start: the status badge keeps its own width instead of stretching across the card. */}
-          <div className="flex min-w-0 flex-col items-start gap-1">
+          <div className="flex min-w-0 flex-1 flex-col items-start gap-1">
             <Link href={href(r)} className="font-medium hover:underline">
               {label(r)}
             </Link>
@@ -199,6 +234,7 @@ function InvoicesListInner({ listType }: { listType: ListType }) {
         </article>
       ))}
     >
+      <BulkActions selected={[...selected]} onDone={() => setSelected(new Set())} />
       {status === "CanLoadMore" && (
         <Button variant="outline" className="h-11 self-center md:h-9" onClick={() => loadMore(50)}>
           {tAll("loadMore")}

@@ -60,3 +60,23 @@ test("AUD-006 AUD-008 the audit viewer filters by preset and offers the CSV/JSON
   expect((await download).suggestedFilename()).toMatch(/^audit-log-\d{4}-\d{2}-\d{2}\.json$/);
   await expectNoAxeViolations();
 });
+
+test("EXP-021 SND-20 SND-09 the invoice list offers Export ▾ and the bulk bar; /export lists the jobs", async ({
+  page,
+  expectNoAxeViolations,
+}) => {
+  await page.goto("/rechnungen");
+  await expect(h1(page, "Rechnungen")).toBeVisible();
+  await page.getByRole("button", { name: "Export als CSV" }).click();
+  await expect(page.getByRole("menuitem", { name: "CSV (Excel)" })).toBeVisible();
+  await expect(page.getByRole("menuitem", { name: "CSV (technisch)" })).toBeVisible();
+  await page.keyboard.press("Escape");
+  const boxes = page.getByRole("checkbox", { name: /auswählen$/ });
+  if ((await boxes.count()) > 1) {
+    await boxes.nth(1).check();
+    await expect(page.getByTestId("bulk-bar")).toContainText("1 ausgewählt");
+  }
+  await page.goto("/export");
+  await expect(h1(page, "Export")).toBeVisible();
+  await expectNoAxeViolations();
+});

@@ -5,11 +5,13 @@ import {
   checkOriginalReexport,
   defaultMarkSelection,
   effectiveMark,
+  exportEntriesFor,
   exportedNotMarkedDue,
   exportFileName,
   exportFiles,
   type MarkSentContext,
   type MarkSentInput,
+  POSTAL_HINT,
   type SendChannel,
   type SendLogRow,
   sentStateOf,
@@ -253,5 +255,14 @@ describe("to-do „Exportiert, aber nicht als versendet markiert“ (SND-21)", (
     expect(exportedNotMarkedDue({ ...base, hasEffectiveMark: true, today: TODAY })).toBe(false);
     expect(exportedNotMarkedDue({ ...base, status: "cancelled", today: TODAY })).toBe(false);
     expect(exportedNotMarkedDue({ ...base, firstExportedOn: undefined, today: TODAY })).toBe(false);
+  });
+});
+
+describe("postal sending (SND-09)", () => {
+  test("SND-09 no letter-service channel: the export menu only offers the print hint for the channel Post", () => {
+    expect(POSTAL_HINT).toBe("Per Post: bitte ausdrucken und anschließend als versendet markieren (Kanal Post)");
+    for (const format of ["none", "zugferd_en16931", "xrechnung_cii"] as const) {
+      expect(exportEntriesFor(format).some((e) => /post|brief/i.test(e))).toBe(false);
+    }
   });
 });

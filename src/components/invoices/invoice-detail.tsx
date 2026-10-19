@@ -38,6 +38,7 @@ import { Textarea } from "@/components/ui/textarea";
 import {
   EXPORT_ENTRY_LABELS,
   type ExportEntry,
+  POSTAL_HINT,
   SEND_CHANNEL_LABELS,
   SEND_CHANNELS,
   type SendChannel,
@@ -255,6 +256,10 @@ function FinalActions({ data }: { data: Detail }) {
               </DropdownMenuItem>
             </>
           )}
+          <DropdownMenuSeparator />
+          <p className="px-2 py-1.5 text-muted-foreground text-xs" data-testid="postal-hint">
+            {POSTAL_HINT}
+          </p>
         </DropdownMenuContent>
       </DropdownMenu>
       {canSend && (

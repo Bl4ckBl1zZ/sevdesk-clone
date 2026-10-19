@@ -2752,6 +2752,24 @@
       "electronic": "Elektronisch übermittelt",
       "note": "Hinweis",
       "files": "Übergebene Dateien"
+    },
+    "bulk": {
+      "label": "Sammelaktionen",
+      "selectAll": "Alle auswählen",
+      "select": "{label} auswählen",
+      "selected": "{count} ausgewählt",
+      "tooMany": "Höchstens {max} Dokumente pro Auftrag.",
+      "export": "Sammel-Export",
+      "mark": "Sammel-Markierung",
+      "started": "Der Auftrag läuft im Hintergrund.",
+      "toJobs": "Zu den Exporten",
+      "markTitle": "{count} Dokumente als versendet markieren",
+      "markHint": "Jedes Dokument wird einzeln mit den Dateien seines Standard-Exports geprüft. Nicht markierbare Dokumente werden übersprungen und im Auftrag aufgelistet.",
+      "sentOn": "Versendet am",
+      "channel": "Kanal",
+      "note": "Notiz (optional)",
+      "cancel": "Abbrechen",
+      "markConfirm": "Markieren"
     }
   },
   "documents": {

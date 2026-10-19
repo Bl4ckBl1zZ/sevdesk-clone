@@ -47,6 +47,9 @@ export interface ExportFileSpec {
   readonly variant: ArtifactVariant;
 }
 
+/** SND-09: postal sending via a letter service is out of scope in v1; the export menu only shows this hint. */
+export const POSTAL_HINT = "Per Post: bitte ausdrucken und anschließend als versendet markieren (Kanal Post)";
+
 /** Export menu entries offered for a format (non-invoice types and `none`: PDF only). */
 export function exportEntriesFor(format: EinvoiceFormat): ExportEntry[] {
   if (format === "zugferd_en16931" || format === "zugferd_xrechnung") return ["zugferd_pdf", "xml", "zip"];

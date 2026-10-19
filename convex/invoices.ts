@@ -764,6 +764,7 @@ export const exportInput = systemQuery({
     const doc = await getDocument(ctx, id);
     return {
       status: doc.status,
+      type: doc.type,
       number: doc.number ?? null,
       format: doc.einvoice.format ?? "none",
       artifactStatus: doc.artifactStatus ?? null,
