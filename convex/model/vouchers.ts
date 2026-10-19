@@ -35,6 +35,7 @@ import type {
 import { auditedDelete, auditedInsert, auditedPatch } from "./audit";
 import type { FileRefValue } from "./bankImport";
 import { getCompanyProfile } from "./companyProfile";
+import { markInboxConverted, releaseInboxDraft } from "./inboxLinks";
 import { postJournalEntry, roleOverrides } from "./journal";
 import { assignCounterNumber } from "./numberRanges";
 import { closedPeriods } from "./payments";
@@ -287,6 +288,8 @@ export async function createVoucher(
     files?: OriginalFileValue[];
     recurringVoucherId?: Id<"recurringVouchers">;
     receivedAt?: number;
+    /** Inbox drafts (F06 INB-028/029/043): link, E-Rechnung verdict, OCR output, payee, input-VAT risks. */
+    extra?: Pick<Partial<VoucherDoc>, "inboxItemId" | "einvoice" | "ocr" | "payee" | "inputVatAtRisk">;
   },
 ): Promise<Id<"vouchers">> {
   const profile = await getCompanyProfile(ctx);
@@ -318,6 +321,7 @@ export async function createVoucher(
       tags: [],
       journalEntryIds: [],
       ...(args.recurringVoucherId ? { recurringVoucherId: args.recurringVoucherId } : {}),
+      ...(args.extra ?? {}),
       ...(args.input.bewirtung ? { bewirtung: { ...args.input.bewirtung, versions: [] } } : {}),
       ...(args.input.eigenbeleg ? { eigenbeleg: args.input.eigenbeleg } : {}),
       recordedAt: ctx.now(),
@@ -389,6 +393,8 @@ export async function deleteVoucherDraft(ctx: ModelCtx, id: Id<"vouchers">): Pro
     await auditedDelete(ctx, "voucherFileHashes", h._id, { action: "voucher.delete_draft" });
   }
   await auditedDelete(ctx, "vouchers", id, { action: "voucher.delete_draft", label: label(v) });
+  // VOU-007 / EC-VOU-36: the original files stay on the inbox item, which goes back to „Zu prüfen“.
+  if (v.inboxItemId) await releaseInboxDraft(ctx, v.inboxItemId, id);
 }
 
 // ── files (VOU-120…122, GOBD-08) ────────────────────────────────────────────────────────────────────────
@@ -691,6 +697,37 @@ export function bookedEvent(
   };
 }
 
+/**
+ * F06 inbox findings that travel with the draft (EC-INB-08 addressee, EC-INB-10/11 E-Rechnung, EC-INB-31 sender not
+ * verified, …): ⚑ items must be acknowledged at booking like the voucher's own warnings; E-Rechnung findings mark the
+ * input VAT at risk (F06 Q-02: booking is never blocked).
+ */
+async function inboxWarningsFor(ctx: ReadCtx, v: VoucherDoc) {
+  if (!v.inboxItemId) return [];
+  const item = await ctx.db.get(v.inboxItemId);
+  return (item?.warnings ?? []).map((w) => ({ code: w.code, message: w.message, acknowledge: w.acknowledge === true }));
+}
+
+const INPUT_VAT_RISK_CODES = new Set([
+  "einvoice_wrong_addressee",
+  "einvoice_required_from_supplier",
+  "einvoice_faulty",
+]);
+
+function withInboxWarnings(
+  check: ReturnType<typeof validateVoucher>,
+  extra: readonly { code: string; message: string; acknowledge: boolean }[],
+): ReturnType<typeof validateVoucher> {
+  if (extra.length === 0) return check;
+  const known = new Set(check.warnings.map((w) => w.code));
+  const risks = extra.filter((w) => INPUT_VAT_RISK_CODES.has(w.code)).map((w) => w.code);
+  return {
+    ...check,
+    warnings: [...check.warnings, ...extra.filter((w) => !known.has(w.code))],
+    inputVatAtRisk: [...check.inputVatAtRisk, ...risks.filter((r) => !check.inputVatAtRisk.includes(r))],
+  };
+}
+
 export interface VoucherPreview {
   check: VoucherCheck;
   payment: PaymentPlanResult;
@@ -706,7 +743,7 @@ export async function previewVoucher(
 ): Promise<VoucherPreview> {
   const v = await requireVoucher(ctx, args.id);
   const c = await voucherContext(ctx, v, now, args.input ? { input: args.input } : undefined);
-  const check = validateVoucher(c.draft, c.vctx);
+  const check = withInboxWarnings(validateVoucher(c.draft, c.vctx), await inboxWarningsFor(ctx, v));
   const payable = check.totalsEur.grossCents;
   const merged = args.input ? ({ ...v, ...headerPatch(args.input) } as VoucherDoc) : v;
   const payment = paymentPlan(merged, args.payment, payable, c);
@@ -879,6 +916,7 @@ export async function finalizeVoucher(ctx: ModelCtx, args: FinalizeArgs): Promis
     });
     paymentId = r.paymentId;
   }
+  if (v.inboxItemId) await markInboxConverted(ctx, v.inboxItemId, v._id);
   const after = await requireVoucher(ctx, v._id);
   return {
     id: v._id,

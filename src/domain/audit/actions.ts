@@ -48,6 +48,24 @@ const GROUPS: Record<string, readonly string[] | "*"> = {
   // F06 P2: drafts, booking, corrections, files, approvals, duplicates, payment choice, supplier profiles,
   // recurring templates and receipt waivers (voucher.create, voucher.finalize, voucher.correct, …)
   voucher: "*",
+  // F06 P2 receipt inbox: capture, e-mail-in parse/poll, classification steps, rejection, duplicate override, OCR calls
+  inbox: [
+    "capture",
+    "file_index",
+    "classify_start",
+    "mail_parsed",
+    "files_extracted",
+    "classify_retry",
+    "ocr_pending",
+    "ocr_call",
+    "classified",
+    "redraft",
+    "reject",
+    "duplicate_override",
+    "convert",
+    "draft_deleted",
+    "poll",
+  ],
   bank: [
     "connect",
     "consent_renew",
