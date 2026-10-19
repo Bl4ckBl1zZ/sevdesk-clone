@@ -913,7 +913,7 @@ matchingRules: { name: string; priority: number; enabled: boolean; mode: "sugges
           purposeContains?: string; purposeRegex?: string /* RE2-safe, ≤ 200 chars */;
           counterpartyContains?: string; ibanEquals?: string; merchantContains?: string; mccIn?: string[];
           amountMinCents?: number; amountMaxCents?: number };
-  then: { action: "categorize" | "private" | "transfer" | "link_contact" | "ignore" | "loan";
+  apply: { action: "categorize" | "private" | "transfer" | "link_contact" | "ignore" | "loan";   // stored as `apply` (2026-10-19): an object with a `then` member is a JavaScript thenable
           account?: string; taxRule?: string; contactId?: Id<"contacts">;
           transferTarget?: { kind: "bank"; accountId: Id<"bankAccounts"> } | { kind: "cash" };
           loanAccount?: string; interestAccount?: string;

@@ -64,6 +64,11 @@ const EXPECTED: Record<Permission, readonly MemberRole[]> = {
   "dunning.run": ["owner", "bookkeeper"],
   "dunning.manage": ["owner"],
   "banking.match": ["owner", "bookkeeper"],
+  "bankFeed.setup": ["owner"],
+  "bankFeed.consent": ["owner"],
+  "bankFeed.fetch": ["owner", "bookkeeper"],
+  "bankRules.write": ["owner", "bookkeeper"],
+  "bankRules.apply": ["owner", "bookkeeper"],
   // 04 §4.7 DASH-011: every member role reads the Übersicht; widgets are gated by their own read permission.
   "dashboard.read": ["owner", "bookkeeper", "viewer", "auditor"],
   // F06 P2 vouchers: auditors read purchase vouchers (Z1), writes are bookkeeping work (02 §4.3).

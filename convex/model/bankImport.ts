@@ -104,7 +104,12 @@ export function existingRow(t: Doc<"bankTransactions">): ExistingBankRow {
   };
 }
 
-async function existingFor(ctx: ReadCtx, accountId: Id<"bankAccounts">, candidates: Candidate[], keys: string[]) {
+export async function existingFor(
+  ctx: ReadCtx,
+  accountId: Id<"bankAccounts">,
+  candidates: Candidate[],
+  keys: string[],
+) {
   const rows = new Map<string, Doc<"bankTransactions">>();
   const dates = candidates.map((c) => c.bookingDate).sort();
   if (dates.length > 0) {
@@ -467,77 +472,14 @@ export async function commitStatementImport(
     { action: "bank.import", label: args.file.name },
   );
 
-  const fileRowIds: string[] = [];
   const missing: { line: number; amountCents: number; detail: string }[] = st.issues.map((i) => ({
     line: i.line,
     amountCents: 0,
     detail: i.message,
   }));
-  for (const [i, it] of p.plan.items.entries()) {
-    const c = it.tx;
-    switch (it.kind) {
-      case "new": {
-        fileRowIds.push(await insertCandidate(ctx, p.account, c, it.dedupeKey, importId, kind));
-        break;
-      }
-      case "duplicate":
-        fileRowIds.push(it.existingId);
-        break;
-      case "merge": {
-        const tx = (await ctx.db.get(it.existingId as Id<"bankTransactions">)) as Doc<"bankTransactions">;
-        const ref = {
-          kind,
-          importId,
-          ...(c.entryReference ? { entryReference: c.entryReference } : {}),
-          ...(c.providerTransactionId ? { providerTransactionId: c.providerTransactionId } : {}),
-          rawSha256: c.rawSha256,
-          at: now,
-        };
-        await auditedPatch(
-          ctx,
-          "bankTransactions",
-          tx._id,
-          {
-            sources: [...tx.sources, ref],
-            ...it.enrich,
-            ...((it.enrich.counterpartyName || it.enrich.counterpartyIban) && !tx.counterpartySource
-              ? { counterpartySource: "statement" as const }
-              : {}),
-          },
-          { action: "bank.import", label: `${tx.bookingDate} ${tx.amountCents}` },
-        );
-        await addRevision(ctx, tx._id, c, kind, importId, true);
-        fileRowIds.push(tx._id);
-        break;
-      }
-      case "conflict":
-        await addRevision(ctx, it.existingId as Id<"bankTransactions">, c, kind, importId, false, it.fields);
-        fileRowIds.push(it.existingId);
-        break;
-      case "possible_duplicate": {
-        await auditedInsert(
-          ctx,
-          "possibleDuplicates",
-          {
-            accountId: p.account._id,
-            candidate: { ...c, dedupeKey: p.keys[i], kind },
-            existingIds: it.existingIds as Id<"bankTransactions">[],
-            importId,
-            reason: it.reason,
-            status: "open",
-            createdAt: now,
-          },
-          { action: "bank.import", label: `Mögliche Dublette ${c.bookingDate}` },
-        );
-        missing.push({
-          line: c.line,
-          amountCents: c.amountCents,
-          detail: `${formatGermanDate(c.bookingDate as CalendarDate)} ${c.counterpartyName ?? c.purpose} (mögliche Dublette)`,
-        });
-        break;
-      }
-    }
-  }
+  const applied = await applyPlan(ctx, { account: p.account, plan: p.plan, keys: p.keys, kind, importId, now });
+  const fileRowIds: string[] = applied.rowIds;
+  missing.push(...applied.missing);
 
   // The official statement (BNK-030): archived even if every row was a duplicate. A forced re-import of the same
   // file (BNK-034) adds no second archive entry — the first one already holds this file.
@@ -607,6 +549,104 @@ export async function commitStatementImport(
     { action: "bank.import", label: args.file.name },
   );
   return { importId, statementId, counts: p.preview.counts, reconciliation, continuity: p.preview.continuity };
+}
+
+/**
+ * Applies a dedupe plan (BNK-109/110/113): inserts new rows with their raw revision, appends further sources, stores
+ * differing re-deliveries as `applied: false` revisions and puts ambiguous rows into „Mögliche Dubletten“. Shared by
+ * the statement import and the Enable Banking feed (one implementation, CLAUDE.md rule 5).
+ */
+export async function applyPlan(
+  ctx: ModelCtx,
+  args: {
+    account: Doc<"bankAccounts">;
+    plan: ImportPlan;
+    keys: string[];
+    kind: Doc<"bankTransactions">["source"]["kind"];
+    importId: Id<"bankImports"> | undefined;
+    now: number;
+  },
+): Promise<{
+  rowIds: string[];
+  insertedIds: Id<"bankTransactions">[];
+  possibleDuplicates: number;
+  missing: { line: number; amountCents: number; detail: string }[];
+}> {
+  const { kind, importId, now } = args;
+  const p = { account: args.account, plan: args.plan, keys: args.keys };
+  const fileRowIds: string[] = [];
+  const insertedIds: Id<"bankTransactions">[] = [];
+  const missing: { line: number; amountCents: number; detail: string }[] = [];
+  let possible = 0;
+  for (const [i, it] of p.plan.items.entries()) {
+    const c = it.tx;
+    switch (it.kind) {
+      case "new": {
+        const id = await insertCandidate(ctx, p.account, c, it.dedupeKey, importId, kind);
+        insertedIds.push(id);
+        fileRowIds.push(id);
+        break;
+      }
+      case "duplicate":
+        fileRowIds.push(it.existingId);
+        break;
+      case "merge": {
+        const tx = (await ctx.db.get(it.existingId as Id<"bankTransactions">)) as Doc<"bankTransactions">;
+        const ref = {
+          kind,
+          importId,
+          ...(c.entryReference ? { entryReference: c.entryReference } : {}),
+          ...(c.providerTransactionId ? { providerTransactionId: c.providerTransactionId } : {}),
+          rawSha256: c.rawSha256,
+          at: now,
+        };
+        await auditedPatch(
+          ctx,
+          "bankTransactions",
+          tx._id,
+          {
+            sources: [...tx.sources, ref],
+            ...it.enrich,
+            ...((it.enrich.counterpartyName || it.enrich.counterpartyIban) && !tx.counterpartySource
+              ? { counterpartySource: "statement" as const }
+              : {}),
+          },
+          { action: "bank.import", label: `${tx.bookingDate} ${tx.amountCents}` },
+        );
+        await addRevision(ctx, tx._id, c, kind, importId, true);
+        fileRowIds.push(tx._id);
+        break;
+      }
+      case "conflict":
+        await addRevision(ctx, it.existingId as Id<"bankTransactions">, c, kind, importId, false, it.fields);
+        fileRowIds.push(it.existingId);
+        break;
+      case "possible_duplicate": {
+        await auditedInsert(
+          ctx,
+          "possibleDuplicates",
+          {
+            accountId: p.account._id,
+            candidate: { ...c, dedupeKey: p.keys[i], kind },
+            existingIds: it.existingIds as Id<"bankTransactions">[],
+            importId,
+            reason: it.reason,
+            status: "open",
+            createdAt: now,
+          },
+          { action: "bank.import", label: `Mögliche Dublette ${c.bookingDate}` },
+        );
+        possible++;
+        missing.push({
+          line: c.line,
+          amountCents: c.amountCents,
+          detail: `${formatGermanDate(c.bookingDate as CalendarDate)} ${c.counterpartyName ?? c.purpose} (mögliche Dublette)`,
+        });
+        break;
+      }
+    }
+  }
+  return { rowIds: fileRowIds, insertedIds, possibleDuplicates: possible, missing };
 }
 
 export { bankTxId };

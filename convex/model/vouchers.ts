@@ -580,6 +580,8 @@ export async function voucherContext(
     ...(merged.recurringVoucherId
       ? { recurringReference: await hasReferenceFile(ctx, merged.recurringVoucherId) }
       : {}),
+    // F07 BNK-052: a rule „Kontoauszug genügt als Beleg“ — the bank statement of the linked transaction is the Beleg.
+    ...(merged.statementIsBeleg && merged.bankTransactionId ? { statementIsBeleg: true } : {}),
   };
   const vctx: ValidationContext = {
     today,
@@ -917,15 +919,53 @@ export async function finalizeVoucher(ctx: ModelCtx, args: FinalizeArgs): Promis
     paymentId = r.paymentId;
   }
   if (v.inboxItemId) await markInboxConverted(ctx, v.inboxItemId, v._id);
+  const infos = check.infos.map((i) => ({ code: i.code, message: i.message }));
+  // F07 BNK-065/052: a voucher created from a bank transaction is allocated to it on finalisation.
+  if (!paymentId && v.bankTransactionId) {
+    const allocated = await allocateFromTransaction(ctx, v._id, v.bankTransactionId);
+    if (allocated.paymentId) paymentId = allocated.paymentId;
+    else if (allocated.info) infos.push(allocated.info);
+  }
   const after = await requireVoucher(ctx, v._id);
   return {
     id: v._id,
     number,
     status: after.status,
     warnings: [...check.warnings, ...payment.warnings].map((w) => ({ code: w.code, message: w.message })),
-    infos: check.infos.map((i) => ({ code: i.code, message: i.message })),
+    infos,
     ...(paymentId ? { paymentId } : {}),
   };
+}
+
+/**
+ * BNK-065: allocates the booked voucher to the bank transaction it was created from (F06 bank payment, VOU-131).
+ * Skipped with an info when the transaction is no longer open or is in a foreign currency (FX posting deferred, §4.10).
+ */
+async function allocateFromTransaction(
+  ctx: ModelCtx,
+  voucherId: Id<"vouchers">,
+  transactionId: Id<"bankTransactions">,
+): Promise<{ paymentId?: Id<"payments">; info?: { code: string; message: string } }> {
+  const tx = await ctx.db.get(transactionId);
+  const free = tx ? Math.abs(tx.amountCents) - tx.allocatedCents : 0;
+  if (!tx || free <= 0 || (tx.status !== "open" && tx.status !== "partially_matched")) {
+    return {
+      info: {
+        code: "bank_allocation_skipped",
+        message: "Der Bankumsatz ist bereits zugeordnet – bitte die Zahlung prüfen.",
+      },
+    };
+  }
+  if (tx.currency !== "EUR") {
+    return {
+      info: {
+        code: "bank_allocation_skipped",
+        message: "Fremdwährungsumsätze werden noch nicht zugeordnet – bitte die Zahlung später zuordnen.",
+      },
+    };
+  }
+  const r = await recordVoucherPayment(ctx, { voucherId, method: "bank", transactionId });
+  return { paymentId: r.paymentId };
 }
 
 // ── correction and cancellation (VOU-008/009) ───────────────────────────────────────────────────────────

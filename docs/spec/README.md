@@ -145,7 +145,7 @@ The owner works without a Steuerberater. Each item is implemented with the **leg
 | C4 | react-pdf PDF/A-3b + `embedFacturX` valid in Mustang/veraPDF; `@e-invoice-eu/core` output KoSIT-valid | 09 P0 spikes 4–5 |
 | C5 | Tailscale Services on the Dokploy fork (retag procedure) + Caddy TLS edge with a DNS-01 wildcard certificate | 08 §2, 09 P0 spike 6 |
 | C6 | KoSIT accepts a 380 final invoice with negative BT-115 (rate-change refund) | F04 9.4 |
-| C7 | Enable Banking accepts the tailnet-only HTTPS redirect URL; DE-IBAN accounts under the Revolut (LT) ASPSP; remittance/payer IBAN for incoming transfers; tailnet IP as `Psu-Ip-Address` | F07 BNK-115, Q-02, Q-04–Q-06 |
+| C7 | ~~Enable Banking accepts the tailnet-only HTTPS redirect URL~~ (resolved 2026-10-19 by public edge mode, BNK-115); DE-IBAN accounts under the Revolut (LT) ASPSP; remittance/payer IBAN for incoming transfers; tailnet IP as `Psu-Ip-Address` | F07 BNK-115, Q-02, Q-04–Q-06 |
 | C8 | eVatR status codes for "invalid" vs "unavailable" | F02 Q2 |
 | C9 | sevdesk export layouts (headers, status labels, PDF naming, ZIP structure); lexoffice CSV headers | F09 Q7, Q9 |
 | C10 | Remote auditor access: Tailscale device/user sharing with Tailscale Services | F12 Q1 |

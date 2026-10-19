@@ -1,6 +1,14 @@
 import { describe, expect, test } from "vitest";
 import { bankFixture, SYNTH } from "../../../test/fixtures/bank/load";
-import { bankTxId, type Candidate, dedupeKeys, type ExistingBankRow, planImport, toCandidates } from "./dedupe";
+import {
+  bankTxId,
+  type Candidate,
+  dedupeKeys,
+  type ExistingBankRow,
+  identicalHashGroups,
+  planImport,
+  toCandidates,
+} from "./dedupe";
 import { parseStatement } from "./statement";
 import type { BankSourceKind, ParsedTransaction } from "./types";
 
@@ -146,5 +154,18 @@ describe("dedupe (BNK-109, BNK-110, BNK-034)", () => {
     const { rows } = persist("camt053", oct.candidates);
     const plan = planImport({ accountId: ACC, kind: "camt053", candidates: overlap.candidates, existing: rows });
     expect(plan.counts).toMatchObject({ total: 4, duplicates: 2, new: 2 });
+  });
+});
+
+describe("identical rows without a bank reference (EC-BNK-89)", () => {
+  test("EC-BNK-89 EC-192 groups of the same content hash (ordinal 0, 1, …) are listed for review", () => {
+    expect(
+      identicalHashGroups([
+        { bookingDate: "2026-10-05", dedupeKey: "acc:h:abc:0" },
+        { bookingDate: "2026-10-05", dedupeKey: "acc:h:abc:1" },
+        { bookingDate: "2026-10-06", dedupeKey: "acc:h:def:0" },
+        { bookingDate: "2026-10-06", dedupeKey: "acc:er:ER-1" },
+      ]),
+    ).toEqual([{ bookingDate: "2026-10-05", contentHash: "abc", count: 2 }]);
   });
 });

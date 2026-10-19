@@ -62,7 +62,7 @@ Order of work (each a vertical slice: domain → Convex → API/MCP → UI → E
 
 ## P2 — Purchases, bank feed, UStVA → production go-live
 
-1. **Enable Banking feed** (F07 BNK-100…117): redirect-URL spike in the tailnet first (BNK-115); restricted-mode application, 180-day consent with reminders, backfill inside the callback, account re-mapping, polling every 6 h within the PSD2 budget, owner-present „Jetzt abrufen“, pending rows provisional, cross-source dedupe with the statement import.
+1. **Enable Banking feed** (F07 BNK-100…117): redirect URL on the public app host (BNK-115, resolved by public edge mode 2026-10-18); restricted-mode application, 180-day consent with reminders, backfill inside the callback, account re-mapping, polling every 6 h within the PSD2 budget, owner-present „Jetzt abrufen“, pending rows provisional, cross-source dedupe with the statement import.
 2. Receipt inbox: upload, drag&drop, PWA camera/share target, **e-mail-in address via Cloudflare Email Routing → Worker → R2, polled** (F06).
 3. E-Rechnung receive: parse, validate, render, archive (ER-02).
 4. Vouchers editor + SKR suggestions + supplier learning + duplicates; „Bezahlt mit“ bank/„bar“/„privat bezahlt“; Bewirtung; Eigenbeleg; recurring vouchers.

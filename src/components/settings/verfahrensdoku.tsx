@@ -6,6 +6,7 @@ import { useTranslations } from "next-intl";
 import { ConvexGuard } from "@/components/convex/convex-provider";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { bankdaten } from "@/domain/docs/bankdaten";
 import { ersetzendesScannen } from "@/domain/docs/ersetzendes-scannen";
 import { type DocChapter, zugriffskonzept, zugriffskonzeptMarkdown } from "@/domain/docs/zugriffskonzept";
 import { useAuthedQuery } from "@/hooks/use-authed-query";
@@ -40,6 +41,21 @@ function ScanningInner() {
   return (
     <DocChapterCard doc={ersetzendesScannen(data)} fileName={`ersetzendes-scannen-${data.today}.md`} idPrefix="es" />
   );
+}
+
+/** BNK-116: chapter „Bankdaten“ (provider record, consent periods, written confirmation of Enable Banking). */
+export function BankdatenChapter() {
+  return (
+    <ConvexGuard fallback={<div className="h-96" aria-busy="true" />}>
+      <BankdatenInner />
+    </ConvexGuard>
+  );
+}
+
+function BankdatenInner() {
+  const data = useAuthedQuery(api.bankFeed.verfahrensdoku, {});
+  if (data === undefined) return <div className="h-96" aria-busy="true" />;
+  return <DocChapterCard doc={bankdaten(data)} fileName={`bankdaten-${data.today}.md`} idPrefix="bd" />;
 }
 
 /** One generated chapter with its sections and a Markdown download. */

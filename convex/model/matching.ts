@@ -9,6 +9,7 @@ import {
   normaliseName,
   type OpenDocument,
   type OpenRefund,
+  type OpenVoucher,
   scoreTransaction,
 } from "../../src/domain/banking/match";
 import type { MatchAllocation, MatchCandidate, UnmatchedTransaction } from "../../src/domain/banking/match-types";
@@ -29,6 +30,7 @@ import {
   reverseTransactionPayments,
 } from "./payments";
 import type { ModelCtx, ReadCtx } from "./types";
+import { recordVoucherPayment } from "./voucherPayments";
 
 /**
  * Matching provider (F07 BNK-040…BNK-048): loads the open items, unreconciled manual payments, credit balances,
@@ -161,7 +163,42 @@ export async function matchContext(ctx: ReadCtx): Promise<Omit<MatchInput, "reje
       balanceCents: balance,
     });
   }
-  return { documents, manualPayments, credits, refunds };
+  return { documents, manualPayments, credits, refunds, vouchers: await openVouchers(ctx, keysOf) };
+}
+
+/** BNK-049: booked, open expense vouchers (F06) as candidates for outgoing debits. */
+async function openVouchers(
+  ctx: ReadCtx,
+  keysOf: (id: Id<"contacts"> | undefined) => Promise<{ ibans: string[]; aliases: string[] }>,
+): Promise<OpenVoucher[]> {
+  const out: OpenVoucher[] = [];
+  for (const status of ["open", "partially_paid"] as const) {
+    for (const v of await ctx.db
+      .query("vouchers")
+      .withIndex("by_status_date", (q) => q.eq("status", status))
+      .collect()) {
+      if (v.direction !== "expense" || v.openAmountCents <= 0 || !v.documentDate) continue;
+      const k = await keysOf(v.supplierContactId);
+      const unpaid = v.totalsEur ? v.openAmountCents === v.totalsEur.grossCents : true;
+      out.push({
+        id: v._id,
+        ...(v.documentNumber ? { documentNumber: v.documentNumber } : {}),
+        ...(v.internalNumber ? { internalNumber: v.internalNumber } : {}),
+        supplierName: v.supplierName ?? "",
+        ibans: [v.supplierIban, v.payee?.iban, ...k.ibans].filter((x): x is string => !!x),
+        aliases: k.aliases,
+        documentDate: v.documentDate,
+        ...(v.dueDate ? { dueDate: v.dueDate } : {}),
+        openCents: v.openAmountCents,
+        currency: "EUR",
+        ...(v.currency !== "EUR" && unpaid
+          ? { currency: v.currency, billOpenMinor: Math.abs(v.totals.grossCents) }
+          : {}),
+        ...(v.recurringVoucherId ? { recurring: true } : {}),
+      });
+    }
+  }
+  return out;
 }
 
 async function rejectedFor(ctx: ReadCtx, txId: Id<"bankTransactions">): Promise<Set<string>> {
@@ -232,6 +269,16 @@ export async function targetLabels(ctx: ReadCtx, allocations: readonly MatchAllo
         dueDate: null,
         docType: null,
       });
+    } else if (a.target.kind === "voucher") {
+      const v = await ctx.db.get(a.target.id as Id<"vouchers">);
+      out.push({
+        ...a,
+        label: `Beleg ${v?.internalNumber ?? v?.documentNumber ?? ""}`.trim(),
+        contactName: v?.supplierName ?? "",
+        openCents: v?.openAmountCents ?? 0,
+        dueDate: v?.dueDate ?? null,
+        docType: null,
+      });
     } else {
       out.push({ ...a, label: a.target.kind, contactName: "", openCents: 0, dueDate: null, docType: null });
     }
@@ -279,6 +326,22 @@ export async function confirmMatch(
       throw appError("invalid_input", "Eine erfasste Zahlung wird allein abgeglichen.");
     await reconcileManualPayment(ctx, { paymentId: first.target.id as Id<"payments">, transactionId: tx._id });
     return { reconciled: true };
+  }
+  if (tx.amountCents < 0 && first?.target.kind === "voucher") {
+    // BNK-049: an outgoing debit pays an open purchase voucher (F06 bank payment, VOU-131).
+    if (args.allocations.length !== 1)
+      throw appError("invalid_input", "Ein Bankumsatz wird hier genau einem Beleg zugeordnet.", {
+        reason: "TARGET_KIND",
+      });
+    const r = await recordVoucherPayment(ctx, {
+      voucherId: first.target.id as Id<"vouchers">,
+      method: "bank",
+      transactionId: tx._id,
+      amountCents: first.amountCents,
+      ...(args.acknowledgeWarnings ? { acknowledgeWarnings: args.acknowledgeWarnings } : {}),
+      ...(args.provenance ? { match: args.provenance } : {}),
+    });
+    return { refunded: r.paymentId };
   }
   if (tx.amountCents < 0) {
     // PAY-033 (b): an outgoing transaction refunds a credit correction (open refund, EC-PAY-33 checked there).

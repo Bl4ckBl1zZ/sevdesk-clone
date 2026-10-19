@@ -25,6 +25,11 @@ export const REDACTED_KEYS: ReadonlySet<string> = new Set([
   "encryptedSecrets",
   "encryptedToken",
   "wrappedKey",
+  // F07 BNK-013 Enable Banking secrets
+  "encryptedPrivateKeyPem",
+  "privateKeyPem",
+  "encryptedSessionId",
+  "pendingAuth", // { stateHash, expiresAt }: redacted as a whole so the RI-15 replay skips it
 ]);
 
 export function redactSecrets<T>(value: T): T {

@@ -43,6 +43,8 @@ export const ID_PREFIXES = {
   inboxItems: "inb_",
   // F06 VOU-064 recurring voucher templates (`/recurring-vouchers`; 05 §3 had no prefix, `rec_` is F04's).
   recurringVouchers: "rvo_",
+  // F07 BNK-050 matching rules (`/matching-rules`; 05 §3 had no prefix).
+  matchingRules: "mrl_",
 } as const;
 
 export type IdTable = keyof typeof ID_PREFIXES;

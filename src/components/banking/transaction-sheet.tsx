@@ -3,6 +3,8 @@
 import { api } from "@convex/_generated/api";
 import type { Id } from "@convex/_generated/dataModel";
 import { useAction, useMutation } from "convex/react";
+import type { Route } from "next";
+import { useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { useId, useState } from "react";
 import { ConfirmDialog, formatDate, formatDateTime, selectClass, useCan, useRun } from "@/components/catalog/shared";
@@ -37,6 +39,15 @@ export function TransactionSheet({
   const canWrite = useCan("banking.write");
   const run = useRun();
   const linkReversal = useMutation(api.banking.linkReversalTo);
+  const canVoucher = useCan("vouchers.write");
+  const tFeed = useTranslations("bankFeed");
+  const router = useRouter();
+  const newVoucher = useMutation(api.matchingRules.createVoucherFromTransaction);
+  const rule = useAuthedQuery(
+    api.matchingRules.forTransaction,
+    { transactionId: id as Id<"bankTransactions"> },
+    id !== null,
+  );
   const [dialog, setDialog] = useState<Mark | "unmark" | null>(null);
 
   return (
@@ -54,6 +65,7 @@ export function TransactionSheet({
               <div className="flex flex-wrap gap-2">
                 <StatusBadge status={tx.status} />
                 {tx.reversal && <Badge variant="outline">{t("reversalFlag")}</Badge>}
+                {rule && <Badge variant="outline">{tFeed("ruleChip", { name: rule.name })}</Badge>}
                 {tx.ignoredReason && (
                   <Badge variant="secondary">
                     {IGNORE_REASON_LABEL_DE[tx.ignoredReason as keyof typeof IGNORE_REASON_LABEL_DE] ?? t("rolledBack")}
@@ -103,6 +115,17 @@ export function TransactionSheet({
                 )}
               </dl>
 
+              {canVoucher && tx.status === "open" && tx.allocatedCents === 0 && tx.amountCents < 0 && (
+                <Button
+                  className="h-11 self-start md:h-9"
+                  onClick={async () => {
+                    const r = await run(() => newVoucher({ transactionId: tx._id }), tFeed("newVoucherDone"));
+                    if (r.ok) router.push(`/belege/${r.value}` as Route);
+                  }}
+                >
+                  {tFeed("newVoucher")}
+                </Button>
+              )}
               {(canMark || canWrite) && (
                 <section aria-labelledby={`actions-${tx._id}`} className="flex flex-col gap-2">
                   <h3 id={`actions-${tx._id}`} className="font-medium">

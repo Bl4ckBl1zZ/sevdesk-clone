@@ -63,6 +63,10 @@ export const ERRORS = {
   mark_sent_invalid: "Die Versandmarkierung ist nicht möglich.",
   retraction_invalid: "Die Versandmarkierung kann nicht zurückgenommen werden.",
   resend_original_reason: "Bitte begründen, warum das Original erneut exportiert wird (wird protokolliert).",
+  // F07 BNK-107 / EC-BNK-87: a fetch needs the signed-in member in the UI
+  owner_presence_required: "Ein manueller Abruf ist nur in der Oberfläche möglich, solange Sie angemeldet sind.",
+  // F07 BNK-102/105 Enable Banking failures (messages: src/domain/banking/feed/messages.ts)
+  bank_feed_error: "Enable Banking hat die Anfrage abgelehnt.",
   clock_skew: "Die Serveruhr weicht zu stark ab. Fertigstellen ist gesperrt, bis die Uhrzeit korrigiert ist.",
 } as const;
 

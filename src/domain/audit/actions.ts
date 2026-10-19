@@ -90,6 +90,23 @@ const GROUPS: Record<string, readonly string[] | "*"> = {
     // F07 P1 matching slice: BNK-046 rejected suggestion, BNK-048 learned alias
     "match_reject",
     "alias_learn",
+    // F07 P2 Enable Banking feed (BNK-011…117) and matching rules (BNK-050…054)
+    "feed_setup",
+    "feed_consent_start",
+    "feed_consent_failed",
+    "feed_account_map",
+    "feed_backfill",
+    "feed_poll",
+    "feed_pending",
+    "feed_status",
+    "feed_reminder",
+    "feed_confirmation",
+    "feed_lost",
+    "feed_account_update",
+    "rule_create",
+    "rule_update",
+    "rule_delete",
+    "rule_apply",
   ],
   cash: ["transfer", "transfer_reverse"],
   // F05 dunning: policies, reminders, cases, runs (dunning.policy.*, dunning.reminder.*, dunning.case.*, dunning.run)

@@ -204,6 +204,25 @@ export const PERMISSIONS = {
    * creates and finalises; settings writes are owner-only (02 §4.3).
    */
   "dunning.manage": { roles: ["owner"], scope: "dunning:manage", write: true },
+  /**
+   * F07 BNK-101/102/011 / F01 SET-049: Enable Banking setup (application ID, private key), starting a consent,
+   * disconnecting, the provider record (BNK-116). Owner only, fresh session, never via API (secrets, 05 §2.2).
+   */
+  "bankFeed.setup": { roles: ["owner"], scope: null, write: true, fresh: true },
+  /**
+   * F07 BNK-102/103/104 consent callback and account mapping: owner only, never via API. Not `fresh` — the owner
+   * returns from the bank minutes later; the single-use hashed `state` nonce binds the callback to the start.
+   */
+  "bankFeed.consent": { roles: ["owner"], scope: null, write: true },
+  /** F07 BNK-107 „Jetzt abrufen“: only a signed-in member in the UI (PSU present); API/MCP never (scope null). */
+  "bankFeed.fetch": { roles: ["owner", "bookkeeper"], scope: null, write: true },
+  /** F07 BNK-050…054 matching rules (API/MCP rules are stored as `suggest`, BNK-054). */
+  "bankRules.write": { roles: ["owner", "bookkeeper"], scope: "banking:write", write: true },
+  /**
+   * F07 BNK-051 „Auf offene Umsätze anwenden“: runs a rule's action (vouchers, Privat/Geldtransit marks) on existing
+   * open transactions — an explicit act in the UI only (marks are ⚠ for MCP, so no API path; scope null).
+   */
+  "bankRules.apply": { roles: ["owner", "bookkeeper"], scope: null, write: true },
   /** F07 BNK-046 confirming a bank match runs F05 `payments.record` (⚠ `bank_match_confirm`). */
   "banking.match": {
     roles: ["owner", "bookkeeper"],
