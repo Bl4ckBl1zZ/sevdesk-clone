@@ -613,6 +613,78 @@
     "wrapper": "action",
     "permission": "documents.read"
   },
+  "csvImports:commit": {
+    "kind": "action",
+    "visibility": "public",
+    "wrapper": "action",
+    "permission": "imports.commit"
+  },
+  "csvImports:commitRowsInternal": {
+    "kind": "mutation",
+    "visibility": "internal",
+    "wrapper": "actorMutation",
+    "permission": "imports.commit"
+  },
+  "csvImports:create": {
+    "kind": "mutation",
+    "visibility": "public",
+    "wrapper": "mutation",
+    "permission": "imports.run"
+  },
+  "csvImports:get": {
+    "kind": "query",
+    "visibility": "public",
+    "wrapper": "query",
+    "permission": "imports.read"
+  },
+  "csvImports:list": {
+    "kind": "query",
+    "visibility": "public",
+    "wrapper": "query",
+    "permission": "imports.read"
+  },
+  "csvImports:localState": {
+    "kind": "query",
+    "visibility": "public",
+    "wrapper": "query",
+    "permission": "imports.run"
+  },
+  "csvImports:preview": {
+    "kind": "action",
+    "visibility": "public",
+    "wrapper": "action",
+    "permission": "imports.run"
+  },
+  "csvImports:setFile": {
+    "kind": "action",
+    "visibility": "public",
+    "wrapper": "action",
+    "permission": "imports.run"
+  },
+  "csvImports:setFileInternal": {
+    "kind": "mutation",
+    "visibility": "internal",
+    "wrapper": "actorMutation",
+    "permission": "imports.run"
+  },
+  "csvImports:setMapping": {
+    "kind": "mutation",
+    "visibility": "public",
+    "wrapper": "mutation",
+    "permission": "imports.run"
+  },
+  "csvImports:setTarget": {
+    "kind": "mutation",
+    "visibility": "public",
+    "wrapper": "mutation",
+    "permission": "imports.run"
+  },
+  "csvImports:source": {
+    "kind": "query",
+    "visibility": "public",
+    "wrapper": "query",
+    "permission": "imports.run"
+  },
   "dashboard:overview": {
     "kind": "query",
     "visibility": "public",

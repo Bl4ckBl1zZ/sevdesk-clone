@@ -66,7 +66,7 @@ export async function requireImport(ctx: ReadCtx, importId: Id<"imports">): Prom
   return row;
 }
 
-function assertEditable(row: ImportRow): void {
+export function assertEditable(row: ImportRow): void {
   if (EDITABLE.has(row.status)) return;
   if (row.status === "discarded") throw appError("conflict", IMPORT_MESSAGES.discarded, { reason: "IMPORT_DISCARDED" });
   // E-IMP-28
@@ -74,7 +74,7 @@ function assertEditable(row: ImportRow): void {
 }
 
 /** Every workspace change invalidates the preview (§4.3.4 „files/mapping changed (preview invalidated)“). */
-async function patchWorkspace(
+export async function patchWorkspace(
   ctx: ModelCtx,
   row: ImportRow,
   patch: Partial<Pick<ImportRow, "files" | "mapping" | "resolutions">>,
@@ -498,7 +498,7 @@ export async function beginImportCommit(
   );
 }
 
-async function requireRunning(ctx: ReadCtx, importId: Id<"imports">): Promise<ImportRow> {
+export async function requireRunning(ctx: ReadCtx, importId: Id<"imports">): Promise<ImportRow> {
   const row = await requireImport(ctx, importId);
   if (row.status !== "running") throw appError("conflict", "Der Import läuft nicht.", { reason: "IMPORT_NOT_RUNNING" });
   return row;
@@ -988,7 +988,13 @@ export async function finishImport(
       committedBy: ctx.actor,
       retentionUntil: retention,
     },
-    { action: "import.finish", label: `${input.stats.documentsCreated ?? 0} Belege` },
+    {
+      action: "import.finish",
+      label:
+        input.stats.documentsCreated !== undefined || input.stats.created === undefined
+          ? `${input.stats.documentsCreated ?? 0} Belege`
+          : `${input.stats.created} Datensätze`,
+    },
   );
 }
 

@@ -129,22 +129,25 @@ const vDocPayload = v.object({
 
 // ── reads ─────────────────────────────────────────────────────────────────────────────────────────────
 
-/** Import projects (newest first) for `/einstellungen/import`. */
+/** sevdesk import projects (newest first) for `/einstellungen/import`; generic CSV imports: `csvImports.list`. */
 export const list = query({
   permission: "imports.read",
   args: {},
   handler: async (ctx) =>
-    (await ctx.db.query("imports").order("desc").take(50)).map((i) => ({
-      id: i._id,
-      source: i.source,
-      status: i.status,
-      files: i.files.length,
-      startedAt: i.startedAt,
-      committedAt: i.committedAt ?? null,
-      actor: i.actor,
-      committedBy: i.committedBy ?? null,
-      counts: (i.preview as PreviewSummary | undefined)?.counts ?? i.stats,
-    })),
+    (await ctx.db.query("imports").order("desc").take(200))
+      .filter((i) => i.source !== "generic_csv")
+      .slice(0, 50)
+      .map((i) => ({
+        id: i._id,
+        source: i.source,
+        status: i.status,
+        files: i.files.length,
+        startedAt: i.startedAt,
+        committedAt: i.committedAt ?? null,
+        actor: i.actor,
+        committedBy: i.committedBy ?? null,
+        counts: (i.preview as PreviewSummary | undefined)?.counts ?? i.stats,
+      })),
 });
 
 /** One import project: files (without storage ids), mapping, resolutions, stored preview, run log. */
