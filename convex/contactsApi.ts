@@ -148,6 +148,25 @@ export const list = query({
   },
 });
 
+/** PRV-012: keys with `audit:read` (statutory access) may read a restricted contact by id. */
+const auditReader = (ctx: { actorContext: { scopes?: readonly string[] } }) =>
+  ctx.actorContext.scopes?.includes("audit:read") === true;
+
+/**
+ * F12 PRV-012: for `GET /contacts/{id}` of a restricted contact — the minimal data of the 410 `contact_restricted`
+ * answer (number only); null when the contact does not exist, is not restricted or the key may read it.
+ */
+export const restrictedInfo = query({
+  permission: "contacts.read",
+  args: { id: v.string() },
+  handler: async (ctx, { id }) => {
+    const nid = ctx.db.normalizeId("contacts", id);
+    const c = nid ? await ctx.db.get(nid) : null;
+    if (!c || c.dsgvo?.restrictedAt === undefined || auditReader(ctx)) return null;
+    return { id: c._id, number: c.number, restricted: true as const };
+  },
+});
+
 /** GET /contacts/{id} and MCP `contact_get`: the record with addresses, channels and persons; null if invisible. */
 export const get = query({
   permission: "contacts.read",
@@ -155,7 +174,7 @@ export const get = query({
   handler: async (ctx, { id }) => {
     const nid = ctx.db.normalizeId("contacts", id);
     const c = nid ? await ctx.db.get(nid) : null;
-    if (!c || !visibleToCaller(c, ctx.actorContext.channel as Channel)) return null;
+    if (!c || (!visibleToCaller(c, ctx.actorContext.channel as Channel) && !auditReader(ctx))) return null;
     const persons = (await childPersons(ctx, c._id)).filter(
       (p) => !p.mergedIntoId && visibleToCaller(p, ctx.actorContext.channel as Channel),
     );

@@ -3,6 +3,7 @@
 import { api } from "@convex/_generated/api";
 import { useMutation } from "convex/react";
 import { AlertTriangleIcon, DownloadIcon } from "lucide-react";
+import { useSearchParams } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { useCan, useRun } from "@/components/catalog/shared";
 import { ConvexGuard } from "@/components/convex/convex-provider";
@@ -12,15 +13,29 @@ import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { REGION_LABEL_DE, ROLE_LABEL_DE } from "@/domain/privacy/external-services";
 import { useAuthedQuery } from "@/hooks/use-authed-query";
+import { DsgvoRequests } from "./dsgvo-requests";
+import { RetentionPurge } from "./retention-purge";
 
 const dateDe = new Intl.DateTimeFormat("de-DE", { dateStyle: "medium", timeZone: "Europe/Berlin" });
+
+/** Deep links from notifications and the contact page (`?tab=aufbewahrung`, `?tab=anfragen&contact=<id>`). */
+const TAB_OF_PARAM: Record<string, string> = {
+  dienste: "services",
+  aufbewahrung: "retention",
+  verzeichnis: "art30",
+  anfragen: "requests",
+};
 
 /** F12 §6 `/einstellungen/datenschutz`: Externe Dienste (AVV), Aufbewahrung, Verzeichnis (Art. 30), Anfragen (P3). */
 export function PrivacyPage({ publicEdge }: { publicEdge: boolean }) {
   const t = useTranslations("privacy");
+  const params = useSearchParams();
+  const tab = TAB_OF_PARAM[params.get("tab") ?? ""] ?? "services";
+  const contactId = params.get("contact") ?? undefined;
+  const canPurgeView = useCan("retention.read");
   return (
     <ConvexGuard fallback={<div className="h-96" aria-busy="true" />}>
-      <Tabs defaultValue="services">
+      <Tabs defaultValue={tab}>
         <TabsList>
           <TabsTrigger value="services">{t("tabs.services")}</TabsTrigger>
           <TabsTrigger value="retention">{t("tabs.retention")}</TabsTrigger>
@@ -32,12 +47,17 @@ export function PrivacyPage({ publicEdge }: { publicEdge: boolean }) {
         </TabsContent>
         <TabsContent value="retention" className="pt-4">
           <Retention />
+          {canPurgeView && (
+            <div className="mt-6">
+              <RetentionPurge />
+            </div>
+          )}
         </TabsContent>
         <TabsContent value="art30" className="pt-4">
           <Art30 publicEdge={publicEdge} />
         </TabsContent>
         <TabsContent value="requests" className="pt-4">
-          <p className="text-muted-foreground text-sm">{t("requestsLater")}</p>
+          <DsgvoRequests contactId={contactId} />
         </TabsContent>
       </Tabs>
     </ConvexGuard>

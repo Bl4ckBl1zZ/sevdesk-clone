@@ -680,6 +680,16 @@
               }
             }
           },
+          "410": {
+            "description": "`contact_restricted` – Der Kontakt ist gesperrt (DSGVO Art. 18).",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
           "429": {
             "description": "`rate_limited` – Zu viele Anfragen – bitte später erneut versuchen.",
             "content": {

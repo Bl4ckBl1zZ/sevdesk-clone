@@ -931,6 +931,108 @@ export default defineSchema({
     at: v.number(),
   }).index("by_date", ["date"]),
 
+  // ── F12 §3.2 retention engine and DSGVO (P3, PRV-003…PRV-014) ───────────────────────────────────────────
+  // retentionHolds — „Betriebsprüfung-Modus" (PRV-004, EC-181): while a row has no `endedAt`, no purge can start.
+  retentionHolds: defineTable({
+    reason: v.string(),
+    fiscalYears: v.array(v.number()),
+    activeFrom: v.number(),
+    endedAt: v.optional(v.number()),
+    endReason: v.optional(v.string()),
+    actor: vActor,
+  }).index("by_endedAt", ["endedAt"]),
+  // purgeBatches 🔒 (PRV-005/006): one owner-confirmed purge run; only status/counts/offHostLogKey/finishedAt change.
+  purgeBatches: defineTable({
+    createdAt: v.number(),
+    actor: vActor,
+    classes: v.array(v.string()),
+    years: v.array(v.number()),
+    checklist: v.record(v.string(), v.boolean()),
+    status: v.union(v.literal("running"), v.literal("done"), v.literal("failed")),
+    counts: v.record(v.string(), v.number()),
+    offHostLogKey: v.optional(v.string()),
+    finishedAt: v.optional(v.number()),
+    /** PRV-009: a replay batch re-applies the off-host log of an earlier batch after a restore. */
+    replayOf: v.optional(v.string()),
+  }).index("by_createdAt", ["createdAt"]),
+  // purgeTombstones 🔒 (PRV-006, RI-20): what was purged — never personal content, only the hash of it.
+  purgeTombstones: defineTable({
+    table: v.string(),
+    recordId: v.string(),
+    retentionClass: v.string(),
+    retentionUntil: v.string(),
+    contentSha256: v.string(),
+    batchId: v.id("purgeBatches"),
+    purgedAt: v.number(),
+    /** Contacts (CON-163) stay as anonymised rows with their number; other records are deleted. */
+    label: v.optional(v.string()),
+    /** journalEntries: the purged entry's `seq` (RI-12 keeps the numbering gapless across purges). */
+    seq: v.optional(v.number()),
+  })
+    .index("by_record", ["table", "recordId"])
+    .index("by_batch", ["batchId"]),
+  // chainAnchors 🔒 (PRV-008): signed `{seq, hash}` before an audit-log prefix purge; verification starts there.
+  chainAnchors: defineTable({
+    seq: v.number(),
+    hash: v.string(),
+    /** `at` of the anchored entry: records created before it may have lost their creation entry (RI-15). */
+    entryAt: v.optional(v.number()),
+    jws: v.string(),
+    createdAt: v.number(),
+    purgeBatchId: v.id("purgeBatches"),
+    exportedTo: v.optional(v.string()),
+  }).index("by_seq", ["seq"]),
+  // dsgvoRequests (PRV-010): the request register (not GoBD-protected; every change audited).
+  dsgvoRequests: defineTable({
+    contactId: v.optional(v.id("contacts")),
+    subject: v.optional(v.object({ name: v.string(), email: v.optional(v.string()) })),
+    kind: v.union(
+      v.literal("access"),
+      v.literal("rectification"),
+      v.literal("erasure"),
+      v.literal("restriction"),
+      v.literal("portability"),
+      v.literal("objection"),
+    ),
+    channel: v.union(
+      v.literal("email"),
+      v.literal("post"),
+      v.literal("phone"),
+      v.literal("portal"),
+      v.literal("other"),
+    ),
+    receivedAt: v.string(),
+    dueAt: v.string(),
+    identityVerified: v.optional(v.object({ method: v.string(), at: v.number() })),
+    extension: v.optional(v.object({ newDueAt: v.string(), reason: v.string(), noticeSentOn: v.string() })),
+    status: v.union(
+      v.literal("open"),
+      v.literal("in_progress"),
+      v.literal("extended"),
+      v.literal("done"),
+      v.literal("rejected"),
+    ),
+    rejectionReason: v.optional(v.string()),
+    resultStorageId: v.optional(v.id("_storage")),
+    /** PRV-011: the executed erasure (counts per bucket and the purge due date). */
+    erasure: v.optional(
+      v.object({
+        executedAt: v.number(),
+        deleted: v.number(),
+        restricted: v.number(),
+        scheduledPurgeAt: v.optional(v.string()),
+        contactDeleted: v.boolean(),
+      }),
+    ),
+    /** Reminder stage already notified (due7/due1/overdue), so the daily check notifies once per stage. */
+    remindedStage: v.optional(v.string()),
+    notes: v.optional(v.string()),
+    createdAt: v.number(),
+    doneAt: v.optional(v.number()),
+  })
+    .index("by_status", ["status", "dueAt"])
+    .index("by_contact", ["contactId"]),
+
   apiKeys: defineTable({
     name: v.string(),
     prefix: v.string(),
@@ -1674,6 +1776,8 @@ export default defineSchema({
       v.literal("gdpdu_export"),
       v.literal("full_export"),
       v.literal("verfahrensdoku_pdf"),
+      v.literal("purge"),
+      v.literal("dsgvo_export"),
     ),
     status: v.union(
       v.literal("queued"),

@@ -90,6 +90,8 @@ export const NOTIFICATION_KINDS = {
     "Anmelde-E-Mail konnte nicht gesendet werden",
   ),
   "bank.reauth_required": def("error", ALARM, "Bankverbindung erneuern", "Bankverbindung muss erneuert werden"),
+  // F12 E-PRV-12: a DSGVO request not answered by its due date (error; the warning `dsgvo.deadline` precedes it)
+  "dsgvo.overdue": def("error", ALARM, "DSGVO-Anfrage überfällig", "Eine Datenschutzanfrage ist überfällig"),
   // warning · in-app, digest, ntfy
   "deadline.ustva": def("warning", DEADLINE, "Frist Umsatzsteuer-Voranmeldung", "Frist Umsatzsteuer-Voranmeldung naht"),
   "deadline.zm": def("warning", DEADLINE, "Frist Zusammenfassende Meldung", "Frist Zusammenfassende Meldung naht"),

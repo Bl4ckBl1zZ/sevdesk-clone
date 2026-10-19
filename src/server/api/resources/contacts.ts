@@ -52,7 +52,12 @@ export function contactToWire(
 
 export async function loadContact(convex: ConvexCaller, id: string, expand = new Set<string>()) {
   const row = await convex.query(api.contactsApi.get, { id });
-  if (!row) throw new ApiProblem("not_found", { detail: "Kontakt nicht gefunden." });
+  if (!row) {
+    // F12 PRV-012: 410 with minimal data for a restricted contact (keys without `audit:read`)
+    const restricted = await convex.query(api.contactsApi.restrictedInfo, { id });
+    if (restricted) throw new ApiProblem("contact_restricted", { extra: { contact: restricted } });
+    throw new ApiProblem("not_found", { detail: "Kontakt nicht gefunden." });
+  }
   return contactToWire(row, expand);
 }
 
@@ -173,7 +178,7 @@ export const contactsResource = defineResource("contacts", "Kontakte (Kunden, Li
     params: idParams("contacts"),
     query: getQ,
     response: { status: 200, schema: contactOut, description: "Der Kontakt" },
-    errors: ["not_found", "invalid_expand"],
+    errors: ["not_found", "invalid_expand", "contact_restricted"],
     handler: async ({ convex, params, query }) => ({
       body: await loadContact(convex, rawId("contacts", params.id), expandOf(query.expand, CONTACT_EXPANDS)),
     }),

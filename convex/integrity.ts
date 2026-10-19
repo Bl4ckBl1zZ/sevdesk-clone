@@ -83,9 +83,26 @@ export const state = systemQuery({
       journalSeq: (await journalHead(ctx))?.seq ?? 0,
       lastRun: await latestRun(ctx),
       checkpoint: await latestCheckpoint(ctx),
+      ...(await purgeState(ctx)),
     };
   },
 });
+
+/**
+ * F12 PRV-006/PRV-008: after a purge, verification starts at the latest signed chain anchor and the checkpoint
+ * counts are compared with `current + purged` (tombstones) so a logged purge is not a count decrease (E-AUD-09).
+ */
+async function purgeState(ctx: import("./model/types").ReadCtx) {
+  const anchor = await ctx.db.query("chainAnchors").withIndex("by_seq").order("desc").first();
+  const purged: Record<string, number> = {};
+  for (const t of await ctx.db.query("purgeTombstones").collect()) {
+    if (t.table === "contacts") continue; // anonymised, the row stays
+    const [a, b] = t.recordId.split("-").map(Number);
+    const n = t.table === "auditLog" && a !== undefined && b !== undefined ? b - a + 1 : 1;
+    purged[t.table] = (purged[t.table] ?? 0) + n;
+  }
+  return { anchor: anchor ? { seq: anchor.seq, hash: anchor.hash } : null, purged };
+}
 
 export const countTable = systemQuery({
   job: "cron.integrity.checkpoint",
@@ -210,8 +227,10 @@ async function checkCheckpoint(
   }
 
   const entry: Doc<"auditLog"> | null = await ctx.runQuery(internal.integrity.entryAt, { seq: cp.lastSeq });
-  if (!entry) {
-    const st = await ctx.runQuery(internal.integrity.state, {});
+  const st = await ctx.runQuery(internal.integrity.state, {});
+  if (!entry && st.anchor && cp.lastSeq <= st.anchor.seq) {
+    // PRV-008: the checkpoint's seq lies in the purged, anchored prefix — the anchor vouches for it.
+  } else if (!entry) {
     fail(
       "checkpoint_mismatch",
       `Der aktuelle Datenstand endet vor dem Prüfpunkt vom ${date} (seq ${st.head?.seq ?? 0} < ${cp.lastSeq}).`,
@@ -234,7 +253,7 @@ async function checkCheckpoint(
 
   const counts = await countAll(ctx);
   for (const [table, before] of Object.entries(cp.counts)) {
-    const now = counts[table] ?? 0;
+    const now = (counts[table] ?? 0) + (st.purged[table] ?? 0);
     if (now < before) {
       fail("checkpoint_mismatch", `In ${table} fehlen ${before - now} Datensätze gegenüber dem Prüfpunkt vom ${date}.`);
     }
@@ -248,8 +267,10 @@ export async function runVerify(
 ): Promise<{ ok: boolean; lastVerifiedSeq: number; findings: IntegrityFinding[] }> {
   const st = await ctx.runQuery(internal.integrity.state, {});
   const genesis = await genesisHash(instanceName());
-  let cursor: ChainCursor = { nextSeq: 1, prevHash: genesis };
-  let lastVerifiedSeq = 0;
+  let cursor: ChainCursor = st.anchor
+    ? { nextSeq: st.anchor.seq + 1, prevHash: st.anchor.hash }
+    : { nextSeq: 1, prevHash: genesis };
+  let lastVerifiedSeq = st.anchor?.seq ?? 0;
 
   const last = st.lastRun;
   if (scope === "incremental" && last?.ok && last.lastVerifiedSeq > 0) {
@@ -296,9 +317,11 @@ export async function runStartupCheck(
 ): Promise<{ ok: boolean; lastVerifiedSeq: number; findings: IntegrityFinding[] }> {
   const st = await ctx.runQuery(internal.integrity.state, {});
   const findings: IntegrityFinding[] = [];
-  let cursor: ChainCursor = { nextSeq: 1, prevHash: await genesisHash(instanceName()) };
-  let lastVerifiedSeq = 0;
-  if (st.checkpoint) {
+  let cursor: ChainCursor = st.anchor
+    ? { nextSeq: st.anchor.seq + 1, prevHash: st.anchor.hash }
+    : { nextSeq: 1, prevHash: await genesisHash(instanceName()) };
+  let lastVerifiedSeq = st.anchor?.seq ?? 0;
+  if (st.checkpoint && !(st.anchor && st.checkpoint.lastSeq < st.anchor.seq)) {
     await checkCheckpoint(ctx, st.checkpoint, findings, { counts: false, remote: false });
     cursor = { nextSeq: st.checkpoint.lastSeq + 1, prevHash: st.checkpoint.lastHash };
     lastVerifiedSeq = st.checkpoint.lastSeq;

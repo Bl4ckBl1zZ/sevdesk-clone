@@ -79,6 +79,12 @@ const EXPECTED: Record<Permission, readonly MemberRole[]> = {
   "vouchers.approve": ["owner", "bookkeeper"],
   "vouchers.pay": ["owner", "bookkeeper"],
   "exports.full": ["owner"],
+  "retention.read": ["owner", "bookkeeper"],
+  "retention.purge": ["owner"],
+  "retention.hold": ["owner"],
+  "dsgvo.read": ["owner"],
+  "dsgvo.manage": ["owner"],
+  "dsgvo.erase": ["owner"],
 };
 
 describe("permission matrix (02 §4.3)", () => {

@@ -130,7 +130,8 @@ const GROUPS: Record<string, readonly string[] | "*"> = {
   // `revoke_sessions`: „Sitzungen abmelden" (04 §4.10) without deactivating the member.
   member: ["create", "role_change", "extend", "expire", "expired", "disable", "revoke_sessions"],
   invite: ["create", "resend", "revoke", "accept"],
-  export: ["datev", "gdpdu", "full", "csv", "audit", "bulk"],
+  // F09 EXP-016: `datev_acceptance` (advisor test import recorded), `datev_test_download` („Testexport“ confirmation)
+  export: ["datev", "gdpdu", "full", "csv", "audit", "bulk", "datev_acceptance", "datev_test_download", "dsgvo"],
   // F09 EXP-026 background jobs (jobs table): lifecycle and the 30-day result expiry.
   job: ["create", "start", "progress", "done", "fail", "cancel", "expire"],
   // F09 sevdesk export import: project lifecycle, files, mapping, resolutions, preview, commit batches, presets.
@@ -154,7 +155,8 @@ const GROUPS: Record<string, readonly string[] | "*"> = {
   security: ["write_rejected", "access_denied", "secret_screen"],
   auditor: ["access"],
   dsgvo: "*", // dsgvo.request.* | restrict | export
-  retention: ["purge", "anchor"],
+  // F12 PRV-003…009: scan, Betriebsprüfung-Modus, purge batch lifecycle, contact anonymisation, replay after restore
+  retention: ["purge", "anchor", "scan", "hold", "hold_end", "batch", "anonymise", "replay"],
   verfahrensdoku: ["update_inputs", "release", "supersede"],
   system: ["startup", "migration", "restore", "restore_drill", "clock"],
   // 03 §10 notifications / to-dos (F04 SND-21): created by `deadlines.notify`, closed by the resolving act.
