@@ -1,6 +1,7 @@
 import { paginationOptsValidator } from "convex/server";
 import { v } from "convex/values";
 import { filter } from "convex-helpers/server/filter";
+import { resolveRole } from "../src/domain/accounting/resolve";
 import { isCorporation } from "../src/domain/accounting/roles";
 import { berlinCalendarDate } from "../src/domain/time/berlin";
 import type { CalendarDate } from "../src/domain/time/calendar-date";
@@ -26,11 +27,11 @@ import {
   vConfirmToken,
 } from "./functions";
 import { isTest } from "./lib/env";
-import { appError } from "./lib/errors";
+import { appError, errorCode } from "./lib/errors";
 import { auditedInsert } from "./model/audit";
 import type { FileRefValue } from "./model/bankImport";
 import { getCompanyProfile } from "./model/companyProfile";
-import { previewJournal } from "./model/journal";
+import { assertCashOutflowAllowed, cashLines, previewJournal, resolveContextAt } from "./model/journal";
 import {
   createRecurringVoucher,
   generateDueRecurringVouchers,
@@ -130,10 +131,29 @@ export const preview = query({
     const p = await previewVoucher(ctx, args, ctx.now());
     const journal = await previewJournal(ctx, p.event);
     const v0 = await requireVoucher(ctx, args.id);
+    const errors = p.check.errors.map((e) => ({ code: e.code, message: e.message }));
+    // 06 §3 voucher_finalize: the preview shows the resulting cash balance; CSH-026 is dry-run like the act.
+    let cash: { balanceCents: number; balanceAfterCents: number } | null = null;
+    if (p.payment.method === "cash" && p.payment.date && p.payment.amountCents) {
+      const role = resolveRole("cash", await resolveContextAt(ctx, p.payment.date as CalendarDate));
+      if (role.ok && role.value.account) {
+        const rows = await cashLines(ctx, role.value.account);
+        const balanceCents = rows.reduce((sum, l) => sum + l.debitCents - l.creditCents, 0);
+        cash = { balanceCents, balanceAfterCents: balanceCents - p.payment.amountCents };
+      }
+      try {
+        await assertCashOutflowAllowed(ctx, p.payment.date, p.payment.amountCents);
+      } catch (e) {
+        if (errorCode(e) !== "cash_negative") throw e;
+        const data = (e as { data?: { message?: string } }).data;
+        errors.push({ code: "cash_negative", message: data?.message ?? "Der Kassenbestand würde negativ." });
+      }
+    }
     return {
       id: args.id,
       version: v0.version,
-      errors: p.check.errors.map((e) => ({ code: e.code, message: e.message })),
+      errors,
+      cash,
       warnings: [...p.check.warnings, ...p.payment.warnings],
       infos: p.check.infos.map((i) => ({ code: i.code, message: i.message })),
       effectiveTaxRule: p.check.effectiveTaxRule,

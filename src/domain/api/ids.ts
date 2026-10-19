@@ -38,6 +38,8 @@ export const ID_PREFIXES = {
   dunningRuns: "drn_",
   documentArtifacts: "art_",
   sendLog: "snd_",
+  // F06 purchase vouchers (05 §3 „IDs“: `vou_`).
+  vouchers: "vou_",
 } as const;
 
 export type IdTable = keyof typeof ID_PREFIXES;
