@@ -79,6 +79,7 @@ function AccountViewInner({ id }: { id: Id<"bankAccounts"> }) {
           </TabsList>
           <TabsContent value="transactions" className="flex flex-col gap-4 pt-4">
             <DuplicatesPanel accountId={id} />
+            <PendingGroup accountId={id} />
             <Transactions accountId={id} currency={account.currency} />
           </TabsContent>
           <TabsContent value="statements" className="flex flex-col gap-4 pt-4">
@@ -90,6 +91,31 @@ function AccountViewInner({ id }: { id: Id<"bankAccounts"> }) {
         </Tabs>
       </PageBody>
     </>
+  );
+}
+
+/** BNK-111 „Vorgemerkt (nicht gebucht)“: provisional feed rows, collapsible, never part of the books. */
+function PendingGroup({ accountId }: { accountId: Id<"bankAccounts"> }) {
+  const t = useTranslations("bankFeed.pendingGroup");
+  const rows = useAuthedQuery(api.bankFeed.pending, { accountId });
+  if (!rows || rows.length === 0) return null;
+  return (
+    <details className="rounded-md border p-3 text-sm">
+      <summary className="cursor-pointer font-medium">
+        {t("title")} ({rows.length})
+      </summary>
+      <p className="mt-1 text-muted-foreground">{t("hint")}</p>
+      <ul className="mt-2 flex flex-col gap-1">
+        {rows.map((r) => (
+          <li key={r.id} className="flex flex-wrap justify-between gap-2 text-muted-foreground">
+            <span className="min-w-0 truncate">
+              {r.bookingDate ? formatDate(r.bookingDate) : "—"} · {r.counterpartyName ?? r.purpose}
+            </span>
+            <Amount cents={r.amountCents} currency={r.currency} />
+          </li>
+        ))}
+      </ul>
+    </details>
   );
 }
 

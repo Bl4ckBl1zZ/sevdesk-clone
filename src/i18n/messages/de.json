@@ -536,7 +536,7 @@
     "saved": "Gespeichert.",
     "systemStatus": "Systemstatus",
     "bankConnection": "Bankanbindung",
-    "bankConnectionHint": "Die Verbindung über Enable Banking (Revolut Business) folgt in Phase P2. Bis dahin werden Konten von Hand angelegt.",
+    "bankConnectionHint": "Umsätze automatisch über Enable Banking (PSD2, Revolut Business) abrufen – viermal täglich, Zustimmung für 180 Tage. Kontoauszug-Importe bleiben jederzeit möglich.",
     "sectionsLabel": "Abschnitte",
     "comingSoon": "Diese Einstellungen folgen in einer späteren Phase.",
     "tabs": {
@@ -883,7 +883,9 @@
     "verfahrensdoku": {
       "stand": "Stand: {date}. Erzeugt aus den erfassten Einstellungen.",
       "download": "Als Markdown herunterladen"
-    }
+    },
+    "bankConnectionOpen": "Bankanbindung einrichten",
+    "bankRulesOpen": "Bankregeln"
   },
   "auth": {
     "signInTitle": "Anmelden",
@@ -4503,5 +4505,197 @@
       "usageValue": "{calls} von {budget} Anfragen im {month}",
       "lastTest": "Letzter Test {at}: {detail}"
     }
+  },
+  "bankFeed": {
+    "rulesLink": "Zuordnungsregeln für Bankumsätze bearbeiten",
+    "redirectUrl": "Weiterleitungs-URL (in der Enable-Banking-Anwendung freigeben)",
+    "copyRedirect": "Weiterleitungs-URL kopieren",
+    "checklist": {
+      "title": "Einrichtung",
+      "description": "Schritte im Enable Banking Control Panel und hier in der App.",
+      "done": "(erledigt)",
+      "open": "(offen)"
+    },
+    "status": {
+      "title": "Verbindung",
+      "bank": "Bank",
+      "validity": "Zustimmung",
+      "lastPoll": "Letzter Abruf",
+      "nextPoll": "Nächster Abruf",
+      "lastError": "Letzter Fehler",
+      "backfill": "Erstabruf",
+      "backfillDone": "{count} Umsätze ab {from} übernommen",
+      "backfillRunning": "läuft …"
+    },
+    "actions": {
+      "connect": "Bank verbinden",
+      "reconnect": "Neu verbinden",
+      "syncNow": "Jetzt abrufen",
+      "disconnect": "Trennen",
+      "disabledHint": "Erst Anwendungs-ID und Schlüssel speichern, dann kann die Bank verbunden werden."
+    },
+    "sync": {
+      "done": "{count, plural, =0 {Abruf abgeschlossen, keine neuen Umsätze.} one {# neuer Umsatz abgerufen.} other {# neue Umsätze abgerufen.}}",
+      "skipped": "Der Abruf wurde nicht ausgeführt. Details stehen bei der Verbindung."
+    },
+    "disconnect": {
+      "title": "Bankanbindung trennen",
+      "description": "Die Sitzung bei Enable Banking wird widerrufen. Umsätze, Kontoauszüge und Protokoll bleiben erhalten; die Konten laufen per Kontoauszug-Import weiter.",
+      "confirm": "Trennen",
+      "deleteKey": "Privaten Schlüssel ebenfalls löschen",
+      "feedLost": "Zugang dauerhaft verloren (z. B. eingeschränkter Modus beendet)",
+      "reason": "Grund",
+      "done": "Bankanbindung getrennt."
+    },
+    "setup": {
+      "title": "Anwendung und Schlüssel",
+      "description": "Die Anwendungs-ID stammt aus dem Enable Banking Control Panel (eingeschränkter Modus). Der private Schlüssel wird verschlüsselt gespeichert und nie wieder angezeigt.",
+      "appId": "Anwendungs-ID",
+      "appIdHint": "Die UUID der Anwendung, z. B. 1f3c…",
+      "environment": "Umgebung",
+      "production": "Produktion",
+      "sandbox": "Sandbox (Test)",
+      "key": "Privater Schlüssel",
+      "keyKeep": "Gespeicherten Schlüssel behalten",
+      "keyGenerate": "Neues Schlüsselpaar hier erzeugen (RSA-2048, empfohlen)",
+      "keyUpload": "Vorhandenen privaten Schlüssel hochladen (PEM)",
+      "pem": "Privater Schlüssel (PEM)",
+      "pemHint": "Beginnt mit „-----BEGIN PRIVATE KEY-----“. Er verlässt den Server nicht.",
+      "save": "Einrichtung speichern",
+      "saved": "Einrichtung gespeichert.",
+      "publicKey": "Öffentlicher Schlüssel",
+      "publicKeyHint": "Diesen Schlüssel im Control Panel bei der Anwendung hinterlegen.",
+      "copyPublicKey": "Öffentlichen Schlüssel kopieren"
+    },
+    "pending": {
+      "title": "Neue Konten in der Zustimmung",
+      "description": "Wählen Sie für jedes freigegebene Konto das passende Bankkonto oder legen Sie ein neues an. Danach werden die Umsätze sofort abgerufen.",
+      "notPrintable": "Ohne eigene IBAN – erscheint nicht auf Rechnungen.",
+      "target": "Zuordnen zu",
+      "createNew": "Neues Bankkonto anlegen",
+      "map": "Übernehmen",
+      "mapped": "Konto verknüpft."
+    },
+    "accounts": {
+      "title": "Verknüpfte Konten",
+      "description": "Abrufe ohne Ihre Anwesenheit: höchstens 4 je Konto und Tag (PSD2).",
+      "empty": "Noch keine Konten verknüpft.",
+      "name": "Konto",
+      "iban": "IBAN",
+      "lastPoll": "Letzter Abruf",
+      "budget": "Abrufe heute",
+      "budgetValue": "{used}/{limit}",
+      "state": "Status",
+      "missing": "Nicht in der Zustimmung – weiter per Kontoauszug",
+      "backoff": "Pausiert bis {until}",
+      "linked": "verknüpft",
+      "notLinked": "nicht verknüpft",
+      "pending": "{count, plural, one {# vorgemerkter Umsatz} other {# vorgemerkte Umsätze}}"
+    },
+    "confirmation": {
+      "title": "Schriftliche Bestätigung von Enable Banking",
+      "description": "Bestätigung, dass die Nutzung im eingeschränkten Modus für eigene Konten zulässig ist (Verfahrensdokumentation).",
+      "status": "Status",
+      "statuses": {
+        "pending": "ausstehend",
+        "confirmed": "bestätigt",
+        "quoted": "Angebot erhalten",
+        "declined": "abgelehnt"
+      },
+      "note": "Vermerk",
+      "file": "Nachweis (PDF, Bild oder E-Mail)",
+      "save": "Bestätigung speichern",
+      "saved": "Bestätigung gespeichert.",
+      "uploadFailed": "Die Datei konnte nicht hochgeladen werden."
+    },
+    "callback": {
+      "title": "Bankverbindung",
+      "running": "Verbindung wird hergestellt und Umsätze werden abgerufen …",
+      "done": "{mapped, plural, =0 {Verbunden.} one {Verbunden: # Konto} other {Verbunden: # Konten}}, {inserted} Umsätze übernommen.",
+      "pendingAccounts": "{count, plural, one {# neues Konto wartet auf Ihre Zuordnung.} other {# neue Konten warten auf Ihre Zuordnung.}}",
+      "missing": "{count, plural, one {# bisheriges Konto ist nicht mehr freigegeben.} other {# bisherige Konten sind nicht mehr freigegeben.}}",
+      "gaps": "Ältere Umsätze konnten nicht abgerufen werden – siehe Aufgaben (Kontoauszug importieren).",
+      "back": "Zur Bankanbindung",
+      "retry": "Erneut versuchen",
+      "failed": "Die Verbindung konnte nicht hergestellt werden."
+    },
+    "pendingGroup": {
+      "title": "Vorgemerkt (nicht gebucht)",
+      "hint": "Vorläufige Umsätze der Bank. Sie werden erst nach der Buchung übernommen und zugeordnet."
+    },
+    "newVoucher": "+ Neuer Beleg",
+    "newVoucherDone": "Belegentwurf angelegt.",
+    "ruleChip": "Regel: {name}"
+  },
+  "bankRules": {
+    "intro": "Die erste passende Regel (kleinste Priorität) gewinnt. Regeln wirken nur auf gebuchte Umsätze, vor den Zuordnungsvorschlägen.",
+    "new": "Neue Regel",
+    "empty": "Noch keine Regeln.",
+    "disabled": "deaktiviert",
+    "mode": {
+      "suggest": "Vorschlag",
+      "auto": "Automatik"
+    },
+    "modeLabel": "Modus",
+    "action": {
+      "categorize": "Kategorisieren (Beleg)",
+      "private": "Privat",
+      "transfer": "Geldtransit",
+      "link_contact": "Kontakt zuordnen",
+      "ignore": "Ignorieren (nur Vorschlag)",
+      "loan": "Darlehen"
+    },
+    "hits": "{count, plural, =0 {keine Treffer in 90 Tagen} one {# Treffer in 90 Tagen} other {# Treffer in 90 Tagen}}",
+    "edit": "Regel „{name}“ bearbeiten",
+    "delete": "Regel „{name}“ löschen",
+    "deleteTitle": "Regel löschen",
+    "deleteHint": "Die Regel „{name}“ wird gelöscht. Bereits erzeugte Belege und Buchungen bleiben unverändert.",
+    "deleteConfirm": "Löschen",
+    "deleted": "Regel gelöscht.",
+    "newTitle": "Neue Regel",
+    "editTitle": "Regel bearbeiten",
+    "editorHint": "Alle angegebenen Bedingungen müssen zutreffen. Die Vorschau zeigt die Treffer der letzten 90 Tage, ohne etwas zu verändern.",
+    "name": "Name",
+    "priority": "Priorität",
+    "enabled": "Aktiv",
+    "conditions": "Bedingungen",
+    "actionLabel": "Aktion",
+    "when": {
+      "account": "Konto",
+      "anyAccount": "Alle Konten",
+      "direction": "Richtung",
+      "anyDirection": "Ein- und Ausgänge",
+      "out": "Ausgänge",
+      "in": "Eingänge",
+      "purposeContains": "Verwendungszweck enthält",
+      "purposeRegex": "Verwendungszweck (regulärer Ausdruck)",
+      "counterpartyContains": "Gegenpartei enthält",
+      "merchantContains": "Händler enthält",
+      "ibanEquals": "IBAN ist",
+      "currency": "Währung",
+      "bankTransactionCode": "Buchungscode",
+      "proprietaryCode": "Bankeigener Code (z. B. Revolut-Typ)",
+      "mcc": "Händlerkategorien (MCC)",
+      "min": "Betrag ab",
+      "max": "Betrag bis"
+    },
+    "apply": {
+      "account": "Sachkonto",
+      "taxRule": "Steuerregel",
+      "taxRuleDefault": "Wie im Lieferantenprofil",
+      "statementSuffices": "Kontoauszug genügt als Beleg (z. B. Bankgebühren)",
+      "target": "Gegenkonto",
+      "choose": "Bitte wählen",
+      "cash": "Kasse",
+      "contact": "Kontakt",
+      "ignoreHint": "Ignorieren ist nur als Vorschlag möglich und nur mit erlaubtem Grund.",
+      "receiptMissingHint": "Ohne „Kontoauszug genügt als Beleg“ entsteht ein Belegentwurf mit „Beleg fehlt“."
+    },
+    "previewLoading": "Vorschau wird berechnet …",
+    "applyToOpen": "{count, plural, one {Auf # offenen Umsatz anwenden} other {Auf # offene Umsätze anwenden}}",
+    "cancel": "Abbrechen",
+    "save": "Speichern",
+    "saved": "Regel gespeichert.",
+    "created": "Regel angelegt."
   }
 }

@@ -1,4 +1,5 @@
 import { v } from "convex/values";
+import { berlinCalendarDate } from "../src/domain/time/berlin";
 import { internal } from "./_generated/api";
 import type { Id } from "./_generated/dataModel";
 import { vEvaluationConfirmation } from "./bankFeedValidators";
@@ -73,7 +74,7 @@ export const pending = query({
 export const verfahrensdoku = query({
   permission: "banking.read",
   args: {},
-  handler: async (ctx) => bankdatenChapter(ctx),
+  handler: async (ctx) => ({ today: berlinCalendarDate(ctx.now()), ...(await bankdatenChapter(ctx)) }),
 });
 
 /** Encrypted secrets for the Node actions (internal; BNK-013). */

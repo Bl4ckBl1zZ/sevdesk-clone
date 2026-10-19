@@ -34,6 +34,30 @@ export function BankOverview() {
   );
 }
 
+/** F07 §6.1 connection banner: expiring (T−14/T−3), reauth required, error, disconnected — with a link to the setup. */
+function ConnectionBanner() {
+  const t = useTranslations("bankFeed");
+  const c = useAuthedQuery(api.bankFeed.connection, {});
+  if (!c || c.status === "not_configured") return null;
+  const text =
+    c.status === "reauth_required" || c.status === "error" || c.status === "disconnected"
+      ? (c.lastError ?? c.feedLostMessage ?? c.statusLabel)
+      : c.banner?.message;
+  if (!text) return null;
+  return (
+    <p
+      role="status"
+      className="flex flex-wrap items-center gap-2 rounded-md border border-warning/40 bg-warning/10 px-3 py-2 text-sm"
+    >
+      <AlertTriangleIcon className="size-4" aria-hidden="true" />
+      <span className="min-w-0 flex-1">{text}</span>
+      <Link className="underline underline-offset-4" href={"/einstellungen/bank/verbindung" as Route}>
+        {c.status === "reauth_required" ? t("actions.reconnect") : t("status.title")}
+      </Link>
+    </p>
+  );
+}
+
 function BankOverviewInner() {
   const t = useTranslations("banking.overview");
   const accounts = useAuthedQuery(api.banking.accounts, {});
@@ -46,6 +70,7 @@ function BankOverviewInner() {
   if (accounts === undefined) return <PageBody aria-busy="true" className="h-96" />;
   return (
     <PageBody className="@container/bank">
+      <ConnectionBanner />
       <div className="flex flex-wrap gap-2">
         {canImport && accounts.length > 0 && (
           <Button className="h-11 md:h-9" onClick={() => setImporting(true)}>
