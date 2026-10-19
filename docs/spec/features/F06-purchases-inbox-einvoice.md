@@ -515,6 +515,8 @@ Einstellungen › Posteingang (P2): receiving address with copy button (INB-011)
 | ➕ GET/POST/PATCH | `/recurring-vouchers[/{id}]` | vouchers:write | |
 | ➕ GET | `/vouchers/missing-receipts` | vouchers:read | VOU-110 data |
 
+**P2 implementation (2026-10-19, voucher core):** `/vouchers` serves list (`status` incl. `overdue`, `partially_paid`, `unbooked`; `q`), create, get, patch (`correction_reason` for booked vouchers), delete, `preview`, `finalize`, `payments`, `cancel`, `duplicate-resolution` and `missing-receipts`; `/recurring-vouchers` serves list, create, get, patch and `POST /recurring-vouchers/{id}/run-now` (prefix `rvo_`). Deliberately not exposed: `/vouchers/{id}/bewirtung/approve` and `/eigenbeleg/approve` — the approval is a personal declaration and runs only for signed-in members in the app (conservative reading; the model refuses non-`user:` actors). Not yet: `/vouchers/{id}/files` (the detail carries a signed download `url` per file; uploads run through the app until the inbox slice), the remaining list filters and `expand`. See 03 §12 „F06 P2 voucher core 2026-10-19“.
+
 ### 7.2 MCP (06 §3.6)
 
 | Tool | Type | Notes |
