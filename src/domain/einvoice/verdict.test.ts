@@ -1,8 +1,11 @@
 import { CII_V6, ublXml } from "@test/fixtures/einvoice-in/builders";
 import { describe, expect, test } from "vitest";
+import type { CalendarDate } from "../time/calendar-date";
 import { parseReceivedXml } from "./parse";
 import type { ReceivedInvoice } from "./received";
-import { contentFindings, faultyMessage, findingCategory, verdictOf } from "./verdict";
+import { contentFindings, faultyMessage, findingCategory, kleinbetragLimitOn, verdictOf } from "./verdict";
+
+const LIMIT = kleinbetragLimitOn("2026-10-19" as CalendarDate);
 
 const inv = (xml: string): ReceivedInvoice => {
   const r = parseReceivedXml(xml);
@@ -20,8 +23,8 @@ describe("E-Rechnung verdict (INB-024, EC-INB-11, EC-103)", () => {
   });
 
   test("INB-024 ER-02 a complete invoice from our own serializer has no Inhaltsfehler", () => {
-    expect(contentFindings(inv(ublXml()))).toEqual([]);
-    expect(contentFindings(inv(CII_V6))).toEqual([]);
+    expect(contentFindings(inv(ublXml()), LIMIT)).toEqual([]);
+    expect(contentFindings(inv(CII_V6), LIMIT)).toEqual([]);
   });
 
   test("INB-024 Inhaltsfehler: missing supplier tax id and supply date above 250 € are content findings", () => {
@@ -33,9 +36,21 @@ describe("E-Rechnung verdict (INB-024, EC-INB-11, EC-103)", () => {
       seller,
       totals: { ...base.totals, taxInclusiveCents: 100_000 },
     };
-    const f = contentFindings(broken);
+    const f = contentFindings(broken, LIMIT);
     expect(f.map((x) => x.ruleId)).toEqual(expect.arrayContaining(["UStG-14-4-2", "UStG-14-4-6"]));
     expect(f.every((x) => x.category === "content")).toBe(true);
+  });
+
+  test("INB-024 the Kleinbetrag limit is date-effective rule data (§ 33 UStDV: 150 € until 2016, 250 € since 2017)", () => {
+    expect(kleinbetragLimitOn("2016-06-30" as CalendarDate)).toBe(15_000);
+    expect(LIMIT).toBe(25_000);
+    const base = inv(ublXml());
+    const { vatId: _v, taxNumber: _t, ...seller } = base.seller;
+    const small: ReceivedInvoice = { ...base, seller, totals: { ...base.totals, taxInclusiveCents: 20_000 } };
+    expect(contentFindings(small, LIMIT).map((f) => f.ruleId)).not.toContain("UStG-14-4-2");
+    expect(contentFindings(small, kleinbetragLimitOn("2016-06-30" as CalendarDate)).map((f) => f.ruleId)).toContain(
+      "UStG-14-4-2",
+    );
   });
 
   test("INB-024 EC-INB-11 EC-103 worst category wins; never acceptable with findings; message names the category", () => {

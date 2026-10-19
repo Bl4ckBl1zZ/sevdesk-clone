@@ -15,9 +15,9 @@ import {
 } from "lucide-react";
 import type { Route } from "next";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useTranslations } from "next-intl";
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import { uploadFile } from "@/components/banking/shared";
 import { formatDateTime, useCan, useRun, useUrlState } from "@/components/catalog/shared";
@@ -83,7 +83,9 @@ function InboxScreenInner() {
   const filter: InboxFilter = (INBOX_FILTERS as readonly string[]).includes(url.get("filter"))
     ? (url.get("filter") as InboxFilter)
     : "all";
-  const selectedId = url.get("id");
+  // Only a well-formed Convex id reaches the query (a garbage ?id= would fail argument validation).
+  const rawSelected = url.get("id");
+  const selectedId = /^[0-9a-zA-Z]{16,64}$/.test(rawSelected) ? rawSelected : "";
   const rows = useRows(filter);
   const counts = useAuthedQuery(api.inbox.counts, {});
   const detail = useAuthedQuery(api.inbox.get, { id: selectedId as Id<"inboxItems"> }, selectedId !== "");
@@ -100,9 +102,10 @@ function InboxScreenInner() {
   const [capturing, setCapturing] = useState(url.get("capture") === "1");
 
   // „📷 Beleg“ in the mobile tab bar links here with ?capture=1 (INB-003).
+  const captureParam = url.get("capture");
   useEffect(() => {
-    if (url.get("capture") === "1") setCapturing(true);
-  }, [url]);
+    if (captureParam === "1") setCapturing(true);
+  }, [captureParam]);
 
   const uploadEach = async (picked: readonly PickedFile[]) => {
     const { accepted, rejected } = await precheckFiles(picked);
@@ -134,6 +137,9 @@ function InboxScreenInner() {
   };
 
   const index = rows?.findIndex((r) => r.id === selectedId) ?? -1;
+  const search = useSearchParams().toString();
+  // biome-ignore lint/correctness/useExhaustiveDependencies: `url` is a new object per render; `search` is its identity.
+  const hrefWith = useCallback(url.hrefWith, [search]);
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       const target = e.target as HTMLElement | null;
@@ -145,7 +151,7 @@ function InboxScreenInner() {
         const row = rows[next];
         if (row) {
           e.preventDefault();
-          router.replace(url.hrefWith({ id: row.id }), { scroll: false });
+          router.replace(hrefWith({ id: row.id }), { scroll: false });
         }
       } else if (e.key === "Enter" && detail?.voucherId) {
         e.preventDefault();
@@ -154,7 +160,7 @@ function InboxScreenInner() {
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [rows, index, detail?.voucherId, router, url]);
+  }, [rows, index, detail?.voucherId, router, hrefWith]);
 
   const filters = (
     <StatusFilter

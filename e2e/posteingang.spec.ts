@@ -112,6 +112,8 @@ test("INB-021 INB-040 INB-024 an XRechnung shows Darstellung | Prüfbericht | XM
   expectNoAxeViolations,
 }, testInfo) => {
   test.skip(testInfo.project.name !== "desktop", "desktop only");
+  // Without the einvoice-tools sidecar the item stays „In Verarbeitung“ for up to 24 h (EC-INB-13).
+  test.skip(!process.env.EINVOICE_TOOLS_URL, "needs the einvoice-tools sidecar (EINVOICE_TOOLS_URL)");
   await openInbox(page);
   const no = `E2E-XR-${Date.now()}`;
   await page.getByTestId("inbox-file-input").setInputFiles({
@@ -119,7 +121,6 @@ test("INB-021 INB-040 INB-024 an XRechnung shows Darstellung | Prüfbericht | XM
     mimeType: "application/xml",
     buffer: xrechnung(no),
   });
-  // Validation needs the einvoice-tools sidecar; without it the item stays „In Verarbeitung“ (EC-INB-13).
   const item = page.getByTestId("inbox-item");
   await expect(item).toBeVisible({ timeout: 30_000 });
   const tabs = item.getByRole("tab");

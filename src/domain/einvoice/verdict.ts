@@ -6,6 +6,8 @@
  * **Inhaltsfehler** — § 14 Abs. 4 UStG content missing (our own check, `contentFindings`). Booking is never blocked;
  * any finding is a ⚑ warning and marks the input VAT at risk (Q-02). LEGAL-OPEN: F06-Q-02 (blocking vs warning).
  */
+import { KLEINBETRAG_LIMIT, lookupRule } from "../rules";
+import type { CalendarDate } from "../time/calendar-date";
 import type { ReceivedInvoice } from "./received";
 
 export type FindingCategory = "format" | "business_rule" | "content";
@@ -34,9 +36,9 @@ export function findingCategory(ruleId: string): FindingCategory {
  * Inhaltsfehler: § 14 Abs. 4 UStG mandatory content that the XML may carry syntactically but leaves empty — supplier
  * name and address, VAT ID or tax number, invoice number and date, supply date or period, a description per line,
  * the VAT breakdown. Kleinbetragsrechnungen (§ 33 UStDV, gross ≤ 250 €) only need name/address, date, description and
- * amounts.
+ * amounts. The limit comes from the date-effective rule `KLEINBETRAG_LIMIT` (`kleinbetragLimitOn`).
  */
-export function contentFindings(inv: ReceivedInvoice, kleinbetragLimitCents = 25_000): Finding[] {
+export function contentFindings(inv: ReceivedInvoice, kleinbetragLimitCents: number): Finding[] {
   const out: Finding[] = [];
   const add = (ruleId: string, text: string) => out.push({ ruleId, text, category: "content" });
   const small = Math.abs(inv.totals.taxInclusiveCents) <= kleinbetragLimitCents;
@@ -88,4 +90,10 @@ export function verdictOf(toolAcceptable: boolean, findings: readonly Finding[])
 export function faultyMessage(v: Pick<Verdict, "category" | "findings">): string {
   const label = CATEGORY_LABEL_DE[v.category];
   return `E-Rechnung fehlerhaft (${label}): ${v.findings.length} Fehler. Vorsteuerabzug ggf. gefährdet – Korrektur beim Lieferanten anfordern?`;
+}
+
+/** § 33 UStDV limit on the invoice date (rule table `KLEINBETRAG_LIMIT`); no row → 0 (no relaxation, conservative). */
+export function kleinbetragLimitOn(date: CalendarDate): number {
+  const r = lookupRule(KLEINBETRAG_LIMIT, date);
+  return r.ok ? r.value.value.limitCents : 0;
 }

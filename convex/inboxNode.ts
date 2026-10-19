@@ -9,13 +9,20 @@ import { notEInvoiceMessage } from "../src/domain/einvoice/profile";
 import type { ReceivedInvoice } from "../src/domain/einvoice/received";
 import { supplierEinvoiceObligation } from "../src/domain/einvoice/supplier-obligation";
 import { germanRateFromRules, receivedToVoucherDraft } from "../src/domain/einvoice/to-voucher";
-import { contentFindings, type Finding, faultyMessage, verdictOf } from "../src/domain/einvoice/verdict";
+import {
+  contentFindings,
+  type Finding,
+  faultyMessage,
+  kleinbetragLimitOn,
+  verdictOf,
+} from "../src/domain/einvoice/verdict";
 import { senderAllowed } from "../src/domain/inbox/allowlist";
 import { INBOX_MAIL_MESSAGES, parseInboundEmail } from "../src/domain/inbox/email";
 import { OCR_MESSAGES, OCR_REVIEW_THRESHOLD, postValidateExtraction } from "../src/domain/inbox/ocr";
 import { budgetExceeded } from "../src/domain/inbox/ocr-settings";
 import { planPoll } from "../src/domain/inbox/r2-plan";
 import { INBOX_MESSAGES, nextRetryDelayMs } from "../src/domain/inbox/status";
+import type { CalendarDate } from "../src/domain/time/calendar-date";
 import { pageCount } from "../src/domain/vouchers/capture";
 import { renderEinvoiceVisualisation } from "../src/pdf/einvoice-visualisation";
 import { ENCRYPTED_PDF_MESSAGE, extractInvoiceXml, multipleXmlMessage, pdfTextLayer } from "../src/pdf/hybrid";
@@ -324,7 +331,10 @@ export const classify = systemAction({
       } else {
         const reportBytes = new TextEncoder().encode(outcome.report);
         const reportStorageId = await storeBytes(ctx, reportBytes, "application/json");
-        const findings = [...outcome.findings, ...contentFindings(inv)];
+        const findings = [
+          ...outcome.findings,
+          ...contentFindings(inv, kleinbetragLimitOn((inv.issueDate || today) as CalendarDate)),
+        ];
         const verdict = verdictOf(outcome.acceptable, findings);
         validation = {
           acceptable: verdict.acceptable,
