@@ -12,6 +12,7 @@ import { RC13B_TYPES } from "./rc13b-types";
 import type { RuleTable } from "./rule-table";
 import {
   ASSET_THRESHOLDS,
+  INVOICING_DEADLINE,
   KLEINBETRAG_LIMIT,
   KLEINUNTERNEHMER_LIMITS,
   PAYMENT_TERM_LIMITS,
@@ -27,6 +28,7 @@ export const ALL_RULE_TABLES: readonly RuleTable<unknown>[] = [
   KLEINUNTERNEHMER_LIMITS,
   KLEINBETRAG_LIMIT,
   ASSET_THRESHOLDS,
+  INVOICING_DEADLINE,
   EINVOICE_OBLIGATION,
   ...Object.values(NOTE_TEXTS),
   EU_VAT_TERRITORY,

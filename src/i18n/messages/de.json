@@ -2502,6 +2502,11 @@
       "action": "Erste Rechnung erstellen",
       "draft": "Entwurf",
       "loadMore": "Weitere laden",
+      "invoicingDeadline": {
+        "warning": "Rechnung fällig",
+        "escalation": "Rechnungsfrist überschritten",
+        "hint": "§ 14 Abs. 2 UStG: Rechnung innerhalb von 6 Monaten nach der Lieferung"
+      },
       "columns": {
         "status": "Status",
         "number": "Nummer",

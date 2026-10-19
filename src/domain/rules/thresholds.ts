@@ -131,3 +131,25 @@ export const lookupAssetThresholds = (
   date: CalendarDate,
   overrides: readonly RuleOverride<AssetThresholds>[] = [],
 ): Result<RuleRow<AssetThresholds>, RuleMissing> => lookupRule(ASSET_THRESHOLDS, date, overrides);
+
+export interface InvoicingDeadline {
+  /** Days after the end of the supply from which an uninvoiced supply gets a warning to-do (F04 QUO-14). */
+  readonly warnAfterDays: number;
+  /** Days after the end of the supply from which the to-do escalates („Rechnungsfrist überschritten“). */
+  readonly escalateAfterDays: number;
+}
+
+// UST-01: § 14 Abs. 2 S. 1 Nr. 1 und 2 UStG — invoice within six months after the supply (B2B, legal persons,
+// property-related supplies). Day 150 / 180 are the monitoring levels of F04 QUO-14 (02 §7 deadlines.notify).
+export const INVOICING_DEADLINE = defineRuleTable<InvoicingDeadline>("invoicing_deadline", [
+  {
+    validFrom: "2004-01-01",
+    value: { warnAfterDays: 150, escalateAfterDays: 180 },
+    source: "§ 14 Abs. 2 S. 1 Nr. 1 und 2 UStG i. d. F. Steueränderungsgesetz 2003 (BGBl. 2003 I S. 2645); F04 QUO-14",
+  },
+]);
+
+export const lookupInvoicingDeadline = (
+  date: CalendarDate,
+  overrides: readonly RuleOverride<InvoicingDeadline>[] = [],
+): Result<RuleRow<InvoicingDeadline>, RuleMissing> => lookupRule(INVOICING_DEADLINE, date, overrides);
