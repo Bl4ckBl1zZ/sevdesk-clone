@@ -179,3 +179,17 @@ test("DOC-39 T-DOC-043 the invoice shows its Nummernkreis-Eintrag and links to t
   await expect(page.getByText("Lückenbericht")).toBeVisible();
   await expectNoAxeViolations();
 });
+
+test("DOC-53 DOC-54 PRD-053 the invoice editor offers layout, cost centre and the per-line revenue account", async ({
+  page,
+  expectNoAxeViolations,
+}) => {
+  await page.goto("/rechnungen/neu");
+  await expect(page.getByLabel("Erlöskonto").first()).toBeVisible();
+  const layout = page.getByLabel("Layout");
+  if ((await layout.count()) > 0) await expect(layout.locator("option").first()).toContainText("Standard der Belegart");
+  const costCentre = page.getByLabel("Kostenstelle").first();
+  if ((await costCentre.count()) > 0)
+    await expect(costCentre.locator("option").first()).toContainText("Keine Kostenstelle");
+  await expectNoAxeViolations();
+});

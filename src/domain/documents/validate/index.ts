@@ -140,6 +140,18 @@ export function validateDocument(
     );
   }
 
+  // DOC-53: required document custom fields.
+  for (const f of ctx.requiredDocumentFields ?? []) {
+    const value = draft.customFields?.[f.key];
+    if (value === undefined || value === "") {
+      push(
+        finding("custom_field_missing", "E", "DOC-53", "pflichtangaben", `Pflichtfeld „${f.label}“ fehlt.`, {
+          field: `customFields.${f.key}`,
+        }),
+      );
+    }
+  }
+
   // ── §5.1.1 parties ──────────────────────────────────────────────────────────────────────────────────────────
   const kleinbetrag = draft.kleinbetrag === true;
   if (!c) {

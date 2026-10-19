@@ -90,6 +90,7 @@ const ARGS: Record<string, Record<string, unknown>> = {
   },
   "settings:deactivateNumberRange": { rangeId: "placeholder" },
   "settings:deleteNumberRange": { rangeId: "placeholder" },
+  "settings:numberRegister": { rangeId: "placeholder" },
   "members:changeRole": { memberId: "placeholder", role: "bookkeeper" },
   "members:extend": { memberId: "placeholder", expiresAt: Date.now() + 5 * DAY },
   "members:revokeSessions": { memberId: "placeholder" },

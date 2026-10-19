@@ -67,6 +67,8 @@ export const draftLineSchema = z.object({
   isLaborCost: z.boolean().optional(),
   itemNumber: z.string().max(100).optional(),
   revenueAccount: z.string().max(20).optional(),
+  /** DOC-53: line cost centre (DATEV KOST1); absent = the document's cost centre. */
+  costCenterId: z.string().optional(),
   /** Quotes only (DOC-04, QUO-02): not in the totals. */
   optional: z.boolean().optional(),
   /** Set by conversions (§4.3.3); the editor keeps it, it is never typed in. */
@@ -132,6 +134,12 @@ export const draftSchema = z.object({
   language: z.enum(["de", "en"]),
   einvoiceFormat: z.enum(EINVOICE_FORMATS).optional(),
   internalNote: optionalText(10_000),
+  /** DOC-53: tags, document custom fields (printed if `printOnDocuments`) and the document cost centre. */
+  tags: z.array(z.string()).max(50).optional(),
+  customFields: z.record(z.string(), z.union([z.string(), z.number(), z.boolean()])).optional(),
+  costCenterId: z.string().optional(),
+  /** DOC-54 / SET-074: another layout than the type's default (drafts only; the version is frozen at finalisation). */
+  layoutId: z.string().optional(),
   /** Quotes (QUO-01): explicit validity; default documentDate + quoteValidityDays at finalisation. */
   validUntil: calendarDate.optional(),
   /** Quotes and order confirmations (QUO-01/08): „Lieferbedingungen“. */

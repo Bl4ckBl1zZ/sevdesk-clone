@@ -1405,6 +1405,8 @@ export default defineSchema({
     tags: v.array(v.id("tags")),
     customFields: v.record(v.string(), v.any()),
     internalNote: v.optional(v.string()),
+    /** DOC-53: cost centre of the document (DATEV KOST1 default for its lines). */
+    costCenterId: v.optional(v.id("costCenters")),
     /** DOC-18: ≤ 10 attachments, frozen at finalisation (`includeInExport` SND-16, `embedInXml` BG-24). */
     attachments: v.optional(
       v.array(v.object({ file: vFileRef, embedInXml: v.boolean(), includeInExport: v.boolean() })),
@@ -1573,6 +1575,8 @@ export default defineSchema({
     lineNetCents: v.optional(v.number()),
     isLaborCost: v.optional(v.boolean()),
     revenueAccount: v.optional(v.string()),
+    /** DOC-53: line cost centre (DATEV KOST1). */
+    costCenterId: v.optional(v.id("costCenters")),
     itemNumber: v.optional(v.string()),
     /** Quotes only (DOC-04, QUO-02): excluded from totals and VAT. */
     optional: v.optional(v.boolean()),

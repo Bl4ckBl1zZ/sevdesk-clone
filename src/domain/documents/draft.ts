@@ -73,6 +73,8 @@ export interface DraftLine {
   readonly isLaborCost?: boolean | undefined;
   readonly itemNumber?: string | undefined;
   readonly revenueAccount?: string | undefined;
+  /** DOC-53: line cost centre id (absent = the document's). */
+  readonly costCenterId?: string | undefined;
   /** Quotes only (DOC-04, QUO-02): excluded from totals and VAT, printed in parentheses. */
   readonly optional?: boolean | undefined;
   /** Line of the source document this line was converted from (§4.3.3 invoicing progress). */
@@ -131,6 +133,12 @@ export interface DraftDocument {
   readonly deliveryTerms?: string | undefined;
   /** Delivery notes (QUO-09): print prices and totals (default off). */
   readonly showPrices?: boolean | undefined;
+  /** DOC-53 */
+  readonly tags?: readonly string[] | undefined;
+  readonly customFields?: Readonly<Record<string, string | number | boolean>> | undefined;
+  readonly costCenterId?: string | undefined;
+  /** DOC-54 */
+  readonly layoutId?: string | undefined;
   readonly lines: readonly DraftLine[];
 }
 
@@ -219,6 +227,10 @@ export interface DocumentContext {
   readonly relations?: DocumentRelations | undefined;
   /** Company chart of the document's fiscal year (PRD-052 per-line revenue account check). */
   readonly chart?: Chart | undefined;
+  /** DOC-53: cost centre id → number (DATEV KOST1) for the snapshot. */
+  readonly costCenterNumbers?: Readonly<Record<string, string>> | undefined;
+  /** DOC-53: required document custom fields (checked at finalisation; drafts always save). */
+  readonly requiredDocumentFields?: readonly { readonly key: string; readonly label: string }[] | undefined;
 }
 
 // ── helpers ────────────────────────────────────────────────────────────────────────────────────────────────────

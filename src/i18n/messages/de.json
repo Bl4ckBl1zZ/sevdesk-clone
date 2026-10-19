@@ -2747,7 +2747,9 @@
         "optional": "Optionale Position (nicht in der Summe)",
         "revenueAccount": "Erlöskonto",
         "revenueAccountDefault": "Standard",
-        "revenueAccountHint": "Nur für Inlandspositionen; vom Produkt übernommen."
+        "revenueAccountHint": "Nur für Inlandspositionen; vom Produkt übernommen.",
+        "costCenter": "Kostenstelle",
+        "costCenterDocument": "wie Beleg"
       },
       "deliveryDate": "Lieferdatum",
       "supplyIsDocumentDateLetter": "Leistungsdatum = Belegdatum",
@@ -2761,7 +2763,12 @@
       "pricesHidden": "Der Lieferschein wird ohne Preise gedruckt; die Preise bleiben für die Rechnung erhalten.",
       "finalizeTitleDoc": "{label} fertigstellen?",
       "finalizeDescriptionLetter": "Der Beleg erhält seine Nummer und das heutige Datum und kann danach nicht mehr geändert werden (GoBD). Änderungen erfolgen über eine neue Version oder einen neuen Beleg.",
-      "finalizedDoc": "{label} {number} fertiggestellt."
+      "finalizedDoc": "{label} {number} fertiggestellt.",
+      "costCenter": "Kostenstelle",
+      "costCenterNone": "Keine Kostenstelle",
+      "tags": "Tags",
+      "layout": "Layout",
+      "layoutDefault": "Standard der Belegart ({name})"
     },
     "detail": {
       "notFound": "Rechnung nicht gefunden.",

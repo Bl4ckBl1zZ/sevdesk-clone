@@ -155,6 +155,19 @@ export function resolveText(
   return out === "" ? undefined : out;
 }
 
+/**
+ * SET-083: placeholders in a plain-text line name are resolved at finalisation. Texts without `{{` stay untouched
+ * (a name like „Kabel <5 m“ is never parsed as HTML); the HTML escaping of the values is undone for plain text.
+ */
+export function resolvePlainText(text: string, values: Record<string, string | boolean | undefined>): string {
+  if (!text.includes("{{")) return text;
+  return renderTemplate(text, values)
+    .replace(/&quot;/g, '"')
+    .replace(/&gt;/g, ">")
+    .replace(/&lt;/g, "<")
+    .replace(/&amp;/g, "&");
+}
+
 // ── snapshot input (step 1b preview / step 2d commit) ───────────────────────────────────────────────────────────
 
 export interface FinalizeParams {
@@ -178,6 +191,12 @@ export function validUntilFor(
   if (draft.type !== "quote") return undefined;
   return draft.validUntil ?? addDays(documentDate as CalendarDate, quoteValidityDays);
 }
+
+/** DOC-53: the cost centre number (DATEV KOST1) of a line, frozen in the snapshot. */
+const costCenterOf = (ctx: DocumentContext, id: string | undefined): { costCenter?: string } => {
+  const number = id ? ctx.costCenterNumbers?.[id] : undefined;
+  return number ? { costCenter: number } : {};
+};
 
 /** Types with a due date and payment block (invoice family and proforma, App. F). */
 const DUE_TYPES: readonly SalesDocType[] = [
@@ -213,10 +232,14 @@ export function buildSnapshotInput(
         ? lookupExemptionReason(l.exemptionReasonCode, documentDate as CalendarDate)
         : null;
     const unitLabel = l.unitCode ? ctx.unitLabels?.[l.unitCode]?.[draft.language] : undefined;
+    // SET-083: line names and descriptions may carry placeholders (system legal notes never do).
+    const description = l.description
+      ? htmlToPlainText(l.description.includes("{{") ? renderTemplate(l.description, values) : l.description)
+      : "";
     return {
       kind: "item",
-      name: l.name ?? "",
-      ...(l.description ? { description: htmlToPlainText(l.description) } : {}),
+      name: resolvePlainText(l.name ?? "", values),
+      ...(description ? { description } : {}),
       quantityMilli: l.quantityMilli ?? 0,
       unitCode: l.unitCode ?? "C62",
       ...(unitLabel ? { unitLabel } : {}),
@@ -231,6 +254,7 @@ export function buildSnapshotInput(
       ...(category === "AE" && l.reverseCharge13b ? { reverseCharge13b: l.reverseCharge13b } : {}),
       ...(l.linePeriod ? { period: l.linePeriod } : {}),
       ...(l.itemNumber ? { itemNumber: l.itemNumber } : {}),
+      ...costCenterOf(ctx, l.costCenterId ?? draft.costCenterId),
       ...(l.isLaborCost ? { isLaborCost: true } : {}),
       ...(l.optional && draft.type === "quote" ? { optional: true } : {}),
     };

@@ -145,3 +145,24 @@ describe("PRD-053 per-line revenue account", () => {
     expect(cleared.values.lines[0]).not.toHaveProperty("revenueAccount");
   });
 });
+
+describe("DOC-53 document assignments in the editor", () => {
+  test("DOC-53 cost centre, tags and custom fields of the document and the line cost centre round-trip", () => {
+    const s = emptyEditor("2026-10-12", {
+      contactId: "c1",
+      costCenterId: "cc1",
+      tags: ["t1"],
+      customFields: { projekt: "Relaunch" },
+      lines: [{ ...emptyLine(), name: "Hosting", quantity: "1", price: "10,00", costCenterId: "cc2" }],
+    });
+    const { values } = toDraftValues(s);
+    expect(values).toMatchObject({ costCenterId: "cc1", tags: ["t1"], customFields: { projekt: "Relaunch" } });
+    expect(values.lines[0]).toMatchObject({ costCenterId: "cc2" });
+    const back = editorFromValues(values);
+    expect(back).toMatchObject({ costCenterId: "cc1", tags: ["t1"], customFields: { projekt: "Relaunch" } });
+    expect(back.lines[0]?.costCenterId).toBe("cc2");
+    const empty = toDraftValues(emptyEditor("2026-10-12")).values;
+    expect(empty).not.toHaveProperty("costCenterId");
+    expect(empty).not.toHaveProperty("tags");
+  });
+});

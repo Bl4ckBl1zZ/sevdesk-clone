@@ -40,6 +40,23 @@ export async function defaultLayout(
   return { layout, version };
 }
 
+/**
+ * DOC-54 / SET-074: the layout a document renders with — the draft's own choice, else the default layout of its type,
+ * else the invoice default. Its current version is frozen in the snapshot (`layoutVersionId`).
+ */
+export async function layoutForDocument(
+  ctx: ReadCtx,
+  doc: { type: string; layoutId?: Id<"layouts"> },
+): Promise<{ layout: Doc<"layouts">; version: Doc<"layoutVersions"> | null } | null> {
+  const layouts = await ctx.db.query("layouts").collect();
+  const layout =
+    (doc.layoutId ? layouts.find((l) => l._id === doc.layoutId) : undefined) ??
+    layouts.find((l) => l.isDefaultFor.includes(doc.type as Doc<"layouts">["isDefaultFor"][number])) ??
+    layouts.find((l) => l.isDefaultFor.includes("invoice"));
+  if (!layout) return null;
+  return { layout, version: layout.currentVersionId ? await ctx.db.get(layout.currentVersionId) : null };
+}
+
 export async function countLayouts(ctx: ReadCtx): Promise<number> {
   return (await ctx.db.query("layouts").collect()).length;
 }

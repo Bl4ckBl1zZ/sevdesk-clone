@@ -50,14 +50,21 @@ import { appendAudit, auditedDelete, auditedInsert, auditedPatch } from "./audit
 import { defaultInvoiceAccount } from "./bankAccounts";
 import { assertClockOk } from "./clock";
 import { getCompanyProfile } from "./companyProfile";
-import { contactAddresses, contactChannels, defaultAddressOf, getContact } from "./contacts";
+import {
+  assertCustomFields,
+  assertTags,
+  contactAddresses,
+  contactChannels,
+  defaultAddressOf,
+  getContact,
+} from "./contacts";
 import { frozenAttachments } from "./documentAttachments";
 import { chainContextFor, chainReferencesFor, inChain, recomputeChainOf } from "./documentChains";
 import { assertRetractionAllowed, onDispatchChanged as dunningDispatchChanged, lateMarkWarning } from "./dunning";
 import { unacknowledgedFailure } from "./integrity";
 import { afterChainFinalize, chainFinalizePatch, chainJournalEvent, loadRelations } from "./invoiceChains";
 import { postJournalEntry } from "./journal";
-import { defaultLayout } from "./layouts";
+import { layoutForDocument } from "./layouts";
 import { listCustomFieldDefs, listPaymentMethods, listUnits } from "./lookups";
 import { type NotificationInput, notify } from "./notifications";
 import { assignCounterNumber, listDefaultRanges, registerDerivedNumber } from "./numberRanges";
@@ -169,6 +176,7 @@ const LINE_FIELDS = [
   "isLaborCost",
   "itemNumber",
   "revenueAccount",
+  "costCenterId",
   "optional",
   "sourceLineId",
 ] as const;
@@ -221,6 +229,12 @@ export function draftFromDoc(
     ...(d.validUntil ? { validUntil: d.validUntil } : {}),
     ...(d.deliveryTerms ? { deliveryTerms: d.deliveryTerms } : {}),
     ...(d.showPrices ? { showPrices: true } : {}),
+    ...(d.tags?.length ? { tags: d.tags } : {}),
+    ...(d.customFields && Object.keys(d.customFields).length
+      ? { customFields: d.customFields as Record<string, string | number | boolean> }
+      : {}),
+    ...(d.costCenterId ? { costCenterId: d.costCenterId } : {}),
+    ...(d.layoutId ? { layoutId: d.layoutId } : {}),
     lines: [...lines].sort((a, b) => a.position - b.position).map(lineFromDoc),
   };
 }
@@ -382,6 +396,8 @@ export interface LoadedContext {
   contact: ContactRead | null;
   layoutVersionId: string;
   postalDeliveryDays: number;
+  /** DOC-53: printable document custom fields. */
+  printableDocumentFields: { label: string; value: string }[];
 }
 
 /** Everything `validateDocument` needs, read in the current transaction. */
@@ -430,7 +446,7 @@ export async function loadDocumentContext(
   const method = (doc.paymentMethodId ? methods.find((m) => m._id === doc.paymentMethodId) : undefined) ??
     methods.find((m) => m.isDefault && m.active) ?? { kind: "transfer" as const, text: "Überweisung" };
   const units = (await listUnits(ctx)).filter((u) => u.archivedAt === undefined);
-  const layout = await defaultLayout(ctx);
+  const layout = await layoutForDocument(ctx, doc);
   const locked = (await ctx.db.query("periods").collect())
     .filter((p) => p.status !== "open")
     .map((p) => p.period)
@@ -487,8 +503,15 @@ export async function loadDocumentContext(
       ...(turnover ? { ossTurnover: turnover.oss } : {}),
       // PRD-052: chart of the fiscal year for the per-line revenue account check at finalisation.
       chart: chartAt(profile?.chartOfAccounts ?? [], profile?.fiscalYearStartMonth ?? 1, doc.documentDate ?? today),
+      costCenterNumbers: Object.fromEntries(
+        (await ctx.db.query("costCenters").collect()).map((c) => [c._id as string, c.number]),
+      ),
+      requiredDocumentFields: (await listCustomFieldDefs(ctx))
+        .filter((d) => d.entity === "document" && d.required && !d.archivedAt)
+        .map((d) => ({ key: d.key, label: d.label })),
     },
     contact,
+    printableDocumentFields: await printableDocumentFields(ctx, doc),
     layoutVersionId: layout?.version?._id ?? "default",
     postalDeliveryDays: profile?.receivables.postalDeliveryDays ?? 3,
   };
@@ -565,6 +588,8 @@ function headerFrom(values: DraftValues) {
       ? { deliveryTerms: values.deliveryTerms.trim() }
       : {}),
     ...(values.showPrices && values.type === "delivery_note" ? { showPrices: true } : {}),
+    ...(values.costCenterId ? { costCenterId: values.costCenterId as Id<"costCenters"> } : {}),
+    ...(values.layoutId ? { layoutId: values.layoutId as Id<"layouts"> } : {}),
     ...(values.chainOrder?.number.trim()
       ? { chainOrder: { ...values.chainOrder, number: values.chainOrder.number.trim() } }
       : {}),
@@ -599,6 +624,8 @@ const CLEARABLE = [
   "deliveryTerms",
   "showPrices",
   "chainOrder",
+  "costCenterId",
+  "layoutId",
 ] as const;
 
 function lineRow(
@@ -699,6 +726,60 @@ async function resolveForSave(ctx: ReadCtx, doc: SalesDocumentDoc, values: Draft
   return { loaded, resolved: resolveDraft(draft, loaded.ctx) };
 }
 
+/**
+ * DOC-53: tags, document custom fields (types checked; `required` is enforced at finalisation, drafts always save)
+ * and cost centres (document and lines; must exist).
+ */
+async function documentAssignments(
+  ctx: ReadCtx,
+  values: DraftValues,
+): Promise<{ tags: Id<"tags">[]; customFields: Record<string, string | number | boolean> }> {
+  const tags = await assertTags(ctx, values.tags ?? []);
+  const customFields = values.customFields ?? {};
+  await assertCustomFields(ctx, "document", customFields, { skipRequired: true });
+  const centres = [values.costCenterId, ...values.lines.map((l) => l.costCenterId)].filter((x): x is string => !!x);
+  for (const c of new Set(centres)) {
+    const id = ctx.db.normalizeId("costCenters", c);
+    const row = id ? await ctx.db.get(id) : null;
+    // An archived cost centre stays valid on documents that already carry it (Duplizieren); the editor offers only
+    // active ones.
+    if (!row) {
+      throw appError("invalid_input", "Unbekannte Kostenstelle.", {
+        reason: "COST_CENTER_UNKNOWN",
+        field: "costCenterId",
+      });
+    }
+  }
+  if (values.layoutId) {
+    const id = ctx.db.normalizeId("layouts", values.layoutId);
+    if (!id || !(await ctx.db.get(id))) {
+      throw appError("invalid_input", "Unbekanntes Layout.", { reason: "LAYOUT_UNKNOWN", field: "layoutId" });
+    }
+  }
+  return { tags, customFields };
+}
+
+/** DOC-53 / CON-*: printed custom fields = the contact's then the document's (definitions with `printOnDocuments`). */
+function printedFields(loaded: {
+  contact: { printableCustomFields: { label: string; value: string }[] } | null;
+  printableDocumentFields: { label: string; value: string }[];
+}): { customFields?: { label: string; value: string }[] } {
+  const all = [...(loaded.contact?.printableCustomFields ?? []), ...loaded.printableDocumentFields];
+  return all.length ? { customFields: all } : {};
+}
+
+/** DOC-53: the document's printable custom fields (definitions with `printOnDocuments`). */
+async function printableDocumentFields(
+  ctx: ReadCtx,
+  doc: SalesDocumentDoc,
+): Promise<{ label: string; value: string }[]> {
+  const values = doc.customFields ?? {};
+  return (await listCustomFieldDefs(ctx))
+    .filter((d) => d.entity === "document" && d.printOnDocuments && !d.archivedAt)
+    .filter((d) => values[d.key] !== undefined && values[d.key] !== "")
+    .map((d) => ({ label: d.label, value: String(values[d.key]) }));
+}
+
 /** Chain relations a conversion or revision sets on the new draft (DOC-33/34, QUO-06/11). */
 export interface DraftRelations {
   originId?: Id<"salesDocuments">;
@@ -732,8 +813,7 @@ export async function createDraft(
     einvoice: values.einvoiceFormat ? { format: values.einvoiceFormat } : {},
     totals: { netCents: 0, vatCents: 0, grossCents: 0, advancesDeductedGrossCents: 0, payableCents: 0, byGroup: [] },
     retentionClass: retentionClassFor(values.type),
-    tags: [],
-    customFields: {},
+    ...(await documentAssignments(ctx, values)),
     createdBy: ctx.actor,
     channel: ctx.actorContext.channel === "cron" ? ("system" as const) : ctx.actorContext.channel,
     version: 1,
@@ -817,6 +897,7 @@ export async function updateDraft(
     ? (await ctx.db.get(values.contactId as Id<"contacts">))?.displayName
     : undefined;
   header.einvoice = values.einvoiceFormat ? { format: values.einvoiceFormat } : {};
+  Object.assign(header, await documentAssignments(ctx, values));
   const probe = { ...doc, ...header } as SalesDocumentDoc;
   const { resolved, loaded } = await resolveForSave(ctx, probe, { ...values, lines }, ctx.now());
   header.taxCase = resolved.taxCase;
@@ -960,7 +1041,7 @@ export async function finalizePreview(
   });
   const snap = buildSnapshot({
     ...input,
-    ...(loaded.contact?.printableCustomFields.length ? { customFields: loaded.contact.printableCustomFields } : {}),
+    ...printedFields(loaded),
     ...frozenAttachments(doc),
   });
   if (!snap.ok) {
@@ -1046,7 +1127,7 @@ export async function commitFinalization(
   });
   const built = buildSnapshot({
     ...input,
-    ...(loaded.contact?.printableCustomFields.length ? { customFields: loaded.contact.printableCustomFields } : {}),
+    ...printedFields(loaded),
     ...frozenAttachments(doc),
   });
   if (!built.ok) throw appError("validation_failed", built.error.message, { reason: built.error.code });
