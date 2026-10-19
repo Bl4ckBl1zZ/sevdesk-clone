@@ -23,7 +23,8 @@ test.use({
   // biome-ignore lint/correctness/noEmptyPattern: Playwright fixtures must destructure their first argument
   storageState: async ({}, use, testInfo) => use(ready ? STATE(testInfo.project.name) : undefined),
 });
-test.describe.configure({ mode: "serial" });
+// Each test finalises up to three documents; each waits up to 60 s + 90 s for the number and the archived PDF.
+test.describe.configure({ mode: "serial", timeout: 240_000 });
 
 const h1 = (page: Page, name: string | RegExp) => page.getByRole("heading", { level: 1, name });
 const visible = (l: Locator) => l.filter({ visible: true }).first();

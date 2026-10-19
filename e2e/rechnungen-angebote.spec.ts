@@ -21,7 +21,8 @@ test.use({
   // biome-ignore lint/correctness/noEmptyPattern: Playwright fixtures must destructure their first argument
   storageState: async ({}, use, testInfo) => use(ready ? STATE(testInfo.project.name) : undefined),
 });
-test.describe.configure({ mode: "serial" });
+// Finalising waits up to 60 s on a cold backend, above the 30 s default test timeout.
+test.describe.configure({ mode: "serial", timeout: 120_000 });
 
 const h1 = (page: Page, name: string | RegExp) => page.getByRole("heading", { level: 1, name });
 
