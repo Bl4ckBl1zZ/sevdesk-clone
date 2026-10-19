@@ -2580,5 +2580,47 @@
     "visibility": "internal",
     "wrapper": "actorMutation",
     "permission": "contacts.write"
+  },
+  "verfahrensdoku:commitRelease": {
+    "kind": "mutation",
+    "visibility": "internal",
+    "wrapper": "actorMutation",
+    "permission": "settings.ownerOnly"
+  },
+  "verfahrensdoku:release": {
+    "kind": "action",
+    "visibility": "public",
+    "wrapper": "action",
+    "permission": "settings.ownerOnly"
+  },
+  "verfahrensdoku:releaseInput": {
+    "kind": "query",
+    "visibility": "internal",
+    "wrapper": "systemQuery",
+    "job": "verfahrensdoku.release"
+  },
+  "verfahrensdoku:saveInputs": {
+    "kind": "mutation",
+    "visibility": "public",
+    "wrapper": "mutation",
+    "permission": "settings.ownerOnly"
+  },
+  "verfahrensdoku:versionUrl": {
+    "kind": "query",
+    "visibility": "public",
+    "wrapper": "query",
+    "permission": "settings.read"
+  },
+  "verfahrensdoku:view": {
+    "kind": "query",
+    "visibility": "public",
+    "wrapper": "query",
+    "permission": "settings.read"
+  },
+  "verfahrensdoku:watchCron": {
+    "kind": "mutation",
+    "visibility": "internal",
+    "wrapper": "systemMutation",
+    "job": "cron.verfahrensdoku.watch"
   }
 }

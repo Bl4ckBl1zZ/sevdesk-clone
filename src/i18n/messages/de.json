@@ -4045,5 +4045,20 @@
       "unknown": "Ob eine Bucket-Sperre besteht, ist mit diesem Zugang nicht lesbar."
     },
     "refresh": "Neu prüfen"
+  },
+  "verfahrensdoku": {
+    "diffLine": "{label}: {before} → {after}",
+    "optional": "optional",
+    "save": "Angaben speichern",
+    "saved": "Angaben gespeichert.",
+    "release": "Freigeben",
+    "released": "Version {version} freigegeben.",
+    "versions": "Freigegebene Versionen",
+    "noVersions": "Noch keine Version freigegeben.",
+    "versionLine": "Version {version}, gültig ab {validFrom} (freigegeben {at})",
+    "superseded": "abgelöst",
+    "current": "aktuell",
+    "needsUpdate": "Aktualisierung erforderlich",
+    "download": "Version {version} herunterladen"
   }
 }

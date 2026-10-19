@@ -124,3 +124,16 @@ test("SET-132 AUD-026 /einstellungen/system shows the integrity status; Datensic
   await expect(page.getByRole("button", { name: "Neu prüfen" })).toBeVisible();
   await expectNoAxeViolations();
 });
+
+test("AUD-024 AUD-025 /einstellungen/verfahrensdokumentation lists the chapters with status and the release controls", async ({
+  page,
+  expectNoAxeViolations,
+}) => {
+  await page.goto("/einstellungen/verfahrensdokumentation");
+  await expect(page.getByRole("region", { name: "1. Allgemeine Beschreibung" })).toBeVisible();
+  await expect(page.getByRole("region", { name: "16. Änderungshistorie" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Angaben speichern" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Freigeben" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Freigegebene Versionen" })).toBeVisible();
+  await expectNoAxeViolations();
+});

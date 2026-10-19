@@ -52,16 +52,14 @@ describe("backup status page (AUD-026)", () => {
   });
 
   test("AUD-026 without read-only credentials the page explains what is missing", async () => {
-    backend.status = vi
-      .fn()
-      .mockResolvedValue({
-        configured: false,
-        bucket: null,
-        sources: [],
-        checkpoint: null,
-        status: "unknown",
-        checkedAt: AT,
-      });
+    backend.status = vi.fn().mockResolvedValue({
+      configured: false,
+      bucket: null,
+      sources: [],
+      checkpoint: null,
+      status: "unknown",
+      checkedAt: AT,
+    });
     renderWithIntl(<BackupsPanel />);
     expect(await screen.findByRole("status")).toHaveTextContent("R2_BACKUP_READONLY_ACCESS_KEY_ID");
   });

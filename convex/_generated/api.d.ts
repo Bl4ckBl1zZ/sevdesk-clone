@@ -116,6 +116,7 @@ import type * as model_textTemplates from "../model/textTemplates.js";
 import type * as model_turnover from "../model/turnover.js";
 import type * as model_types from "../model/types.js";
 import type * as model_vatChecks from "../model/vatChecks.js";
+import type * as model_verfahrensdoku from "../model/verfahrensdoku.js";
 import type * as notifications from "../notifications.js";
 import type * as paymentValidators from "../paymentValidators.js";
 import type * as payments from "../payments.js";
@@ -130,6 +131,7 @@ import type * as system from "../system.js";
 import type * as testFixtures from "../testFixtures.js";
 import type * as validators from "../validators.js";
 import type * as vatIdChecks from "../vatIdChecks.js";
+import type * as verfahrensdoku from "../verfahrensdoku.js";
 
 import type {
   ApiFromModules,
@@ -246,6 +248,7 @@ declare const fullApi: ApiFromModules<{
   "model/turnover": typeof model_turnover;
   "model/types": typeof model_types;
   "model/vatChecks": typeof model_vatChecks;
+  "model/verfahrensdoku": typeof model_verfahrensdoku;
   notifications: typeof notifications;
   paymentValidators: typeof paymentValidators;
   payments: typeof payments;
@@ -260,6 +263,7 @@ declare const fullApi: ApiFromModules<{
   testFixtures: typeof testFixtures;
   validators: typeof validators;
   vatIdChecks: typeof vatIdChecks;
+  verfahrensdoku: typeof verfahrensdoku;
 }>;
 
 /**

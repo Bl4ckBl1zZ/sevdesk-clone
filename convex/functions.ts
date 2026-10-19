@@ -44,6 +44,8 @@ export const SYSTEM_JOBS = [
   "cron.integrity.verify",
   "cron.integrity.checkpoint",
   "cron.backups.verify", // F12 AUD-026 / 02 §7 backups.verify: lists the R2 backup bucket (read-only), notifies stale
+  "cron.verfahrensdoku.watch", // F12 AUD-025 / E-AUD-41: daily watch-list check → verfahrensdoku.outdated
+  "verfahrensdoku.release", // F12 AUD-025: read side of the owner's release action (Markdown + sources)
   "cron.system.clock", // F12 AUD-019: clock check every 10 minutes (reference CLOCK_REFERENCE_URL)
   "cron.members.expire",
   "cron.invariants.check",

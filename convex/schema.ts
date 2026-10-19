@@ -882,6 +882,22 @@ export default defineSchema({
     acknowledgedBy: v.optional(vActor),
   }).index("by_at", ["at"]),
 
+  // F12 AUD-024 verfahrensdokuInputs — the owner's structured inputs (singleton, audited)
+  verfahrensdokuInputs: defineTable({ values: v.record(v.string(), v.string()), updatedAt: v.number() }),
+  // F12 AUD-025 verfahrensdokuVersions 🔒 — released versions; only supersededAt/retentionUntil are set once
+  // (P1: Markdown file with SHA-256 instead of PDF/A, see the report)
+  verfahrensdokuVersions: defineTable({
+    version: v.number(),
+    validFrom: v.string(),
+    releasedAt: v.number(),
+    releasedBy: vActor,
+    sourceJson: v.string(),
+    file: vFileRef,
+    supersededAt: v.optional(v.number()),
+    retentionUntil: v.optional(v.string()),
+    watchSnapshot: v.record(v.string(), v.string()),
+  }).index("by_version", ["version"]),
+
   // F12 AUD-019 clockReadings — technical rolling log (7 days) of the 10-minute clock check; not business data.
   clockReadings: defineTable({
     at: v.number(),

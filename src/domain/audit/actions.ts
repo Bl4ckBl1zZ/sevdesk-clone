@@ -113,6 +113,7 @@ const GROUPS: Record<string, readonly string[] | "*"> = {
   auditor: ["access"],
   dsgvo: "*", // dsgvo.request.* | restrict | export
   retention: ["purge", "anchor"],
+  verfahrensdoku: ["update_inputs", "release", "supersede"],
   system: ["startup", "migration", "restore", "restore_drill", "clock"],
   // 03 §10 notifications / to-dos (F04 SND-21): created by `deadlines.notify`, closed by the resolving act.
   notification: ["create", "update", "resolve", "read", "escalate", "purge", "deliver"],

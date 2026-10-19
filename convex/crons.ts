@@ -15,6 +15,9 @@ crons.cron("integrity.verify (CET)", "0 1 * * *", internal.integrity.verifyCron,
 // backups.verify — AUD-026 daily 05:30 Europe/Berlin (hourly tick, runs in the 05:xx Berlin hour)
 crons.cron("backups.verify", "30 * * * *", internal.backups.verifyCron, {});
 
+// verfahrensdoku.watch — AUD-025 / E-AUD-41 daily 07:00 UTC
+crons.cron("verfahrensdoku.watch", "0 7 * * *", internal.verfahrensdoku.watchCron, {});
+
 // system.clock — AUD-019 clock check every 10 minutes (no-op without CLOCK_REFERENCE_URL)
 crons.interval("system.clock", { minutes: 10 }, internal.system.clockCron, {});
 
