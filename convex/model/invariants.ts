@@ -346,7 +346,10 @@ export async function checkVoucherInvariants(ctx: ReadCtx): Promise<InvariantVio
       kind: v.kind,
       files: v.originalFiles,
       eigenbelegApproved: v.eigenbeleg?.approvedAt !== undefined,
-      recurringReference: v.recurringVoucherId !== undefined && withReference.has(String(v.recurringVoucherId)),
+      recurringReference:
+        (v.recurringVoucherId !== undefined && withReference.has(String(v.recurringVoucherId))) ||
+        // F07 BNK-052: the bank statement is the Beleg of a rule voucher „Kontoauszug genügt als Beleg“.
+        (v.statementIsBeleg === true && v.bankTransactionId !== undefined),
     })),
   );
 }

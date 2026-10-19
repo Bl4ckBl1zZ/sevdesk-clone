@@ -145,6 +145,180 @@
     "wrapper": "action",
     "permission": "integrations.manage"
   },
+  "bankFeed:backfillProgressInternal": {
+    "kind": "mutation",
+    "visibility": "internal",
+    "wrapper": "actorMutation",
+    "permission": "bankFeed.consent"
+  },
+  "bankFeed:balanceCheckInternal": {
+    "kind": "mutation",
+    "visibility": "internal",
+    "wrapper": "actorMutation",
+    "permission": "bankFeed.fetch"
+  },
+  "bankFeed:connection": {
+    "kind": "query",
+    "visibility": "public",
+    "wrapper": "query",
+    "permission": "banking.read"
+  },
+  "bankFeed:consentCompletedInternal": {
+    "kind": "mutation",
+    "visibility": "internal",
+    "wrapper": "actorMutation",
+    "permission": "bankFeed.consent"
+  },
+  "bankFeed:consentExpiryReminderCron": {
+    "kind": "mutation",
+    "visibility": "internal",
+    "wrapper": "systemMutation",
+    "job": "cron.bank.consentExpiryReminder"
+  },
+  "bankFeed:consentFailedInternal": {
+    "kind": "mutation",
+    "visibility": "internal",
+    "wrapper": "actorMutation",
+    "permission": "bankFeed.consent"
+  },
+  "bankFeed:consentStartInternal": {
+    "kind": "mutation",
+    "visibility": "internal",
+    "wrapper": "actorMutation",
+    "permission": "bankFeed.setup"
+  },
+  "bankFeed:consumeStateInternal": {
+    "kind": "mutation",
+    "visibility": "internal",
+    "wrapper": "actorMutation",
+    "permission": "bankFeed.consent"
+  },
+  "bankFeed:disconnectInternal": {
+    "kind": "mutation",
+    "visibility": "internal",
+    "wrapper": "actorMutation",
+    "permission": "bankFeed.setup"
+  },
+  "bankFeed:fetchRecordedInternal": {
+    "kind": "mutation",
+    "visibility": "internal",
+    "wrapper": "actorMutation",
+    "permission": "bankFeed.fetch"
+  },
+  "bankFeed:generateUploadUrl": {
+    "kind": "mutation",
+    "visibility": "public",
+    "wrapper": "mutation",
+    "permission": "bankFeed.setup"
+  },
+  "bankFeed:ingestInternal": {
+    "kind": "mutation",
+    "visibility": "internal",
+    "wrapper": "actorMutation",
+    "permission": "bankFeed.fetch"
+  },
+  "bankFeed:mapAccountInternal": {
+    "kind": "mutation",
+    "visibility": "internal",
+    "wrapper": "actorMutation",
+    "permission": "bankFeed.consent"
+  },
+  "bankFeed:pending": {
+    "kind": "query",
+    "visibility": "public",
+    "wrapper": "query",
+    "permission": "banking.read"
+  },
+  "bankFeed:pollOutcomeInternal": {
+    "kind": "mutation",
+    "visibility": "internal",
+    "wrapper": "actorMutation",
+    "permission": "bankFeed.fetch"
+  },
+  "bankFeed:pollTargetsInternal": {
+    "kind": "query",
+    "visibility": "internal",
+    "wrapper": "systemQuery",
+    "job": "bank.feed"
+  },
+  "bankFeed:recordEvaluationConfirmation": {
+    "kind": "mutation",
+    "visibility": "public",
+    "wrapper": "mutation",
+    "permission": "bankFeed.setup"
+  },
+  "bankFeed:requireAccountInternal": {
+    "kind": "query",
+    "visibility": "internal",
+    "wrapper": "systemQuery",
+    "job": "bank.feed"
+  },
+  "bankFeed:saveSetupInternal": {
+    "kind": "mutation",
+    "visibility": "internal",
+    "wrapper": "actorMutation",
+    "permission": "bankFeed.setup"
+  },
+  "bankFeed:secretsInternal": {
+    "kind": "query",
+    "visibility": "internal",
+    "wrapper": "systemQuery",
+    "job": "bank.feed"
+  },
+  "bankFeed:verfahrensdoku": {
+    "kind": "query",
+    "visibility": "public",
+    "wrapper": "query",
+    "permission": "banking.read"
+  },
+  "bankFeedNode:completeConsent": {
+    "kind": "action",
+    "visibility": "public",
+    "wrapper": "action",
+    "permission": "bankFeed.consent"
+  },
+  "bankFeedNode:disconnect": {
+    "kind": "action",
+    "visibility": "public",
+    "wrapper": "action",
+    "permission": "bankFeed.setup"
+  },
+  "bankFeedNode:listAspsps": {
+    "kind": "action",
+    "visibility": "public",
+    "wrapper": "action",
+    "permission": "bankFeed.setup"
+  },
+  "bankFeedNode:mapAccount": {
+    "kind": "action",
+    "visibility": "public",
+    "wrapper": "action",
+    "permission": "bankFeed.consent"
+  },
+  "bankFeedNode:saveSetup": {
+    "kind": "action",
+    "visibility": "public",
+    "wrapper": "action",
+    "permission": "bankFeed.setup"
+  },
+  "bankFeedNode:startConsent": {
+    "kind": "action",
+    "visibility": "public",
+    "wrapper": "action",
+    "permission": "bankFeed.setup"
+  },
+  "bankFeedNode:syncCron": {
+    "kind": "action",
+    "visibility": "internal",
+    "wrapper": "systemAction",
+    "job": "cron.bank.sync"
+  },
+  "bankFeedNode:syncNow": {
+    "kind": "action",
+    "visibility": "public",
+    "wrapper": "action",
+    "permission": "bankFeed.fetch"
+  },
   "banking:account": {
     "kind": "query",
     "visibility": "public",
@@ -1770,6 +1944,78 @@
     "visibility": "public",
     "wrapper": "mutation",
     "permission": "payments.reverse"
+  },
+  "matchingRules:afterImport": {
+    "kind": "action",
+    "visibility": "internal",
+    "wrapper": "systemAction",
+    "job": "bank.rules"
+  },
+  "matchingRules:applyToExisting": {
+    "kind": "action",
+    "visibility": "public",
+    "wrapper": "action",
+    "permission": "bankRules.apply"
+  },
+  "matchingRules:categorizeInternal": {
+    "kind": "mutation",
+    "visibility": "internal",
+    "wrapper": "actorMutation",
+    "permission": "bankRules.apply"
+  },
+  "matchingRules:create": {
+    "kind": "mutation",
+    "visibility": "public",
+    "wrapper": "mutation",
+    "permission": "bankRules.write"
+  },
+  "matchingRules:createVoucherFromTransaction": {
+    "kind": "mutation",
+    "visibility": "public",
+    "wrapper": "mutation",
+    "permission": "vouchers.write"
+  },
+  "matchingRules:decisionInternal": {
+    "kind": "query",
+    "visibility": "internal",
+    "wrapper": "systemQuery",
+    "job": "bank.rules"
+  },
+  "matchingRules:forTransaction": {
+    "kind": "query",
+    "visibility": "public",
+    "wrapper": "query",
+    "permission": "banking.read"
+  },
+  "matchingRules:list": {
+    "kind": "query",
+    "visibility": "public",
+    "wrapper": "query",
+    "permission": "banking.read"
+  },
+  "matchingRules:markInputInternal": {
+    "kind": "query",
+    "visibility": "internal",
+    "wrapper": "systemQuery",
+    "job": "bank.rules"
+  },
+  "matchingRules:preview": {
+    "kind": "query",
+    "visibility": "public",
+    "wrapper": "query",
+    "permission": "banking.read"
+  },
+  "matchingRules:remove": {
+    "kind": "mutation",
+    "visibility": "public",
+    "wrapper": "mutation",
+    "permission": "bankRules.write"
+  },
+  "matchingRules:update": {
+    "kind": "mutation",
+    "visibility": "public",
+    "wrapper": "mutation",
+    "permission": "bankRules.write"
   },
   "members:changeRole": {
     "kind": "mutation",

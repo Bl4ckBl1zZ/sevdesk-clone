@@ -7,6 +7,7 @@ import {
   vBankTransactionStatus,
   vStatementFormat,
 } from "./bankValidators";
+import { bankFeedTables, vBankAccountFeed } from "./bankFeedValidators";
 import { vMatchProvenance, vPaymentDifference, vStoredPaymentSource, vStoredPaymentTarget } from "./paymentValidators";
 import {
   vActor,
@@ -237,11 +238,14 @@ export default defineSchema({
     isDefaultForInvoices: v.boolean(),
     autoApplyMatches: v.boolean(),
     openingBalance: v.optional(v.object({ date: v.string(), amountCents: v.number() })),
+    /** F07 P2: Enable Banking feed link (BNK-104/106); absent = statement import only. */
+    feed: v.optional(vBankAccountFeed),
     archivedAt: v.optional(v.number()),
   })
     .index("by_ledgerAccount", ["ledgerAccount"])
     .index("by_currency_default", ["currency", "isDefaultForInvoices"])
-    .index("by_iban", ["iban"]),
+    .index("by_iban", ["iban"])
+    .index("by_feed_identificationHash", ["feed.identificationHash"]),
 
   // ── 03 §7 banking (F07 P1: statement import; the Enable Banking feed tables follow in P2) ────────────────
   // bankTransactions 🔒 — booked rows only, immutable except the BNK-122 whitelist (src/domain/audit/immutability.ts)
@@ -387,6 +391,9 @@ export default defineSchema({
     actor: v.optional(vActor),
     createdAt: v.number(),
   }).index("by_account_status", ["accountId", "status"]),
+
+  // F07 P2: bankConnections, bankPendingTransactions, matchingRules (convex/bankFeedValidators.ts)
+  ...bankFeedTables,
 
   // cashTransfers 🔒 — „Bargeld eingezahlt / entnommen“ and ATM withdrawals into the till (CSH-024/025/027)
   cashTransfers: defineTable({

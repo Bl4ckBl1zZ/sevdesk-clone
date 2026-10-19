@@ -53,6 +53,12 @@ export const PROBLEMS = {
     en: "This record is immutable (GoBD).",
   },
   period_locked: { status: 409, de: "Der Zeitraum ist festgeschrieben.", en: "The period is locked." },
+  /** F07 BNK-107 / EC-BNK-87: bank fetches need the signed-in member in the UI (PSD2 PSU presence). */
+  owner_presence_required: {
+    status: 409,
+    de: "Ein manueller Abruf ist nur in der Oberfläche möglich, solange Sie angemeldet sind.",
+    en: "A manual bank fetch is only possible in the app while you are signed in.",
+  },
   /** F07 CSH-026 / AO-05: the till would go below zero at some date (message names date and amount). */
   cash_negative: {
     status: 422,
@@ -317,6 +323,8 @@ const APP_CODE_TO_PROBLEM: Readonly<Record<string, ProblemCode>> = {
   artifacts_blocked: "conflict",
   einvoice_validation_failed: "einvoice_validation_failed",
   clock_skew: "dependency_unavailable",
+  owner_presence_required: "owner_presence_required",
+  bank_feed_error: "dependency_unavailable",
   idempotency_key_reused: "idempotency_key_reused",
   idempotency_in_progress: "idempotency_in_progress",
   preview_outdated: "preview_outdated",

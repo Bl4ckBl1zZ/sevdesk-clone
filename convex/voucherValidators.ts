@@ -360,6 +360,13 @@ export const voucherTables = {
     duplicateDismissals: v.array(v.id("vouchers")),
     recurringVoucherId: v.optional(v.id("recurringVouchers")),
     inboxItemId: v.optional(v.id("inboxItems")),
+    /** F07 BNK-065/052: created from this bank transaction; allocated to it on finalisation. */
+    bankTransactionId: v.optional(v.id("bankTransactions")),
+    /** F07 BNK-052: the bank statement is the Beleg (rule „Kontoauszug genügt als Beleg“, e.g. bank fees). */
+    statementIsBeleg: v.optional(v.literal(true)),
+    /** F07 BNK-052: the matching rule that created the voucher; `receiptMissing` = draft flagged „Beleg fehlt“. */
+    ruleId: v.optional(v.id("matchingRules")),
+    receiptMissing: v.optional(v.literal(true)),
     costCenterId: v.optional(v.string()),
     // `projects` arrives with F11 (P4): kept as a string until then.
     projectId: v.optional(v.string()),
@@ -386,7 +393,8 @@ export const voucherTables = {
     .index("by_supplier_documentNumber", ["supplierContactId", "documentNumber"])
     .index("by_status_due", ["status", "dueDate"])
     .index("by_documentDate", ["documentDate"])
-    .index("by_recurring", ["recurringVoucherId", "documentDate"]),
+    .index("by_recurring", ["recurringVoucherId", "documentDate"])
+    .index("by_bankTransaction", ["bankTransactionId"]),
 
   // voucherLines 🔒 frozen with the parent (03 §6).
   voucherLines: defineTable({

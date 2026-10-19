@@ -328,12 +328,10 @@ export const commitImportInternal = actorMutation({
       ...(pdf ? { pdf } : {}),
       ...(args.force ? { force: true } : {}),
     });
-    // BNK-043 auto-apply: one scheduled mutation per booked row, so a failing match never undoes the import.
-    for (const transactionId of (await ctx.db.get(r.importId))?.rowIds ?? []) {
-      await ctx.scheduler.runAfter(0, internal.matching.autoApplyInternal, {
-        actorContext: ctx.actorContext,
-        transactionId,
-      });
+    // BNK-050 rules, then the BNK-043 auto-apply — scheduled, so a failing rule or match never undoes the import.
+    const rowIds = (await ctx.db.get(r.importId))?.rowIds ?? [];
+    if (rowIds.length > 0) {
+      await ctx.scheduler.runAfter(0, internal.matchingRules.afterImport, { transactionIds: rowIds });
     }
     return r;
   },

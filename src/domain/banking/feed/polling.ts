@@ -6,6 +6,7 @@
  * The counter is kept per Europe/Berlin calendar day (03 §1 `feed.unattendedFetches`); one logical fetch counts once
  * however many `continuation_key` pages it has. Owner-present fetches (PSU headers) do not count (BNK-107).
  */
+import { TZDate } from "@date-fns/tz";
 import { addDays, type CalendarDate, daysBetween } from "../../time/calendar-date";
 
 export const UNATTENDED_LIMIT = 4;
@@ -116,4 +117,17 @@ export function olderGap(input: {
     if (before < to) to = before;
   }
   return daysBetween(input.start as CalendarDate, to as CalendarDate) >= 0 ? { from: input.start, to } : null;
+}
+
+/** SET-049a „nächster Abruf“: the next `bank.sync` slot after `now` (Europe/Berlin wall clock, DST-exact). */
+export function nextPollAt(now: number): number {
+  const base = new TZDate(now, "Europe/Berlin");
+  for (let day = 0; day < 3; day++) {
+    for (const slot of POLL_SLOTS_BERLIN) {
+      const [h, m] = slot.split(":").map(Number) as [number, number];
+      const t = new TZDate(base.getFullYear(), base.getMonth(), base.getDate() + day, h, m, 0, "Europe/Berlin");
+      if (t.getTime() > now) return t.getTime();
+    }
+  }
+  return now + 6 * 3_600_000;
 }

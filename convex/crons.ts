@@ -58,4 +58,14 @@ crons.cron("recurringVouchers.generate (CET)", "15 5 * * *", internal.vouchers.g
 // the R2 env is missing, the integration is disabled/without AVV, or polling is paused after 401/403 (EC-INB-29).
 crons.interval("inbox.pollR2", { minutes: 5 }, internal.inboxNode.pollR2, {});
 
+// bank.sync — every 6 h at 05:30 / 11:30 / 17:30 / 23:30 Europe/Berlin (F07 BNK-106): 03:30/09:30/15:30/21:30 UTC in
+// summer, 04:30/10:30/16:30/22:30 UTC in winter; the job gates on the Berlin hour. A no-op without an active
+// Enable Banking connection. Polling only — there is no inbound bank webhook (BNK-108).
+crons.cron("bank.sync (CEST)", "30 3,9,15,21 * * *", internal.bankFeedNode.syncCron, {});
+crons.cron("bank.sync (CET)", "30 4,10,16,22 * * *", internal.bankFeedNode.syncCron, {});
+
+// bank.consentExpiryReminder — daily 08:00 Europe/Berlin (F07 BNK-105): T−14/T−3/T−0 reminders, once each.
+crons.cron("bank.consentExpiryReminder (CEST)", "0 6 * * *", internal.bankFeed.consentExpiryReminderCron, {});
+crons.cron("bank.consentExpiryReminder (CET)", "0 7 * * *", internal.bankFeed.consentExpiryReminderCron, {});
+
 export default crons;

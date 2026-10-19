@@ -53,6 +53,10 @@ export const SYSTEM_JOBS = [
   "cron.receivables.refreshOverdue", // 02 §7 receivables.refreshOverdue (F05 PAY-044, DUN-053 „Bald fällig“ to-dos)
   "cron.recurringVouchers.generate", // 02 §7 recurringVouchers.generate (F06 VOU-064), daily 06:15 Europe/Berlin
   "cron.inbox.pollR2", // 02 §7 inbox.pollR2 (F06 INB-049): every 5 min, lists/reads/deletes the R2 e-mail-in bucket
+  "cron.bank.sync", // 02 §7 bank.sync (F07 BNK-106): every 6 h at 05:30/11:30/17:30/23:30 Europe/Berlin
+  "cron.bank.consentExpiryReminder", // 02 §7 bank.consentExpiryReminder (F07 BNK-105): daily 08:00 Europe/Berlin
+  "bank.feed", // F07 internal reads of the Enable Banking Node actions (encrypted secrets, poll targets; no writes)
+  "bank.rules", // F07 BNK-050/052 rule application after an import or poll (scheduled; marks render an Eigenbeleg)
   "inbox.classify", // F06 §4.1 classification pipeline (Node action; writes through actorMutations with the capturer)
   "documents.pipeline", // F04 §4.6 step 1 reads and step 3 renderArtifacts (scheduled, retried)
   "imports.files", // F09 IMP-016 Node action that unpacks uploaded ZIPs into storage (no db writes)

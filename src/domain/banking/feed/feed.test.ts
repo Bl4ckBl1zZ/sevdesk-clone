@@ -15,6 +15,7 @@ import {
   backfillStart,
   countFetch,
   isPollSlot,
+  nextPollAt,
   olderGap,
   pollDateFrom,
   RATE_LIMIT_BACKOFF_MS,
@@ -93,6 +94,11 @@ describe("polling (BNK-106, BNK-103, BNK-107)", () => {
     expect([5, 11, 17, 23].every((hour) => isPollSlot({ hour, minute: 30 }))).toBe(true);
     expect(isPollSlot({ hour: 6, minute: 30 })).toBe(false);
     expect(isPollSlot({ hour: 5, minute: 0 })).toBe(false);
+    // 12:00 Berlin (CEST, UTC+2) → 17:30 Berlin = 15:30 UTC; after 23:30 the next day's 05:30
+    expect(nextPollAt(Date.parse("2026-10-19T10:00:00Z"))).toBe(Date.parse("2026-10-19T15:30:00Z"));
+    expect(nextPollAt(Date.parse("2026-10-19T21:31:00Z"))).toBe(Date.parse("2026-10-20T03:30:00Z"));
+    // DST end 2026-10-25: 05:30 CET = 04:30 UTC
+    expect(nextPollAt(Date.parse("2026-10-24T22:00:00Z"))).toBe(Date.parse("2026-10-25T04:30:00Z"));
   });
 
   test("EC-BNK-86 EC-191 BNK-106 ≤ 4 unattended transaction fetches per day, balances ≤ 1, 429 → 6 h backoff", () => {
