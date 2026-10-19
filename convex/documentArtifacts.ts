@@ -93,10 +93,12 @@ export const render = systemAction({
   job: "documents.pipeline",
   args: { id: v.id("salesDocuments") },
   handler: async (ctx, { id }) => {
-    const input = await ctx.runQuery(internal.invoices.renderInput, { id });
-    if (input.status === "draft" || !input.snapshotJson || input.artifactStatus !== "pending" || input.hasArtifacts)
-      return;
+    // Loading the input is inside the try as well: a transient failure there (e.g. the 1 s query limit on a loaded
+    // backend) is a failed attempt with the normal retry, not a dead job that only the 10-minute watchdog finds.
     try {
+      const input = await ctx.runQuery(internal.invoices.renderInput, { id });
+      if (input.status === "draft" || !input.snapshotJson || input.artifactStatus !== "pending" || input.hasArtifacts)
+        return;
       const snapshot = JSON.parse(input.snapshotJson) as DocumentSnapshot;
       const createdAt = new Date(input.finalizedAt ?? Date.now());
       const xmlAttachments = await loadXmlAttachments(ctx, input.xmlAttachments, snapshot);
