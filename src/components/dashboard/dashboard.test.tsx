@@ -31,6 +31,8 @@ const full: DashboardData = {
     overdue: { count: 2, cents: 15_000 },
     open: { count: 1, cents: 20_000 },
     partiallyPaid: { count: 1, cents: 7_000 },
+    dueWithin7: { count: 1, cents: 20_000 },
+    creditCents: 3_500,
   },
   ku: {
     year: 2026,
@@ -93,6 +95,8 @@ const empty: DashboardData = {
     overdue: { count: 0, cents: 0 },
     open: { count: 0, cents: 0 },
     partiallyPaid: { count: 0, cents: 0 },
+    dueWithin7: { count: 0, cents: 0 },
+    creditCents: 0,
   },
   ku: null,
   monitors: { ku: [], oss: null, notices: [] },
@@ -205,6 +209,15 @@ describe("DASH-001…009 Übersicht", () => {
       "/rechnungen?status=open",
     );
     expect(c.getByRole("link", { name: "Rechnung schreiben" })).toHaveAttribute("href", "/rechnungen/neu");
+  });
+
+  test("PAY-007 Ausstehende Rechnungen also shows „davon in 7 Tagen fällig“ and the credit balances", () => {
+    renderWithIntl(<DashboardView data={full} />);
+    const c = card("Ausstehende Rechnungen");
+    expect(c.getByText("davon in 7 Tagen fällig (1)")).toBeInTheDocument();
+    expect(c.getByText("200,00 €", { selector: "dd" })).toBeInTheDocument();
+    expect(c.getByRole("link", { name: "Kundenguthaben" })).toHaveAttribute("href", "/auswertungen/offene-posten");
+    expect(c.getByText("35,00 €")).toBeInTheDocument();
   });
 
   test("DASH-005 KU card with turnover, progress against the limit and the explanation", () => {

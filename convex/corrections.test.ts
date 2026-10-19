@@ -119,6 +119,35 @@ describe("INV-10 INV-11 Storno", { timeout: 30_000 }, () => {
     expect((await doc(t, id)).status).not.toBe("cancelled");
   });
 
+  test("PAY-034 EC-121 Storno is blocked while payments are not reversed; after reversal the cancelled invoice takes no new payment", async () => {
+    const t = makeT();
+    const { owner, id } = await finalizedInvoice(t);
+    const account = await t.run(async (ctx) => defaultInvoiceAccount(ctx));
+    if (!account) throw new Error("no invoice bank account");
+    const pay = (amountCents: number) =>
+      owner.mutation(api.payments.recordForInvoice, {
+        documentId: id,
+        source: { kind: "clearing", accountId: account._id },
+        date: "2026-10-12",
+        amountCents,
+      });
+    const r = await pay(10_000);
+    const blocked = await owner.mutation(api.corrections.cancel, { id }).catch((x: unknown) => x);
+    expect(dataOf(blocked).reason).toBe("storno_paid_invoice");
+    // The block message names both paths: Rechnungskorrektur + Erstattung, or reverse the allocation first.
+    expect((blocked as Error).message).toMatch(/Rechnungskorrektur/);
+    expect((blocked as Error).message).toMatch(/Zahlungszuordnung/);
+    await owner.mutation(api.payments.reverse, {
+      paymentId: r.paymentIds[0] as Id<"payments">,
+      reason: "Falsch zugeordnet",
+    });
+    await owner.mutation(api.corrections.cancel, { id });
+    expect((await doc(t, id)).status).toBe("cancelled");
+    const e = await pay(5_000).catch((x: unknown) => x);
+    expect(errorCode(e)).toBe("invalid_input");
+    expect(String(dataOf(e).message)).toContain("Die Rechnung ist storniert.");
+  });
+
   test("EC-075 a Storno cannot be cancelled and an invoice cannot be cancelled twice", async () => {
     const t = makeT();
     const { owner, id } = await finalizedInvoice(t);

@@ -66,11 +66,12 @@ describe("DASH-011 dashboard.overview", () => {
     expect(o.result?.months).toHaveLength(12);
     expect(o.result?.months.at(-1)).toMatchObject({ label: "Okt 26", incomeCents: 100_000 });
     // DASH-004
-    expect(o.receivables).toEqual({
+    expect(o.receivables).toMatchObject({
       totalCents: 60_000,
       overdue: { count: 0, cents: 0 },
       open: { count: 0, cents: 0 },
       partiallyPaid: { count: 1, cents: 60_000 },
+      creditCents: 0,
     });
     // DASH-005: limits from the rule table, never literals
     const limits = lookupRule(KLEINUNTERNEHMER_LIMITS, "2026-10-12" as CalendarDate);

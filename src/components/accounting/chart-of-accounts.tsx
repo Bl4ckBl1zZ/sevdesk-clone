@@ -139,7 +139,10 @@ function AccountsPanel({ accounts }: { accounts: Account[] }) {
                     <TableCell>{t(`types.${a.type}`)}</TableCell>
                     <TableCell className="text-right tabular-nums">{a.used ? euro(a.debitCents) : ""}</TableCell>
                     <TableCell className="text-right tabular-nums">{a.used ? euro(a.creditCents) : ""}</TableCell>
-                    <TableCell className="text-right tabular-nums">{a.used ? euro(a.balanceCents) : ""}</TableCell>
+                    <TableCell className="text-right tabular-nums">
+                      {a.used ? euro(a.balanceCents) : ""}
+                      {a.incomplete && <IncompleteBadge />}
+                    </TableCell>
                   </TableRow>
                 ))}
               </TableBody>
@@ -152,10 +155,11 @@ function AccountsPanel({ accounts }: { accounts: Account[] }) {
                   <span className="font-mono">{a.number}</span>
                   <AccountName account={a} />
                 </span>
-                {a.used && (
+                {(a.used || a.incomplete) && (
                   <span className="shrink-0 text-right tabular-nums">
                     <span className="sr-only">{t("columns.balance")} </span>
-                    {euro(a.balanceCents)}
+                    {a.used ? euro(a.balanceCents) : ""}
+                    {a.incomplete && <IncompleteBadge />}
                   </span>
                 )}
               </li>
@@ -322,5 +326,18 @@ function AssignDialog({ role, accounts, onClose }: { role: Role; accounts: Accou
         </DialogFooter>
       </DialogContent>
     </Dialog>
+  );
+}
+
+/** ACC-027: bank ledger balances are incomplete in P1 while transactions are not yet journalised. */
+function IncompleteBadge() {
+  const t = useTranslations("accounting.konten");
+  return (
+    <span
+      className="ml-2 inline-block rounded-full border border-warning/60 px-2 text-warning text-xs"
+      title={t("incompleteHint")}
+    >
+      {t("incomplete")}
+    </span>
   );
 }

@@ -472,3 +472,51 @@ describe("F07 revisions and foreign currency (BNK-026, BNK-028)", () => {
     expect(reasonOf(ignored)).not.toBe("FX_POSTING_DEFERRED");
   });
 });
+
+describe("account kinds (BNK-001)", () => {
+  test("BNK-001 PayPal/clearing accounts with their own unique Finanzkonto and opening balance; no IBAN, not on invoices", async () => {
+    const s = await setup();
+    const base = { currency: "EUR", iban: "", bic: "", accountHolder: "Max Muster", showOnInvoices: true };
+    const paypal = await s.owner.mutation(api.banking.createAccount, {
+      values: {
+        ...base,
+        kind: "paypal",
+        name: "PayPal",
+        ledgerAccount: "1220",
+        openingDate: "2026-01-01",
+        openingAmount: "1.234,56",
+      },
+    });
+    const row = await s.t.run((ctx) => ctx.db.get(paypal));
+    expect(row).toMatchObject({
+      kind: "paypal",
+      ledgerAccount: "1220",
+      showOnInvoices: false,
+      isDefaultForInvoices: false,
+      openingBalance: { date: "2026-01-01", amountCents: 123_456 },
+    });
+    const dup = await s.owner
+      .mutation(api.banking.createAccount, {
+        values: { ...base, kind: "clearing", name: "Verrechnung", ledgerAccount: "1220" },
+      })
+      .catch((e: unknown) => e);
+    expect(messageOf(dup)).toContain("bereits einem anderen Konto zugeordnet");
+    const outside = await s.owner
+      .mutation(api.banking.createAccount, {
+        values: { ...base, kind: "clearing", name: "Verrechnung", ledgerAccount: "1000" },
+      })
+      .catch((e: unknown) => e);
+    expect(messageOf(outside)).toContain("1200–1299");
+    const withIban = await s.owner
+      .mutation(api.banking.createAccount, { values: { ...base, kind: "paypal", name: "PP2", iban: IBAN } })
+      .catch((e: unknown) => e);
+    expect(errorCode(withIban)).toBe("invalid_input");
+    const clearing = await s.owner.mutation(api.banking.createAccount, {
+      values: { ...base, kind: "clearing", name: "Verrechnung" },
+    });
+    const all = await s.t.run((ctx) => ctx.db.query("bankAccounts").collect());
+    const ledgers = all.map((a) => a.ledgerAccount);
+    expect(new Set(ledgers).size).toBe(ledgers.length);
+    expect(all.find((a) => a._id === clearing)?.kind).toBe("clearing");
+  });
+});

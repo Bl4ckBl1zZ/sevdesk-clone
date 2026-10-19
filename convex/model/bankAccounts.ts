@@ -1,5 +1,11 @@
-import { type Chart, defaultBankLedgerAccount } from "../../src/domain/accounting/bank-ledger";
+import {
+  bankLedgerAccountProblem,
+  type Chart,
+  defaultBankLedgerAccount,
+} from "../../src/domain/accounting/bank-ledger";
 import { checkArchiveAccount } from "../../src/domain/banking/accounts";
+import { parseCents } from "../../src/domain/money/parse";
+import { ROLE_MAPPING_ROWS } from "../../src/domain/rules/accounting";
 import type { StatementAccountValues } from "../../src/domain/schemas/banking";
 import type { BankValues } from "../../src/domain/schemas/settings";
 import type { Doc, Id } from "../_generated/dataModel";
@@ -179,18 +185,25 @@ export async function addStatementAccount(
       reason: "IBAN_DUPLICATE",
     });
   }
-  const ledgerAccount = defaultBankLedgerAccount(
-    chart,
-    all.map((a) => a.ledgerAccount),
-  );
+  const used = all.map((a) => a.ledgerAccount);
+  // BNK-001: a chosen Finanzkonto is checked (range, unique across bank accounts and the cash account).
+  const cashAccount = ROLE_MAPPING_ROWS.find((r) => r.role === "cash")?.[chart] ?? null;
+  const chosen = values.ledgerAccount ?? "";
+  if (chosen) {
+    const problem = bankLedgerAccountProblem(chart, chosen, used, cashAccount);
+    if (problem) throw appError("invalid_input", problem, { field: "ledgerAccount", reason: "LEDGER_ACCOUNT" });
+  }
+  const ledgerAccount = chosen || defaultBankLedgerAccount(chart, cashAccount ? [...used, cashAccount] : used);
   if (!ledgerAccount) throw appError("invalid_input", "Kein freies Bankkonto im Kontenrahmen.");
-  const showOnInvoices = values.showOnInvoices && values.iban !== "";
+  const kind = values.kind ?? "bank";
+  const showOnInvoices = kind === "bank" && values.showOnInvoices && values.iban !== "";
   const first = showOnInvoices && !(await defaultInvoiceAccount(ctx, values.currency));
+  const opening = values.openingDate && values.openingAmount ? parseCents(values.openingAmount) : null;
   return auditedInsert(
     ctx,
     "bankAccounts",
     {
-      kind: "bank",
+      kind,
       name: values.name,
       currency: values.currency,
       ...(values.iban ? { iban: values.iban } : {}),
@@ -200,6 +213,9 @@ export async function addStatementAccount(
       showOnInvoices,
       isDefaultForInvoices: first,
       autoApplyMatches: true,
+      ...(opening?.ok && values.openingDate
+        ? { openingBalance: { date: values.openingDate, amountCents: opening.value } }
+        : {}),
     },
     { action: "settings.bank_account.create", label: values.name },
   );

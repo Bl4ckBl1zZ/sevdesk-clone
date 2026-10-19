@@ -1,3 +1,4 @@
+import { bankLedgerIncomplete, UNJOURNALISED_TX_STATUSES } from "../../src/domain/accounting/bank-ledger";
 import type { OpeningBalancePart, OpeningReceivable } from "../../src/domain/accounting/events";
 import { openingSourceId } from "../../src/domain/accounting/events";
 import {
@@ -152,6 +153,8 @@ export interface AccountView {
   balanceCents: number;
   used: boolean;
   roles: string[];
+  /** ACC-027: bank ledger account with not yet journalised transactions → „unvollständig (P1)“. */
+  incomplete?: boolean;
 }
 
 export async function chartView(ctx: ReadCtx, now: number, fiscalYear?: number) {
@@ -180,9 +183,20 @@ export async function chartView(ctx: ReadCtx, now: number, fiscalYear?: number) 
     });
   }
   for (const b of await ctx.db.query("bankAccounts").collect()) {
+    const statuses: string[] = [];
+    for (const status of UNJOURNALISED_TX_STATUSES) {
+      const tx = await ctx.db
+        .query("bankTransactions")
+        .withIndex("by_account_status", (q) => q.eq("accountId", b._id).eq("status", status as "open"))
+        .first();
+      if (tx) statuses.push(status);
+    }
+    const incomplete = bankLedgerIncomplete(statuses);
     const existing = accounts.get(b.ledgerAccount);
-    if (existing) existing.name = `${existing.name} – ${b.name}`;
-    else {
+    if (existing) {
+      existing.name = `${existing.name} – ${b.name}`;
+      if (incomplete) existing.incomplete = true;
+    } else {
       accounts.set(b.ledgerAccount, {
         number: b.ledgerAccount,
         name: b.name,
@@ -193,6 +207,7 @@ export async function chartView(ctx: ReadCtx, now: number, fiscalYear?: number) 
         verified: true,
         ...base,
         roles: [],
+        ...(incomplete ? { incomplete: true } : {}),
       });
     }
   }

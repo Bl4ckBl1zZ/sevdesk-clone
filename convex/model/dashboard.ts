@@ -74,8 +74,10 @@ export async function dashboardOverview(
   }
 
   // DASH-004 Ausstehende Rechnungen
-  const receivables = allowed(role, "payments.read")
-    ? receivablesSummary((await openItemsAsOf(ctx, { asOf: today })).items)
+  // PAY-007: plus „davon in 7 Tagen fällig“ and the customer credit balances (secondary lines, rows stay disjoint).
+  const openItems = allowed(role, "payments.read") ? await openItemsAsOf(ctx, { asOf: today }) : null;
+  const receivables = openItems
+    ? receivablesSummary(openItems.items, { today, creditCents: openItems.totals.creditCents })
     : null;
 
   // DASH-005 Kleinunternehmergrenze + DASH-008 Top 5 Kunden (finalised invoices)

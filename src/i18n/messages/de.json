@@ -186,6 +186,8 @@
         "open": "Offen",
         "partiallyPaid": "Teilbezahlt",
         "rowLabel": "{label}: {count, plural, one {# Rechnung} other {# Rechnungen}}, {amount}",
+        "dueWithin7": "davon in 7 Tagen fällig ({count})",
+        "credit": "Kundenguthaben",
         "create": "Rechnung schreiben"
       },
       "ku": {
@@ -1359,6 +1361,8 @@
       "searchPlaceholder": "Nummer oder Bezeichnung",
       "usedOnly": "Nur bebuchte Konten",
       "tableLabel": "Konten",
+      "incomplete": "unvollständig (P1)",
+      "incompleteHint": "Bankumsätze ohne Rechnungszuordnung werden erst mit der Belegbuchung (P2) gebucht. Der Saldo dieses Bankkontos im Journal ist bis dahin unvollständig.",
       "columns": {
         "number": "Konto",
         "name": "Bezeichnung",
@@ -2185,6 +2189,12 @@
       "bic": "BIC",
       "holder": "Kontoinhaber",
       "showOnInvoices": "Auf Rechnungen angeben",
+      "kind": "Kontoart",
+      "kinds": { "bank": "Bankkonto", "clearing": "Verrechnungskonto", "paypal": "PayPal" },
+      "ledgerAccount": "Finanzkonto (optional)",
+      "ledgerAccountHint": "Leer lassen für das nächste freie Konto im Kontenrahmen (SKR03 1200–1299, SKR04 1800–1899).",
+      "openingDate": "Anfangsbestand zum (optional)",
+      "openingAmount": "Anfangsbestand in Kontowährung (optional)",
       "saved": "Bankkonto angelegt."
     },
     "statements": {
@@ -2908,6 +2918,10 @@
       "reason": "Grund (wird auf der Stornorechnung gedruckt, optional)",
       "done": "Stornorechnung {number} erstellt.",
       "xmlInvalid": "Die E-Rechnung der Stornorechnung ist ungültig."
+    },
+    "paidStorno": {
+      "correction": "Rechnungskorrektur erstellen",
+      "payments": "Zahlungszuordnung prüfen"
     },
     "chain": {
       "nextAdvance": "Weitere Abschlagsrechnung",

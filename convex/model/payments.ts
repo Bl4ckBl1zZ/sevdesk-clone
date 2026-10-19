@@ -1225,6 +1225,11 @@ export interface InvoicePaymentInput {
 export async function invoicePaymentArgs(ctx: ReadCtx, input: InvoicePaymentInput): Promise<RecordArgs> {
   const doc = await ctx.db.get(input.documentId);
   if (!doc) throw appError("not_found", "Die Rechnung existiert nicht.");
+  // PAY-034 / EC-121: a cancelled invoice (open amount 0) takes no payment — say why instead of „Betrag übersteigt…".
+  if (doc.status === "cancelled" || doc.type === "cancellation") {
+    throw appError("invalid_input", PAY_MESSAGES.cancelled, { reason: "CANCELLED" });
+  }
+  if (doc.status === "draft") throw appError("invalid_input", PAY_MESSAGES.draft, { reason: "DRAFT" });
   if (doc.paymentStatus === "written_off") {
     throw appError("invalid_input", PAY_MESSAGES.writtenOff, { reason: "WRITTEN_OFF" });
   }

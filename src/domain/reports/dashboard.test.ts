@@ -139,7 +139,25 @@ describe("DASH-004 Ausstehende Rechnungen", () => {
       overdue: { count: 0, cents: 0 },
       open: { count: 0, cents: 0 },
       partiallyPaid: { count: 0, cents: 0 },
+      dueWithin7: { count: 0, cents: 0 },
+      creditCents: 0,
     });
+  });
+  test("PAY-007 due within 7 days is a subset of the not-overdue rows; credit balances are passed through", () => {
+    const today = "2026-10-18" as CalendarDate;
+    const s = receivablesSummary(
+      [
+        { openCents: 10_000, paidCents: 0, overdue: true, currency: "EUR", dueDate: "2026-10-10" },
+        { openCents: 20_000, paidCents: 0, overdue: false, currency: "EUR", dueDate: "2026-10-25" },
+        { openCents: 7_000, paidCents: 3_000, overdue: false, currency: "EUR", dueDate: "2026-10-18" },
+        { openCents: 4_000, paidCents: 0, overdue: false, currency: "EUR", dueDate: "2026-10-26" },
+        { openCents: 9_000, paidCents: 0, overdue: false, currency: "USD", dueDate: "2026-10-20" },
+      ],
+      { today, creditCents: 3_500 },
+    );
+    expect(s.dueWithin7).toEqual({ count: 2, cents: 27_000 });
+    expect(s.creditCents).toBe(3_500);
+    expect(s.overdue.cents + s.open.cents + s.partiallyPaid.cents).toBe(s.totalCents);
   });
 });
 

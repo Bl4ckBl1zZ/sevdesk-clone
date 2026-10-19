@@ -275,6 +275,16 @@ function ReceivablesCard({ r, canWrite }: { r: NonNullable<DashboardData["receiv
             );
           })}
         </ul>
+        <dl className="mt-2 grid grid-cols-[1fr_auto] gap-x-3 gap-y-1 text-muted-foreground text-sm">
+          <dt>{t("dueWithin7", { count: r.dueWithin7.count })}</dt>
+          <dd className="text-right tabular-nums">{formatEuro(r.dueWithin7.cents)}</dd>
+          <dt>
+            <Link href={"/auswertungen/offene-posten" as Route} className="underline-offset-4 hover:underline">
+              {t("credit")}
+            </Link>
+          </dt>
+          <dd className="text-right tabular-nums">{formatEuro(r.creditCents)}</dd>
+        </dl>
       </CardContent>
       {canWrite && (
         <CardFooter className="mt-auto">
