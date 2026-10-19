@@ -121,7 +121,9 @@ test("SET-132 AUD-026 /einstellungen/system shows the integrity status; Datensic
   await page.getByRole("link", { name: "Datensicherungen" }).click();
   await expect(page).toHaveURL(/\/einstellungen\/system\/backups$/);
   await expect(h1(page, "Datensicherungen")).toBeVisible();
-  await expect(page.getByRole("button", { name: "Neu prüfen" })).toBeVisible();
+  // The page loads the backup status on mount and disables „Neu prüfen“ meanwhile; axe the settled page, not a
+  // button that turns from disabled (50 % opacity) to enabled during the scan.
+  await expect(page.getByRole("button", { name: "Neu prüfen" })).toBeEnabled({ timeout: 30_000 });
   await expectNoAxeViolations();
 });
 
