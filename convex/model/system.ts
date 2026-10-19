@@ -96,6 +96,9 @@ export interface RestoreDrillInput {
   headMatchesCheckpoint: boolean;
   notes?: string | undefined;
   kind: "drill" | "production_restore";
+  /** EXP-024 restore:complete — the verified head and the seq gap to a newer off-host checkpoint (E-EXP-41). */
+  restoredHeadSeq?: number | undefined;
+  gapToCheckpoint?: number | undefined;
 }
 
 /** SEC-05 / AUD-027: restores are logged (append-only); the profile mirrors the latest drill date (SET-135). */
@@ -120,6 +123,8 @@ export async function recordRestoreDrill(ctx: ModelCtx, input: RestoreDrillInput
       headMatchesCheckpoint: input.headMatchesCheckpoint,
       ...(input.notes?.trim() ? { notes: input.notes.trim() } : {}),
       kind: input.kind,
+      ...(input.restoredHeadSeq !== undefined ? { restoredHeadSeq: input.restoredHeadSeq } : {}),
+      ...(input.gapToCheckpoint !== undefined ? { gapToCheckpoint: input.gapToCheckpoint } : {}),
       actor: ctx.actor,
       at: ctx.now(),
     },

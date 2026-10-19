@@ -4151,7 +4151,14 @@
     "skipped": "{count} übersprungen",
     "download": "{name} herunterladen",
     "cancel": "Abbrechen",
-    "cancelled": "Auftrag abgebrochen."
+    "cancelled": "Auftrag abgebrochen.",
+    "full": {
+      "title": "Vollexport",
+      "description": "Alle Tabellen als NDJSON, alle gespeicherten Dateien (PDF, XML, Belege, Anhänge) mit SHA-256, Manifest mit Prüfkettenkopf und eine Anleitung (README) in einer ZIP-Datei – lesbar ohne die Anwendung.",
+      "snapshotNote": "Die wiederherstellbare Sicherung ist die tägliche Datensicherung (convex-export). Der Vollexport ist die lesbare Kopie für die Aufbewahrung; bewahren Sie ihn in der EU auf (§ 146 Abs. 2 AO).",
+      "start": "Vollexport erstellen",
+      "started": "Der Vollexport läuft im Hintergrund. Sie werden benachrichtigt."
+    }
   },
   "privacy": {
     "tabs": {

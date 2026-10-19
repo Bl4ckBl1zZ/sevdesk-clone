@@ -68,6 +68,7 @@ export const SYSTEM_JOBS = [
   "auth", // member created by the sign-up trigger, OTP throttle, auth-mail failures
   "test", // IS_TEST-only fixtures for the E2E journeys (convex/testFixtures.ts); refuse to run otherwise
   "migration", // migrations:run — the runner then acts as system:migration.<name> (AUD-028)
+  "system.restore", // F09 EXP-024 ops only (npx convex run restore:preflight / restore:complete) → system.restore
 ] as const;
 export type SystemJob = (typeof SYSTEM_JOBS)[number];
 

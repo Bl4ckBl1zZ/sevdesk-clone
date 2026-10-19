@@ -222,3 +222,13 @@ test("SET-120 SET-121 /einstellungen/regeln lists the rule tables with source an
   await expectNoAxeViolations();
   await dialog.getByRole("button", { name: "Abbrechen" }).click();
 });
+
+test("EXP-023 /export offers the owner the Vollexport next to the job list", async ({
+  page,
+  expectNoAxeViolations,
+}) => {
+  await page.goto("/export");
+  await expect(page.getByRole("heading", { name: "Vollexport" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Vollexport erstellen" })).toBeVisible();
+  await expectNoAxeViolations();
+});

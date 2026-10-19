@@ -73,6 +73,7 @@ const EXPECTED: Record<Permission, readonly MemberRole[]> = {
   "vouchers.correct": ["owner", "bookkeeper"],
   "vouchers.approve": ["owner", "bookkeeper"],
   "vouchers.pay": ["owner", "bookkeeper"],
+  "exports.full": ["owner"],
 };
 
 describe("permission matrix (02 §4.3)", () => {

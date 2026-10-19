@@ -1087,6 +1087,42 @@
     "wrapper": "systemAction",
     "job": "exports.run"
   },
+  "fullExport:done": {
+    "kind": "mutation",
+    "visibility": "internal",
+    "wrapper": "systemMutation",
+    "job": "exports.run"
+  },
+  "fullExport:meta": {
+    "kind": "query",
+    "visibility": "internal",
+    "wrapper": "systemQuery",
+    "job": "exports.run"
+  },
+  "fullExport:start": {
+    "kind": "mutation",
+    "visibility": "public",
+    "wrapper": "mutation",
+    "permission": "exports.full"
+  },
+  "fullExport:storagePage": {
+    "kind": "query",
+    "visibility": "internal",
+    "wrapper": "systemQuery",
+    "job": "exports.run"
+  },
+  "fullExport:tablePage": {
+    "kind": "query",
+    "visibility": "internal",
+    "wrapper": "systemQuery",
+    "job": "exports.run"
+  },
+  "fullExportJob:run": {
+    "kind": "action",
+    "visibility": "internal",
+    "wrapper": "systemAction",
+    "job": "exports.run"
+  },
   "idempotency:begin": {
     "kind": "mutation",
     "visibility": "public",
@@ -2520,6 +2556,36 @@
     "visibility": "public",
     "wrapper": "mutation",
     "permission": "documents.write"
+  },
+  "restore:complete": {
+    "kind": "action",
+    "visibility": "internal",
+    "wrapper": "systemAction",
+    "job": "system.restore"
+  },
+  "restore:headState": {
+    "kind": "query",
+    "visibility": "internal",
+    "wrapper": "systemQuery",
+    "job": "system.restore"
+  },
+  "restore:preflight": {
+    "kind": "query",
+    "visibility": "internal",
+    "wrapper": "systemQuery",
+    "job": "system.restore"
+  },
+  "restore:recordFailure": {
+    "kind": "mutation",
+    "visibility": "internal",
+    "wrapper": "systemMutation",
+    "job": "system.restore"
+  },
+  "restore:recordRestore": {
+    "kind": "mutation",
+    "visibility": "internal",
+    "wrapper": "systemMutation",
+    "job": "system.restore"
   },
   "settings:addBankAccount": {
     "kind": "mutation",

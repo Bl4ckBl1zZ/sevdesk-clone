@@ -244,6 +244,7 @@ async function checkCheckpoint(
 export async function runVerify(
   ctx: RunCtx,
   scope: "incremental" | "full" | "startup",
+  opts: { record?: boolean } = {},
 ): Promise<{ ok: boolean; lastVerifiedSeq: number; findings: IntegrityFinding[] }> {
   const st = await ctx.runQuery(internal.integrity.state, {});
   const genesis = await genesisHash(instanceName());
@@ -278,7 +279,10 @@ export async function runVerify(
   if (ctx.storage)
     findings.push(...(await rehashVoucherFiles({ runQuery: ctx.runQuery, storage: ctx.storage })).findings);
 
-  await ctx.runMutation(internal.integrity.recordRun, { scope, lastVerifiedSeq, findings: findings.slice(0, 100) });
+  // EXP-024: the restore verifies first and records the run after its `system.restore` entry (record: false).
+  if (opts.record !== false) {
+    await ctx.runMutation(internal.integrity.recordRun, { scope, lastVerifiedSeq, findings: findings.slice(0, 100) });
+  }
   return { ok: !findings.some((f) => f.severity === "error"), lastVerifiedSeq, findings };
 }
 

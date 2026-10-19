@@ -138,6 +138,8 @@ export const PERMISSIONS = {
    * audit entry and the derived `firstExportedAt` cache are recorded.
    */
   "documents.export": { roles: ALL, scope: "documents:read", write: false },
+  /** F09 EXP-023 Vollexport (all tables and files leave the system): owner only; API `POST /exports/full` (05 §4). */
+  "exports.full": { roles: ["owner"], scope: "exports:run", write: false },
   /**
    * DOC-24 finalise (⚠, irreversible number assignment; fresh session, 02 §4.2). MCP: confirm token from
    * `document_preview` (intent finalize), bound to id + version + the finalisation options (06 §3.4).
