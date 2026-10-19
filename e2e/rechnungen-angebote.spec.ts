@@ -1,11 +1,11 @@
-import type { Locator, Page } from "@playwright/test";
+import type { Page } from "@playwright/test";
 import { ownerStorageState } from "./backend";
-import { expect, test } from "./fixtures";
+import { expect, selectCustomer, test } from "./fixtures";
 
 /**
  * Angebote, Lieferscheine und Proforma (F04 P1 QUO/DOC) as the signed-in owner: quote → accepted → converted →
  * finalised invoice; a new quote version supersedes the old one; a delivery note without prices; a proforma with its
- * note. Needs the backend and runs after e2e/journey.spec.ts and e2e/kontakte-produkte.spec.ts in the same project
+ * note. Needs the backend and runs after e2e/00-journey.spec.ts and e2e/kontakte-produkte.spec.ts in the same project
  * (single worker, files in order), which created the owner (setup complete) and the contact „Muster Handwerk GmbH“.
  */
 const STATE = (project: string) => `test-results/.auth/owner-${project}-quotes.json`;
@@ -24,19 +24,12 @@ test.use({
 test.describe.configure({ mode: "serial" });
 
 const h1 = (page: Page, name: string | RegExp) => page.getByRole("heading", { level: 1, name });
-const customerSelect = (page: Page) => page.getByRole("combobox", { name: "Kunde", exact: true });
-
-async function selectByText(select: Locator, text: string): Promise<void> {
-  const option = select.locator("option", { hasText: text }).first();
-  await expect(option).toBeAttached({ timeout: 20_000 });
-  await select.selectOption((await option.getAttribute("value")) ?? "");
-}
 
 /** Opens the editor at `path`, picks „Muster Handwerk GmbH“ and fills one manual line. */
 async function newDraft(page: Page, path: string, title: string, line: { name: string; price: string }) {
   await page.goto(path);
   await expect(h1(page, title)).toBeVisible();
-  await selectByText(customerSelect(page), "Muster Handwerk GmbH");
+  await selectCustomer(page, "Muster Handwerk GmbH");
   await expect(page.getByTestId("buyer")).toContainText("Muster Handwerk GmbH");
   await page.getByLabel("Bezeichnung (Pos. 1)").fill(line.name);
   await page.getByLabel("Menge").first().fill("2");

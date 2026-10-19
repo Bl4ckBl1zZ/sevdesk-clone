@@ -1,11 +1,11 @@
 import type { Locator, Page } from "@playwright/test";
 import { ownerStorageState } from "./backend";
-import { expect, test } from "./fixtures";
+import { expect, selectCustomer, test } from "./fixtures";
 
 /**
  * Rechnungen (F04 P1 invoices core) as the signed-in owner: contact + product → draft → finalise → export → mark as
  * sent → listed as open; variants Kleinbetrag, § 13b and Kleinunternehmer. Needs the backend and runs after
- * e2e/journey.spec.ts and e2e/kontakte-produkte.spec.ts in the same project (single worker, files in order), which
+ * e2e/00-journey.spec.ts and e2e/kontakte-produkte.spec.ts in the same project (single worker, files in order), which
  * created the owner (setup complete), the contact „Muster Handwerk GmbH“ and the product „Wartung Heizung“.
  */
 const STATE = (project: string) => `test-results/.auth/owner-${project}-invoices.json`;
@@ -21,11 +21,10 @@ test.use({
   // biome-ignore lint/correctness/noEmptyPattern: Playwright fixtures must destructure their first argument
   storageState: async ({}, use, testInfo) => use(ready ? STATE(testInfo.project.name) : undefined),
 });
-test.describe.configure({ mode: "serial" });
+// Finalising renders the PDF/A-3b in the background (up to 90 s on a cold backend, see saveAndFinalize).
+test.describe.configure({ mode: "serial", timeout: 120_000 });
 
 const h1 = (page: Page, name: string | RegExp) => page.getByRole("heading", { level: 1, name });
-/** The customer select (the surrounding region is labelled „Kunde“ as well). */
-const customerSelect = (page: Page) => page.getByRole("combobox", { name: "Kunde", exact: true });
 
 async function selectByText(select: Locator, text: string): Promise<void> {
   const option = select.locator("option", { hasText: text }).first();
@@ -37,7 +36,7 @@ async function selectByText(select: Locator, text: string): Promise<void> {
 async function draftWithLine(page: Page, line: { name: string; price: string; type?: "good" | "service" }) {
   await page.goto("/rechnungen/neu");
   await expect(h1(page, "Neue Rechnung")).toBeVisible();
-  await selectByText(customerSelect(page), "Muster Handwerk GmbH");
+  await selectCustomer(page, "Muster Handwerk GmbH");
   await expect(page.getByTestId("buyer")).toContainText("Muster Handwerk GmbH");
   await page.getByLabel("Bezeichnung (Pos. 1)").fill(line.name);
   await page.getByLabel("Menge").first().fill("1");
@@ -88,7 +87,7 @@ test("DOC-24 DOC-37 SND-16 MAIL-02 contact + product → draft → finalise → 
 
   await page.goto("/rechnungen/neu");
   await expect(h1(page, "Neue Rechnung")).toBeVisible();
-  await selectByText(customerSelect(page), "Muster Handwerk GmbH");
+  await selectCustomer(page, "Muster Handwerk GmbH");
   await expect(page.getByTestId("buyer")).toContainText("Hauptstraße 1");
   await selectByText(page.getByLabel("Produkt hinzufügen"), "Wartung Heizung");
   await expect(page.getByLabel("Bezeichnung (Pos. 1)")).toHaveValue("Wartung Heizung", { timeout: 20_000 });
@@ -166,6 +165,9 @@ test("KU-02 Kleinunternehmer: the invoice shows no VAT and the § 19 note", asyn
   await page.getByRole("radio", { name: "Ja, Kleinunternehmer" }).check();
   await page.getByLabel(/Kleinunternehmer seit/).fill("2026-01-01");
   await page.getByLabel(/Gesamtumsatz/).fill("18.000,00");
+  // The earlier tests finalised invoices dated today: a retroactive KU entry touches them, so the KU history
+  // (src/domain/tax/ku-history.ts, REASON_REQUIRED) asks for a reason.
+  await page.getByLabel("Begründung für die Änderung").fill("E2E: Wechsel zur Kleinunternehmerregelung");
   await page.getByRole("button", { name: "Speichern" }).first().click();
   await expect(page.getByText(/Gespeichert/).first()).toBeVisible({ timeout: 20_000 });
 
@@ -177,6 +179,7 @@ test("KU-02 Kleinunternehmer: the invoice shows no VAT and the § 19 note", asyn
   // Back to Regelbesteuerung: the later specs (Zahlungen, Angebote) expect 19 % VAT on the shared deployment.
   await page.goto("/einstellungen/steuern");
   await page.getByRole("radio", { name: "Nein, Regelbesteuerung" }).check();
+  await page.getByLabel("Begründung für die Änderung").fill("E2E: zurück zur Regelbesteuerung");
   await page.getByRole("button", { name: "Speichern" }).first().click();
   await expect(page.getByText(/Gespeichert/).first()).toBeVisible({ timeout: 20_000 });
 });
