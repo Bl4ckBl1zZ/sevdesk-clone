@@ -1182,6 +1182,52 @@ export default defineSchema({
     ),
   }).index("by_period", ["period"]),
 
+  // taxFilings 🔒 (03 §8, F08 TAX-006/TAX-007/TAX-009/TAX-021) — submission records of the manual Mein ELSTER filing.
+  // Inserted as `submitted_manually` (drafts are recomputed on demand, §4.7); afterwards only `status →
+  // superseded` when a correction filing is recorded. `values`/`drillDown` are arrays (Kennzahlen are numeric
+  // strings) — the frozen values and contributor lists of 03's `Record<string, …>`.
+  taxFilings: defineTable({
+    kind: v.union(
+      v.literal("ustva"),
+      v.literal("ustva_correction"),
+      v.literal("zm"),
+      v.literal("zm_correction"),
+      v.literal("sondervorauszahlung"),
+      v.literal("euer"),
+    ),
+    period: v.string(),
+    ruleVersion: v.string(),
+    guideVersion: v.optional(v.string()),
+    values: v.array(v.object({ kz: v.string(), cents: v.number() })),
+    zmRows: v.optional(
+      v.array(
+        v.object({
+          vatId: v.string(),
+          type: v.union(v.literal("L"), v.literal("S"), v.literal("D")),
+          euros: v.number(),
+        }),
+      ),
+    ),
+    drillDown: v.array(v.object({ kz: v.string(), refs: v.array(v.object({ source: v.string(), id: v.string() })) })),
+    supersedesId: v.optional(v.id("taxFilings")),
+    overrideReason: v.optional(v.string()),
+    status: v.union(v.literal("draft"), v.literal("submitted_manually"), v.literal("superseded")),
+    submittedVia: v.optional(v.union(v.literal("mein_elster_manual"), v.literal("eric"))),
+    submittedOn: v.optional(v.string()),
+    sheetHash: v.optional(v.string()),
+    elsterReportedTotalCents: v.optional(v.number()),
+    submittedValuesDiffer: v.optional(v.boolean()),
+    valuesDifferReason: v.optional(v.string()),
+    submittedAt: v.optional(v.number()),
+    transmissionTicket: v.optional(v.string()),
+    protocolStorageId: v.optional(v.id("_storage")),
+    protocolSha256: v.optional(v.string()),
+    retentionUntil: v.optional(v.string()),
+    actor: vActor,
+  })
+    .index("by_kind_period", ["kind", "period"])
+    .index("by_period", ["period"]),
+
   // openingItems 🔒 — open receivables carried into the books by the opening balance (ACC-013, P1 subset): the
   // original document reference and VAT split (Ist) so later payments (target kind "opening_item") clear them.
   openingItems: defineTable({

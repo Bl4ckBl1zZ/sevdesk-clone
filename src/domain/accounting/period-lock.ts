@@ -117,6 +117,8 @@ export type ChecklistCode =
 export interface ChecklistItem {
   code: ChecklistCode;
   message: string;
+  /** Number of records behind the item (drafts, pending artifacts …). */
+  count?: number;
 }
 
 export interface LockChecklist {
@@ -132,12 +134,14 @@ export function lockChecklist(input: LockChecklistInput): LockChecklist {
     blockers.push({
       code: "drafts",
       message: `Im Zeitraum gibt es ${input.draftsInPeriod} Entwürfe. Bitte fertigstellen oder löschen.`,
+      count: input.draftsInPeriod,
     });
   }
   if (input.pendingArtifacts > 0) {
     blockers.push({
       code: "pending_artifacts",
       message: `${input.pendingArtifacts} Dokumente werden noch verarbeitet. Bitte warten.`,
+      count: input.pendingArtifacts,
     });
   }
   for (const d of input.bankDifferences) {

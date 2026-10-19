@@ -315,6 +315,12 @@ export const IMMUTABILITY_MATRIX: Readonly<Record<string, TableRule>> = {
     frozenWhen: (doc) => doc.parentStatus !== undefined && doc.parentStatus !== "draft",
     fields: { invoicedQtyMilli: "mutable", deliveredQtyMilli: "mutable" },
   },
+  // F08 TAX-021: a submission record is frozen from insert; a later correction only supersedes it (TAX-007).
+  taxFilings: {
+    kind: "guarded",
+    fields: { status: { transitions: { submitted_manually: ["superseded"] } } },
+    message: "Übermittelte Steuermeldungen sind unveränderbar. Bitte eine berichtigte Meldung erfassen.",
+  },
   periods: {
     kind: "guarded",
     fields: {

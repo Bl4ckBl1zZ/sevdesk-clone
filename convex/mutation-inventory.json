@@ -2953,6 +2953,72 @@
     "wrapper": "query",
     "permission": "members.read"
   },
+  "taxes:deadlines": {
+    "kind": "query",
+    "visibility": "public",
+    "wrapper": "query",
+    "permission": "tax.read"
+  },
+  "taxes:filings": {
+    "kind": "query",
+    "visibility": "public",
+    "wrapper": "query",
+    "permission": "tax.read"
+  },
+  "taxes:filingSettings": {
+    "kind": "query",
+    "visibility": "public",
+    "wrapper": "query",
+    "permission": "tax.read"
+  },
+  "taxes:notifyTaxDeadlinesCron": {
+    "kind": "mutation",
+    "visibility": "internal",
+    "wrapper": "systemMutation",
+    "job": "cron.deadlines.notify"
+  },
+  "taxes:protocolUploadUrl": {
+    "kind": "mutation",
+    "visibility": "public",
+    "wrapper": "mutation",
+    "permission": "tax.submit"
+  },
+  "taxes:recordFilingSubmission": {
+    "kind": "mutation",
+    "visibility": "public",
+    "wrapper": "mutation",
+    "permission": "tax.submit"
+  },
+  "taxes:setFilingPeriod": {
+    "kind": "mutation",
+    "visibility": "public",
+    "wrapper": "mutation",
+    "permission": "tax.settings"
+  },
+  "taxes:sondervorauszahlung": {
+    "kind": "query",
+    "visibility": "public",
+    "wrapper": "query",
+    "permission": "tax.read"
+  },
+  "taxes:sourceKennzahlen": {
+    "kind": "query",
+    "visibility": "public",
+    "wrapper": "query",
+    "permission": "tax.read"
+  },
+  "taxes:ustva": {
+    "kind": "query",
+    "visibility": "public",
+    "wrapper": "query",
+    "permission": "tax.read"
+  },
+  "taxes:zm": {
+    "kind": "query",
+    "visibility": "public",
+    "wrapper": "query",
+    "permission": "tax.read"
+  },
   "testFixtures:backdateDraft": {
     "kind": "mutation",
     "visibility": "internal",
