@@ -52,7 +52,8 @@ test("BNK-050 BNK-051 create a rule with live preview; it appears with mode badg
   await dialog.getByLabel("Verwendungszweck enthält").fill("plan fee");
   await expect(dialog.getByText(/Diese Regel würde \d+ Ums(atz|ätze) der letzten 90 Tage treffen/)).toBeVisible();
   await dialog.getByLabel("Sachkonto").fill("6855");
-  await dialog.getByLabel("Kontoauszug genügt als Beleg (z. B. Bankgebühren)").check();
+  // By role: getByLabel also matches the hidden native input that Base UI's checkbox renders next to it.
+  await dialog.getByRole("checkbox", { name: "Kontoauszug genügt als Beleg" }).check();
   await expectNoAxeViolations();
   await dialog.getByRole("button", { name: "Speichern" }).click();
   await expect(page.getByText("Regel angelegt.")).toBeVisible();
