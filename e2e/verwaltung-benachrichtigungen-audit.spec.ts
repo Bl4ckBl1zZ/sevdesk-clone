@@ -176,7 +176,7 @@ test("DOC-39 T-DOC-043 the invoice shows its Nummernkreis-Eintrag and links to t
   await entry.getByRole("link", { name: "Im Nummernregister anzeigen" }).click();
   await expect(page).toHaveURL(/\/einstellungen\/nummernkreise\/register\?range=/);
   await expect(page.getByTestId("number-register")).toBeVisible();
-  await expect(page.getByText("Lückenbericht")).toBeVisible();
+  await expect(page.getByText("Lückenbericht", { exact: true })).toBeVisible();
   await expectNoAxeViolations();
 });
 
