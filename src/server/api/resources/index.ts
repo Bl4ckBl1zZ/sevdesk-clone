@@ -4,11 +4,13 @@ import { contactsResource } from "./contacts";
 import { correctionsResource } from "./corrections";
 import { documentsResource } from "./documents";
 import { dunningResource } from "./dunning";
+import { inboxResource } from "./inbox";
 import { metaResource } from "./meta";
 import { paymentsResource } from "./payments";
 import { productsResource } from "./products";
 import { recurringResource } from "./recurring";
 import { settingsResource } from "./settings";
+import { recurringVouchersResource, vouchersResource } from "./vouchers";
 
 /**
  * Every REST resource of /api/v1 (05 §4). A later slice adds one module with `defineResource(…)` and one line here;
@@ -24,6 +26,9 @@ export const RESOURCES: readonly Resource[] = [
   paymentsResource,
   recurringResource,
   dunningResource,
+  vouchersResource,
+  recurringVouchersResource,
+  inboxResource,
 ];
 
 export const ROUTES = compileRoutes(RESOURCES);

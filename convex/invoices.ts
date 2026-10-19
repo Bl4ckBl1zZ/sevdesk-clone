@@ -22,6 +22,7 @@ import { parse } from "./lib/parse";
 import { defaultInvoiceAccount } from "./model/bankAccounts";
 import { getCompanyProfile } from "./model/companyProfile";
 import { getContact } from "./model/contacts";
+import { deliveryNoteDeadline, runUninvoicedSupplyDeadlines } from "./model/deliveryDeadlines";
 import {
   addAttachment as addAttachmentModel,
   addEvidence as addEvidenceModel,
@@ -206,7 +207,12 @@ export const list = query({
       (d) => inList(d) && tabMatches(d, t, today),
     ).paginate(paginationOpts);
     const hit = numberHit && inList(numberHit) ? numberHit : null;
-    const rows = [...(hit && !page.page.some((d) => d._id === hit._id) ? [hit] : []), ...page.page].map((d) => ({
+    const docs = [...(hit && !page.page.some((d) => d._id === hit._id) ? [hit] : []), ...page.page];
+    // QUO-14 / UST-01 badge: uninvoiced delivery notes past day 150 / 180 after the delivery date.
+    const deadlines = new Map(
+      await Promise.all(docs.map(async (d) => [d._id, (await deliveryNoteDeadline(ctx, d, today))?.level] as const)),
+    );
+    const rows = docs.map((d) => ({
       _id: d._id,
       type: d.type,
       correctionKind: d.correctionKind ?? null,
@@ -225,6 +231,7 @@ export const list = query({
       supplyDate: d.supplyDate ?? null,
       orderReference: d.orderReference ?? null,
       coveredBp: d.coverage?.coveredBp ?? null,
+      invoicingDeadline: deadlines.get(d._id) ?? null,
       updatedAt: d._creationTime,
     }));
     return { ...page, page: rows };
@@ -817,7 +824,8 @@ export const notifyDeadlinesCron = systemMutation({
     if (isTest() && !force) return { created: 0 };
     const exported = await notifyExportedNotMarked(ctx);
     const quotes = await runQuoteDeadlines(ctx);
-    return { created: exported + quotes.expired + quotes.reminded };
+    const supplies = await runUninvoicedSupplyDeadlines(ctx); // UST-01 / QUO-14
+    return { created: exported + quotes.expired + quotes.reminded + supplies.created };
   },
 });
 

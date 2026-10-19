@@ -55,6 +55,12 @@
     },
     {
       "name": "Mahnwesen"
+    },
+    {
+      "name": "Belege"
+    },
+    {
+      "name": "Posteingang"
     }
   ],
   "paths": {
@@ -20763,6 +20769,4098 @@
           }
         }
       }
+    },
+    "/api/v1/vouchers/missing-receipts": {
+      "get": {
+        "operationId": "listMissingReceipts",
+        "summary": "Fehlende Belege",
+        "description": "Bankumsätze ohne Beleg (nicht zugeordnet, nicht markiert, nicht „Beleg nicht erforderlich“), überfällige offene Belege und wiederkehrende Belege ohne Abbuchung (VOU-110).\n\nScope: `vouchers:read`.",
+        "tags": [
+          "Belege"
+        ],
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "Die drei Listen",
+            "headers": {
+              "RateLimit-Limit": {
+                "required": true,
+                "description": "Bucket-Größe",
+                "schema": {
+                  "type": "string",
+                  "description": "Bucket-Größe"
+                }
+              },
+              "RateLimit-Remaining": {
+                "required": true,
+                "description": "Verbleibende Anfragen",
+                "schema": {
+                  "type": "string",
+                  "description": "Verbleibende Anfragen"
+                }
+              },
+              "RateLimit-Reset": {
+                "required": true,
+                "description": "Sekunden bis zum vollen Bucket",
+                "schema": {
+                  "type": "string",
+                  "description": "Sekunden bis zum vollen Bucket"
+                }
+              },
+              "X-Request-Id": {
+                "required": true,
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "`unauthorized` – API-Schlüssel fehlt, ist ungültig, abgelaufen oder widerrufen.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "`insufficient_scope` – Der API-Schlüssel hat nicht die nötige Berechtigung.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "`rate_limited` – Zu viele Anfragen – bitte später erneut versuchen.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "`internal_error` – Interner Fehler.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/vouchers": {
+      "get": {
+        "operationId": "listVouchers",
+        "summary": "Belege auflisten",
+        "description": "Neueste zuerst; `status` all, draft, open, overdue (fällig), partially_paid, paid, cancelled oder unbooked (Unbearbeitet > 10 Tage); `q` sucht in Lieferant und Nummern.\n\nScope: `vouchers:read`.",
+        "tags": [
+          "Belege"
+        ],
+        "parameters": [
+          {
+            "in": "query",
+            "name": "limit",
+            "schema": {
+              "default": 25,
+              "description": "Anzahl je Seite (1–100, Standard 25)",
+              "example": 25,
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100
+            },
+            "description": "Anzahl je Seite (1–100, Standard 25)"
+          },
+          {
+            "in": "query",
+            "name": "cursor",
+            "schema": {
+              "description": "Cursor aus `next_cursor` der vorherigen Seite",
+              "type": "string",
+              "maxLength": 2000
+            },
+            "description": "Cursor aus `next_cursor` der vorherigen Seite"
+          },
+          {
+            "in": "query",
+            "name": "updated_since",
+            "schema": {
+              "description": "Nur Datensätze, die seit diesem Zeitpunkt geändert wurden (Synchronisation)",
+              "type": "string"
+            },
+            "description": "Nur Datensätze, die seit diesem Zeitpunkt geändert wurden (Synchronisation)"
+          },
+          {
+            "in": "query",
+            "name": "status",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "all",
+                "draft",
+                "open",
+                "overdue",
+                "partially_paid",
+                "paid",
+                "cancelled",
+                "unbooked"
+              ]
+            }
+          },
+          {
+            "in": "query",
+            "name": "q",
+            "schema": {
+              "type": "string",
+              "maxLength": 200
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Eine Seite Belege",
+            "headers": {
+              "RateLimit-Limit": {
+                "required": true,
+                "description": "Bucket-Größe",
+                "schema": {
+                  "type": "string",
+                  "description": "Bucket-Größe"
+                }
+              },
+              "RateLimit-Remaining": {
+                "required": true,
+                "description": "Verbleibende Anfragen",
+                "schema": {
+                  "type": "string",
+                  "description": "Verbleibende Anfragen"
+                }
+              },
+              "RateLimit-Reset": {
+                "required": true,
+                "description": "Sekunden bis zum vollen Bucket",
+                "schema": {
+                  "type": "string",
+                  "description": "Sekunden bis zum vollen Bucket"
+                }
+              },
+              "X-Request-Id": {
+                "required": true,
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/VoucherList"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "`unauthorized` – API-Schlüssel fehlt, ist ungültig, abgelaufen oder widerrufen.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "`insufficient_scope` – Der API-Schlüssel hat nicht die nötige Berechtigung.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "`rate_limited` – Zu viele Anfragen – bitte später erneut versuchen.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "`internal_error` – Interner Fehler.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "operationId": "createVoucher",
+        "summary": "Belegentwurf anlegen",
+        "description": "Entwurf mit Kopfdaten und Positionen (Beträge in Cent, Steuersatz in Basispunkten). Die Originaldatei wird über die App oder den Posteingang ergänzt; gebucht wird mit /vouchers/{id}/finalize.\n\nScope: `vouchers:write`.",
+        "tags": [
+          "Belege"
+        ],
+        "parameters": [
+          {
+            "in": "header",
+            "name": "Idempotency-Key",
+            "schema": {
+              "description": "24 h je Schlüssel; gleicher Body → gleiche Antwort (Idempotent-Replayed: true)",
+              "type": "string"
+            },
+            "description": "24 h je Schlüssel; gleicher Body → gleiche Antwort (Idempotent-Replayed: true)"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "direction": {
+                    "type": "string",
+                    "enum": [
+                      "expense",
+                      "income"
+                    ]
+                  },
+                  "kind": {
+                    "type": "string",
+                    "enum": [
+                      "standard",
+                      "bewirtung",
+                      "eigenbeleg",
+                      "asset",
+                      "tax_payment",
+                      "private"
+                    ]
+                  },
+                  "supplier_contact_id": {
+                    "type": "string",
+                    "pattern": "^con_[0-9a-zA-Z]{16,64}$",
+                    "description": "ID (con_…)",
+                    "example": "con_k57f3x2m9q8w1e4r6t"
+                  },
+                  "supplier_name": {
+                    "type": "string",
+                    "maxLength": 200
+                  },
+                  "supplier_vat_id": {
+                    "type": "string",
+                    "maxLength": 20
+                  },
+                  "supplier_tax_number": {
+                    "type": "string",
+                    "maxLength": 30
+                  },
+                  "supplier_address": {
+                    "type": "string",
+                    "maxLength": 500
+                  },
+                  "supplier_iban": {
+                    "type": "string",
+                    "maxLength": 40
+                  },
+                  "document_number": {
+                    "type": "string",
+                    "maxLength": 100
+                  },
+                  "document_date": {
+                    "type": "string",
+                    "pattern": "^\\d{4}-\\d{2}-\\d{2}$",
+                    "description": "Datum (YYYY-MM-DD)",
+                    "example": "2026-10-12"
+                  },
+                  "supply_date": {
+                    "anyOf": [
+                      {
+                        "type": "object",
+                        "properties": {
+                          "kind": {
+                            "type": "string",
+                            "const": "date"
+                          },
+                          "date": {
+                            "type": "string",
+                            "pattern": "^\\d{4}-\\d{2}-\\d{2}$",
+                            "description": "Datum (YYYY-MM-DD)",
+                            "example": "2026-10-12"
+                          }
+                        },
+                        "required": [
+                          "kind",
+                          "date"
+                        ],
+                        "additionalProperties": false
+                      },
+                      {
+                        "type": "object",
+                        "properties": {
+                          "kind": {
+                            "type": "string",
+                            "const": "period"
+                          },
+                          "from": {
+                            "type": "string",
+                            "pattern": "^\\d{4}-\\d{2}-\\d{2}$",
+                            "description": "Datum (YYYY-MM-DD)",
+                            "example": "2026-10-12"
+                          },
+                          "to": {
+                            "type": "string",
+                            "pattern": "^\\d{4}-\\d{2}-\\d{2}$",
+                            "description": "Datum (YYYY-MM-DD)",
+                            "example": "2026-10-12"
+                          }
+                        },
+                        "required": [
+                          "kind",
+                          "from",
+                          "to"
+                        ],
+                        "additionalProperties": false
+                      },
+                      {
+                        "type": "object",
+                        "properties": {
+                          "kind": {
+                            "type": "string",
+                            "const": "month"
+                          },
+                          "month": {
+                            "type": "string",
+                            "pattern": "^\\d{4}-\\d{2}$"
+                          }
+                        },
+                        "required": [
+                          "kind",
+                          "month"
+                        ],
+                        "additionalProperties": false
+                      }
+                    ]
+                  },
+                  "due_date": {
+                    "type": "string",
+                    "pattern": "^\\d{4}-\\d{2}-\\d{2}$",
+                    "description": "Datum (YYYY-MM-DD)",
+                    "example": "2026-10-12"
+                  },
+                  "currency": {
+                    "type": "string",
+                    "pattern": "^[A-Z]{3}$"
+                  },
+                  "fx_rate": {
+                    "type": "object",
+                    "properties": {
+                      "rate": {
+                        "type": "string",
+                        "pattern": "^\\d+(\\.\\d{1,6})?$",
+                        "description": "1 EUR = x Fremdwährung (03 FxRate)"
+                      },
+                      "source": {
+                        "type": "string",
+                        "enum": [
+                          "bmf_monthly",
+                          "ecb_daily",
+                          "manual",
+                          "transaction"
+                        ]
+                      },
+                      "date": {
+                        "type": "string",
+                        "pattern": "^\\d{4}-\\d{2}-\\d{2}$",
+                        "description": "Datum (YYYY-MM-DD)",
+                        "example": "2026-10-12"
+                      }
+                    },
+                    "required": [
+                      "rate",
+                      "source",
+                      "date"
+                    ],
+                    "additionalProperties": false
+                  },
+                  "price_mode": {
+                    "type": "string",
+                    "enum": [
+                      "net",
+                      "gross"
+                    ]
+                  },
+                  "tax_rule": {
+                    "type": "string",
+                    "enum": [
+                      "input_vat_deductible",
+                      "no_input_vat",
+                      "reverse_charge_13b_de",
+                      "reverse_charge_eu",
+                      "reverse_charge_non_eu",
+                      "intra_community_acquisition",
+                      "import_vat",
+                      "kleinunternehmer_supplier",
+                      "output_vat",
+                      "exempt_income",
+                      "not_taxable"
+                    ]
+                  },
+                  "lines": {
+                    "maxItems": 200,
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "properties": {
+                        "account": {
+                          "type": "string",
+                          "minLength": 1,
+                          "maxLength": 10,
+                          "description": "Sachkonto (SKR03/SKR04)",
+                          "example": "6815"
+                        },
+                        "description": {
+                          "type": "string",
+                          "maxLength": 500
+                        },
+                        "quantity_milli": {
+                          "description": "Menge × 1000 (Standard 1000)",
+                          "type": "integer",
+                          "minimum": 0,
+                          "maximum": 9007199254740991
+                        },
+                        "amount_cents": {
+                          "type": "integer",
+                          "minimum": -9007199254740991,
+                          "maximum": 9007199254740991,
+                          "description": "Betrag netto (price_mode net) oder brutto (price_mode gross) in Cent"
+                        },
+                        "vat_rate_bp": {
+                          "type": "integer",
+                          "minimum": 0,
+                          "maximum": 10000,
+                          "description": "Steuersatz in Basispunkten (1900 = 19 %)"
+                        },
+                        "vat_cents": {
+                          "type": "integer",
+                          "minimum": -9007199254740991,
+                          "maximum": 9007199254740991,
+                          "description": "USt laut Beleg (±1 Cent toleriert); ohne Angabe berechnet"
+                        },
+                        "non_deductible_share_bp": {
+                          "description": "Nicht abziehbarer Anteil in Basispunkten (Bewirtung 3000, Privatanteil)",
+                          "type": "integer",
+                          "minimum": 0,
+                          "maximum": 10000
+                        },
+                        "asset_decision": {
+                          "type": "string",
+                          "enum": [
+                            "gwg",
+                            "pool",
+                            "asset",
+                            "none"
+                          ]
+                        }
+                      },
+                      "required": [
+                        "account",
+                        "amount_cents",
+                        "vat_rate_bp"
+                      ],
+                      "additionalProperties": false
+                    }
+                  },
+                  "stated_gross_cents": {
+                    "type": "integer",
+                    "minimum": -9007199254740991,
+                    "maximum": 9007199254740991,
+                    "description": "Belegsumme laut Dokument (EC-VOU-03)"
+                  },
+                  "tax_payment": {
+                    "type": "object",
+                    "properties": {
+                      "subtype": {
+                        "type": "string",
+                        "enum": [
+                          "ust_prepayment",
+                          "sondervorauszahlung",
+                          "ust_annual",
+                          "gewerbesteuer",
+                          "est_private",
+                          "kst"
+                        ]
+                      },
+                      "period": {
+                        "type": "string",
+                        "maxLength": 10
+                      }
+                    },
+                    "required": [
+                      "subtype"
+                    ],
+                    "additionalProperties": false
+                  },
+                  "credit_note_of_id": {
+                    "type": "string",
+                    "pattern": "^vou_[0-9a-zA-Z]{16,64}$",
+                    "description": "ID (vou_…)",
+                    "example": "vou_k57f3x2m9q8w1e4r6t"
+                  },
+                  "internal_note": {
+                    "type": "string",
+                    "maxLength": 2000
+                  }
+                },
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Der Entwurf",
+            "headers": {
+              "RateLimit-Limit": {
+                "required": true,
+                "description": "Bucket-Größe",
+                "schema": {
+                  "type": "string",
+                  "description": "Bucket-Größe"
+                }
+              },
+              "RateLimit-Remaining": {
+                "required": true,
+                "description": "Verbleibende Anfragen",
+                "schema": {
+                  "type": "string",
+                  "description": "Verbleibende Anfragen"
+                }
+              },
+              "RateLimit-Reset": {
+                "required": true,
+                "description": "Sekunden bis zum vollen Bucket",
+                "schema": {
+                  "type": "string",
+                  "description": "Sekunden bis zum vollen Bucket"
+                }
+              },
+              "X-Request-Id": {
+                "required": true,
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Voucher"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "`bad_request` – Ungültige Anfrage.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "`unauthorized` – API-Schlüssel fehlt, ist ungültig, abgelaufen oder widerrufen.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "`insufficient_scope` – Der API-Schlüssel hat nicht die nötige Berechtigung.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "415": {
+            "description": "`unsupported_media_type` – Bitte JSON senden (application/json).",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "`validation_failed` – Die Eingaben sind nicht gültig.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "`rate_limited` – Zu viele Anfragen – bitte später erneut versuchen.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "`internal_error` – Interner Fehler.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/vouchers/{id}": {
+      "get": {
+        "operationId": "getVoucher",
+        "summary": "Beleg abrufen",
+        "description": "Kopf, Positionen, Dateien (Metadaten mit SHA-256), Zahlungen und — bei Entwürfen — die Prüfung.\n\nScope: `vouchers:read`.",
+        "tags": [
+          "Belege"
+        ],
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "schema": {
+              "type": "string",
+              "pattern": "^vou_[0-9a-zA-Z]{16,64}$",
+              "description": "ID (vou_…)",
+              "example": "vou_k57f3x2m9q8w1e4r6t"
+            },
+            "required": true,
+            "description": "ID (vou_…)"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Der Beleg",
+            "headers": {
+              "RateLimit-Limit": {
+                "required": true,
+                "description": "Bucket-Größe",
+                "schema": {
+                  "type": "string",
+                  "description": "Bucket-Größe"
+                }
+              },
+              "RateLimit-Remaining": {
+                "required": true,
+                "description": "Verbleibende Anfragen",
+                "schema": {
+                  "type": "string",
+                  "description": "Verbleibende Anfragen"
+                }
+              },
+              "RateLimit-Reset": {
+                "required": true,
+                "description": "Sekunden bis zum vollen Bucket",
+                "schema": {
+                  "type": "string",
+                  "description": "Sekunden bis zum vollen Bucket"
+                }
+              },
+              "X-Request-Id": {
+                "required": true,
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Voucher"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "`unauthorized` – API-Schlüssel fehlt, ist ungültig, abgelaufen oder widerrufen.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "`insufficient_scope` – Der API-Schlüssel hat nicht die nötige Berechtigung.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "`not_found` – Nicht gefunden.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "`rate_limited` – Zu viele Anfragen – bitte später erneut versuchen.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "`internal_error` – Interner Fehler.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      },
+      "patch": {
+        "operationId": "updateVoucher",
+        "summary": "Beleg ändern",
+        "description": "Entwürfe frei; gebuchte, nicht festgeschriebene Belege nur mit `correction_reason` (Generalumkehr und Neubuchung, VOU-008). `lines` ersetzt alle Positionen. `If-Match` oder `version`.\n\nScope: `vouchers:write`.",
+        "tags": [
+          "Belege"
+        ],
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "schema": {
+              "type": "string",
+              "pattern": "^vou_[0-9a-zA-Z]{16,64}$",
+              "description": "ID (vou_…)",
+              "example": "vou_k57f3x2m9q8w1e4r6t"
+            },
+            "required": true,
+            "description": "ID (vou_…)"
+          },
+          {
+            "in": "header",
+            "name": "If-Match",
+            "schema": {
+              "description": "Erwartete Version",
+              "type": "string"
+            },
+            "description": "Erwartete Version"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "direction": {
+                    "type": "string",
+                    "enum": [
+                      "expense",
+                      "income"
+                    ]
+                  },
+                  "kind": {
+                    "type": "string",
+                    "enum": [
+                      "standard",
+                      "bewirtung",
+                      "eigenbeleg",
+                      "asset",
+                      "tax_payment",
+                      "private"
+                    ]
+                  },
+                  "supplier_contact_id": {
+                    "type": "string",
+                    "pattern": "^con_[0-9a-zA-Z]{16,64}$",
+                    "description": "ID (con_…)",
+                    "example": "con_k57f3x2m9q8w1e4r6t"
+                  },
+                  "supplier_name": {
+                    "type": "string",
+                    "maxLength": 200
+                  },
+                  "supplier_vat_id": {
+                    "type": "string",
+                    "maxLength": 20
+                  },
+                  "supplier_tax_number": {
+                    "type": "string",
+                    "maxLength": 30
+                  },
+                  "supplier_address": {
+                    "type": "string",
+                    "maxLength": 500
+                  },
+                  "supplier_iban": {
+                    "type": "string",
+                    "maxLength": 40
+                  },
+                  "document_number": {
+                    "type": "string",
+                    "maxLength": 100
+                  },
+                  "document_date": {
+                    "type": "string",
+                    "pattern": "^\\d{4}-\\d{2}-\\d{2}$",
+                    "description": "Datum (YYYY-MM-DD)",
+                    "example": "2026-10-12"
+                  },
+                  "supply_date": {
+                    "anyOf": [
+                      {
+                        "type": "object",
+                        "properties": {
+                          "kind": {
+                            "type": "string",
+                            "const": "date"
+                          },
+                          "date": {
+                            "type": "string",
+                            "pattern": "^\\d{4}-\\d{2}-\\d{2}$",
+                            "description": "Datum (YYYY-MM-DD)",
+                            "example": "2026-10-12"
+                          }
+                        },
+                        "required": [
+                          "kind",
+                          "date"
+                        ],
+                        "additionalProperties": false
+                      },
+                      {
+                        "type": "object",
+                        "properties": {
+                          "kind": {
+                            "type": "string",
+                            "const": "period"
+                          },
+                          "from": {
+                            "type": "string",
+                            "pattern": "^\\d{4}-\\d{2}-\\d{2}$",
+                            "description": "Datum (YYYY-MM-DD)",
+                            "example": "2026-10-12"
+                          },
+                          "to": {
+                            "type": "string",
+                            "pattern": "^\\d{4}-\\d{2}-\\d{2}$",
+                            "description": "Datum (YYYY-MM-DD)",
+                            "example": "2026-10-12"
+                          }
+                        },
+                        "required": [
+                          "kind",
+                          "from",
+                          "to"
+                        ],
+                        "additionalProperties": false
+                      },
+                      {
+                        "type": "object",
+                        "properties": {
+                          "kind": {
+                            "type": "string",
+                            "const": "month"
+                          },
+                          "month": {
+                            "type": "string",
+                            "pattern": "^\\d{4}-\\d{2}$"
+                          }
+                        },
+                        "required": [
+                          "kind",
+                          "month"
+                        ],
+                        "additionalProperties": false
+                      }
+                    ]
+                  },
+                  "due_date": {
+                    "type": "string",
+                    "pattern": "^\\d{4}-\\d{2}-\\d{2}$",
+                    "description": "Datum (YYYY-MM-DD)",
+                    "example": "2026-10-12"
+                  },
+                  "currency": {
+                    "type": "string",
+                    "pattern": "^[A-Z]{3}$"
+                  },
+                  "fx_rate": {
+                    "type": "object",
+                    "properties": {
+                      "rate": {
+                        "type": "string",
+                        "pattern": "^\\d+(\\.\\d{1,6})?$",
+                        "description": "1 EUR = x Fremdwährung (03 FxRate)"
+                      },
+                      "source": {
+                        "type": "string",
+                        "enum": [
+                          "bmf_monthly",
+                          "ecb_daily",
+                          "manual",
+                          "transaction"
+                        ]
+                      },
+                      "date": {
+                        "type": "string",
+                        "pattern": "^\\d{4}-\\d{2}-\\d{2}$",
+                        "description": "Datum (YYYY-MM-DD)",
+                        "example": "2026-10-12"
+                      }
+                    },
+                    "required": [
+                      "rate",
+                      "source",
+                      "date"
+                    ],
+                    "additionalProperties": false
+                  },
+                  "price_mode": {
+                    "type": "string",
+                    "enum": [
+                      "net",
+                      "gross"
+                    ]
+                  },
+                  "tax_rule": {
+                    "type": "string",
+                    "enum": [
+                      "input_vat_deductible",
+                      "no_input_vat",
+                      "reverse_charge_13b_de",
+                      "reverse_charge_eu",
+                      "reverse_charge_non_eu",
+                      "intra_community_acquisition",
+                      "import_vat",
+                      "kleinunternehmer_supplier",
+                      "output_vat",
+                      "exempt_income",
+                      "not_taxable"
+                    ]
+                  },
+                  "lines": {
+                    "maxItems": 200,
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "properties": {
+                        "account": {
+                          "type": "string",
+                          "minLength": 1,
+                          "maxLength": 10,
+                          "description": "Sachkonto (SKR03/SKR04)",
+                          "example": "6815"
+                        },
+                        "description": {
+                          "type": "string",
+                          "maxLength": 500
+                        },
+                        "quantity_milli": {
+                          "description": "Menge × 1000 (Standard 1000)",
+                          "type": "integer",
+                          "minimum": 0,
+                          "maximum": 9007199254740991
+                        },
+                        "amount_cents": {
+                          "type": "integer",
+                          "minimum": -9007199254740991,
+                          "maximum": 9007199254740991,
+                          "description": "Betrag netto (price_mode net) oder brutto (price_mode gross) in Cent"
+                        },
+                        "vat_rate_bp": {
+                          "type": "integer",
+                          "minimum": 0,
+                          "maximum": 10000,
+                          "description": "Steuersatz in Basispunkten (1900 = 19 %)"
+                        },
+                        "vat_cents": {
+                          "type": "integer",
+                          "minimum": -9007199254740991,
+                          "maximum": 9007199254740991,
+                          "description": "USt laut Beleg (±1 Cent toleriert); ohne Angabe berechnet"
+                        },
+                        "non_deductible_share_bp": {
+                          "description": "Nicht abziehbarer Anteil in Basispunkten (Bewirtung 3000, Privatanteil)",
+                          "type": "integer",
+                          "minimum": 0,
+                          "maximum": 10000
+                        },
+                        "asset_decision": {
+                          "type": "string",
+                          "enum": [
+                            "gwg",
+                            "pool",
+                            "asset",
+                            "none"
+                          ]
+                        }
+                      },
+                      "required": [
+                        "account",
+                        "amount_cents",
+                        "vat_rate_bp"
+                      ],
+                      "additionalProperties": false
+                    }
+                  },
+                  "stated_gross_cents": {
+                    "type": "integer",
+                    "minimum": -9007199254740991,
+                    "maximum": 9007199254740991,
+                    "description": "Belegsumme laut Dokument (EC-VOU-03)"
+                  },
+                  "tax_payment": {
+                    "type": "object",
+                    "properties": {
+                      "subtype": {
+                        "type": "string",
+                        "enum": [
+                          "ust_prepayment",
+                          "sondervorauszahlung",
+                          "ust_annual",
+                          "gewerbesteuer",
+                          "est_private",
+                          "kst"
+                        ]
+                      },
+                      "period": {
+                        "type": "string",
+                        "maxLength": 10
+                      }
+                    },
+                    "required": [
+                      "subtype"
+                    ],
+                    "additionalProperties": false
+                  },
+                  "credit_note_of_id": {
+                    "type": "string",
+                    "pattern": "^vou_[0-9a-zA-Z]{16,64}$",
+                    "description": "ID (vou_…)",
+                    "example": "vou_k57f3x2m9q8w1e4r6t"
+                  },
+                  "internal_note": {
+                    "type": "string",
+                    "maxLength": 2000
+                  },
+                  "version": {
+                    "description": "Erwartete Version (alternativ Header If-Match)",
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 9007199254740991
+                  },
+                  "correction_reason": {
+                    "description": "Pflicht bei gebuchten Belegen",
+                    "type": "string",
+                    "minLength": 5,
+                    "maxLength": 1000
+                  },
+                  "acknowledge_warnings": {
+                    "maxItems": 20,
+                    "type": "array",
+                    "items": {
+                      "type": "string",
+                      "maxLength": 60
+                    }
+                  }
+                },
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Der Beleg",
+            "headers": {
+              "RateLimit-Limit": {
+                "required": true,
+                "description": "Bucket-Größe",
+                "schema": {
+                  "type": "string",
+                  "description": "Bucket-Größe"
+                }
+              },
+              "RateLimit-Remaining": {
+                "required": true,
+                "description": "Verbleibende Anfragen",
+                "schema": {
+                  "type": "string",
+                  "description": "Verbleibende Anfragen"
+                }
+              },
+              "RateLimit-Reset": {
+                "required": true,
+                "description": "Sekunden bis zum vollen Bucket",
+                "schema": {
+                  "type": "string",
+                  "description": "Sekunden bis zum vollen Bucket"
+                }
+              },
+              "X-Request-Id": {
+                "required": true,
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Voucher"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "`bad_request` – Ungültige Anfrage.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "`unauthorized` – API-Schlüssel fehlt, ist ungültig, abgelaufen oder widerrufen.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "`insufficient_scope` – Der API-Schlüssel hat nicht die nötige Berechtigung.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "`not_found` – Nicht gefunden.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "`conflict` – Konflikt.; `immutable_record` – Dieser Datensatz ist unveränderlich (GoBD).; `period_locked` – Der Zeitraum ist festgeschrieben.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "415": {
+            "description": "`unsupported_media_type` – Bitte JSON senden (application/json).",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "`validation_failed` – Die Eingaben sind nicht gültig.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "`rate_limited` – Zu viele Anfragen – bitte später erneut versuchen.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "`internal_error` – Interner Fehler.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "operationId": "deleteVoucher",
+        "summary": "Entwurf löschen",
+        "description": "Nur Entwürfe; die Löschung wird mit Inhalt protokolliert.\n\nScope: `vouchers:write`.",
+        "tags": [
+          "Belege"
+        ],
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "schema": {
+              "type": "string",
+              "pattern": "^vou_[0-9a-zA-Z]{16,64}$",
+              "description": "ID (vou_…)",
+              "example": "vou_k57f3x2m9q8w1e4r6t"
+            },
+            "required": true,
+            "description": "ID (vou_…)"
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Gelöscht",
+            "headers": {
+              "RateLimit-Limit": {
+                "required": true,
+                "description": "Bucket-Größe",
+                "schema": {
+                  "type": "string",
+                  "description": "Bucket-Größe"
+                }
+              },
+              "RateLimit-Remaining": {
+                "required": true,
+                "description": "Verbleibende Anfragen",
+                "schema": {
+                  "type": "string",
+                  "description": "Verbleibende Anfragen"
+                }
+              },
+              "RateLimit-Reset": {
+                "required": true,
+                "description": "Sekunden bis zum vollen Bucket",
+                "schema": {
+                  "type": "string",
+                  "description": "Sekunden bis zum vollen Bucket"
+                }
+              },
+              "X-Request-Id": {
+                "required": true,
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "`unauthorized` – API-Schlüssel fehlt, ist ungültig, abgelaufen oder widerrufen.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "`insufficient_scope` – Der API-Schlüssel hat nicht die nötige Berechtigung.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "`not_found` – Nicht gefunden.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "`validation_failed` – Die Eingaben sind nicht gültig.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "`rate_limited` – Zu viele Anfragen – bitte später erneut versuchen.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "`internal_error` – Interner Fehler.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/vouchers/{id}/preview": {
+      "post": {
+        "operationId": "previewVoucher",
+        "summary": "Buchung prüfen",
+        "description": "Trockenlauf der Buchung: Fehler, Warnungen (Codes für acknowledge_warnings), wirksame Steuerregel, Summen in EUR, Zahlung und die Buchungszeilen. Schreibt nichts.\n\nScope: `vouchers:read`.",
+        "tags": [
+          "Belege"
+        ],
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "schema": {
+              "type": "string",
+              "pattern": "^vou_[0-9a-zA-Z]{16,64}$",
+              "description": "ID (vou_…)",
+              "example": "vou_k57f3x2m9q8w1e4r6t"
+            },
+            "required": true,
+            "description": "ID (vou_…)"
+          },
+          {
+            "in": "header",
+            "name": "Idempotency-Key",
+            "schema": {
+              "description": "24 h je Schlüssel; gleicher Body → gleiche Antwort (Idempotent-Replayed: true)",
+              "type": "string"
+            },
+            "description": "24 h je Schlüssel; gleicher Body → gleiche Antwort (Idempotent-Replayed: true)"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "payment": {
+                    "type": "object",
+                    "properties": {
+                      "method": {
+                        "type": "string",
+                        "enum": [
+                          "bank",
+                          "card_pending",
+                          "cash",
+                          "private"
+                        ],
+                        "description": "bank = Zahlung per Bank folgt (Standard), card_pending = Bankumsatz folgt, cash = bar, private = privat"
+                      },
+                      "date": {
+                        "description": "Zahlungsdatum (Standard: Belegdatum)",
+                        "type": "string",
+                        "pattern": "^\\d{4}-\\d{2}-\\d{2}$",
+                        "example": "2026-10-12"
+                      },
+                      "amount_cents": {
+                        "description": "Standard: offener Betrag",
+                        "type": "integer",
+                        "minimum": 1,
+                        "maximum": 9007199254740991
+                      },
+                      "backdate_reason": {
+                        "description": "Pflicht bei Barzahlung > 10 Tage zurück",
+                        "type": "string",
+                        "maxLength": 500
+                      },
+                      "note": {
+                        "type": "string",
+                        "maxLength": 500
+                      }
+                    },
+                    "required": [
+                      "method"
+                    ],
+                    "additionalProperties": false
+                  }
+                },
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Die Vorschau",
+            "headers": {
+              "RateLimit-Limit": {
+                "required": true,
+                "description": "Bucket-Größe",
+                "schema": {
+                  "type": "string",
+                  "description": "Bucket-Größe"
+                }
+              },
+              "RateLimit-Remaining": {
+                "required": true,
+                "description": "Verbleibende Anfragen",
+                "schema": {
+                  "type": "string",
+                  "description": "Verbleibende Anfragen"
+                }
+              },
+              "RateLimit-Reset": {
+                "required": true,
+                "description": "Sekunden bis zum vollen Bucket",
+                "schema": {
+                  "type": "string",
+                  "description": "Sekunden bis zum vollen Bucket"
+                }
+              },
+              "X-Request-Id": {
+                "required": true,
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "`bad_request` – Ungültige Anfrage.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "`unauthorized` – API-Schlüssel fehlt, ist ungültig, abgelaufen oder widerrufen.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "`insufficient_scope` – Der API-Schlüssel hat nicht die nötige Berechtigung.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "`not_found` – Nicht gefunden.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "415": {
+            "description": "`unsupported_media_type` – Bitte JSON senden (application/json).",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "`validation_failed` – Die Eingaben sind nicht gültig.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "`rate_limited` – Zu viele Anfragen – bitte später erneut versuchen.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "`internal_error` – Interner Fehler.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/vouchers/{id}/finalize": {
+      "post": {
+        "operationId": "finalizeVoucher",
+        "summary": "Beleg buchen",
+        "description": "Vergibt die Belegnummer (BE-…), bucht ins Journal und erfasst optional „Bezahlt mit“ (bank Standard, card_pending, cash, private; VOU-136…138). cash/private schreiben Beleg, Buchung und Zahlung in einer Transaktion — eine fehlgeschlagene Kassenprüfung bucht nichts. ⚑-Warnungen mit acknowledge_warnings bestätigen.\n\nScope: `vouchers:write`.",
+        "tags": [
+          "Belege"
+        ],
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "schema": {
+              "type": "string",
+              "pattern": "^vou_[0-9a-zA-Z]{16,64}$",
+              "description": "ID (vou_…)",
+              "example": "vou_k57f3x2m9q8w1e4r6t"
+            },
+            "required": true,
+            "description": "ID (vou_…)"
+          },
+          {
+            "in": "header",
+            "name": "Idempotency-Key",
+            "schema": {
+              "description": "24 h je Schlüssel; gleicher Body → gleiche Antwort (Idempotent-Replayed: true)",
+              "type": "string"
+            },
+            "description": "24 h je Schlüssel; gleicher Body → gleiche Antwort (Idempotent-Replayed: true)"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "version": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 9007199254740991
+                  },
+                  "acknowledge_warnings": {
+                    "maxItems": 20,
+                    "type": "array",
+                    "items": {
+                      "type": "string",
+                      "maxLength": 60
+                    }
+                  },
+                  "payment": {
+                    "type": "object",
+                    "properties": {
+                      "method": {
+                        "type": "string",
+                        "enum": [
+                          "bank",
+                          "card_pending",
+                          "cash",
+                          "private"
+                        ],
+                        "description": "bank = Zahlung per Bank folgt (Standard), card_pending = Bankumsatz folgt, cash = bar, private = privat"
+                      },
+                      "date": {
+                        "description": "Zahlungsdatum (Standard: Belegdatum)",
+                        "type": "string",
+                        "pattern": "^\\d{4}-\\d{2}-\\d{2}$",
+                        "example": "2026-10-12"
+                      },
+                      "amount_cents": {
+                        "description": "Standard: offener Betrag",
+                        "type": "integer",
+                        "minimum": 1,
+                        "maximum": 9007199254740991
+                      },
+                      "backdate_reason": {
+                        "description": "Pflicht bei Barzahlung > 10 Tage zurück",
+                        "type": "string",
+                        "maxLength": 500
+                      },
+                      "note": {
+                        "type": "string",
+                        "maxLength": 500
+                      }
+                    },
+                    "required": [
+                      "method"
+                    ],
+                    "additionalProperties": false
+                  }
+                },
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Der gebuchte Beleg",
+            "headers": {
+              "RateLimit-Limit": {
+                "required": true,
+                "description": "Bucket-Größe",
+                "schema": {
+                  "type": "string",
+                  "description": "Bucket-Größe"
+                }
+              },
+              "RateLimit-Remaining": {
+                "required": true,
+                "description": "Verbleibende Anfragen",
+                "schema": {
+                  "type": "string",
+                  "description": "Verbleibende Anfragen"
+                }
+              },
+              "RateLimit-Reset": {
+                "required": true,
+                "description": "Sekunden bis zum vollen Bucket",
+                "schema": {
+                  "type": "string",
+                  "description": "Sekunden bis zum vollen Bucket"
+                }
+              },
+              "X-Request-Id": {
+                "required": true,
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Voucher"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "`bad_request` – Ungültige Anfrage.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "`unauthorized` – API-Schlüssel fehlt, ist ungültig, abgelaufen oder widerrufen.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "`insufficient_scope` – Der API-Schlüssel hat nicht die nötige Berechtigung.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "`not_found` – Nicht gefunden.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "`conflict` – Konflikt.; `period_locked` – Der Zeitraum ist festgeschrieben.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "415": {
+            "description": "`unsupported_media_type` – Bitte JSON senden (application/json).",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "`validation_failed` – Die Eingaben sind nicht gültig.; `cash_negative` – Der Kassenbestand würde negativ werden.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "`rate_limited` – Zu viele Anfragen – bitte später erneut versuchen.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "`internal_error` – Interner Fehler.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/vouchers/{id}/payments": {
+      "post": {
+        "operationId": "recordVoucherPayment",
+        "summary": "Zahlung zum Beleg erfassen",
+        "description": "Später „Bar/Privat bezahlt“ oder einen Bankumsatz (transaction_id) zuordnen; Differenzen Skonto/Bankgebühren/Sonstige (VOU-131/132). Braucht vouchers:write und payments:write.\n\nScope: `payments:write`.",
+        "tags": [
+          "Belege"
+        ],
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "schema": {
+              "type": "string",
+              "pattern": "^vou_[0-9a-zA-Z]{16,64}$",
+              "description": "ID (vou_…)",
+              "example": "vou_k57f3x2m9q8w1e4r6t"
+            },
+            "required": true,
+            "description": "ID (vou_…)"
+          },
+          {
+            "in": "header",
+            "name": "Idempotency-Key",
+            "schema": {
+              "description": "24 h je Schlüssel; gleicher Body → gleiche Antwort (Idempotent-Replayed: true)",
+              "type": "string"
+            },
+            "description": "24 h je Schlüssel; gleicher Body → gleiche Antwort (Idempotent-Replayed: true)"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "method": {
+                    "type": "string",
+                    "enum": [
+                      "bank",
+                      "cash",
+                      "private"
+                    ]
+                  },
+                  "transaction_id": {
+                    "description": "Pflicht bei method bank",
+                    "type": "string",
+                    "pattern": "^btx_[0-9a-zA-Z]{16,64}$",
+                    "example": "btx_k57f3x2m9q8w1e4r6t"
+                  },
+                  "date": {
+                    "type": "string",
+                    "pattern": "^\\d{4}-\\d{2}-\\d{2}$",
+                    "description": "Datum (YYYY-MM-DD)",
+                    "example": "2026-10-12"
+                  },
+                  "amount_cents": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 9007199254740991
+                  },
+                  "backdate_reason": {
+                    "type": "string",
+                    "maxLength": 500
+                  },
+                  "note": {
+                    "type": "string",
+                    "maxLength": 500
+                  },
+                  "differences": {
+                    "maxItems": 5,
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "properties": {
+                        "reason": {
+                          "type": "string",
+                          "enum": [
+                            "skonto",
+                            "bank_fees",
+                            "other"
+                          ]
+                        },
+                        "amount_cents": {
+                          "type": "integer",
+                          "minimum": -9007199254740991,
+                          "maximum": 9007199254740991
+                        },
+                        "account": {
+                          "type": "string",
+                          "maxLength": 10
+                        }
+                      },
+                      "required": [
+                        "reason",
+                        "amount_cents"
+                      ],
+                      "additionalProperties": false
+                    }
+                  },
+                  "acknowledge_warnings": {
+                    "maxItems": 20,
+                    "type": "array",
+                    "items": {
+                      "type": "string",
+                      "maxLength": 60
+                    }
+                  }
+                },
+                "required": [
+                  "method"
+                ],
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Der Beleg",
+            "headers": {
+              "RateLimit-Limit": {
+                "required": true,
+                "description": "Bucket-Größe",
+                "schema": {
+                  "type": "string",
+                  "description": "Bucket-Größe"
+                }
+              },
+              "RateLimit-Remaining": {
+                "required": true,
+                "description": "Verbleibende Anfragen",
+                "schema": {
+                  "type": "string",
+                  "description": "Verbleibende Anfragen"
+                }
+              },
+              "RateLimit-Reset": {
+                "required": true,
+                "description": "Sekunden bis zum vollen Bucket",
+                "schema": {
+                  "type": "string",
+                  "description": "Sekunden bis zum vollen Bucket"
+                }
+              },
+              "X-Request-Id": {
+                "required": true,
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Voucher"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "`bad_request` – Ungültige Anfrage.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "`unauthorized` – API-Schlüssel fehlt, ist ungültig, abgelaufen oder widerrufen.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "`insufficient_scope` – Der API-Schlüssel hat nicht die nötige Berechtigung.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "`not_found` – Nicht gefunden.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "415": {
+            "description": "`unsupported_media_type` – Bitte JSON senden (application/json).",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "`validation_failed` – Die Eingaben sind nicht gültig.; `cash_negative` – Der Kassenbestand würde negativ werden.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "`rate_limited` – Zu viele Anfragen – bitte später erneut versuchen.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "`internal_error` – Interner Fehler.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/vouchers/{id}/cancel": {
+      "post": {
+        "operationId": "cancelVoucher",
+        "summary": "Beleg stornieren",
+        "description": "Generalumkehr im laufenden offenen Zeitraum, Status storniert (VOU-009). Zahlungen sind vorher zu stornieren.\n\nScope: `vouchers:write`.",
+        "tags": [
+          "Belege"
+        ],
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "schema": {
+              "type": "string",
+              "pattern": "^vou_[0-9a-zA-Z]{16,64}$",
+              "description": "ID (vou_…)",
+              "example": "vou_k57f3x2m9q8w1e4r6t"
+            },
+            "required": true,
+            "description": "ID (vou_…)"
+          },
+          {
+            "in": "header",
+            "name": "Idempotency-Key",
+            "schema": {
+              "description": "24 h je Schlüssel; gleicher Body → gleiche Antwort (Idempotent-Replayed: true)",
+              "type": "string"
+            },
+            "description": "24 h je Schlüssel; gleicher Body → gleiche Antwort (Idempotent-Replayed: true)"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "reason": {
+                    "type": "string",
+                    "minLength": 5,
+                    "maxLength": 1000
+                  }
+                },
+                "required": [
+                  "reason"
+                ],
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Der stornierte Beleg",
+            "headers": {
+              "RateLimit-Limit": {
+                "required": true,
+                "description": "Bucket-Größe",
+                "schema": {
+                  "type": "string",
+                  "description": "Bucket-Größe"
+                }
+              },
+              "RateLimit-Remaining": {
+                "required": true,
+                "description": "Verbleibende Anfragen",
+                "schema": {
+                  "type": "string",
+                  "description": "Verbleibende Anfragen"
+                }
+              },
+              "RateLimit-Reset": {
+                "required": true,
+                "description": "Sekunden bis zum vollen Bucket",
+                "schema": {
+                  "type": "string",
+                  "description": "Sekunden bis zum vollen Bucket"
+                }
+              },
+              "X-Request-Id": {
+                "required": true,
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Voucher"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "`bad_request` – Ungültige Anfrage.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "`unauthorized` – API-Schlüssel fehlt, ist ungültig, abgelaufen oder widerrufen.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "`insufficient_scope` – Der API-Schlüssel hat nicht die nötige Berechtigung.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "`not_found` – Nicht gefunden.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "415": {
+            "description": "`unsupported_media_type` – Bitte JSON senden (application/json).",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "`validation_failed` – Die Eingaben sind nicht gültig.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "`rate_limited` – Zu viele Anfragen – bitte später erneut versuchen.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "`internal_error` – Interner Fehler.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/vouchers/{id}/duplicate-resolution": {
+      "post": {
+        "operationId": "resolveVoucherDuplicate",
+        "summary": "Dubletten-Verdacht auflösen",
+        "description": "VOU-053: `is_duplicate: true` löscht den Entwurf (Löschung mit Inhalt protokolliert); `false` speichert das Paar als „Keine Dublette“ — es wird nie wieder gewarnt.\n\nScope: `vouchers:write`.",
+        "tags": [
+          "Belege"
+        ],
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "schema": {
+              "type": "string",
+              "pattern": "^vou_[0-9a-zA-Z]{16,64}$",
+              "description": "ID (vou_…)",
+              "example": "vou_k57f3x2m9q8w1e4r6t"
+            },
+            "required": true,
+            "description": "ID (vou_…)"
+          },
+          {
+            "in": "header",
+            "name": "Idempotency-Key",
+            "schema": {
+              "description": "24 h je Schlüssel; gleicher Body → gleiche Antwort (Idempotent-Replayed: true)",
+              "type": "string"
+            },
+            "description": "24 h je Schlüssel; gleicher Body → gleiche Antwort (Idempotent-Replayed: true)"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "is_duplicate": {
+                    "type": "boolean",
+                    "description": "true: der Entwurf wird gelöscht (Löschung mit Inhalt protokolliert)"
+                  },
+                  "of_id": {
+                    "type": "string",
+                    "pattern": "^vou_[0-9a-zA-Z]{16,64}$",
+                    "description": "ID (vou_…)",
+                    "example": "vou_k57f3x2m9q8w1e4r6t"
+                  }
+                },
+                "required": [
+                  "is_duplicate",
+                  "of_id"
+                ],
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Ergebnis",
+            "headers": {
+              "RateLimit-Limit": {
+                "required": true,
+                "description": "Bucket-Größe",
+                "schema": {
+                  "type": "string",
+                  "description": "Bucket-Größe"
+                }
+              },
+              "RateLimit-Remaining": {
+                "required": true,
+                "description": "Verbleibende Anfragen",
+                "schema": {
+                  "type": "string",
+                  "description": "Verbleibende Anfragen"
+                }
+              },
+              "RateLimit-Reset": {
+                "required": true,
+                "description": "Sekunden bis zum vollen Bucket",
+                "schema": {
+                  "type": "string",
+                  "description": "Sekunden bis zum vollen Bucket"
+                }
+              },
+              "X-Request-Id": {
+                "required": true,
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "`bad_request` – Ungültige Anfrage.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "`unauthorized` – API-Schlüssel fehlt, ist ungültig, abgelaufen oder widerrufen.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "`insufficient_scope` – Der API-Schlüssel hat nicht die nötige Berechtigung.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "`not_found` – Nicht gefunden.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "415": {
+            "description": "`unsupported_media_type` – Bitte JSON senden (application/json).",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "`validation_failed` – Die Eingaben sind nicht gültig.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "`rate_limited` – Zu viele Anfragen – bitte später erneut versuchen.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "`internal_error` – Interner Fehler.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/recurring-vouchers": {
+      "get": {
+        "operationId": "listRecurringVouchers",
+        "summary": "Wiederkehrende Belege",
+        "description": "Vorlagen für wiederkehrende Ausgaben (Miete, Abos) mit den nächsten drei Terminen.\n\nScope: `vouchers:read`.",
+        "tags": [
+          "Belege"
+        ],
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "Alle Vorlagen",
+            "headers": {
+              "RateLimit-Limit": {
+                "required": true,
+                "description": "Bucket-Größe",
+                "schema": {
+                  "type": "string",
+                  "description": "Bucket-Größe"
+                }
+              },
+              "RateLimit-Remaining": {
+                "required": true,
+                "description": "Verbleibende Anfragen",
+                "schema": {
+                  "type": "string",
+                  "description": "Verbleibende Anfragen"
+                }
+              },
+              "RateLimit-Reset": {
+                "required": true,
+                "description": "Sekunden bis zum vollen Bucket",
+                "schema": {
+                  "type": "string",
+                  "description": "Sekunden bis zum vollen Bucket"
+                }
+              },
+              "X-Request-Id": {
+                "required": true,
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "`unauthorized` – API-Schlüssel fehlt, ist ungültig, abgelaufen oder widerrufen.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "`insufficient_scope` – Der API-Schlüssel hat nicht die nötige Berechtigung.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "`rate_limited` – Zu viele Anfragen – bitte später erneut versuchen.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "`internal_error` – Interner Fehler.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "operationId": "createRecurringVoucher",
+        "summary": "Wiederkehrenden Beleg anlegen",
+        "description": "Erzeugt ab first_date je Termin einen Beleg (Entwurf oder — nur bei fehlerfreier Prüfung — gebucht). Verpasste Termine werden nachgeholt.\n\nScope: `vouchers:write`.",
+        "tags": [
+          "Belege"
+        ],
+        "parameters": [
+          {
+            "in": "header",
+            "name": "Idempotency-Key",
+            "schema": {
+              "description": "24 h je Schlüssel; gleicher Body → gleiche Antwort (Idempotent-Replayed: true)",
+              "type": "string"
+            },
+            "description": "24 h je Schlüssel; gleicher Body → gleiche Antwort (Idempotent-Replayed: true)"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "name": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 200
+                  },
+                  "template": {
+                    "type": "object",
+                    "properties": {
+                      "direction": {
+                        "default": "expense",
+                        "type": "string",
+                        "enum": [
+                          "expense",
+                          "income"
+                        ]
+                      },
+                      "kind": {
+                        "default": "standard",
+                        "type": "string",
+                        "enum": [
+                          "standard",
+                          "bewirtung",
+                          "eigenbeleg",
+                          "asset",
+                          "tax_payment",
+                          "private"
+                        ]
+                      },
+                      "supplier_contact_id": {
+                        "type": "string",
+                        "pattern": "^con_[0-9a-zA-Z]{16,64}$",
+                        "description": "ID (con_…)",
+                        "example": "con_k57f3x2m9q8w1e4r6t"
+                      },
+                      "supplier_name": {
+                        "type": "string",
+                        "maxLength": 200
+                      },
+                      "supplier_vat_id": {
+                        "type": "string",
+                        "maxLength": 20
+                      },
+                      "document_number": {
+                        "description": "Vertrags- oder Kundennummer",
+                        "type": "string",
+                        "maxLength": 100
+                      },
+                      "currency": {
+                        "default": "EUR",
+                        "type": "string",
+                        "pattern": "^[A-Z]{3}$"
+                      },
+                      "price_mode": {
+                        "default": "gross",
+                        "type": "string",
+                        "enum": [
+                          "net",
+                          "gross"
+                        ]
+                      },
+                      "tax_rule": {
+                        "type": "string",
+                        "enum": [
+                          "input_vat_deductible",
+                          "no_input_vat",
+                          "reverse_charge_13b_de",
+                          "reverse_charge_eu",
+                          "reverse_charge_non_eu",
+                          "intra_community_acquisition",
+                          "import_vat",
+                          "kleinunternehmer_supplier",
+                          "output_vat",
+                          "exempt_income",
+                          "not_taxable"
+                        ]
+                      },
+                      "lines": {
+                        "minItems": 1,
+                        "maxItems": 50,
+                        "type": "array",
+                        "items": {
+                          "type": "object",
+                          "properties": {
+                            "account": {
+                              "type": "string",
+                              "minLength": 1,
+                              "maxLength": 10,
+                              "description": "Sachkonto (SKR03/SKR04)",
+                              "example": "6815"
+                            },
+                            "description": {
+                              "type": "string",
+                              "maxLength": 500
+                            },
+                            "quantity_milli": {
+                              "description": "Menge × 1000 (Standard 1000)",
+                              "type": "integer",
+                              "minimum": 0,
+                              "maximum": 9007199254740991
+                            },
+                            "amount_cents": {
+                              "type": "integer",
+                              "minimum": -9007199254740991,
+                              "maximum": 9007199254740991,
+                              "description": "Betrag netto (price_mode net) oder brutto (price_mode gross) in Cent"
+                            },
+                            "vat_rate_bp": {
+                              "type": "integer",
+                              "minimum": 0,
+                              "maximum": 10000,
+                              "description": "Steuersatz in Basispunkten (1900 = 19 %)"
+                            },
+                            "vat_cents": {
+                              "type": "integer",
+                              "minimum": -9007199254740991,
+                              "maximum": 9007199254740991,
+                              "description": "USt laut Beleg (±1 Cent toleriert); ohne Angabe berechnet"
+                            },
+                            "non_deductible_share_bp": {
+                              "description": "Nicht abziehbarer Anteil in Basispunkten (Bewirtung 3000, Privatanteil)",
+                              "type": "integer",
+                              "minimum": 0,
+                              "maximum": 10000
+                            },
+                            "asset_decision": {
+                              "type": "string",
+                              "enum": [
+                                "gwg",
+                                "pool",
+                                "asset",
+                                "none"
+                              ]
+                            }
+                          },
+                          "required": [
+                            "account",
+                            "amount_cents",
+                            "vat_rate_bp"
+                          ],
+                          "additionalProperties": false
+                        }
+                      },
+                      "internal_note": {
+                        "type": "string",
+                        "maxLength": 2000
+                      }
+                    },
+                    "required": [
+                      "tax_rule",
+                      "lines"
+                    ],
+                    "additionalProperties": false
+                  },
+                  "interval": {
+                    "type": "string",
+                    "enum": [
+                      "P1W",
+                      "P2W",
+                      "P1M",
+                      "P2M",
+                      "P3M",
+                      "P6M",
+                      "P1Y",
+                      "P2Y",
+                      "P3Y",
+                      "P4Y",
+                      "P5Y"
+                    ]
+                  },
+                  "first_date": {
+                    "type": "string",
+                    "pattern": "^\\d{4}-\\d{2}-\\d{2}$",
+                    "description": "Datum (YYYY-MM-DD)",
+                    "example": "2026-10-12"
+                  },
+                  "end_date": {
+                    "type": "string",
+                    "pattern": "^\\d{4}-\\d{2}-\\d{2}$",
+                    "description": "Datum (YYYY-MM-DD)",
+                    "example": "2026-10-12"
+                  },
+                  "create_as": {
+                    "default": "draft",
+                    "description": "open bucht nur, wenn die Prüfung ohne Fehler und Warnungen ist; sonst entsteht ein Entwurf",
+                    "type": "string",
+                    "enum": [
+                      "open",
+                      "draft"
+                    ]
+                  },
+                  "expected_mandate_ref": {
+                    "type": "string",
+                    "maxLength": 100
+                  },
+                  "expected_iban": {
+                    "type": "string",
+                    "maxLength": 40
+                  },
+                  "recurring_payment": {
+                    "type": "boolean"
+                  }
+                },
+                "required": [
+                  "name",
+                  "template",
+                  "interval",
+                  "first_date"
+                ],
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Die Vorlage",
+            "headers": {
+              "RateLimit-Limit": {
+                "required": true,
+                "description": "Bucket-Größe",
+                "schema": {
+                  "type": "string",
+                  "description": "Bucket-Größe"
+                }
+              },
+              "RateLimit-Remaining": {
+                "required": true,
+                "description": "Verbleibende Anfragen",
+                "schema": {
+                  "type": "string",
+                  "description": "Verbleibende Anfragen"
+                }
+              },
+              "RateLimit-Reset": {
+                "required": true,
+                "description": "Sekunden bis zum vollen Bucket",
+                "schema": {
+                  "type": "string",
+                  "description": "Sekunden bis zum vollen Bucket"
+                }
+              },
+              "X-Request-Id": {
+                "required": true,
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RecurringVoucher"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "`bad_request` – Ungültige Anfrage.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "`unauthorized` – API-Schlüssel fehlt, ist ungültig, abgelaufen oder widerrufen.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "`insufficient_scope` – Der API-Schlüssel hat nicht die nötige Berechtigung.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "415": {
+            "description": "`unsupported_media_type` – Bitte JSON senden (application/json).",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "`validation_failed` – Die Eingaben sind nicht gültig.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "`rate_limited` – Zu viele Anfragen – bitte später erneut versuchen.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "`internal_error` – Interner Fehler.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/recurring-vouchers/{id}": {
+      "get": {
+        "operationId": "getRecurringVoucher",
+        "summary": "Wiederkehrenden Beleg abrufen",
+        "description": "Vorlage mit nächsten Terminen und den zuletzt erzeugten Belegen.\n\nScope: `vouchers:read`.",
+        "tags": [
+          "Belege"
+        ],
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "schema": {
+              "type": "string",
+              "pattern": "^rvo_[0-9a-zA-Z]{16,64}$",
+              "description": "ID (rvo_…)",
+              "example": "rvo_k57f3x2m9q8w1e4r6t"
+            },
+            "required": true,
+            "description": "ID (rvo_…)"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Die Vorlage",
+            "headers": {
+              "RateLimit-Limit": {
+                "required": true,
+                "description": "Bucket-Größe",
+                "schema": {
+                  "type": "string",
+                  "description": "Bucket-Größe"
+                }
+              },
+              "RateLimit-Remaining": {
+                "required": true,
+                "description": "Verbleibende Anfragen",
+                "schema": {
+                  "type": "string",
+                  "description": "Verbleibende Anfragen"
+                }
+              },
+              "RateLimit-Reset": {
+                "required": true,
+                "description": "Sekunden bis zum vollen Bucket",
+                "schema": {
+                  "type": "string",
+                  "description": "Sekunden bis zum vollen Bucket"
+                }
+              },
+              "X-Request-Id": {
+                "required": true,
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RecurringVoucher"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "`unauthorized` – API-Schlüssel fehlt, ist ungültig, abgelaufen oder widerrufen.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "`insufficient_scope` – Der API-Schlüssel hat nicht die nötige Berechtigung.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "`not_found` – Nicht gefunden.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "`rate_limited` – Zu viele Anfragen – bitte später erneut versuchen.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "`internal_error` – Interner Fehler.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      },
+      "patch": {
+        "operationId": "updateRecurringVoucher",
+        "summary": "Wiederkehrenden Beleg ändern",
+        "description": "Ändert die Vorlage oder pausiert sie (`active: false`); bereits erzeugte Belege bleiben unverändert.\n\nScope: `vouchers:write`.",
+        "tags": [
+          "Belege"
+        ],
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "schema": {
+              "type": "string",
+              "pattern": "^rvo_[0-9a-zA-Z]{16,64}$",
+              "description": "ID (rvo_…)",
+              "example": "rvo_k57f3x2m9q8w1e4r6t"
+            },
+            "required": true,
+            "description": "ID (rvo_…)"
+          },
+          {
+            "in": "header",
+            "name": "If-Match",
+            "schema": {
+              "description": "Erwartete Version",
+              "type": "string"
+            },
+            "description": "Erwartete Version"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "name": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 200
+                  },
+                  "template": {
+                    "type": "object",
+                    "properties": {
+                      "direction": {
+                        "default": "expense",
+                        "type": "string",
+                        "enum": [
+                          "expense",
+                          "income"
+                        ]
+                      },
+                      "kind": {
+                        "default": "standard",
+                        "type": "string",
+                        "enum": [
+                          "standard",
+                          "bewirtung",
+                          "eigenbeleg",
+                          "asset",
+                          "tax_payment",
+                          "private"
+                        ]
+                      },
+                      "supplier_contact_id": {
+                        "type": "string",
+                        "pattern": "^con_[0-9a-zA-Z]{16,64}$",
+                        "description": "ID (con_…)",
+                        "example": "con_k57f3x2m9q8w1e4r6t"
+                      },
+                      "supplier_name": {
+                        "type": "string",
+                        "maxLength": 200
+                      },
+                      "supplier_vat_id": {
+                        "type": "string",
+                        "maxLength": 20
+                      },
+                      "document_number": {
+                        "description": "Vertrags- oder Kundennummer",
+                        "type": "string",
+                        "maxLength": 100
+                      },
+                      "currency": {
+                        "default": "EUR",
+                        "type": "string",
+                        "pattern": "^[A-Z]{3}$"
+                      },
+                      "price_mode": {
+                        "default": "gross",
+                        "type": "string",
+                        "enum": [
+                          "net",
+                          "gross"
+                        ]
+                      },
+                      "tax_rule": {
+                        "type": "string",
+                        "enum": [
+                          "input_vat_deductible",
+                          "no_input_vat",
+                          "reverse_charge_13b_de",
+                          "reverse_charge_eu",
+                          "reverse_charge_non_eu",
+                          "intra_community_acquisition",
+                          "import_vat",
+                          "kleinunternehmer_supplier",
+                          "output_vat",
+                          "exempt_income",
+                          "not_taxable"
+                        ]
+                      },
+                      "lines": {
+                        "minItems": 1,
+                        "maxItems": 50,
+                        "type": "array",
+                        "items": {
+                          "type": "object",
+                          "properties": {
+                            "account": {
+                              "type": "string",
+                              "minLength": 1,
+                              "maxLength": 10,
+                              "description": "Sachkonto (SKR03/SKR04)",
+                              "example": "6815"
+                            },
+                            "description": {
+                              "type": "string",
+                              "maxLength": 500
+                            },
+                            "quantity_milli": {
+                              "description": "Menge × 1000 (Standard 1000)",
+                              "type": "integer",
+                              "minimum": 0,
+                              "maximum": 9007199254740991
+                            },
+                            "amount_cents": {
+                              "type": "integer",
+                              "minimum": -9007199254740991,
+                              "maximum": 9007199254740991,
+                              "description": "Betrag netto (price_mode net) oder brutto (price_mode gross) in Cent"
+                            },
+                            "vat_rate_bp": {
+                              "type": "integer",
+                              "minimum": 0,
+                              "maximum": 10000,
+                              "description": "Steuersatz in Basispunkten (1900 = 19 %)"
+                            },
+                            "vat_cents": {
+                              "type": "integer",
+                              "minimum": -9007199254740991,
+                              "maximum": 9007199254740991,
+                              "description": "USt laut Beleg (±1 Cent toleriert); ohne Angabe berechnet"
+                            },
+                            "non_deductible_share_bp": {
+                              "description": "Nicht abziehbarer Anteil in Basispunkten (Bewirtung 3000, Privatanteil)",
+                              "type": "integer",
+                              "minimum": 0,
+                              "maximum": 10000
+                            },
+                            "asset_decision": {
+                              "type": "string",
+                              "enum": [
+                                "gwg",
+                                "pool",
+                                "asset",
+                                "none"
+                              ]
+                            }
+                          },
+                          "required": [
+                            "account",
+                            "amount_cents",
+                            "vat_rate_bp"
+                          ],
+                          "additionalProperties": false
+                        }
+                      },
+                      "internal_note": {
+                        "type": "string",
+                        "maxLength": 2000
+                      }
+                    },
+                    "required": [
+                      "tax_rule",
+                      "lines"
+                    ],
+                    "additionalProperties": false
+                  },
+                  "interval": {
+                    "type": "string",
+                    "enum": [
+                      "P1W",
+                      "P2W",
+                      "P1M",
+                      "P2M",
+                      "P3M",
+                      "P6M",
+                      "P1Y",
+                      "P2Y",
+                      "P3Y",
+                      "P4Y",
+                      "P5Y"
+                    ]
+                  },
+                  "first_date": {
+                    "type": "string",
+                    "pattern": "^\\d{4}-\\d{2}-\\d{2}$",
+                    "description": "Datum (YYYY-MM-DD)",
+                    "example": "2026-10-12"
+                  },
+                  "end_date": {
+                    "type": "string",
+                    "pattern": "^\\d{4}-\\d{2}-\\d{2}$",
+                    "description": "Datum (YYYY-MM-DD)",
+                    "example": "2026-10-12"
+                  },
+                  "create_as": {
+                    "type": "string",
+                    "enum": [
+                      "open",
+                      "draft"
+                    ]
+                  },
+                  "expected_mandate_ref": {
+                    "type": "string",
+                    "maxLength": 100
+                  },
+                  "expected_iban": {
+                    "type": "string",
+                    "maxLength": 40
+                  },
+                  "recurring_payment": {
+                    "type": "boolean"
+                  },
+                  "active": {
+                    "type": "boolean"
+                  },
+                  "version": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 9007199254740991
+                  }
+                },
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Die Vorlage",
+            "headers": {
+              "RateLimit-Limit": {
+                "required": true,
+                "description": "Bucket-Größe",
+                "schema": {
+                  "type": "string",
+                  "description": "Bucket-Größe"
+                }
+              },
+              "RateLimit-Remaining": {
+                "required": true,
+                "description": "Verbleibende Anfragen",
+                "schema": {
+                  "type": "string",
+                  "description": "Verbleibende Anfragen"
+                }
+              },
+              "RateLimit-Reset": {
+                "required": true,
+                "description": "Sekunden bis zum vollen Bucket",
+                "schema": {
+                  "type": "string",
+                  "description": "Sekunden bis zum vollen Bucket"
+                }
+              },
+              "X-Request-Id": {
+                "required": true,
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RecurringVoucher"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "`bad_request` – Ungültige Anfrage.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "`unauthorized` – API-Schlüssel fehlt, ist ungültig, abgelaufen oder widerrufen.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "`insufficient_scope` – Der API-Schlüssel hat nicht die nötige Berechtigung.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "`not_found` – Nicht gefunden.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "`conflict` – Konflikt.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "415": {
+            "description": "`unsupported_media_type` – Bitte JSON senden (application/json).",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "`validation_failed` – Die Eingaben sind nicht gültig.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "`rate_limited` – Zu viele Anfragen – bitte später erneut versuchen.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "`internal_error` – Interner Fehler.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/recurring-vouchers/{id}/run-now": {
+      "post": {
+        "operationId": "runRecurringVoucher",
+        "summary": "Fällige Belege jetzt erzeugen",
+        "description": "Erzeugt die fälligen Termine sofort (derselbe idempotente Weg wie der nächtliche Job).\n\nScope: `vouchers:write`.",
+        "tags": [
+          "Belege"
+        ],
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "schema": {
+              "type": "string",
+              "pattern": "^rvo_[0-9a-zA-Z]{16,64}$",
+              "description": "ID (rvo_…)",
+              "example": "rvo_k57f3x2m9q8w1e4r6t"
+            },
+            "required": true,
+            "description": "ID (rvo_…)"
+          },
+          {
+            "in": "header",
+            "name": "Idempotency-Key",
+            "schema": {
+              "description": "24 h je Schlüssel; gleicher Body → gleiche Antwort (Idempotent-Replayed: true)",
+              "type": "string"
+            },
+            "description": "24 h je Schlüssel; gleicher Body → gleiche Antwort (Idempotent-Replayed: true)"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Erzeugte und gebuchte Belege",
+            "headers": {
+              "RateLimit-Limit": {
+                "required": true,
+                "description": "Bucket-Größe",
+                "schema": {
+                  "type": "string",
+                  "description": "Bucket-Größe"
+                }
+              },
+              "RateLimit-Remaining": {
+                "required": true,
+                "description": "Verbleibende Anfragen",
+                "schema": {
+                  "type": "string",
+                  "description": "Verbleibende Anfragen"
+                }
+              },
+              "RateLimit-Reset": {
+                "required": true,
+                "description": "Sekunden bis zum vollen Bucket",
+                "schema": {
+                  "type": "string",
+                  "description": "Sekunden bis zum vollen Bucket"
+                }
+              },
+              "X-Request-Id": {
+                "required": true,
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "`unauthorized` – API-Schlüssel fehlt, ist ungültig, abgelaufen oder widerrufen.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "`insufficient_scope` – Der API-Schlüssel hat nicht die nötige Berechtigung.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "`not_found` – Nicht gefunden.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "`rate_limited` – Zu viele Anfragen – bitte später erneut versuchen.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "`internal_error` – Interner Fehler.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/inbox-items": {
+      "post": {
+        "operationId": "createInboxItems",
+        "summary": "Beleg hochladen",
+        "description": "Lädt Belege in den Posteingang: JSON `{ files: [{ filename, content_base64 }], note? }` (≤ 10 MB Base64 je Datei) oder `multipart/form-data` mit `file`-Teilen (≤ 20 MB je Datei). Erlaubt sind PDF, JPG, PNG, HEIC, WebP, TIFF, XML (XRechnung/ZUGFeRD) und .eml — erkannt am Dateiinhalt. Jede Datei wird ein eigener Eintrag; die Erkennung (XML → ZUGFeRD → OCR → manuell) läuft danach im Hintergrund und erzeugt immer einen Belegentwurf. URLs werden nicht abgerufen.\n\nScope: `vouchers:write`.",
+        "tags": [
+          "Posteingang"
+        ],
+        "parameters": [
+          {
+            "in": "header",
+            "name": "Idempotency-Key",
+            "schema": {
+              "description": "24 h je Schlüssel; gleicher Body → gleiche Antwort (Idempotent-Replayed: true)",
+              "type": "string"
+            },
+            "description": "24 h je Schlüssel; gleicher Body → gleiche Antwort (Idempotent-Replayed: true)"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/InboxUpload"
+              }
+            },
+            "multipart/form-data": {
+              "schema": {
+                "$ref": "#/components/schemas/MultipartUpload"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Die angelegten Einträge mit Status",
+            "headers": {
+              "RateLimit-Limit": {
+                "required": true,
+                "description": "Bucket-Größe",
+                "schema": {
+                  "type": "string",
+                  "description": "Bucket-Größe"
+                }
+              },
+              "RateLimit-Remaining": {
+                "required": true,
+                "description": "Verbleibende Anfragen",
+                "schema": {
+                  "type": "string",
+                  "description": "Verbleibende Anfragen"
+                }
+              },
+              "RateLimit-Reset": {
+                "required": true,
+                "description": "Sekunden bis zum vollen Bucket",
+                "schema": {
+                  "type": "string",
+                  "description": "Sekunden bis zum vollen Bucket"
+                }
+              },
+              "X-Request-Id": {
+                "required": true,
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/InboxUploadResult"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "`bad_request` – Ungültige Anfrage.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "`unauthorized` – API-Schlüssel fehlt, ist ungültig, abgelaufen oder widerrufen.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "`insufficient_scope` – Der API-Schlüssel hat nicht die nötige Berechtigung.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "415": {
+            "description": "`unsupported_media_type` – Bitte JSON senden (application/json).",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "`validation_failed` – Die Eingaben sind nicht gültig.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "`rate_limited` – Zu viele Anfragen – bitte später erneut versuchen.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "`internal_error` – Interner Fehler.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      },
+      "get": {
+        "operationId": "listInboxItems",
+        "summary": "Posteingang auflisten",
+        "description": "Neueste zuerst (höchstens 200). `status` wie die Filter der App: all, new, needs_review, einvoice, faulty, duplicate, rejected, older_than_10_days.\n\nScope: `vouchers:read`.",
+        "tags": [
+          "Posteingang"
+        ],
+        "parameters": [
+          {
+            "in": "query",
+            "name": "status",
+            "schema": {
+              "description": "all, new, needs_review, einvoice, faulty (E-Rechnung fehlerhaft), duplicate, rejected, older_than_10_days",
+              "type": "string",
+              "enum": [
+                "all",
+                "new",
+                "needs_review",
+                "einvoice",
+                "faulty",
+                "duplicate",
+                "rejected",
+                "older_than_10_days"
+              ]
+            },
+            "description": "all, new, needs_review, einvoice, faulty (E-Rechnung fehlerhaft), duplicate, rejected, older_than_10_days"
+          },
+          {
+            "in": "query",
+            "name": "source",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "email",
+                "upload",
+                "app",
+                "api",
+                "mcp"
+              ]
+            }
+          },
+          {
+            "in": "query",
+            "name": "classification",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "xrechnung",
+                "zugferd",
+                "pdf",
+                "image",
+                "other"
+              ]
+            }
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "schema": {
+              "default": 50,
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 200
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Die Einträge",
+            "headers": {
+              "RateLimit-Limit": {
+                "required": true,
+                "description": "Bucket-Größe",
+                "schema": {
+                  "type": "string",
+                  "description": "Bucket-Größe"
+                }
+              },
+              "RateLimit-Remaining": {
+                "required": true,
+                "description": "Verbleibende Anfragen",
+                "schema": {
+                  "type": "string",
+                  "description": "Verbleibende Anfragen"
+                }
+              },
+              "RateLimit-Reset": {
+                "required": true,
+                "description": "Sekunden bis zum vollen Bucket",
+                "schema": {
+                  "type": "string",
+                  "description": "Sekunden bis zum vollen Bucket"
+                }
+              },
+              "X-Request-Id": {
+                "required": true,
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/InboxItemList"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "`unauthorized` – API-Schlüssel fehlt, ist ungültig, abgelaufen oder widerrufen.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "`insufficient_scope` – Der API-Schlüssel hat nicht die nötige Berechtigung.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "`rate_limited` – Zu viele Anfragen – bitte später erneut versuchen.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "`internal_error` – Interner Fehler.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/inbox-items/{id}": {
+      "get": {
+        "operationId": "getInboxItem",
+        "summary": "Posteingangs-Eintrag abrufen",
+        "description": "Status, Hinweise, Dateien (mit SHA-256), E-Rechnungs-Prüfergebnis (BMF-Kategorie und Regeln) und der verknüpfte Belegentwurf (`voucher_id`).\n\nScope: `vouchers:read`.",
+        "tags": [
+          "Posteingang"
+        ],
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "schema": {
+              "type": "string",
+              "pattern": "^inb_[0-9a-zA-Z]{16,64}$",
+              "description": "ID (inb_…)",
+              "example": "inb_k57f3x2m9q8w1e4r6t"
+            },
+            "required": true,
+            "description": "ID (inb_…)"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Der Eintrag",
+            "headers": {
+              "RateLimit-Limit": {
+                "required": true,
+                "description": "Bucket-Größe",
+                "schema": {
+                  "type": "string",
+                  "description": "Bucket-Größe"
+                }
+              },
+              "RateLimit-Remaining": {
+                "required": true,
+                "description": "Verbleibende Anfragen",
+                "schema": {
+                  "type": "string",
+                  "description": "Verbleibende Anfragen"
+                }
+              },
+              "RateLimit-Reset": {
+                "required": true,
+                "description": "Sekunden bis zum vollen Bucket",
+                "schema": {
+                  "type": "string",
+                  "description": "Sekunden bis zum vollen Bucket"
+                }
+              },
+              "X-Request-Id": {
+                "required": true,
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/InboxItem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "`unauthorized` – API-Schlüssel fehlt, ist ungültig, abgelaufen oder widerrufen.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "`insufficient_scope` – Der API-Schlüssel hat nicht die nötige Berechtigung.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "`not_found` – Nicht gefunden.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "`rate_limited` – Zu viele Anfragen – bitte später erneut versuchen.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "`internal_error` – Interner Fehler.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/inbox-items/{id}/reject": {
+      "post": {
+        "operationId": "rejectInboxItem",
+        "summary": "Posteingangs-Eintrag ablehnen",
+        "description": "Mit Grund (INB-010). Ein Belegentwurf wird gelöscht, die Dateien bleiben archiviert; Aufbewahrung 90 Tage (no_business_document) bzw. 6 Jahre.\n\nScope: `vouchers:write`.",
+        "tags": [
+          "Posteingang"
+        ],
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "schema": {
+              "type": "string",
+              "pattern": "^inb_[0-9a-zA-Z]{16,64}$",
+              "description": "ID (inb_…)",
+              "example": "inb_k57f3x2m9q8w1e4r6t"
+            },
+            "required": true,
+            "description": "ID (inb_…)"
+          },
+          {
+            "in": "header",
+            "name": "Idempotency-Key",
+            "schema": {
+              "description": "24 h je Schlüssel; gleicher Body → gleiche Antwort (Idempotent-Replayed: true)",
+              "type": "string"
+            },
+            "description": "24 h je Schlüssel; gleicher Body → gleiche Antwort (Idempotent-Replayed: true)"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/InboxReject"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Der abgelehnte Eintrag",
+            "headers": {
+              "RateLimit-Limit": {
+                "required": true,
+                "description": "Bucket-Größe",
+                "schema": {
+                  "type": "string",
+                  "description": "Bucket-Größe"
+                }
+              },
+              "RateLimit-Remaining": {
+                "required": true,
+                "description": "Verbleibende Anfragen",
+                "schema": {
+                  "type": "string",
+                  "description": "Verbleibende Anfragen"
+                }
+              },
+              "RateLimit-Reset": {
+                "required": true,
+                "description": "Sekunden bis zum vollen Bucket",
+                "schema": {
+                  "type": "string",
+                  "description": "Sekunden bis zum vollen Bucket"
+                }
+              },
+              "X-Request-Id": {
+                "required": true,
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/InboxItem"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "`bad_request` – Ungültige Anfrage.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "`unauthorized` – API-Schlüssel fehlt, ist ungültig, abgelaufen oder widerrufen.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "`insufficient_scope` – Der API-Schlüssel hat nicht die nötige Berechtigung.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "`not_found` – Nicht gefunden.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "415": {
+            "description": "`unsupported_media_type` – Bitte JSON senden (application/json).",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "`validation_failed` – Die Eingaben sind nicht gültig.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "`rate_limited` – Zu viele Anfragen – bitte später erneut versuchen.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "`internal_error` – Interner Fehler.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
     }
   },
   "components": {
@@ -24030,6 +28128,88 @@
           "stop_after_last_level"
         ],
         "additionalProperties": false
+      },
+      "InboxUpload": {
+        "type": "object",
+        "properties": {
+          "files": {
+            "description": "Dateien als Base64 (JSON). Jede Datei wird ein eigener Posteingangs-Eintrag (INB-001).",
+            "minItems": 1,
+            "maxItems": 100,
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/InboxFileUpload"
+            }
+          },
+          "note": {
+            "description": "Notiz zum Upload",
+            "type": "string",
+            "maxLength": 1000
+          }
+        }
+      },
+      "InboxFileUpload": {
+        "type": "object",
+        "properties": {
+          "filename": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 255,
+            "example": "rechnung.pdf"
+          },
+          "content_base64": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 10485760,
+            "description": "Dateiinhalt Base64 (≤ 10 MB)"
+          }
+        },
+        "required": [
+          "filename",
+          "content_base64"
+        ]
+      },
+      "MultipartUpload": {
+        "type": "object",
+        "properties": {
+          "file": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "format": "binary"
+            },
+            "description": "Datei(en); auch als `file[]`. Jede Datei wird ein eigener Posteingangs-Eintrag."
+          },
+          "note": {
+            "type": "string",
+            "maxLength": 1000
+          }
+        },
+        "required": [
+          "file"
+        ]
+      },
+      "InboxReject": {
+        "type": "object",
+        "properties": {
+          "reason": {
+            "type": "string",
+            "enum": [
+              "no_business_document",
+              "not_addressed_to_us",
+              "faulty_invoice_correction_requested",
+              "other"
+            ],
+            "description": "no_business_document (Spam/Newsletter/privat, 90 Tage), not_addressed_to_us, faulty_invoice_correction_requested, other (Text Pflicht)"
+          },
+          "text": {
+            "type": "string",
+            "maxLength": 1000
+          }
+        },
+        "required": [
+          "reason"
+        ]
       },
       "Health": {
         "type": "object",
@@ -29793,6 +33973,653 @@
           "seeded",
           "version",
           "warnings"
+        ],
+        "additionalProperties": false
+      },
+      "VoucherList": {
+        "type": "object",
+        "properties": {
+          "data": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/VoucherRow"
+            }
+          },
+          "next_cursor": {
+            "description": "Cursor der nächsten Seite oder null",
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "data",
+          "next_cursor"
+        ],
+        "additionalProperties": false
+      },
+      "VoucherRow": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string"
+          },
+          "status_label": {
+            "type": "string"
+          },
+          "direction": {
+            "type": "string"
+          },
+          "kind": {
+            "type": "string"
+          },
+          "internal_number": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "document_number": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "supplier_name": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "document_date": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "due_date": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "currency": {
+            "type": "string"
+          },
+          "gross_cents": {
+            "type": "number"
+          },
+          "open_amount_cents": {
+            "type": "number"
+          },
+          "tax_rule": {
+            "type": "string"
+          },
+          "received_at": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "status",
+          "status_label",
+          "direction",
+          "kind",
+          "internal_number",
+          "document_number",
+          "supplier_name",
+          "document_date",
+          "due_date",
+          "currency",
+          "gross_cents",
+          "open_amount_cents",
+          "tax_rule",
+          "received_at"
+        ],
+        "additionalProperties": false
+      },
+      "Voucher": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string"
+          },
+          "status_label": {
+            "type": "string"
+          },
+          "direction": {
+            "type": "string"
+          },
+          "kind": {
+            "type": "string"
+          },
+          "internal_number": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "document_number": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "supplier_name": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "supplier_contact_id": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "document_date": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "due_date": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "currency": {
+            "type": "string"
+          },
+          "price_mode": {
+            "type": "string"
+          },
+          "tax_rule": {
+            "type": "string"
+          },
+          "totals": {
+            "type": "object",
+            "properties": {
+              "net_cents": {
+                "type": "number"
+              },
+              "vat_cents": {
+                "type": "number"
+              },
+              "gross_cents": {
+                "type": "number"
+              }
+            },
+            "required": [
+              "net_cents",
+              "vat_cents",
+              "gross_cents"
+            ],
+            "additionalProperties": false
+          },
+          "open_amount_cents": {
+            "type": "number"
+          },
+          "version": {
+            "type": "number"
+          },
+          "lines": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "propertyNames": {
+                "type": "string"
+              },
+              "additionalProperties": {}
+            }
+          },
+          "files": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "propertyNames": {
+                "type": "string"
+              },
+              "additionalProperties": {}
+            }
+          },
+          "payments": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "propertyNames": {
+                "type": "string"
+              },
+              "additionalProperties": {}
+            }
+          },
+          "check": {
+            "anyOf": [
+              {
+                "type": "object",
+                "propertyNames": {
+                  "type": "string"
+                },
+                "additionalProperties": {}
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "booked_at": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "recorded_at": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "status",
+          "status_label",
+          "direction",
+          "kind",
+          "internal_number",
+          "document_number",
+          "supplier_name",
+          "supplier_contact_id",
+          "document_date",
+          "due_date",
+          "currency",
+          "price_mode",
+          "tax_rule",
+          "totals",
+          "open_amount_cents",
+          "version",
+          "booked_at",
+          "recorded_at"
+        ],
+        "additionalProperties": false
+      },
+      "RecurringVoucher": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "interval": {
+            "type": "string"
+          },
+          "first_date": {
+            "type": "string"
+          },
+          "next_date": {
+            "type": "string"
+          },
+          "end_date": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "active": {
+            "type": "boolean"
+          },
+          "create_as": {
+            "type": "string"
+          },
+          "supplier_name": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "tax_rule": {
+            "type": "string"
+          },
+          "currency": {
+            "type": "string"
+          },
+          "price_mode": {
+            "type": "string"
+          },
+          "lines": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "propertyNames": {
+                "type": "string"
+              },
+              "additionalProperties": {}
+            }
+          },
+          "upcoming": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "last_generated_ids": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "version": {
+            "type": "number"
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "interval",
+          "first_date",
+          "next_date",
+          "end_date",
+          "active",
+          "create_as",
+          "supplier_name",
+          "tax_rule",
+          "currency",
+          "price_mode",
+          "lines",
+          "upcoming",
+          "last_generated_ids",
+          "version"
+        ],
+        "additionalProperties": false
+      },
+      "InboxUploadResult": {
+        "type": "object",
+        "properties": {
+          "data": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/InboxItem"
+            }
+          }
+        },
+        "required": [
+          "data"
+        ],
+        "additionalProperties": false
+      },
+      "InboxItem": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string"
+          },
+          "status_label": {
+            "type": "string"
+          },
+          "source": {
+            "type": "string"
+          },
+          "received_at": {
+            "type": "string"
+          },
+          "from": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "subject": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "file_name": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "file_count": {
+            "type": "number"
+          },
+          "classification": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "confidence": {
+            "description": "OCR-Gesamtkonfidenz 0…1 (null ohne OCR)",
+            "type": [
+              "number",
+              "null"
+            ]
+          },
+          "flags": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "einvoice": {
+            "anyOf": [
+              {
+                "type": "object",
+                "properties": {
+                  "profile": {
+                    "type": [
+                      "string",
+                      "null"
+                    ]
+                  },
+                  "acceptable": {
+                    "type": [
+                      "boolean",
+                      "null"
+                    ]
+                  },
+                  "not_einvoice": {
+                    "type": "boolean"
+                  },
+                  "category": {
+                    "type": [
+                      "string",
+                      "null"
+                    ]
+                  },
+                  "findings": {
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "properties": {
+                        "rule_id": {
+                          "type": "string"
+                        },
+                        "category": {
+                          "type": "string"
+                        },
+                        "text": {
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "rule_id",
+                        "category",
+                        "text"
+                      ],
+                      "additionalProperties": false
+                    }
+                  }
+                },
+                "required": [
+                  "profile",
+                  "acceptable",
+                  "not_einvoice"
+                ],
+                "additionalProperties": false
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "voucher_id": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "supplier_name": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "gross_cents": {
+            "type": [
+              "number",
+              "null"
+            ]
+          },
+          "currency": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "document_date": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "reject_reason": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "warnings": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "code": {
+                  "type": "string"
+                },
+                "message": {
+                  "type": "string"
+                },
+                "acknowledge": {
+                  "type": "boolean"
+                }
+              },
+              "required": [
+                "code",
+                "message",
+                "acknowledge"
+              ],
+              "additionalProperties": false
+            }
+          },
+          "duplicate_of": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "duplicate_of_voucher_id": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "files": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "name": {
+                  "type": "string"
+                },
+                "mime": {
+                  "type": "string"
+                },
+                "bytes": {
+                  "type": "number"
+                },
+                "sha256": {
+                  "type": "string"
+                },
+                "role": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "name",
+                "mime",
+                "bytes",
+                "sha256",
+                "role"
+              ],
+              "additionalProperties": false
+            }
+          }
+        },
+        "required": [
+          "id",
+          "status",
+          "status_label",
+          "source",
+          "received_at",
+          "from",
+          "subject",
+          "file_name",
+          "file_count",
+          "classification",
+          "confidence",
+          "flags",
+          "einvoice",
+          "voucher_id",
+          "supplier_name",
+          "gross_cents",
+          "currency",
+          "document_date",
+          "reject_reason"
+        ],
+        "additionalProperties": false
+      },
+      "InboxItemList": {
+        "type": "object",
+        "properties": {
+          "data": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/InboxItem"
+            }
+          },
+          "next_cursor": {
+            "description": "Cursor der nächsten Seite oder null",
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "data",
+          "next_cursor"
         ],
         "additionalProperties": false
       }

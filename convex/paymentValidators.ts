@@ -18,6 +18,17 @@ export const vPaymentSource = v.union(
   v.object({ kind: v.literal("adjustment") }),
 );
 
+/**
+ * Stored `payments.target` / `payments.source` (03 §5): the input validators above plus the F06 voucher payables
+ * (VOU-131…138) — target `voucher` and source `private` („Privat bezahlt“). Only convex/model/voucherPayments.ts writes
+ * them; the F05 payment API keeps accepting the input validators only (no `private` on sales documents, EC-PAY-49).
+ */
+export const vStoredPaymentTarget = v.object({
+  kind: v.union(vPaymentTargetKind, v.literal("voucher")),
+  id: v.string(),
+});
+export const vStoredPaymentSource = v.union(vPaymentSource, v.object({ kind: v.literal("private") }));
+
 export const vDifferenceReason = v.union(
   v.literal("skonto"),
   v.literal("bank_fees"),

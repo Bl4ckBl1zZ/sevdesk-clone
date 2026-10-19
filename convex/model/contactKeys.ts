@@ -1,7 +1,7 @@
 import { canonicalize } from "../../src/domain/audit/canonical";
 import type { EncryptedValue } from "../../src/domain/audit/personal";
-import { env } from "../lib/env";
 import { appError } from "../lib/errors";
+import { aesDecrypt, aesEncrypt, kek } from "../lib/secrets";
 import type { ModelCtx, ReadCtx } from "./types";
 
 /**
@@ -10,50 +10,6 @@ import type { ModelCtx, ReadCtx } from "./types";
  * `APP_ENCRYPTION_KEY` (base64, 32 bytes). Shredding removes `wrappedKey` and sets `shreddedAt`; the audit chain
  * keeps verifying because it covers the ciphertext.
  */
-
-const b64 = {
-  encode(bytes: Uint8Array): string {
-    let s = "";
-    for (const b of bytes) s += String.fromCharCode(b);
-    return btoa(s);
-  },
-  decode(text: string): Uint8Array {
-    const s = atob(text);
-    const out = new Uint8Array(s.length);
-    for (let i = 0; i < s.length; i++) out[i] = s.charCodeAt(i);
-    return out;
-  },
-};
-
-async function kek(): Promise<CryptoKey> {
-  const raw = env("APP_ENCRYPTION_KEY");
-  if (!raw)
-    throw appError(
-      "not_configured",
-      "APP_ENCRYPTION_KEY fehlt – personenbezogene Protokolldaten können nicht verschlüsselt werden.",
-    );
-  const bytes = b64.decode(raw);
-  if (bytes.length !== 32) throw appError("not_configured", "APP_ENCRYPTION_KEY muss 32 Byte (Base64) lang sein.");
-  return crypto.subtle.importKey("raw", bytes as BufferSource, "AES-GCM", false, ["encrypt", "decrypt"]);
-}
-
-async function aesEncrypt(key: CryptoKey, plain: Uint8Array): Promise<string> {
-  const iv = crypto.getRandomValues(new Uint8Array(12));
-  const ct = new Uint8Array(await crypto.subtle.encrypt({ name: "AES-GCM", iv }, key, plain as BufferSource));
-  return `${b64.encode(iv)}:${b64.encode(ct)}`;
-}
-
-async function aesDecrypt(key: CryptoKey, packed: string): Promise<Uint8Array> {
-  const [iv, ct] = packed.split(":");
-  if (!iv || !ct) throw new Error("malformed ciphertext");
-  return new Uint8Array(
-    await crypto.subtle.decrypt(
-      { name: "AES-GCM", iv: b64.decode(iv) as BufferSource },
-      key,
-      b64.decode(ct) as BufferSource,
-    ),
-  );
-}
 
 export async function getContactKeyRow(ctx: ReadCtx, contactId: string) {
   return ctx.db

@@ -307,7 +307,109 @@ export interface OpeningBalanceEvent {
   part: OpeningBalancePart;
 }
 
+// ── purchase vouchers (F06, F08 §4.2.3 V1–V14, §4.2.4 T6/T7, §4.2.6 X1–X7) ─────────────────────────────
+
+/** One voucher line in EUR as booked (VOU-028: EUR amounts per line). */
+export interface VoucherPostingLine {
+  /** The SKR account chosen on the line. */
+  account: string;
+  /**
+   * Role that replaces the account (set by the model for Einfuhrumsatzsteuer lines on the `vat.import` account,
+   * VOU-024). Bewirtung, asset and tax-payment roles are derived by the engine.
+   */
+  role?: string;
+  netCents: number;
+  /** VAT shown on the supplier's document (0 for self-assessment rules). */
+  vatCents: number;
+  vatRateBp: number;
+  /** §13b / §1a self-assessed VAT on the EUR base (VOU-022). */
+  selfAssessedVatCents?: number;
+  /** Bewirtung 30 % or a private share (VOU-027). */
+  nonDeductibleShareBp?: number;
+  /** VOU-065: GWG/Sammelposten post to the asset roles; `asset` keeps the chosen fixed-asset account. */
+  assetDecision?: "gwg" | "pool" | "asset" | "none";
+}
+
+/**
+ * V1/V4–V10/V13 (expense) and the income voucher row (VOU-010), posted at booking („Buchen“, VOU-007) with the
+ * voucher date; a voucher dated in a locked period is posted into the first open period (EC-VOU-09, ACC-006 b).
+ */
+export interface VoucherBookedEvent {
+  kind: "voucher_booked";
+  voucherId: string;
+  /** Internal number BE-… (journal text). */
+  number: string;
+  direction: "expense" | "income";
+  voucherKind: "standard" | "bewirtung" | "eigenbeleg" | "asset" | "tax_payment" | "private";
+  /** The effective tax rule (KU replacement already applied, VOU-026). */
+  taxRule: string;
+  /** KU on the supply date (KU-01): no input-VAT deduction, self-assessed VAT is an expense. */
+  companyIsKu: boolean;
+  date: string;
+  supplyDate: SupplyDate;
+  /** Receipt date of the invoice (Europe/Berlin) — input VAT tax point = max(supply end, receipt) (§4.3). */
+  receivedDate: string;
+  contactId?: string;
+  counterpartyName?: string;
+  lines: VoucherPostingLine[];
+  bewirtungOccasion?: "geschaeftlich" | "arbeitnehmer";
+  taxPaymentSubtype?: "ust_prepayment" | "sondervorauszahlung" | "ust_annual" | "gewerbesteuer" | "est_private" | "kst";
+}
+
+/**
+ * Generalumkehr of a voucher's booking: `correction` (VOU-008: mirrored on the original posting date with the
+ * original tax points, then re-posted) or `cancel` (VOU-009: dated in the current open period, §17 UStG).
+ */
+export interface VoucherReversedEvent {
+  kind: "voucher_reversed";
+  voucherId: string;
+  number: string;
+  date: string;
+  reason: string;
+  mode: "correction" | "cancel";
+}
+
+/** Where a voucher payment came from (T6 cash, T7 private, V2 bank). */
+export type VoucherMeans = { kind: "bank_account"; bankAccountId: string } | { kind: "cash" } | { kind: "private" };
+
+export interface VoucherPaymentDifference {
+  /** `skonto` = Skonto received (VOU-132, V3); `bank_fees` (− = we paid more than the voucher); `other`. */
+  reason: "skonto" | "bank_fees" | "other";
+  /** + = settles more than the money moved (Skonto); − = the money exceeds the voucher (fees). */
+  amountCents: number;
+  /** Skonto: net/VAT per rate (pro rata by gross, UST-32). */
+  vatCorrection?: RateAmount[];
+  account?: string;
+}
+
+/**
+ * V2/T6/T7 voucher payment (payable cleared against bank, cash or the private/shareholder account), V3 Skonto
+ * received; income vouchers mirrored (receivable cleared). Amounts are signed like the voucher: a supplier credit note
+ * (negative) is settled by a negative payment = money received (VOU-134).
+ */
+export interface VoucherPaidEvent {
+  kind: "voucher_paid";
+  paymentId: string;
+  date: string;
+  direction: "expense" | "income";
+  means: VoucherMeans;
+  amountCents: number;
+  voucher: { id: string; number?: string };
+  contactId?: string;
+  counterpartyName?: string;
+  differences?: VoucherPaymentDifference[];
+  /** Skonto VAT correction only when input VAT was deducted (not KU, `input_vat_deductible`). */
+  inputVatDeducted: boolean;
+  /** Income voucher with output VAT under Ist: the VAT share becomes due with the payment (P1-ist mirrored). */
+  ist?: IstVatBasis;
+  /** Corporations (ACC-028): „privat bezahlt“ posts against `shareholder.clearing`. */
+  corporation?: boolean;
+}
+
 export type BusinessEvent =
+  | VoucherBookedEvent
+  | VoucherReversedEvent
+  | VoucherPaidEvent
   | InvoiceFinalisedEvent
   | InvoiceCancelledEvent
   | InvoiceCorrectedEvent
@@ -324,12 +426,14 @@ export type BusinessEvent =
 
 /** Events that mirror earlier entries instead of using the matrix. */
 export type ReversalEvent =
+  | VoucherReversedEvent
   | InvoiceCancelledEvent
   | PaymentReversedEvent
   | CashTransferReversedEvent
   | BankTransactionMarkReversedEvent;
 
 export const isReversalEvent = (e: BusinessEvent): e is ReversalEvent =>
+  e.kind === "voucher_reversed" ||
   e.kind === "invoice_cancelled" ||
   e.kind === "payment_reversed" ||
   e.kind === "cash_transfer_reversed" ||
@@ -357,6 +461,11 @@ export interface JournalSource {
 /** The journal source of an event (ACC-005: every entry links to its voucher). */
 export function sourceOf(e: BusinessEvent): JournalSource {
   switch (e.kind) {
+    case "voucher_booked":
+    case "voucher_reversed":
+      return { kind: "voucher", id: e.voucherId };
+    case "voucher_paid":
+      return { kind: "payment", id: e.paymentId };
     case "invoice_finalised":
     case "invoice_cancelled":
     case "invoice_corrected":
@@ -390,6 +499,8 @@ export function openingSourceId(
 /** For reversal events: the source whose entries are mirrored. */
 export function reversedSourceOf(e: ReversalEvent): JournalSource {
   switch (e.kind) {
+    case "voucher_reversed":
+      return { kind: "voucher", id: e.voucherId };
     case "invoice_cancelled":
       return { kind: "salesDocument", id: e.originalDocumentId };
     case "payment_reversed":

@@ -515,6 +515,10 @@ Einstellungen › Posteingang (P2): receiving address with copy button (INB-011)
 | ➕ GET/POST/PATCH | `/recurring-vouchers[/{id}]` | vouchers:write | |
 | ➕ GET | `/vouchers/missing-receipts` | vouchers:read | VOU-110 data |
 
+**P2 implementation (2026-10-19, voucher core):** `/vouchers` serves list (`status` incl. `overdue`, `partially_paid`, `unbooked`; `q`), create, get, patch (`correction_reason` for booked vouchers), delete, `preview`, `finalize`, `payments`, `cancel`, `duplicate-resolution` and `missing-receipts`; `/recurring-vouchers` serves list, create, get, patch and `POST /recurring-vouchers/{id}/run-now` (prefix `rvo_`). Deliberately not exposed: `/vouchers/{id}/bewirtung/approve` and `/eigenbeleg/approve` — the approval is a personal declaration and runs only for signed-in members in the app (conservative reading; the model refuses non-`user:` actors). Not yet: `/vouchers/{id}/files` (the detail carries a signed download `url` per file; uploads run through the app until the inbox slice), the remaining list filters and `expand`. See 03 §12 „F06 P2 voucher core 2026-10-19“.
+
+**P2 implementation (2026-10-19, inbox):** `POST /inbox-items` (JSON `files[].content_base64` ≤ 10 MB or multipart `file` parts ≤ 20 MB; **one inbox item per file**, so a multi-page capture is only possible in the app), `GET /inbox-items` (`status` = the UI filter chips `all|new|needs_review|einvoice|faulty|duplicate|rejected|older_than_10_days`, `source`, `classification`, `limit` ≤ 200, no cursor), `GET /inbox-items/{id}`, `POST /inbox-items/{id}/reject` (prefix `inb_`). Not yet: `split`/`merge` (INB-009) and the correction request (INB-046). MCP `inbox_list` and `voucher_create_from_file` as in §7.2: every string taken from a document or e-mail is returned as `{ untrusted_text }`. See 03 §12 „F06 P2 inbox 2026-10-19“.
+
 ### 7.2 MCP (06 §3.6)
 
 | Tool | Type | Notes |

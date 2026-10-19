@@ -824,7 +824,7 @@ inboxItems: { source: "email" | "upload" | "app" | "api" | "mcp";   // email = e
   attempts: number; nextAttemptAt?: number;   // classification retries (INB-024)
   retentionUntil?: string;                    // rejected items (EC-INB-12)
   voucherId?: Id<"vouchers">; error?: string }
-// indexes: by_status_receivedAt, by_messageId, by_r2Object (bucket, objectKey; unique), by_file_sha256
+// indexes: by_status_receivedAt, by_receivedAt, by_messageId, by_voucher, by_r2Object (bucket, objectKey; unique); file hashes in inboxFileHashes (§12 F06 P2 inbox)
 // flags include "unknown_sender", "sender_auth_failed", "attachment_too_large", "mail_unparseable", "not_einvoice"
 
 supplierProfiles: { key: string /* vatId | iban | normalized name */; contactId?: Id<"contacts">;
@@ -1406,3 +1406,53 @@ Still referencing removed shapes (owned by the parallel feature pass, to align):
 | `openingItems.documentId` (+ index `by_document`) | Set at insert by the import commit (one receivables opening posting per fiscal year, F08 ACC-013); never changed | IMP-007 / EC-201: payments on the imported invoice are redirected to its opening item; the invoice's `openAmountCents`/`paymentStatus` mirror the item; OPOS and matching skip archive-only `imported` documents |
 | `salesDocuments.origin.posted` (2026-10-18) | `true` when the imported document was dated on/after the Buchungsbeginn and posted at import (journal source = the document, F08 S1–S8/S12); set at insert, never changed | E-IMP-10 / EC-204: such documents have no opening item; payments, OPOS and bank matching treat them like own invoices (`isArchiveOnlyImport` in `src/domain/import/sevdesk/types.ts`) |
 | `imports.resolutions.postBookedPeriod`, `imports.resolutions.correctedTotals` (2026-10-18) | The owner's choice „Beim Import buchen“ and the corrected gross + reason per document key; part of the preview hash; copied into `imports.decisions` at commit | E-IMP-10, EC-203 / E-IMP-37 |
+
+### F06 P2 voucher core 2026-10-19 (VOU-*, CSH-022/023, TAX-018, RI-21)
+
+Implemented in `convex/voucherValidators.ts` (tables), `convex/model/vouchers*.ts`, `src/domain/vouchers/**` and `src/domain/accounting/post-vouchers.ts`. Inbox, OCR, E-Rechnung parsing, bank matching (BNK-049), assets and the UStVA sheets are later slices; the model leaves their hooks (`inboxItemId`, `assetId`, `taxPayment.filingId`, `projectId`, `costCenterId` as strings).
+
+| Item | Change | Reason / source |
+|---|---|---|
+| `voucherFileHashes` (new table, unprotected, audited) | `{ sha256, voucherId, fileIndex }`, indexes `by_sha256`, `by_voucher`; one row per original | VOU-050 exact-duplicate lookup — Convex cannot index array elements of `originalFiles[]` |
+| `receiptWaivers` (new table, unprotected, audited) | `{ bankTransactionId, reason, actor, at }`, index `by_transaction` | VOU-110 „Beleg nicht erforderlich“ with reason, without touching the 🔒 bank transaction |
+| `inboxItems` | Shape only (no writers yet) — implemented by „F06 P2 inbox 2026-10-19“ below | INB-* slice; `vouchers.inboxItemId` already references it |
+| `vouchers` (implemented) | Added `statedTotals` (Belegsumme laut Dokument, EC-VOU-03), `acknowledgedWarnings[]` (codes confirmed at booking), `journalEntryIds[]`, `supplierTaxNumber`, `supplierAddress`, `supplierIban`, `cancelledAt`, `cancelReason`, `checkedComplete { at, actor }`; `documentDate` optional on drafts; indexes `by_internalNumber`, `by_status_date`, `by_supplier_documentNumber`, `by_status_due`, `by_documentDate`, `by_recurring` | VOU-001/003/006/007/009/123; §14 content check needs address and tax number |
+| `vouchers.originalFiles[].replaceReason` | Reason stored on the replaced file when a booked voucher's file is replaced | VOU-122 (reason required after booking) |
+| `vouchers.bewirtung.versions[]` | Each superseded approval keeps `{ data, eigenbelegFile, approvedAt, supersededAt, reason }` | VOU-062: a re-approval never overwrites the earlier declaration |
+| `voucherLines.assetDecision` | `gwg | pool | asset | none` per line | VOU-065 asset prompt; `assetId` is set once later by AST-* |
+| `supplierProfiles.accountStreak` | Count of consecutive bookings to `lastAccount` | VOU-041 „gelernt (n×)“ suggestion confidence |
+| `recurringVouchers` (implemented) | `name`, `interval` incl. `P4Y`, `createAs` (`open` books only when the check has no errors and no warnings, else a draft), `lastGeneratedIds[]`; idempotent per (template, date) via `vouchers.by_recurring` | VOU-064; conservative reading of „wiederkehrend erstellen als gebucht“ |
+| `payments.target.kind = "voucher"`, `payments.source.kind = "private"` | Stored validators `vStoredPaymentTarget`/`vStoredPaymentSource` widen the schema; the public `payments.*` input validators stay invoice-only | VOU-131…139 / CSH-022/023 settle vouchers through the same `payments` table and reversal rules (F05) without changing the sales payment API |
+| Immutability (§11) | `vouchers` rule is two-stage: header fields mutable while `draft`; after booking only the status/payment caches move; when `lockedAt` is set or the voucher is cancelled (`lockedWhen`) only `lockedFields` (status moves, `originalFiles` append) may change; `voucherLines` frozen with the booked parent; `internalNumber`, `bookedAt`, `lockedAt` set once | GOBD-06, VOU-008/009, VOU-122 |
+| Numbering | `internalNumber` from the `voucherInternal` range (`BE-{YYYY}-{#####}`), year/month of the **booking day** (not the document date) | VOU-007: gapless in booking order; a late receipt never needs a number in a closed year |
+| Correction (VOU-008) | Generalumkehr of the previous entry on its **original** date and tax point (dating `user`, `mode: correction`), then a new posting; Storno (VOU-009) is dated **today** | Keeps the UStVA period of the original supply for a pure data correction; a Storno lands in the open period |
+| Posting (F08) | KU + reverse charge: the self-assessed VAT is expensed on the new role `expense.vat_nondeductible` (SKR03 4300 / SKR04 6860) — ⚠ to be confirmed; import VAT (V10) is credited to the payable, paid with the customs notice; Skonto received without input-VAT deduction is booked gross (LEGAL-OPEN, F08 Q) | KU-02, UST-32 |
+| Rates | 16 %/5 % (2020-07…12) and §13b at 7 % are refused with `rate_not_supported` until their posting rows exist | F08-Q1; never post an unmapped rate |
+| FX | `fxRateToEur.rate` is „1 EUR = x Fremdwährung“ (decimal string, ≤ 6 places) | 03 FxRate convention |
+| `vouchers.get` | Returns `null` for an unknown id (UI „nicht gefunden“, REST 404) | consistent with `invoices.get` |
+| RI-21 (`assertInvariants`) | Every booked voucher has an active original, an approved Eigenbeleg or a recurring reference; every original carries a SHA-256; the nightly integrity run re-hashes the stored bytes (`file_hash_mismatch`) | GOBD-07/08, VOU-126 |
+| Approval channel | Bewirtung/Eigenbeleg approval only for `user:` actors (UI); REST `…/bewirtung/approve`, `…/eigenbeleg/approve` are not exposed | The approval is a personal declaration (F06 §7.2 already excludes MCP); conservative reading for REST |
+
+**API deltas (05/06, same date):** `/vouchers` (list `status` = all | draft | open | overdue | partially_paid | paid | cancelled | unbooked, `q`; create, get, patch incl. `correction_reason`, delete, `preview`, `finalize` with `payment`, `payments`, `cancel`, `duplicate-resolution`, `missing-receipts`) and `/recurring-vouchers` (list, create, get, patch, `run-now`) with the new prefix `rvo_`. Not yet: `/vouchers/{id}/files` (bytes come from the signed `url` of the detail; uploads run through the app/inbox), the remaining list filters and `expand` (the detail is always complete). MCP: `voucher_search`, `voucher_get`, `voucher_update_draft`, ⚠ `voucher_finalize` (token from `preview_action`, binds id, version, warnings and payment; the preview shows the cash balance before/after); `voucher_create_from_file` waits for the inbox/classification slice; correction and Storno stay UI/REST.
+
+### F06 P2 inbox 2026-10-19 (INB-*, ER-02, SET-110…113, UST-01/QUO-14, IMP-012)
+
+Implemented in `convex/voucherValidators.ts`, `convex/inbox.ts` (public + internal functions), `convex/inboxNode.ts` (classification pipeline, R2 poll, connection tests), `convex/model/inbox*.ts`, `convex/lib/{r2Inbox,claudeOcr,einvoiceInbound,secrets}.ts`, `src/domain/{inbox,einvoice}/**`, `src/pdf/{hybrid,einvoice-visualisation}.tsx`.
+
+| Item | Change | Reason / source |
+|---|---|---|
+| `inboxItems` (implemented, guarded) | Added `capturedAt`, `actor`, `to`, `mailText` (plain text, untrusted), `note`, `duplicateOfVoucherId`, `duplicateOverride { reason, actor, at }` (once), `skippedAttachments[]` (`too_large` / `unsupported`), `mailParsed`, `einvoice { syntax, profile, notEInvoice, xmlFileIndex, model (parsed EN 16931 JSON), validation { acceptable, category?, tool, at, reportStorageId?, reportSha256?, findings[], unavailable? } }`, `warnings[{ code, message, acknowledge? }]`, `supplierProposal`, `supplierMatch`, `rejectedAt/By`, `purgeEligibleFrom`, `processedAt`; `files[]` carry capture metadata and `role` (`original`, `extracted_xml`, `embedded_attachment`, `eml`) with `derivedFrom`; indexes `by_receivedAt`, `by_voucher` added, `by_file_sha256` replaced by the table below | INB-020/022/041/050; Convex cannot index array elements |
+| `inboxFileHashes` (new table, audited) | `{ sha256, inboxItemId, fileIndex }`, indexes `by_sha256`, `by_item` | VOU-050 exact duplicate across inbox items (together with `voucherFileHashes`) |
+| Immutability (§11) | `inboxItems`: `source`, `receivedAt`, `capturedAt`, `actor`, `r2` immutable; `files` append-only; `duplicateOverride` set once; status/classification fields mutable until `converted`/`rejected` | GOBD-08, INB-042 |
+| `vouchers.einvoice.validation` | `reportStorageId` optional (no report while the sidecar is unavailable or for a parser Formatfehler); `reportSha256` and `findings[]` added | INB-024, EC-INB-13: „nicht geprüft“ is never valid |
+| `vouchers.ocr` | `text?` (searchable text) and `highlighted?` (fields < 0.9) | INB-026/029 |
+| `vouchers.renditions[]` | Received E-Rechnung gets a `visualisation` rendition (stamped PDF) of the XML file | INB-040 |
+| Draft lifecycle | Classification creates the draft only once a validation outcome exists; while the sidecar is down the item stays `processing` with backoff 1/5/15/30/60 min up to 24 h, then a draft with `validation.unavailable` and ⚑ `einvoice_not_validated`. Inbox ⚑ warnings flow into the voucher check (acknowledge at booking) and mark `inputVatAtRisk` | INB-024 vs INB-028 (conservative) |
+| Rejection retention | `no_business_document` → 90 days, `purgeEligibleFrom` set; other reasons and any parsed E-Rechnung → `letters6` | EC-INB-12 |
+| `integrations` (`r2_inbox`, `claude`) | `config` holds non-secret settings and the poll health (`consecutiveFailures`, `pausedAt`, `objectsWaiting`, `lastError`) resp. model/region/page limit/budget/usage; the Claude API key in `encryptedSecrets` (AES-GCM with `APP_ENCRYPTION_KEY`, never returned); R2 keys only in the Convex env | SET-110…113, 02 §4.5 |
+| Crons / jobs | `inbox.pollR2` every 5 min (`system:cron.inbox.pollR2`, skipped when disabled, paused after 401/403); `inbox.classify` system job | INB-049, 02 §7 |
+| `imports.mapping.preset` | Optional preset name for the generic CSV import (`kind = "generic_csv"`, contacts/products) | IMP-012 |
+| Delivery-note deadlines | No new table: day-150 warning / day-180 escalation notifications with dedupe keys `ust01_warning:<id>` / `ust01_escalation:<id>`, rule `INVOICING_DEADLINE` (date-effective) | UST-01, QUO-14 |
+
+**API deltas (05/06, same date):** REST `/inbox-items` (POST JSON `content_base64` ≤ 10 MB or `multipart/form-data` `file` parts ≤ 20 MB — one item per file; GET list with `status` = the UI filter chips, `source`, `classification`, `limit`; GET by id; `POST /inbox-items/{id}/reject`), prefix `inb_`. Not yet: `split`/`merge` (INB-009, SHOULD), `correction-request` (INB-046, SHOULD), the webhook events `inbox_item.*`. MCP: `inbox_list` (R) and `voucher_create_from_file` (W; `file_base64` + `filename` or `inbox_item_id`, waits up to 60 s, document-derived strings only in `untrusted_text`).
+

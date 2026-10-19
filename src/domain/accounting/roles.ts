@@ -111,6 +111,7 @@ export const ROLE_LABEL_DE: Readonly<Record<string, string>> = {
   "expense.entertainment": "Bewirtungskosten (abziehbar)",
   "expense.entertainment.nd": "Nicht abzugsfähige Bewirtungskosten",
   "expense.staff_events": "Freiwillige soziale Aufwendungen",
+  "expense.vat_nondeductible": "Nicht abziehbare Vorsteuer",
   "expense.fx_loss": "Aufwendungen aus Kursdifferenzen",
   "income.fx_gain": "Erträge aus Kursdifferenzen",
   "expense.trade_tax": "Gewerbesteuer",

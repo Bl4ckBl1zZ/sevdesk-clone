@@ -1,0 +1,85 @@
+{
+  "case": "V6-reverse-charge-eu-golden-V1",
+  "covers": "V6, VOU-022, T06-070 (golden V1: 190/190, payable net), EC-164",
+  "ruleVersion": "posting-2026.1",
+  "SKR03": {
+    "date": "2026-03-10",
+    "text": "Beleg BE-2026-00001 Google Ireland Ltd.",
+    "explanation": "V6",
+    "roleMappingVersion": "roles-2026.2",
+    "source": {
+      "kind": "voucher",
+      "id": "v1"
+    },
+    "lines": [
+      {
+        "role": "expense.13b_eu.19",
+        "debitCents": 100000,
+        "creditCents": 0,
+        "taxKey": "13b-EU19",
+        "account": "3123"
+      },
+      {
+        "role": "vat.output.13b.19",
+        "debitCents": 0,
+        "creditCents": 19000,
+        "taxPointDate": "2026-03-31",
+        "account": "1787"
+      },
+      {
+        "role": "vat.input.13b.19",
+        "debitCents": 19000,
+        "creditCents": 0,
+        "taxPointDate": "2026-03-31",
+        "account": "1577"
+      },
+      {
+        "role": "payable",
+        "debitCents": 0,
+        "creditCents": 100000,
+        "contactId": "contact1",
+        "account": "1600"
+      }
+    ]
+  },
+  "SKR04": {
+    "date": "2026-03-10",
+    "text": "Beleg BE-2026-00001 Google Ireland Ltd.",
+    "explanation": "V6",
+    "roleMappingVersion": "roles-2026.2",
+    "source": {
+      "kind": "voucher",
+      "id": "v1"
+    },
+    "lines": [
+      {
+        "role": "expense.13b_eu.19",
+        "debitCents": 100000,
+        "creditCents": 0,
+        "taxKey": "13b-EU19",
+        "account": "5923"
+      },
+      {
+        "role": "vat.output.13b.19",
+        "debitCents": 0,
+        "creditCents": 19000,
+        "taxPointDate": "2026-03-31",
+        "account": "3837"
+      },
+      {
+        "role": "vat.input.13b.19",
+        "debitCents": 19000,
+        "creditCents": 0,
+        "taxPointDate": "2026-03-31",
+        "account": "1407"
+      },
+      {
+        "role": "payable",
+        "debitCents": 0,
+        "creditCents": 100000,
+        "contactId": "contact1",
+        "account": "3300"
+      }
+    ]
+  }
+}

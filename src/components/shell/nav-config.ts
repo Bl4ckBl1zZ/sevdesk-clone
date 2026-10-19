@@ -14,6 +14,7 @@ import {
   ClipboardCheckIcon,
   ClockIcon,
   DownloadIcon,
+  FileQuestionIcon,
   FileTextIcon,
   FolderKanbanIcon,
   GlobeIcon,
@@ -93,6 +94,8 @@ export const NAV_GROUPS: NavGroup[] = [
         icon: ReceiptTextIcon,
         children: [
           { key: "posteingang", href: "/posteingang", icon: InboxIcon },
+          { key: "belegeFehlend", href: "/belege/fehlend", icon: FileQuestionIcon },
+          { key: "belegeWiederkehrend", href: "/belege/wiederkehrend", icon: RepeatIcon },
           { key: "anlagen", href: "/buchhaltung/anlagen", icon: Building2Icon },
         ],
       },
@@ -189,6 +192,8 @@ export const SETTINGS_NAV: SettingsGroup[] = [
     items: [
       { key: "mitglieder", href: "/einstellungen/mitglieder" },
       { key: "integrationen", href: "/einstellungen/integrationen" },
+      { key: "posteingang", href: "/einstellungen/posteingang" },
+      { key: "belegerkennung", href: "/einstellungen/belegerkennung" },
       { key: "api", href: "/einstellungen/api" },
       { key: "webhooks", href: "/einstellungen/webhooks" },
       { key: "mcp", href: "/einstellungen/mcp" },

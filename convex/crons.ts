@@ -67,5 +67,13 @@ crons.cron("notifications.maintain", "40 * * * *", internal.notifications.mainta
 
 // jobs.expire — daily 03:15 UTC: export job results older than 30 days are removed from storage (F09 EXP-026).
 crons.cron("jobs.expire", "15 3 * * *", internal.jobs.expireCron, {});
+// recurringVouchers.generate — daily 06:15 Europe/Berlin (04:15 / 05:15 UTC; F06 VOU-064). Idempotent per (template,
+// occurrence date), so the second registration of the day finds nothing due.
+crons.cron("recurringVouchers.generate (CEST)", "15 4 * * *", internal.vouchers.generateRecurringCron, {});
+crons.cron("recurringVouchers.generate (CET)", "15 5 * * *", internal.vouchers.generateRecurringCron, {});
+
+// inbox.pollR2 — every 5 min (02 §7, F06 INB-049): e-mail-in via Cloudflare Email Routing → Worker → R2. A no-op while
+// the R2 env is missing, the integration is disabled/without AVV, or polling is paused after 401/403 (EC-INB-29).
+crons.interval("inbox.pollR2", { minutes: 5 }, internal.inboxNode.pollR2, {});
 
 export default crons;

@@ -27,6 +27,7 @@ import {
 import { journalHead } from "./model/journal";
 import schema from "./schema";
 import { vIntegrityFinding } from "./validators";
+import { rehashVoucherFiles } from "./voucherIntegrity";
 
 /**
  * Integrity (02 §4.6, §7; F12 AUD-013, AUD-016; RI-14):
@@ -156,6 +157,8 @@ export const recordUpload = systemMutation({
 type RunCtx = {
   runQuery: import("./_generated/server").ActionCtx["runQuery"];
   runMutation: import("./_generated/server").ActionCtx["runMutation"];
+  /** Present in actions: voucher files are re-hashed (F06 VOU-126). */
+  storage?: import("./_generated/server").ActionCtx["storage"];
 };
 
 async function countAll(ctx: RunCtx): Promise<Record<string, number>> {
@@ -272,6 +275,8 @@ export async function runVerify(
     if (page.length < PAGE) break;
   }
   if (st.checkpoint) await checkCheckpoint(ctx, st.checkpoint, findings);
+  if (ctx.storage)
+    findings.push(...(await rehashVoucherFiles({ runQuery: ctx.runQuery, storage: ctx.storage })).findings);
 
   await ctx.runMutation(internal.integrity.recordRun, { scope, lastVerifiedSeq, findings: findings.slice(0, 100) });
   return { ok: !findings.some((f) => f.severity === "error"), lastVerifiedSeq, findings };

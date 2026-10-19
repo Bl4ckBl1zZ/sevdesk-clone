@@ -59,6 +59,9 @@ export const SYSTEM_JOBS = [
   "cron.recurring.generate", // 02 §7 recurring.generate (F04 REC-05), daily 06:00 Europe/Berlin
   "cron.dunning.run", // 02 §7 dunning.run (F05 DUN-030): drafts or finalises reminders, never sends
   "cron.receivables.refreshOverdue", // 02 §7 receivables.refreshOverdue (F05 PAY-044, DUN-053 „Bald fällig“ to-dos)
+  "cron.recurringVouchers.generate", // 02 §7 recurringVouchers.generate (F06 VOU-064), daily 06:15 Europe/Berlin
+  "cron.inbox.pollR2", // 02 §7 inbox.pollR2 (F06 INB-049): every 5 min, lists/reads/deletes the R2 e-mail-in bucket
+  "inbox.classify", // F06 §4.1 classification pipeline (Node action; writes through actorMutations with the capturer)
   "documents.pipeline", // F04 §4.6 step 1 reads and step 3 renderArtifacts (scheduled, retried)
   "imports.files", // F09 IMP-016 Node action that unpacks uploaded ZIPs into storage (no db writes)
   "imports.protocol", // F09 IMP-024 Node action that renders the import protocol PDF into storage (no db writes)

@@ -196,3 +196,48 @@ export const TIMELY_RECORDING = defineRuleTable<TimelyRecording>("gobd_timely_re
     source: "GoBD Rz. 47–50 (BMF-Schreiben vom 14.11.2014, 28.11.2019 und 11.03.2024)",
   },
 ]);
+export interface AssetThresholds {
+  /** Acquisition cost per item above which a recording list / asset decision is needed (§ 6 Abs. 2 S. 4 EStG). */
+  readonly recordingLimitCents: number;
+  /** GWG: immediate write-off up to this cost per item (§ 6 Abs. 2 EStG). */
+  readonly gwgLimitCents: number;
+  /** Sammelposten range (§ 6 Abs. 2a EStG): above `recordingLimitCents` up to this amount. */
+  readonly poolMaxCents: number;
+}
+
+// F06 VOU-065 / AO-03: thresholds are date-effective data. A future change (e.g. a higher GWG limit) is a new row.
+export const ASSET_THRESHOLDS = defineRuleTable<AssetThresholds>("asset_thresholds", [
+  {
+    validFrom: "2018-01-01",
+    value: { recordingLimitCents: 25_000, gwgLimitCents: 80_000, poolMaxCents: 100_000 },
+    source:
+      "§ 6 Abs. 2 und 2a EStG i. d. F. Gesetz gegen schädliche Steuerpraktiken (BGBl. 2017 I S. 2074): GWG 800 €, Verzeichnis/Sammelposten ab 250,01 €, Sammelposten bis 1.000 €",
+  },
+]);
+
+export const lookupAssetThresholds = (
+  date: CalendarDate,
+  overrides: readonly RuleOverride<AssetThresholds>[] = [],
+): Result<RuleRow<AssetThresholds>, RuleMissing> => lookupRule(ASSET_THRESHOLDS, date, overrides);
+
+export interface InvoicingDeadline {
+  /** Days after the end of the supply from which an uninvoiced supply gets a warning to-do (F04 QUO-14). */
+  readonly warnAfterDays: number;
+  /** Days after the end of the supply from which the to-do escalates („Rechnungsfrist überschritten“). */
+  readonly escalateAfterDays: number;
+}
+
+// UST-01: § 14 Abs. 2 S. 1 Nr. 1 und 2 UStG — invoice within six months after the supply (B2B, legal persons,
+// property-related supplies). Day 150 / 180 are the monitoring levels of F04 QUO-14 (02 §7 deadlines.notify).
+export const INVOICING_DEADLINE = defineRuleTable<InvoicingDeadline>("invoicing_deadline", [
+  {
+    validFrom: "2004-01-01",
+    value: { warnAfterDays: 150, escalateAfterDays: 180 },
+    source: "§ 14 Abs. 2 S. 1 Nr. 1 und 2 UStG i. d. F. Steueränderungsgesetz 2003 (BGBl. 2003 I S. 2645); F04 QUO-14",
+  },
+]);
+
+export const lookupInvoicingDeadline = (
+  date: CalendarDate,
+  overrides: readonly RuleOverride<InvoicingDeadline>[] = [],
+): Result<RuleRow<InvoicingDeadline>, RuleMissing> => lookupRule(INVOICING_DEADLINE, date, overrides);

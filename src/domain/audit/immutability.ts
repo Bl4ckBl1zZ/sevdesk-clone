@@ -10,8 +10,8 @@ import { canonicalize } from "./canonical";
  *   "removeOnce"   may be removed once (value → absent), never set again (contactKeys.wrappedKey)
  *   transitions    allowed value changes, e.g. numberRegister.status issued → cancelled_by_storno
  *
- * Tables owned by later features (vouchers, bankTransactions, taxFilings, assets, timeEntries, …) add their rows
- * together with their state machines.
+ * Tables owned by later features (taxFilings, assets, timeEntries, …) add their rows together with their state
+ * machines.
  */
 export type FieldRule =
   | "mutable"
@@ -27,11 +27,38 @@ export interface TableRule {
   fields?: Readonly<Record<string, FieldRule>>;
   /** guarded tables: when is the record frozen? Default: from insert. */
   frozenWhen?: (doc: Record<string, unknown>) => boolean;
+  /**
+   * guarded tables with a second stage (vouchers: booked → locked/cancelled, 03 §11): once `lockedWhen` holds, only
+   * `lockedFields` may change (instead of `fields`).
+   */
+  lockedWhen?: (doc: Record<string, unknown>) => boolean;
+  lockedFields?: Readonly<Record<string, FieldRule>>;
   /** German message for violations (E-AUD-02 for the audit log). */
   message?: string;
 }
 
 const APPEND_ONLY: TableRule = { kind: "append_only" };
+
+/** Voucher fields that may change in every booked state (03 §11 „always“). */
+const VOUCHER_ALWAYS: Readonly<Record<string, FieldRule>> = {
+  openAmountCents: "mutable",
+  tags: "mutable",
+  checkedComplete: "once",
+  duplicateDismissals: "append",
+  rebilledLineId: "once",
+  renditions: "append",
+  journalEntryIds: "append",
+  cancelledAt: "once",
+  cancelReason: "once",
+  retentionUntil: "once",
+};
+/** Payment-derived status moves of a booked voucher and its cancellation (VOU-009, VOU-130). */
+const VOUCHER_STATUS_MOVES: Readonly<Record<string, readonly string[]>> = {
+  open: ["scheduled", "partially_paid", "paid", "cancelled"],
+  scheduled: ["open", "partially_paid", "paid", "cancelled"],
+  partially_paid: ["open", "scheduled", "paid", "cancelled"],
+  paid: ["open", "scheduled", "partially_paid", "cancelled"],
+};
 
 export const IMMUTABILITY_MATRIX: Readonly<Record<string, TableRule>> = {
   // ── append-only (03 §11: "none") ────────────────────────────────────────────
@@ -185,6 +212,100 @@ export const IMMUTABILITY_MATRIX: Readonly<Record<string, TableRule>> = {
       datevBelegnummer: "once",
     },
   },
+  // ── F06 purchase vouchers (03 §11 row "vouchers, voucherLines", VOU-007…009, VOU-122) ───────────────────
+  // Frozen from booking: no deletion, gapless `internalNumber` once. While unlocked the model corrects the header
+  // (VOU-008: reason, Generalumkehr + re-post, `version + 1`); after lock or cancellation only `lockedFields` change.
+  vouchers: {
+    kind: "guarded",
+    frozenWhen: (doc) => doc.status !== "draft",
+    fields: {
+      ...VOUCHER_ALWAYS,
+      status: { transitions: VOUCHER_STATUS_MOVES },
+      internalNumber: "once",
+      bookedAt: "once",
+      lockedAt: "once",
+      originalFiles: "mutable",
+      supplierContactId: "mutable",
+      supplierName: "mutable",
+      supplierVatId: "mutable",
+      supplierTaxNumber: "mutable",
+      supplierAddress: "mutable",
+      supplierIban: "mutable",
+      documentNumber: "mutable",
+      documentDate: "mutable",
+      supplyDate: "mutable",
+      dueDate: "mutable",
+      fxRateToEur: "mutable",
+      priceMode: "mutable",
+      taxRule: "mutable",
+      totals: "mutable",
+      totalsEur: "mutable",
+      statedTotals: "mutable",
+      inputVatAtRisk: "mutable",
+      acknowledgedWarnings: "mutable",
+      skontoTerms: "mutable",
+      taxPayment: "mutable",
+      creditNoteOfId: "mutable",
+      recurringPayment: "mutable",
+      costCenterId: "mutable",
+      projectId: "mutable",
+      internalNote: "mutable",
+      bewirtung: "mutable",
+      eigenbeleg: "mutable",
+      duplicateOfId: "mutable",
+      version: "mutable",
+    },
+    lockedWhen: (doc) => doc.lockedAt !== undefined || doc.status === "cancelled",
+    lockedFields: { ...VOUCHER_ALWAYS, status: { transitions: VOUCHER_STATUS_MOVES }, originalFiles: "append" },
+    message: "Festgeschriebene Belege sind unveränderbar (GoBD). Bitte stornieren und neu erfassen („Duplizieren“).",
+  },
+  // F06 inbox (GOBD-08, ER-13, INB-020/042): the captured files are originals — the list only grows and existing
+  // entries never change; receipt time, capture actor and the R2 object identity are fixed at insert. Classification
+  // results, flags, the draft link and the status move freely (audited). Items are never deleted (purge: P3, manual).
+  inboxItems: {
+    kind: "guarded",
+    fields: {
+      files: "append",
+      from: "mutable",
+      to: "mutable",
+      subject: "mutable",
+      messageId: "mutable",
+      mailText: "mutable",
+      note: "mutable",
+      duplicateOfInboxItemId: "mutable",
+      duplicateOfVoucherId: "mutable",
+      duplicateOverride: "once",
+      skippedAttachments: "mutable",
+      mailParsed: "mutable",
+      classification: "mutable",
+      einvoiceProfile: "mutable",
+      einvoice: "mutable",
+      confidence: "mutable",
+      flags: "mutable",
+      warnings: "mutable",
+      supplierProposal: "mutable",
+      supplierMatch: "mutable",
+      status: "mutable",
+      rejectReason: "mutable",
+      rejectText: "mutable",
+      rejectedAt: "mutable",
+      rejectedBy: "mutable",
+      purgeEligibleFrom: "mutable",
+      attempts: "mutable",
+      nextAttemptAt: "mutable",
+      retentionUntil: "mutable",
+      voucherId: "mutable",
+      processedAt: "mutable",
+      error: "mutable",
+    },
+    message: "Originaldateien im Posteingang sind unveränderbar (GoBD).",
+  },
+  // Frozen with the parent voucher once it is locked or cancelled (the guarded db passes `parentFrozen`).
+  voucherLines: {
+    kind: "guarded",
+    frozenWhen: (doc) => doc.parentFrozen === true,
+    fields: { assetId: "once" },
+  },
   // Frozen with the parent: the guarded db passes the parent's status as `parentStatus` (convex/model/db.ts).
   documentLines: {
     kind: "guarded",
@@ -275,8 +396,9 @@ export function assertMutable(table: string, before: Record<string, unknown>, ch
     if (changedFields(before, change).size > 0) fail("update");
     return;
   }
+  const fields = rule.lockedWhen?.(before) ? rule.lockedFields : rule.fields;
   for (const [field, [from, to]] of changedFields(before, change)) {
-    const fieldRule = rule.fields?.[field];
+    const fieldRule = fields?.[field];
     if (fieldRule === undefined) fail(`field ${field} is frozen`);
     else if (fieldRule === "mutable") continue;
     else if (fieldRule === "once") {

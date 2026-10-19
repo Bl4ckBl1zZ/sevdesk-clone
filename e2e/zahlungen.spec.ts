@@ -169,6 +169,9 @@ test("PAY-012 PAY-040 PAY-020 partial payment, its Storno, then payment with 2 %
   await dialog.getByText("Andere", { exact: true }).click();
   await dialog.getByLabel("Betrag (€)").fill("50,00");
   await expect(dialog.getByText("Teilzahlung – Rest bleibt offen")).toBeVisible();
+  // The book button stays disabled (50 % opacity) until the server preview is back; axe the settled dialog.
+  await expect(dialog.getByTestId("booking-preview")).toBeVisible({ timeout: 20_000 });
+  await expect(bookButton(dialog)).toBeEnabled();
   await expectNoAxeViolations();
   await bookButton(dialog).click();
   await expect(dialog).toBeHidden({ timeout: 20_000 });

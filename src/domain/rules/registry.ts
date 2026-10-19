@@ -12,7 +12,9 @@ import { RC13B_TYPES } from "./rc13b-types";
 import { RETENTION_YEARS } from "./retention";
 import type { RuleTable } from "./rule-table";
 import {
+  ASSET_THRESHOLDS,
   BOOKKEEPING_DUTY_LIMITS,
+  INVOICING_DEADLINE,
   IST_TAXATION_LIMIT,
   KLEINBETRAG_LIMIT,
   KLEINUNTERNEHMER_LIMITS,
@@ -37,6 +39,8 @@ export const ALL_RULE_TABLES: readonly RuleTable<unknown>[] = [
   IST_TAXATION_LIMIT,
   TIMELY_RECORDING,
   RETENTION_YEARS,
+  ASSET_THRESHOLDS,
+  INVOICING_DEADLINE,
   EINVOICE_OBLIGATION,
   ...Object.values(NOTE_TEXTS),
   EU_VAT_TERRITORY,

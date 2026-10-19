@@ -1,7 +1,7 @@
 "use client";
 
 import { api } from "@convex/_generated/api";
-import { PlusIcon, ReceiptIcon } from "lucide-react";
+import { ClockAlertIcon, PlusIcon, ReceiptIcon } from "lucide-react";
 import type { Route } from "next";
 import Link from "next/link";
 import { useTranslations } from "next-intl";
@@ -187,7 +187,10 @@ function InvoicesListInner({ listType }: { listType: ListType }) {
                   />
                 </TableCell>
                 <TableCell>
-                  <InvoiceStatusBadge token={r.displayStatus.token as DisplayStatus} label={r.displayStatus.label} />
+                  <div className="flex flex-wrap items-center gap-1">
+                    <InvoiceStatusBadge token={r.displayStatus.token as DisplayStatus} label={r.displayStatus.label} />
+                    <InvoicingDeadlineBadge level={r.invoicingDeadline} />
+                  </div>
                 </TableCell>
                 <TableCell className="tabular-nums">
                   <Link href={href(r)} className="font-medium hover:underline">
@@ -229,6 +232,7 @@ function InvoicesListInner({ listType }: { listType: ListType }) {
               {formatDate(listType === "delivery_note" ? supplyDay(r.supplyDate) : r.documentDate)}
             </span>
             <InvoiceStatusBadge token={r.displayStatus.token as DisplayStatus} label={r.displayStatus.label} />
+            <InvoicingDeadlineBadge level={r.invoicingDeadline} />
           </div>
           {priced && <span className="font-medium text-sm tabular-nums">{money(r.grossCents, r.currency)}</span>}
         </article>
@@ -242,6 +246,30 @@ function InvoicesListInner({ listType }: { listType: ListType }) {
       )}
       {fab}
     </ListLayout>
+  );
+}
+
+/**
+ * QUO-14 / UST-01: an uninvoiced delivery note past day 150 („Rechnung fällig“) or day 180 („Rechnungsfrist
+ * überschritten“) after the delivery date (B2B, legal persons, property-related supplies; § 14 Abs. 2 UStG).
+ */
+export function InvoicingDeadlineBadge({ level }: { level: "warning" | "escalation" | null | undefined }) {
+  const t = useTranslations("invoices.list.invoicingDeadline");
+  if (!level) return null;
+  return (
+    <span
+      data-invoicing-deadline={level}
+      title={t("hint")}
+      className={cn(
+        "inline-flex h-6 items-center gap-1 whitespace-nowrap rounded-full border px-2 font-medium text-xs",
+        level === "escalation"
+          ? "border-danger/30 bg-danger/10 text-danger"
+          : "border-warning bg-transparent text-warning",
+      )}
+    >
+      <ClockAlertIcon className="size-3.5" aria-hidden="true" />
+      {t(level)}
+    </span>
   );
 }
 

@@ -1,0 +1,83 @@
+{
+  "case": "V1-private-share-30",
+  "covers": "V1 + private share, VOU-027 (expense and VAT reduced by the share → Privatentnahme)",
+  "ruleVersion": "posting-2026.1",
+  "SKR03": {
+    "date": "2026-03-10",
+    "text": "Beleg BE-2026-00001 Büro Schmidt GmbH",
+    "explanation": "V1",
+    "roleMappingVersion": "roles-2026.2",
+    "source": {
+      "kind": "voucher",
+      "id": "v1"
+    },
+    "lines": [
+      {
+        "role": "expense.services",
+        "debitCents": 7000,
+        "creditCents": 0,
+        "taxKey": "VSt19",
+        "account": "3100"
+      },
+      {
+        "role": "vat.input.19",
+        "debitCents": 1330,
+        "creditCents": 0,
+        "taxPointDate": "2026-03-10",
+        "account": "1576"
+      },
+      {
+        "role": "private.withdrawal",
+        "debitCents": 3570,
+        "creditCents": 0,
+        "account": "1800"
+      },
+      {
+        "role": "payable",
+        "debitCents": 0,
+        "creditCents": 11900,
+        "contactId": "contact1",
+        "account": "1600"
+      }
+    ]
+  },
+  "SKR04": {
+    "date": "2026-03-10",
+    "text": "Beleg BE-2026-00001 Büro Schmidt GmbH",
+    "explanation": "V1",
+    "roleMappingVersion": "roles-2026.2",
+    "source": {
+      "kind": "voucher",
+      "id": "v1"
+    },
+    "lines": [
+      {
+        "role": "expense.services",
+        "debitCents": 7000,
+        "creditCents": 0,
+        "taxKey": "VSt19",
+        "account": "5900"
+      },
+      {
+        "role": "vat.input.19",
+        "debitCents": 1330,
+        "creditCents": 0,
+        "taxPointDate": "2026-03-10",
+        "account": "1406"
+      },
+      {
+        "role": "private.withdrawal",
+        "debitCents": 3570,
+        "creditCents": 0,
+        "account": "2100"
+      },
+      {
+        "role": "payable",
+        "debitCents": 0,
+        "creditCents": 11900,
+        "contactId": "contact1",
+        "account": "3300"
+      }
+    ]
+  }
+}

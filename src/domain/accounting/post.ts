@@ -45,6 +45,7 @@ import {
   taxPeriodOf,
   type UstvaPeriodKind,
 } from "./period";
+import { postVoucherBooked, postVoucherPaid } from "./post-vouchers";
 import { shareOfSettlement } from "./pro-rata";
 import { type AccountRole, bankRole, isCorporation, rateSuffix } from "./roles";
 
@@ -150,6 +151,42 @@ export const EXPLANATIONS: Readonly<Record<string, string>> = {
   "ACC-013-cash": "Eröffnungsbilanz: Anfangsbestand der Kasse gegen Saldenvorträge Sachkonten.",
   "ACC-013-bank": "Eröffnungsbilanz: Anfangsbestand des Bankkontos gegen Saldenvorträge Sachkonten.",
   "ACC-013-receivables": "Eröffnungsbilanz: offene Forderungen je Rechnung gegen Saldenvorträge Debitoren.",
+  // ── purchase vouchers (F08 §4.2.3, §4.2.4, §4.2.6) ──
+  V1: "Eingangsrechnung mit Vorsteuerabzug: Aufwand und abziehbare Vorsteuer an Verbindlichkeiten; die Vorsteuer ist abziehbar, sobald Leistung und Rechnung vorliegen.",
+  V2: "Zahlung einer Eingangsrechnung vom Bankkonto: Verbindlichkeit ausgeglichen.",
+  "V2+V3":
+    "Zahlung mit Skontoabzug: Verbindlichkeit ausgeglichen, erhaltener Skonto mindert Aufwand und Vorsteuer anteilig je Steuersatz (§ 17 UStG).",
+  V4: "Beleg ohne Vorsteuerabzug (Kleinunternehmer, ausländische USt, nicht abziehbar oder Eigenbeleg): der Bruttobetrag ist Aufwand.",
+  V5: "Bewirtung von Geschäftspartnern: 70 % abziehbare und 30 % nicht abziehbare Bewirtungskosten (§ 4 Abs. 5 Nr. 2 EStG), Vorsteuer zu 100 % abziehbar.",
+  V6: "Reverse Charge EU (§ 13b Abs. 1 UStG): Sie schulden die Umsatzsteuer und ziehen sie als Vorsteuer wieder ab (Kz 46/47, 67).",
+  "V6-ku":
+    "Reverse Charge EU als Kleinunternehmer: Sie schulden die Umsatzsteuer, dürfen sie aber nicht als Vorsteuer abziehen (Aufwand).",
+  V7: "Leistung eines ausländischen Unternehmers (§ 13b Abs. 2 Nr. 1 UStG): Steuerschuld und Vorsteuer (Kz 84/85, 67).",
+  "V7-ku": "Leistung eines ausländischen Unternehmers als Kleinunternehmer: Steuerschuld ohne Vorsteuerabzug.",
+  V8: "Inländische Leistung nach § 13b UStG (z. B. Bauleistung): Steuerschuld und Vorsteuer (Kz 84/85, 67).",
+  "V8-ku": "Inländische Leistung nach § 13b UStG als Kleinunternehmer: Steuerschuld ohne Vorsteuerabzug.",
+  V9: "Innergemeinschaftlicher Erwerb (§ 1a UStG): Erwerbsteuer und Vorsteuer (Kz 89/93, 61).",
+  "V9-ku": "Innergemeinschaftlicher Erwerb als Kleinunternehmer: Erwerbsteuer ohne Vorsteuerabzug.",
+  V10: "Einfuhrumsatzsteuer laut Zollbescheid: abziehbar als Vorsteuer (Kz 62), kein Aufwand.",
+  V13: "Anschaffung eines Anlageguts: Anlagenkonto (GWG, Sammelposten oder Anlage) und Vorsteuer an Verbindlichkeiten.",
+  VE: "Einnahmebeleg (keine eigene Rechnung): Forderung an Ertrag und ggf. Umsatzsteuer.",
+  "VE-pay": "Zahlungseingang auf einen Einnahmebeleg: Forderung ausgeglichen.",
+  T6: "Beleg bar bezahlt: Verbindlichkeit an Kasse.",
+  "T6+V3": "Beleg bar bezahlt mit Skontoabzug: Verbindlichkeit an Kasse und erhaltene Skonti.",
+  T7: "Beleg privat bezahlt (Privateinlage): Verbindlichkeit an Privateinlagen, keine Kassen- oder Bankbewegung.",
+  "T7+V3": "Beleg privat bezahlt mit Skontoabzug: Verbindlichkeit an Privateinlagen und erhaltene Skonti.",
+  "T7-corp": "Auslage durch Gesellschafter: Verbindlichkeit an Verrechnungskonto Gesellschafter (Kapitalgesellschaft).",
+  "T7-corp+V3": "Auslage durch Gesellschafter mit Skontoabzug: Verrechnungskonto Gesellschafter und erhaltene Skonti.",
+  X1: "Umsatzsteuer-Vorauszahlung an das Finanzamt.",
+  X2: "Umsatzsteuer-Erstattung vom Finanzamt.",
+  X3: "Sondervorauszahlung (1/11) für die Dauerfristverlängerung.",
+  X4: "Umsatzsteuer-Jahreszahlung bzw. -erstattung für ein Vorjahr.",
+  X5: "Gewerbesteuer (Betriebsausgabe, außerbilanziell nicht abziehbar).",
+  X6: "Einkommensteuer, Kirchensteuer, Soli vom Geschäftskonto: Privatsteuern (keine Betriebsausgabe).",
+  X7: "Körperschaftsteuer (Kapitalgesellschaft).",
+  "V-storno": "Storno eines Belegs: Generalumkehr der Buchung im offenen Zeitraum (§ 17 UStG).",
+  "V-correction":
+    "Belegkorrektur: Generalumkehr der bisherigen Buchung, danach Neubuchung mit den korrigierten Werten.",
 };
 
 export const explanationText = (key: string): string => EXPLANATIONS[key] ?? key;
@@ -854,6 +891,31 @@ export function postEvent(
   ctx: PostingContext,
 ): Result<PostingOutcome, PostingIssue> {
   switch (e.kind) {
+    case "voucher_booked": {
+      const r = postVoucherBooked(e, {
+        corporation: isCorporation(ctx.legalForm),
+        taxationMethod: ctx.taxationMethod,
+      });
+      if (!r.ok) return r;
+      return entry(e, ctx, {
+        date: e.date,
+        text: r.value.text,
+        explanation: r.value.explanation,
+        lines: withTaxPeriods(mergeLines(r.value.lines), ctx),
+        dating: "external",
+      });
+    }
+    case "voucher_paid": {
+      const r = postVoucherPaid({ ...e, corporation: e.corporation ?? isCorporation(ctx.legalForm) });
+      if (!r.ok) return r;
+      return entry(e, ctx, {
+        date: e.date,
+        text: r.value.text,
+        explanation: r.value.explanation,
+        lines: withTaxPeriods(mergeLines(r.value.lines), ctx),
+        dating: e.means.kind === "bank_account" ? "external" : "user",
+      });
+    }
     case "invoice_finalised":
       return postInvoice(e, ctx);
     case "invoice_corrected":
@@ -878,6 +940,7 @@ export function postEvent(
 // ── reversals (Generalumkehr, ACC-004) ──────────────────────────────────────────────────────────────────
 
 const REVERSAL_EXPLANATION: Record<ReversalEvent["kind"], string> = {
+  voucher_reversed: "V-storno",
   invoice_cancelled: "S12",
   payment_reversed: "P10",
   cash_transfer_reversed: "T10",
@@ -904,13 +967,19 @@ export function reversalPosting(
   ctx: PostingContext,
 ): Posting {
   const head = e.kind === "invoice_cancelled" ? `Storno ${e.documentNumber}` : `Storno: ${original.text}`;
+  // VOU-008: a correction mirrors the booking with its original tax points (Generalumkehr in the same period), the
+  // re-post follows; a cancellation (VOU-009) reports the reversal in its own period (§ 17 UStG).
+  const keepTaxPoints = e.kind === "voucher_reversed" && e.mode === "correction";
   return {
     date: calendarDate(e.date),
     text: truncate(head),
-    explanation: REVERSAL_EXPLANATION[e.kind],
+    explanation:
+      e.kind === "voucher_reversed" && e.mode === "correction" ? "V-correction" : REVERSAL_EXPLANATION[e.kind],
     ruleVersion: POSTING_RULE_VERSION,
     source: sourceOf(e),
-    lines: mirrorLines(original.lines, e.date, ctx),
+    lines: keepTaxPoints
+      ? original.lines.map((l) => ({ ...l, debitCents: l.creditCents, creditCents: l.debitCents }))
+      : mirrorLines(original.lines, e.date, ctx),
     // Storno/reversal of possibly locked records → first open period (ACC-006 b).
     dating: "external",
   };

@@ -63,6 +63,12 @@ export function guardedDb(db: DatabaseWriter, stats: WriteStats): DatabaseWriter
       const parent = await raw.get("salesDocuments", stored.documentId as AnyId);
       before = { ...stored, parentStatus: parent?.status ?? "draft" };
     }
+    // voucherLines are frozen once the parent voucher is locked or cancelled (03 §11, VOU-009).
+    if (table === "voucherLines" && typeof stored.voucherId === "string") {
+      const parent = await raw.get("vouchers", stored.voucherId as AnyId);
+      const frozen = parent ? parent.lockedAt !== undefined || parent.status === "cancelled" : false;
+      before = { ...stored, parentFrozen: frozen };
+    }
     try {
       assertMutable(table, before, change);
     } catch (e) {

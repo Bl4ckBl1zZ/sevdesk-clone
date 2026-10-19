@@ -214,6 +214,40 @@ export const PERMISSIONS = {
    * read permission of its data (e.g. `audit.read` for „Verlauf“). UI only — not exposed via REST/MCP.
    */
   "dashboard.read": { roles: ALL, scope: null, write: false },
+  /** F06 purchase vouchers: lists, detail, files, missing receipts (auditor: Z1 access to purchase vouchers). */
+  "vouchers.read": { roles: ALL, scope: "vouchers:read", write: false },
+  /**
+   * F06 drafts (VOU-001), files (VOU-120…122), duplicates (VOU-053), recurring templates (VOU-064), „Beleg nicht
+   * erforderlich“ (VOU-110) — free W tools (06 §3).
+   */
+  "vouchers.write": { roles: ["owner", "bookkeeper"], scope: "vouchers:write", write: true },
+  /**
+   * F06 VOU-007 „Buchen“ (⚠: gapless Belegnummer, journal entries, optional „Bezahlt mit“; fresh session, 02 §4.2).
+   * MCP: confirm token from `preview_action { action: "voucher_finalize" }` binding id, version and the payment.
+   */
+  "vouchers.finalize": {
+    roles: ["owner", "bookkeeper"],
+    scope: "vouchers:write",
+    write: true,
+    fresh: true,
+    confirm: "voucher_finalize",
+  },
+  /**
+   * F06 VOU-008 correction of a booked, unlocked voucher (Generalumkehr + re-post, reason) and VOU-009 „Stornieren“.
+   * Not MCP tools (06 §3 lists only `voucher_finalize`); REST `PATCH /vouchers/{id}` with `correction_reason` and
+   * `POST /vouchers/{id}/cancel`. Fresh session like other Storno acts (02 §4.2).
+   */
+  "vouchers.correct": { roles: ["owner", "bookkeeper"], scope: "vouchers:write", write: true, fresh: true },
+  /**
+   * F06 VOU-060…063 approving a Bewirtungs-/Eigenbeleg (renders and freezes the PDF). A human act: the model refuses
+   * `api-key:`/`mcp:` actors (the owner or bookkeeper approves, VOU-063).
+   */
+  "vouchers.approve": { roles: ["owner", "bookkeeper"], scope: "vouchers:write", write: true },
+  /**
+   * F06 VOU-131/137/138/139 later „Bar/Privat bezahlt“, linking a bank debit and „Zahlung umbuchen“ on an open
+   * voucher (⚠ like `payments.record`: MCP needs a `payment_record` token; REST also requires `vouchers:write`).
+   */
+  "vouchers.pay": { roles: ["owner", "bookkeeper"], scope: "payments:write", write: true, confirm: "payment_record" },
 } as const satisfies Record<string, PermissionRule>;
 
 export type Permission = keyof typeof PERMISSIONS;
