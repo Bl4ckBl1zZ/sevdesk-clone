@@ -71,6 +71,11 @@ export function BankConnectionView({
           {view.banner.message}
         </p>
       )}
+      {view.sandboxNotice && (
+        <p role="status" className="rounded-md border border-warning/40 bg-warning/10 px-3 py-2 text-sm">
+          {view.sandboxNotice}
+        </p>
+      )}
       {view.feedLostMessage && (
         <p role="status" className="rounded-md border px-3 py-2 text-sm">
           {view.feedLostMessage}

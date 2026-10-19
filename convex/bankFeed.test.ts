@@ -473,7 +473,7 @@ describe("polling (BNK-106, BNK-107, BNK-111)", () => {
     expect(await rows(s.t, s.eur)).toHaveLength(3);
   });
 
-  test("BNK-111 RI-10 EC-BNK-60 EC-140 EC-153 pending rows are provisional: separate store, replaced every poll, never matched", async () => {
+  test("BNK-111 RI-10 EC-BNK-60 EC-BNK-12 EC-BNK-13 EC-140 EC-153 pending rows are provisional: separate store, replaced every poll, never matched", async () => {
     const s = await connected();
     fake.accounts[0]?.transactions.push(
       ebRow({
@@ -527,6 +527,60 @@ describe("polling (BNK-106, BNK-107, BNK-111)", () => {
     const s = await connected();
     await s.owner.action(api.bankFeedNode.syncNow, {});
     expect((await s.owner.query(api.bankFeed.connection, {})).accounts[0]?.unattendedToday).toBe(1);
+  });
+
+  test("EC-BNK-89 EC-192 BNK-109 two identical rows without entry_reference on one day → both kept once; an unconfirmed count goes to review", async () => {
+    const twin = () =>
+      ebRow({
+        entry_reference: null,
+        transaction_id: null,
+        date: "2026-10-06",
+        amount: "-4.50",
+        remittance_information: ["Kaffee"],
+        creditor: { name: "Café Mitte" },
+      });
+    fake.accounts = [eurAccount({ balance: { amount: "1116.10", currency: "EUR" } })];
+    fake.accounts[0]?.transactions.push(twin(), twin());
+    const s = await setup();
+    await configure(s);
+    await connect(s);
+    await poll(s.t);
+    await poll(s.t);
+    const coffee = (await rows(s.t, s.eur)).filter((r) => r.amountCents === -450);
+    expect(coffee).toHaveLength(2);
+    expect(coffee.map((r) => r.dedupeKey.replace(/^.*:h:[^:]+:/, ""))).toEqual(["0", "1"]);
+    expect(await notifications(s.t, "bank.identical_rows")).toEqual([]);
+    // the bank reports one coffee less → the twins go to review
+    (fake.accounts[0] as FakeBankAccount).balance = { amount: "1120.60", currency: "EUR" };
+    await s.owner.action(api.bankFeedNode.syncNow, { psuIpAddress: "203.0.113.7" });
+    const n = await notifications(s.t, "bank.identical_rows");
+    expect(n.map((x) => x.title)).toEqual([
+      "2 gleichartige Umsätze am 06.10.2026 – bitte prüfen, ob es Dubletten sind.",
+    ]);
+  });
+
+  test("EC-BNK-29 a sandbox connection never writes bank transactions; switching environment needs a disconnect", async () => {
+    const s = await setup();
+    const r = await s.owner.action(api.bankFeedNode.saveSetup, {
+      applicationId: "app-feed-1",
+      generateKey: true,
+      environment: "sandbox",
+    });
+    fake.publicKeyPem = r.publicKeyPem;
+    await connect(s);
+    await poll(s.t);
+    expect(await rows(s.t, s.eur)).toEqual([]);
+    const view = await s.owner.query(api.bankFeed.connection, {});
+    expect(view).toMatchObject({
+      status: "active",
+      sandboxNotice: "Sandbox-Daten – nicht in der Buchhaltung berücksichtigt.",
+    });
+    const e = await s.owner
+      .action(api.bankFeedNode.saveSetup, { applicationId: "app-feed-1", environment: "production" })
+      .catch((x: unknown) => x);
+    expect(messageOf(e)).toBe(
+      "Die Umgebung (Sandbox/Produktion) kann nur bei getrennter Verbindung gewechselt werden.",
+    );
   });
 
   test("EC-BNK-18 RI-27 BNK-106 the daily balance differs from the booked balance → warning", async () => {

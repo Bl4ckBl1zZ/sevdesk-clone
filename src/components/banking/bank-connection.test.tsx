@@ -57,6 +57,7 @@ function view(over: Partial<ConnectionView> = {}): ConnectionView {
     pendingAccounts: [],
     feedLost: null,
     feedLostMessage: null,
+    sandboxNotice: null,
     confirmation: { status: "pending", label: "ausstehend", recordedAt: null, note: null, fileName: null },
     evaluationNotice: null,
     checklist: [

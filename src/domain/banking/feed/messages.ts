@@ -15,6 +15,8 @@ export const FEED_MESSAGES = {
     `Ältere Umsätze konnten nicht abgerufen werden. Bitte Kontoauszüge für ${from}–${to} importieren.`,
   identicalRows: (n: number, date: string) =>
     `${n} gleichartige Umsätze am ${date} – bitte prüfen, ob es Dubletten sind.`,
+  sandbox: "Sandbox-Daten – nicht in der Buchhaltung berücksichtigt.",
+  environmentSwitch: "Die Umgebung (Sandbox/Produktion) kann nur bei getrennter Verbindung gewechselt werden.",
   feedLost: "Bankdaten nur per Kontoauszug-Import – die automatische Verbindung ist nicht mehr verfügbar.",
   newAccount: (currency: string) => `Neues Konto gefunden (${currency}) – übernehmen?`,
   missingAccount: (name: string) =>

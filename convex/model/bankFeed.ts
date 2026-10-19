@@ -1,6 +1,6 @@
 import { sha256Hex } from "../../src/domain/audit/chain";
 import { formatMoneyDe } from "../../src/domain/banking/amount";
-import { dedupeKeys, planImport, toCandidates } from "../../src/domain/banking/dedupe";
+import { dedupeKeys, identicalHashGroups, planImport, toCandidates } from "../../src/domain/banking/dedupe";
 import {
   CONNECTION_STATUS_LABEL_DE,
   type ConnectionStatus,
@@ -133,6 +133,13 @@ export async function saveSetup(
   }
   if (!key.encryptedPrivateKeyPem && !c.encryptedPrivateKeyPem)
     throw appError("invalid_input", ERRORS.notConfigured, { field: "privateKey" });
+  // EC-BNK-29: sandbox and production never share a live connection — switch only when disconnected.
+  if (
+    args.environment &&
+    args.environment !== c.environment &&
+    (c.status === "active" || c.status === "error" || c.status === "reauth_required")
+  )
+    throw appError("invalid_input", FEED_MESSAGES.environmentSwitch, { field: "environment" });
   await auditedPatch(
     ctx,
     "bankConnections",
@@ -557,6 +564,14 @@ export async function ingestFeedRows(
   if (!account) throw appError("not_found");
   const mapped = mapEnableBankingTransactions(args.rows, account.currency);
   const booked = mapped.booked.filter((t) => t.currency === account.currency);
+  // EC-BNK-29: sandbox data never enters the books (no rows, no revisions, no reports).
+  if ((await getConnection(ctx))?.environment === "sandbox") {
+    return {
+      insertedIds: [],
+      counts: { total: booked.length, new: 0, duplicates: 0, merged: 0, conflicts: 0, possibleDuplicates: 0 },
+      rejected: 0,
+    };
+  }
   const candidates = await toCandidates(account._id, booked);
   const keys = dedupeKeys(account._id, candidates);
   const existing = (await existingFor(ctx, account._id, candidates, keys)).map(existingRow);
@@ -795,7 +810,7 @@ export async function recordBalanceCheck(
 ) {
   const a = await ctx.db.get(args.accountId);
   const c = await getConnection(ctx);
-  if (!a || !c || !a.openingBalance || args.currency !== a.currency) return null;
+  if (!a || !c || c.environment === "sandbox" || !a.openingBalance || args.currency !== a.currency) return null;
   const rows = await ctx.db
     .query("bankTransactions")
     .withIndex("by_account_bookingDate", (q) =>
@@ -833,6 +848,18 @@ export async function recordBalanceCheck(
       entity: { table: "bankAccounts", id: a._id },
       dedupeKey: `bank.balance_mismatch:${a._id}:${berlinCalendarDate(ctx.now())}`,
     });
+    // EC-BNK-89: identical rows without a bank reference are the first suspects when the count is not confirmed.
+    for (const g of identicalHashGroups(rows.filter((r) => r.ignoredReason !== "import_rolled_back"))) {
+      await upsertNotification(ctx, {
+        kind: "bank.identical_rows",
+        severity: "warning",
+        title: FEED_MESSAGES.identicalRows(g.count, formatGermanDate(g.bookingDate as CalendarDate)),
+        body: a.name,
+        link: `/bank/${a._id}`,
+        entity: { table: "bankAccounts", id: a._id },
+        dedupeKey: `bank.identical_rows:${a._id}:${g.contentHash}:${g.count}`,
+      });
+    }
   }
   return diff;
 }
@@ -1026,6 +1053,7 @@ export async function connectionView(ctx: ReadCtx, now: number) {
     })),
     feedLost: c?.feedLost ?? null,
     feedLostMessage: c?.feedLost || status === "disconnected" ? FEED_MESSAGES.feedLost : null,
+    sandboxNotice: c?.environment === "sandbox" ? FEED_MESSAGES.sandbox : null,
     confirmation: {
       status: confirmation.status,
       label: CONFIRMATION_LABEL_DE[confirmation.status],

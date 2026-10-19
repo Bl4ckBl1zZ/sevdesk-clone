@@ -221,3 +221,21 @@ export function planImport(input: {
     },
   };
 }
+
+/**
+ * EC-BNK-89 / EC-192: rows without a bank reference that share a content hash (identical booking day, amount, text)
+ * were kept apart only by their ordinal. When the balance check does not confirm the count, these groups go to review.
+ */
+export function identicalHashGroups(
+  rows: readonly { bookingDate: string; dedupeKey: string }[],
+): { bookingDate: string; contentHash: string; count: number }[] {
+  const groups = new Map<string, { bookingDate: string; contentHash: string; count: number }>();
+  for (const r of rows) {
+    const m = /:h:([^:]+):\d+$/.exec(r.dedupeKey);
+    if (!m?.[1]) continue;
+    const g = groups.get(m[1]) ?? { bookingDate: r.bookingDate, contentHash: m[1], count: 0 };
+    g.count++;
+    groups.set(m[1], g);
+  }
+  return [...groups.values()].filter((g) => g.count > 1).sort((a, b) => a.bookingDate.localeCompare(b.bookingDate));
+}
