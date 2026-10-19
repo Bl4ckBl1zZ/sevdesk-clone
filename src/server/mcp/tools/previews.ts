@@ -21,6 +21,7 @@ import { reminderFinalizePreviewOf } from "../../api/resources/dunning";
 import { defineTool, type ToolContext } from "../tool";
 import { markSentParams, markSentPlan, rejectDocumentOptions, rejectReminderOptions } from "./dispatch";
 import { PAYMENT_PREVIEWS } from "./payment-previews";
+import { voucherFinalizeParams, voucherFinalizePlan } from "./vouchers";
 
 /**
  * Previews and confirmation tokens (06 §2.2/§2.3). A preview runs the same reads/validation as the act, returns the
@@ -49,6 +50,12 @@ export const ACTION_PREVIEWS: Partial<Record<ConfirmIntent, ActionPreview>> = {
   ...(PAYMENT_PREVIEWS as Partial<Record<ConfirmIntent, ActionPreview>>),
   // F04 SND-24: „Als versendet markieren“ (invoices, corrections, letters, reminders).
   document_mark_sent: { scope: "invoices:send", params: markSentParams, plan: markSentPlan as ActionPreview["plan"] },
+  // F06 VOU-007/136…138: booking a voucher with „Bezahlt mit“; the token binds id, version, warnings and payment.
+  voucher_finalize: {
+    scope: "vouchers:write",
+    params: voucherFinalizeParams,
+    plan: voucherFinalizePlan as ActionPreview["plan"],
+  },
   contact_merge: {
     scope: "contacts:write",
     params: contactMergeWire,

@@ -1,0 +1,85 @@
+{
+  "case": "V9-intra-community-acquisition",
+  "covers": "V9, VOU-022, VOU-023",
+  "ruleVersion": "posting-2026.1",
+  "SKR03": {
+    "date": "2026-03-10",
+    "text": "Beleg BE-2026-00001 Büro Schmidt GmbH",
+    "explanation": "V9",
+    "roleMappingVersion": "roles-2026.2",
+    "source": {
+      "kind": "voucher",
+      "id": "v1"
+    },
+    "lines": [
+      {
+        "role": "expense.ige.19",
+        "debitCents": 50000,
+        "creditCents": 0,
+        "taxKey": "igE19",
+        "account": "3425"
+      },
+      {
+        "role": "vat.output.ige.19",
+        "debitCents": 0,
+        "creditCents": 9500,
+        "taxPointDate": "2026-03-10",
+        "account": "1774"
+      },
+      {
+        "role": "vat.input.ige.19",
+        "debitCents": 9500,
+        "creditCents": 0,
+        "taxPointDate": "2026-03-10",
+        "account": "1574"
+      },
+      {
+        "role": "payable",
+        "debitCents": 0,
+        "creditCents": 50000,
+        "contactId": "contact1",
+        "account": "1600"
+      }
+    ]
+  },
+  "SKR04": {
+    "date": "2026-03-10",
+    "text": "Beleg BE-2026-00001 Büro Schmidt GmbH",
+    "explanation": "V9",
+    "roleMappingVersion": "roles-2026.2",
+    "source": {
+      "kind": "voucher",
+      "id": "v1"
+    },
+    "lines": [
+      {
+        "role": "expense.ige.19",
+        "debitCents": 50000,
+        "creditCents": 0,
+        "taxKey": "igE19",
+        "account": "5425"
+      },
+      {
+        "role": "vat.output.ige.19",
+        "debitCents": 0,
+        "creditCents": 9500,
+        "taxPointDate": "2026-03-10",
+        "account": "3804"
+      },
+      {
+        "role": "vat.input.ige.19",
+        "debitCents": 9500,
+        "creditCents": 0,
+        "taxPointDate": "2026-03-10",
+        "account": "1404"
+      },
+      {
+        "role": "payable",
+        "debitCents": 0,
+        "creditCents": 50000,
+        "contactId": "contact1",
+        "account": "3300"
+      }
+    ]
+  }
+}

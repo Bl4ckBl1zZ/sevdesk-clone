@@ -21,6 +21,7 @@ const PARENTS = {
   auftraege: "/auftraege",
   lieferscheine: "/lieferscheine",
   wiederkehrend: "/rechnungen/wiederkehrend",
+  belege: "/belege",
 } as const satisfies Record<string, Route>;
 
 export async function CatalogPage({

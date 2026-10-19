@@ -1,0 +1,67 @@
+{
+  "case": "V5-bewirtung-golden-B2-ku",
+  "covers": "V5 KU, MISC-05, VOU-061, KU-01, T06-101 (golden B2: gross split 123,55 / 52,95)",
+  "ruleVersion": "posting-2026.1",
+  "SKR03": {
+    "date": "2026-03-10",
+    "text": "Beleg BE-2026-00001 Büro Schmidt GmbH",
+    "explanation": "V5",
+    "roleMappingVersion": "roles-2026.2",
+    "source": {
+      "kind": "voucher",
+      "id": "v1"
+    },
+    "lines": [
+      {
+        "role": "expense.entertainment",
+        "debitCents": 12355,
+        "creditCents": 0,
+        "account": "4650"
+      },
+      {
+        "role": "expense.entertainment.nd",
+        "debitCents": 5295,
+        "creditCents": 0,
+        "account": "4654"
+      },
+      {
+        "role": "payable",
+        "debitCents": 0,
+        "creditCents": 17650,
+        "contactId": "contact1",
+        "account": "1600"
+      }
+    ]
+  },
+  "SKR04": {
+    "date": "2026-03-10",
+    "text": "Beleg BE-2026-00001 Büro Schmidt GmbH",
+    "explanation": "V5",
+    "roleMappingVersion": "roles-2026.2",
+    "source": {
+      "kind": "voucher",
+      "id": "v1"
+    },
+    "lines": [
+      {
+        "role": "expense.entertainment",
+        "debitCents": 12355,
+        "creditCents": 0,
+        "account": "6640"
+      },
+      {
+        "role": "expense.entertainment.nd",
+        "debitCents": 5295,
+        "creditCents": 0,
+        "account": "6644"
+      },
+      {
+        "role": "payable",
+        "debitCents": 0,
+        "creditCents": 17650,
+        "contactId": "contact1",
+        "account": "3300"
+      }
+    ]
+  }
+}

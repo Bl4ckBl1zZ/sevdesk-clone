@@ -43,6 +43,7 @@ import { entriesBySource, postJournalEntry, previewJournal } from "./journal";
 import { snapshotOf } from "./salesDocuments";
 import { creditedCentsOf } from "./settlement";
 import type { ModelCtx, ReadCtx } from "./types";
+import { refreshVoucher } from "./voucherStatus";
 
 /**
  * Payments (F05 PAY-010…PAY-063, 03 §5) — the only writer of `payments`. Every payment row, its journal entry
@@ -61,7 +62,7 @@ import type { ModelCtx, ReadCtx } from "./types";
  */
 
 export type PaymentDoc = Doc<"payments">;
-export type PaymentTargetRef = { kind: "salesDocument" | "opening_item" | "contactCredit"; id: string };
+export type PaymentTargetRef = { kind: "salesDocument" | "opening_item" | "contactCredit" | "voucher"; id: string };
 
 export type SourceArg =
   | { kind: "bank"; transactionId: Id<"bankTransactions"> }
@@ -421,6 +422,9 @@ const meansOf = (s: SourceArg | PaymentDoc["source"]): PaymentMeans => {
       return { kind: "customer_credit" };
     case "adjustment":
       return { kind: "none" };
+    case "private":
+      // Voucher rows only (convex/model/voucherPayments.ts); never on a receivable.
+      return { kind: "none" };
   }
 };
 
@@ -551,6 +555,9 @@ async function refreshTarget(ctx: ModelCtx, row: { target: PaymentTargetRef }, s
     const { openAmountCents } = await settleOpeningItem(ctx, id, settles);
     const item = await ctx.db.get(id);
     if (item?.documentId) await syncImportedDocument(ctx, item.documentId, openAmountCents, action);
+  } else if (row.target.kind === "voucher") {
+    // F06 VOU-130/139: a reversed voucher payment re-derives the voucher from all its rows.
+    await refreshVoucher(ctx, row.target.id as Id<"vouchers">, action);
   }
 }
 
@@ -1305,6 +1312,8 @@ export async function openItemsAsOf(
     .withIndex("by_date", (q) => q.lte("date", args.asOf))
     .collect();
   const rows: SettlementRow[] = payments
+    // Receivables only: supplier vouchers (payables, F06) are not open items of customers.
+    .filter((p): p is typeof p & { target: { kind: SettlementRow["targetKind"] } } => p.target.kind !== "voucher")
     .filter((p) => !args.contactId || p.contactId === args.contactId)
     .map((p) => ({
       targetKind: p.target.kind,

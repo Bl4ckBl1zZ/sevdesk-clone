@@ -128,6 +128,7 @@ export const SKR03_ACCOUNTS: readonly ChartAccount[] = [
   a("4140", "Freiwillige soziale Aufwendungen, lohnsteuerfrei", "expense", "BA.PERSONAL", "PERSONAL"),
   a("4210", "Miete (unbewegliche Wirtschaftsgüter)", "expense", "BA.RAUMKOSTEN", "RAUM", COMMON),
   a("4240", "Gas, Strom, Wasser", "expense", "BA.RAUMKOSTEN", "RAUM", COMMON),
+  a("4300", "Nicht abziehbare Vorsteuer", "expense", "BA.SONSTIGE", "SONSTIGE", COMMON),
   a("4320", "Gewerbesteuer", "expense", "BA.GEWERBESTEUER", "STEUERN_VERS"),
   a("4360", "Versicherungen", "expense", "BA.SONSTIGE", "STEUERN_VERS", COMMON),
   a("4380", "Beiträge", "expense", "BA.SONSTIGE", "STEUERN_VERS", COMMON),

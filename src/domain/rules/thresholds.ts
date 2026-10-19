@@ -107,3 +107,27 @@ export const lookupPaymentTermLimits = (
   date: CalendarDate,
   overrides: readonly RuleOverride<PaymentTermLimits>[] = [],
 ): Result<RuleRow<PaymentTermLimits>, RuleMissing> => lookupRule(PAYMENT_TERM_LIMITS, date, overrides);
+
+export interface AssetThresholds {
+  /** Acquisition cost per item above which a recording list / asset decision is needed (§ 6 Abs. 2 S. 4 EStG). */
+  readonly recordingLimitCents: number;
+  /** GWG: immediate write-off up to this cost per item (§ 6 Abs. 2 EStG). */
+  readonly gwgLimitCents: number;
+  /** Sammelposten range (§ 6 Abs. 2a EStG): above `recordingLimitCents` up to this amount. */
+  readonly poolMaxCents: number;
+}
+
+// F06 VOU-065 / AO-03: thresholds are date-effective data. A future change (e.g. a higher GWG limit) is a new row.
+export const ASSET_THRESHOLDS = defineRuleTable<AssetThresholds>("asset_thresholds", [
+  {
+    validFrom: "2018-01-01",
+    value: { recordingLimitCents: 25_000, gwgLimitCents: 80_000, poolMaxCents: 100_000 },
+    source:
+      "§ 6 Abs. 2 und 2a EStG i. d. F. Gesetz gegen schädliche Steuerpraktiken (BGBl. 2017 I S. 2074): GWG 800 €, Verzeichnis/Sammelposten ab 250,01 €, Sammelposten bis 1.000 €",
+  },
+]);
+
+export const lookupAssetThresholds = (
+  date: CalendarDate,
+  overrides: readonly RuleOverride<AssetThresholds>[] = [],
+): Result<RuleRow<AssetThresholds>, RuleMissing> => lookupRule(ASSET_THRESHOLDS, date, overrides);

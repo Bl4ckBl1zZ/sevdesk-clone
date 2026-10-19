@@ -1,0 +1,55 @@
+{
+  "case": "V4-ku-company-gross-to-expense",
+  "covers": "V4, VOU-021, VOU-026, KU-01",
+  "ruleVersion": "posting-2026.1",
+  "SKR03": {
+    "date": "2026-03-10",
+    "text": "Beleg BE-2026-00001 Büro Schmidt GmbH",
+    "explanation": "V4",
+    "roleMappingVersion": "roles-2026.2",
+    "source": {
+      "kind": "voucher",
+      "id": "v1"
+    },
+    "lines": [
+      {
+        "role": "expense.services",
+        "debitCents": 11900,
+        "creditCents": 0,
+        "account": "3100"
+      },
+      {
+        "role": "payable",
+        "debitCents": 0,
+        "creditCents": 11900,
+        "contactId": "contact1",
+        "account": "1600"
+      }
+    ]
+  },
+  "SKR04": {
+    "date": "2026-03-10",
+    "text": "Beleg BE-2026-00001 Büro Schmidt GmbH",
+    "explanation": "V4",
+    "roleMappingVersion": "roles-2026.2",
+    "source": {
+      "kind": "voucher",
+      "id": "v1"
+    },
+    "lines": [
+      {
+        "role": "expense.services",
+        "debitCents": 11900,
+        "creditCents": 0,
+        "account": "5900"
+      },
+      {
+        "role": "payable",
+        "debitCents": 0,
+        "creditCents": 11900,
+        "contactId": "contact1",
+        "account": "3300"
+      }
+    ]
+  }
+}

@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { getTranslations } from "next-intl/server";
 import { Dashboard } from "@/components/dashboard/dashboard";
 import { TodosWidget } from "@/components/invoices/invoices-list";
+import { VoucherTodosWidget } from "@/components/vouchers/voucher-todos";
 
 export async function generateMetadata(): Promise<Metadata> {
   const t = await getTranslations("pages.start");
@@ -13,5 +14,14 @@ export async function generateMetadata(): Promise<Metadata> {
  * to-dos (SND-21, REC-16) stay as the „Aufgaben“ card at the end of the grid.
  */
 export default function StartPage() {
-  return <Dashboard todos={<TodosWidget />} />;
+  return (
+    <Dashboard
+      todos={
+        <>
+          <TodosWidget />
+          <VoucherTodosWidget />
+        </>
+      }
+    />
+  );
 }

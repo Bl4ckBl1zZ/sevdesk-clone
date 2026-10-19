@@ -42,7 +42,14 @@ export interface ChainEntry {
 export type FindingSeverity = "warning" | "error";
 
 export interface IntegrityFinding {
-  kind: "chain_gap" | "chain_hash_mismatch" | "chain_link_broken" | "checkpoint_mismatch" | "checkpoint_signature";
+  kind:
+    | "chain_gap"
+    | "chain_hash_mismatch"
+    | "chain_link_broken"
+    | "checkpoint_mismatch"
+    | "checkpoint_signature"
+    // F06 VOU-126: a voucher original / Eigenbeleg / E-Rechnung XML is missing or its SHA-256 changed
+    | "file_hash_mismatch";
   severity: FindingSeverity;
   detail: string;
   entity?: { table: string; id: string };

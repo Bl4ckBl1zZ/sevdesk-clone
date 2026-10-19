@@ -1,0 +1,85 @@
+{
+  "case": "V7-reverse-charge-non-eu-golden-V3",
+  "covers": "V7, VOU-022, VOU-028 (golden V3 EUR values 30,41 / 5,78)",
+  "ruleVersion": "posting-2026.1",
+  "SKR03": {
+    "date": "2026-03-10",
+    "text": "Beleg BE-2026-00001 Büro Schmidt GmbH",
+    "explanation": "V7",
+    "roleMappingVersion": "roles-2026.2",
+    "source": {
+      "kind": "voucher",
+      "id": "v1"
+    },
+    "lines": [
+      {
+        "role": "expense.13b_foreign.19",
+        "debitCents": 3041,
+        "creditCents": 0,
+        "taxKey": "13b-Ausl19",
+        "account": "3125"
+      },
+      {
+        "role": "vat.output.13b.19",
+        "debitCents": 0,
+        "creditCents": 578,
+        "taxPointDate": "2026-03-10",
+        "account": "1787"
+      },
+      {
+        "role": "vat.input.13b.19",
+        "debitCents": 578,
+        "creditCents": 0,
+        "taxPointDate": "2026-03-10",
+        "account": "1577"
+      },
+      {
+        "role": "payable",
+        "debitCents": 0,
+        "creditCents": 3041,
+        "contactId": "contact1",
+        "account": "1600"
+      }
+    ]
+  },
+  "SKR04": {
+    "date": "2026-03-10",
+    "text": "Beleg BE-2026-00001 Büro Schmidt GmbH",
+    "explanation": "V7",
+    "roleMappingVersion": "roles-2026.2",
+    "source": {
+      "kind": "voucher",
+      "id": "v1"
+    },
+    "lines": [
+      {
+        "role": "expense.13b_foreign.19",
+        "debitCents": 3041,
+        "creditCents": 0,
+        "taxKey": "13b-Ausl19",
+        "account": "5925"
+      },
+      {
+        "role": "vat.output.13b.19",
+        "debitCents": 0,
+        "creditCents": 578,
+        "taxPointDate": "2026-03-10",
+        "account": "3837"
+      },
+      {
+        "role": "vat.input.13b.19",
+        "debitCents": 578,
+        "creditCents": 0,
+        "taxPointDate": "2026-03-10",
+        "account": "1407"
+      },
+      {
+        "role": "payable",
+        "debitCents": 0,
+        "creditCents": 3041,
+        "contactId": "contact1",
+        "account": "3300"
+      }
+    ]
+  }
+}

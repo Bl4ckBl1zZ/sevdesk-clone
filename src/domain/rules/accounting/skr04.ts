@@ -207,6 +207,7 @@ export const SKR04_ACCOUNTS: readonly ChartAccount[] = [
     COMMON,
   ),
   a("6855", "Nebenkosten des Geldverkehrs", "expense", "BA.SONSTIGE", "SONSTIGE"),
+  a("6860", "Nicht abziehbare Vorsteuer", "expense", "BA.SONSTIGE", "SONSTIGE", COMMON),
   a("6880", "Aufwendungen aus Kursdifferenzen", "expense", "BA.SONSTIGE", "NEUTRAL_AUFWAND"),
   a(
     "6885",

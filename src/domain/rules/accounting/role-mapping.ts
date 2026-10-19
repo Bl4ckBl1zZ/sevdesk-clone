@@ -87,6 +87,8 @@ export const ROLE_MAPPING_ROWS: readonly RoleMappingRow[] = [
   r("expense.entertainment", "4650", "6640"),
   r("expense.entertainment.nd", "4654", "6644"),
   r("expense.staff_events", "4140", "6130", W),
+  // F06 VOU-026 / golden V2: self-assessed VAT (§13b, §1a) of a Kleinunternehmer is owed but not deductible.
+  r("expense.vat_nondeductible", "4300", "6860", W),
   r("expense.fx_loss", "2150", "6880"),
   r("income.fx_gain", "2660", "4840"),
   r("expense.trade_tax", "4320", "7610"),

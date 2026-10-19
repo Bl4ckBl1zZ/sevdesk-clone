@@ -12,6 +12,7 @@ import { SKR03_ACCOUNTS } from "./skr03";
 import { SKR04_ACCOUNTS } from "./skr04";
 import type { Chart, ChartAccount, ChartSeed, RoleMappingSeed } from "./types";
 
+export { GOODS_EXPENSE_ACCOUNTS } from "./goods-accounts";
 export { ROLE_MAPPING_ROWS, ROLE_MAPPING_VERSION } from "./role-mapping";
 export * from "./types";
 

@@ -1,0 +1,71 @@
+{
+  "case": "V5-staff-event",
+  "covers": "V5 Arbeitnehmer, VOU-060 (100 % on expense.staff_events, no split)",
+  "ruleVersion": "posting-2026.1",
+  "SKR03": {
+    "date": "2026-03-10",
+    "text": "Beleg BE-2026-00001 Büro Schmidt GmbH",
+    "explanation": "V5",
+    "roleMappingVersion": "roles-2026.2",
+    "source": {
+      "kind": "voucher",
+      "id": "v1"
+    },
+    "lines": [
+      {
+        "role": "expense.staff_events",
+        "debitCents": 5000,
+        "creditCents": 0,
+        "taxKey": "VSt19",
+        "account": "4140"
+      },
+      {
+        "role": "vat.input.19",
+        "debitCents": 950,
+        "creditCents": 0,
+        "taxPointDate": "2026-03-10",
+        "account": "1576"
+      },
+      {
+        "role": "payable",
+        "debitCents": 0,
+        "creditCents": 5950,
+        "contactId": "contact1",
+        "account": "1600"
+      }
+    ]
+  },
+  "SKR04": {
+    "date": "2026-03-10",
+    "text": "Beleg BE-2026-00001 Büro Schmidt GmbH",
+    "explanation": "V5",
+    "roleMappingVersion": "roles-2026.2",
+    "source": {
+      "kind": "voucher",
+      "id": "v1"
+    },
+    "lines": [
+      {
+        "role": "expense.staff_events",
+        "debitCents": 5000,
+        "creditCents": 0,
+        "taxKey": "VSt19",
+        "account": "6130"
+      },
+      {
+        "role": "vat.input.19",
+        "debitCents": 950,
+        "creditCents": 0,
+        "taxPointDate": "2026-03-10",
+        "account": "1406"
+      },
+      {
+        "role": "payable",
+        "debitCents": 0,
+        "creditCents": 5950,
+        "contactId": "contact1",
+        "account": "3300"
+      }
+    ]
+  }
+}
