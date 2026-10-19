@@ -4,6 +4,7 @@ import type { McpServer } from "@modelcontextprotocol/server";
 import { z } from "zod";
 import { snakeKeys } from "@/domain/schemas/api/common";
 import { type RegisteredToolDef, type ToolContext, toolError, toolResult, toolVisible } from "./tool";
+import { bankRuleTools } from "./tools/bank-rules";
 import { contactTools } from "./tools/contacts";
 import { correctionTools } from "./tools/corrections";
 import { dispatchTools } from "./tools/dispatch";
@@ -34,6 +35,7 @@ export const TOOLS: readonly RegisteredToolDef[] = [
   ...dunningTools,
   ...voucherTools,
   ...inboxTools,
+  ...bankRuleTools,
 ];
 
 /** 06 §1: ≤ 2,048 characters, German domain primer and the safety workflow. */

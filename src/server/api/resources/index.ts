@@ -1,5 +1,6 @@
 import "server-only";
 import { compileRoutes, type Resource } from "../endpoint";
+import { bankFeedResource } from "./bank-feed";
 import { contactsResource } from "./contacts";
 import { correctionsResource } from "./corrections";
 import { documentsResource } from "./documents";
@@ -29,6 +30,7 @@ export const RESOURCES: readonly Resource[] = [
   vouchersResource,
   recurringVouchersResource,
   inboxResource,
+  bankFeedResource,
 ];
 
 export const ROUTES = compileRoutes(RESOURCES);

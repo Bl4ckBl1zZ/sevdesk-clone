@@ -1012,6 +1012,7 @@ export async function connectionView(ctx: ReadCtx, now: number) {
     redirectUrl: c?.redirectUrl ?? null,
     aspsp: c?.aspsp ?? null,
     validUntil: c?.validUntil ?? null,
+    remindersSent: (c?.consentReminders ?? []).map((r) => r.daysBefore),
     validity: c?.validUntil && status === "active" ? validityLabel(c.validUntil, now) : null,
     banner: status === "active" || status === "error" ? (c?.validUntil ? expiryBanner(c.validUntil, now) : null) : null,
     lastSuccessfulPollAt: c?.lastSuccessfulPollAt ?? null,

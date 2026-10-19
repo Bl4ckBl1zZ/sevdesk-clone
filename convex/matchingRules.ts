@@ -42,6 +42,12 @@ export const list = query({
   handler: async (ctx) => rulesWithHits(ctx, ctx.now()),
 });
 
+export const get = query({
+  permission: "banking.read",
+  args: { id: v.id("matchingRules") },
+  handler: async (ctx, { id }) => (await rulesWithHits(ctx, ctx.now())).find((r) => r._id === id) ?? null,
+});
+
 /** BNK-051 live preview before saving (no side effects). */
 export const preview = query({
   permission: "banking.read",

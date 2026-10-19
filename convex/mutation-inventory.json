@@ -1987,6 +1987,12 @@
     "wrapper": "query",
     "permission": "banking.read"
   },
+  "matchingRules:get": {
+    "kind": "query",
+    "visibility": "public",
+    "wrapper": "query",
+    "permission": "banking.read"
+  },
   "matchingRules:list": {
     "kind": "query",
     "visibility": "public",

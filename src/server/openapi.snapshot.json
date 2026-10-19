@@ -24861,6 +24861,1019 @@
           }
         }
       }
+    },
+    "/api/v1/bank-connection": {
+      "get": {
+        "operationId": "getBankConnection",
+        "summary": "Status der Bankanbindung (Enable Banking)",
+        "description": "Zustimmungsstatus, Gültigkeit (`valid_until`, höchstens 180 Tage), gesendete Erinnerungen, letzter/nächster Abruf, Abrufbudget und Sperrzeit je Konto. Keine Geheimnisse (privater Schlüssel, Sitzung). Verbinden, Neu verbinden und „Jetzt abrufen“ gibt es nur in der Oberfläche (BNK-107).\n\nScope: `banking:read`.",
+        "tags": [
+          "Bank und Kasse"
+        ],
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "Die Verbindung",
+            "headers": {
+              "RateLimit-Limit": {
+                "required": true,
+                "description": "Bucket-Größe",
+                "schema": {
+                  "type": "string",
+                  "description": "Bucket-Größe"
+                }
+              },
+              "RateLimit-Remaining": {
+                "required": true,
+                "description": "Verbleibende Anfragen",
+                "schema": {
+                  "type": "string",
+                  "description": "Verbleibende Anfragen"
+                }
+              },
+              "RateLimit-Reset": {
+                "required": true,
+                "description": "Sekunden bis zum vollen Bucket",
+                "schema": {
+                  "type": "string",
+                  "description": "Sekunden bis zum vollen Bucket"
+                }
+              },
+              "X-Request-Id": {
+                "required": true,
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BankConnection"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "`unauthorized` – API-Schlüssel fehlt, ist ungültig, abgelaufen oder widerrufen.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "`insufficient_scope` – Der API-Schlüssel hat nicht die nötige Berechtigung.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "`rate_limited` – Zu viele Anfragen – bitte später erneut versuchen.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "`internal_error` – Interner Fehler.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/bank-accounts/{id}/sync": {
+      "post": {
+        "operationId": "syncBankAccount",
+        "summary": "Abruf auslösen (nicht möglich)",
+        "description": "Entfernt (BNK-107): Ein Abruf außerhalb der vier täglichen Hintergrundabrufe braucht den angemeldeten Inhaber (PSD2). Antwortet immer 409 `owner_presence_required`.\n\nScope: `banking:read`.",
+        "tags": [
+          "Bank und Kasse"
+        ],
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "schema": {
+              "type": "string",
+              "pattern": "^bac_[0-9a-zA-Z]{16,64}$",
+              "description": "ID (bac_…)",
+              "example": "bac_k57f3x2m9q8w1e4r6t"
+            },
+            "required": true,
+            "description": "ID (bac_…)"
+          },
+          {
+            "in": "header",
+            "name": "Idempotency-Key",
+            "schema": {
+              "description": "24 h je Schlüssel; gleicher Body → gleiche Antwort (Idempotent-Replayed: true)",
+              "type": "string"
+            },
+            "description": "24 h je Schlüssel; gleicher Body → gleiche Antwort (Idempotent-Replayed: true)"
+          }
+        ],
+        "responses": {
+          "401": {
+            "description": "`unauthorized` – API-Schlüssel fehlt, ist ungültig, abgelaufen oder widerrufen.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "`insufficient_scope` – Der API-Schlüssel hat nicht die nötige Berechtigung.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "`owner_presence_required` – Ein manueller Abruf ist nur in der Oberfläche möglich, solange Sie angemeldet sind.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "`rate_limited` – Zu viele Anfragen – bitte später erneut versuchen.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "`internal_error` – Interner Fehler.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/matching-rules": {
+      "get": {
+        "operationId": "listMatchingRules",
+        "summary": "Zuordnungsregeln auflisten",
+        "description": "Nach Priorität (kleinste zuerst; die erste passende Regel gewinnt) mit Treffern der letzten 90 Tage.\n\nScope: `banking:read`.",
+        "tags": [
+          "Bank und Kasse"
+        ],
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "Die Regeln",
+            "headers": {
+              "RateLimit-Limit": {
+                "required": true,
+                "description": "Bucket-Größe",
+                "schema": {
+                  "type": "string",
+                  "description": "Bucket-Größe"
+                }
+              },
+              "RateLimit-Remaining": {
+                "required": true,
+                "description": "Verbleibende Anfragen",
+                "schema": {
+                  "type": "string",
+                  "description": "Verbleibende Anfragen"
+                }
+              },
+              "RateLimit-Reset": {
+                "required": true,
+                "description": "Sekunden bis zum vollen Bucket",
+                "schema": {
+                  "type": "string",
+                  "description": "Sekunden bis zum vollen Bucket"
+                }
+              },
+              "X-Request-Id": {
+                "required": true,
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MatchingRuleList"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "`unauthorized` – API-Schlüssel fehlt, ist ungültig, abgelaufen oder widerrufen.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "`insufficient_scope` – Der API-Schlüssel hat nicht die nötige Berechtigung.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "`rate_limited` – Zu viele Anfragen – bitte später erneut versuchen.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "`internal_error` – Interner Fehler.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "operationId": "createMatchingRule",
+        "summary": "Zuordnungsregel anlegen",
+        "description": "Wird immer als Vorschlagsregel (`mode: suggest`) gespeichert; die Automatik aktiviert der Inhaber in der Oberfläche (BNK-054, EC-BNK-73 – Hinweis in `warning`). Reguläre Ausdrücke müssen RE2-sicher sein (≤ 200 Zeichen).\n\nScope: `banking:write`.",
+        "tags": [
+          "Bank und Kasse"
+        ],
+        "parameters": [
+          {
+            "in": "header",
+            "name": "Idempotency-Key",
+            "schema": {
+              "description": "24 h je Schlüssel; gleicher Body → gleiche Antwort (Idempotent-Replayed: true)",
+              "type": "string"
+            },
+            "description": "24 h je Schlüssel; gleicher Body → gleiche Antwort (Idempotent-Replayed: true)"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MatchingRuleRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Die Regel",
+            "headers": {
+              "RateLimit-Limit": {
+                "required": true,
+                "description": "Bucket-Größe",
+                "schema": {
+                  "type": "string",
+                  "description": "Bucket-Größe"
+                }
+              },
+              "RateLimit-Remaining": {
+                "required": true,
+                "description": "Verbleibende Anfragen",
+                "schema": {
+                  "type": "string",
+                  "description": "Verbleibende Anfragen"
+                }
+              },
+              "RateLimit-Reset": {
+                "required": true,
+                "description": "Sekunden bis zum vollen Bucket",
+                "schema": {
+                  "type": "string",
+                  "description": "Sekunden bis zum vollen Bucket"
+                }
+              },
+              "X-Request-Id": {
+                "required": true,
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MatchingRule"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "`bad_request` – Ungültige Anfrage.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "`unauthorized` – API-Schlüssel fehlt, ist ungültig, abgelaufen oder widerrufen.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "`insufficient_scope` – Der API-Schlüssel hat nicht die nötige Berechtigung.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "415": {
+            "description": "`unsupported_media_type` – Bitte JSON senden (application/json).",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "`validation_failed` – Die Eingaben sind nicht gültig.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "`rate_limited` – Zu viele Anfragen – bitte später erneut versuchen.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "`internal_error` – Interner Fehler.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/matching-rules/preview": {
+      "post": {
+        "operationId": "previewMatchingRule",
+        "summary": "Regel testen (ohne Wirkung)",
+        "description": "„Diese Regel würde n Umsätze der letzten 90 Tage treffen“ mit bis zu 50 Treffern (BNK-051).\n\nScope: `banking:read`.",
+        "tags": [
+          "Bank und Kasse"
+        ],
+        "parameters": [
+          {
+            "in": "header",
+            "name": "Idempotency-Key",
+            "schema": {
+              "description": "24 h je Schlüssel; gleicher Body → gleiche Antwort (Idempotent-Replayed: true)",
+              "type": "string"
+            },
+            "description": "24 h je Schlüssel; gleicher Body → gleiche Antwort (Idempotent-Replayed: true)"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MatchingRulePreviewRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Die Treffer",
+            "headers": {
+              "RateLimit-Limit": {
+                "required": true,
+                "description": "Bucket-Größe",
+                "schema": {
+                  "type": "string",
+                  "description": "Bucket-Größe"
+                }
+              },
+              "RateLimit-Remaining": {
+                "required": true,
+                "description": "Verbleibende Anfragen",
+                "schema": {
+                  "type": "string",
+                  "description": "Verbleibende Anfragen"
+                }
+              },
+              "RateLimit-Reset": {
+                "required": true,
+                "description": "Sekunden bis zum vollen Bucket",
+                "schema": {
+                  "type": "string",
+                  "description": "Sekunden bis zum vollen Bucket"
+                }
+              },
+              "X-Request-Id": {
+                "required": true,
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MatchingRulePreview"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "`bad_request` – Ungültige Anfrage.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "`unauthorized` – API-Schlüssel fehlt, ist ungültig, abgelaufen oder widerrufen.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "`insufficient_scope` – Der API-Schlüssel hat nicht die nötige Berechtigung.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "415": {
+            "description": "`unsupported_media_type` – Bitte JSON senden (application/json).",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "`validation_failed` – Die Eingaben sind nicht gültig.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "`rate_limited` – Zu viele Anfragen – bitte später erneut versuchen.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "`internal_error` – Interner Fehler.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/matching-rules/{id}": {
+      "get": {
+        "operationId": "getMatchingRule",
+        "summary": "Zuordnungsregel abrufen",
+        "description": "Scope: `banking:read`.",
+        "tags": [
+          "Bank und Kasse"
+        ],
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "schema": {
+              "type": "string",
+              "pattern": "^mrl_[0-9a-zA-Z]{16,64}$",
+              "description": "ID (mrl_…)",
+              "example": "mrl_k57f3x2m9q8w1e4r6t"
+            },
+            "required": true,
+            "description": "ID (mrl_…)"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Die Regel",
+            "headers": {
+              "RateLimit-Limit": {
+                "required": true,
+                "description": "Bucket-Größe",
+                "schema": {
+                  "type": "string",
+                  "description": "Bucket-Größe"
+                }
+              },
+              "RateLimit-Remaining": {
+                "required": true,
+                "description": "Verbleibende Anfragen",
+                "schema": {
+                  "type": "string",
+                  "description": "Verbleibende Anfragen"
+                }
+              },
+              "RateLimit-Reset": {
+                "required": true,
+                "description": "Sekunden bis zum vollen Bucket",
+                "schema": {
+                  "type": "string",
+                  "description": "Sekunden bis zum vollen Bucket"
+                }
+              },
+              "X-Request-Id": {
+                "required": true,
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MatchingRule"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "`unauthorized` – API-Schlüssel fehlt, ist ungültig, abgelaufen oder widerrufen.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "`insufficient_scope` – Der API-Schlüssel hat nicht die nötige Berechtigung.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "`not_found` – Nicht gefunden.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "`rate_limited` – Zu viele Anfragen – bitte später erneut versuchen.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "`internal_error` – Interner Fehler.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      },
+      "patch": {
+        "operationId": "updateMatchingRule",
+        "summary": "Zuordnungsregel ändern",
+        "description": "`mode: auto` ist über die API nicht möglich; eine Änderung von Bedingungen oder Aktion setzt eine automatische Regel auf `suggest` zurück (BNK-054).\n\nScope: `banking:write`.",
+        "tags": [
+          "Bank und Kasse"
+        ],
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "schema": {
+              "type": "string",
+              "pattern": "^mrl_[0-9a-zA-Z]{16,64}$",
+              "description": "ID (mrl_…)",
+              "example": "mrl_k57f3x2m9q8w1e4r6t"
+            },
+            "required": true,
+            "description": "ID (mrl_…)"
+          },
+          {
+            "in": "header",
+            "name": "If-Match",
+            "schema": {
+              "description": "Erwartete Version",
+              "type": "string"
+            },
+            "description": "Erwartete Version"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MatchingRulePatch"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Die Regel",
+            "headers": {
+              "RateLimit-Limit": {
+                "required": true,
+                "description": "Bucket-Größe",
+                "schema": {
+                  "type": "string",
+                  "description": "Bucket-Größe"
+                }
+              },
+              "RateLimit-Remaining": {
+                "required": true,
+                "description": "Verbleibende Anfragen",
+                "schema": {
+                  "type": "string",
+                  "description": "Verbleibende Anfragen"
+                }
+              },
+              "RateLimit-Reset": {
+                "required": true,
+                "description": "Sekunden bis zum vollen Bucket",
+                "schema": {
+                  "type": "string",
+                  "description": "Sekunden bis zum vollen Bucket"
+                }
+              },
+              "X-Request-Id": {
+                "required": true,
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MatchingRule"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "`bad_request` – Ungültige Anfrage.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "`unauthorized` – API-Schlüssel fehlt, ist ungültig, abgelaufen oder widerrufen.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "`insufficient_scope` – Der API-Schlüssel hat nicht die nötige Berechtigung.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "`not_found` – Nicht gefunden.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "415": {
+            "description": "`unsupported_media_type` – Bitte JSON senden (application/json).",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "`validation_failed` – Die Eingaben sind nicht gültig.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "`rate_limited` – Zu viele Anfragen – bitte später erneut versuchen.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "`internal_error` – Interner Fehler.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/bank-transactions/{id}/voucher": {
+      "post": {
+        "operationId": "createVoucherFromBankTransaction",
+        "summary": "Beleg aus Bankumsatz anlegen",
+        "description": "Legt einen vorausgefüllten Belegentwurf an (Datum, Betrag, Gegenpartei, Verwendungszweck, Währung/Originalbetrag, Kontovorschlag aus dem Lieferantenprofil; BNK-065). Beim Fertigstellen wird der Umsatz zugeordnet. Ein vorhandener Entwurf zum Umsatz wird zurückgegeben.\n\nScope: `vouchers:write`.",
+        "tags": [
+          "Bank und Kasse"
+        ],
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "schema": {
+              "type": "string",
+              "pattern": "^btx_[0-9a-zA-Z]{16,64}$",
+              "description": "ID (btx_…)",
+              "example": "btx_k57f3x2m9q8w1e4r6t"
+            },
+            "required": true,
+            "description": "ID (btx_…)"
+          },
+          {
+            "in": "header",
+            "name": "Idempotency-Key",
+            "schema": {
+              "description": "24 h je Schlüssel; gleicher Body → gleiche Antwort (Idempotent-Replayed: true)",
+              "type": "string"
+            },
+            "description": "24 h je Schlüssel; gleicher Body → gleiche Antwort (Idempotent-Replayed: true)"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/BankTransactionVoucherRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Der Belegentwurf",
+            "headers": {
+              "RateLimit-Limit": {
+                "required": true,
+                "description": "Bucket-Größe",
+                "schema": {
+                  "type": "string",
+                  "description": "Bucket-Größe"
+                }
+              },
+              "RateLimit-Remaining": {
+                "required": true,
+                "description": "Verbleibende Anfragen",
+                "schema": {
+                  "type": "string",
+                  "description": "Verbleibende Anfragen"
+                }
+              },
+              "RateLimit-Reset": {
+                "required": true,
+                "description": "Sekunden bis zum vollen Bucket",
+                "schema": {
+                  "type": "string",
+                  "description": "Sekunden bis zum vollen Bucket"
+                }
+              },
+              "X-Request-Id": {
+                "required": true,
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Voucher"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "`bad_request` – Ungültige Anfrage.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "`unauthorized` – API-Schlüssel fehlt, ist ungültig, abgelaufen oder widerrufen.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "`insufficient_scope` – Der API-Schlüssel hat nicht die nötige Berechtigung.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "`not_found` – Nicht gefunden.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "415": {
+            "description": "`unsupported_media_type` – Bitte JSON senden (application/json).",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "`validation_failed` – Die Eingaben sind nicht gültig.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "`rate_limited` – Zu viele Anfragen – bitte später erneut versuchen.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "`internal_error` – Interner Fehler.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
     }
   },
   "components": {
@@ -28210,6 +29223,253 @@
         "required": [
           "reason"
         ]
+      },
+      "MatchingRuleRequest": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 120
+          },
+          "priority": {
+            "default": 100,
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 100000
+          },
+          "enabled": {
+            "default": true,
+            "type": "boolean"
+          },
+          "mode": {
+            "description": "Über die API immer `suggest` (BNK-054); Automatik nur in der Oberfläche",
+            "type": "string",
+            "enum": [
+              "suggest",
+              "auto"
+            ]
+          },
+          "when": {
+            "$ref": "#/components/schemas/MatchingRuleConditions"
+          },
+          "apply": {
+            "$ref": "#/components/schemas/MatchingRuleAction"
+          }
+        },
+        "required": [
+          "name",
+          "when",
+          "apply"
+        ]
+      },
+      "MatchingRuleConditions": {
+        "type": "object",
+        "properties": {
+          "account_id": {
+            "type": "string",
+            "pattern": "^bac_[0-9a-zA-Z]{16,64}$",
+            "description": "ID (bac_…)",
+            "example": "bac_k57f3x2m9q8w1e4r6t"
+          },
+          "direction": {
+            "type": "string",
+            "enum": [
+              "in",
+              "out"
+            ]
+          },
+          "currency": {
+            "type": "string",
+            "minLength": 3,
+            "maxLength": 3
+          },
+          "bank_transaction_code": {
+            "type": "string",
+            "maxLength": 60
+          },
+          "proprietary_code": {
+            "type": "string",
+            "maxLength": 60
+          },
+          "purpose_contains": {
+            "type": "string",
+            "maxLength": 200
+          },
+          "purpose_regex": {
+            "description": "RE2-sicher, höchstens 200 Zeichen (EC-BNK-70)",
+            "type": "string",
+            "maxLength": 200
+          },
+          "counterparty_contains": {
+            "type": "string",
+            "maxLength": 200
+          },
+          "iban_equals": {
+            "type": "string",
+            "maxLength": 34
+          },
+          "merchant_contains": {
+            "type": "string",
+            "maxLength": 200
+          },
+          "mcc_in": {
+            "maxItems": 50,
+            "type": "array",
+            "items": {
+              "type": "string",
+              "pattern": "^\\d{4}$"
+            }
+          },
+          "amount_min_cents": {
+            "description": "Betrag (Absolutwert) in Cent",
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          },
+          "amount_max_cents": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          }
+        },
+        "description": "Alle angegebenen Bedingungen müssen zutreffen."
+      },
+      "MatchingRuleAction": {
+        "type": "object",
+        "properties": {
+          "action": {
+            "type": "string",
+            "enum": [
+              "categorize",
+              "private",
+              "transfer",
+              "link_contact",
+              "ignore",
+              "loan"
+            ]
+          },
+          "account": {
+            "description": "Sachkonto (categorize)",
+            "type": "string",
+            "maxLength": 10
+          },
+          "tax_rule": {
+            "type": "string",
+            "maxLength": 40
+          },
+          "contact_id": {
+            "type": "string",
+            "pattern": "^con_[0-9a-zA-Z]{16,64}$",
+            "description": "ID (con_…)",
+            "example": "con_k57f3x2m9q8w1e4r6t"
+          },
+          "transfer_target": {
+            "anyOf": [
+              {
+                "type": "object",
+                "properties": {
+                  "kind": {
+                    "type": "string",
+                    "const": "bank"
+                  },
+                  "account_id": {
+                    "type": "string",
+                    "pattern": "^bac_[0-9a-zA-Z]{16,64}$",
+                    "description": "ID (bac_…)",
+                    "example": "bac_k57f3x2m9q8w1e4r6t"
+                  }
+                },
+                "required": [
+                  "kind",
+                  "account_id"
+                ]
+              },
+              {
+                "type": "object",
+                "properties": {
+                  "kind": {
+                    "type": "string",
+                    "const": "cash"
+                  }
+                },
+                "required": [
+                  "kind"
+                ]
+              }
+            ]
+          },
+          "loan_account": {
+            "type": "string",
+            "maxLength": 10
+          },
+          "interest_account": {
+            "type": "string",
+            "maxLength": 10
+          },
+          "statement_suffices_as_voucher": {
+            "description": "„Kontoauszug genügt als Beleg“ (nur in der Oberfläche als Automatik wirksam)",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "action"
+        ]
+      },
+      "MatchingRulePreviewRequest": {
+        "type": "object",
+        "properties": {
+          "when": {
+            "$ref": "#/components/schemas/MatchingRuleConditions"
+          }
+        },
+        "required": [
+          "when"
+        ]
+      },
+      "MatchingRulePatch": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 120
+          },
+          "priority": {
+            "default": 100,
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 100000
+          },
+          "enabled": {
+            "default": true,
+            "type": "boolean"
+          },
+          "mode": {
+            "description": "Über die API immer `suggest` (BNK-054); Automatik nur in der Oberfläche",
+            "type": "string",
+            "enum": [
+              "suggest",
+              "auto"
+            ]
+          },
+          "when": {
+            "$ref": "#/components/schemas/MatchingRuleConditions"
+          },
+          "apply": {
+            "$ref": "#/components/schemas/MatchingRuleAction"
+          }
+        }
+      },
+      "BankTransactionVoucherRequest": {
+        "type": "object",
+        "properties": {
+          "account": {
+            "description": "Sachkonto der Position",
+            "type": "string",
+            "maxLength": 10
+          }
+        }
       },
       "Health": {
         "type": "object",
@@ -34620,6 +35880,525 @@
         "required": [
           "data",
           "next_cursor"
+        ],
+        "additionalProperties": false
+      },
+      "BankConnection": {
+        "type": "object",
+        "properties": {
+          "provider": {
+            "type": "string",
+            "const": "enable_banking"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "not_configured",
+              "pending_consent",
+              "active",
+              "reauth_required",
+              "error",
+              "disconnected"
+            ]
+          },
+          "status_label": {
+            "type": "string"
+          },
+          "configured": {
+            "type": "boolean"
+          },
+          "environment": {
+            "type": "string",
+            "enum": [
+              "production",
+              "sandbox"
+            ]
+          },
+          "application_id": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "key_stored": {
+            "type": "boolean",
+            "description": "Der private Schlüssel ist verschlüsselt hinterlegt (nie abrufbar)."
+          },
+          "redirect_url": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "aspsp": {
+            "anyOf": [
+              {
+                "type": "object",
+                "properties": {
+                  "name": {
+                    "type": "string"
+                  },
+                  "country": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "name",
+                  "country"
+                ],
+                "additionalProperties": false
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "valid_until": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "validity": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "banner": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "reminders_sent": {
+            "type": "array",
+            "items": {
+              "type": "integer",
+              "minimum": -9007199254740991,
+              "maximum": 9007199254740991
+            },
+            "description": "Tage vor Ablauf, zu denen erinnert wurde (14, 3, 0)"
+          },
+          "last_successful_poll_at": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "next_poll_at": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "last_error": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "feed_lost": {
+            "type": "boolean"
+          },
+          "accounts": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "id": {
+                  "type": "string"
+                },
+                "name": {
+                  "type": "string"
+                },
+                "currency": {
+                  "type": "string"
+                },
+                "iban": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "linked": {
+                  "type": "boolean"
+                },
+                "missing": {
+                  "type": "boolean"
+                },
+                "last_polled_at": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "unattended_fetches_today": {
+                  "type": "integer",
+                  "minimum": -9007199254740991,
+                  "maximum": 9007199254740991
+                },
+                "unattended_limit": {
+                  "type": "integer",
+                  "minimum": -9007199254740991,
+                  "maximum": 9007199254740991
+                },
+                "backoff_until": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "pending_count": {
+                  "type": "integer",
+                  "minimum": -9007199254740991,
+                  "maximum": 9007199254740991
+                }
+              },
+              "required": [
+                "id",
+                "name",
+                "currency",
+                "iban",
+                "linked",
+                "missing",
+                "last_polled_at",
+                "unattended_fetches_today",
+                "unattended_limit",
+                "backoff_until",
+                "pending_count"
+              ],
+              "additionalProperties": false
+            }
+          }
+        },
+        "required": [
+          "provider",
+          "status",
+          "status_label",
+          "configured",
+          "environment",
+          "application_id",
+          "key_stored",
+          "redirect_url",
+          "aspsp",
+          "valid_until",
+          "validity",
+          "banner",
+          "reminders_sent",
+          "last_successful_poll_at",
+          "next_poll_at",
+          "last_error",
+          "feed_lost",
+          "accounts"
+        ],
+        "additionalProperties": false
+      },
+      "MatchingRuleList": {
+        "type": "object",
+        "properties": {
+          "data": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/MatchingRule"
+            }
+          }
+        },
+        "required": [
+          "data"
+        ],
+        "additionalProperties": false
+      },
+      "MatchingRule": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "priority": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          },
+          "enabled": {
+            "type": "boolean"
+          },
+          "mode": {
+            "type": "string",
+            "enum": [
+              "suggest",
+              "auto"
+            ]
+          },
+          "when": {
+            "$ref": "#/components/schemas/MatchingRuleConditionsOutput"
+          },
+          "apply": {
+            "$ref": "#/components/schemas/MatchingRuleActionOutput"
+          },
+          "created_via": {
+            "type": "string"
+          },
+          "hits_90_days": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "minimum": -9007199254740991,
+                "maximum": 9007199254740991
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "warning": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "priority",
+          "enabled",
+          "mode",
+          "when",
+          "apply",
+          "created_via",
+          "hits_90_days",
+          "warning"
+        ],
+        "additionalProperties": false
+      },
+      "MatchingRulePreview": {
+        "type": "object",
+        "properties": {
+          "count": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          },
+          "message": {
+            "type": "string"
+          },
+          "hits": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "transaction_id": {
+                  "type": "string"
+                },
+                "account_id": {
+                  "type": "string"
+                },
+                "booking_date": {
+                  "type": "string",
+                  "pattern": "^\\d{4}-\\d{2}-\\d{2}$",
+                  "description": "Datum (YYYY-MM-DD)",
+                  "example": "2026-10-12"
+                },
+                "amount_cents": {
+                  "type": "integer",
+                  "minimum": -9007199254740991,
+                  "maximum": 9007199254740991
+                },
+                "currency": {
+                  "type": "string"
+                },
+                "counterparty_name": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "purpose": {
+                  "type": "string"
+                },
+                "status": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "transaction_id",
+                "account_id",
+                "booking_date",
+                "amount_cents",
+                "currency",
+                "counterparty_name",
+                "purpose",
+                "status"
+              ],
+              "additionalProperties": false
+            }
+          }
+        },
+        "required": [
+          "count",
+          "message",
+          "hits"
+        ],
+        "additionalProperties": false
+      },
+      "MatchingRuleConditionsOutput": {
+        "type": "object",
+        "properties": {
+          "account_id": {
+            "type": "string",
+            "pattern": "^bac_[0-9a-zA-Z]{16,64}$",
+            "description": "ID (bac_…)",
+            "example": "bac_k57f3x2m9q8w1e4r6t"
+          },
+          "direction": {
+            "type": "string",
+            "enum": [
+              "in",
+              "out"
+            ]
+          },
+          "currency": {
+            "type": "string",
+            "minLength": 3,
+            "maxLength": 3
+          },
+          "bank_transaction_code": {
+            "type": "string",
+            "maxLength": 60
+          },
+          "proprietary_code": {
+            "type": "string",
+            "maxLength": 60
+          },
+          "purpose_contains": {
+            "type": "string",
+            "maxLength": 200
+          },
+          "purpose_regex": {
+            "description": "RE2-sicher, höchstens 200 Zeichen (EC-BNK-70)",
+            "type": "string",
+            "maxLength": 200
+          },
+          "counterparty_contains": {
+            "type": "string",
+            "maxLength": 200
+          },
+          "iban_equals": {
+            "type": "string",
+            "maxLength": 34
+          },
+          "merchant_contains": {
+            "type": "string",
+            "maxLength": 200
+          },
+          "mcc_in": {
+            "maxItems": 50,
+            "type": "array",
+            "items": {
+              "type": "string",
+              "pattern": "^\\d{4}$"
+            }
+          },
+          "amount_min_cents": {
+            "description": "Betrag (Absolutwert) in Cent",
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          },
+          "amount_max_cents": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          }
+        },
+        "additionalProperties": false,
+        "description": "Alle angegebenen Bedingungen müssen zutreffen."
+      },
+      "MatchingRuleActionOutput": {
+        "type": "object",
+        "properties": {
+          "action": {
+            "type": "string",
+            "enum": [
+              "categorize",
+              "private",
+              "transfer",
+              "link_contact",
+              "ignore",
+              "loan"
+            ]
+          },
+          "account": {
+            "description": "Sachkonto (categorize)",
+            "type": "string",
+            "maxLength": 10
+          },
+          "tax_rule": {
+            "type": "string",
+            "maxLength": 40
+          },
+          "contact_id": {
+            "type": "string",
+            "pattern": "^con_[0-9a-zA-Z]{16,64}$",
+            "description": "ID (con_…)",
+            "example": "con_k57f3x2m9q8w1e4r6t"
+          },
+          "transfer_target": {
+            "anyOf": [
+              {
+                "type": "object",
+                "properties": {
+                  "kind": {
+                    "type": "string",
+                    "const": "bank"
+                  },
+                  "account_id": {
+                    "type": "string",
+                    "pattern": "^bac_[0-9a-zA-Z]{16,64}$",
+                    "description": "ID (bac_…)",
+                    "example": "bac_k57f3x2m9q8w1e4r6t"
+                  }
+                },
+                "required": [
+                  "kind",
+                  "account_id"
+                ],
+                "additionalProperties": false
+              },
+              {
+                "type": "object",
+                "properties": {
+                  "kind": {
+                    "type": "string",
+                    "const": "cash"
+                  }
+                },
+                "required": [
+                  "kind"
+                ],
+                "additionalProperties": false
+              }
+            ]
+          },
+          "loan_account": {
+            "type": "string",
+            "maxLength": 10
+          },
+          "interest_account": {
+            "type": "string",
+            "maxLength": 10
+          },
+          "statement_suffices_as_voucher": {
+            "description": "„Kontoauszug genügt als Beleg“ (nur in der Oberfläche als Automatik wirksam)",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "action"
         ],
         "additionalProperties": false
       }
