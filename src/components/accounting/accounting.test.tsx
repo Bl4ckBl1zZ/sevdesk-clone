@@ -249,6 +249,16 @@ describe("Journal (F08 §6)", () => {
     expect(screen.getByRole("button", { name: "Buchungsjournal (CSV)" })).toBeInTheDocument();
   });
 
+  test("ACC-025 the sheet links to the source document and opens the Kontenblatt (account filter)", async () => {
+    renderWithIntl(<JournalViewer />);
+    await userEvent.click(within(screen.getByRole("table")).getByRole("button", { name: "Buchung 1 öffnen" }));
+    const sheet = await screen.findByRole("dialog");
+    expect(within(sheet).getByRole("link", { name: "Verkaufsbeleg" })).toHaveAttribute("href", "/rechnungen/d1");
+    await userEvent.click(within(sheet).getByRole("button", { name: "Kontenblatt 1400 anzeigen" }));
+    expect(backend.paginatedArgs.at(-1)).toEqual({ account: "1400", limit: 50 });
+    expect(screen.getByLabelText("Konto")).toHaveValue("1400");
+  });
+
   test("ACC-011 „Manuelle Buchung“ and „Gegenbuchung“ appear only with write access and only for manual entries", async () => {
     const manual = { ...entry, id: "e9", seq: 9, source: { kind: "manual", id: "m1", label: "Manuelle Buchung" } };
     const { reversedBySeq: _r, ...open } = manual;

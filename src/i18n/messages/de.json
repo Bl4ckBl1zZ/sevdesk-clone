@@ -1509,6 +1509,7 @@
       "resultCount": "{count, plural, one {# Buchung} other {# Buchungen}} · Summe {sum}",
       "fx": "{amount} {currency} zum Kurs {rate}",
       "reverse": "Gegenbuchung",
+      "accountSheet": "Kontenblatt {account} anzeigen",
       "reverseDialog": {
         "title": "Gegenbuchung zu Buchung {seq}",
         "description": "Die Buchung wird mit vertauschten Seiten gegengebucht (Generalumkehr). Das Datum muss in einem offenen Zeitraum liegen.",

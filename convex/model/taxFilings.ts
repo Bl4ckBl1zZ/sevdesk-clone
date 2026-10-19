@@ -121,7 +121,7 @@ export async function taxJournalEntries(ctx: ReadCtx): Promise<TaxJournalEntry[]
 async function istBases(ctx: ReadCtx, e: Doc<"journalEntries">) {
   const pid = ctx.db.normalizeId("payments", e.source.id);
   const payment = pid ? await ctx.db.get(pid) : null;
-  if (!payment || payment.target.kind !== "salesDocument") return null;
+  if (payment?.target.kind !== "salesDocument") return null;
   const did = ctx.db.normalizeId("salesDocuments", payment.target.id);
   const doc = did ? await ctx.db.get(did) : null;
   if (!doc?.totals) return null;

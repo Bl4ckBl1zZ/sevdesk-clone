@@ -195,7 +195,15 @@ function JournalViewerInner({ canWrite }: { canWrite: boolean }) {
           {t("loadMore")}
         </Button>
       )}
-      <EntrySheet entry={open} canWrite={canWrite} onClose={() => setOpen(null)} />
+      <EntrySheet
+        entry={open}
+        canWrite={canWrite}
+        onClose={() => setOpen(null)}
+        onAccount={(account) => {
+          setOpen(null);
+          update({ account });
+        }}
+      />
     </div>
   );
 }
@@ -482,7 +490,26 @@ function EntryCard({ entry: e, onOpen }: { entry: Entry; onOpen: () => void }) {
   );
 }
 
-function EntrySheet({ entry: e, canWrite, onClose }: { entry: Entry | null; canWrite: boolean; onClose: () => void }) {
+/** ACC-025: the source document of an entry, where it has a page. */
+const sourceHref = (s: { kind: string; id: string }): Route | null =>
+  s.kind === "salesDocument"
+    ? (`/rechnungen/${s.id}` as Route)
+    : s.kind === "voucher"
+      ? (`/belege/${s.id}` as Route)
+      : null;
+
+function EntrySheet({
+  entry: e,
+  canWrite,
+  onClose,
+  onAccount,
+}: {
+  entry: Entry | null;
+  canWrite: boolean;
+  onClose: () => void;
+  /** Kontenblatt: filter the journal to this account. */
+  onAccount: (account: string) => void;
+}) {
   const t = useTranslations("accounting.journal");
   const format = useFormatter();
   const [reverse, setReverse] = useState(false);
@@ -536,7 +563,15 @@ function EntrySheet({ entry: e, canWrite, onClose }: { entry: Entry | null; canW
                         // biome-ignore lint/suspicious/noArrayIndexKey: journal lines have no id; order is fixed
                         <TableRow key={i}>
                           <TableCell className="whitespace-normal">
-                            <span className="font-mono">{l.account}</span> {l.accountName}
+                            <button
+                              type="button"
+                              className="rounded font-mono text-primary underline-offset-4 hover:underline focus-visible:outline-2"
+                              aria-label={t("accountSheet", { account: l.account })}
+                              onClick={() => onAccount(l.account)}
+                            >
+                              {l.account}
+                            </button>{" "}
+                            {l.accountName}
                             {(l.roleLabel || l.taxKey || l.taxPointDate || l.currency) && (
                               <span className="block text-muted-foreground text-xs">
                                 {[
@@ -584,7 +619,18 @@ function EntrySheet({ entry: e, canWrite, onClose }: { entry: Entry | null; canW
               </section>
               <dl className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-1 text-sm">
                 <dt className="text-muted-foreground">{t("source")}</dt>
-                <dd>{e.source.label}</dd>
+                <dd>
+                  {sourceHref(e.source) ? (
+                    <Link
+                      href={sourceHref(e.source) as Route}
+                      className="text-primary underline-offset-4 hover:underline"
+                    >
+                      {e.source.label}
+                    </Link>
+                  ) : (
+                    e.source.label
+                  )}
+                </dd>
                 <dt className="text-muted-foreground">{t("ruleVersion")}</dt>
                 <dd className="font-mono text-xs">
                   {e.ruleVersion} · {e.explanation}

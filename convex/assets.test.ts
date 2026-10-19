@@ -198,7 +198,7 @@ describe("AST-002 assets from booked vouchers", () => {
 });
 
 describe("AST-010 disposal (EC-176)", () => {
-  async function linearAsset(t: TestT, owner: Owner) {
+  async function linearAsset(_t: TestT, owner: Owner) {
     return owner.mutation(api.assets.create, {
       name: "Notebook",
       account: "0420",
