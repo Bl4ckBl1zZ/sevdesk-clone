@@ -62,6 +62,9 @@ test("IMP-012 TST-IMP-12 Windows-1252 contacts: preview lists the invalid row, c
   await card.getByLabel("Name der Vorlage").fill(`E2E ${RUN}`);
   await card.getByLabel("Als Vorlage speichern").check();
   await card.getByRole("button", { name: "Zuordnung speichern" }).click();
+  // Saving the mapping bumps the import revision and drops any preview; a preview requested before the save
+  // landed is discarded again („Noch keine Vorschau“), so wait for the confirmation first.
+  await expect(page.getByText("Zuordnung gespeichert").first()).toBeVisible({ timeout: 20_000 });
   await card.getByRole("button", { name: "Vorschau erstellen" }).click();
   const counts = card.getByTestId("generic-import-counts");
   await expect(counts).toContainText("Neu2", { timeout: 30_000 });
