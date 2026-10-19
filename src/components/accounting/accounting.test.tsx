@@ -1,4 +1,4 @@
-import { screen, within } from "@testing-library/react";
+import { screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { getFunctionName } from "convex/server";
 import { beforeEach, describe, expect, test, vi } from "vitest";
@@ -312,6 +312,33 @@ describe("Manuelle Buchung (F08 §6 /buchhaltung/journal/neu)", () => {
         attachments: [{ storageId: "storage1", name: "quittung.pdf" }],
       }),
     );
+  });
+});
+
+describe("Eigene Konten (F08 ACC-009)", () => {
+  test("ACC-009 create a custom account and archive a used account (write access only)", async () => {
+    const { unmount } = renderWithIntl(<ChartOfAccounts isOwner={false} />);
+    expect(screen.queryByRole("button", { name: "Konto anlegen" })).toBeNull();
+    unmount();
+    renderWithIntl(<ChartOfAccounts isOwner={false} canWrite />);
+    await userEvent.click(screen.getByRole("button", { name: "Konto anlegen" }));
+    const dialog = await screen.findByRole("dialog", { name: "Eigenes Sachkonto anlegen" });
+    await userEvent.type(within(dialog).getByLabelText("Kontonummer (4-stellig)"), "4999");
+    await userEvent.type(within(dialog).getByLabelText("Bezeichnung"), "Software-Abos");
+    await userEvent.click(within(dialog).getByRole("button", { name: "Speichern" }));
+    expect(backend.mutations["accounting:createAccount"]).toHaveBeenCalledWith({
+      number: "4999",
+      name: "Software-Abos",
+      type: "expense",
+    });
+    backend.mutations["accounting:removeAccount"] = vi.fn().mockResolvedValue({ action: "archive" });
+    const table = screen.getByRole("table", { name: "Konten" });
+    await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+    await userEvent.click(within(table).getByRole("button", { name: "Konto 8400 entfernen" }));
+    const confirm = await screen.findByRole("dialog", { name: "Konto 8400 entfernen" });
+    await userEvent.click(within(confirm).getByRole("button", { name: "Archivieren" }));
+    expect(backend.mutations["accounting:removeAccount"]).toHaveBeenCalledWith({ number: "8400" });
+    expect(toast.success).toHaveBeenCalledWith("Konto archiviert.");
   });
 });
 

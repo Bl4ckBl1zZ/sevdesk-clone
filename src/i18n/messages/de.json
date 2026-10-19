@@ -1567,7 +1567,28 @@
       "validFrom": "Gültig ab",
       "sourceText": "Begründung oder Quelle",
       "sourceTextHint": "z. B. „Abgestimmt mit Steuerberater am 01.10.2026“ (mindestens 5 Zeichen)",
-      "saved": "Zuordnung gespeichert."
+      "saved": "Zuordnung gespeichert.",
+      "custom": "eigenes Konto",
+      "archived": "archiviert",
+      "create": {
+        "button": "Konto anlegen",
+        "title": "Eigenes Sachkonto anlegen",
+        "description": "Die Kontonummer muss im Bereich des Kontentyps im {chart} liegen. EÜR- und BWA-Zuordnung folgen dem Typ.",
+        "number": "Kontonummer (4-stellig)",
+        "taxKey": "Standard-Steuerschlüssel (optional)",
+        "done": "Konto {number} angelegt."
+      },
+      "remove": {
+        "column": "Aktionen",
+        "button": "Entfernen",
+        "title": "Konto {number} entfernen",
+        "delete": "Das Konto wurde nie bebucht und wird gelöscht.",
+        "archive": "Das Konto wird archiviert: bestehende Buchungen bleiben unverändert, neue Buchungen auf dieses Konto sind nicht mehr möglich.",
+        "confirmDelete": "Löschen",
+        "confirmArchive": "Archivieren",
+        "deleted": "Konto gelöscht.",
+        "archived": "Konto archiviert."
+      }
     },
     "eroeffnung": {
       "openingDate": "Wirtschaftsjahr {year} · Eröffnungsdatum {date}",
