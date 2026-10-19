@@ -2083,6 +2083,12 @@
     "wrapper": "mutation",
     "permission": "products.write"
   },
+  "products:revenueAccounts": {
+    "kind": "query",
+    "visibility": "public",
+    "wrapper": "query",
+    "permission": "products.read"
+  },
   "products:saveCategory": {
     "kind": "mutation",
     "visibility": "public",

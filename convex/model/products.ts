@@ -1,3 +1,4 @@
+import { chartAt } from "../../src/domain/accounting/period";
 import { type FieldIssue, foldSearch } from "../../src/domain/contacts/core";
 import {
   type CategoryNode,
@@ -14,12 +15,14 @@ import {
   sanitizeDescription,
   validateProductFields,
 } from "../../src/domain/products/product";
+import { keyRatesFromToday, revenueAccountIssue } from "../../src/domain/products/revenue-account";
 import type { ProductInput } from "../../src/domain/schemas/products";
 import { berlinCalendarDate } from "../../src/domain/time/berlin";
 import type { CalendarDate } from "../../src/domain/time/calendar-date";
 import type { Doc, Id } from "../_generated/dataModel";
 import { appError } from "../lib/errors";
 import { auditedDelete, auditedInsert, auditedPatch } from "./audit";
+import { getCompanyProfile } from "./companyProfile";
 import { assertCustomFields, assertTags, fail } from "./contacts";
 import { assignCounterNumber } from "./numberRanges";
 import type { ModelCtx, ReadCtx } from "./types";
@@ -79,11 +82,12 @@ const REMOVABLE: readonly (keyof ProductDoc)[] = [
   "exemptionReasonCode",
   "placeOfSupplyRule",
   "reverseCharge13b",
+  "revenueAccountOverride",
   "laborCostShareBp",
   "categoryId",
 ];
 
-async function fieldsFrom(ctx: ReadCtx, input: ProductInput) {
+async function fieldsFrom(ctx: ModelCtx, input: ProductInput) {
   // The unit check needs the active units (PRD-006); a seeded-units-less test database accepts any Rec 20 code.
   const units = await activeUnitCodes(ctx);
   const v = validateProductFields(input, units.size > 0 ? units : undefined);
@@ -94,6 +98,19 @@ async function fieldsFrom(ctx: ReadCtx, input: ProductInput) {
     if (!categoryId || !(await ctx.db.get(categoryId))) {
       fail({ code: "CATEGORY_UNKNOWN", message: "Unbekannte Kategorie.", field: "categoryId" });
     }
+  }
+  if (input.revenueAccountOverride) {
+    // PRD-050 / PRD-052: a revenue account of the company chart whose automatic VAT fits the key from today on.
+    const today = berlinCalendarDate(ctx.now());
+    const profile = await getCompanyProfile(ctx);
+    const chart = chartAt(profile?.chartOfAccounts ?? [], profile?.fiscalYearStartMonth ?? 1, today);
+    const issue = revenueAccountIssue({
+      chart,
+      account: input.revenueAccountOverride,
+      date: today,
+      rates: keyRatesFromToday(input.vatRateKey, today),
+    });
+    if (issue) fail({ code: issue.code, message: issue.message, field: "revenueAccountOverride" });
   }
   const tags = await assertTags(ctx, input.tags);
   await assertCustomFields(ctx, "product", input.customFields);
@@ -114,6 +131,7 @@ async function fieldsFrom(ctx: ReadCtx, input: ProductInput) {
       ...(input.exemptionReasonCode ? { exemptionReasonCode: input.exemptionReasonCode } : {}),
       ...(input.placeOfSupplyRule ? { placeOfSupplyRule: input.placeOfSupplyRule } : {}),
       ...(input.reverseCharge13b ? { reverseCharge13b: input.reverseCharge13b } : {}),
+      ...(input.revenueAccountOverride ? { revenueAccountOverride: input.revenueAccountOverride } : {}),
       ...(input.laborCostShareBp !== undefined ? { laborCostShareBp: input.laborCostShareBp } : {}),
       ...(categoryId ? { categoryId } : {}),
       extraUnits: [...input.extraUnits],

@@ -1960,7 +1960,10 @@
       "saved": "Produkt gespeichert.",
       "warnings": "Hinweise",
       "clearExtraUnitsTitle": "Basiseinheit ändern?",
-      "clearExtraUnitsConfirm": "Zusatzeinheiten entfernen und speichern"
+      "clearExtraUnitsConfirm": "Zusatzeinheiten entfernen und speichern",
+      "revenueAccountOverride": "Erlöskonto (abweichend)",
+      "revenueAccountDefault": "Standard laut Kontenrahmen",
+      "revenueAccountHint": "Gilt nur für Inlandspositionen (19 %, 7 %, 0 %, steuerfrei). Bei EU-, Export-, § 13b- und Kleinunternehmer-Positionen wird das Standardkonto verwendet. Ein Automatikkonto muss zum Steuersatz passen."
     },
     "detail": {
       "tabs": {
@@ -2718,7 +2721,10 @@
         "up": "Position {n} nach oben",
         "down": "Position {n} nach unten",
         "remove": "Position {n} entfernen",
-        "optional": "Optionale Position (nicht in der Summe)"
+        "optional": "Optionale Position (nicht in der Summe)",
+        "revenueAccount": "Erlöskonto",
+        "revenueAccountDefault": "Standard",
+        "revenueAccountHint": "Nur für Inlandspositionen; vom Produkt übernommen."
       },
       "deliveryDate": "Lieferdatum",
       "supplyIsDocumentDateLetter": "Leistungsdatum = Belegdatum",

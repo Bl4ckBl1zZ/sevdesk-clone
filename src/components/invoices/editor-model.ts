@@ -25,6 +25,8 @@ export interface EditorLine {
   readonly vatRateKey: string;
   readonly productType: "good" | "service";
   readonly reverseCharge13b: string;
+  /** PRD-053: revenue account copied from the product, editable per line in drafts ("" = default mapping). */
+  readonly revenueAccount: string;
   readonly isLaborCost: boolean;
   /** Quotes only (DOC-04, QUO-02): not in the totals, chosen on conversion. */
   readonly optional: boolean;
@@ -101,6 +103,7 @@ export function emptyLine(kind: DraftLineValues["kind"] = "item"): EditorLine {
     vatRateKey: "standard",
     productType: "service",
     reverseCharge13b: "",
+    revenueAccount: "",
     isLaborCost: false,
     optional: false,
     extra: {},
@@ -156,6 +159,7 @@ export function lineFromValues(l: DraftLineValues): EditorLine {
     vatRateKey,
     productType,
     reverseCharge13b,
+    revenueAccount,
     isLaborCost,
     optional,
     ...extra
@@ -172,6 +176,7 @@ export function lineFromValues(l: DraftLineValues): EditorLine {
     vatRateKey: vatRateKey ?? "standard",
     productType: productType ?? "service",
     reverseCharge13b: reverseCharge13b ?? "",
+    revenueAccount: revenueAccount ?? "",
     isLaborCost: isLaborCost ?? false,
     optional: optional ?? false,
     extra,
@@ -252,6 +257,8 @@ function lineToValues(l: EditorLine, index: number, errors: EditorError[], type:
   } else delete out.discount;
   if (opt(l.reverseCharge13b)) out.reverseCharge13b = l.reverseCharge13b;
   else delete out.reverseCharge13b;
+  if (opt(l.revenueAccount)) out.revenueAccount = l.revenueAccount.trim();
+  else delete out.revenueAccount;
   if (l.isLaborCost) out.isLaborCost = true;
   else delete out.isLaborCost;
   if (l.optional && typeFeatures(type).optionalLines) out.optional = true;

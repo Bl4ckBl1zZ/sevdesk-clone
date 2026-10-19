@@ -1,4 +1,5 @@
 import type { InvoiceFinalisedEvent } from "../../src/domain/accounting/events";
+import { chartAt } from "../../src/domain/accounting/period";
 import { validateCompanyForDocuments } from "../../src/domain/company/validate";
 import { ADDRESS_REMOVED_WARNING, attentionLine } from "../../src/domain/contacts/snapshot";
 import { buildSnapshot } from "../../src/domain/documents/build-snapshot";
@@ -484,6 +485,8 @@ export async function loadDocumentContext(
       recentInvoices,
       kuYearTurnoverCents,
       ...(turnover ? { ossTurnover: turnover.oss } : {}),
+      // PRD-052: chart of the fiscal year for the per-line revenue account check at finalisation.
+      chart: chartAt(profile?.chartOfAccounts ?? [], profile?.fiscalYearStartMonth ?? 1, doc.documentDate ?? today),
     },
     contact,
     layoutVersionId: layout?.version?._id ?? "default",

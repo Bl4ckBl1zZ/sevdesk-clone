@@ -129,3 +129,19 @@ describe("INV-03 INV-12 invoice types in the editor model", () => {
     expect(values.lines[0]).toMatchObject({ quantityMilli: -2_000 });
   });
 });
+
+describe("PRD-053 per-line revenue account", () => {
+  test("PRD-053 the copied revenue account survives the editor and can be changed or cleared per line", () => {
+    const s = emptyEditor("2026-10-12", {
+      contactId: "c1",
+      lines: [{ ...emptyLine(), name: "Fachbuch", quantity: "1", price: "20,00", vatRateKey: "reduced" }],
+    });
+    const withAccount = { ...s, lines: s.lines.map((l) => ({ ...l, revenueAccount: "8300" })) };
+    const { values } = toDraftValues(withAccount);
+    expect(values.lines[0]).toMatchObject({ revenueAccount: "8300" });
+    const back = editorFromValues(values);
+    expect(back.lines[0]?.revenueAccount).toBe("8300");
+    const cleared = toDraftValues({ ...back, lines: back.lines.map((l) => ({ ...l, revenueAccount: "" })) });
+    expect(cleared.values.lines[0]).not.toHaveProperty("revenueAccount");
+  });
+});

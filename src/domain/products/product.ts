@@ -102,6 +102,8 @@ export interface ProductFields {
   readonly exemptionReasonCode?: string | undefined;
   readonly placeOfSupplyRule?: PlaceOfSupplyRule | undefined;
   readonly reverseCharge13b?: string | undefined;
+  /** PRD-050..053: revenue account override (domestic lines only, PRD-051). */
+  readonly revenueAccountOverride?: string | undefined;
   readonly laborCostShareBp?: number | undefined;
   readonly extraUnits: readonly ExtraUnit[];
 }

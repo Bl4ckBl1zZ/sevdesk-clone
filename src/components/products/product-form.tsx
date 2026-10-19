@@ -101,6 +101,7 @@ function ProductFormInner({ product }: { product?: Doc<"products"> }) {
   const submit = form.handleSubmit(() => save(false));
   const type = useWatch({ control: form.control, name: "type" });
   const vatRateKey = useWatch({ control: form.control, name: "vatRateKey" });
+  const revenue = useAuthedQuery(api.products.revenueAccounts, {});
 
   return (
     <form id={formId} noValidate onSubmit={submit} className="flex flex-col gap-4 pb-24 md:pb-0">
@@ -186,6 +187,14 @@ function ProductFormInner({ product }: { product?: Doc<"products"> }) {
           label={t("reverseCharge13b")}
           placeholder={t("reverseCharge13bNone")}
           options={RC13B_TYPE_KEYS.map((key) => ({ value: key, label: rc13bLabelDe(key) }))}
+        />
+        <SelectField
+          form={form}
+          name="revenueAccountOverride"
+          label={t("revenueAccountOverride")}
+          description={t("revenueAccountHint")}
+          placeholder={t("revenueAccountDefault")}
+          options={(revenue?.accounts ?? []).map((a) => ({ value: a.number, label: `${a.number} ${a.name}` }))}
         />
       </FormSection>
 

@@ -7,6 +7,7 @@
  *
  * Nothing here reads a clock: `today` (Europe/Berlin) is part of the context.
  */
+
 import type { Certificate13b, PdfConsent } from "../contacts/consent";
 import type { GateCheck } from "../contacts/vat-check";
 import type { PreferredFormat } from "../einvoice/format";
@@ -14,6 +15,7 @@ import { fcToEurCents, parseFxRate } from "../money/convert";
 import type { LineDiscount } from "../money/line";
 import { roundHalfAway } from "../money/rounding";
 import { type Issue, issue } from "../result";
+import type { Chart } from "../rules/accounting";
 import type { RuleOverride } from "../rules/rule-table";
 import { lookupVatRate, lookupVatRateForPeriod, type VatRateValue } from "../rules/vat-rates";
 import { ossRelevantNetCents } from "../tax/turnover";
@@ -215,6 +217,8 @@ export interface DocumentContext {
   readonly deliveryNotesInvoiced?: readonly { readonly number: string; readonly invoiceNumber: string }[];
   /** Chain (advance/partial/final) and original (Storno/correction) of the draft (F04 §5.1.6). */
   readonly relations?: DocumentRelations | undefined;
+  /** Company chart of the document's fiscal year (PRD-052 per-line revenue account check). */
+  readonly chart?: Chart | undefined;
 }
 
 // ── helpers ────────────────────────────────────────────────────────────────────────────────────────────────────

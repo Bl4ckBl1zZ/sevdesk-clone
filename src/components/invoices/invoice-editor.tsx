@@ -114,6 +114,7 @@ export function InvoiceEditor({
   const contacts = useAuthedQuery(api.contacts.options, contactQuery ? { q: contactQuery } : {}) ?? [];
   const products = useAuthedQuery(api.products.options, {}) ?? [];
   const units = useAuthedQuery(api.lookups.listUnits, {}) ?? [];
+  const revenueAccounts = useAuthedQuery(api.products.revenueAccounts, {})?.accounts ?? [];
   const defaults = useAuthedQuery(
     api.invoices.draftDefaults,
     state.contactId ? { contactId: state.contactId as Id<"contacts"> } : {},
@@ -486,6 +487,7 @@ export function InvoiceEditor({
                       undefined
                     }
                     currency={state.currency}
+                    revenueAccounts={revenueAccounts}
                     onChange={(patch) => setLine(l.key, patch)}
                     onRemove={() => set({ lines: state.lines.filter((x) => x.key !== l.key) })}
                     onMove={(d) => move(i, d)}
@@ -856,6 +858,7 @@ export function LineEditor({
   vatLabel,
   lineNet,
   currency,
+  revenueAccounts = [],
   onChange,
   onRemove,
   onMove,
@@ -868,6 +871,8 @@ export function LineEditor({
   vatLabel?: { vatCategory: string; vatRateBp: number };
   lineNet?: number;
   currency: string;
+  /** PRD-053: revenue accounts of the company chart for the per-line select. */
+  revenueAccounts?: readonly { number: string; name: string }[];
   onChange: (patch: Partial<EditorLine>) => void;
   onRemove: () => void;
   onMove: (d: -1 | 1) => void;
@@ -985,7 +990,7 @@ export function LineEditor({
           </select>
         </div>
       </div>
-      <div className="grid grid-cols-1 gap-3 @2xl/line:grid-cols-[minmax(0,2fr)_10rem_minmax(0,1fr)]">
+      <div className="grid grid-cols-1 gap-3 @2xl/line:grid-cols-[minmax(0,2fr)_10rem_minmax(0,1fr)_10rem]">
         <div className="flex flex-col gap-1.5">
           <label htmlFor={field("desc")} className="font-medium text-sm">
             {t("description")}
@@ -1028,6 +1033,31 @@ export function LineEditor({
               </option>
             ))}
           </select>
+        </div>
+        <div className="flex flex-col gap-1.5">
+          <label htmlFor={field("revenue")} className="font-medium text-sm">
+            {t("revenueAccount")}
+          </label>
+          <select
+            id={field("revenue")}
+            className={selectClass}
+            value={line.revenueAccount}
+            aria-describedby={field("revenue-hint")}
+            onChange={(e) => onChange({ revenueAccount: e.target.value })}
+          >
+            <option value="">{t("revenueAccountDefault")}</option>
+            {line.revenueAccount && !revenueAccounts.some((a) => a.number === line.revenueAccount) && (
+              <option value={line.revenueAccount}>{line.revenueAccount}</option>
+            )}
+            {revenueAccounts.map((a) => (
+              <option key={a.number} value={a.number}>
+                {a.number} {a.name}
+              </option>
+            ))}
+          </select>
+          <span id={field("revenue-hint")} className="text-muted-foreground text-xs">
+            {t("revenueAccountHint")}
+          </span>
         </div>
       </div>
       <div className="flex flex-wrap items-center justify-between gap-2">

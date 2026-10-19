@@ -13,6 +13,7 @@ import { validateLeitwegId } from "../../einvoice/leitweg-id";
 import { isSupportedCurrency } from "../../money/currencies";
 import { formatBasisPoints, formatEuro, formatMilli } from "../../money/format";
 import { lineAmountCents } from "../../money/line";
+import { revenueAccountIssue } from "../../products/revenue-account";
 import { isEuVatCountry, isEuVatPrefix } from "../../rules/eu-vat-countries";
 import { lookupRule } from "../../rules/rule-table";
 import { isWithinKleinbetragLimit, KLEINUNTERNEHMER_LIMITS } from "../../rules/thresholds";
@@ -41,6 +42,7 @@ export { blocking, type Finding, isBlocking } from "./finding";
 
 const INVOICE_TYPES: readonly SalesDocType[] = ["invoice", "advance_invoice", "partial_invoice", "final_invoice"];
 const MAX_LINES = 2000;
+const DOMESTIC_CATEGORIES: readonly string[] = ["S", "Z", "E"];
 const MAX_AMOUNT_CENTS = 9_999_999_999_999;
 const GENERIC = new Set([
   "leistung",
@@ -828,6 +830,24 @@ export function validateDocument(
           { field: `lines.${r.index}.vatCategoryOverride`, params: { n, category: r.vatCategory, taxCase } },
         ),
       );
+    }
+    // PRD-051/052 (PRD-E17/E18): a line revenue account (domestic lines only) must still be a revenue account whose
+    // automatic VAT matches the line's actual rate.
+    if (l.kind === "item" && l.revenueAccount && ctx.chart && DOMESTIC_CATEGORIES.includes(r.vatCategory)) {
+      const issue = revenueAccountIssue({
+        chart: ctx.chart,
+        account: l.revenueAccount,
+        date: docDate ?? today,
+        rates: [{ category: r.vatCategory, rateBp: r.vatRateBp }],
+      });
+      if (issue) {
+        push(
+          finding(issue.code.toLowerCase(), "E", "PRD-052", "steuern", `Position ${n}: ${issue.message}`, {
+            field: `lines.${r.index}.revenueAccount`,
+            params: { n, account: l.revenueAccount },
+          }),
+        );
+      }
     }
     if (r.vatCategory === "AE" && taxCase === "domestic" && c?.isConsumer) {
       push(
