@@ -88,7 +88,9 @@ const GROUPS: Record<string, readonly string[] | "*"> = {
   // `revoke_sessions`: „Sitzungen abmelden" (04 §4.10) without deactivating the member.
   member: ["create", "role_change", "extend", "expire", "expired", "disable", "revoke_sessions"],
   invite: ["create", "resend", "revoke", "accept"],
-  export: ["datev", "gdpdu", "full", "csv", "audit"],
+  export: ["datev", "gdpdu", "full", "csv", "audit", "bulk"],
+  // F09 EXP-026 background jobs (jobs table): lifecycle and the 30-day result expiry.
+  job: ["create", "start", "progress", "done", "fail", "cancel", "expire"],
   // F09 sevdesk export import: project lifecycle, files, mapping, resolutions, preview, commit batches, presets.
   import: [
     "create",

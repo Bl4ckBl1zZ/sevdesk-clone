@@ -3911,5 +3911,22 @@
     "more": "Ältere Einträge laden",
     "historyTitle": "Verlauf",
     "historyEmpty": "Noch keine Protokolleinträge."
+  },
+  "exports": {
+    "menu": "Export",
+    "menuLabel": "Export als CSV",
+    "excel": "CSV (Excel)",
+    "technical": "CSV (technisch)",
+    "downloaded": "{rows} Zeilen exportiert.",
+    "jobStarted": "{rows} Zeilen – der Export läuft im Hintergrund.",
+    "toJobs": "Zu den Exporten",
+    "noJobs": "Noch keine Export-Aufträge.",
+    "noJobsHint": "Große Exporte (über 5.000 Zeilen) und Sammel-Exporte erscheinen hier und bleiben 30 Tage herunterladbar.",
+    "jobsLabel": "Export-Aufträge",
+    "progress": "{label}: {pct} %",
+    "skipped": "{count} übersprungen",
+    "download": "{name} herunterladen",
+    "cancel": "Abbrechen",
+    "cancelled": "Auftrag abgebrochen."
   }
 }

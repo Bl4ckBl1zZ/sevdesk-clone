@@ -8,6 +8,7 @@ import { useTranslations } from "next-intl";
 import { useMemo } from "react";
 import { formatDate, useAuthedPaginatedQuery, useCan, useUrlState } from "@/components/catalog/shared";
 import { ConvexGuard } from "@/components/convex/convex-provider";
+import { ExportMenu } from "@/components/exports/export-menu";
 import { EmptyState } from "@/components/layout/empty-state";
 import { ListLayout, StatusFilter } from "@/components/layout/list-layout";
 import { ListSearch } from "@/components/layout/list-search";
@@ -80,6 +81,7 @@ function InvoicesListInner({ listType }: { listType: ListType }) {
         defaultValue={q}
         onSearch={(v) => url.set({ q: v })}
       />
+      <ExportMenu list="documents" params={{ type: listType }} />
       {canWrite && (
         <Link href={newHref} className={cn(buttonVariants(), "hidden h-9 md:ml-auto md:inline-flex")}>
           <PlusIcon aria-hidden="true" />

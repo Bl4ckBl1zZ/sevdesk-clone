@@ -53,4 +53,7 @@ crons.cron("dunning.run (CET)", "0 6 * * *", internal.dunning.runCron, {});
 // `error` notifications older than 24 h are re-sent once (F12 NTF-001, NTF-006).
 crons.cron("notifications.maintain", "40 * * * *", internal.notifications.maintainCron, {});
 
+// jobs.expire — daily 03:15 UTC: export job results older than 30 days are removed from storage (F09 EXP-026).
+crons.cron("jobs.expire", "15 3 * * *", internal.jobs.expireCron, {});
+
 export default crons;

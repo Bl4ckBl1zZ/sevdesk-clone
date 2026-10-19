@@ -1,7 +1,13 @@
-import { PlaceholderPage, placeholderMetadata } from "@/components/layout/placeholder-page";
+import { CatalogPage, catalogMetadata } from "@/components/catalog/catalog-page";
+import { JobsPage } from "@/components/exports/jobs-page";
 
-export const generateMetadata = () => placeholderMetadata("export");
+export const generateMetadata = () => catalogMetadata("export");
 
+/** F09 EXP-026: export jobs (progress, cancel, 30-day download). DATEV/GDPdU/full export are later phases. */
 export default function Page() {
-  return <PlaceholderPage page="export" />;
+  return (
+    <CatalogPage page="export" permission="documents.export">
+      <JobsPage />
+    </CatalogPage>
+  );
 }

@@ -1584,6 +1584,53 @@ export default defineSchema({
 
   // 03 §10 notifications (in-app to-dos; unprotected, audited). `resolvedAt` (03 delta): closed by the resolving
   // act (SND-21: the sent mark, a Storno or a withdrawal) — open to-dos have no `resolvedAt`.
+  // 03 §10 jobs (F09 EXP-026, F04 SND-20): background exports with progress, cancel and a 30-day result file.
+  jobs: defineTable({
+    kind: v.union(
+      v.literal("csv_export"),
+      v.literal("bulk_export"),
+      v.literal("bulk_mark_sent"),
+      v.literal("pdf_zip"),
+      v.literal("datev_export"),
+      v.literal("gdpdu_export"),
+      v.literal("full_export"),
+      v.literal("verfahrensdoku_pdf"),
+    ),
+    status: v.union(
+      v.literal("queued"),
+      v.literal("running"),
+      v.literal("done"),
+      v.literal("failed"),
+      v.literal("cancelled"),
+    ),
+    progress: v.object({ done: v.number(), total: v.number() }),
+    /** Kind-specific parameters (validated by the starting mutation). */
+    params: v.any(),
+    label: v.string(),
+    resultStorageId: v.optional(v.id("_storage")),
+    resultName: v.optional(v.string()),
+    resultSha256: v.optional(v.string()),
+    resultBytes: v.optional(v.number()),
+    /** Documents skipped by bulk jobs with the German reason (SND-20). */
+    skipped: v.optional(v.array(v.object({ id: v.string(), label: v.string(), reason: v.string() }))),
+    error: v.optional(v.string()),
+    actor: vActor,
+    /** The creator's actor context (channel, role, label) so the export audit entry is attributed to it (EXP-026). */
+    by: v.object({
+      actor: vActor,
+      channel: vChannel,
+      role: v.optional(vMemberRole),
+      label: v.optional(v.string()),
+      requestId: v.optional(v.string()),
+    }),
+    createdAt: v.number(),
+    finishedAt: v.optional(v.number()),
+    /** Result download until (createdAt + 30 days); the file is removed afterwards. */
+    expiresAt: v.optional(v.number()),
+  })
+    .index("by_actor", ["actor", "createdAt"])
+    .index("by_status", ["status", "createdAt"]),
+
   notifications: defineTable({
     kind: v.string(),
     severity: v.union(v.literal("info"), v.literal("warning"), v.literal("error"), v.literal("critical")),

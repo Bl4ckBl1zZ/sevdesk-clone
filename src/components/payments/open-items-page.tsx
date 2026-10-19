@@ -1,18 +1,18 @@
 "use client";
 
 import { api } from "@convex/_generated/api";
-import { DownloadIcon, ReceiptTextIcon } from "lucide-react";
+import { ReceiptTextIcon } from "lucide-react";
 import type { Route } from "next";
 import Link from "next/link";
 import { useTranslations } from "next-intl";
 import { useId, useState } from "react";
 import { formatDate, todayBerlin } from "@/components/catalog/shared";
 import { ConvexGuard } from "@/components/convex/convex-provider";
+import { ExportMenu } from "@/components/exports/export-menu";
 import { money } from "@/components/invoices/invoice-shared";
 import { EmptyState } from "@/components/layout/empty-state";
 import { PageBody } from "@/components/layout/list-layout";
 import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { openItemsCsv } from "@/domain/payments/open-items";
@@ -46,15 +46,6 @@ function OpenItemsInner() {
   const ids = { asOf: useId() };
   if (data === undefined) return <PageBody aria-busy="true" className="h-96" />;
   const total = data.totals.buckets.reduce((s, b) => s + Math.max(0, b.openCents), 0);
-  const download = () => {
-    const blob = new Blob([openItemsCsv(data)], { type: "text/csv;charset=utf-8" });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = `offene-posten-${data.asOf}.csv`;
-    a.click();
-    URL.revokeObjectURL(url);
-  };
   return (
     <PageBody className="@container/opos">
       <section aria-label={t("kpis")} className="grid gap-3 @lg/opos:grid-cols-4">
@@ -136,10 +127,17 @@ function OpenItemsInner() {
           />
           {t("overdueOnly")}
         </label>
-        <Button variant="outline" className="h-11 md:h-9" onClick={download}>
-          <DownloadIcon aria-hidden="true" />
-          {t("csv")}
-        </Button>
+        <ExportMenu
+          local={(variant) => {
+            const blob = new Blob([openItemsCsv(data, variant)], { type: "text/csv;charset=utf-8" });
+            const url = URL.createObjectURL(blob);
+            const link = document.createElement("a");
+            link.href = url;
+            link.download = `offene-posten-${data.asOf}${variant === "technical" ? "-technisch" : ""}.csv`;
+            link.click();
+            URL.revokeObjectURL(url);
+          }}
+        />
       </div>
 
       {data.items.length === 0 ? (
