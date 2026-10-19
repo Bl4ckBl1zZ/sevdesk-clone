@@ -882,6 +882,15 @@ export default defineSchema({
     acknowledgedBy: v.optional(vActor),
   }).index("by_at", ["at"]),
 
+  // F12 AUD-019 clockReadings — technical rolling log (7 days) of the 10-minute clock check; not business data.
+  clockReadings: defineTable({
+    at: v.number(),
+    offsetMs: v.union(v.number(), v.null()),
+    reference: v.string(),
+    status: v.union(v.literal("ok"), v.literal("warning"), v.literal("error"), v.literal("unknown")),
+    detail: v.string(),
+  }).index("by_at", ["at"]),
+
   // 03 §10 apiKeys (the key itself is stored as SHA-256 only; prefix = public key id in api-key:/mcp: actors)
   // 03 §10 restoreDrills 🔒 (AUD-027, SEC-05): every restore drill and production restore is recorded, append-only.
   restoreDrills: defineTable({

@@ -181,6 +181,24 @@
     "wrapper": "action",
     "permission": "integrations.manage"
   },
+  "backups:recordCheck": {
+    "kind": "mutation",
+    "visibility": "internal",
+    "wrapper": "systemMutation",
+    "job": "cron.backups.verify"
+  },
+  "backups:status": {
+    "kind": "action",
+    "visibility": "public",
+    "wrapper": "action",
+    "permission": "settings.read"
+  },
+  "backups:verifyCron": {
+    "kind": "action",
+    "visibility": "internal",
+    "wrapper": "systemAction",
+    "job": "cron.backups.verify"
+  },
   "banking:account": {
     "kind": "query",
     "visibility": "public",
@@ -1254,6 +1272,12 @@
     "visibility": "internal",
     "wrapper": "systemMutation",
     "job": "cron.integrity.checkpoint"
+  },
+  "integrity:startupCron": {
+    "kind": "action",
+    "visibility": "internal",
+    "wrapper": "systemAction",
+    "job": "cron.integrity.verify"
   },
   "integrity:state": {
     "kind": "query",
@@ -2455,11 +2479,29 @@
     "wrapper": "query",
     "permission": "integrations.manage"
   },
+  "system:clock": {
+    "kind": "query",
+    "visibility": "public",
+    "wrapper": "query",
+    "permission": "integrity.read"
+  },
+  "system:clockCron": {
+    "kind": "action",
+    "visibility": "internal",
+    "wrapper": "systemAction",
+    "job": "cron.system.clock"
+  },
   "system:overview": {
     "kind": "query",
     "visibility": "public",
     "wrapper": "query",
     "permission": "settings.read"
+  },
+  "system:recordClock": {
+    "kind": "mutation",
+    "visibility": "internal",
+    "wrapper": "systemMutation",
+    "job": "cron.system.clock"
   },
   "system:recordRestoreDrill": {
     "kind": "mutation",

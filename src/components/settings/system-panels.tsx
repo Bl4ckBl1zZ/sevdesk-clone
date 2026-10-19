@@ -164,6 +164,12 @@ function SystemOverviewInner({ isOwner }: { isOwner: boolean }) {
             {t("securityLink")}
           </Link>
         )}
+        <Link
+          href="/einstellungen/system/backups"
+          className={cn(buttonVariants({ variant: "outline" }), "h-11 md:h-9")}
+        >
+          {t("backupsLink")}
+        </Link>
       </CardHeader>
       <CardContent className="flex flex-col gap-4 text-sm">
         <dl className="grid gap-2 @2xl/main:grid-cols-2">

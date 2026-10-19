@@ -334,3 +334,21 @@ export async function channelMatrix(ctx: ReadCtx) {
       : null,
   };
 }
+
+/** Resolves the open notifications of one (pseudo) entity, e.g. {table: "system", id: "clock"}. */
+export async function resolveEntityNotifications(
+  ctx: ModelCtx,
+  entity: { table: string; id: string },
+  kind?: string,
+): Promise<number> {
+  let n = 0;
+  for (const row of await ctx.db
+    .query("notifications")
+    .withIndex("by_entity", (q) => q.eq("entity.table", entity.table).eq("entity.id", entity.id))
+    .collect()) {
+    if (row.resolvedAt !== undefined || (kind && row.kind !== kind)) continue;
+    await auditedPatch(ctx, "notifications", row._id, { resolvedAt: ctx.now() }, { action: "notification.resolve" });
+    n++;
+  }
+  return n;
+}

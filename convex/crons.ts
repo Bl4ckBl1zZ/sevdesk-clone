@@ -12,6 +12,15 @@ const crons = cronJobs();
 crons.cron("integrity.verify (CEST)", "0 0 * * *", internal.integrity.verifyCron, {});
 crons.cron("integrity.verify (CET)", "0 1 * * *", internal.integrity.verifyCron, {});
 
+// backups.verify — AUD-026 daily 05:30 Europe/Berlin (hourly tick, runs in the 05:xx Berlin hour)
+crons.cron("backups.verify", "30 * * * *", internal.backups.verifyCron, {});
+
+// system.clock — AUD-019 clock check every 10 minutes (no-op without CLOCK_REFERENCE_URL)
+crons.interval("system.clock", { minutes: 10 }, internal.system.clockCron, {});
+
+// integrity.startup — AUD-014 fast check (checkpoint signature + head continuity) every 6 hours
+crons.interval("integrity.startup", { hours: 6 }, internal.integrity.startupCron, {});
+
 // integrity.checkpoint — daily 02:30 Europe/Berlin; the hourly run also retries failed R2 uploads (AUD-016)
 crons.cron("integrity.checkpoint", "30 * * * *", internal.integrity.checkpointCron, {});
 

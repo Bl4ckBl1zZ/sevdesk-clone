@@ -38,6 +38,7 @@ import { settleOpeningItem } from "./accounting";
 import { auditedInsert, auditedPatch } from "./audit";
 import { applyAllocation, requireTransaction } from "./bankTransactions";
 import { cashOpeningDate } from "./cash";
+import { assertClockOk } from "./clock";
 import { getCompanyProfile } from "./companyProfile";
 import { onSettlementChanged as dunningOnSettlementChanged } from "./dunning";
 import { entriesBySource, postJournalEntry, previewJournal } from "./journal";
@@ -601,6 +602,7 @@ const groupId = (now: number) => `pg_${now.toString(36)}_${Math.floor(Math.rando
  * reason, `period_locked`, or `invalid_input`/`WARNINGS_UNACKNOWLEDGED` when a ⚑ warning was not acknowledged.
  */
 export async function recordPayment(ctx: ModelCtx, args: RecordArgs): Promise<RecordResult> {
+  await assertClockOk(ctx); // AUD-019 / EC-027: no business date while the clock is off by > 60 s
   const { plan, targets, tx } = await planFor(ctx, args, ctx.now());
   const missing = unacknowledged(plan, args.acknowledgeWarnings ?? []);
   if (missing.length > 0) {

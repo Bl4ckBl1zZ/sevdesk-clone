@@ -211,3 +211,36 @@ describe("signed daily checkpoint (AUD-016, SEC-04)", () => {
     expect(await t.action(internal.integrity.checkpointCron, {})).toBeNull();
   });
 });
+
+describe("startup check (AUD-014)", () => {
+  test("AUD-014 the fast check verifies the checkpoint and the chain from it to the head; scope startup", async () => {
+    const t = makeT();
+    const owner = await withActivity(t);
+    await t.action(internal.integrity.checkpoint, {});
+    await owner.mutation(api.invites.create, { email: "c@example.test", role: "viewer" });
+    const res = await t.action(internal.integrity.startupCron, { force: true });
+    expect(res).toMatchObject({ ok: true, findings: [] });
+    const head = await t.run((ctx) => ctx.db.query("auditLog").withIndex("by_seq").order("desc").first());
+    const run = await t.run((ctx) => ctx.db.query("integrityRuns").withIndex("by_at").order("desc").first());
+    expect(run).toMatchObject({ ok: true, scope: "startup" });
+    expect(res?.lastVerifiedSeq).toBeGreaterThanOrEqual((head?.seq ?? 0) - 2);
+    expect(await t.action(internal.integrity.startupCron, {})).toBeNull(); // IS_TEST skip
+  });
+
+  test("AUD-014 SEC-04 an entry edited after the checkpoint fails the startup check and blocks finalisation", async () => {
+    const t = makeT();
+    const owner = await withActivity(t);
+    await t.action(internal.integrity.checkpoint, {});
+    await owner.mutation(api.invites.create, { email: "c@example.test", role: "viewer" });
+    await owner.mutation(api.invites.create, { email: "d@example.test", role: "viewer" });
+    await t.run(async (ctx) => {
+      const last = await ctx.db.query("auditLog").withIndex("by_seq").order("desc").first();
+      if (last) await ctx.db.patch(last._id, { diff: { after: { forged: true } } });
+    });
+    const res = await t.action(internal.integrity.startupCron, { force: true });
+    expect(res?.ok).toBe(false);
+    expect(res?.findings[0]?.kind).toBe("chain_hash_mismatch");
+    expect((await owner.query(api.integrity.status, {})).finalisationBlocked).toBe(true);
+    clearInvariantTarget();
+  });
+});

@@ -47,6 +47,7 @@ import type { Doc, Id } from "../_generated/dataModel";
 import { appError } from "../lib/errors";
 import { appendAudit, auditedDelete, auditedInsert, auditedPatch } from "./audit";
 import { defaultInvoiceAccount } from "./bankAccounts";
+import { assertClockOk } from "./clock";
 import { getCompanyProfile } from "./companyProfile";
 import { contactAddresses, contactChannels, defaultAddressOf, getContact } from "./contacts";
 import { chainContextFor, chainReferencesFor, inChain, recomputeChainOf } from "./documentChains";
@@ -1007,6 +1008,7 @@ export async function commitFinalization(
   version: number,
   o: FinalizeOptions & { validation: "passed" | "skipped" | "not_required" },
 ): Promise<CommitResult> {
+  await assertClockOk(ctx); // AUD-019 / EC-027: no business date while the clock is off by > 60 s
   const stored = await getDocument(ctx, id);
   if (stored.status !== "draft") {
     if (stored.finalizedFromVersion === version && stored.number) {
@@ -1430,6 +1432,7 @@ export async function markSent(
   id: Id<"salesDocuments">,
   values: MarkSentValues,
 ): Promise<{ sendLogId: Id<"sendLog">; firstEffective: boolean; warnings: Finding[] }> {
+  await assertClockOk(ctx); // AUD-019 / EC-027: no business date while the clock is off by > 60 s
   const { doc, profile, r, errors } = await checkMarkSent(ctx, id, values, ctx.now());
   if (errors.length > 0) {
     throw appError("mark_sent_invalid", errors[0]?.message, {

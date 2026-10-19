@@ -1,6 +1,6 @@
 import { createSocket } from "node:dgram";
 import { afterEach, describe, expect, test } from "vitest";
-import { measureClockOffset } from "./ntp";
+import { DEFAULT_NTP_SERVER, measureClockOffset } from "./ntp";
 
 let server: ReturnType<typeof createSocket> | null = null;
 afterEach(() => {
@@ -35,5 +35,11 @@ describe("SET-131 SNTP client", () => {
   test("SET-131 an unreachable server gives null", async () => {
     // Nothing listens on this port: the client times out.
     expect(await measureClockOffset({ host: "127.0.0.1", port: 9, timeoutMs: 200 })).toBeNull();
+  });
+});
+
+describe("AUD-019 NTP reference", () => {
+  test("AUD-019 the default reference is the PTB (EU); NTP_SERVER overrides it", () => {
+    expect(DEFAULT_NTP_SERVER).toBe("ptbtime1.ptb.de");
   });
 });

@@ -829,6 +829,7 @@
       "operationsTitle": "Betrieb",
       "operationsDescription": "Serverstandort, Zugriffskonzept und Wiederherstellungsproben (monatlich).",
       "securityLink": "Sicherheit",
+      "backupsLink": "Datensicherungen",
       "serverLocation": "Serverstandort",
       "accessConcept": "Zugriffskonzept",
       "accessConceptValue": "Nur im Tailnet unter {domain}",
@@ -1315,7 +1316,33 @@
     "acknowledgeDescription": "Beschreiben Sie Ursache und Maßnahmen. Die Bestätigung ändert keine Daten und wird protokolliert; danach ist das Fertigstellen wieder möglich.",
     "note": "Notiz",
     "acknowledgeConfirm": "Bestätigen",
-    "acknowledged": "Integritätsfehler bestätigt."
+    "acknowledged": "Integritätsfehler bestätigt.",
+    "clockWarning": "Uhrzeit-Abweichung: {detail} Bitte die Zeitsynchronisation (NTP) des Servers prüfen.",
+    "clockError": "Uhrzeit-Abweichung: {detail} Fertigstellen, Stornieren, Versandmarkierungen und Zahlungen sind gesperrt, bis die Serveruhr korrigiert ist.",
+    "panel": {
+      "title": "Integritätsstatus",
+      "description": "Hash-Kette des Änderungsprotokolls, signierte Prüfpunkte und Serveruhr (GoBD, Unveränderbarkeit).",
+      "lastRun": "Letzte Prüfung",
+      "never": "Noch keine Prüfung",
+      "runOk": "{date}: in Ordnung ({scope})",
+      "runFailed": "{date}: {count, plural, one {# Befund} other {# Befunde}} ({scope})",
+      "scopes": {
+        "incremental": "inkrementell",
+        "full": "vollständig",
+        "startup": "Startprüfung"
+      },
+      "checkpoint": "Letzter signierter Prüfpunkt",
+      "noCheckpoint": "Noch kein Prüfpunkt",
+      "checkpointValue": "{date} · bis seq {seq}",
+      "uploaded": "extern gespeichert: {target}",
+      "notUploaded": "noch nicht extern gespeichert",
+      "head": "Protokollkopf",
+      "headValue": "seq {seq} · {hash}",
+      "noHead": "Noch keine Einträge",
+      "clock": "Serveruhr",
+      "clockUnknown": "Noch nicht gemessen (CLOCK_REFERENCE_URL nicht gesetzt)",
+      "findingsLabel": "Befunde der letzten Prüfung"
+    }
   },
   "accounting": {
     "amountLabel": "Betrag in Euro",
@@ -3998,5 +4025,25 @@
     "recipients": "Empfänger",
     "thirdCountry": "Drittlandübermittlung",
     "retention": "Löschfrist"
+  },
+  "backups": {
+    "title": "Datensicherungen",
+    "description": "Neueste Sicherung je Quelle im R2-Backup-Bucket (nur lesender Zugriff). Grenzen: Datenbank und Convex-Export über 26 Stunden Warnung, über 50 Stunden Fehler; Convex-Volume über 8 Tage Warnung.",
+    "notConfigured": "Nicht eingerichtet: Für die Anzeige werden R2_BACKUP_BUCKET und ein nur lesender Zugang (R2_BACKUP_READONLY_ACCESS_KEY_ID, R2_BACKUP_READONLY_SECRET_ACCESS_KEY) in der Convex-Umgebung benötigt.",
+    "sources": "Sicherungen",
+    "status": {
+      "ok": "Aktuell",
+      "warning": "Veraltet",
+      "error": "Fehlt oder zu alt",
+      "unknown": "Unbekannt"
+    },
+    "checkpointLatest": "Letzter Prüfpunkt im Prüfpunkt-Bucket: {date}.",
+    "checkpointNone": "Im Prüfpunkt-Bucket liegt noch kein Prüfpunkt.",
+    "bucketLock": {
+      "present": "Bucket-Sperre (Aufbewahrungsregel) ist aktiv.",
+      "absent": "Keine Bucket-Sperre eingerichtet (empfohlen, nicht erforderlich).",
+      "unknown": "Ob eine Bucket-Sperre besteht, ist mit diesem Zugang nicht lesbar."
+    },
+    "refresh": "Neu prüfen"
   }
 }

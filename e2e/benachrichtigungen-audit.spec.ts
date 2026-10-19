@@ -110,3 +110,17 @@ test("DOC-35 „Duplizieren“ on an invoice opens a new draft", async ({ page, 
   await expect(h1(page, /Entwurf/)).toBeVisible();
   await expectNoAxeViolations();
 });
+
+test("SET-132 AUD-026 /einstellungen/system shows the integrity status; Datensicherungen lists the backup state", async ({
+  page,
+  expectNoAxeViolations,
+}) => {
+  await page.goto("/einstellungen/system");
+  await expect(page.getByText("Integritätsstatus")).toBeVisible();
+  await expect(page.getByTestId("integrity-head")).toBeVisible();
+  await page.getByRole("link", { name: "Datensicherungen" }).click();
+  await expect(page).toHaveURL(/\/einstellungen\/system\/backups$/);
+  await expect(page.getByText("Datensicherungen").first()).toBeVisible();
+  await expect(page.getByRole("button", { name: "Neu prüfen" })).toBeVisible();
+  await expectNoAxeViolations();
+});

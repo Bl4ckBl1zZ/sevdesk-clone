@@ -43,6 +43,8 @@ import { vActorContext } from "./validators";
 export const SYSTEM_JOBS = [
   "cron.integrity.verify",
   "cron.integrity.checkpoint",
+  "cron.backups.verify", // F12 AUD-026 / 02 §7 backups.verify: lists the R2 backup bucket (read-only), notifies stale
+  "cron.system.clock", // F12 AUD-019: clock check every 10 minutes (reference CLOCK_REFERENCE_URL)
   "cron.members.expire",
   "cron.invariants.check",
   "cron.products.applyScheduledPrices", // F03 PRD-031, 02 §7 products.applyScheduledPrices

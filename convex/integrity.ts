@@ -177,7 +177,12 @@ async function countAll(ctx: RunCtx): Promise<Record<string, number>> {
   return counts;
 }
 
-async function checkCheckpoint(ctx: RunCtx, cp: Doc<"integrityCheckpoints">, findings: IntegrityFinding[]) {
+async function checkCheckpoint(
+  ctx: RunCtx,
+  cp: Doc<"integrityCheckpoints">,
+  findings: IntegrityFinding[],
+  opts: { counts?: boolean; remote?: boolean } = {},
+) {
   const date = cp.date.split("-").reverse().join(".");
   const fail = (kind: IntegrityFinding["kind"], detail: string) =>
     findings.push({ kind, severity: "error", detail, entity: { table: "integrityCheckpoints", id: cp._id } });
@@ -215,6 +220,7 @@ async function checkCheckpoint(ctx: RunCtx, cp: Doc<"integrityCheckpoints">, fin
     );
   }
 
+  if (opts.remote === false && opts.counts === false) return;
   const store = checkpointStoreFromEnv();
   if (store && cp.uploadStatus === "uploaded") {
     const remote = await store.get(checkpointKey(cp.date)).catch(() => undefined);
@@ -270,6 +276,65 @@ export async function runVerify(
   await ctx.runMutation(internal.integrity.recordRun, { scope, lastVerifiedSeq, findings: findings.slice(0, 100) });
   return { ok: !findings.some((f) => f.severity === "error"), lastVerifiedSeq, findings };
 }
+
+/**
+ * AUD-014 startup check (fast): the latest checkpoint's signature and its lastSeq/lastHash in the chain, then the
+ * head continuity from the checkpoint to the current head — no full-chain walk, no table counts, no R2 read.
+ * Failures alert like AUD-015 (recordIntegrityRun → integrity.failed notification, banner, finalisation block).
+ */
+export async function runStartupCheck(
+  ctx: RunCtx,
+): Promise<{ ok: boolean; lastVerifiedSeq: number; findings: IntegrityFinding[] }> {
+  const st = await ctx.runQuery(internal.integrity.state, {});
+  const findings: IntegrityFinding[] = [];
+  let cursor: ChainCursor = { nextSeq: 1, prevHash: await genesisHash(instanceName()) };
+  let lastVerifiedSeq = 0;
+  if (st.checkpoint) {
+    await checkCheckpoint(ctx, st.checkpoint, findings, { counts: false, remote: false });
+    cursor = { nextSeq: st.checkpoint.lastSeq + 1, prevHash: st.checkpoint.lastHash };
+    lastVerifiedSeq = st.checkpoint.lastSeq;
+  } else if (st.lastRun?.ok && st.lastRun.lastVerifiedSeq > 0) {
+    const anchor: Doc<"auditLog"> | null = await ctx.runQuery(internal.integrity.entryAt, {
+      seq: st.lastRun.lastVerifiedSeq,
+    });
+    if (anchor) {
+      cursor = { nextSeq: anchor.seq + 1, prevHash: anchor.hash };
+      lastVerifiedSeq = anchor.seq;
+    }
+  }
+  if (findings.some((f) => f.severity === "error")) lastVerifiedSeq = 0;
+  for (;;) {
+    const page: Doc<"auditLog">[] = await ctx.runQuery(internal.integrity.chainPage, {
+      fromSeq: cursor.nextSeq,
+      limit: PAGE,
+    });
+    if (page.length === 0) break;
+    const res = await verifyChainPage(page, cursor);
+    if (findings.length === 0) lastVerifiedSeq = res.lastVerifiedSeq;
+    findings.push(...res.findings);
+    cursor = res.cursor;
+    if (page.length < PAGE) break;
+  }
+  await ctx.runMutation(internal.integrity.recordRun, {
+    scope: "startup",
+    lastVerifiedSeq,
+    findings: findings.slice(0, 100),
+  });
+  return { ok: !findings.some((f) => f.severity === "error"), lastVerifiedSeq, findings };
+}
+
+/**
+ * AUD-014 every 6 h (and after each deployment's first cron tick). 02 §7 places this timer in `web`; `web` has no
+ * system identity for Convex, so it runs as a Convex cron with the same check (P1 decision, see the report).
+ */
+export const startupCron = systemAction({
+  job: "cron.integrity.verify",
+  args: { force: v.optional(v.boolean()) },
+  handler: async (ctx, { force }) => {
+    if (isTest() && !force) return null;
+    return runStartupCheck(ctx);
+  },
+});
 
 /** Manual / test entry point (and the startup check, AUD-014, from `web` in P1). */
 export const verify = systemAction({
