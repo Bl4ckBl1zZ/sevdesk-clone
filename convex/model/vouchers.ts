@@ -289,7 +289,7 @@ export async function createVoucher(
     recurringVoucherId?: Id<"recurringVouchers">;
     receivedAt?: number;
     /** Inbox drafts (F06 INB-028/029/043): link, E-Rechnung verdict, OCR output, payee, input-VAT risks. */
-    extra?: Pick<Partial<VoucherDoc>, "inboxItemId" | "einvoice" | "ocr" | "payee" | "inputVatAtRisk">;
+    extra?: Pick<Partial<VoucherDoc>, "inboxItemId" | "einvoice" | "ocr" | "payee" | "inputVatAtRisk" | "renditions">;
   },
 ): Promise<Id<"vouchers">> {
   const profile = await getCompanyProfile(ctx);

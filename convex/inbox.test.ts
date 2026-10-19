@@ -185,7 +185,14 @@ describe("E-Rechnung receipt (INB-021…024, INB-040…045, ER-02)", () => {
     expect(v.priceMode).toBe("net");
     expect(v.statedTotals?.grossCents).toBe(119_000);
     expect(v.totals.grossCents).toBe(119_000);
-  });
+    // INB-040: a stamped visualisation PDF is a rendition of the XML, never an original.
+    expect(v.originalFiles).toHaveLength(1);
+    expect(v.renditions).toEqual([
+      expect.objectContaining({ kind: "visualisation", ofFileIndex: 0, mime: "application/pdf" }),
+    ]);
+    const detail = await owner.query(api.inbox.get, { id: r.id });
+    expect(detail?.visualisationUrl).toMatch(/^https?:/);
+  }, 60_000);
 
   test("INB-044 EC-INB-08 T06-044 an invoice addressed to someone else warns ⚑ and marks the input VAT at risk", async () => {
     const t = makeT();

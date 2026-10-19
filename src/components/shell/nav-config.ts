@@ -192,6 +192,8 @@ export const SETTINGS_NAV: SettingsGroup[] = [
     items: [
       { key: "mitglieder", href: "/einstellungen/mitglieder" },
       { key: "integrationen", href: "/einstellungen/integrationen" },
+      { key: "posteingang", href: "/einstellungen/posteingang" },
+      { key: "belegerkennung", href: "/einstellungen/belegerkennung" },
       { key: "api", href: "/einstellungen/api" },
       { key: "webhooks", href: "/einstellungen/webhooks" },
       { key: "mcp", href: "/einstellungen/mcp" },

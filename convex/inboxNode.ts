@@ -17,6 +17,7 @@ import { budgetExceeded } from "../src/domain/inbox/ocr-settings";
 import { planPoll } from "../src/domain/inbox/r2-plan";
 import { INBOX_MESSAGES, nextRetryDelayMs } from "../src/domain/inbox/status";
 import { pageCount } from "../src/domain/vouchers/capture";
+import { renderEinvoiceVisualisation } from "../src/pdf/einvoice-visualisation";
 import { ENCRYPTED_PDF_MESSAGE, extractInvoiceXml, multipleXmlMessage, pdfTextLayer } from "../src/pdf/hybrid";
 import { internal } from "./_generated/api";
 import type { Doc, Id } from "./_generated/dataModel";
@@ -58,6 +59,22 @@ async function storeBytes(
   mime: string,
 ) {
   return ctx.storage.store(new Blob([bytes as Uint8Array<ArrayBuffer>], { type: mime }));
+}
+
+/**
+ * INB-040: the downloadable visualisation PDF („Visualisierung – nicht das Original“), stored as a rendition of the
+ * voucher. Best effort — a rendering failure never blocks the draft; the in-app readable view stays available.
+ */
+async function storeVisualisation(
+  ctx: { storage: { store: (b: Blob) => Promise<Id<"_storage">> } },
+  inv: ReceivedInvoice,
+): Promise<{ storageId: Id<"_storage">; sha256: string } | undefined> {
+  try {
+    const pdf = await renderEinvoiceVisualisation(inv);
+    return { storageId: await storeBytes(ctx, pdf, "application/pdf"), sha256: await sha256Hex(pdf) };
+  } catch {
+    return undefined;
+  }
 }
 
 const countryOfVatId = (vatId: string | undefined | null) =>
@@ -353,6 +370,7 @@ export const classify = systemAction({
         if (note) warnings.push(note.severity === "warning" ? ackWarning(note.code, note.message) : note);
       }
       const a = inv.seller.address;
+      const visualisation = await storeVisualisation(ctx, inv);
       await ctx.runMutation(internal.inbox.finishInternal, {
         actorContext,
         id,
@@ -382,6 +400,7 @@ export const classify = systemAction({
           }),
         ),
         ...(draft.payee ? { payee: draft.payee } : {}),
+        ...(visualisation ? { visualisation } : {}),
         hintText: inv.lines.map((l) => l.name).join(" "),
       });
       return;

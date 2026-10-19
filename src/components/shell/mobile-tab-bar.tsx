@@ -4,12 +4,9 @@ import { CameraIcon, EllipsisIcon, PlusIcon } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useTranslations } from "next-intl";
-import { useRef } from "react";
 import { useSidebar } from "@/components/ui/sidebar";
-import { useAdapterErrorToast } from "@/hooks/use-adapter-error-toast";
 import { cn } from "@/lib/utils";
 import { findActiveNavItem, MOBILE_TABS } from "./nav-config";
-import { uploadReceipt } from "./receipt-capture";
 import { useShellUi } from "./shell-context";
 
 const tabClass =
@@ -25,8 +22,6 @@ export function MobileTabBar() {
   const active = findActiveNavItem(pathname);
   const { setOpenMobile } = useSidebar();
   const { setCreateOpen } = useShellUi();
-  const fileRef = useRef<HTMLInputElement>(null);
-  const showAdapterError = useAdapterErrorToast();
 
   const [first, second] = MOBILE_TABS;
 
@@ -62,34 +57,11 @@ export function MobileTabBar() {
           </button>
         </li>
         <li className="flex flex-1">
-          <button
-            type="button"
-            className={tabClass}
-            aria-label={t("shell.receiptCapture")}
-            onClick={() => fileRef.current?.click()}
-          >
+          {/* INB-003: the camera capture (several pages → one item) lives in the Posteingang. */}
+          <Link href="/posteingang?capture=1" aria-label={t("shell.receiptCapture")} className={tabClass}>
             <CameraIcon className="size-5" aria-hidden="true" />
             <span aria-hidden="true">{t("shell.receipt")}</span>
-          </button>
-          <input
-            ref={fileRef}
-            type="file"
-            accept="image/*,application/pdf"
-            capture="environment"
-            className="hidden"
-            tabIndex={-1}
-            aria-hidden="true"
-            onChange={async (e) => {
-              const file = e.target.files?.[0];
-              e.target.value = "";
-              if (!file) return;
-              try {
-                await uploadReceipt(file);
-              } catch (err) {
-                showAdapterError(err);
-              }
-            }}
-          />
+          </Link>
         </li>
         <li className="flex flex-1">
           <button type="button" className={cn(tabClass)} onClick={() => setOpenMobile(true)}>

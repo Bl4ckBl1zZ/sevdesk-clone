@@ -504,7 +504,9 @@
       "datenschutz": "Datenschutz",
       "verfahrensdokumentation": "Verfahrensdokumentation",
       "system": "System",
-      "mahnwesen": "Mahnwesen"
+      "mahnwesen": "Mahnwesen",
+      "posteingang": "Posteingang",
+      "belegerkennung": "Belegerkennung"
     },
     "descriptions": {
       "unternehmen": "Firma, Rechtsform, Adresse und Pflichtangaben",
@@ -526,7 +528,9 @@
       "datenschutz": "Externe Dienste und Auftragsverarbeitung",
       "verfahrensdokumentation": "Dokumentation nach GoBD",
       "system": "Versionen, Zustand, Sicherungen",
-      "mahnwesen": "Mahnrichtlinien, Mahnstufen, Zugangsfiktion und Verzugsbeginn"
+      "mahnwesen": "Mahnrichtlinien, Mahnstufen, Zugangsfiktion und Verzugsbeginn",
+      "posteingang": "E-Mail-Empfang für Belege und E-Rechnungen",
+      "belegerkennung": "Automatische Belegerkennung (OCR) mit Claude"
     },
     "unchangedNotice": "Bereits fertiggestellte Dokumente bleiben unverändert.",
     "saved": "Gespeichert.",
@@ -4281,6 +4285,223 @@
     "todos": {
       "unbooked": "{count, plural, one {# Beleg ist} other {# Belege sind}} seit mehr als 10 Tagen unbearbeitet (GoBD)",
       "missing": "{count, plural, one {# Bankumsatz} other {# Bankumsätze}} ohne Beleg"
+    }
+  },
+  "inbox": {
+    "filtersLabel": "Posteingang filtern",
+    "filters": {
+      "all": "Alle",
+      "new": "Neu",
+      "needs_review": "Zu prüfen",
+      "einvoice": "E-Rechnungen",
+      "faulty": "Fehlerhaft",
+      "duplicate": "Dubletten",
+      "rejected": "Abgelehnt",
+      "older_than_10_days": "> 10 Tage"
+    },
+    "upload": "Hochladen",
+    "uploading": "Wird hochgeladen …",
+    "uploadFolder": "Ordner hochladen",
+    "camera": "Fotografieren",
+    "dropHint": "Dateien oder Ordner hierher ziehen – jede Datei wird ein eigener Beleg.",
+    "uploaded": "{count, plural, one {# Beleg hochgeladen} other {# Belege hochgeladen}}",
+    "notAccepted": "{count, plural, one {# Datei nicht übernommen} other {# Dateien nicht übernommen}}",
+    "captureUploaded": "{count, plural, one {Beleg mit # Seite hochgeladen} other {Beleg mit # Seiten hochgeladen}}",
+    "empty": "Der Posteingang ist leer.",
+    "noResults": "Keine Belege für diesen Filter.",
+    "listLabel": "Belege im Posteingang",
+    "backToList": "Zurück zur Liste",
+    "notFound": "Dieser Beleg wurde nicht gefunden.",
+    "rejected": "Beleg abgelehnt",
+    "overridden": "Dublette wird verarbeitet",
+    "files": "{count} Dateien",
+    "source": {
+      "email": "E-Mail",
+      "upload": "Upload",
+      "app": "App",
+      "api": "API",
+      "mcp": "KI-Assistent (MCP)"
+    },
+    "flags": {
+      "unknown_sender": "Unbekannter Absender",
+      "sender_auth_failed": "Absender nicht verifiziert",
+      "not_einvoice": "Keine E-Rechnung",
+      "einvoice_faulty": "E-Rechnung fehlerhaft",
+      "low_confidence": "Niedrige Erkennungssicherheit",
+      "attachment_too_large": "Anhang zu groß",
+      "mail_unparseable": "E-Mail nicht lesbar",
+      "ocr_pending": "Wartet auf Belegerkennung",
+      "pdf_encrypted": "PDF verschlüsselt",
+      "kleinunternehmer_supplier": "Kleinunternehmer"
+    },
+    "item": {
+      "untitled": "Beleg",
+      "einvoiceOk": "E-Rechnung ✓",
+      "einvoiceFaulty": "E-Rechnung ⚠",
+      "confidence": "OCR-Konfidenz {percent} %",
+      "receivedAt": "Eingegangen",
+      "from": "Absender",
+      "subject": "Betreff",
+      "amount": "Betrag",
+      "rejectReason": "Ablehnungsgrund",
+      "retentionUntil": "Aufbewahren bis",
+      "warnings": "Hinweise",
+      "warningAck": "Bestätigung beim Buchen nötig",
+      "openDraft": "Beleg prüfen und buchen",
+      "openVoucher": "Beleg öffnen",
+      "createDraft": "Beleg erfassen",
+      "override": "Trotzdem verarbeiten",
+      "reject": "Ablehnen",
+      "duplicateOf": "Zum ersten Eingang",
+      "duplicateOfVoucher": "Zum vorhandenen Beleg",
+      "mailText": "E-Mail-Text",
+      "untrusted": "Inhalt vom Absender – nicht geprüft, wird nur als Text angezeigt."
+    },
+    "reject": {
+      "title": "Beleg ablehnen",
+      "description": "Der Beleg wird nicht gebucht. Die Dateien bleiben unverändert archiviert.",
+      "confirm": "Ablehnen",
+      "reason": "Grund",
+      "text": "Bemerkung (optional)",
+      "textRequired": "Bemerkung (Pflicht, mindestens 5 Zeichen)",
+      "retentionShort": "Wird 90 Tage aufbewahrt und kann danach gelöscht werden.",
+      "retentionLong": "Wird als Geschäftsbrief 6 Jahre aufbewahrt."
+    },
+    "override": {
+      "title": "Dublette trotzdem verarbeiten",
+      "description": "Nur wenn es sich wirklich um einen eigenen Beleg handelt (z. B. zwei gleiche Monatsrechnungen).",
+      "confirm": "Trotzdem verarbeiten",
+      "reason": "Begründung (mindestens 5 Zeichen)"
+    },
+    "viewer": {
+      "tabs": {
+        "view": "Darstellung",
+        "report": "Prüfbericht",
+        "xml": "XML",
+        "files": "Anlagen"
+      },
+      "noPreview": "Keine Vorschau verfügbar.",
+      "imageAlt": "Beleg {name}",
+      "download": "{name} herunterladen",
+      "original": "Original · SHA-256 {hash}",
+      "sha256": "SHA-256-Prüfsumme",
+      "roles": {
+        "original": "Original",
+        "extracted_xml": "Aus PDF extrahierte XML",
+        "embedded_attachment": "Eingebettete Anlage",
+        "eml": "E-Mail (Original)"
+      },
+      "visualisation": "Visualisierung als PDF",
+      "rendition": "Rendition – Visualisierung, nicht das Original",
+      "skipped": {
+        "too_large": "{name} ({mb} MB) – zu groß, bleibt in der E-Mail",
+        "unsupported": "{name} – Dateityp nicht unterstützt, bleibt in der E-Mail"
+      },
+      "xmlUnavailable": "Die XML-Datei kann nicht geladen werden."
+    },
+    "report": {
+      "pending": "Noch kein Prüfergebnis.",
+      "ok": "Prüfung ohne Befund.",
+      "notValidated": "Nicht geprüft – der Prüfdienst war nicht erreichbar.",
+      "faulty": "{category}: {count} Fehler",
+      "meta": "Geprüft mit {tool} am {at}",
+      "rule": "Regel",
+      "category": "Kategorie",
+      "text": "Meldung",
+      "download": "Prüfbericht herunterladen"
+    },
+    "capture": {
+      "title": "Beleg fotografieren",
+      "description": "Mehrere Fotos ergeben einen Beleg mit mehreren Seiten. Die Fotos werden unverändert als Original gespeichert.",
+      "take": "Foto aufnehmen",
+      "takeMore": "Weitere Seite aufnehmen",
+      "pages": "Seiten",
+      "page": "Seite {n}",
+      "up": "Seite {n} nach oben",
+      "down": "Seite {n} nach unten",
+      "remove": "Seite {n} entfernen",
+      "upload": "{count, plural, =0 {Hochladen} one {Hochladen (# Seite)} other {Hochladen (# Seiten)}}"
+    },
+    "dropZone": "Belege im Posteingang (Ablagefläche für Dateien)"
+  },
+  "inboxSettings": {
+    "saved": "Einstellungen gespeichert",
+    "save": "Speichern",
+    "test": "Verbindung testen",
+    "mail": {
+      "title": "E-Mail-Empfang",
+      "description": "Lieferanten senden Rechnungen an diese Adresse. Cloudflare legt jede E-Mail unverändert im R2-Bucket ab, die App holt sie alle 5 Minuten ab.",
+      "address": "Empfangsadresse",
+      "copyAddress": "Empfangsadresse kopieren",
+      "addressHint": "Diese Adresse auch als E-Rechnungs-Empfangsadresse an Lieferanten weitergeben.",
+      "allowlist": "Bekannte Absender (optional)",
+      "allowlistHint": "Eine Adresse oder @domain pro Zeile. Andere Absender werden trotzdem übernommen, aber als „Unbekannter Absender“ markiert.",
+      "dpa": "Ich habe einen Auftragsverarbeitungsvertrag (AVV) mit Cloudflare abgeschlossen.",
+      "enabled": "E-Mail-Empfang aktiv"
+    },
+    "health": {
+      "title": "Status",
+      "description": "Zugangsdaten stehen nur in der Server-Umgebung, nie in der Datenbank.",
+      "credentials": "Zugangsdaten",
+      "configured": "konfiguriert",
+      "missing": "fehlt",
+      "bucket": "Bucket",
+      "endpoint": "Endpunkt",
+      "interval": "Abruf",
+      "minutes": "alle {n} Minuten",
+      "limits": "Grenzen",
+      "limitsValue": "{mail} MB pro E-Mail, {attachment} MB pro Anhang",
+      "lastSuccess": "Letzter erfolgreicher Abruf",
+      "waiting": "Wartende Nachrichten",
+      "failures": "Fehlgeschlagene Abrufe in Folge",
+      "lastError": "Letzter Fehler",
+      "paused": "Abruf pausiert seit {since} – Zugriff verweigert. Zugangsdaten prüfen und „Verbindung testen“.",
+      "lastTest": "Letzter Test {at}: {detail}"
+    },
+    "guide": {
+      "title": "Einrichtung (Kurzanleitung)",
+      "step1": "In Cloudflare Email Routing für eine Subdomain (z. B. in.ihre-domain.de) aktivieren.",
+      "step2": "Den Email Worker „receipts-inbox“ aus deploy/cloudflare/receipts-inbox mit dem R2-Bucket (EU) bereitstellen.",
+      "step3": "Eine Routing-Regel für die Empfangsadresse auf den Worker setzen.",
+      "step4": "R2-Zugangsschlüssel (nur dieser Bucket) in der Convex-Umgebung hinterlegen, dann „Verbindung testen“."
+    }
+  },
+  "ocrSettings": {
+    "title": "Belegerkennung mit Claude",
+    "description": "Liest Lieferant, Datum, Beträge und Steuersätze aus PDFs und Fotos. Standardmäßig aus. E-Rechnungen werden immer ohne KI aus der XML gelesen.",
+    "saved": "Einstellungen gespeichert",
+    "save": "Speichern",
+    "test": "Verbindung testen",
+    "testHint": "Der Test sendet eine kurze Anfrage ohne Geschäftsdaten und zeigt Modell und Antwortzeit.",
+    "dpa": "Ich habe einen Auftragsverarbeitungsvertrag (AVV) mit dem Anbieter abgeschlossen.",
+    "enabled": "Belegerkennung aktiv",
+    "apiKey": "API-Schlüssel",
+    "apiKeyStored": "•••••• gespeichert – leer lassen, um ihn zu behalten",
+    "apiKeyHint": "Wird verschlüsselt gespeichert und nie wieder angezeigt.",
+    "endpoint": "Endpunkt (optional)",
+    "model": "Modell",
+    "region": "Region (Verarbeitungsort)",
+    "regions": {
+      "eu": "EU",
+      "us": "USA",
+      "global": "Weltweit",
+      "other": "Sonstige (außerhalb der EU)"
+    },
+    "pageLimit": "Seiten pro Beleg",
+    "budget": "Monatsbudget (Anfragen, optional)",
+    "released": "{count, plural, one {# wartender Beleg geht in die manuelle Prüfung} other {# wartende Belege gehen in die manuelle Prüfung}}",
+    "status": {
+      "title": "Status",
+      "description": "Ausschalten wirkt sofort: wartende Belege werden manuell erfasst.",
+      "state": "Zustand",
+      "active": "aktiv",
+      "inactive": "inaktiv",
+      "key": "API-Schlüssel",
+      "keyStored": "gespeichert",
+      "keyMissing": "fehlt",
+      "usage": "Verbrauch",
+      "usageValue": "{calls} von {budget} Anfragen im {month}",
+      "lastTest": "Letzter Test {at}: {detail}"
     }
   }
 }

@@ -461,6 +461,8 @@ export interface ClassificationResult {
   ocr?: VoucherDoc["ocr"];
   /** Free text used for the keyword account suggestion (subject, line descriptions). */
   hintText?: string;
+  /** INB-040: the stamped visualisation PDF of an E-Rechnung (a rendition, never the original). */
+  visualisation?: { storageId: Id<"_storage">; sha256: string };
 }
 
 const voucherRoleOf = (f: InboxFileValue): OriginalFileValue["role"] => f.role;
@@ -510,6 +512,20 @@ export async function finishClassification(
       inboxItemId: item._id,
       ...(r.payee ? { payee: r.payee } : {}),
       ...(r.ocr ? { ocr: r.ocr } : {}),
+      ...(r.visualisation && r.einvoice
+        ? {
+            renditions: [
+              {
+                storageId: r.visualisation.storageId,
+                sha256: r.visualisation.sha256,
+                mime: "application/pdf",
+                ofFileIndex: r.einvoice.xmlFileIndex,
+                kind: "visualisation" as const,
+                createdAt: ctx.now(),
+              },
+            ],
+          }
+        : {}),
       ...(r.einvoice && xml
         ? {
             einvoice: {

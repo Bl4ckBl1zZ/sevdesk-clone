@@ -143,8 +143,12 @@ export const get = query({
       })),
     );
     const validation = item.einvoice?.validation;
+    const voucher = item.voucherId ? await ctx.db.get(item.voucherId) : null;
+    const vis = voucher?.renditions.find((r) => r.kind === "visualisation");
     return {
       ...(await rowOf(ctx, item)),
+      voucherStatus: voucher?.status ?? null,
+      visualisationUrl: vis ? await ctx.storage.getUrl(vis.storageId) : null,
       to: item.to ?? null,
       messageId: item.messageId ?? null,
       mailText: item.mailText ?? null,
@@ -605,6 +609,7 @@ export const finishInternal = actorMutation({
     payee: v.optional(v.object({ name: v.string(), iban: v.string(), bic: v.optional(v.string()) })),
     ocr: v.optional(v.any()),
     hintText: v.optional(v.string()),
+    visualisation: v.optional(v.object({ storageId: v.id("_storage"), sha256: v.string() })),
   },
   handler: async (ctx, { id, ...r }) => {
     await requireInboxItem(ctx, id);

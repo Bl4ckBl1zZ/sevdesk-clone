@@ -1,7 +1,12 @@
-import { PlaceholderPage, placeholderMetadata } from "@/components/layout/placeholder-page";
+import { CatalogPage, catalogMetadata } from "@/components/catalog/catalog-page";
+import { InboxScreen } from "@/components/inbox/inbox-screen";
 
-export const generateMetadata = () => placeholderMetadata("posteingang");
+export const generateMetadata = () => catalogMetadata("posteingang");
 
 export default function Page() {
-  return <PlaceholderPage page="posteingang" />;
+  return (
+    <CatalogPage page="posteingang" parent="belege" permission="vouchers.read" body={false}>
+      <InboxScreen />
+    </CatalogPage>
+  );
 }
