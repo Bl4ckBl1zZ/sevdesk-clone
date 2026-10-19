@@ -200,7 +200,7 @@ export const afterImport = systemAction({
       try {
         done = await applyOne(ctx, ctx.actorContext, transactionId, false);
       } catch (e) {
-        console.log(`[bank-rules] rule failed for ${transactionId}: ${e instanceof Error ? e.message : String(e)}`);
+        console.warn(`[bank-rules] rule failed for ${transactionId}: ${e instanceof Error ? e.message : String(e)}`);
       }
       if (done) {
         applied.push(transactionId);
@@ -209,7 +209,7 @@ export const afterImport = systemAction({
       try {
         await ctx.runMutation(internal.matching.autoApplyInternal, { actorContext: ctx.actorContext, transactionId });
       } catch (e) {
-        console.log(
+        console.warn(
           `[bank-rules] auto-apply failed for ${transactionId}: ${e instanceof Error ? e.message : String(e)}`,
         );
       }

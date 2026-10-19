@@ -43,7 +43,7 @@ const DAY_BATCH = 200;
 
 /** BNK-013: the only logger of the feed — everything passes the redactor. */
 function log(event: string, data: Record<string, unknown> = {}, secrets: string[] = []) {
-  console.log(`[bank-feed] ${event}`, JSON.stringify(redactForLog(data, secrets)));
+  console.info(`[bank-feed] ${event}`, JSON.stringify(redactForLog(data, secrets)));
 }
 
 async function providerFor(ctx: ActionCtx): Promise<{ provider: BankFeedProvider; sessionId: string | null }> {
@@ -171,7 +171,7 @@ async function poll(ctx: Ctx, opts: { accountId?: Id<"bankAccounts">; psu?: PsuH
     internal.bankFeed.pollTargetsInternal,
     opts.accountId ? { accountId: opts.accountId } : {},
   );
-  if (!targets.connection || !targets.connection.polling) return { skipped: "inactive" as const, accounts: [] };
+  if (!targets.connection?.polling) return { skipped: "inactive" as const, accounts: [] };
   const { provider, sessionId } = await providerFor(ctx);
   const secrets = [sessionId ?? "", opts.psu?.ipAddress ?? "", opts.psu?.userAgent ?? ""];
   const unattended = !opts.psu?.ipAddress;

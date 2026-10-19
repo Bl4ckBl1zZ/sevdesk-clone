@@ -674,12 +674,11 @@ describe("disconnect, feed loss, provider record (BNK-011, BNK-117, BNK-116)", (
 describe("secrets hygiene (BNK-013)", () => {
   test("BNK-013 T07-018 logs contain no private key, JWT, code, session id, state or PSU header values", async () => {
     const lines: string[] = [];
-    const spy = vi.spyOn(console, "log").mockImplementation((...a: unknown[]) => {
-      lines.push(a.map(String).join(" "));
-    });
-    const errSpy = vi.spyOn(console, "error").mockImplementation((...a: unknown[]) => {
-      lines.push(a.map(String).join(" "));
-    });
+    const spies = (["log", "info", "warn", "error"] as const).map((m) =>
+      vi.spyOn(console, m).mockImplementation((...a: unknown[]) => {
+        lines.push(a.map(String).join(" "));
+      }),
+    );
     try {
       const s = await setup();
       fake.accounts = [eurAccount()];
@@ -705,8 +704,7 @@ describe("secrets hygiene (BNK-013)", () => {
       const conn = await connectionRow(s.t);
       expect(JSON.stringify(conn.lastError ?? "")).not.toMatch(/sess-/);
     } finally {
-      spy.mockRestore();
-      errSpy.mockRestore();
+      for (const sp of spies) sp.mockRestore();
     }
   });
 });

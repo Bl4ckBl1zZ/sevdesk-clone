@@ -1,5 +1,6 @@
 import { defineSchema, defineTable } from "convex/server";
 import { v } from "convex/values";
+import { bankFeedTables, vBankAccountFeed } from "./bankFeedValidators";
 import {
   vBankSourceKind,
   vBankSourceRef,
@@ -7,7 +8,6 @@ import {
   vBankTransactionStatus,
   vStatementFormat,
 } from "./bankValidators";
-import { bankFeedTables, vBankAccountFeed } from "./bankFeedValidators";
 import { vMatchProvenance, vPaymentDifference, vStoredPaymentSource, vStoredPaymentTarget } from "./paymentValidators";
 import {
   vActor,

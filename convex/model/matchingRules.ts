@@ -318,7 +318,7 @@ export async function categorizeByRule(
   args: { transactionId: Id<"bankTransactions">; ruleId: Id<"matchingRules"> },
 ): Promise<{ voucherId: Id<"vouchers">; finalised: boolean }> {
   const r = await ctx.db.get(args.ruleId);
-  if (!r || r.apply.action !== "categorize" || !r.apply.account)
+  if (r?.apply.action !== "categorize" || !r.apply.account)
     throw appError("invalid_input", "Keine Kategorisierungsregel.");
   const tx = await requireTransaction(ctx, args.transactionId);
   const outcome = categorizeOutcome(r, tx);
