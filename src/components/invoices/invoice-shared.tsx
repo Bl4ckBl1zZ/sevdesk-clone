@@ -195,6 +195,7 @@ export async function downloadExport(files: readonly ExportedFileView[], zipName
     return;
   }
   files.forEach((f, i) => {
-    saveBlob(new Blob([blobs[i] as Uint8Array<ArrayBuffer>], { type: f.mime }), f.name);
+    // Without a ZIP the folder prefix (Anlagen/…) is dropped from the saved file name.
+    saveBlob(new Blob([blobs[i] as Uint8Array<ArrayBuffer>], { type: f.mime }), f.name.split("/").pop() ?? f.name);
   });
 }

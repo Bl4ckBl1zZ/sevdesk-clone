@@ -79,7 +79,7 @@ describe("DOC-18 document attachments", { timeout: 30_000 }, () => {
       { name: "Anlagen/agb.pdf", url: expect.any(String), sha256: hash, mime: "application/pdf" },
     ]);
     const single = await owner.action(api.documentArtifacts.exportFiles, { id, request: { entry: "default" } });
-    expect(single.attachments).toEqual([]);
+    expect(single.attachments.map((a) => a.sha256)).toEqual([hash]);
 
     const xml = new TextDecoder().decode((await xmlOf(t, id)) ?? new ArrayBuffer(0));
     expect(xml).toContain('filename="agb.pdf"');

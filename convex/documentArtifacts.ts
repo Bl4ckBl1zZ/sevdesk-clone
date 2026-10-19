@@ -253,12 +253,12 @@ export const exportFiles = action({
   ): Promise<{ files: ExportedFile[]; attachments: ExportedAttachment[]; zipName: string | null }> => {
     const req = parse(exportRequestSchema, request);
     const { number, files, attachments: attached } = await collectExportFiles(ctx, id, req);
+    // §4.10.2: document attachments with includeInExport belong to the default export of every format (and the ZIP).
+    // Single-format entries (only the XML, only the PDF …) carry no attachments.
     const attachments: ExportedAttachment[] = [];
-    if (req.entry === "zip") {
-      for (const a of attached) {
-        const url = await ctx.storage.getUrl(a.storageId);
-        if (url) attachments.push({ name: `Anlagen/${a.name}`, url, sha256: a.sha256, mime: a.mime });
-      }
+    for (const a of req.entry === "default" || req.entry === "zip" ? attached : []) {
+      const url = await ctx.storage.getUrl(a.storageId);
+      if (url) attachments.push({ name: `Anlagen/${a.name}`, url, sha256: a.sha256, mime: a.mime });
     }
     const out: ExportedFile[] = [];
     for (const f of files) {
