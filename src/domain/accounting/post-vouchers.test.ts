@@ -206,3 +206,53 @@ describe("voucher payments (VOU-131, VOU-132, VOU-137, VOU-138)", () => {
     expect(!income.ok && income.error.message).toBe("Einnahmen können nicht privat bezahlt werden.");
   });
 });
+
+describe("ACC-023 foreign-currency vouchers", () => {
+  const fx = {
+    currency: "USD",
+    grossFxCents: 12_852,
+    fxRate: { rate: "1.08", source: "ecb_daily" as const, date: "2026-03-10" },
+  };
+
+  test("ACC-023 the EUR posting keeps currency, source amount and rate on the open item (expense and income)", () => {
+    const lines = linesOf(booked({ fx }));
+    const payable = lines.find((l) => l.role === "payable");
+    expect(payable).toMatchObject({ creditCents: 11_900, currency: "USD", amountFx: 12_852, fxRate: fx.fxRate });
+    expect(lines.filter((l) => l.currency !== undefined)).toHaveLength(1);
+    const income = linesOf(
+      booked({
+        direction: "income",
+        taxRule: "output_vat",
+        fx,
+        lines: [{ account: "8400", netCents: 10_000, vatCents: 1900, vatRateBp: 1900 }],
+      }),
+    );
+    expect(income.find((l) => l.role === "receivable")).toMatchObject({
+      debitCents: 11_900,
+      currency: "USD",
+      amountFx: 12_852,
+    });
+  });
+
+  test("ACC-023 EUR vouchers carry no FX fields; mirrored reversals keep them", () => {
+    expect(linesOf(booked()).some((l) => l.currency !== undefined)).toBe(false);
+    const lines = linesOf(booked({ fx }));
+    const back = reversalPosting(
+      {
+        kind: "voucher_reversed",
+        voucherId: "v1",
+        number: "BE-2026-00001",
+        date: "2026-04-01",
+        reason: "x",
+        mode: "cancel",
+      },
+      { lines, text: "Beleg" },
+      CTX,
+    );
+    expect(back.lines.find((l) => l.role === "payable")).toMatchObject({
+      debitCents: 11_900,
+      amountFx: 12_852,
+      currency: "USD",
+    });
+  });
+});

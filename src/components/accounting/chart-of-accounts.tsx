@@ -38,15 +38,15 @@ const SELECT =
  * (filter: search, only used) and the tab „Rollen & Standardkonten“ with ⚠ for uncertain research, a red
  * „nicht zugeordnet“ badge for roles that block postings and — for the owner — „Konto zuordnen“.
  */
-export function ChartOfAccounts({ isOwner }: { isOwner: boolean }) {
+export function ChartOfAccounts({ isOwner, canWrite = false }: { isOwner: boolean; canWrite?: boolean }) {
   return (
     <ConvexGuard fallback={null}>
-      <ChartOfAccountsInner isOwner={isOwner} />
+      <ChartOfAccountsInner isOwner={isOwner} canWrite={canWrite} />
     </ConvexGuard>
   );
 }
 
-function ChartOfAccountsInner({ isOwner }: { isOwner: boolean }) {
+function ChartOfAccountsInner({ isOwner, canWrite }: { isOwner: boolean; canWrite: boolean }) {
   const t = useTranslations("accounting.konten");
   const data = useAuthedQuery(api.accounting.chartOfAccounts, {});
   if (data === undefined) return <div className="h-96" aria-busy="true" />;
@@ -66,7 +66,7 @@ function ChartOfAccountsInner({ isOwner }: { isOwner: boolean }) {
           </TabsTrigger>
         </TabsList>
         <TabsContent value="konten">
-          <AccountsPanel accounts={data.accounts} />
+          <AccountsPanel accounts={data.accounts} chart={data.chart} canWrite={canWrite} />
         </TabsContent>
         <TabsContent value="rollen">
           <RolesPanel roles={data.roles} accounts={data.accounts} isOwner={isOwner} />
@@ -76,12 +76,15 @@ function ChartOfAccountsInner({ isOwner }: { isOwner: boolean }) {
   );
 }
 
-function AccountsPanel({ accounts }: { accounts: Account[] }) {
+function AccountsPanel({ accounts, chart, canWrite }: { accounts: Account[]; chart: string; canWrite: boolean }) {
   const t = useTranslations("accounting.konten");
   const searchId = useId();
   const usedId = useId();
   const [search, setSearch] = useState("");
   const [usedOnly, setUsedOnly] = useState(false);
+  const [creating, setCreating] = useState(false);
+  const [removing, setRemoving] = useState<Account | null>(null);
+  const removable = (a: Account) => canWrite && a.type !== "bank" && !a.archived;
   const shown = useMemo(() => {
     const q = search.trim().toLowerCase();
     return accounts.filter(
@@ -112,7 +115,14 @@ function AccountsPanel({ accounts }: { accounts: Account[] }) {
           />
           <Label htmlFor={usedId}>{t("usedOnly")}</Label>
         </div>
+        {canWrite && (
+          <Button className="h-11 @3xl/main:ml-auto md:h-9" onClick={() => setCreating(true)}>
+            {t("create.button")}
+          </Button>
+        )}
       </div>
+      {creating && <CreateAccountDialog chart={chart} onClose={() => setCreating(false)} />}
+      {removing && <RemoveAccountDialog account={removing} onClose={() => setRemoving(null)} />}
       {shown.length === 0 ? (
         <p className="rounded-lg border p-6 text-center text-muted-foreground text-sm">{t("noResults")}</p>
       ) : (
@@ -127,6 +137,11 @@ function AccountsPanel({ accounts }: { accounts: Account[] }) {
                   <TableHead className="text-right">{t("columns.debit")}</TableHead>
                   <TableHead className="text-right">{t("columns.credit")}</TableHead>
                   <TableHead className="text-right">{t("columns.balance")}</TableHead>
+                  {canWrite && (
+                    <TableHead>
+                      <span className="sr-only">{t("remove.column")}</span>
+                    </TableHead>
+                  )}
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -143,6 +158,20 @@ function AccountsPanel({ accounts }: { accounts: Account[] }) {
                       {a.used ? euro(a.balanceCents) : ""}
                       {a.incomplete && <IncompleteBadge />}
                     </TableCell>
+                    {canWrite && (
+                      <TableCell className="text-right">
+                        {removable(a) && (
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            aria-label={t("remove.title", { number: a.number })}
+                            onClick={() => setRemoving(a)}
+                          >
+                            {t("remove.button")}
+                          </Button>
+                        )}
+                      </TableCell>
+                    )}
                   </TableRow>
                 ))}
               </TableBody>
@@ -162,6 +191,17 @@ function AccountsPanel({ accounts }: { accounts: Account[] }) {
                     {a.incomplete && <IncompleteBadge />}
                   </span>
                 )}
+                {removable(a) && (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="h-11 shrink-0"
+                    aria-label={t("remove.title", { number: a.number })}
+                    onClick={() => setRemoving(a)}
+                  >
+                    {t("remove.button")}
+                  </Button>
+                )}
               </li>
             ))}
           </ul>
@@ -177,6 +217,8 @@ function AccountName({ account: a }: { account: Account }) {
     <span className="flex flex-wrap items-center gap-1.5">
       {a.name}
       {a.automaticVatAccount && <Badge variant="outline">{t("automaticVat")}</Badge>}
+      {a.custom && <Badge variant="secondary">{t("custom")}</Badge>}
+      {a.archived && <Badge variant="outline">{t("archived")}</Badge>}
       {!a.verified && (
         <Badge variant="outline" title={t("unverifiedHint")}>
           {t("unverified")}
@@ -322,6 +364,150 @@ function AssignDialog({ role, accounts, onClose }: { role: Role; accounts: Accou
           </Button>
           <Button type="submit" form={`${ids.account}-form`} className="h-11 md:h-9" disabled={busy}>
             {tCommon("save")}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+const ACCOUNT_TYPES = ["expense", "revenue", "asset", "liability", "equity", "neutral"] as const;
+const TAX_KEYS = ["USt19", "USt7", "VSt19", "VSt7"] as const;
+
+/** ACC-009: a custom Sachkonto (number range per type and chart, E-ACC-07; EÜR/BWA defaults from the type). */
+function CreateAccountDialog({ chart, onClose }: { chart: string; onClose: () => void }) {
+  const t = useTranslations("accounting.konten");
+  const tCommon = useTranslations("common");
+  const create = useMutation(api.accounting.createAccount);
+  const showError = useAdapterErrorToast();
+  const base = useId();
+  const [number, setNumber] = useState("");
+  const [name, setName] = useState("");
+  const [type, setType] = useState<(typeof ACCOUNT_TYPES)[number]>("expense");
+  const [taxKey, setTaxKey] = useState("");
+  const [busy, setBusy] = useState(false);
+  const submit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setBusy(true);
+    try {
+      await create({ number, name, type, ...(taxKey ? { taxKeyDefault: taxKey } : {}) });
+      toast.success(t("create.done", { number }));
+      onClose();
+    } catch (err) {
+      showError(err);
+    } finally {
+      setBusy(false);
+    }
+  };
+  return (
+    <Dialog open onOpenChange={(open) => !open && onClose()}>
+      <DialogContent className="sm:max-w-lg">
+        <DialogHeader>
+          <DialogTitle>{t("create.title")}</DialogTitle>
+          <DialogDescription>{t("create.description", { chart })}</DialogDescription>
+        </DialogHeader>
+        <form id={`${base}-form`} onSubmit={submit} className="flex flex-col gap-4">
+          <div className="flex flex-col gap-1.5">
+            <Label htmlFor={`${base}-type`}>{t("columns.type")}</Label>
+            <select
+              id={`${base}-type`}
+              className={SELECT}
+              value={type}
+              onChange={(e) => setType(e.target.value as (typeof ACCOUNT_TYPES)[number])}
+            >
+              {ACCOUNT_TYPES.map((x) => (
+                <option key={x} value={x}>
+                  {t(`types.${x}`)}
+                </option>
+              ))}
+            </select>
+          </div>
+          <div className="flex flex-col gap-1.5">
+            <Label htmlFor={`${base}-number`}>{t("create.number")}</Label>
+            <Input
+              id={`${base}-number`}
+              required
+              inputMode="numeric"
+              pattern="\d{4}"
+              maxLength={4}
+              className="h-11 font-mono md:h-9"
+              value={number}
+              onChange={(e) => setNumber(e.target.value)}
+            />
+          </div>
+          <div className="flex flex-col gap-1.5">
+            <Label htmlFor={`${base}-name`}>{t("columns.name")}</Label>
+            <Input
+              id={`${base}-name`}
+              required
+              maxLength={40}
+              className="h-11 md:h-9"
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+            />
+          </div>
+          <div className="flex flex-col gap-1.5">
+            <Label htmlFor={`${base}-tax`}>{t("create.taxKey")}</Label>
+            <select id={`${base}-tax`} className={SELECT} value={taxKey} onChange={(e) => setTaxKey(e.target.value)}>
+              <option value="">–</option>
+              {TAX_KEYS.map((k) => (
+                <option key={k} value={k}>
+                  {k}
+                </option>
+              ))}
+            </select>
+          </div>
+        </form>
+        <DialogFooter>
+          <Button variant="outline" className="h-11 md:h-9" onClick={onClose}>
+            {tCommon("cancel")}
+          </Button>
+          <Button type="submit" form={`${base}-form`} className="h-11 md:h-9" disabled={busy}>
+            {tCommon("save")}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+/** ACC-009 „Entfernen“: unused custom accounts are deleted, everything else is archived (E-ACC-06). */
+function RemoveAccountDialog({ account, onClose }: { account: Account; onClose: () => void }) {
+  const t = useTranslations("accounting.konten");
+  const tCommon = useTranslations("common");
+  const remove = useMutation(api.accounting.removeAccount);
+  const showError = useAdapterErrorToast();
+  const [busy, setBusy] = useState(false);
+  const willDelete = account.custom === true && !account.used;
+  return (
+    <Dialog open onOpenChange={(open) => !open && onClose()}>
+      <DialogContent className="sm:max-w-md">
+        <DialogHeader>
+          <DialogTitle>{t("remove.title", { number: account.number })}</DialogTitle>
+          <DialogDescription>{willDelete ? t("remove.delete") : t("remove.archive")}</DialogDescription>
+        </DialogHeader>
+        <DialogFooter>
+          <Button variant="outline" className="h-11 md:h-9" onClick={onClose}>
+            {tCommon("cancel")}
+          </Button>
+          <Button
+            variant="destructive"
+            className="h-11 md:h-9"
+            disabled={busy}
+            onClick={async () => {
+              setBusy(true);
+              try {
+                const r = await remove({ number: account.number });
+                toast.success(r.action === "delete" ? t("remove.deleted") : t("remove.archived"));
+                onClose();
+              } catch (err) {
+                showError(err);
+              } finally {
+                setBusy(false);
+              }
+            }}
+          >
+            {willDelete ? t("remove.confirmDelete") : t("remove.confirmArchive")}
           </Button>
         </DialogFooter>
       </DialogContent>

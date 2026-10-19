@@ -19,6 +19,8 @@ import type { CalendarDate } from "../time/calendar-date";
 import { calendarDate } from "../time/calendar-date";
 import type {
   AdvancePaymentReceivedEvent,
+  AssetDepreciationEvent,
+  AssetDisposalEvent,
   BankTransactionMarkedEvent,
   BusinessEvent,
   CashTransferEvent,
@@ -26,6 +28,7 @@ import type {
   InvoiceCorrectedEvent,
   InvoiceFinalisedEvent,
   JournalSource,
+  ManualEntryEvent,
   OpeningBalanceEvent,
   PaymentMeans,
   PaymentReceivedEvent,
@@ -70,6 +73,20 @@ export interface RoleLine {
   taxKey?: string;
   taxPointDate?: string;
   taxPeriod?: string;
+  /** F08 §3.1 manual entries, F06 voucher lines (KST). */
+  costCenterId?: string;
+  /** ACC-023: foreign-currency source amount (minor units) and the rate used; the line amounts are EUR. */
+  currency?: string;
+  amountFx?: number;
+  fxRate?: JournalFxRate;
+}
+
+/** 03 §0.2 `FxRate` as stored on journal lines (ACC-023). */
+export interface JournalFxRate {
+  rate: string;
+  source: "bmf_monthly" | "ecb_daily" | "manual" | "transaction";
+  sourceText?: string;
+  date: string;
 }
 
 export interface Posting {
@@ -187,6 +204,16 @@ export const EXPLANATIONS: Readonly<Record<string, string>> = {
   "V-storno": "Storno eines Belegs: Generalumkehr der Buchung im offenen Zeitraum (§ 17 UStG).",
   "V-correction":
     "Belegkorrektur: Generalumkehr der bisherigen Buchung, danach Neubuchung mit den korrigierten Werten.",
+  // ── assets (F08 §4.2.5) ──
+  D1: "Planmäßige Abschreibung (AfA) des Monats: Abschreibungen an Anlagenkonto (§ 7 EStG).",
+  D2: "Geringwertiges Wirtschaftsgut: Sofortabschreibung im Monat der Anschaffung (§ 6 Abs. 2 EStG).",
+  D3: "Sammelposten: jährliche Auflösung um ein Fünftel (§ 6 Abs. 2a EStG).",
+  D4: "Anlagenverkauf mit Buchgewinn: der Restbuchwert wird ausgebucht; der Erlös steht auf der Verkaufsrechnung.",
+  D5: "Anlagenverkauf mit Buchverlust (oder zum Buchwert): der Restbuchwert wird ausgebucht; der Erlös steht auf der Verkaufsrechnung.",
+  D6: "Verschrottung: der Restbuchwert wird als Aufwand ausgebucht.",
+  D7: "Entnahme eines Anlageguts: unentgeltliche Wertabgabe zum Teilwert (mit Umsatzsteuer, wenn Vorsteuer abgezogen wurde) und Ausbuchung des Restbuchwerts.",
+  M1: "Manuelle Buchung: Konten, Seiten und Beträge wie erfasst; Zeilen mit Steuerschlüssel brutto erfasst und in Netto und Steuer aufgeteilt.",
+  "M-storno": "Gegenbuchung einer manuellen Buchung: Generalumkehr im offenen Zeitraum.",
 };
 
 export const explanationText = (key: string): string => EXPLANATIONS[key] ?? key;
@@ -219,7 +246,18 @@ const R = (role: AccountRole): LineTarget => ({ role });
 export function mergeLines(lines: readonly RoleLine[]): RoleLine[] {
   const out: RoleLine[] = [];
   const keyOf = (l: RoleLine) =>
-    JSON.stringify([l.role, l.account, l.debitCents > 0, l.contactId, l.taxKey, l.taxPointDate, l.taxPeriod]);
+    JSON.stringify([
+      l.role,
+      l.account,
+      l.debitCents > 0,
+      l.contactId,
+      l.taxKey,
+      l.taxPointDate,
+      l.taxPeriod,
+      l.costCenterId,
+      l.currency,
+      l.fxRate?.rate,
+    ]);
   const index = new Map<string, number>();
   for (const l of lines) {
     const k = keyOf(l);
@@ -231,6 +269,8 @@ export function mergeLines(lines: readonly RoleLine[]): RoleLine[] {
       const m = out[i] as RoleLine;
       m.debitCents += l.debitCents;
       m.creditCents += l.creditCents;
+      // ACC-023: merged FX lines keep the summed source amount.
+      if (m.amountFx !== undefined || l.amountFx !== undefined) m.amountFx = (m.amountFx ?? 0) + (l.amountFx ?? 0);
     }
   }
   return out;
@@ -934,7 +974,82 @@ export function postEvent(
       return postBankMark(e, ctx);
     case "opening_balance":
       return postOpening(e, ctx);
+    case "asset_depreciation":
+      return postAssetDepreciation(e, ctx);
+    case "asset_disposal":
+      return postAssetDisposal(e, ctx);
+    case "manual_entry":
+      return postManualEntry(e, ctx);
   }
+}
+
+// ── manual entries (M1, ACC-011) ────────────────────────────────────────────────────────────────────────
+
+/** The lines come from `buildManualLines` (balance, tax keys, VAT split checked there); VAT lines get their period. */
+function postManualEntry(e: ManualEntryEvent, ctx: PostingContext): Result<PostingOutcome, PostingIssue> {
+  return entry(e, ctx, {
+    date: e.date,
+    text: truncate(e.text),
+    explanation: "M1",
+    lines: withTaxPeriods(mergeLines(e.lines), ctx),
+    dating: "user",
+  });
+}
+
+// ── assets (D1–D7) ──────────────────────────────────────────────────────────────────────────────────────
+
+function postAssetDepreciation(e: AssetDepreciationEvent, ctx: PostingContext): Result<PostingOutcome, PostingIssue> {
+  if (!isInt(e.amountCents) || e.amountCents < 0) return err(invalid("Der AfA-Betrag ist ungültig."));
+  if (e.amountCents === 0) return ok({ kind: "none", reason: "zero_amount" });
+  const explanation = e.afaRole === "afa.gwg" ? "D2" : e.afaRole === "afa.pool" ? "D3" : "D1";
+  return entry(e, ctx, {
+    date: e.date,
+    text: textWith(`AfA ${e.period.slice(5, 7)}/${e.period.slice(0, 4)} ${e.inventoryNumber}`, e.name),
+    explanation,
+    lines: [...debit(R(e.afaRole), e.amountCents), ...credit({ account: e.assetAccount }, e.amountCents)],
+    dating: "external",
+  });
+}
+
+function postAssetDisposal(e: AssetDisposalEvent, ctx: PostingContext): Result<PostingOutcome, PostingIssue> {
+  if (!isInt(e.rbwCents) || e.rbwCents < 0) return err(invalid("Der Restbuchwert ist ungültig."));
+  const lines: RoleLine[] = [];
+  let explanation = "D6";
+  if (e.disposalKind === "sale") {
+    explanation = e.gain ? "D4" : "D5";
+    lines.push(...debit(R(e.gain ? "disposal.rbw.gain" : "disposal.rbw.loss"), e.rbwCents));
+  } else if (e.disposalKind === "scrap") {
+    lines.push(...debit(R("disposal.rbw.loss"), e.rbwCents));
+  } else {
+    if (isCorporation(ctx.legalForm)) {
+      return err(
+        issue(
+          "private_withdrawal_corporation",
+          `Bei einer ${LEGAL_FORM_DE[ctx.legalForm] ?? "Kapitalgesellschaft"} gibt es keine Privatentnahmen. Bitte die Überlassung an den Gesellschafter als Verkauf erfassen.`,
+        ),
+      );
+    }
+    explanation = "D7";
+    const w = e.withdrawal ?? { teilwertCents: 0, vatCents: 0 };
+    if (!isInt(w.teilwertCents) || w.teilwertCents < 0 || !isInt(w.vatCents) || w.vatCents < 0) {
+      return err(invalid("Teilwert oder Umsatzsteuer der Entnahme sind ungültig."));
+    }
+    lines.push(...debit(R("private.withdrawal"), w.teilwertCents + w.vatCents));
+    lines.push(
+      ...credit(R("revenue.withdrawal.19"), w.teilwertCents, w.vatCents > 0 ? { taxKey: "USt19" } : {}),
+      ...credit(R("vat.output.19"), w.vatCents, { taxPointDate: e.date }),
+    );
+    lines.push(...debit(R("disposal.rbw.loss"), e.rbwCents));
+  }
+  lines.push(...credit({ account: e.assetAccount }, e.rbwCents));
+  if (lines.length === 0) return ok({ kind: "none", reason: "zero_amount" });
+  return entry(e, ctx, {
+    date: e.date,
+    text: textWith(`Anlagenabgang ${e.inventoryNumber}`, e.name),
+    explanation,
+    lines: withTaxPeriods(lines, ctx),
+    dating: "external",
+  });
 }
 
 // ── reversals (Generalumkehr, ACC-004) ──────────────────────────────────────────────────────────────────
@@ -945,6 +1060,7 @@ const REVERSAL_EXPLANATION: Record<ReversalEvent["kind"], string> = {
   payment_reversed: "P10",
   cash_transfer_reversed: "T10",
   bank_transaction_mark_reversed: "BNK-mark-reversal",
+  manual_entry_reversed: "M-storno",
 };
 
 /** Mirrored lines: same accounts, sides swapped; VAT lines are reported in the reversal's period (§17 UStG). */
@@ -966,7 +1082,12 @@ export function reversalPosting(
   original: { lines: readonly RoleLine[]; text: string },
   ctx: PostingContext,
 ): Posting {
-  const head = e.kind === "invoice_cancelled" ? `Storno ${e.documentNumber}` : `Storno: ${original.text}`;
+  const head =
+    e.kind === "invoice_cancelled"
+      ? `Storno ${e.documentNumber}`
+      : e.kind === "manual_entry_reversed"
+        ? `Gegenbuchung: ${original.text}`
+        : `Storno: ${original.text}`;
   // VOU-008: a correction mirrors the booking with its original tax points (Generalumkehr in the same period), the
   // re-post follows; a cancellation (VOU-009) reports the reversal in its own period (§ 17 UStG).
   const keepTaxPoints = e.kind === "voucher_reversed" && e.mode === "correction";
@@ -980,8 +1101,9 @@ export function reversalPosting(
     lines: keepTaxPoints
       ? original.lines.map((l) => ({ ...l, debitCents: l.creditCents, creditCents: l.debitCents }))
       : mirrorLines(original.lines, e.date, ctx),
-    // Storno/reversal of possibly locked records → first open period (ACC-006 b).
-    dating: "external",
+    // Storno/reversal of possibly locked records → first open period (ACC-006 b); the Gegenbuchung of a manual
+    // entry is dated by the user and refused in a locked period (E-ACC-04).
+    dating: e.kind === "manual_entry_reversed" ? "user" : "external",
   };
 }
 

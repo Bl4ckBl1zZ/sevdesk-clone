@@ -354,6 +354,20 @@ export interface VoucherBookedEvent {
   lines: VoucherPostingLine[];
   bewirtungOccasion?: "geschaeftlich" | "arbeitnehmer";
   taxPaymentSubtype?: "ust_prepayment" | "sondervorauszahlung" | "ust_annual" | "gewerbesteuer" | "est_private" | "kst";
+  /**
+   * ACC-023 / MISC-08: a foreign-currency voucher is posted in EUR; the open item (payable/receivable) keeps the
+   * currency, the gross source amount (minor units) and the rate used, so the settlement can derive the FX result.
+   */
+  fx?: {
+    currency: string;
+    grossFxCents: number;
+    fxRate: {
+      rate: string;
+      source: "bmf_monthly" | "ecb_daily" | "manual" | "transaction";
+      sourceText?: string;
+      date: string;
+    };
+  };
 }
 
 /**
@@ -422,7 +436,11 @@ export type BusinessEvent =
   | CashTransferReversedEvent
   | BankTransactionMarkedEvent
   | BankTransactionMarkReversedEvent
-  | OpeningBalanceEvent;
+  | OpeningBalanceEvent
+  | AssetDepreciationEvent
+  | AssetDisposalEvent
+  | ManualEntryEvent
+  | ManualEntryReversedEvent;
 
 /** Events that mirror earlier entries instead of using the matrix. */
 export type ReversalEvent =
@@ -430,9 +448,11 @@ export type ReversalEvent =
   | InvoiceCancelledEvent
   | PaymentReversedEvent
   | CashTransferReversedEvent
-  | BankTransactionMarkReversedEvent;
+  | BankTransactionMarkReversedEvent
+  | ManualEntryReversedEvent;
 
 export const isReversalEvent = (e: BusinessEvent): e is ReversalEvent =>
+  e.kind === "manual_entry_reversed" ||
   e.kind === "voucher_reversed" ||
   e.kind === "invoice_cancelled" ||
   e.kind === "payment_reversed" ||
@@ -484,6 +504,13 @@ export function sourceOf(e: BusinessEvent): JournalSource {
       return { kind: "bankTransaction", id: e.transactionId };
     case "opening_balance":
       return { kind: "opening_balance", id: openingSourceId(e.fiscalYear, e.part) };
+    case "asset_depreciation":
+      return { kind: "asset_depreciation", id: assetDepreciationSourceId(e.assetId, e.period) };
+    case "asset_disposal":
+      return { kind: "asset_depreciation", id: assetDisposalSourceId(e.assetId) };
+    case "manual_entry":
+    case "manual_entry_reversed":
+      return { kind: "manual", id: e.manualEntryId };
   }
 }
 
@@ -509,5 +536,76 @@ export function reversedSourceOf(e: ReversalEvent): JournalSource {
       return { kind: "cashTransfer", id: e.originalCashTransferId };
     case "bank_transaction_mark_reversed":
       return { kind: "bankTransaction", id: e.transactionId };
+    case "manual_entry_reversed":
+      return { kind: "manual", id: e.manualEntryId };
   }
+}
+
+// ── assets (F08 AST-009/AST-010, posting matrix D1–D8) ──────────────────────────────────────────────────
+
+/** D1–D3: one AfA entry per asset and month (pool: last month of the fiscal year); dated on the month end. */
+export interface AssetDepreciationEvent {
+  kind: "asset_depreciation";
+  assetId: string;
+  inventoryNumber: string;
+  name: string;
+  /** `YYYY-MM` of the plan row. */
+  period: string;
+  /** Last day of `period` (externally dated: a locked month moves to the first open period, E-AST-14). */
+  date: string;
+  amountCents: number;
+  /** The asset's account (credited). */
+  assetAccount: string;
+  afaRole: "afa.tangible" | "afa.vehicle" | "afa.intangible" | "afa.gwg" | "afa.pool";
+}
+
+/** D4–D7: the remaining book value leaves the asset account; a withdrawal also posts the Wertabgabe. */
+export interface AssetDisposalEvent {
+  kind: "asset_disposal";
+  assetId: string;
+  inventoryNumber: string;
+  name: string;
+  date: string;
+  disposalKind: "sale" | "scrap" | "withdrawal";
+  assetAccount: string;
+  rbwCents: number;
+  /** Sale: proceeds above the RBW (D4) or not (D5). */
+  gain?: boolean;
+  /** Withdrawal (D7): Teilwert net and the VAT (only if input VAT was deducted, § 3 Abs. 1b S. 2 UStG). */
+  withdrawal?: { teilwertCents: number; vatCents: number };
+}
+
+/** The journal source id of an AfA entry: one per (asset, period) — the idempotency key of AST-009. */
+export const assetDepreciationSourceId = (assetId: string, period: string): string => `${assetId}:${period}`;
+export const assetDisposalSourceId = (assetId: string): string => `${assetId}:disposal`;
+
+// ── manual entries (ACC-011, GOBD-07) ───────────────────────────────────────────────────────────────────
+
+/** One line of a manual entry as built by `buildManualLines` (explicit account or VAT role, one side). */
+export interface ManualPostingLine {
+  account?: string;
+  role?: string;
+  debitCents: number;
+  creditCents: number;
+  taxKey?: string;
+  taxPointDate?: string;
+  contactId?: string;
+  costCenterId?: string;
+}
+
+/** M1: a manual entry; the user picks the date, so a locked period refuses it (E-ACC-04). */
+export interface ManualEntryEvent {
+  kind: "manual_entry";
+  manualEntryId: string;
+  date: string;
+  text: string;
+  lines: ManualPostingLine[];
+}
+
+/** „Gegenbuchung“ of a manual entry (Generalumkehr, dated by the user in an open period). */
+export interface ManualEntryReversedEvent {
+  kind: "manual_entry_reversed";
+  manualEntryId: string;
+  date: string;
+  reason: string;
 }

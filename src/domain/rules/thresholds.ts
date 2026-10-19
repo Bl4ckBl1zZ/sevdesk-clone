@@ -203,6 +203,8 @@ export interface AssetThresholds {
   readonly gwgLimitCents: number;
   /** Sammelposten range (§ 6 Abs. 2a EStG): above `recordingLimitCents` up to this amount. */
   readonly poolMaxCents: number;
+  /** Sammelposten allowed for acquisitions on the date (absent = true; JStG-2026 draft abolishes it, AST-003). */
+  readonly poolAllowed?: boolean;
 }
 
 // F06 VOU-065 / AO-03: thresholds are date-effective data. A future change (e.g. a higher GWG limit) is a new row.

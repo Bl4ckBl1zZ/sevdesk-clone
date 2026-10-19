@@ -52,6 +52,7 @@ export const SYSTEM_JOBS = [
   "cron.products.applyScheduledPrices", // F03 PRD-031, 02 §7 products.applyScheduledPrices
   "cron.api.cleanup", // 05 §3/§7, 06 §2.3: expired idempotency records and confirm tokens, access log > 90 days
   "cron.deadlines.notify", // 02 §7 deadlines.notify (F04 SND-21 to-dos)
+  "cron.assets.depreciate", // 02 §7 assets.depreciate (F08 AST-009): 1st of the month 05:00 Europe/Berlin
   "cron.notifications.maintain", // F12 NTF-001/006: purge read > 90 days, escalate unresolved errors after 24 h
   "notifications.deliver", // F12 NTF-003/004: e-mail (Cloudflare Email Sending) and ntfy delivery of one notification
   "exports.run", // F09 EXP-026 / F04 SND-20: job workers (CSV, bulk export ZIP, bulk mark) — file storage only
