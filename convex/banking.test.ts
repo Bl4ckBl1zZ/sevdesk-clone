@@ -414,3 +414,61 @@ describe("F07 marking, reversals and cash (BNK-060/061/063/121, CSH-024…027)",
     expect((await rows(s.t, s.eur)).length).toBe(before + 1);
   });
 });
+
+describe("F07 revisions and foreign currency (BNK-026, BNK-028)", () => {
+  const revisions = (t: TestT) => t.run((ctx) => ctx.db.query("bankTransactionRevisions").collect());
+
+  test("BNK-026 re-deliveries never overwrite a booked row: another source only appends, the same source adds nothing", async () => {
+    const s = await setup();
+    await importFile(s, s.eur, csvOct, "eur-2026-10.csv");
+    const before = await rows(s.t, s.eur);
+    const revBefore = await revisions(s.t);
+    await importFile(s, s.eur, camtOct, "eur-2026-10.camt053.xml");
+    const after = await rows(s.t, s.eur);
+    expect(after.length).toBe(before.length);
+    for (const row of before) {
+      const now = after.find((r) => r._id === row._id);
+      expect(now).toMatchObject({
+        bookingDate: row.bookingDate,
+        amountCents: row.amountCents,
+        currency: row.currency,
+        purpose: row.purpose,
+        status: row.status,
+      });
+      // sources[] only grows: the CSV source stays, CAMT.053 is appended
+      expect(now?.sources.slice(0, row.sources.length)).toEqual(row.sources);
+      expect(now?.sources.map((x) => x.kind)).toContain("camt053");
+    }
+    const revAfter = await revisions(s.t);
+    // monotonic: every earlier revision is still there, unchanged
+    for (const r of revBefore) expect(revAfter.find((x) => x._id === r._id)).toEqual(r);
+    expect(revAfter.length).toBeGreaterThanOrEqual(revBefore.length);
+    // the same CAMT file again (forced): duplicates only, no new revision rows
+    await importFile(s, s.eur, camtOct, "eur-2026-10.camt053.xml", { force: true });
+    expect((await revisions(s.t)).length).toBe(revAfter.length);
+    expect((await rows(s.t, s.eur)).length).toBe(before.length);
+  });
+
+  test("BNK-028 marks on a non-EUR pocket are refused until the EUR valuation exists; nothing is posted", async () => {
+    const s = await setup();
+    await importFile(s, s.usd, usdOct, "usd.xml");
+    const usdRows = await rows(s.t, s.usd);
+    const tx = usdRows.find((r) => r.amountCents < 0) ?? usdRows[0];
+    if (!tx) throw new Error("no USD row");
+    expect(tx.currency).toBe("USD");
+    for (const as of ["private", "transfer"] as const) {
+      const e = await s.owner.action(api.banking.mark, { transactionId: tx._id, as }).catch((x) => x);
+      expect(reasonOf(e), as).toBe("FX_POSTING_DEFERRED");
+      expect(messageOf(e)).toContain(
+        "Umsätze in Fremdwährung können erst mit der EUR-Bewertung (Kurs der EZB) gebucht werden.",
+      );
+    }
+    const d = await s.owner.query(api.banking.transaction, { id: tx._id });
+    expect(d).toMatchObject({ status: "open", postings: [], eigenbelege: [] });
+    // „Ignorieren“ is not an FX posting: it is judged by the normal ignore rules only
+    const ignored = await s.owner
+      .action(api.banking.mark, { transactionId: tx._id, as: "ignored", reason: "test_or_zero" })
+      .catch((x) => x);
+    expect(reasonOf(ignored)).not.toBe("FX_POSTING_DEFERRED");
+  });
+});

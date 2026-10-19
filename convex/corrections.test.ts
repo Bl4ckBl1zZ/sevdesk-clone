@@ -349,6 +349,27 @@ describe("INV-03 INV-06 INV-07 advance and final invoices", { timeout: 30_000 },
     expect((await journal(t)).some((e) => e.source.id === advanceId)).toBe(false);
   });
 
+  test("PAY-017 UST-40 a payment on an advance posts S10: output VAT due on receipt (Mindest-Ist) also when Soll-taxing", async () => {
+    const t = makeT();
+    const { owner, advanceId } = await finalizedAdvance(t);
+    const profile = await t.run(async (ctx) => ctx.db.query("companyProfile").first());
+    expect(profile?.taxationMethod.at(-1)?.method ?? "soll").toBe("soll");
+    await receive(t, owner, advanceId, 119_000);
+    await settle(t);
+    const entries = (await journal(t)).filter((e) => e.explanation === "S10");
+    expect(entries).toHaveLength(1);
+    const e = entries[0] as Doc<"journalEntries">;
+    expect(e.date).toBe("2026-10-12");
+    const vat = e.lines.filter((l) => l.role?.startsWith("vat.output"));
+    expect(vat).toHaveLength(1);
+    expect(vat[0]).toMatchObject({ creditCents: 19_000, taxPointDate: "2026-10-12", taxPeriod: "2026-10" });
+    const advance = e.lines.filter((l) => l.role?.startsWith("advance.received"));
+    expect(advance.reduce((s, l) => s + l.creditCents, 0)).toBe(100_000);
+    expect(e.lines.reduce((s, l) => s + l.debitCents, 0)).toBe(119_000);
+    // the advance's open amount derives from the payment (gross 357 000 − 119 000)
+    expect((await doc(t, advanceId)).openAmountCents).toBe(238_000);
+  });
+
   test("INV-06 INV-09 RI-08 a paid advance is deducted in the final invoice with the received amounts (S11)", async () => {
     const t = makeT();
     const { owner, advanceId, advanceNumber } = await finalizedAdvance(t);

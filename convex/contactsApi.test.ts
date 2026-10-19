@@ -70,6 +70,26 @@ describe("contacts via REST/MCP (05 §4.1, F02 §7)", () => {
     expect(await reasonOf(key.mutation(api.contactsApi.archive, { id: a.id }))).toBe("not_found");
   });
 
+  test("CON-160 the DSGVO fields restrictedAt, deletionRequestedAt and scheduledPurgeAt exist from P1 and survive edits", async () => {
+    const t = makeT();
+    const { owner, a } = await seed(t);
+    const dsgvo = {
+      restrictedAt: 1_760_000_000_000,
+      deletionRequestedAt: 1_759_000_000_000,
+      scheduledPurgeAt: "2033-01-01",
+    };
+    // the schema accepts all three fields (P3 fills them through the DSGVO request flow, PRV-011)
+    await t.run((ctx) => ctx.db.patch(a.id as Id<"contacts">, { dsgvo }));
+    clearInvariantTarget(); // written without the (P3) request flow on purpose
+    const stored = await t.run((ctx) => ctx.db.get(a.id as Id<"contacts">));
+    expect(stored?.dsgvo).toEqual(dsgvo);
+    // restrictedAt hides the contact from API/MCP; an owner edit of the master data keeps the DSGVO fields
+    const key = await t.asApiKey(["contacts:read"]);
+    expect(await key.query(api.contactsApi.get, { id: a.id })).toBeNull();
+    await owner.mutation(api.contacts.update, { id: a.id, version: 1, values: orgForm("Alpha GmbH") });
+    expect((await t.run((ctx) => ctx.db.get(a.id as Id<"contacts">)))?.dsgvo).toEqual(dsgvo);
+  });
+
   test("API-015 PATCH overlays the given fields, validates the whole contact and checks the version", async () => {
     const t = makeT();
     const { a } = await seed(t);
