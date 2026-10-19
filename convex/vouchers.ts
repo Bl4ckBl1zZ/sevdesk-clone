@@ -137,18 +137,24 @@ export const preview = query({
     // 06 §3 voucher_finalize: the preview shows the resulting cash balance; CSH-026 is dry-run like the act.
     let cash: { balanceCents: number; balanceAfterCents: number } | null = null;
     if (p.payment.method === "cash" && p.payment.date && p.payment.amountCents) {
+      // Same sign as recordVoucherPayment: an expense (or a refunded income) leaves the till, an income (or a
+      // supplier's cash refund on a credit note) comes in. Only outflows can dip the balance (CSH-026).
+      const sign = Math.sign(p.check.totalsEur.grossCents) || 1;
+      const deltaCents = (v0.direction === "expense" ? -sign : sign) * Math.abs(p.payment.amountCents);
       const role = resolveRole("cash", await resolveContextAt(ctx, p.payment.date as CalendarDate));
       if (role.ok && role.value.account) {
         const rows = await cashLines(ctx, role.value.account);
         const balanceCents = rows.reduce((sum, l) => sum + l.debitCents - l.creditCents, 0);
-        cash = { balanceCents, balanceAfterCents: balanceCents - p.payment.amountCents };
+        cash = { balanceCents, balanceAfterCents: balanceCents + deltaCents };
       }
-      try {
-        await assertCashOutflowAllowed(ctx, p.payment.date, p.payment.amountCents);
-      } catch (e) {
-        if (errorCode(e) !== "cash_negative") throw e;
-        const data = (e as { data?: { message?: string } }).data;
-        errors.push({ code: "cash_negative", message: data?.message ?? "Der Kassenbestand würde negativ." });
+      if (deltaCents < 0) {
+        try {
+          await assertCashOutflowAllowed(ctx, p.payment.date, -deltaCents);
+        } catch (e) {
+          if (errorCode(e) !== "cash_negative") throw e;
+          const data = (e as { data?: { message?: string } }).data;
+          errors.push({ code: "cash_negative", message: data?.message ?? "Der Kassenbestand würde negativ." });
+        }
       }
     }
     return {
@@ -182,7 +188,8 @@ export const missing = query({
  * of Buchungsbelege (GOBD-20 `vouchers8`) and where the originals live.
  */
 export const scanningProcedure = query({
-  permission: "vouchers.read",
+  // Lists member e-mails like the Zugriffskonzept chapter → same permission (members.read), not vouchers.read.
+  permission: "members.read",
   args: {},
   handler: async (ctx) => {
     const profile = await getCompanyProfile(ctx);

@@ -2459,7 +2459,7 @@
     "kind": "query",
     "visibility": "public",
     "wrapper": "query",
-    "permission": "vouchers.read"
+    "permission": "members.read"
   },
   "vouchers:suggest": {
     "kind": "query",

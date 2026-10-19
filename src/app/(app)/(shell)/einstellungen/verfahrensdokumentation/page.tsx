@@ -11,7 +11,7 @@ export default function Page() {
       <RoleGate permission="members.read">
         <ZugriffskonzeptChapter />
       </RoleGate>
-      <RoleGate permission="vouchers.read">
+      <RoleGate permission="members.read">
         <ScanningChapter />
       </RoleGate>
     </SettingsPage>

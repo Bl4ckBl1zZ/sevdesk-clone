@@ -844,3 +844,25 @@ describe("list tabs (F06 §6.2)", () => {
     expect(page.page.map((r) => r._id)).toEqual([part]);
   });
 });
+
+describe("„Bar“ on income vouchers (VOU-136, VOU-010)", () => {
+  test("VOU-136 VOU-010 CSH-026 cash received on an income voucher raises the till in the preview; an expense lowers it", async () => {
+    const t = makeT();
+    await setupCompany(t);
+    const owner = await t.asUser("owner");
+    const income = await draft(t, owner, {
+      direction: "income",
+      taxRule: "output_vat",
+      supplierName: "Versicherung AG",
+      lines: [line({ account: "4400", description: "Erstattung", amountCents: 11_900 })],
+    });
+    const p = await owner.query(api.vouchers.preview, { id: income, payment: { method: "cash" } });
+    expect(p.errors.map((e) => e.code)).not.toContain("cash_negative");
+    expect(p.cash).toEqual({ balanceCents: 0, balanceAfterCents: 11_900 });
+
+    const expense = await draft(t, owner, { lines: [line({ amountCents: 4_760 })] });
+    const q = await owner.query(api.vouchers.preview, { id: expense, payment: { method: "cash" } });
+    expect(q.errors.map((e) => e.code)).toContain("cash_negative");
+    expect(q.cash).toEqual({ balanceCents: 0, balanceAfterCents: -4_760 });
+  });
+});
