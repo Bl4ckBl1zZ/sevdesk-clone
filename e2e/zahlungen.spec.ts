@@ -54,6 +54,9 @@ async function finalisedInvoice(page: Page, opts: { skonto?: boolean } = {}) {
   await expect(h1(page, /^Rechnung \S+$/)).toBeVisible({ timeout: 60_000 });
   const number = ((await h1(page, /^Rechnung /).textContent()) ?? "").replace("Rechnung ", "").trim();
   await expect(page.getByTestId("open-amount")).toHaveText("119,00 €", { timeout: 20_000 });
+  // The background render enables the header actions; let it settle so a later axe scan never sees the buttons
+  // switching from disabled (50 % opacity) to enabled.
+  await expect(page.getByRole("button", { name: "Exportieren" })).toBeEnabled({ timeout: 90_000 });
   return { number, url: page.url() };
 }
 

@@ -56,6 +56,10 @@ async function finalize(page: Page, label: string, route: string, save = true): 
   // Not „Angebot (Entwurf)“: a revision opens as a draft whose heading has the same shape (QUO-06).
   const heading = h1(page, new RegExp(`^${label} [^\\s(]\\S*$`));
   await expect(heading).toBeVisible({ timeout: 60_000 });
+  // Step 3 renders the PDF in the background and then enables „Exportieren“/„Als versendet markieren“. Wait for it:
+  // otherwise the buttons switch from disabled (50 % opacity) to enabled while a later axe scan runs, and axe
+  // reports the half-transparent text as a contrast violation.
+  await expect(page.getByRole("button", { name: "Exportieren" })).toBeEnabled({ timeout: 90_000 });
   return ((await heading.textContent()) ?? "").replace(`${label} `, "").trim();
 }
 

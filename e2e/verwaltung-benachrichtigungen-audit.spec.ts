@@ -168,7 +168,12 @@ test("DOC-39 T-DOC-043 the invoice shows its Nummernkreis-Eintrag and links to t
 }) => {
   await page.goto("/rechnungen");
   await expect(h1(page, "Rechnungen")).toBeVisible();
-  const first = page.getByRole("link", { name: /^RE-/ }).filter({ visible: true }).first();
+  // An invoice numbered by the app (RE-YYYY-NNNN): the sevdesk-imported ones (RE-5004 …, sevdesk-import.spec.ts)
+  // have a register row without a number range, hence no register link.
+  const first = page
+    .getByRole("link", { name: /^RE-\d{4}-\d{4,}$/ })
+    .filter({ visible: true })
+    .first();
   test.skip((await first.count()) === 0, "no finalised invoice in this journey");
   await first.click();
   const entry = page.getByTestId("register-entry");
