@@ -48,6 +48,10 @@ export const meta = systemQuery({
       lastCheckpoint: checkpoint
         ? { date: checkpoint.date, lastSeq: checkpoint.lastSeq, lastHash: checkpoint.lastHash }
         : null,
+      // Export job results (earlier Vollexporte, CSV and bulk ZIPs) are derived copies, not data: never re-exported.
+      jobResults: (await ctx.db.query("jobs").collect()).flatMap((x) =>
+        x.resultStorageId ? [x.resultStorageId as string] : [],
+      ),
     };
   },
 });

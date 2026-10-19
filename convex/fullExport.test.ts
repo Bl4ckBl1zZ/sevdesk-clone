@@ -75,8 +75,19 @@ describe("EXP-023 Vollexport", { timeout: 60_000 }, () => {
     expect(text(zip["SHA256SUMS.txt"])).toContain("tables/salesDocuments.ndjson");
     expect(text(zip["README.txt"])).toContain("Vollexport");
 
+    // A second Vollexport does not embed the first one (job results are not data).
+    const second = await owner.mutation(api.fullExport.start, {});
+    await settle(t);
+    const job2 = await t.run((ctx) => ctx.db.get(second.jobId as Id<"jobs">));
+    const buf2 = await t.run(async (ctx) =>
+      (await ctx.storage.get(job2?.resultStorageId as Id<"_storage">))?.arrayBuffer(),
+    );
+    const manifest2 = JSON.parse(text(unzipSync(new Uint8Array(buf2 as ArrayBuffer))["manifest.json"]));
+    expect(manifest2.files.some((f: { path: string }) => f.path.startsWith(`files/${job?.resultSha256}`))).toBe(false);
+
     const audit = await t.run((ctx) => ctx.db.query("auditLog").collect());
-    expect(audit.filter((a) => a.action === "export.full")).toEqual([
+    expect(audit.filter((a) => a.action === "export.full")).toHaveLength(2);
+    expect(audit.filter((a) => a.action === "export.full").slice(0, 1)).toEqual([
       expect.objectContaining({
         actor: owner.actor,
         diff: expect.objectContaining({ after: expect.objectContaining({ sha256: job?.resultSha256 }) }),

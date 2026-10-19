@@ -56,6 +56,7 @@ export const run = systemAction({
       };
 
       // Files first: their sizes are known up front, so an oversized export fails before any download.
+      const skip = new Set(meta.jobResults);
       const stored: { id: string; sha256: string; size: number; contentType?: string }[] = [];
       for (let cursor: string | null = null; ; ) {
         const page: {
@@ -65,7 +66,7 @@ export const run = systemAction({
         } = await ctx.runQuery(internal.fullExport.storagePage, {
           paginationOpts: { cursor, numItems: PAGE, maximumBytesRead: PAGE_BYTES },
         });
-        stored.push(...page.files);
+        stored.push(...page.files.filter((f) => !skip.has(f.id)));
         if (page.isDone) break;
         cursor = page.continueCursor;
       }

@@ -25,7 +25,8 @@ signed checkpoints in the checkpoint bucket.
 6. **Integrity and restore record (EXP-024):** `npx convex run restore:complete '{"source":"<backup file>",
    "expected":{"seq":<seq>,"hash":"<hash>"}}'`. `expected` is the audit head of the backup: `auditHead` in
    `manifest.json` of a Vollexport taken at the same time, or `lastSeq`/`lastHash` of the production checkpoint of
-   the backup day (`checkpoints/YYYY/MM/DD.jws`); omit it if neither matches the backup moment. The function
+   the backup day (`checkpoints/YYYY/MM/DD.jws`); omit it if neither matches the backup moment (the restore record
+   then shows `headMatchesCheckpoint: false` = not checked, not a mismatch). The function
    verifies the whole chain, refuses a different head (E-EXP-40: „Prüfkette nach Wiederherstellung weicht ab …",
    integrity alert raised — do not continue), warns when the checkpoint bucket holds a newer checkpoint (E-EXP-41:
    the data after the backup must be re-entered) and writes `system.restore` as the first audit entry after the
