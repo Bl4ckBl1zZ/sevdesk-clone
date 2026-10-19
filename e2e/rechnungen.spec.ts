@@ -4,7 +4,7 @@ import { expect, selectCustomer, test } from "./fixtures";
 
 /**
  * Rechnungen (F04 P1 invoices core) as the signed-in owner: contact + product → draft → finalise → export → mark as
- * sent → listed as open; variants Kleinbetrag, § 13b and Kleinunternehmer. Needs the backend and runs after
+ * sent → listed as open; variants Kleinbetrag and § 13b (Kleinunternehmer: e2e/zuletzt-kleinunternehmer.spec.ts). Needs the backend and runs after
  * e2e/00-journey.spec.ts and e2e/kontakte-produkte.spec.ts in the same project (single worker, files in order), which
  * created the owner (setup complete), the contact „Muster Handwerk GmbH“ and the product „Wartung Heizung“.
  */
@@ -158,28 +158,4 @@ test("UST-22 § 13b: construction work for a business customer shifts the VAT li
       .filter({ visible: true })
       .first(),
   ).toBeVisible();
-});
-
-test("KU-02 Kleinunternehmer: the invoice shows no VAT and the § 19 note", async ({ page }) => {
-  await page.goto("/einstellungen/steuern");
-  await page.getByRole("radio", { name: "Ja, Kleinunternehmer" }).check();
-  await page.getByLabel(/Kleinunternehmer seit/).fill("2026-01-01");
-  await page.getByLabel(/Gesamtumsatz/).fill("18.000,00");
-  // The earlier tests finalised invoices dated today: a retroactive KU entry touches them, so the KU history
-  // (src/domain/tax/ku-history.ts, REASON_REQUIRED) asks for a reason.
-  await page.getByLabel("Begründung für die Änderung").fill("E2E: Wechsel zur Kleinunternehmerregelung");
-  await page.getByRole("button", { name: "Speichern" }).first().click();
-  await expect(page.getByText(/Gespeichert/).first()).toBeVisible({ timeout: 20_000 });
-
-  await draftWithLine(page, { name: "Beratung Kleinunternehmer", price: "50,00" });
-  await expect(page.getByTestId("gross")).toHaveText("50,00 €", { timeout: 20_000 });
-  await saveAndFinalize(page);
-  await expect(page.getByText(/§ 19/).filter({ visible: true }).first()).toBeVisible();
-
-  // Back to Regelbesteuerung: the later specs (Zahlungen, Angebote) expect 19 % VAT on the shared deployment.
-  await page.goto("/einstellungen/steuern");
-  await page.getByRole("radio", { name: "Nein, Regelbesteuerung" }).check();
-  await page.getByLabel("Begründung für die Änderung").fill("E2E: zurück zur Regelbesteuerung");
-  await page.getByRole("button", { name: "Speichern" }).first().click();
-  await expect(page.getByText(/Gespeichert/).first()).toBeVisible({ timeout: 20_000 });
 });
