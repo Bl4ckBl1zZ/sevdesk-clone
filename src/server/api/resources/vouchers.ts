@@ -39,11 +39,13 @@ import { nextCursor, paginationOpts, rawId, requireVersion, versionField } from 
 
 type VId = Id<"vouchers">;
 const params = z.object({ id: prefixedId("vouchers") });
-const TABS = ["all", "draft", "open", "paid", "cancelled", "unbooked"] as const;
+const TABS = ["all", "draft", "open", "overdue", "partially_paid", "paid", "cancelled", "unbooked"] as const;
 
 export async function loadVoucher(convex: ConvexCaller, raw: string) {
   try {
-    return (await convex.query(api.vouchers.get, { id: raw as VId })) as unknown as VoucherDetailRecord;
+    const d = await convex.query(api.vouchers.get, { id: raw as VId });
+    if (!d) throw new ApiProblem("not_found", { detail: "Beleg nicht gefunden." });
+    return d as unknown as VoucherDetailRecord;
   } catch (e) {
     if ((e as { data?: { code?: string } }).data?.code === "not_found") {
       throw new ApiProblem("not_found", { detail: "Beleg nicht gefunden." });
@@ -146,7 +148,7 @@ export const vouchersResource = defineResource("vouchers", "Belege (Ausgaben)", 
     operationId: "listVouchers",
     summary: "Belege auflisten",
     description:
-      "Neueste zuerst; `status` all, draft, open, paid, cancelled oder unbooked (Unbearbeitet > 10 Tage); `q` sucht in Lieferant und Nummern.",
+      "Neueste zuerst; `status` all, draft, open, overdue (fällig), partially_paid, paid, cancelled oder unbooked (Unbearbeitet > 10 Tage); `q` sucht in Lieferant und Nummern.",
     tag: "Belege",
     scope: "vouchers:read",
     query: listQuery.extend({

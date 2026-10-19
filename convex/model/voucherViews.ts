@@ -19,7 +19,17 @@ import { linesOf, previewVoucher, requireVoucher } from "./vouchers";
 
 /** Read models of the „Ausgaben“ pages (F06 §6): list rows, detail, missing receipts, unbooked items. */
 
-export const VOUCHER_TABS = ["all", "draft", "open", "paid", "cancelled", "unbooked"] as const;
+/** F06 §6.2 tabs Entwurf · Offen · Fällig · Teilbezahlt · Bezahlt · Storniert, plus „Unbearbeitet > 10 Tage“ (VOU-111). */
+export const VOUCHER_TABS = [
+  "all",
+  "draft",
+  "open",
+  "overdue",
+  "partially_paid",
+  "paid",
+  "cancelled",
+  "unbooked",
+] as const;
 export type VoucherTab = (typeof VOUCHER_TABS)[number];
 
 const DAY_MS = 86_400_000;
@@ -32,6 +42,14 @@ export function tabMatches(v: Doc<"vouchers">, tab: VoucherTab, now: number): bo
       return v.status === "draft";
     case "open":
       return v.status === "open" || v.status === "scheduled" || v.status === "partially_paid";
+    case "overdue":
+      return (
+        (v.status === "open" || v.status === "scheduled" || v.status === "partially_paid") &&
+        !!v.dueDate &&
+        v.dueDate < berlinCalendarDate(now)
+      );
+    case "partially_paid":
+      return v.status === "partially_paid";
     case "paid":
       return v.status === "paid";
     case "cancelled":

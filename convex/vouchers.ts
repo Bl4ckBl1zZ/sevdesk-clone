@@ -111,7 +111,7 @@ export const counts = query({
   handler: async (ctx) => {
     const now = ctx.now();
     const all = await ctx.db.query("vouchers").collect();
-    const out: Record<VoucherTab, number> = { all: 0, draft: 0, open: 0, paid: 0, cancelled: 0, unbooked: 0 };
+    const out = Object.fromEntries(VOUCHER_TABS.map((t) => [t, 0])) as Record<VoucherTab, number>;
     for (const d of all) for (const t of VOUCHER_TABS) if (tabMatches(d, t, now)) out[t]++;
     return out;
   },
@@ -120,7 +120,8 @@ export const counts = query({
 export const get = query({
   permission: "vouchers.read",
   args: { id: v.id("vouchers") },
-  handler: async (ctx, { id }) => voucherDetail(ctx, id, ctx.now()),
+  // null for an unknown id (the page shows „nicht gefunden“; REST answers 404).
+  handler: async (ctx, { id }) => ((await ctx.db.get(id)) ? voucherDetail(ctx, id, ctx.now()) : null),
 });
 
 /** „Buchen“ dialog / REST + MCP preview: validation, payment plan, journal lines (no writes). */

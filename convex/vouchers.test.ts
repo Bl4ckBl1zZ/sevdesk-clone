@@ -229,7 +229,7 @@ describe("booking (VOU-007, VOU-026, VOU-136)", () => {
     const viewer = await t.asUser("viewer");
     expect((await errorOf(viewer.mutation(api.vouchers.finalize, { id }))).code).toBe("forbidden_role");
     const auditor = await t.asUser("auditor", { auditor: { purpose: "Prüfung", fiscalYears: [YEAR] } });
-    expect((await auditor.query(api.vouchers.get, { id })).voucher._id).toBe(id);
+    expect((await auditor.query(api.vouchers.get, { id }))?.voucher._id).toBe(id);
   });
 });
 

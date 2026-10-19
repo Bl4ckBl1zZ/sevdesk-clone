@@ -79,11 +79,11 @@ export const voucherTools = [
     name: "voucher_search",
     title: "Belege suchen",
     description:
-      "Belege (Ausgaben), neueste zuerst. status: all, draft, open, paid, cancelled, unbooked (Unbearbeitet > 10 Tage); q sucht in Lieferant und Nummern.",
+      "Belege (Ausgaben), neueste zuerst. status: all, draft, open, overdue (fällig), partially_paid, paid, cancelled, unbooked (Unbearbeitet > 10 Tage); q sucht in Lieferant und Nummern.",
     kind: "read",
     scopes: ["vouchers:read"],
     input: z.object({
-      status: z.enum(["all", "draft", "open", "paid", "cancelled", "unbooked"]).optional(),
+      status: z.enum(["all", "draft", "open", "overdue", "partially_paid", "paid", "cancelled", "unbooked"]).optional(),
       q: z.string().max(200).optional(),
       limit: z.number().int().min(1).max(100).optional(),
       cursor: z.string().max(500).optional(),
