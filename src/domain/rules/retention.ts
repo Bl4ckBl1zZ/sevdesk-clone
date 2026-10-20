@@ -35,6 +35,7 @@ export const RETENTION_YEARS = defineRuleTable<RetentionYears>("retention_years"
 /** §4.7 record types → class (tables, or `salesDocuments:<type>` handled by the document helpers). */
 export const RECORD_RETENTION: Readonly<Record<string, RetentionClass>> = {
   journalEntries: "books10",
+  manualEntries: "books10",
   ledgerAccounts: "books10",
   periods: "books10",
   openingBalances: "books10",

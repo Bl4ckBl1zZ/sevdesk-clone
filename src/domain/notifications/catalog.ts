@@ -95,6 +95,8 @@ export const NOTIFICATION_KINDS = {
   "deadline.zm": def("warning", DEADLINE, "Frist Zusammenfassende Meldung", "Frist Zusammenfassende Meldung naht"),
   "deadline.14a": def("warning", DEADLINE, "Frist § 14a UStG", "Rechnungsfrist nach § 14a UStG naht"),
   "deadline.vorauszahlung": def("warning", DEADLINE, "Steuervorauszahlung fällig", "Steuervorauszahlung bald fällig"),
+  // F08 TAX-019: annual returns for self-filers (no Steuerberater, B5), reminders 6 and 1 weeks before.
+  "deadline.annual_return": def("warning", DEADLINE, "Frist Steuererklärung", "Frist für eine Steuererklärung naht"),
   "dsgvo.deadline": def("warning", DEADLINE, "DSGVO-Frist", "Frist für eine Datenschutzanfrage naht"),
   "uninvoiced.150d": def(
     "warning",

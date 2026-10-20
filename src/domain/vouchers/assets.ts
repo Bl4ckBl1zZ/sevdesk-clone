@@ -51,7 +51,7 @@ const isAssetAccount = (account: string) => account.startsWith("0");
 function options(perItem: number, t: AssetThresholds): AssetDecision[] {
   const out: AssetDecision[] = [];
   if (perItem <= t.gwgLimitCents) out.push("gwg");
-  if (perItem > t.recordingLimitCents && perItem <= t.poolMaxCents) out.push("pool");
+  if (t.poolAllowed !== false && perItem > t.recordingLimitCents && perItem <= t.poolMaxCents) out.push("pool");
   out.push("asset", "none");
   return out;
 }

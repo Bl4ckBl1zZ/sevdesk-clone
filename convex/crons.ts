@@ -41,6 +41,15 @@ crons.cron("api.cleanup", "15 * * * *", internal.apiKeys.cleanupCron, {});
 // "exported, not marked as sent" to-dos (F04 SND-21). The job is idempotent per document (dedupe key).
 crons.cron("deadlines.notify (CEST)", "0 6 * * *", internal.invoices.notifyDeadlinesCron, {});
 crons.cron("deadlines.notify (CET)", "0 7 * * *", internal.invoices.notifyDeadlinesCron, {});
+// deadlines.notify, tax part (F08 TAX-019): UStVA/ZM/Sondervorauszahlung/Vorauszahlungen/annual returns; the dedupe key
+// per deadline makes the second daily registration a no-op.
+crons.cron("deadlines.notify tax (CEST)", "5 6 * * *", internal.taxes.notifyTaxDeadlinesCron, {});
+crons.cron("deadlines.notify tax (CET)", "5 7 * * *", internal.taxes.notifyTaxDeadlinesCron, {});
+
+// assets.depreciate (F08 AST-009): 1st of the month 05:00 Europe/Berlin for the previous month; idempotent per
+// (asset, month), so the second registration is a no-op.
+crons.cron("assets.depreciate (CEST)", "0 3 1 * *", internal.assets.depreciateCron, {});
+crons.cron("assets.depreciate (CET)", "0 4 1 * *", internal.assets.depreciateCron, {});
 
 // recurring.generate — daily 06:00 Europe/Berlin (04:00 UTC in summer, 05:00 UTC in winter; F04 REC-05). The job is
 // idempotent per (template, occurrence), so the second registration of the day finds nothing due.

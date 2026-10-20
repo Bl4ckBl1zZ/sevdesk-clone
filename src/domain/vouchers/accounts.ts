@@ -110,13 +110,24 @@ export function looksLikeOwnSales(account: string, ctx: AccountContext): boolean
 export function accountContextFor(
   chart: Chart,
   date: CalendarDate,
-  opts: { bankLedgerAccounts?: readonly string[]; roleOverrides?: Readonly<Record<string, string | null>> } = {},
+  opts: {
+    bankLedgerAccounts?: readonly string[];
+    roleOverrides?: Readonly<Record<string, string | null>>;
+    /** F08 ACC-009: custom Sachkonten and archived numbers (E-ACC-06). */
+    customAccounts?: readonly ChartAccount[];
+    archivedAccounts?: ReadonlySet<string>;
+  } = {},
 ): AccountContext | null {
-  const accounts = chartAccounts(chart, date);
+  const seeded = chartAccounts(chart, date);
   const mapping = lookupRoleMapping(date);
-  if (!accounts.ok || !mapping.ok) return null;
+  if (!seeded.ok || !mapping.ok) return null;
   const roleAccounts: Record<string, string | null> = {};
   for (const row of mapping.value.value.rows) roleAccounts[row.role] = row[chart];
   Object.assign(roleAccounts, opts.roleOverrides ?? {});
-  return { chart, accounts: accounts.value, roleAccounts, bankLedgerAccounts: opts.bankLedgerAccounts ?? [] };
+  const archived = opts.archivedAccounts ?? new Set<string>();
+  const accounts = [
+    ...seeded.value,
+    ...(opts.customAccounts ?? []).filter((c) => !seeded.value.some((a) => a.number === c.number)),
+  ].filter((a) => !archived.has(a.number));
+  return { chart, accounts, roleAccounts, bankLedgerAccounts: opts.bankLedgerAccounts ?? [] };
 }

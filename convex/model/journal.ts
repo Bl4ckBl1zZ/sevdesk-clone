@@ -32,6 +32,7 @@ import type { Doc, Id } from "../_generated/dataModel";
 import { appError, type ErrorCode } from "../lib/errors";
 import { auditedInsert } from "./audit";
 import { getCompanyProfile } from "./companyProfile";
+import { ledgerAccountsOf } from "./ledgerAccounts";
 import type { ModelCtx, ReadCtx } from "./types";
 
 /**
@@ -139,9 +140,12 @@ export async function resolveContextAt(ctx: ReadCtx, date: CalendarDate): Promis
   const profile = await getCompanyProfile(ctx);
   const chart = chartAt(profile?.chartOfAccounts ?? [], profile?.fiscalYearStartMonth ?? 1, date);
   const banks = await ctx.db.query("bankAccounts").collect();
+  const ledger = await ledgerAccountsOf(ctx, chart);
   return {
     chart,
     date,
+    customAccounts: ledger.custom.filter((a) => !a.archived),
+    archivedAccounts: ledger.archived,
     overrides: await roleOverrides(ctx, chart),
     bankAccounts: banks.map((b) => ({
       id: b._id,
@@ -285,6 +289,11 @@ async function persist(ctx: ModelCtx, posting: Posting, a: PersistArgs) {
     ...(l.contactId !== undefined ? { contactId: contacts.get(l.contactId) as Id<"contacts"> } : {}),
     ...(l.taxPointDate !== undefined ? { taxPointDate: l.taxPointDate } : {}),
     ...(l.taxPeriod !== undefined ? { taxPeriod: l.taxPeriod } : {}),
+    ...(l.costCenterId !== undefined ? { costCenterId: l.costCenterId } : {}),
+    // ACC-023: the EUR line keeps its foreign-currency source amount and rate.
+    ...(l.currency !== undefined ? { currency: l.currency } : {}),
+    ...(l.amountFx !== undefined ? { amountFx: l.amountFx } : {}),
+    ...(l.fxRate !== undefined ? { fxRate: l.fxRate } : {}),
   }));
   const value = {
     seq,
