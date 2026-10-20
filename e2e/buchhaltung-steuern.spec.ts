@@ -47,6 +47,8 @@ test("AST-001 AST-007 Anlagen: Anlage erfassen (GWG) and the depreciation plan",
   await page
     .getByRole("button", { name: /^AV-/ })
     .or(page.getByText(`E2E Laptop ${test.info().project.name}`))
+    // Phones render the asset list as cards; the hidden table copy comes first in the DOM.
+    .filter({ visible: true })
     .first()
     .click();
   await expect(page.getByRole("heading", { name: "Abschreibungsplan" })).toBeVisible();
