@@ -37,6 +37,7 @@ import {
   resolveNotifications,
   upsertNotification,
 } from "./salesDocuments";
+import { reverseDeliveryNote } from "./stock";
 import type { ModelCtx, ReadCtx } from "./types";
 
 /**
@@ -200,6 +201,7 @@ export async function withdrawDocument(ctx: ModelCtx, id: Id<"salesDocuments">, 
     { action: "document.withdraw", label: label(doc), reason: reason.trim() },
   );
   if (doc.type === "quote") await closeQuoteTodos(ctx, id);
+  if (doc.type === "delivery_note" && doc.status !== "draft") await reverseDeliveryNote(ctx, doc); // F03 PRD-092
   const after = await getDocument(ctx, id);
   if (await inChain(ctx, after)) await recomputeChainOf(ctx, after, "document.progress");
 }

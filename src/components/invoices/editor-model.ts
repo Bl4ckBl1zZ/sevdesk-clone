@@ -74,6 +74,8 @@ export interface EditorState {
   readonly showPrices: boolean;
   /** DOC-53: document cost centre, tags and custom fields. */
   readonly costCenterId: string;
+  /** F11 PRJ-002: the document's project ("" = none); kept through saves. */
+  readonly projectId?: string;
   readonly tags: readonly string[];
   readonly customFields: Readonly<Record<string, string | number | boolean>>;
   /** DOC-54: "" = the default layout of the document type. */
@@ -232,6 +234,7 @@ export function editorFromValues(v: DraftValues): EditorState {
     deliveryTerms: v.deliveryTerms ?? "",
     showPrices: v.showPrices ?? false,
     costCenterId: v.costCenterId ?? "",
+    projectId: v.projectId ?? "",
     tags: v.tags ?? [],
     customFields: v.customFields ?? {},
     layoutId: v.layoutId ?? "",
@@ -340,6 +343,7 @@ export function toDraftValues(s: EditorState): { values: DraftValues; errors: Ed
     ...(f.deliveryTerms && opt(s.deliveryTerms) ? { deliveryTerms: s.deliveryTerms.trim() } : {}),
     ...(f.showPrices && s.showPrices ? { showPrices: true } : {}),
     ...(s.costCenterId ? { costCenterId: s.costCenterId } : {}),
+    ...(s.projectId ? { projectId: s.projectId } : {}),
     ...(s.tags.length ? { tags: [...s.tags] } : {}),
     ...(Object.keys(s.customFields).length ? { customFields: { ...s.customFields } } : {}),
     ...(s.layoutId ? { layoutId: s.layoutId } : {}),

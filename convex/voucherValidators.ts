@@ -394,7 +394,8 @@ export const voucherTables = {
     .index("by_status_due", ["status", "dueDate"])
     .index("by_documentDate", ["documentDate"])
     .index("by_recurring", ["recurringVoucherId", "documentDate"])
-    .index("by_bankTransaction", ["bankTransactionId"]),
+    .index("by_bankTransaction", ["bankTransactionId"])
+    .index("by_project", ["projectId"]),
 
   // voucherLines 🔒 frozen with the parent (03 §6).
   voucherLines: defineTable({

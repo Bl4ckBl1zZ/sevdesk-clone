@@ -142,7 +142,8 @@ export type NumberedDocType =
   | "contact"
   | "product"
   | "asset"
-  | "voucherInternal";
+  | "voucherInternal"
+  | "project";
 
 export interface SeedRange {
   /** Stable key = the first document type (UI field key). */
@@ -235,6 +236,15 @@ export const SEEDED_RANGES: readonly SeedRange[] = [
     docTypes: ["voucherInternal"],
     format: "BE-{YYYY}-{#####}",
     resetPolicy: "yearly",
+    startValue: 1,
+  },
+  // F11 PRJ-001: projects are numbered at creation from their own range (03 §1 SET-064).
+  {
+    key: "project",
+    name: "Projekte",
+    docTypes: ["project"],
+    format: "PRJ-{#####}",
+    resetPolicy: "never",
     startValue: 1,
   },
 ];

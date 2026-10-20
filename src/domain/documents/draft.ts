@@ -79,6 +79,17 @@ export interface DraftLine {
   readonly optional?: boolean | undefined;
   /** Line of the source document this line was converted from (§4.3.3 invoicing progress). */
   readonly sourceLineId?: string | undefined;
+  /** F11 PRJ-002/010: line project, billed time entries and the rounding rule used (not printed). */
+  readonly projectId?: string | undefined;
+  readonly timeEntryIds?: readonly string[] | undefined;
+  readonly timeRounding?:
+    | {
+        readonly incrementMinutes: number;
+        readonly mode: "up" | "nearest";
+        readonly minimumMinutes?: number | undefined;
+        readonly perGroup: boolean;
+      }
+    | undefined;
 }
 
 export interface DraftDocument {
@@ -137,6 +148,8 @@ export interface DraftDocument {
   readonly tags?: readonly string[] | undefined;
   readonly customFields?: Readonly<Record<string, string | number | boolean>> | undefined;
   readonly costCenterId?: string | undefined;
+  /** F11 PRJ-002 */
+  readonly projectId?: string | undefined;
   /** DOC-54 */
   readonly layoutId?: string | undefined;
   readonly lines: readonly DraftLine[];

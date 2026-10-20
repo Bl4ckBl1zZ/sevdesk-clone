@@ -335,6 +335,15 @@ export const PERMISSIONS = {
    * voucher (⚠ like `payments.record`: MCP needs a `payment_record` token; REST also requires `vouchers:write`).
    */
   "vouchers.pay": { roles: ["owner", "bookkeeper"], scope: "payments:write", write: true, confirm: "payment_record" },
+  /**
+   * F11 projects and time (P4): lists, project page, profitability, timer state. Auditors are not granted (time
+   * entries are operational data without fiscal-year scoping; invoiced time is visible through the invoices).
+   */
+  "projects.read": { roles: STAFF_READ, scope: "projects:read", write: false },
+  /** F11 PRJ-001: create/edit/archive projects. */
+  "projects.write": { roles: ["owner", "bookkeeper"], scope: "projects:write", write: true },
+  /** F11 PRJ-005/007: time entries and the timer. */
+  "time.write": { roles: ["owner", "bookkeeper"], scope: "time:write", write: true },
 } as const satisfies Record<string, PermissionRule>;
 
 export type Permission = keyof typeof PERMISSIONS;

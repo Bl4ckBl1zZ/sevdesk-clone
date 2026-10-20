@@ -25,6 +25,8 @@ import { auditedDelete, auditedInsert, auditedPatch } from "./audit";
 import { getCompanyProfile } from "./companyProfile";
 import { assertCustomFields, assertTags, fail } from "./contacts";
 import { assignCounterNumber } from "./numberRanges";
+import { stockMovementCount } from "./stock";
+import { entriesUsingProduct } from "./timeEntries";
 import type { ModelCtx, ReadCtx } from "./types";
 
 /**
@@ -179,6 +181,10 @@ export async function updateProduct(
 ): Promise<{ warnings: FieldIssue[] }> {
   const p = await getProduct(ctx, id);
   if (p.version !== expectedVersion) versionConflict();
+  if (input.type !== "good" && p.stock?.enabled) {
+    // F03 PRD-090: stock keeping is for goods only.
+    fail({ code: "STOCK_SERVICE", message: "Bestandsführung ist nur für Waren möglich.", field: "type" });
+  }
   let extraUnits = input.extraUnits;
   if (baseUnitChangeClearsExtraUnits(p.unitCode, input.unitCode, p.extraUnits) && sameUnits(extraUnits, p.extraUnits)) {
     if (!opts.confirmClearExtraUnits) {
@@ -236,15 +242,19 @@ export async function setProductActive(ctx: ModelCtx, id: Id<"products">, active
 }
 
 /**
- * PRD-073 references that block a delete: document lines (F04, drafts included). Recurring templates, time entries
- * and stock movements arrive with F11/P4 (each extends this count).
+ * PRD-073 references that block a delete: document lines (F04, drafts included), time entries (F11) and stock
+ * movements (P4). Recurring templates extend this count with their feature.
  */
 export async function productUsageCount(ctx: ReadCtx, id: Id<"products">): Promise<number> {
   const lines = await ctx.db
     .query("documentLines")
     .withIndex("by_product", (q) => q.eq("productId", id))
     .collect();
-  return new Set(lines.map((l) => l.documentId)).size;
+  return (
+    new Set(lines.map((l) => l.documentId)).size +
+    (await entriesUsingProduct(ctx, id)) +
+    (await stockMovementCount(ctx, id))
+  );
 }
 
 export async function customerPricesOf(ctx: ReadCtx, productId: Id<"products">) {

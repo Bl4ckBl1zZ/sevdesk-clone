@@ -9,6 +9,7 @@ import {
   vStatementFormat,
 } from "./bankValidators";
 import { vMatchProvenance, vPaymentDifference, vStoredPaymentSource, vStoredPaymentTarget } from "./paymentValidators";
+import { projectTables, vProductStock } from "./projectValidators";
 import {
   vActor,
   vAuditorScope,
@@ -804,6 +805,8 @@ export default defineSchema({
     version: v.number(),
     /** Technical sync stamp for `updated_since` (05 §3): every change of the product or its customer prices. */
     updatedAt: v.optional(v.number()),
+    /** F03 PRD-090 (P4): goods only; `quantityMilli` caches Σ stockMovements. */
+    stock: v.optional(vProductStock),
   })
     .index("by_number", ["numberNormalized"])
     .index("by_updatedAt", ["updatedAt"])
@@ -1761,6 +1764,8 @@ export default defineSchema({
     tags: v.array(v.id("tags")),
     customFields: v.record(v.string(), v.any()),
     internalNote: v.optional(v.string()),
+    /** F11 PRJ-002: the project the document belongs to. */
+    projectId: v.optional(v.id("projects")),
     /** DOC-53: cost centre of the document (DATEV KOST1 default for its lines). */
     costCenterId: v.optional(v.id("costCenters")),
     /** DOC-18: ≤ 10 attachments, frozen at finalisation (`includeInExport` SND-16, `embedInXml` BG-24). */
@@ -1903,6 +1908,7 @@ export default defineSchema({
     .index("by_firstExportedAt", ["status", "firstExportedAt"])
     .index("by_paymentStatus_due", ["paymentStatus", "dueDate"])
     .index("by_reminderInvoice", ["reminder.invoiceId"])
+    .index("by_project", ["projectId"])
     .searchIndex("search", { searchField: "contactName", filterFields: ["type", "status"] }),
 
   // 03 §4 documentLines 🔒 (frozen with the parent; the guarded db passes the parent status to the matrix).
@@ -1942,9 +1948,22 @@ export default defineSchema({
     deliveredQtyMilli: v.optional(v.number()),
     /** Imported archive document rebuilt from a list row: one summary line per VAT rate (F09 IMP-020). */
     fromSummary: v.optional(v.literal(true)),
+    /** F11 PRJ-002: line project (absent = the document's project). */
+    projectId: v.optional(v.id("projects")),
+    /** F11 PRJ-010/012: the time entries billed on this line and the rounding rule used (PRJ-009). */
+    timeEntryIds: v.optional(v.array(v.id("timeEntries"))),
+    timeRounding: v.optional(
+      v.object({
+        incrementMinutes: v.number(),
+        mode: v.union(v.literal("up"), v.literal("nearest")),
+        minimumMinutes: v.optional(v.number()),
+        perGroup: v.boolean(),
+      }),
+    ),
   })
     .index("by_document", ["documentId", "position"])
-    .index("by_product", ["productId"]),
+    .index("by_product", ["productId"])
+    .index("by_project", ["projectId"]),
 
   // 03 §4 documentSnapshots 🔒 (append-only, DOC-27, RI-01)
   documentSnapshots: defineTable({
@@ -2235,4 +2254,5 @@ export default defineSchema({
 
   // ── F06 purchases (Belege) and inbox (03 §6) — defined in voucherValidators.ts ──────────────────────
   ...voucherTables,
+  ...projectTables,
 });

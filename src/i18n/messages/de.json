@@ -2133,7 +2133,8 @@
     "detail": {
       "tabs": {
         "master": "Stammdaten",
-        "prices": "Preise"
+        "prices": "Preise",
+        "stock": "Bestand"
       },
       "facts": "Eckdaten",
       "rate": "Steuersatz heute",
@@ -2235,6 +2236,38 @@
         "error": "Fehler"
       },
       "onlyErrors": "nur Fehler"
+    },
+    "stock": {
+      "heading": "Bestand",
+      "settings": "Bestandsführung",
+      "enabled": "Bestand führen",
+      "enabledHint": "Fertiggestellte Lieferscheine buchen den Bestand ab; Rechnungen bewegen keinen Bestand.",
+      "reorderLevel": "Meldebestand",
+      "reorderHint": "Fällt der Bestand darunter, gibt es eine Benachrichtigung. Leer = keine.",
+      "saveSettings": "Einstellungen speichern",
+      "settingsSaved": "Bestandseinstellungen gespeichert.",
+      "current": "Aktueller Bestand",
+      "reorder": "Meldebestand",
+      "belowReorder": "Unter Meldebestand",
+      "disabled": "Für dieses Produkt wird kein Bestand geführt.",
+      "book": "Bestand buchen",
+      "adjustTitle": "Bestand buchen",
+      "adjustDescription": "Bestandsbuchungen sind unveränderbar. Fehler gleichen Sie mit einer Korrektur aus.",
+      "kind": "Art",
+      "quantity": "Menge ({unit})",
+      "quantityHint": "Zugang und Abgang: positive Menge. Korrektur: positiv = Zugang, negativ = Abgang.",
+      "text": "Text",
+      "textHint": "Pflichtangabe, z. B. „Wareneingang“ oder „Inventur 2026“.",
+      "booked": "Bestand gebucht.",
+      "history": "Buchungsverlauf",
+      "noMovements": "Noch keine Bestandsbuchungen.",
+      "columns": {
+        "at": "Zeitpunkt",
+        "reason": "Art",
+        "quantity": "Menge",
+        "balance": "Bestand",
+        "text": "Text / Beleg"
+      }
     }
   },
   "apiKeys": {
@@ -5714,5 +5747,312 @@
     "cancel": "Abbrechen",
     "submit": "Buchen",
     "done": "Buchung Nr. {seq} gebucht."
+  },
+  "projects": {
+    "list": {
+      "statusLabel": "Projektstatus",
+      "status": {
+        "active": "Aktiv",
+        "done": "Abgeschlossen",
+        "archived": "Archiviert",
+        "all": "Alle"
+      },
+      "search": "Projekte durchsuchen",
+      "searchPlaceholder": "Name oder Nummer",
+      "new": "Neues Projekt",
+      "empty": "Noch keine Projekte vorhanden.",
+      "noResults": "Keine Projekte gefunden.",
+      "action": "Erstes Projekt anlegen",
+      "columns": {
+        "number": "Nr.",
+        "name": "Projekt",
+        "contact": "Kunde",
+        "status": "Status",
+        "budget": "Budget",
+        "tracked": "Erfasst",
+        "unbilled": "Nicht abgerechnet"
+      },
+      "noBudget": "Kein Budget",
+      "noContact": "Ohne Kunde",
+      "budgetLabel": "Budget {label}",
+      "unbilledValue": "{value} nicht abgerechnet",
+      "created": "Projekt {number} angelegt."
+    },
+    "form": {
+      "newTitle": "Neues Projekt",
+      "sections": {
+        "basics": "Projekt",
+        "billing": "Abrechnung",
+        "budget": "Budget und Zeitraum",
+        "rounding": "Rundung der Zeiten"
+      },
+      "name": "Projektname",
+      "description": "Beschreibung",
+      "contactSearch": "Kunde suchen",
+      "contact": "Kunde",
+      "noContact": "Ohne Kunde",
+      "status": "Status",
+      "billingMode": "Abrechnungsart",
+      "billingModes": {
+        "hourly": "Nach Aufwand (Stundensatz)",
+        "fixed": "Festpreis",
+        "non_billable": "Intern (nicht abrechenbar)"
+      },
+      "hourlyRate": "Stundensatz netto (€)",
+      "hourlyRateHint": "Leer = Kundenpreis, Preis der Leistung oder Standardsatz aus den Einstellungen.",
+      "internalCostRate": "Interner Kostensatz (€ je Stunde)",
+      "internalCostRateHint": "Für die Projekt-Marge (Zeitkosten).",
+      "defaultProduct": "Standard-Leistung",
+      "defaultProductHint": "Bestimmt Steuersatz und Positionstext beim Abrechnen.",
+      "noProduct": "Keine",
+      "budgetKind": "Budget",
+      "budgetKinds": {
+        "none": "Kein Budget",
+        "hours": "Stunden",
+        "amount": "Betrag (netto)"
+      },
+      "budgetValue": "Budgetwert",
+      "budgetValueHint": "Stunden (z. B. 40 oder 12,5) oder Betrag in € (z. B. 5.000,00). Warnung bei 80 % und 100 %.",
+      "startDate": "Beginn",
+      "endDate": "Ende",
+      "roundingIncrement": "Rundungsschritt",
+      "roundingDefault": "Standard aus den Einstellungen",
+      "roundingNone": "Nicht runden",
+      "minutes": "{count, plural, one {# Minute} other {# Minuten}}",
+      "roundingMode": "Rundungsart",
+      "roundingModes": {
+        "up": "Aufrunden",
+        "nearest": "Kaufmännisch runden"
+      },
+      "roundingMinimum": "Mindestdauer je Eintrag (Minuten)",
+      "roundingHint": "Gerundet wird erst beim Abrechnen; die erfasste Zeit bleibt unverändert.",
+      "saved": "Projekt gespeichert.",
+      "rateChanged": "{count, plural, one {# offener Eintrag hat} other {# offene Einträge haben}} noch den alten Stundensatz.",
+      "applyRate": "Neuen Satz übernehmen",
+      "rateApplied": "{count, plural, one {# Eintrag} other {# Einträge}} aktualisiert."
+    },
+    "detail": {
+      "notFound": "Projekt nicht gefunden.",
+      "tabs": {
+        "overview": "Übersicht",
+        "times": "Zeiten",
+        "documents": "Dokumente",
+        "vouchers": "Belege",
+        "settings": "Einstellungen"
+      },
+      "invoice": "Zeiten abrechnen",
+      "facts": "Eckdaten",
+      "number": "Nummer",
+      "contact": "Kunde",
+      "billingMode": "Abrechnung",
+      "rate": "Stundensatz",
+      "period": "Zeitraum",
+      "defaultProduct": "Standard-Leistung",
+      "budget": "Budget",
+      "budgetProgress": "Budgetverbrauch {percent} %",
+      "noBudget": "Für dieses Projekt ist kein Budget hinterlegt.",
+      "tracked": "Erfasste Zeit",
+      "unbilled": "Nicht abgerechnet",
+      "profitability": "Wirtschaftlichkeit",
+      "basis": "Grundlage",
+      "bases": {
+        "accrual": "Soll (Rechnungsdatum)",
+        "cash": "Ist (bezahlte Anteile)"
+      },
+      "revenue": "Umsatz netto",
+      "voucherCosts": "Belegkosten",
+      "timeCosts": "Zeitkosten (interner Satz)",
+      "margin": "Marge",
+      "marginPct": "Marge in %",
+      "profitHint": "Umsatz nach Stornos und Korrekturen; Zeitkosten mit dem internen Kostensatz.",
+      "noDocuments": "Noch keine Dokumente mit diesem Projekt.",
+      "noVouchers": "Noch keine Belege mit diesem Projekt.",
+      "columns": {
+        "number": "Nummer",
+        "type": "Art",
+        "date": "Datum",
+        "status": "Status",
+        "net": "Netto",
+        "supplier": "Lieferant"
+      },
+      "draft": "Entwurf",
+      "docStatus": {
+        "draft": "Entwurf",
+        "finalized": "Fertiggestellt",
+        "sent": "Versendet",
+        "cancelled": "Storniert",
+        "accepted": "Angenommen",
+        "rejected": "Abgelehnt",
+        "expired": "Abgelaufen",
+        "superseded": "Ersetzt",
+        "partially_invoiced": "Teilberechnet",
+        "invoiced": "Berechnet",
+        "withdrawn": "Zurückgezogen"
+      },
+      "markDone": "Abschließen",
+      "archive": "Archivieren",
+      "reactivate": "Reaktivieren",
+      "statusChanged": "Projektstatus geändert.",
+      "delete": "Löschen",
+      "deleteTitle": "Projekt löschen?",
+      "deleteDescription": "Nur Projekte ohne Zeiten und Belege können gelöscht werden, sonst bitte archivieren.",
+      "deleted": "Projekt gelöscht.",
+      "archivedNotice": "Das Projekt ist archiviert. Neue Zeiten können nicht mehr erfasst werden."
+    }
+  },
+  "time": {
+    "list": {
+      "filters": "Filter",
+      "from": "Von",
+      "to": "Bis",
+      "project": "Projekt",
+      "allProjects": "Alle Projekte",
+      "statusLabel": "Status der Zeiten",
+      "status": {
+        "all": "Alle",
+        "open": "Offen",
+        "in_draft": "Im Entwurf",
+        "invoiced": "Abgerechnet"
+      },
+      "billable": "Abrechenbar",
+      "billableAll": "Abrechenbar und nicht abrechenbar",
+      "billableYes": "Nur abrechenbar",
+      "billableNo": "Nur nicht abrechenbar",
+      "new": "Zeit erfassen",
+      "empty": "Noch keine Zeiten erfasst.",
+      "noResults": "Keine Zeiten im gewählten Filter.",
+      "columns": {
+        "date": "Datum",
+        "description": "Tätigkeit",
+        "project": "Projekt / Kunde",
+        "duration": "Dauer",
+        "rate": "Satz",
+        "value": "Wert",
+        "status": "Status",
+        "actions": "Aktionen"
+      },
+      "selectAll": "Alle offenen Einträge auswählen",
+      "selectRow": "{description} auswählen",
+      "selected": "{count} ausgewählt",
+      "total": "{count, plural, one {# Eintrag} other {# Einträge}} · {duration} · {value}",
+      "bulk": {
+        "label": "Aktionen für die Auswahl",
+        "invoice": "Abrechnen",
+        "nonBillable": "Als nicht abrechenbar markieren",
+        "billable": "Als abrechenbar markieren",
+        "delete": "Löschen"
+      },
+      "deleteTitle": "{count, plural, one {Zeiteintrag} other {# Zeiteinträge}} löschen?",
+      "deleteDescription": "Nur offene Einträge können gelöscht werden.",
+      "deleted": "{count, plural, one {# Eintrag} other {# Einträge}} gelöscht.",
+      "updated": "{count, plural, one {# Eintrag} other {# Einträge}} geändert.",
+      "incomplete": "unvollständig",
+      "flagged": "bitte prüfen",
+      "nonBillable": "nicht abrechenbar",
+      "edit": "Bearbeiten",
+      "noDescription": "(ohne Beschreibung)",
+      "inDocument": "{number}",
+      "draftDocument": "Entwurf",
+      "lockedHint": "Gesperrt: Teil einer fertiggestellten Rechnung"
+    },
+    "entry": {
+      "newTitle": "Zeit erfassen",
+      "editTitle": "Zeiteintrag bearbeiten",
+      "date": "Datum",
+      "mode": "Erfassung",
+      "modes": {
+        "duration": "Dauer",
+        "start_end": "Von – bis"
+      },
+      "duration": "Dauer",
+      "durationHint": "z. B. 1:30, 1,5, 90m oder 2h 15m",
+      "startTime": "Von",
+      "endTime": "Bis",
+      "description": "Tätigkeit",
+      "project": "Projekt",
+      "contact": "Kunde (ohne Projekt)",
+      "contactSearch": "Kunde suchen",
+      "product": "Leistung",
+      "none": "—",
+      "billable": "Abrechenbar",
+      "rate": "Stundensatz netto (€, optional)",
+      "rateHint": "Leer = Satz aus Projekt, Kundenpreis, Leistung oder Einstellungen.",
+      "created": "Zeit erfasst.",
+      "saved": "Zeiteintrag gespeichert."
+    },
+    "timer": {
+      "heading": "Timer",
+      "idle": "Kein Timer aktiv.",
+      "start": "Zeit starten",
+      "stop": "Stoppen",
+      "discard": "Verwerfen",
+      "update": "Übernehmen",
+      "description": "Tätigkeit",
+      "project": "Projekt",
+      "noProject": "Ohne Projekt",
+      "elapsed": "Laufzeit",
+      "since": "seit {time} Uhr",
+      "splitAtMidnight": "An Mitternacht teilen",
+      "started": "Timer gestartet.",
+      "stopped": "Zeit gespeichert.",
+      "discarded": "Timer verworfen.",
+      "updated": "Timer aktualisiert.",
+      "discardTitle": "Timer verwerfen?",
+      "discardDescription": "Die laufende Zeit wird nicht gespeichert.",
+      "confirmTitle": "Es läuft bereits ein Timer",
+      "confirmStop": "Stoppen und neu starten"
+    },
+    "invoice": {
+      "title": "Zeiten abrechnen",
+      "description": "{count, plural, one {# Eintrag} other {# Einträge}} ausgewählt",
+      "grouping": "Positionen",
+      "groupings": {
+        "per_entry": "Eine Position je Eintrag",
+        "per_day": "Eine Position je Tag",
+        "per_product_rate": "Je Leistung und Satz",
+        "summary": "Eine Sammelposition"
+      },
+      "unit": "Einheit",
+      "unitDefault": "Wie in den Einstellungen",
+      "units": {
+        "HUR": "Stunden",
+        "MIN": "Minuten"
+      },
+      "rounding": "Rundung",
+      "roundingDefault": "Wie im Projekt bzw. in den Einstellungen",
+      "perGroup": "Je Position runden (statt je Eintrag)",
+      "target": "Ziel",
+      "targetNew": "Neuer Rechnungsentwurf",
+      "targetDraft": "Zu Entwurf „{name}“ hinzufügen",
+      "draftUntitled": "ohne Betreff",
+      "preview": "Vorschau",
+      "loading": "Vorschau wird berechnet …",
+      "columns": {
+        "line": "Position",
+        "raw": "Erfasst",
+        "rounded": "Abgerechnet",
+        "quantity": "Menge",
+        "price": "Einzelpreis",
+        "net": "Netto"
+      },
+      "total": "Summe netto",
+      "supplyDate": "Leistungsdatum {date}",
+      "supplyPeriod": "Leistungszeitraum {from} – {to}",
+      "submit": "Entwurf erstellen",
+      "submitAppend": "Zum Entwurf hinzufügen",
+      "created": "Rechnungsentwurf erstellt.",
+      "appended": "Zeiten zum Entwurf hinzugefügt.",
+      "noPermission": "Zum Erstellen von Rechnungen fehlt Ihnen die Berechtigung."
+    },
+    "reopen": {
+      "banner": "Rechnung {number} wurde storniert. {count, plural, one {# Zeiteintrag kann} other {# Zeiteinträge können}} wieder abgerechnet werden.",
+      "action": "Wieder abrechenbar machen",
+      "done": "{count, plural, one {# Eintrag} other {# Einträge}} wieder offen."
+    },
+    "unbilled": {
+      "title": "Nicht abgerechnete Zeiten",
+      "summary": "{duration} offen · {value}",
+      "link": "Zeiten abrechnen"
+    }
   }
 }

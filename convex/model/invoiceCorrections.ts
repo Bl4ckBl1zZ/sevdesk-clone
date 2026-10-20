@@ -39,6 +39,7 @@ import {
   resolveNotifications,
 } from "./salesDocuments";
 import { activeCredits, settlementOf } from "./settlement";
+import { offerReopenAfterStorno } from "./timeEntries";
 import type { ModelCtx, ReadCtx } from "./types";
 
 /**
@@ -281,6 +282,7 @@ export async function cancelDocument(
   // REC-16 / SND-21: the export to-dos of the original close with its Storno.
   for (const kind of ["export_and_send", "exported_not_marked"]) await resolveNotifications(ctx, original._id, kind);
   await dunningOnCancelled(ctx, original._id); // EC-077: the dunning case closes, reminders stay archived
+  await offerReopenAfterStorno(ctx, original); // F11 E-PRJ-25: offer the billed time entries as „wieder abrechenbar“
   if (original.type === "correction" && original.correctionKind === "credit" && original.correctsId) {
     // INV-15: the credited invoice gets back what the credit absorbed.
     const credited = await getDocument(ctx, original.correctsId);

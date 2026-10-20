@@ -111,6 +111,15 @@ export const NOTIFICATION_KINDS = {
   "threshold.800k": def("warning", WATCH, "Umsatzgrenze 800.000 €", "Umsatzgrenze 800.000 € – Details in der App"),
   "threshold.oss": def("warning", WATCH, "OSS-Lieferschwelle", "OSS-Lieferschwelle – Details in der App"),
   "project.budget": def("warning", WATCH, "Projektbudget", "Projektbudget überschritten"),
+  // F03 PRD-096: one notification per product while the stock is below its reorder level (e-mail if enabled).
+  "stock.low": def(
+    "warning",
+    WATCH,
+    "Mindestbestand unterschritten",
+    "Mindestbestand unterschritten – Details in der App",
+  ),
+  // F11 PRJ-005 / E-PRJ-03: a timer running for 10 hours; auto-stopped after 24 hours.
+  "timer.long": def("warning", INFO, "Timer läuft lange", "Ein Timer läuft seit über 10 Stunden"),
   "rules.stale": def("warning", WATCH, "Regeln veraltet", "Steuerregeln sollten aktualisiert werden"),
   "api_key.expiring": def("warning", WATCH, "API-Schlüssel läuft ab", "API-Schlüssel läuft bald ab"),
   "bank.consent_expiring": def("warning", WATCH, "Bankzugriff läuft ab", "Bankzugriff läuft bald ab"),
