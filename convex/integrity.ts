@@ -11,6 +11,7 @@ import { PROTECTED_TABLES } from "../src/domain/audit/immutability";
 import { internal } from "./_generated/api";
 import type { Doc, Id, TableNames } from "./_generated/dataModel";
 import { mutation, query, systemAction, systemMutation, systemQuery } from "./functions";
+import { verifyJournal } from "./journalIntegrity";
 import { checkpointKey, checkpointStoreFromEnv } from "./lib/checkpointStore";
 import { env, instanceName, isTest } from "./lib/env";
 import { loadCheckpointKey, signCheckpoint, verifyCheckpoint } from "./lib/jws";
@@ -299,6 +300,8 @@ export async function runVerify(
   if (st.checkpoint) await checkCheckpoint(ctx, st.checkpoint, findings);
   if (ctx.storage)
     findings.push(...(await rehashVoucherFiles({ runQuery: ctx.runQuery, storage: ctx.storage })).findings);
+  // F08 ACC-020: gapless seq, balanced entries, nothing recorded into a locked period after its lock (RI-13)
+  findings.push(...(await verifyJournal({ runQuery: ctx.runQuery })).findings);
 
   // EXP-024: the restore verifies first and records the run after its `system.restore` entry (record: false).
   if (opts.record !== false) {

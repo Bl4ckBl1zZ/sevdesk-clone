@@ -412,8 +412,9 @@ export const voucherTables = {
     vatEurCents: v.optional(v.number()),
     nonDeductibleShareBp: v.optional(v.number()),
     assetDecision: v.optional(vAssetDecision),
-    // `assets`/`projects` arrive with F08 AST-*/F11: kept as strings until then.
-    assetId: v.optional(v.string()),
+    // F08 AST-002: the asset created from this line at booking (the first one if the line has several items).
+    // `projects` arrive with F11: kept as a string until then.
+    assetId: v.optional(v.id("assets")),
     costCenterId: v.optional(v.string()),
     projectId: v.optional(v.string()),
   }).index("by_voucher", ["voucherId", "position"]),

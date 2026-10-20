@@ -68,7 +68,7 @@ export async function requireInboxItem(ctx: ReadCtx, id: Id<"inboxItems">): Prom
   return item;
 }
 
-function toInboxFile(ctx: ModelCtx, f: NewInboxFile, source: InboxItem["source"]): InboxFileValue {
+function toInboxFile(ctx: ModelCtx, f: NewInboxFile, source: InboxItem["source"], capturedAt: number): InboxFileValue {
   return {
     storageId: f.storageId,
     sha256: f.sha256,
@@ -78,7 +78,7 @@ function toInboxFile(ctx: ModelCtx, f: NewInboxFile, source: InboxItem["source"]
     ...(f.pages !== undefined ? { pages: f.pages } : {}),
     role: f.role ?? (f.mime === "message/rfc822" ? "eml" : "original"),
     ...(f.derivedFrom !== undefined ? { derivedFrom: f.derivedFrom } : {}),
-    capturedAt: ctx.now(),
+    capturedAt,
     ...(f.clientCapturedAt !== undefined ? { clientCapturedAt: f.clientCapturedAt } : {}),
     capturedBy: ctx.actor,
     capturedVia: source,
@@ -161,7 +161,9 @@ export async function storeInboxItem(
       .first();
     if (existing) return { id: existing._id, status: existing.status, existed: true };
   }
-  const files = args.files.map((f) => toInboxFile(ctx, f, args.source));
+  // One clock read: the item and its files share the server capture time (GOBD-04).
+  const capturedAt = ctx.now();
+  const files = args.files.map((f) => toInboxFile(ctx, f, args.source, capturedAt));
   const dup = await exactDuplicate(
     ctx,
     files.map((f) => f.sha256),
@@ -178,8 +180,8 @@ export async function storeInboxItem(
     "inboxItems",
     {
       source: args.source,
-      receivedAt: args.receivedAt ?? ctx.now(),
-      capturedAt: ctx.now(),
+      receivedAt: args.receivedAt ?? capturedAt,
+      capturedAt,
       ...(args.clientCapturedAt !== undefined ? { clientCapturedAt: args.clientCapturedAt } : {}),
       actor: ctx.actor,
       ...(from ? { from } : {}),
@@ -247,7 +249,8 @@ export async function recordMailParse(
 ): Promise<{ duplicate: boolean }> {
   const item = await requireInboxItem(ctx, args.id);
   if (item.mailParsed) return { duplicate: item.status === "duplicate" };
-  const added = args.files.map((f) => toInboxFile(ctx, f, item.source));
+  const now = ctx.now();
+  const added = args.files.map((f) => toInboxFile(ctx, f, item.source, now));
   const files = [...item.files, ...added];
   let dupOfItem: Id<"inboxItems"> | undefined;
   let dupWarning: InboxWarning | undefined;
@@ -314,8 +317,9 @@ export async function appendInboxFiles(
 ): Promise<{ firstIndex: number }> {
   const item = await requireInboxItem(ctx, id);
   const existing = new Set(item.files.map((f) => `${f.sha256}:${f.role}`));
+  const now = ctx.now();
   const add = newFiles
-    .map((f) => toInboxFile(ctx, f, item.source))
+    .map((f) => toInboxFile(ctx, f, item.source, now))
     .filter((f) => !existing.has(`${f.sha256}:${f.role}`));
   if (add.length === 0) {
     const first = newFiles[0];

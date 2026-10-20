@@ -80,6 +80,8 @@ export const IMMUTABILITY_MATRIX: Readonly<Record<string, TableRule>> = {
   datevAcceptance: APPEND_ONLY,
   allocations: APPEND_ONLY,
   depreciationRuns: APPEND_ONLY,
+  // F08 ACC-011: a manual entry as entered; corrections are Gegenbuchungen (reversal entries), never edits.
+  manualEntries: APPEND_ONLY,
   bankTransactionRevisions: APPEND_ONLY,
   // F08 read model of journal lines: written with its entry, never changed (03 §8, RI-12 consistency check).
   journalLines: APPEND_ONLY,
@@ -123,7 +125,10 @@ export const IMMUTABILITY_MATRIX: Readonly<Record<string, TableRule>> = {
   openingItems: { kind: "guarded", fields: { openAmountCents: "mutable", lockedAt: "once" } },
   // journalEntryIds grows: the entry is posted after the row exists (it references the row), and the T5 bank leg of a
   // deposit is posted when the bank credit is matched (03 §11 amended, F07 P1).
-  cashTransfers: { kind: "guarded", fields: { bankTransactionId: "once", journalEntryIds: "append" } },
+  cashTransfers: {
+    kind: "guarded",
+    fields: { bankTransactionId: "once", journalEntryIds: "append", lockedAt: "once" },
+  },
   // F07 BNK-122: booked bank data never changes; only the allocation/marking state, the source list (append) and a
   // one-time fill of empty counterparty fields (BNK-031).
   bankTransactions: {
@@ -313,6 +318,20 @@ export const IMMUTABILITY_MATRIX: Readonly<Record<string, TableRule>> = {
     kind: "guarded",
     frozenWhen: (doc) => doc.parentStatus !== undefined && doc.parentStatus !== "draft",
     fields: { invoicedQtyMilli: "mutable", deliveredQtyMilli: "mutable" },
+  },
+  // F08 AST-001: editable until the first AfA, a disposal or voiding; then only disposal (once) and notes (03 §11).
+  assets: {
+    kind: "guarded",
+    frozenWhen: (doc) =>
+      doc.firstDepreciationAt !== undefined || doc.disposal !== undefined || doc.voidedAt !== undefined,
+    fields: { disposal: "once", notes: "mutable", firstDepreciationAt: "once" },
+    message: "Anschaffungskosten können nach der ersten AfA nicht mehr geändert werden.",
+  },
+  // F08 TAX-021: a submission record is frozen from insert; a later correction only supersedes it (TAX-007).
+  taxFilings: {
+    kind: "guarded",
+    fields: { status: { transitions: { submitted_manually: ["superseded"] } } },
+    message: "Übermittelte Steuermeldungen sind unveränderbar. Bitte eine berichtigte Meldung erfassen.",
   },
   periods: {
     kind: "guarded",

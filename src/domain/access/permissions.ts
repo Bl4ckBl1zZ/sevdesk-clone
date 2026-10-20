@@ -86,6 +86,27 @@ export const PERMISSIONS = {
   /** F08 ACC-008 role mapping overrides (audited, owner only, never via MCP). */
   "accounting.roles": { roles: ["owner"], scope: null, write: true },
   /**
+   * F08 ACC-015…017 Festschreibung (⚠ irreversible; fresh session, 02 §4.2; bookkeeper may lock, 02 §4.3). Never via
+   * MCP (F08 §7: owner-only legal acts); the REST `POST /periods/{p}/lock` gets its key path with the API slice.
+   */
+  "accounting.lock": { roles: ["owner", "bookkeeper"], scope: null, write: true, fresh: true },
+  /**
+   * F08 ACC-009 custom accounts (create/archive) and ACC-011 manual journal entries (with attachment). Not via MCP
+   * write tools (ACC-012); REST `accounting:write`.
+   */
+  "accounting.write": { roles: ["owner", "bookkeeper"], scope: "accounting:write", write: true },
+  /** F08 AST-001…AST-012 asset register: create, disposal, „AfA jetzt buchen“ (REST `accounting:write`, not MCP). */
+  "assets.write": { roles: ["owner", "bookkeeper"], scope: "accounting:write", write: true },
+  /** F08 TAX-003…TAX-011 UStVA/ZM sheets, Mein ELSTER guide, deadlines (REST/MCP `reports:read`). */
+  "tax.read": { roles: ALL, scope: "reports:read", write: false },
+  /**
+   * F08 TAX-021 submission records (UStVA, ZM, Sondervorauszahlung, corrections) incl. the automatic lock (⚠, fresh
+   * session). Never via MCP (F08 §7); the REST endpoints get their key path with the API slice.
+   */
+  "tax.submit": { roles: ["owner", "bookkeeper"], scope: null, write: true, fresh: true },
+  /** F08 TAX-001/TAX-002 filing settings (Voranmeldungszeitraum, Dauerfristverlängerung): owner settings. */
+  "tax.settings": { roles: ["owner"], scope: null, write: true },
+  /**
    * F02 contacts: master data is part of the bookkeeper's daily work (drafts need customers, 02 §4.3).
    * The auditor reads master data read-only: a Betriebsprüfer needs debtors/creditors for GoBD Z1 access (02 §4.3 auditor row).
    */

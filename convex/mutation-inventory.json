@@ -10,7 +10,19 @@
     "wrapper": "query",
     "permission": "accounting.read"
   },
+  "accounting:createAccount": {
+    "kind": "mutation",
+    "visibility": "public",
+    "wrapper": "mutation",
+    "permission": "accounting.write"
+  },
   "accounting:getJournalEntry": {
+    "kind": "query",
+    "visibility": "public",
+    "wrapper": "query",
+    "permission": "accounting.read"
+  },
+  "accounting:journalReport": {
     "kind": "query",
     "visibility": "public",
     "wrapper": "query",
@@ -33,6 +45,18 @@
     "visibility": "public",
     "wrapper": "mutation",
     "permission": "accounting.openingBalance"
+  },
+  "accounting:removeAccount": {
+    "kind": "mutation",
+    "visibility": "public",
+    "wrapper": "mutation",
+    "permission": "accounting.write"
+  },
+  "accounting:searchJournal": {
+    "kind": "query",
+    "visibility": "public",
+    "wrapper": "query",
+    "permission": "accounting.read"
   },
   "accounting:setBookkeepingStartDate": {
     "kind": "mutation",
@@ -93,6 +117,78 @@
     "visibility": "public",
     "wrapper": "mutation",
     "permission": "apiKeys.revoke"
+  },
+  "assets:anlagenspiegel": {
+    "kind": "query",
+    "visibility": "public",
+    "wrapper": "query",
+    "permission": "accounting.read"
+  },
+  "assets:create": {
+    "kind": "mutation",
+    "visibility": "public",
+    "wrapper": "mutation",
+    "permission": "assets.write"
+  },
+  "assets:depreciateCron": {
+    "kind": "mutation",
+    "visibility": "internal",
+    "wrapper": "systemMutation",
+    "job": "cron.assets.depreciate"
+  },
+  "assets:depreciateNow": {
+    "kind": "mutation",
+    "visibility": "public",
+    "wrapper": "mutation",
+    "permission": "assets.write"
+  },
+  "assets:detail": {
+    "kind": "query",
+    "visibility": "public",
+    "wrapper": "query",
+    "permission": "accounting.read"
+  },
+  "assets:dispose": {
+    "kind": "mutation",
+    "visibility": "public",
+    "wrapper": "mutation",
+    "permission": "assets.write"
+  },
+  "assets:gwgList": {
+    "kind": "query",
+    "visibility": "public",
+    "wrapper": "query",
+    "permission": "accounting.read"
+  },
+  "assets:list": {
+    "kind": "query",
+    "visibility": "public",
+    "wrapper": "query",
+    "permission": "accounting.read"
+  },
+  "assets:methodOptions": {
+    "kind": "query",
+    "visibility": "public",
+    "wrapper": "query",
+    "permission": "accounting.read"
+  },
+  "assets:pools": {
+    "kind": "query",
+    "visibility": "public",
+    "wrapper": "query",
+    "permission": "accounting.read"
+  },
+  "assets:setNotes": {
+    "kind": "mutation",
+    "visibility": "public",
+    "wrapper": "mutation",
+    "permission": "assets.write"
+  },
+  "assets:update": {
+    "kind": "mutation",
+    "visibility": "public",
+    "wrapper": "mutation",
+    "permission": "assets.write"
   },
   "auditLog:actors": {
     "kind": "query",
@@ -2263,6 +2359,18 @@
     "wrapper": "query",
     "permission": "documents.export"
   },
+  "journalIntegrity:journalPage": {
+    "kind": "query",
+    "visibility": "internal",
+    "wrapper": "systemQuery",
+    "job": "cron.integrity.verify"
+  },
+  "journalIntegrity:lockedPeriods": {
+    "kind": "query",
+    "visibility": "internal",
+    "wrapper": "systemQuery",
+    "job": "cron.integrity.verify"
+  },
   "lookups:archiveCostCenter": {
     "kind": "mutation",
     "visibility": "public",
@@ -2388,6 +2496,30 @@
     "visibility": "public",
     "wrapper": "mutation",
     "permission": "settings.write"
+  },
+  "manualEntries:create": {
+    "kind": "mutation",
+    "visibility": "public",
+    "wrapper": "mutation",
+    "permission": "accounting.write"
+  },
+  "manualEntries:generateUploadUrl": {
+    "kind": "mutation",
+    "visibility": "public",
+    "wrapper": "mutation",
+    "permission": "accounting.write"
+  },
+  "manualEntries:reverse": {
+    "kind": "mutation",
+    "visibility": "public",
+    "wrapper": "mutation",
+    "permission": "accounting.write"
+  },
+  "manualEntries:templates": {
+    "kind": "query",
+    "visibility": "public",
+    "wrapper": "query",
+    "permission": "accounting.read"
   },
   "matching:autoApplyInternal": {
     "kind": "mutation",
@@ -2766,6 +2898,24 @@
     "visibility": "public",
     "wrapper": "mutation",
     "permission": "payments.write"
+  },
+  "periods:lock": {
+    "kind": "mutation",
+    "visibility": "public",
+    "wrapper": "mutation",
+    "permission": "accounting.lock"
+  },
+  "periods:lockPreview": {
+    "kind": "query",
+    "visibility": "public",
+    "wrapper": "query",
+    "permission": "accounting.read"
+  },
+  "periods:overview": {
+    "kind": "query",
+    "visibility": "public",
+    "wrapper": "query",
+    "permission": "accounting.read"
   },
   "privacy:art30": {
     "kind": "query",
@@ -3534,6 +3684,72 @@
     "visibility": "public",
     "wrapper": "query",
     "permission": "members.read"
+  },
+  "taxes:deadlines": {
+    "kind": "query",
+    "visibility": "public",
+    "wrapper": "query",
+    "permission": "tax.read"
+  },
+  "taxes:filings": {
+    "kind": "query",
+    "visibility": "public",
+    "wrapper": "query",
+    "permission": "tax.read"
+  },
+  "taxes:filingSettings": {
+    "kind": "query",
+    "visibility": "public",
+    "wrapper": "query",
+    "permission": "tax.read"
+  },
+  "taxes:notifyTaxDeadlinesCron": {
+    "kind": "mutation",
+    "visibility": "internal",
+    "wrapper": "systemMutation",
+    "job": "cron.deadlines.notify"
+  },
+  "taxes:protocolUploadUrl": {
+    "kind": "mutation",
+    "visibility": "public",
+    "wrapper": "mutation",
+    "permission": "tax.submit"
+  },
+  "taxes:recordFilingSubmission": {
+    "kind": "mutation",
+    "visibility": "public",
+    "wrapper": "mutation",
+    "permission": "tax.submit"
+  },
+  "taxes:setFilingPeriod": {
+    "kind": "mutation",
+    "visibility": "public",
+    "wrapper": "mutation",
+    "permission": "tax.settings"
+  },
+  "taxes:sondervorauszahlung": {
+    "kind": "query",
+    "visibility": "public",
+    "wrapper": "query",
+    "permission": "tax.read"
+  },
+  "taxes:sourceKennzahlen": {
+    "kind": "query",
+    "visibility": "public",
+    "wrapper": "query",
+    "permission": "tax.read"
+  },
+  "taxes:ustva": {
+    "kind": "query",
+    "visibility": "public",
+    "wrapper": "query",
+    "permission": "tax.read"
+  },
+  "taxes:zm": {
+    "kind": "query",
+    "visibility": "public",
+    "wrapper": "query",
+    "permission": "tax.read"
   },
   "testFixtures:backdateDraft": {
     "kind": "mutation",
