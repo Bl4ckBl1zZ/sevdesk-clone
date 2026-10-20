@@ -5751,5 +5751,136 @@
     "cancel": "Abbrechen",
     "submit": "Buchen",
     "done": "Buchung Nr. {seq} gebucht."
+  },
+  "reports": {
+    "back": "Alle Auswertungen",
+    "pdf": "PDF",
+    "csv": "CSV",
+    "provisional": "vorläufig",
+    "locked": "festgeschrieben",
+    "tiles": {
+      "bwa": {
+        "title": "BWA",
+        "description": "Betriebswirtschaftliche Auswertung: Monat, Jahr bis heute und Vorjahr"
+      },
+      "susa": {
+        "title": "Summen- und Saldenliste",
+        "description": "EB-Wert, Verkehrszahlen und Salden je Konto"
+      },
+      "kontenblatt": {
+        "title": "Kontenblatt",
+        "description": "Alle Buchungen eines Kontos mit laufendem Saldo"
+      },
+      "opos": {
+        "title": "Offene Posten zum Stichtag",
+        "description": "Debitoren und Kreditoren mit Abgleich zum Kontosaldo"
+      },
+      "umsatz": {
+        "title": "Umsatz",
+        "description": "Nach Kunde, Produkt, Monat oder Kostenstelle"
+      },
+      "journal": {
+        "title": "Journal",
+        "description": "Alle Buchungssätze in Reihenfolge"
+      },
+      "anlagenspiegel": {
+        "title": "Anlagenspiegel",
+        "description": "Anlagevermögen, AfA und Restbuchwerte"
+      },
+      "verprobung": {
+        "title": "USt-Verprobung",
+        "description": "Umsatzsteuer des Jahres gegen die Voranmeldungen"
+      },
+      "liquiditaet": {
+        "title": "Liquiditätsvorschau",
+        "description": "Erwarteter Kontostand der nächsten 90 Tage"
+      }
+    },
+    "bwa": {
+      "month": "Monat",
+      "variant": "Grundlage",
+      "accrual": "Soll (Buchungsdatum)",
+      "cash": "Ist (Zahlungsdatum)",
+      "row": "Position",
+      "monthCol": "Monat",
+      "ytd": "Jahr bis heute",
+      "share": "% Gesamtleistung",
+      "priorYtd": "Vorjahr bis heute"
+    },
+    "susa": {
+      "from": "Von",
+      "to": "Bis",
+      "accountClass": "Kontenklasse",
+      "allClasses": "Alle Klassen",
+      "class": "Klasse {n}",
+      "account": "Konto",
+      "name": "Bezeichnung",
+      "opening": "EB-Wert",
+      "periodDebit": "Soll Zeitraum",
+      "periodCredit": "Haben Zeitraum",
+      "ytdDebit": "Soll kumuliert",
+      "ytdCredit": "Haben kumuliert",
+      "balance": "Saldo",
+      "total": "Summe",
+      "empty": "Keine Buchungen im Zeitraum."
+    },
+    "ledger": {
+      "account": "Konto",
+      "from": "Von",
+      "to": "Bis",
+      "show": "Anzeigen",
+      "pick": "Geben Sie eine Kontonummer ein, z. B. 1200.",
+      "date": "Datum",
+      "beleg": "Beleg",
+      "source": "Quelle",
+      "text": "Buchungstext",
+      "contra": "Gegenkonto",
+      "debit": "Soll",
+      "credit": "Haben",
+      "balance": "Saldo",
+      "opening": "Anfangssaldo",
+      "total": "Summe und Endsaldo"
+    },
+    "opos": {
+      "side": "Art",
+      "debtors": "Debitoren (Forderungen)",
+      "creditors": "Kreditoren (Verbindlichkeiten)",
+      "asOf": "Stichtag",
+      "number": "Nummer",
+      "contact": "Kontakt",
+      "date": "Datum",
+      "due": "Fällig",
+      "amount": "Betrag",
+      "open": "Offen",
+      "bucket": "Überfällig (Tage)",
+      "dunning": "Mahnstufe",
+      "level": "Stufe {n}",
+      "total": "Summe offene Posten",
+      "empty": "Keine offenen Posten zum Stichtag.",
+      "reconciliation": "Saldo Konto {account}: {balance} €.",
+      "causes": "Mögliche Ursachen (manuelle Buchungen auf dem Konto):"
+    },
+    "revenue": {
+      "from": "Von",
+      "to": "Bis",
+      "groupBy": "Gruppierung",
+      "basis": "Grundlage",
+      "groups": {
+        "customer": "Kunde",
+        "product": "Produkt",
+        "month": "Monat",
+        "cost_center": "Kostenstelle"
+      },
+      "bases": {
+        "document_date": "Rechnungsdatum",
+        "supply_date": "Leistungsdatum",
+        "cash": "Zahlungseingang"
+      },
+      "documents": "Belege",
+      "net": "Netto",
+      "gross": "Brutto",
+      "total": "Summe",
+      "empty": "Keine Umsätze im Zeitraum."
+    }
   }
 }
