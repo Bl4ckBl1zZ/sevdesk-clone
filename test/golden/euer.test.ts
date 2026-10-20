@@ -5,7 +5,7 @@
  * `pnpm golden:update` and a written legal reason, CLAUDE.md rule 11).
  */
 import { describe, expect, test } from "vitest";
-import type { BusinessEvent, VoucherBookedEvent } from "@/domain/accounting/events";
+import type { BusinessEvent, ReversalEvent, VoucherBookedEvent } from "@/domain/accounting/events";
 import { type PostingContext, postEvent } from "@/domain/accounting/post";
 import { resolveLines } from "@/domain/accounting/resolve";
 import { seededAccount } from "@/domain/rules/accounting";
@@ -13,13 +13,15 @@ import { euerMappingFor } from "@/domain/rules/euer";
 import { cashBasisItems, computeEuer, type EuerContext, type EuerJournalEntry } from "@/domain/tax/euer";
 import { calendarDate } from "@/domain/time/calendar-date";
 
+type Posted = Exclude<BusinessEvent, ReversalEvent>;
+
 const CTX: PostingContext = {
   taxationMethod: "soll",
   legalForm: "einzelunternehmen",
   ustvaPeriod: [2025, 2026, 2027].map((year) => ({ year, period: "monthly" as const })),
 };
 const means = { kind: "bank_account" as const, bankAccountId: "bank1" };
-const invoice = (id: string, date: string, net: number, rateBp = 1900): BusinessEvent => ({
+const invoice = (id: string, date: string, net: number, rateBp = 1900): Posted => ({
   kind: "invoice_finalised",
   documentId: id,
   documentNumber: `RE-${id}`,
@@ -30,7 +32,7 @@ const invoice = (id: string, date: string, net: number, rateBp = 1900): Business
   contactId: "c1",
   vatGroups: [{ category: "S", rateBp, netCents: net, vatCents: Math.round((net * rateBp) / 10000) }],
 });
-const paid = (id: string, doc: string, date: string, amountCents: number, extra: object = {}): BusinessEvent => ({
+const paid = (id: string, doc: string, date: string, amountCents: number, extra: object = {}): Posted => ({
   kind: "payment_received",
   paymentId: id,
   date,
@@ -45,7 +47,7 @@ const voucher = (
   date: string,
   lines: VoucherBookedEvent["lines"],
   extra: Partial<VoucherBookedEvent> = {},
-): BusinessEvent => ({
+): Posted => ({
   kind: "voucher_booked",
   voucherId: id,
   number: `BE-${id}`,
@@ -72,7 +74,7 @@ const voucherPaid = (
   date: string,
   amountCents: number,
   m: { kind: "bank_account"; bankAccountId: string } | { kind: "private" } = means,
-): BusinessEvent => ({
+): Posted => ({
   kind: "voucher_paid",
   paymentId: id,
   date,
@@ -90,7 +92,7 @@ const taxVoucher = (id: string, date: string, cents: number, subtype: "ust_prepa
   });
 
 /** The golden year: events in business order. */
-const EVENTS: BusinessEvent[] = [
+const EVENTS: Posted[] = [
   invoice("d0", "2025-12-10", 100000),
   voucher("ust2512", "2025-12-31", [vline("3820", 40000, 0, 0)], {
     voucherKind: "tax_payment",
@@ -106,7 +108,7 @@ const EVENTS: BusinessEvent[] = [
   voucher("asset1", "2026-04-01", [vline("0650", 120000, 22800, 1900)], { voucherKind: "asset" }),
   voucherPaid("vp-asset1", "asset1", "2026-04-03", 142800),
   ...["04", "05", "06", "07", "08", "09", "10", "11", "12"].map(
-    (m): BusinessEvent => ({
+    (m): Posted => ({
       kind: "asset_depreciation",
       assetId: "a1",
       inventoryNumber: "INV-1",
@@ -146,8 +148,8 @@ const EVENTS: BusinessEvent[] = [
 
 /** Payment id → target, as the `payments` table would hold it. */
 const PAYMENTS: EuerContext["payments"] = Object.fromEntries(
-  EVENTS.flatMap((e) => {
-    if (e.kind === "payment_received") return [[e.paymentId, { target: e.target }]];
+  EVENTS.flatMap((e): [string, EuerContext["payments"][string]][] => {
+    if (e.kind === "payment_received") return [[e.paymentId, { target: { kind: e.target.kind, id: e.target.id } }]];
     if (e.kind === "voucher_paid") return [[e.paymentId, { target: { kind: "voucher" as const, id: e.voucher.id } }]];
     return [];
   }),
