@@ -47,6 +47,8 @@ test("AST-001 AST-007 Anlagen: Anlage erfassen (GWG) and the depreciation plan",
   await page
     .getByRole("button", { name: /^AV-/ })
     .or(page.getByText(`E2E Laptop ${test.info().project.name}`))
+    // Phones render the asset list as cards; the hidden table copy comes first in the DOM.
+    .filter({ visible: true })
     .first()
     .click();
   await expect(page.getByRole("heading", { name: "Abschreibungsplan" })).toBeVisible();
@@ -81,11 +83,13 @@ test("TAX-003 TAX-011 TAX-020 UStVA: Kennzahlen step or Kleinunternehmer notice,
 }) => {
   await page.goto("/steuern/ustva");
   await expect(h1(page, "Umsatzsteuer-Voranmeldung")).toBeVisible();
-  await expect(page.getByLabel("Voranmeldungszeitraum")).toBeVisible();
+  // The settings section is a region with the same name; the select is the combobox.
+  await expect(page.getByRole("combobox", { name: "Voranmeldungszeitraum", exact: true })).toBeVisible();
   await expect(
     page
       .getByRole("heading", { name: "Werte prüfen" })
-      .or(page.getByText(/Kleinunternehmer|keine Umsatzsteuer-Voranmeldung/).first()),
+      .or(page.getByText(/Kleinunternehmer|keine Umsatzsteuer-Voranmeldung/))
+      .first(), // either branch; a KU year can show the notice next to other KU texts
   ).toBeVisible({ timeout: 20_000 });
   await expectNoAxeViolations();
 });

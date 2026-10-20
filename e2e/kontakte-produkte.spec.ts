@@ -4,7 +4,7 @@ import { expect, test } from "./fixtures";
 
 /**
  * Kontakte (F02) and Produkte (F03) as the signed-in owner: create, detail tabs, timeline, list search, product with
- * the gross price, customer price, categories. Needs the backend and runs after e2e/journey.spec.ts in the same
+ * the gross price, customer price, categories. Needs the backend and runs after e2e/00-journey.spec.ts in the same
  * project (single worker, files in order), which created the owner, the number ranges and completed the setup.
  */
 const STATE = (project: string) => `test-results/.auth/owner-${project}-catalog.json`;

@@ -87,34 +87,32 @@ function Inner({ canSubmit }: { canSubmit: boolean }) {
             {view.zm.rows.length === 0 ? (
               <p className="text-muted-foreground text-sm">{t("empty")}</p>
             ) : (
-              <div className="overflow-x-auto">
-                <Table aria-label={t("rows", { label: view.label })}>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>{t("country")}</TableHead>
-                      <TableHead>{t("vatId")}</TableHead>
-                      <TableHead>{t("customer")}</TableHead>
-                      <TableHead>{t("type")}</TableHead>
-                      <TableHead className="text-right">{t("amount")}</TableHead>
+              <Table aria-label={t("rows", { label: view.label })} scrollLabel={t("rows", { label: view.label })}>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>{t("country")}</TableHead>
+                    <TableHead>{t("vatId")}</TableHead>
+                    <TableHead>{t("customer")}</TableHead>
+                    <TableHead>{t("type")}</TableHead>
+                    <TableHead className="text-right">{t("amount")}</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {view.zm.rows.map((r) => (
+                    <TableRow key={`${r.vatId}-${r.type}`}>
+                      <TableCell className="font-mono">{r.countryCode}</TableCell>
+                      <TableCell className="font-mono">{r.vatNumber}</TableCell>
+                      <TableCell>{r.name}</TableCell>
+                      <TableCell>{r.type}</TableCell>
+                      <TableCell className="text-right tabular-nums">{wholeEuros(r.euros)}</TableCell>
                     </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {view.zm.rows.map((r) => (
-                      <TableRow key={`${r.vatId}-${r.type}`}>
-                        <TableCell className="font-mono">{r.countryCode}</TableCell>
-                        <TableCell className="font-mono">{r.vatNumber}</TableCell>
-                        <TableCell>{r.name}</TableCell>
-                        <TableCell>{r.type}</TableCell>
-                        <TableCell className="text-right tabular-nums">{wholeEuros(r.euros)}</TableCell>
-                      </TableRow>
-                    ))}
-                    <TableRow className="font-medium">
-                      <TableCell colSpan={4}>{t("total")}</TableCell>
-                      <TableCell className="text-right tabular-nums">{wholeEuros(view.zm.totalEuros)}</TableCell>
-                    </TableRow>
-                  </TableBody>
-                </Table>
-              </div>
+                  ))}
+                  <TableRow className="font-medium">
+                    <TableCell colSpan={4}>{t("total")}</TableCell>
+                    <TableCell className="text-right tabular-nums">{wholeEuros(view.zm.totalEuros)}</TableCell>
+                  </TableRow>
+                </TableBody>
+              </Table>
             )}
             {view.zm.rows.length > 0 && (
               <Button

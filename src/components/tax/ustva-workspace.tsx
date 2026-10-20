@@ -179,47 +179,48 @@ function PeriodView({ view, canSubmit }: { view: View; canSubmit: boolean }) {
         {!sheet.required ? (
           <p className="text-sm">{t("notRequired")}</p>
         ) : (
-          <div className="overflow-x-auto">
-            <Table aria-label={t("tableLabel", { label: view.label })}>
-              <TableHeader>
-                <TableRow>
-                  <TableHead className="w-16">Kz</TableHead>
-                  <TableHead>{t("label")}</TableHead>
-                  <TableHead className="text-right">{t("value")}</TableHead>
-                  <TableHead className="text-right">{t("formTax")}</TableHead>
-                  <TableHead className="text-right">{t("booked")}</TableHead>
+          <Table
+            aria-label={t("tableLabel", { label: view.label })}
+            scrollLabel={t("tableLabel", { label: view.label })}
+          >
+            <TableHeader>
+              <TableRow>
+                <TableHead className="w-16">Kz</TableHead>
+                <TableHead>{t("label")}</TableHead>
+                <TableHead className="text-right">{t("value")}</TableHead>
+                <TableHead className="text-right">{t("formTax")}</TableHead>
+                <TableHead className="text-right">{t("booked")}</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {sheet.fields.map((f) => (
+                <TableRow key={f.kz}>
+                  <TableCell className="font-mono">
+                    {(view.drillDown[f.kz]?.length ?? 0) > 0 ? (
+                      <button
+                        type="button"
+                        className="rounded text-primary underline-offset-4 hover:underline focus-visible:outline-2"
+                        onClick={() => setDrill(f)}
+                        aria-label={t("drill", { kz: f.kz })}
+                      >
+                        {f.kz}
+                      </button>
+                    ) : (
+                      f.kz
+                    )}
+                  </TableCell>
+                  <TableCell className="whitespace-normal">{f.label}</TableCell>
+                  <TableCell className="text-right tabular-nums">{euro(f.valueCents)}</TableCell>
+                  <TableCell className="text-right tabular-nums">
+                    {f.formTaxCents !== undefined ? euro(f.formTaxCents) : ""}
+                  </TableCell>
+                  <TableCell className="text-right tabular-nums">
+                    {f.bookedTaxCents !== undefined ? euro(f.bookedTaxCents) : ""}
+                  </TableCell>
                 </TableRow>
-              </TableHeader>
-              <TableBody>
-                {sheet.fields.map((f) => (
-                  <TableRow key={f.kz}>
-                    <TableCell className="font-mono">
-                      {(view.drillDown[f.kz]?.length ?? 0) > 0 ? (
-                        <button
-                          type="button"
-                          className="rounded text-primary underline-offset-4 hover:underline focus-visible:outline-2"
-                          onClick={() => setDrill(f)}
-                          aria-label={t("drill", { kz: f.kz })}
-                        >
-                          {f.kz}
-                        </button>
-                      ) : (
-                        f.kz
-                      )}
-                    </TableCell>
-                    <TableCell className="whitespace-normal">{f.label}</TableCell>
-                    <TableCell className="text-right tabular-nums">{euro(f.valueCents)}</TableCell>
-                    <TableCell className="text-right tabular-nums">
-                      {f.formTaxCents !== undefined ? euro(f.formTaxCents) : ""}
-                    </TableCell>
-                    <TableCell className="text-right tabular-nums">
-                      {f.bookedTaxCents !== undefined ? euro(f.bookedTaxCents) : ""}
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          </div>
+              ))}
+            </TableBody>
+          </Table>
         )}
       </section>
       {sheet.required && view.guide && <ElsterGuideSteps guide={view.guide} />}

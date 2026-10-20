@@ -36,6 +36,19 @@ export function waitForAppOnNavigation(page: Page): Page {
   return page;
 }
 
+/**
+ * Picks the customer in a document editor (invoice, quote, recurring template). The „Kunde“ select lists only the
+ * first 20 open contacts by name (`contacts.options`); on the shared test backend the wanted contact can lie beyond
+ * them, so search first — as a user would.
+ */
+export async function selectCustomer(page: Page, name: string): Promise<void> {
+  await page.getByLabel("Kunde suchen").fill(name);
+  const select = page.getByRole("combobox", { name: "Kunde", exact: true });
+  const option = select.locator("option", { hasText: name }).first();
+  await expect(option).toBeAttached({ timeout: 20_000 });
+  await select.selectOption((await option.getAttribute("value")) ?? "");
+}
+
 /** Waits until CSS transitions/animations (dialogs, sheets) have finished, so axe sees final colours. */
 async function settleAnimations(page: Page) {
   // Base UI applies the starting style first and starts the transition a frame later.

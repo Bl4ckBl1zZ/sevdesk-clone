@@ -85,16 +85,21 @@ export function DocChapterCard({ doc, fileName, idPrefix }: { doc: DocChapter; f
         </Button>
       </CardHeader>
       <CardContent className="flex flex-col gap-5 text-sm">
-        {doc.sections.map((s) => (
-          <section key={s.heading} aria-labelledby={`${idPrefix}-${s.heading}`} className="flex flex-col gap-2">
-            <h3 id={`${idPrefix}-${s.heading}`} className="font-semibold">
+        {/* Positional ids: headings contain spaces, and aria-labelledby splits its value at spaces. */}
+        {doc.sections.map((s, i) => (
+          <section key={s.heading} aria-labelledby={`${idPrefix}-${i}`} className="flex flex-col gap-2">
+            <h3 id={`${idPrefix}-${i}`} className="font-semibold">
               {s.heading}
             </h3>
             {s.paragraphs.map((p) => (
               <p key={p}>{p}</p>
             ))}
             {s.table && (
-              <div className="overflow-x-auto">
+              // A wide table scrolls on phones; the scroll container must be reachable by keyboard (WCAG 2.1.1,
+              // axe scrollable-region-focusable) and is named by the section heading.
+              // biome-ignore lint/a11y/noNoninteractiveTabindex: focusable scroll container for keyboard scrolling
+              // biome-ignore lint/a11y/useSemanticElements: a <fieldset> is for form controls, not a scroll container
+              <div className="overflow-x-auto" role="group" aria-labelledby={`${idPrefix}-${i}`} tabIndex={0}>
                 <table className="w-full text-left text-sm">
                   <thead>
                     <tr>

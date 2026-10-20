@@ -3,9 +3,23 @@
 import { cn } from "cn";
 import type * as React from "react";
 
-function Table({ className, ...props }: React.ComponentProps<"table">) {
+/**
+ * `scrollLabel`: for tables that can be wider than their container — the scroll container becomes a named,
+ * keyboard-focusable region (WCAG 2.1.1, axe scrollable-region-focusable). `containerClassName`: e.g. a max height,
+ * so that a vertically scrolling table uses the same (named, focusable) container instead of an extra wrapper.
+ */
+function Table({
+  className,
+  scrollLabel,
+  containerClassName,
+  ...props
+}: React.ComponentProps<"table"> & { scrollLabel?: string; containerClassName?: string }) {
   return (
-    <div data-slot="table-container" className="relative w-full overflow-x-auto">
+    <div
+      data-slot="table-container"
+      className={cn("relative w-full overflow-x-auto", containerClassName)}
+      {...(scrollLabel ? { role: "region", "aria-label": scrollLabel, tabIndex: 0 } : {})}
+    >
       <table data-slot="table" className={cn("w-full caption-bottom text-sm", className)} {...props} />
     </div>
   );

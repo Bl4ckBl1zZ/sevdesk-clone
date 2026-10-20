@@ -25,13 +25,15 @@ export function PageHeader({
   actions?: React.ReactNode;
   className?: string;
 }) {
-  // The blur is desktop-only (where the header is sticky): `backdrop-filter` makes the header the containing block
-  // of the `position: fixed` phone action bar below, which then sat at the top of the page instead of the bottom.
+  // Opaque on purpose: the header is sticky on desktop and content scrolls underneath. A translucent background
+  // (`bg-background/80` + blur) let a primary button behind it grey the muted breadcrumb text below 4.5:1 (axe
+  // color-contrast, WCAG 1.4.3). No `backdrop-filter` either: it makes the header the containing block of the
+  // `position: fixed` phone action bar below, which then sat at the top of the page instead of the bottom.
   return (
     <header
       data-slot="page-header"
       className={cn(
-        "flex flex-col gap-3 border-b bg-background/95 px-4 py-4 md:backdrop-blur md:supports-backdrop-filter:bg-background/80 @3xl/main:flex-row @3xl/main:items-end @3xl/main:justify-between @3xl/main:px-6 md:sticky md:top-14 md:z-10",
+        "flex flex-col gap-3 border-b bg-background px-4 py-4 @3xl/main:flex-row @3xl/main:items-end @3xl/main:justify-between @3xl/main:px-6 md:sticky md:top-14 md:z-10",
         className,
       )}
     >
@@ -62,7 +64,9 @@ export function PageHeader({
       {actions && (
         <div
           data-slot="page-actions"
-          className="fixed inset-x-0 bottom-[calc(4rem+env(safe-area-inset-bottom))] z-30 flex gap-2 border-t bg-background p-3 *:flex-1 md:static md:z-auto md:border-0 md:bg-transparent md:p-0 md:*:flex-none"
+          // flex-wrap: three actions („Duplizieren“, „Exportieren“, „Als versendet markieren“) are wider than a
+          // phone; without wrapping the last one sat beyond the right edge of the viewport, unreachable.
+          className="fixed inset-x-0 bottom-[calc(4rem+env(safe-area-inset-bottom))] z-30 flex flex-wrap gap-2 border-t bg-background p-3 *:flex-1 md:static md:z-auto md:flex-nowrap md:border-0 md:bg-transparent md:p-0 md:*:flex-none"
         >
           {actions}
         </div>

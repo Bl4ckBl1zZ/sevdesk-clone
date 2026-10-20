@@ -109,6 +109,13 @@ describe("RulesAdmin (SET-120 … SET-123)", () => {
     expect(screen.getByText("01.07.2026 – offen")).toBeInTheDocument();
   });
 
+  test("SET-120 a rule table scrolls in a keyboard-focusable region named after its group (axe scrollable-region-focusable)", () => {
+    renderWithIntl(<RulesAdmin />);
+    const region = screen.getByRole("region", { name: "Basiszinssatz" });
+    expect(region.getAttribute("tabindex")).toBe("0");
+    expect(within(region).getByRole("table")).toBeInTheDocument();
+  });
+
   test("SET-123 a locked override cannot be deleted; an unreferenced one is deleted with a reason", async () => {
     const user = userEvent.setup();
     renderWithIntl(<RulesAdmin />);

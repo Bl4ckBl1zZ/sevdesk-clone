@@ -6,7 +6,7 @@ import "./test/load-test-env";
  *  - baseURL from E2E_BASE_URL (later the Caddy dev edge https://app.localtest.me, 08 §10).
  *  - Without E2E_BASE_URL, Playwright starts the app itself: `next dev` locally, `build && start` in CI. The web
  *    server inherits the variables of `.env.test.local` (written by `pnpm test:backend`): Convex URLs, site URL.
- *  - With a backend (`E2E_BACKEND=1`) the journeys in e2e/journey.spec.ts run against it; they share one
+ *  - With a backend (`E2E_BACKEND=1`) the journeys in e2e/00-journey.spec.ts run against it; they share one
  *    deployment and reset it per project, so a single worker runs the files one after another.
  *  - Dev mode (`next dev`, i.e. locally without E2E_BASE_URL, or E2E_DEV_SERVER=1 for an external dev server):
  *    e2e/global-setup.ts compiles every route before the first test and the timeouts are longer, because the

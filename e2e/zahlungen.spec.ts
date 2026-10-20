@@ -1,7 +1,7 @@
 import { writeFileSync } from "node:fs";
 import type { Locator, Page } from "@playwright/test";
 import { ownerStorageState } from "./backend";
-import { expect, test } from "./fixtures";
+import { expect, selectCustomer, test } from "./fixtures";
 
 /**
  * Zahlungen (F05/F07 P1) as the signed-in owner: finalise an invoice → import a statement whose purpose names its
@@ -27,17 +27,11 @@ test.describe.configure({ mode: "serial", timeout: 240_000 });
 const h1 = (page: Page, name: string | RegExp) => page.getByRole("heading", { level: 1, name });
 const todayBerlin = () => new Intl.DateTimeFormat("sv-SE", { timeZone: "Europe/Berlin" }).format(new Date());
 
-async function selectByText(select: Locator, text: string): Promise<void> {
-  const option = select.locator("option", { hasText: text }).first();
-  await expect(option).toBeAttached({ timeout: 20_000 });
-  await select.selectOption((await option.getAttribute("value")) ?? "");
-}
-
 /** 100,00 net + 19 % = 119,00 for „Muster Handwerk GmbH“, finalised; returns the number and the detail URL. */
 async function finalisedInvoice(page: Page, opts: { skonto?: boolean } = {}) {
   await page.goto("/rechnungen/neu");
   await expect(h1(page, "Neue Rechnung")).toBeVisible();
-  await selectByText(page.getByRole("combobox", { name: "Kunde", exact: true }), "Muster Handwerk GmbH");
+  await selectCustomer(page, "Muster Handwerk GmbH");
   await expect(page.getByTestId("buyer")).toContainText("Muster Handwerk GmbH");
   await page.getByLabel("Bezeichnung (Pos. 1)").fill("Beratung Zahlungsabgleich");
   await page.getByLabel("Menge").first().fill("1");
@@ -60,6 +54,9 @@ async function finalisedInvoice(page: Page, opts: { skonto?: boolean } = {}) {
   await expect(h1(page, /^Rechnung \S+$/)).toBeVisible({ timeout: 60_000 });
   const number = ((await h1(page, /^Rechnung /).textContent()) ?? "").replace("Rechnung ", "").trim();
   await expect(page.getByTestId("open-amount")).toHaveText("119,00 €", { timeout: 20_000 });
+  // The background render enables the header actions; let it settle so a later axe scan never sees the buttons
+  // switching from disabled (50 % opacity) to enabled.
+  await expect(page.getByRole("button", { name: "Exportieren" })).toBeEnabled({ timeout: 90_000 });
   return { number, url: page.url() };
 }
 

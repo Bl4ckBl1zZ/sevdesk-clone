@@ -1,10 +1,10 @@
 import type { Locator, Page } from "@playwright/test";
 import { ownerStorageState, recordTestPayment } from "./backend";
-import { expect, test } from "./fixtures";
+import { expect, selectCustomer, test } from "./fixtures";
 
 /**
  * Storno, Rechnungskorrektur, Rechnungsberichtigung and the advance → final chain (F04 P1, §4.7/§4.8, §6.3/§6.4)
- * as the signed-in owner. Needs the backend and runs after e2e/journey.spec.ts and e2e/kontakte-produkte.spec.ts in
+ * as the signed-in owner. Needs the backend and runs after e2e/00-journey.spec.ts and e2e/kontakte-produkte.spec.ts in
  * the same project (single worker, files in order) and before e2e/rechnungen.spec.ts. It uses its own contact
  * „Korrektur Bau KG“ so the address change of the Berichtigung does not touch the other journeys. Payments come
  * from the IS_TEST-only stand-in for the payments slice (e2e/backend.ts `recordTestPayment`).
@@ -23,17 +23,12 @@ test.use({
   // biome-ignore lint/correctness/noEmptyPattern: Playwright fixtures must destructure their first argument
   storageState: async ({}, use, testInfo) => use(ready ? STATE(testInfo.project.name) : undefined),
 });
-test.describe.configure({ mode: "serial" });
+// Each test finalises up to three documents; each waits up to 60 s + 90 s for the number and the archived PDF.
+test.describe.configure({ mode: "serial", timeout: 240_000 });
 
 const h1 = (page: Page, name: string | RegExp) => page.getByRole("heading", { level: 1, name });
 const visible = (l: Locator) => l.filter({ visible: true }).first();
 const cents = (n: number) => Math.round(n * 100);
-
-async function selectByText(select: Locator, text: string): Promise<void> {
-  const option = select.locator("option", { hasText: text }).first();
-  await expect(option).toBeAttached({ timeout: 20_000 });
-  await select.selectOption((await option.getAttribute("value")) ?? "");
-}
 
 /** Today in Berlin as YYYY-MM-DD (the order date of the chain must not lie after the advance). */
 const today = () => new Intl.DateTimeFormat("sv-SE", { timeZone: "Europe/Berlin" }).format(new Date());
@@ -42,7 +37,7 @@ const today = () => new Intl.DateTimeFormat("sv-SE", { timeZone: "Europe/Berlin"
 async function newDraft(page: Page, line: { name: string; price: string }, advance?: { order: string }) {
   await page.goto("/rechnungen/neu");
   await expect(h1(page, "Neue Rechnung")).toBeVisible();
-  await selectByText(page.getByRole("combobox", { name: "Kunde", exact: true }), CUSTOMER);
+  await selectCustomer(page, CUSTOMER);
   await expect(page.getByTestId("buyer")).toContainText(CUSTOMER);
   if (advance) {
     await page.getByRole("combobox", { name: "Belegart" }).selectOption("advance_invoice");

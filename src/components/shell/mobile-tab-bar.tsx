@@ -41,7 +41,7 @@ export function MobileTabBar() {
   return (
     <nav
       aria-label={t("shell.mobileNav")}
-      className="fixed inset-x-0 bottom-0 z-40 border-t bg-background/95 pb-[env(safe-area-inset-bottom)] backdrop-blur supports-backdrop-filter:bg-background/80 md:hidden"
+      className="fixed inset-x-0 bottom-0 z-40 border-t bg-background pb-[env(safe-area-inset-bottom)] md:hidden"
     >
       <ul className="flex items-stretch px-1">
         {renderTab(first)}

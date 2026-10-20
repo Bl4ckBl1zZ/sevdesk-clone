@@ -36,7 +36,9 @@ test("IMP-012 the CSV import card is reachable on every device", async ({ page, 
   await page.goto("/einstellungen/import");
   const card = page.getByTestId("generic-csv-import");
   await expect(card.getByRole("heading", { name: "CSV-Import (Kontakte/Produkte)" })).toBeVisible();
-  await expect(card.getByLabel("Importieren als")).toHaveValue("contacts");
+  // The first „Importieren als“ is the card's own select; an open mapping session (left by an interrupted run on
+  // the shared backend) has a second one in its region.
+  await expect(card.getByLabel("Importieren als").first()).toHaveValue("contacts");
   await expectNoAxeViolations();
 });
 
@@ -48,7 +50,7 @@ test("IMP-012 TST-IMP-12 Windows-1252 contacts: preview lists the invalid row, c
   test.setTimeout(180_000);
   await page.goto("/einstellungen/import");
   const card = page.getByTestId("generic-csv-import");
-  await card.getByLabel("Importieren als").selectOption("contacts");
+  await card.getByLabel("Importieren als").first().selectOption("contacts");
   await card
     .getByLabel("CSV-Datei wählen")
     .setInputFiles({ name: `kontakte-${RUN}.csv`, mimeType: "text/csv", buffer: cp1252(CONTACTS) });
@@ -60,6 +62,9 @@ test("IMP-012 TST-IMP-12 Windows-1252 contacts: preview lists the invalid row, c
   await card.getByLabel("Name der Vorlage").fill(`E2E ${RUN}`);
   await card.getByLabel("Als Vorlage speichern").check();
   await card.getByRole("button", { name: "Zuordnung speichern" }).click();
+  // Saving the mapping bumps the import revision and drops any preview; a preview requested before the save
+  // landed is discarded again („Noch keine Vorschau“), so wait for the confirmation first.
+  await expect(page.getByText("Zuordnung gespeichert").first()).toBeVisible({ timeout: 20_000 });
   await card.getByRole("button", { name: "Vorschau erstellen" }).click();
   const counts = card.getByTestId("generic-import-counts");
   await expect(counts).toContainText("Neu2", { timeout: 30_000 });

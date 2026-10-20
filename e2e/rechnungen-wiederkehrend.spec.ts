@@ -1,12 +1,12 @@
-import type { Locator, Page } from "@playwright/test";
+import type { Page } from "@playwright/test";
 import { ownerStorageState } from "./backend";
-import { expect, test } from "./fixtures";
+import { expect, selectCustomer, test } from "./fixtures";
 
 /**
  * Wiederkehrende Rechnungen (F04 §3.4 REC, §6.1, §6.5) as the signed-in owner: template with customer, position,
  * schedule and finalise automation (first-activation confirmation) → „Nächste Termine“ → „Jetzt erzeugen“ creates
  * and finalises the invoice (never sent: to-do „Exportieren und versenden“) → pause → resume with „Überspringen“.
- * Needs the backend and runs after e2e/journey.spec.ts and e2e/kontakte-produkte.spec.ts in the same project (single
+ * Needs the backend and runs after e2e/00-journey.spec.ts and e2e/kontakte-produkte.spec.ts in the same project (single
  * worker, files in order), which created the owner (setup complete) and the contact „Muster Handwerk GmbH“.
  */
 const STATE = (project: string) => `test-results/.auth/owner-${project}-recurring.json`;
@@ -22,16 +22,10 @@ test.use({
   // biome-ignore lint/correctness/noEmptyPattern: Playwright fixtures must destructure their first argument
   storageState: async ({}, use, testInfo) => use(ready ? STATE(testInfo.project.name) : undefined),
 });
-test.describe.configure({ mode: "serial" });
+// The recurring run waits up to 90 s for the generated + finalised invoice, above the 30 s default test timeout.
+test.describe.configure({ mode: "serial", timeout: 120_000 });
 
 const h1 = (page: Page, name: string | RegExp) => page.getByRole("heading", { level: 1, name });
-const customerSelect = (page: Page) => page.getByRole("combobox", { name: "Kunde", exact: true });
-
-async function selectByText(select: Locator, text: string): Promise<void> {
-  const option = select.locator("option", { hasText: text }).first();
-  await expect(option).toBeAttached({ timeout: 20_000 });
-  await select.selectOption((await option.getAttribute("value")) ?? "");
-}
 
 /** One template name per project run, so the phone projects do not see the desktop's template. */
 const templateName = (project: string) => `Wartungsvertrag ${project}`;
@@ -65,7 +59,7 @@ test("REC-01 REC-13 REC-14 REC-16 template with schedule and confirmed finalise 
   await expect(h1(page, "Neue wiederkehrende Rechnung")).toBeVisible();
   await page.getByLabel("Name der Vorlage").fill(templateName(testInfo.project.name));
   await page.getByLabel("Vertragsreferenz (BT-12)").fill("V-2026-17");
-  await selectByText(customerSelect(page), "Muster Handwerk GmbH");
+  await selectCustomer(page, "Muster Handwerk GmbH");
   await page.getByLabel("Intervall").selectOption("P1M");
   await page.getByLabel("Abrechnung").selectOption("in_advance");
   await page.getByLabel("Bezeichnung (Pos. 1)").fill("Wartungspauschale");
