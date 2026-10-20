@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<archive xmlns="http://xml.datev.de/bedi/tps/document/v05.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://xml.datev.de/bedi/tps/document/v05.0 Document_v050.xsd" version="5.0" generatingSystem="Rechnungen">
+  <header><date>2027-01-15T10:00:00</date><description>DATEV-Export 2026</description></header>
+  <content>
+    <document guid="08CF1107-B570-8B5A-ADB9-71F782456590" processID="1">
+      <description>ER-2026-0007</description>
+      <extension xsi:type="File" name="ER-2026-0007_1.pdf"/>
+      <extension xsi:type="File" name="ER-2026-0007_2.jpg"/>
+    </document>
+    <document guid="DC47BB67-61F4-8D4C-A4B5-EAF85C8514F6" processID="1">
+      <description>RE-2026-0001</description>
+      <extension xsi:type="File" name="RE-2026-0001.pdf"/>
+      <extension xsi:type="File" name="RE-2026-0001.xml"/>
+    </document>
+  </content>
+</archive>

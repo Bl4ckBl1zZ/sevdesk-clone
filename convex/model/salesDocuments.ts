@@ -39,6 +39,7 @@ import {
 } from "../../src/domain/documents/snapshot";
 import { blocking, type Finding, validateDocument } from "../../src/domain/documents/validate";
 import type { ValidateOptions, ValidationResult } from "../../src/domain/documents/validate/index";
+import { DSGVO_MESSAGES } from "../../src/domain/privacy/dsgvo";
 import type { GroupedOverrides } from "../../src/domain/rules/overrides";
 import { isVatRateKey, VAT_RATE_KEY_LABELS } from "../../src/domain/rules/vat-rates";
 import type { DraftValues, MarkSentValues } from "../../src/domain/schemas/documents";
@@ -686,10 +687,15 @@ async function assertDraft(ctx: ReadCtx, id: Id<"salesDocuments">, version?: num
   return doc;
 }
 
-async function assertContactUsable(ctx: ReadCtx, contactId: string | undefined) {
+async function assertContactUsable(ctx: ReadCtx, contactId: string | undefined, type?: string) {
   if (!contactId) return;
   const c = await ctx.db.get(contactId as Id<"contacts">);
   if (!c) throw appError("invalid_input", "Kontakt nicht gefunden.", { reason: "contact_missing" });
+  // F12 PRV-012 / E-PRV-11: a restricted contact (DSGVO Art. 18) cannot be used for new documents; reminders for
+  // existing open receivables stay possible (legal claims, Art. 18 Abs. 2 — the dunning UI warns).
+  if (c.dsgvo?.restrictedAt !== undefined && type !== "reminder") {
+    throw appError("invalid_input", DSGVO_MESSAGES.restricted, { reason: "CONTACT_RESTRICTED", field: "contactId" });
+  }
 }
 
 /**
@@ -813,7 +819,7 @@ export async function createDraft(
 ): Promise<Id<"salesDocuments">> {
   const action = opts.action ?? "document.create_draft";
   const reason = opts.reason?.trim() ? { reason: opts.reason.trim() } : {};
-  await assertContactUsable(ctx, input.contactId);
+  await assertContactUsable(ctx, input.contactId, input.type);
   const values = await withPaymentDefaults(ctx, input);
   const { lines } = await syncProductRateKeys(ctx, values.lines);
   const contactName = values.contactId
@@ -898,7 +904,7 @@ export async function updateDraft(
       reason: "type_immutable",
     });
   }
-  await assertContactUsable(ctx, input.contactId);
+  await assertContactUsable(ctx, input.contactId, input.type);
   const values = await withPaymentDefaults(ctx, input);
   const { lines, notices } = await syncProductRateKeys(ctx, values.lines);
   const contactChanged = (values.contactId ?? undefined) !== doc.contactId;

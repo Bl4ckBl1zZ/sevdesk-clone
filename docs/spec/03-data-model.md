@@ -1135,12 +1135,13 @@ jobs: { kind: "bulk_export" | "bulk_mark_sent" | "bulk_remind" | "pdf_zip" | "da
   status: "queued" | "running" | "done" | "failed"; progress: { done: number; total: number };
   resultStorageId?: Id<"_storage">; error?: string; actor: Actor; createdAt: number }
 
-datevExports: 🔒 { from: string; to: string; scope: ("revenue" | "vouchers" | "payments" | "master_data" | "documents")[];
-  mode: "new" | "full"; formatVersion: 12 | 13; festschreibung: boolean; isRepeat: boolean;
+datevExports: 🔒 { from: string; to: string; scope: ("revenue" | "vouchers" | "payments" | "assets" | "manual" | "master_data" | "documents")[];   // = F09 EXP-008
+  mode: "new" | "full"; formatVersion: 12 | 13; festschreibung: boolean; isRepeat: boolean; doNotReimport?: boolean;
   journalLineIds: string[] /* `${entryId}:${lineIndex}` exactly exported */; rowCount: number; sumUmsatzCents: number;
-  file: FileRef; validationReport?: unknown; actor: Actor; at: number }   // F09 EXP-009/010; downloads re-serve stored bytes
+  file: FileRef; files: { name: string; sha256: string; rowsSha256?: string /* data rows without the header line (E-EXP-04) */ }[];
+  validationReport?: unknown; jobId: Id<"jobs">; actor: Actor; at: number }   // F09 EXP-009/010; downloads re-serve stored bytes
 datevAcceptance: { /* pre-condition for the first real handover to an advisor, not a go-live gate (F09 EXP-016) */ testedOn: string; formatVersion: 12 | 13; buKeysConfirmed: boolean; advisorName?: string;
-  remarks?: string; recordedAt: number; actor: Actor }   // F09 EXP-016 go-live gate (append-only)
+  remarks?: string; recordedAt: number; actor: Actor }   // F09 EXP-016 (append-only; not a go-live gate, B5)
 
 notifications: { kind: string; severity: "info" | "warning" | "error" | "critical"; title: string; body?: string;
   link?: string; entity?: { table: string; id: string };

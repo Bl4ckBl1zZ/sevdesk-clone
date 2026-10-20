@@ -40,11 +40,13 @@ export function checkJournal(
   entries: readonly EntrySnapshot[],
   lineRows: readonly LineSnapshot[],
   accountExists: (account: string, date: string) => boolean,
+  /** F12 PRV-006: entries purged after their retention (tombstones) — their numbers count as present. */
+  purged: { seqs: ReadonlySet<number>; ids: ReadonlySet<string> } = { seqs: new Set(), ids: new Set() },
 ): InvariantFinding[] {
   const out: InvariantFinding[] = [];
-  const sorted = [...entries].sort((a, b) => a.seq - b.seq);
-  sorted.forEach((e, i) => {
-    if (e.seq !== i + 1) out.push(f(`Journal-Nummer ${i + 1} fehlt oder ist doppelt (gefunden: ${e.seq}).`));
+  const sorted = [...entries.map((e) => e.seq), ...purged.seqs].sort((a, b) => a - b);
+  sorted.forEach((seq, i) => {
+    if (seq !== i + 1) out.push(f(`Journal-Nummer ${i + 1} fehlt oder ist doppelt (gefunden: ${seq}).`));
   });
   const byId = new Map(entries.map((e) => [e.id, e]));
   const reversed = new Map<string, string>();
@@ -65,8 +67,8 @@ export function checkJournal(
     }
     if (e.reversalOfId) {
       const orig = byId.get(e.reversalOfId);
-      if (!orig) out.push(f(`${label}: storniert eine unbekannte Buchung.`));
-      else if (!mirrors(orig, e)) out.push(f(`${label} spiegelt Buchung ${orig.seq} nicht.`));
+      if (!orig && !purged.ids.has(e.reversalOfId)) out.push(f(`${label}: storniert eine unbekannte Buchung.`));
+      else if (orig && !mirrors(orig, e)) out.push(f(`${label} spiegelt Buchung ${orig.seq} nicht.`));
       const prev = reversed.get(e.reversalOfId);
       if (prev) out.push(f(`Buchung ${orig?.seq ?? "?"} wurde mehrfach storniert.`));
       reversed.set(e.reversalOfId, e.id);

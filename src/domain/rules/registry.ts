@@ -5,6 +5,7 @@
 import { ACCOUNTING_RULE_TABLES } from "./accounting";
 import { AFA_RULES } from "./afa";
 import { BASISZINSSATZ } from "./basiszinssatz";
+import { DATEV_BU_TABLE } from "./datev-bu";
 import { EINVOICE_OBLIGATION } from "./einvoice-obligation";
 import { EU_VAT_TERRITORY } from "./eu-vat-countries";
 import { EXEMPTION_REASONS } from "./exemption-reasons";
@@ -51,6 +52,7 @@ export const ALL_RULE_TABLES: readonly RuleTable<unknown>[] = [
   ...Object.values(RC13B_TYPES),
   ...Object.values(EXEMPTION_REASONS),
   ...ACCOUNTING_RULE_TABLES,
+  DATEV_BU_TABLE,
   USTVA_PERIOD_LIMITS,
   NEUGRUENDER_RULE,
   ANNUAL_RETURN_DEADLINE,

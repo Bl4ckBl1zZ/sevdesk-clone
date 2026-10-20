@@ -133,6 +133,8 @@ function baseQuery(ctx: QueryCtx, f: ListFilter) {
 async function matches(ctx: QueryCtx, c: Doc<"contacts">, f: ListFilter): Promise<boolean> {
   const status = f.status ?? "open";
   if (c.mergedIntoId && status !== "all") return false;
+  // F12 PRV-012: restricted contacts (DSGVO Art. 18) are hidden from lists, search and pickers („Alle“ shows them).
+  if (c.dsgvo?.restrictedAt !== undefined && status !== "all") return false;
   if (status === "open" && c.status === "archived") return false;
   if ((status === "lead" || status === "active" || status === "archived") && c.status !== status) return false;
   if (f.kind && c.kind !== f.kind) return false;

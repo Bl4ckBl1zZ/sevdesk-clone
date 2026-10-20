@@ -159,6 +159,51 @@ export const PERMISSIONS = {
    * audit entry and the derived `firstExportedAt` cache are recorded.
    */
   "documents.export": { roles: ALL, scope: "documents:read", write: false },
+  /**
+   * F09 EXP-017 GDPdU (Z3) export per fiscal year: owner and bookkeeper (02 §4.3 role matrix: "DATEV/GDPdU
+   * exports"), API with `exports:run` (F09 §7).
+   */
+  "exports.gdpdu": { roles: ["owner", "bookkeeper"], scope: "exports:run", write: false },
+  /**
+   * F09 EXP-001…016 DATEV export (validate, start; owner and bookkeeper per 02 §4.3). Writes: the audited
+   * personal-account assignment (EXP-006) and the history row. ⚠ for MCP (06 §2: it can lock a period) — confirm
+   * token from `preview_action {action: "export_datev"}`.
+   */
+  "exports.datev": { roles: ["owner", "bookkeeper"], scope: "exports:run", write: true, confirm: "export_datev" },
+  /**
+   * F09 EXP-011 DATEV export with „Zeitraum beim Export festschreiben": locks the months first (F08 lockThrough,
+   * reason `datev_export`) — ⚠ irreversible, fresh session (02 §4.2 "DATEV export with lock"), same roles as
+   * `accounting.lock`; MCP needs the `export_datev` confirm token (E-EXP-19).
+   */
+  "exports.datev.lock": {
+    roles: ["owner", "bookkeeper"],
+    scope: "exports:run",
+    write: true,
+    fresh: true,
+    confirm: "export_datev",
+  },
+  /** F09 EXP-007 the DATEV dry run („Prüfen", REST `…/validate`, MCP preview): reads only, no confirm token. */
+  "exports.datev.validate": { roles: ["owner", "bookkeeper"], scope: "exports:run", write: false },
+  /** F09 EXP-009 DATEV export history and the download of the stored ZIP (audited). */
+  "exports.datev.read": { roles: ["owner", "bookkeeper"], scope: "exports:run", write: false },
+  /** F09 EXP-016 recording the advisor's test-import result (owner; UI only). */
+  "exports.datev.acceptance": { roles: ["owner"], scope: null, write: true },
+  /**
+   * F12 AUD-023: the generated Z3 packages — the auditor downloads those of the granted fiscal years (UI only).
+   */
+  "exports.gdpdu.read": { roles: ["owner", "bookkeeper", "auditor"], scope: null, write: false },
+  /** F12 PRV-003 retention worklist and Löschläufe history (owner, bookkeeper; UI only). */
+  "retention.read": { roles: ["owner", "bookkeeper"], scope: null, write: false },
+  /** F12 PRV-005 purge wizard: owner only, fresh session, never via REST/MCP (E-PRV-05, 05 §2.2). */
+  "retention.purge": { roles: ["owner"], scope: null, write: true, fresh: true },
+  /** F12 PRV-004 Betriebsprüfung-Modus (start/end with reason): owner, UI only. */
+  "retention.hold": { roles: ["owner"], scope: null, write: true },
+  /** F12 PRV-010 DSGVO register (owner; REST `GET /dsgvo-requests` read-only with `settings:read`, F12 §7). */
+  "dsgvo.read": { roles: ["owner"], scope: "settings:read", write: false },
+  /** F12 PRV-010…014, F02 CON-165: DSGVO actions are owner-only in the UI (REST/MCP: 403 `owner_only`). */
+  "dsgvo.manage": { roles: ["owner"], scope: null, write: true },
+  /** F12 PRV-011 executing an erasure (deletes data now, restricts the rest): owner, fresh session. */
+  "dsgvo.erase": { roles: ["owner"], scope: null, write: true, fresh: true },
   /** F09 EXP-023 Vollexport (all tables and files leave the system): owner only; API `POST /exports/full` (05 §4). */
   "exports.full": { roles: ["owner"], scope: "exports:run", write: false },
   /**

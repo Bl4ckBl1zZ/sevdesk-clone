@@ -74,6 +74,8 @@ export const IMMUTABILITY_MATRIX: Readonly<Record<string, TableRule>> = {
   restoreDrills: APPEND_ONLY,
   purgeTombstones: APPEND_ONLY,
   datevExports: APPEND_ONLY,
+  // F09 EXP-017 / F12 AUD-023: Z3 packages handed to the auditor (file kept, never replaced).
+  gdpduExports: APPEND_ONLY,
   dunningRuns: APPEND_ONLY,
   datevAcceptance: APPEND_ONLY,
   allocations: APPEND_ONLY,

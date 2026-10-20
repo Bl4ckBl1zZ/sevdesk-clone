@@ -7,8 +7,8 @@ import type { ReadCtx } from "./types";
  *
  *   finalisedDocumentsForKu → SET-034 (KU history lock, retroactive entries): every finalised invoice-family
  *                             document, Storno and correction with the date its KU status was resolved by (supply)
- *   datevExportCount        → SET-044 / SET-E22 (account length lock, consultant-number warning) — DATEV exports
- *                             arrive with F09 P3; until then none exist
+ *   datevExportCount        → SET-044 / SET-E22 (account length lock, consultant-number warning) — the DATEV
+ *                             export history (F09 EXP-009, `datevExports`)
  */
 export async function finalisedDocumentsForKu(ctx: ReadCtx): Promise<FinalisedDocRef[]> {
   const out: FinalisedDocRef[] = [];
@@ -21,6 +21,6 @@ export async function finalisedDocumentsForKu(ctx: ReadCtx): Promise<FinalisedDo
   return out;
 }
 
-export async function datevExportCount(_ctx: ReadCtx): Promise<number> {
-  return 0;
+export async function datevExportCount(ctx: ReadCtx): Promise<number> {
+  return (await ctx.db.query("datevExports").take(1)).length;
 }

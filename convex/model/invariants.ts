@@ -123,11 +123,16 @@ export async function checkInvariants(ctx: ReadCtx): Promise<InvariantViolation[
   const out: InvariantViolation[] = [];
   const entries = await ctx.db.query("auditLog").withIndex("by_seq").collect();
 
-  // RI-14 — chain
-  const res = await verifyChainPage(entries, { nextSeq: 1, prevHash: await genesisHash(instanceName()) });
+  // RI-14 — chain (after an audit-log prefix purge, PRV-008, verification starts at the latest signed anchor)
+  const anchor = await ctx.db.query("chainAnchors").withIndex("by_seq").order("desc").first();
+  const start =
+    anchor && (entries[0]?.seq ?? 0) > 1
+      ? { nextSeq: anchor.seq + 1, prevHash: anchor.hash }
+      : { nextSeq: 1, prevHash: await genesisHash(instanceName()) };
+  const res = await verifyChainPage(entries, start);
   for (const f of res.findings) out.push({ id: "RI-14", severity: "ERROR", message: f.detail });
   const cp = await ctx.db.query("integrityCheckpoints").withIndex("by_at").order("desc").first();
-  if (cp && cp.lastSeq > 0) {
+  if (cp && cp.lastSeq > 0 && !(anchor && cp.lastSeq <= anchor.seq)) {
     const atCp = entries.find((e) => e.seq === cp.lastSeq);
     if (!atCp || atCp.hash !== cp.lastHash) {
       out.push({
@@ -150,6 +155,11 @@ export async function checkInvariants(ctx: ReadCtx): Promise<InvariantViolation[
     for (const doc of await ctx.db.query(table).collect()) {
       const id = String(doc._id);
       const audited = replayEntity(byEntity.get(`${table}\u0000${id}`) ?? []);
+      // PRV-008: records created before the anchored (purged) prefix lost their creation entry — not replayable.
+      const list = byEntity.get(`${table}\u0000${id}`) ?? [];
+      const first = list[0]?.diff as { before?: unknown } | undefined;
+      if (anchor && (doc._creationTime as number) <= anchor.createdAt && (!first || first.before !== undefined))
+        continue;
       if (audited === null) {
         out.push({ id: "RI-15", severity: "ERROR", message: `${table}/${id} existiert ohne Protokolleintrag.` });
         continue;
@@ -163,6 +173,7 @@ export async function checkInvariants(ctx: ReadCtx): Promise<InvariantViolation[
   // RI-15 — snapshots: every companyProfileVersions row belongs to an audited companyProfile change.
   const bySeq = new Map(entries.map((e) => [e.seq, e]));
   for (const v of await ctx.db.query("companyProfileVersions").collect()) {
+    if (anchor && v.auditSeq <= anchor.seq) continue; // its entry lies in the purged, anchored prefix (PRV-008)
     const e = bySeq.get(v.auditSeq);
     const after = (e?.diff as { after?: { version?: unknown } } | undefined)?.after;
     if (e?.entity.table !== "companyProfile" || after?.version !== v.version) {
@@ -185,6 +196,36 @@ export async function checkInvariants(ctx: ReadCtx): Promise<InvariantViolation[
         severity: "ERROR",
         message: `${e.entity.table}/${e.entity.id} wurde vor Ablauf der Aufbewahrungsfrist (${until}) gelöscht (seq ${e.seq}).`,
       });
+    }
+  }
+  // RI-20 (F12 PRV-006) — every tombstone stands for a record that is gone (contacts: anonymised, key shredded) and
+  // was purged only after its retention ended.
+  for (const t of await ctx.db.query("purgeTombstones").collect()) {
+    const day = berlinCalendarDate(t.purgedAt);
+    if (day <= t.retentionUntil) {
+      out.push({
+        id: "RI-20",
+        severity: "ERROR",
+        message: `${t.table}/${t.recordId} wurde vor Ablauf der Aufbewahrungsfrist (${t.retentionUntil}) gelöscht.`,
+      });
+    }
+    if (t.table === "auditLog") continue;
+    const nid = ctx.db.normalizeId(t.table as TableNames, t.recordId);
+    const doc = nid ? await ctx.db.get(nid) : null;
+    if (t.table === "contacts") {
+      const key = await ctx.db
+        .query("contactKeys")
+        .withIndex("by_contact", (q) => q.eq("contactId", t.recordId))
+        .first();
+      if (key && key.shreddedAt === undefined) {
+        out.push({
+          id: "RI-20",
+          severity: "ERROR",
+          message: `contacts/${t.recordId}: Schlüssel nach Löschung nicht vernichtet.`,
+        });
+      }
+    } else if (doc) {
+      out.push({ id: "RI-20", severity: "ERROR", message: `${t.table}/${t.recordId} besteht trotz Löschvermerk.` });
     }
   }
   out.push(...(await checkJournalInvariants(ctx)));
@@ -404,6 +445,17 @@ export async function checkVoucherInvariants(ctx: ReadCtx): Promise<InvariantVio
 }
 
 /** RI-11 and RI-12 (F08 journal) over the whole journal; the pure checks live in src/domain/accounting/invariants.ts. */
+async function purgedJournal(ctx: ReadCtx) {
+  const seqs = new Set<number>();
+  const ids = new Set<string>();
+  for (const t of await ctx.db.query("purgeTombstones").collect()) {
+    if (t.table !== "journalEntries") continue;
+    ids.add(t.recordId);
+    if (t.seq !== undefined) seqs.add(t.seq);
+  }
+  return { seqs, ids };
+}
+
 export async function checkJournalInvariants(ctx: ReadCtx): Promise<InvariantViolation[]> {
   const entries = await ctx.db.query("journalEntries").collect();
   const lines = await ctx.db.query("journalLines").collect();
@@ -431,6 +483,7 @@ export async function checkJournalInvariants(ctx: ReadCtx): Promise<InvariantVio
     })),
     lines.map((l) => ({ ...l, entryId: String(l.entryId) })),
     accountExists,
+    await purgedJournal(ctx),
   );
   // RI-11 for the cash account of every chart in use (a chart switch changes the number, EC-116).
   const cashRow = ROLE_MAPPING_ROWS.find((r) => r.role === "cash");

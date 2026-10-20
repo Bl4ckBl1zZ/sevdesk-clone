@@ -95,4 +95,11 @@ crons.cron("bank.sync (CET)", "30 4,10,16,22 * * *", internal.bankFeedNode.syncC
 crons.cron("bank.consentExpiryReminder (CEST)", "0 6 * * *", internal.bankFeed.consentExpiryReminderCron, {});
 crons.cron("bank.consentExpiryReminder (CET)", "0 7 * * *", internal.bankFeed.consentExpiryReminderCron, {});
 
+// retention.scan — monthly on the 1st, 06:00 UTC (F12 PRV-003): lists purge-eligible records and notifies; the purge
+// itself is always a manual owner act (GOBD-21).
+crons.monthly("retention.scan", { day: 1, hourUTC: 6, minuteUTC: 0 }, internal.retention.scanCron, {});
+
+// dsgvo.deadlines — daily 07:30 UTC (F12 PRV-010, E-PRV-12): reminders at due − 7 / − 1 days, overdue as error.
+crons.cron("dsgvo.deadlines", "30 7 * * *", internal.dsgvo.deadlinesCron, {});
+
 export default crons;
