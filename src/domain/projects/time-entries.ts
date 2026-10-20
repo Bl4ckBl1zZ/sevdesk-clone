@@ -88,6 +88,14 @@ export function formatMinutes(minutes: number): string {
   return `${sign}${Math.floor(m / 60)}:${String(m % 60).padStart(2, "0")} h`;
 }
 
+/** Running timer display (PRJ-005): milliseconds → „h:mm:ss“; negative clock skew shows 0. */
+export function formatElapsed(ms: number): string {
+  const s = Math.max(0, Math.floor(ms / 1000));
+  const h = Math.floor(s / 3600);
+  const m = Math.floor((s % 3600) / 60);
+  return `${h}:${String(m).padStart(2, "0")}:${String(s % 60).padStart(2, "0")}`;
+}
+
 /** „09:30“ → 570; null when not a valid wall-clock time. */
 export function parseClockTime(input: string): number | null {
   const m = /^([01]?\d|2[0-3])[:.]([0-5]\d)$/.exec(input.trim());

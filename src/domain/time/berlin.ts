@@ -57,3 +57,11 @@ export function berlinWallClockInstant(date: CalendarDate, minuteOfDay: number):
   if (fits(before) || !fits(after)) return before; // repeated hour: summer time; skipped hour: one hour later
   return after;
 }
+
+/** Europe/Berlin wall-clock time of an instant as „HH:MM“ (edit forms of timer entries, F11 PRJ-007). */
+export function berlinClockTime(epochMs: number): string {
+  if (!Number.isSafeInteger(epochMs)) throw new InstantError(`${epochMs} is not an integer epoch millisecond`);
+  const local = epochMs + tzOffset(BUSINESS_TIME_ZONE, new Date(epochMs)) * MS_PER_MINUTE;
+  const minute = Math.floor((((local % MS_PER_DAY) + MS_PER_DAY) % MS_PER_DAY) / MS_PER_MINUTE);
+  return `${String(Math.floor(minute / 60)).padStart(2, "0")}:${String(minute % 60).padStart(2, "0")}`;
+}

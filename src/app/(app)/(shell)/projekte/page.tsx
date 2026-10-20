@@ -1,7 +1,12 @@
-import { PlaceholderPage, placeholderMetadata } from "@/components/layout/placeholder-page";
+import { CatalogPage, catalogMetadata } from "@/components/catalog/catalog-page";
+import { ProjectsList } from "@/components/projects/projects-list";
 
-export const generateMetadata = () => placeholderMetadata("projekte");
+export const generateMetadata = () => catalogMetadata("projekte");
 
 export default function Page() {
-  return <PlaceholderPage page="projekte" />;
+  return (
+    <CatalogPage page="projekte" permission="projects.read" body={false}>
+      <ProjectsList />
+    </CatalogPage>
+  );
 }

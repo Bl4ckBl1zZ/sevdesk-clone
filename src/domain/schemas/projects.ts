@@ -4,11 +4,14 @@
  * in minutes or cents, quantities in milli).
  */
 import { z } from "zod";
+import { formatCents, formatMicros, formatMilli } from "../money/format";
 import { parseCents, parseMicros, parseMilli } from "../money/parse";
 import { roundHalfAway } from "../money/rounding";
 import { MANUAL_STOCK_KINDS } from "../products/stock";
 import { TIME_GROUPINGS } from "../projects/invoicing";
+import type { TimeRounding } from "../projects/rates";
 import { parseDuration } from "../projects/time-entries";
+import { berlinClockTime } from "../time/berlin";
 import { isCalendarDate } from "../time/calendar-date";
 
 const trimmed = () => z.string().trim();
@@ -128,6 +131,49 @@ export const emptyProjectForm = (): ProjectFormValues => ({
   roundingMinimum: "",
 });
 
+/** A stored project (ids as strings) → edit-form values; `projectFormSchema` parses them back unchanged. */
+export interface ProjectRecord {
+  readonly name: string;
+  readonly description?: string | undefined;
+  readonly contactId?: string | undefined;
+  readonly status: ProjectFormValues["status"];
+  readonly billingMode: ProjectFormValues["billingMode"];
+  readonly hourlyRateMicros?: number | undefined;
+  readonly internalCostRateMicros?: number | undefined;
+  readonly budget?: { readonly kind: "hours" | "amount"; readonly value: number } | undefined;
+  readonly startDate?: string | undefined;
+  readonly endDate?: string | undefined;
+  readonly defaultProductId?: string | undefined;
+  readonly rounding?: TimeRounding | undefined;
+}
+
+export function projectFormFromRecord(p: ProjectRecord): ProjectFormValues {
+  const budgetValue = !p.budget
+    ? ""
+    : p.budget.kind === "hours"
+      ? formatMilli(Number(roundHalfAway(BigInt(p.budget.value) * 1000n, 60n)))
+      : formatCents(p.budget.value);
+  return {
+    name: p.name,
+    description: p.description ?? "",
+    contactId: p.contactId ?? "",
+    status: p.status,
+    billingMode: p.billingMode,
+    hourlyRate: p.hourlyRateMicros !== undefined ? formatMicros(p.hourlyRateMicros) : "",
+    internalCostRate: p.internalCostRateMicros !== undefined ? formatMicros(p.internalCostRateMicros) : "",
+    budgetKind: p.budget?.kind ?? "none",
+    budgetValue,
+    startDate: p.startDate ?? "",
+    endDate: p.endDate ?? "",
+    defaultProductId: p.defaultProductId ?? "",
+    roundingIncrement: p.rounding
+      ? (String(p.rounding.incrementMinutes) as ProjectFormValues["roundingIncrement"])
+      : "default",
+    roundingMode: p.rounding?.mode ?? "up",
+    roundingMinimum: p.rounding?.minimumMinutes !== undefined ? String(p.rounding.minimumMinutes) : "",
+  };
+}
+
 // ── time entries (PRJ-007) ─────────────────────────────────────────────────────────────────────────────────
 
 export const timeEntryFormSchema = z
@@ -169,6 +215,38 @@ export const emptyTimeEntryForm = (today: string): TimeEntryFormValues => ({
   billable: true,
   rate: "",
 });
+
+/** A stored entry → edit-form values (timer entries keep their Berlin wall-clock times). */
+export interface TimeEntryRecord {
+  readonly date: string;
+  readonly durationMinutes: number;
+  readonly startedAt?: number | undefined;
+  readonly endedAt?: number | undefined;
+  readonly description: string;
+  readonly projectId?: string | undefined;
+  readonly contactId?: string | undefined;
+  readonly productId?: string | undefined;
+  readonly billable: boolean;
+  readonly hourlyRateMicros: number;
+}
+
+export function timeEntryFormFromRecord(e: TimeEntryRecord): TimeEntryFormValues {
+  const times = e.startedAt !== undefined && e.endedAt !== undefined;
+  const m = e.durationMinutes;
+  return {
+    date: e.date,
+    mode: times ? "start_end" : "duration",
+    duration: `${Math.floor(m / 60)}:${String(m % 60).padStart(2, "0")}`,
+    startTime: times ? berlinClockTime(e.startedAt as number) : "",
+    endTime: times ? berlinClockTime(e.endedAt as number) : "",
+    description: e.description,
+    projectId: e.projectId ?? "",
+    contactId: e.contactId ?? "",
+    productId: e.productId ?? "",
+    billable: e.billable,
+    rate: e.hourlyRateMicros > 0 ? formatMicros(e.hourlyRateMicros) : "",
+  };
+}
 
 export const rateOverrideMicros = (rate: string): number | undefined => micros(rate.trim());
 

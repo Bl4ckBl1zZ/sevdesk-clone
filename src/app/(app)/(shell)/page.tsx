@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { getTranslations } from "next-intl/server";
 import { Dashboard } from "@/components/dashboard/dashboard";
 import { TodosWidget } from "@/components/invoices/invoices-list";
+import { UnbilledTimeWidget } from "@/components/time/unbilled-widget";
 import { VoucherTodosWidget } from "@/components/vouchers/voucher-todos";
 
 export async function generateMetadata(): Promise<Metadata> {
@@ -20,6 +21,7 @@ export default function StartPage() {
         <>
           <TodosWidget />
           <VoucherTodosWidget />
+          <UnbilledTimeWidget />
         </>
       }
     />
