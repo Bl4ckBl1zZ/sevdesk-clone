@@ -149,6 +149,8 @@ const GROUPS: Record<string, readonly string[] | "*"> = {
     "datev_download",
     // F09 EXP-020 Kennzahlen sheet (UStVA/ZM PDF or CSV) downloaded
     "kennzahlen",
+    // F08 RPT-014 report (SuSa, Kontenblatt, BWA, OPOS, Umsatz) downloaded as PDF or CSV
+    "report",
   ],
   // F09 EXP-026 background jobs (jobs table): lifecycle and the 30-day result expiry.
   job: ["create", "start", "progress", "done", "fail", "cancel", "expire"],

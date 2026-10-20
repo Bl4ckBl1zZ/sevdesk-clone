@@ -3223,6 +3223,54 @@
     "wrapper": "mutation",
     "permission": "documents.write"
   },
+  "reports:bwa": {
+    "kind": "query",
+    "visibility": "public",
+    "wrapper": "query",
+    "permission": "reports.read"
+  },
+  "reports:ledger": {
+    "kind": "query",
+    "visibility": "public",
+    "wrapper": "query",
+    "permission": "reports.read"
+  },
+  "reports:openItems": {
+    "kind": "query",
+    "visibility": "public",
+    "wrapper": "query",
+    "permission": "reports.read"
+  },
+  "reports:recordDownload": {
+    "kind": "mutation",
+    "visibility": "internal",
+    "wrapper": "actorMutation",
+    "permission": "reports.read"
+  },
+  "reports:reportInput": {
+    "kind": "query",
+    "visibility": "internal",
+    "wrapper": "systemQuery",
+    "job": "exports.run"
+  },
+  "reports:revenue": {
+    "kind": "query",
+    "visibility": "public",
+    "wrapper": "query",
+    "permission": "reports.read"
+  },
+  "reports:susa": {
+    "kind": "query",
+    "visibility": "public",
+    "wrapper": "query",
+    "permission": "reports.read"
+  },
+  "reportsNode:download": {
+    "kind": "action",
+    "visibility": "public",
+    "wrapper": "action",
+    "permission": "reports.read"
+  },
   "restore:complete": {
     "kind": "action",
     "visibility": "internal",
