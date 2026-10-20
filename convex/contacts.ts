@@ -56,6 +56,7 @@ import {
   saveAddress as saveAddressModel,
   saveChannel as saveChannelModel,
   setArchived,
+  setSelfBillingAgreement as setSelfBillingAgreementModel,
   setTaskDone as setTaskDoneModel,
   undoMerge as undoMergeModel,
   updateActivity as updateActivityModel,
@@ -63,6 +64,7 @@ import {
 } from "./model/contacts";
 import { listDefaultRanges, nextValue } from "./model/numberRanges";
 import { contactChecks } from "./model/vatChecks";
+import { vFileRef } from "./validators";
 
 /**
  * Kontakte (F02). Public queries and mutations for the UI (and later REST/MCP): every function declares its
@@ -374,6 +376,25 @@ export const update = mutation({
     const r = await updateContact(ctx, id, version, parse(contactSchema, values));
     return { warnings: r.warnings.map((w) => w.message), vatIdChanged: r.vatIdChanged };
   },
+});
+
+/** F04 §4.9 INV-16: Gutschriftsvereinbarung of a supplier (null removes it). */
+export const setSelfBillingAgreement = mutation({
+  permission: "contacts.write",
+  args: {
+    id: v.id("contacts"),
+    agreement: v.union(
+      v.null(),
+      v.object({
+        agreedOn: v.string(),
+        scope: v.string(),
+        validFrom: v.string(),
+        validTo: v.optional(v.string()),
+        file: v.optional(vFileRef),
+      }),
+    ),
+  },
+  handler: async (ctx, { id, agreement }) => setSelfBillingAgreementModel(ctx, id, agreement),
 });
 
 export const archive = mutation({

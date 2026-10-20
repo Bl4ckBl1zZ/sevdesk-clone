@@ -33,6 +33,7 @@ import {
   validateTaxFields,
 } from "../../src/domain/contacts/tax";
 import { personalAccountRanges } from "../../src/domain/datev/keys";
+import { agreementIssues, type SelfBillingAgreement } from "../../src/domain/documents/self-billing";
 import { validateCustomFieldValue } from "../../src/domain/lookups/custom-fields";
 import type {
   ActivityFormValues,
@@ -625,6 +626,41 @@ export async function setArchived(ctx: ModelCtx, id: Id<"contacts">, archived: b
     id,
     { status, version: c.version + 1 },
     { action: archived ? "contact.archive" : "contact.unarchive", label: c.number },
+  );
+}
+
+/**
+ * F04 §4.9 INV-16 (UST-33): stores or removes the Gutschriftsvereinbarung of a supplier contact (audited). A
+ * Gutschrift can only be finalised while an agreement is valid at its document date.
+ */
+export async function setSelfBillingAgreement(
+  ctx: ModelCtx,
+  id: Id<"contacts">,
+  agreement: (SelfBillingAgreement & { file?: NonNullable<Doc<"contacts">["selfBillingAgreement"]>["file"] }) | null,
+): Promise<void> {
+  const c = await getContact(ctx, id);
+  if (agreement) {
+    const issues = agreementIssues(agreement);
+    if (issues.length > 0) throw appError("invalid_input", issues.join(" "));
+  }
+  const value = agreement
+    ? {
+        agreedOn: agreement.agreedOn,
+        scope: agreement.scope.trim(),
+        validFrom: agreement.validFrom,
+        ...(agreement.validTo ? { validTo: agreement.validTo } : {}),
+        ...(agreement.file ? { file: agreement.file } : {}),
+      }
+    : undefined;
+  await auditedPatch(
+    ctx,
+    "contacts",
+    id,
+    { selfBillingAgreement: value, version: c.version + 1 },
+    {
+      action: agreement ? "contact.self_billing_agreement" : "contact.self_billing_agreement_removed",
+      label: c.number,
+    },
   );
 }
 

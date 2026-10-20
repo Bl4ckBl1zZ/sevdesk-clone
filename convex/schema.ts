@@ -636,6 +636,16 @@ export default defineSchema({
         replacedAt: v.optional(v.number()),
       }),
     ),
+    /** Gutschriftsvereinbarung with a supplier (F04 §4.9, INV-16; UST-33): required to issue a self-billing Gutschrift. */
+    selfBillingAgreement: v.optional(
+      v.object({
+        agreedOn: v.string(),
+        scope: v.string(),
+        validFrom: v.string(),
+        validTo: v.optional(v.string()),
+        file: v.optional(vFileRef),
+      }),
+    ),
     einvoice: v.object({
       preferredFormat: v.union(
         v.literal("auto"),

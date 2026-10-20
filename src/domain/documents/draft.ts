@@ -22,6 +22,7 @@ import { ossRelevantNetCents } from "../tax/turnover";
 import type { VatCategory } from "../tax/vat-category";
 import type { CalendarDate } from "../time/calendar-date";
 import type { DocumentRelations } from "./relations";
+import type { SelfBillingAgreement } from "./self-billing";
 import {
   type EinvoiceFormat,
   monthBounds,
@@ -178,6 +179,8 @@ export interface ContactContext {
   readonly certificates13b: readonly Certificate13b[];
   readonly buyerReference?: string | undefined;
   readonly archived?: boolean | undefined;
+  /** Self-billing agreement of a supplier contact (F04 §4.9, INV-16). */
+  readonly selfBillingAgreement?: SelfBillingAgreement | undefined;
 }
 
 export interface DocumentContext {
