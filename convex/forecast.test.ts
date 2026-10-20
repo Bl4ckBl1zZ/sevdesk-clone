@@ -1,7 +1,9 @@
 import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
 import { api } from "./_generated/api";
+import { invoiceEvent, post } from "./bookkeeping.fixtures";
 import { finalizedInvoice } from "./invoices.fixtures";
 import { makeT } from "./test.setup";
+import { header, line, setupCompany, TODAY, upload } from "./vouchers.fixtures";
 
 beforeEach(() => {
   vi.useFakeTimers({ toFake: ["Date"] });
@@ -37,5 +39,27 @@ describe("Liquiditätsvorschau read model (RPT-012)", () => {
     expect(f.notices).toContain("Keine Zahlungshistorie – Fälligkeit angenommen.");
     expect(f.belowThreshold.expected).toBe("2026-10-12");
     expect(f.days.find((d) => d.date === "2026-11-11")?.expectedCents).toBe(119_000 - 19_000);
+  });
+
+  test("RPT-012 a period with a recorded UStVA payment voucher is not estimated again", async () => {
+    vi.useRealTimers();
+    const t = makeT();
+    const { supplier } = await setupCompany(t);
+    await post(t, invoiceEvent(supplier, "d1", TODAY, 100000));
+    const owner = await t.asUser("owner");
+    const { voucherId } = await upload(t, owner);
+    await owner.mutation(api.vouchers.updateDraft, {
+      id: voucherId,
+      input: header({
+        kind: "tax_payment",
+        supplierName: "Finanzamt Berlin",
+        taxRule: "no_input_vat",
+        taxPayment: { subtype: "ust_prepayment", period: TODAY.slice(0, 7) },
+        lines: [line({ account: "3820", description: "USt-VZ", amountCents: 19_000, vatRateBp: 0 })],
+      }),
+    });
+    await owner.mutation(api.vouchers.finalize, { id: voucherId });
+    const f = await owner.query(api.reports.forecast, {});
+    expect(f.items.filter((i) => i.source === "tax").map((i) => [i.id, i.cents])).toEqual([[voucherId, -19_000]]);
   });
 });

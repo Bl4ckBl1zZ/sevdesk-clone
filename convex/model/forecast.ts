@@ -164,7 +164,20 @@ export async function forecastView(ctx: ReadCtx, now: number, a: { thresholdCent
     const ustva = [...(await taxDeadlines(ctx, year - 1)), ...deadlinesAll].filter(
       (d) => d.kind === "ustva" && !d.done && d.period && d.due <= end,
     );
+    // a period with a recorded UStVA payment voucher (open → listed above, paid → already out) is not estimated
+    const recorded = new Set(
+      (await ctx.db.query("vouchers").collect())
+        .filter(
+          (v) =>
+            v.taxPayment?.subtype === "ust_prepayment" &&
+            v.taxPayment.period &&
+            v.status !== "draft" &&
+            v.status !== "cancelled",
+        )
+        .map((v) => v.taxPayment?.period),
+    );
     for (const d of ustva) {
+      if (recorded.has(d.period)) continue;
       const cents = monthsOfFilingPeriod(d.period ?? "").reduce((s, m) => s + (byMonth.get(m) ?? 0), 0);
       if (cents <= 0) continue;
       items.push({
