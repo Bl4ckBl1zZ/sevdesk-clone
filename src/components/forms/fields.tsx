@@ -1,7 +1,7 @@
 "use client";
 
 import type * as React from "react";
-import { useId } from "react";
+import { useEffect, useId, useRef } from "react";
 import { type FieldValues, get, type Path, type UseFormReturn } from "react-hook-form";
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
@@ -116,19 +116,34 @@ export function SelectField<T extends FieldValues>({
 }) {
   const { id, descId, errorId } = useFieldIds();
   const error = errorOf(form, name);
+  const { ref: registerRef, ...registration } = form.register(name);
+  const selectRef = useRef<HTMLSelectElement | null>(null);
+  // Options often come from a query that resolves after the form: the uncontrolled select then shows the
+  // placeholder although the form holds the value, so re-apply the form value whenever the options change.
+  const optionValues = options.map((o) => o.value).join("\u0000");
+  // biome-ignore lint/correctness/useExhaustiveDependencies: re-sync exactly when the option values change
+  useEffect(() => {
+    const el = selectRef.current;
+    const value = form.getValues(name);
+    if (el && value != null && el.value !== String(value)) el.value = String(value);
+  }, [optionValues]);
   return (
     <div className={cn("flex flex-col gap-1.5", className)} data-invalid={error ? true : undefined}>
       <Label htmlFor={id} required={required}>
         {label}
       </Label>
       <select
+        ref={(el) => {
+          registerRef(el);
+          selectRef.current = el;
+        }}
         id={id}
         disabled={disabled}
         aria-required={required || undefined}
         aria-invalid={error ? true : undefined}
         aria-describedby={describedBy(description !== undefined && descId, error && errorId)}
         className="h-11 w-full rounded-md border border-input bg-background px-2.5 text-base shadow-xs outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 disabled:opacity-50 aria-invalid:border-destructive md:h-9 md:text-sm dark:bg-input/30"
-        {...form.register(name)}
+        {...registration}
       >
         {placeholder && <option value="">{placeholder}</option>}
         {options.map((o) => (

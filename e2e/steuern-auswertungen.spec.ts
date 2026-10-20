@@ -39,7 +39,7 @@ test("RPT-001 TST-RPT-10 /auswertungen lists the report tiles and opens the SuSa
   await page.getByRole("button", { name: "CSV" }).click();
   expect((await csv).suggestedFilename()).toMatch(/^SuSa_\d{8}\.csv$/);
   await page.goto("/auswertungen?bericht=bwa");
-  await expect(page.getByRole("columnheader", { name: "Jahr bis heute" })).toBeVisible();
+  await expect(page.getByRole("columnheader", { name: "Jahr bis heute", exact: true })).toBeVisible();
   await expectNoAxeViolations();
 });
 

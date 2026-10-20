@@ -30,7 +30,7 @@ test("EXP-020 the owner downloads the UStVA Kennzahlen of the current month as C
   const now = new Date();
   const period = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
   await page.getByLabel("Meldung").selectOption("ustva");
-  await page.getByLabel("Zeitraum").fill(period);
+  await page.getByRole("textbox", { name: "Zeitraum", exact: true }).fill(period);
   const csv = page.waitForEvent("download");
   await page.getByRole("button", { name: "CSV herunterladen" }).click();
   expect((await csv).suggestedFilename()).toBe(`UStVA_${period}_Kennzahlen.csv`);
