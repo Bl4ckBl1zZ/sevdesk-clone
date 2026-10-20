@@ -112,7 +112,8 @@ test("PRJ-005 the timer runs live and can be discarded without an entry", async 
   const confirm = page.getByRole("dialog", { name: "Timer verwerfen?" });
   await confirm.getByRole("button", { name: "Verwerfen" }).click();
   await expect(timer).toHaveAttribute("data-running", "false");
-  await expect(page.getByText("Telefonat")).toHaveCount(0);
+  await expect(timer.getByLabel("Tätigkeit")).toHaveValue("");
+  await expect(page.getByRole("cell", { name: "Telefonat" })).toHaveCount(0);
 });
 
 test("PRJ-010 PRJ-012 „Zeiten abrechnen“ creates an invoice draft and locks the entry „Im Entwurf“", async ({
