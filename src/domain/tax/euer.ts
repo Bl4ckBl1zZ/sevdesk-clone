@@ -178,8 +178,9 @@ function shares(totals: number[], payable: number, before: number, now: number):
  * `seq` order.
  */
 export function cashBasisItems(entries: readonly EuerJournalEntry[], c: EuerContext): EuerItem[] {
+  // the role decides when present (a bank ledger account may share a number with a receivable account of the other chart)
   const isOpenItem = (l: EuerJournalLine) =>
-    l.role === "receivable" || l.role === "payable" || c.openItemAccounts.has(l.account);
+    l.role ? l.role === "receivable" || l.role === "payable" : c.openItemAccounts.has(l.account);
   const compositions = new Map<string, Composition>();
   const origination = new Set<string>();
 

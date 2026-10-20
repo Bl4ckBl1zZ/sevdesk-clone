@@ -5,6 +5,7 @@ import { mutation, query, systemMutation } from "./functions";
 import { isTest } from "./lib/env";
 import { appError } from "./lib/errors";
 import { getCompanyProfile, patchCompanyProfile } from "./model/companyProfile";
+import { euerView, recordEuerSubmission } from "./model/euer";
 import {
   activeFiling,
   filingsOf,
@@ -36,6 +37,16 @@ export const zm = query({
   permission: "tax.read",
   args: { period: v.string() },
   handler: async (ctx, { period }) => zmView(ctx, period, ctx.now()),
+});
+
+/**
+ * TAX-015/TAX-022 Anlage EÜR of a calendar year: lines by Zeile/Kennzahl with drill-down, AVEÜR, Mein ELSTER guide,
+ * blockers, the submission record and the postings recorded after it. Bilanz companies: 409 (E-RPT-02).
+ */
+export const euer = query({
+  permission: "tax.read",
+  args: { year: v.number() },
+  handler: async (ctx, { year }) => euerView(ctx, year, ctx.now()),
 });
 
 /** Dauerfristverlängerung / Sondervorauszahlung of a year (USt 1 H). */
@@ -128,7 +139,7 @@ export const protocolUploadUrl = mutation({
 export const recordFilingSubmission = mutation({
   permission: "tax.submit",
   args: {
-    form: v.union(v.literal("ustva"), v.literal("zm"), v.literal("sondervorauszahlung")),
+    form: v.union(v.literal("ustva"), v.literal("zm"), v.literal("sondervorauszahlung"), v.literal("euer")),
     period: v.string(),
     submittedOn: v.string(),
     transferTicket: v.string(),
@@ -141,7 +152,12 @@ export const recordFilingSubmission = mutation({
     if (args.submittedOn > berlinCalendarDate(ctx.now())) {
       throw appError("invalid_input", "Das Übermittlungsdatum darf nicht in der Zukunft liegen.");
     }
-    return recordSubmission(ctx, args);
+    if (args.form === "euer") {
+      if (!/^\d{4}$/.test(args.period)) throw appError("invalid_input", "Ungültiger Zeitraum (JJJJ).");
+      const { form: _form, period, ...rest } = args;
+      return recordEuerSubmission(ctx, { ...rest, year: Number(period) });
+    }
+    return recordSubmission(ctx, { ...args, form: args.form });
   },
 });
 
