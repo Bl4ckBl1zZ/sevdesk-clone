@@ -30,7 +30,17 @@ import { useAdapterErrorToast } from "@/hooks/use-adapter-error-toast";
  * fields in ELSTER order with „Kopieren“ and „eingetragen“ ticks, the final checklist. Rendered from the pure guide
  * (src/domain/tax/elster-guide.ts) so the copied strings are exactly what ELSTER expects.
  */
-export function ElsterGuideSteps({ guide }: { guide: ElsterGuide }) {
+/** The guide shape the step page renders: UStVA/ZM/USt 1 H guides and the Anlage EÜR guide (fields with Zeile). */
+export type GuideLike = Omit<ElsterGuide, "steps" | "id" | "correction"> & {
+  steps: {
+    title: string;
+    instruction?: string;
+    fields: { kz: string; zeile?: number; label: string; copy: string | null }[];
+    rows?: ElsterGuide["steps"][number]["rows"];
+  }[];
+};
+
+export function ElsterGuideSteps({ guide }: { guide: GuideLike }) {
   const t = useTranslations("tax.guide");
   const [ticked, setTicked] = useState<Set<string>>(new Set());
   const tick = (key: string) =>
@@ -57,7 +67,7 @@ export function ElsterGuideSteps({ guide }: { guide: ElsterGuide }) {
       <Step n={3} title={t("open")}>
         <p className="text-sm">{guide.navigation.join(" › ")}</p>
         <p className="font-semibold text-2xl">
-          {guide.formName} {guide.formYear}
+          {guide.formName.includes(String(guide.formYear)) ? guide.formName : `${guide.formName} ${guide.formYear}`}
         </p>
         <p className="text-muted-foreground text-xs">{t("sideBySide")}</p>
       </Step>
@@ -71,6 +81,7 @@ export function ElsterGuideSteps({ guide }: { guide: ElsterGuide }) {
                 <ul className="flex flex-col divide-y rounded-md border">
                   {s.fields.map((f) => (
                     <li key={f.kz} className="flex flex-wrap items-center gap-2 p-2 text-sm">
+                      {f.zeile !== undefined && <span className="w-16 font-mono">{t("line", { zeile: f.zeile })}</span>}
                       <span className="w-14 font-mono">Kz {f.kz}</span>
                       <span className="min-w-40 flex-1">{f.label}</span>
                       {f.copy === null ? (
@@ -80,10 +91,10 @@ export function ElsterGuideSteps({ guide }: { guide: ElsterGuide }) {
                           <span className="font-mono tabular-nums">{f.copy}</span>
                           <CopyButton value={f.copy} label={t("copyField", { kz: f.kz })} />
                           <TickBox
-                            checked={ticked.has(f.kz)}
-                            onChange={() => tick(f.kz)}
+                            checked={ticked.has(`${s.title}-${f.kz}`)}
+                            onChange={() => tick(`${s.title}-${f.kz}`)}
                             label={t("entered")}
-                            id={`kz-${f.kz}`}
+                            id={`kz-${s.title.replace(/\W+/g, "")}-${f.kz}`}
                           />
                         </>
                       )}
@@ -201,7 +212,7 @@ export function SubmissionDialog({
   locks,
   onClose,
 }: {
-  form: "ustva" | "zm" | "sondervorauszahlung";
+  form: "ustva" | "zm" | "sondervorauszahlung" | "euer";
   period: string;
   sheetHash: string;
   crossCheckLabel: string;
