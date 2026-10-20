@@ -119,6 +119,7 @@ import type * as model_documentFlows from "../model/documentFlows.js";
 import type * as model_documentHistory from "../model/documentHistory.js";
 import type * as model_dsgvo from "../model/dsgvo.js";
 import type * as model_dunning from "../model/dunning.js";
+import type * as model_euer from "../model/euer.js";
 import type * as model_files from "../model/files.js";
 import type * as model_finalizeGuard from "../model/finalizeGuard.js";
 import type * as model_forecast from "../model/forecast.js";
@@ -324,6 +325,7 @@ declare const fullApi: ApiFromModules<{
   "model/documentHistory": typeof model_documentHistory;
   "model/dsgvo": typeof model_dsgvo;
   "model/dunning": typeof model_dunning;
+  "model/euer": typeof model_euer;
   "model/files": typeof model_files;
   "model/finalizeGuard": typeof model_finalizeGuard;
   "model/forecast": typeof model_forecast;
