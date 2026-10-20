@@ -65,6 +65,7 @@ import {
   validateStored,
   withPaymentDefaults,
 } from "./model/salesDocuments";
+import { checkRunningTimer, runUnbilledTimeDeadlines } from "./model/timeEntries";
 
 /**
  * Rechnungen (F04, P1 invoices core): drafts, compliance panel, finalisation pipeline (02 §6), export and the
@@ -825,6 +826,8 @@ export const notifyDeadlinesCron = systemMutation({
     const exported = await notifyExportedNotMarked(ctx);
     const quotes = await runQuoteDeadlines(ctx);
     const supplies = await runUninvoicedSupplyDeadlines(ctx); // UST-01 / QUO-14
+    await runUnbilledTimeDeadlines(ctx); // UST-01 / F11 PRJ-015
+    await checkRunningTimer(ctx); // F11 E-PRJ-03 fallback (the timer schedules its own 10 h / 24 h checks)
     return { created: exported + quotes.expired + quotes.reminded + supplies.created };
   },
 });

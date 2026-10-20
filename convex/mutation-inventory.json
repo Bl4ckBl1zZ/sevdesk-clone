@@ -3127,6 +3127,60 @@
     "wrapper": "query",
     "permission": "products.read"
   },
+  "projects:applyRateToOpenEntries": {
+    "kind": "mutation",
+    "visibility": "public",
+    "wrapper": "mutation",
+    "permission": "time.write"
+  },
+  "projects:create": {
+    "kind": "mutation",
+    "visibility": "public",
+    "wrapper": "mutation",
+    "permission": "projects.write"
+  },
+  "projects:get": {
+    "kind": "query",
+    "visibility": "public",
+    "wrapper": "query",
+    "permission": "projects.read"
+  },
+  "projects:list": {
+    "kind": "query",
+    "visibility": "public",
+    "wrapper": "query",
+    "permission": "projects.read"
+  },
+  "projects:options": {
+    "kind": "query",
+    "visibility": "public",
+    "wrapper": "query",
+    "permission": "projects.read"
+  },
+  "projects:profitability": {
+    "kind": "query",
+    "visibility": "public",
+    "wrapper": "query",
+    "permission": "projects.read"
+  },
+  "projects:remove": {
+    "kind": "mutation",
+    "visibility": "public",
+    "wrapper": "mutation",
+    "permission": "projects.write"
+  },
+  "projects:setStatus": {
+    "kind": "mutation",
+    "visibility": "public",
+    "wrapper": "mutation",
+    "permission": "projects.write"
+  },
+  "projects:update": {
+    "kind": "mutation",
+    "visibility": "public",
+    "wrapper": "mutation",
+    "permission": "projects.write"
+  },
   "recurring:confirmAutomation": {
     "kind": "mutation",
     "visibility": "public",
@@ -3655,6 +3709,24 @@
     "wrapper": "systemMutation",
     "job": "auth"
   },
+  "stock:adjust": {
+    "kind": "mutation",
+    "visibility": "public",
+    "wrapper": "mutation",
+    "permission": "products.write"
+  },
+  "stock:configure": {
+    "kind": "mutation",
+    "visibility": "public",
+    "wrapper": "mutation",
+    "permission": "products.write"
+  },
+  "stock:history": {
+    "kind": "query",
+    "visibility": "public",
+    "wrapper": "query",
+    "permission": "products.read"
+  },
   "system:authMailStatus": {
     "kind": "query",
     "visibility": "public",
@@ -3792,6 +3864,114 @@
     "visibility": "internal",
     "wrapper": "systemMutation",
     "job": "test"
+  },
+  "timeEntries:checkTimer": {
+    "kind": "mutation",
+    "visibility": "internal",
+    "wrapper": "systemMutation",
+    "job": "cron.deadlines.notify"
+  },
+  "timeEntries:create": {
+    "kind": "mutation",
+    "visibility": "public",
+    "wrapper": "mutation",
+    "permission": "time.write"
+  },
+  "timeEntries:createInvoice": {
+    "kind": "mutation",
+    "visibility": "public",
+    "wrapper": "mutation",
+    "permission": "documents.write"
+  },
+  "timeEntries:discard": {
+    "kind": "mutation",
+    "visibility": "public",
+    "wrapper": "mutation",
+    "permission": "time.write"
+  },
+  "timeEntries:draftsOfContact": {
+    "kind": "query",
+    "visibility": "public",
+    "wrapper": "query",
+    "permission": "documents.read"
+  },
+  "timeEntries:get": {
+    "kind": "query",
+    "visibility": "public",
+    "wrapper": "query",
+    "permission": "projects.read"
+  },
+  "timeEntries:list": {
+    "kind": "query",
+    "visibility": "public",
+    "wrapper": "query",
+    "permission": "projects.read"
+  },
+  "timeEntries:previewInvoice": {
+    "kind": "query",
+    "visibility": "public",
+    "wrapper": "query",
+    "permission": "projects.read"
+  },
+  "timeEntries:remove": {
+    "kind": "mutation",
+    "visibility": "public",
+    "wrapper": "mutation",
+    "permission": "time.write"
+  },
+  "timeEntries:reopen": {
+    "kind": "mutation",
+    "visibility": "public",
+    "wrapper": "mutation",
+    "permission": "time.write"
+  },
+  "timeEntries:reopenOffers": {
+    "kind": "query",
+    "visibility": "public",
+    "wrapper": "query",
+    "permission": "projects.read"
+  },
+  "timeEntries:setBillableFlag": {
+    "kind": "mutation",
+    "visibility": "public",
+    "wrapper": "mutation",
+    "permission": "time.write"
+  },
+  "timeEntries:start": {
+    "kind": "mutation",
+    "visibility": "public",
+    "wrapper": "mutation",
+    "permission": "time.write"
+  },
+  "timeEntries:stop": {
+    "kind": "mutation",
+    "visibility": "public",
+    "wrapper": "mutation",
+    "permission": "time.write"
+  },
+  "timeEntries:timer": {
+    "kind": "query",
+    "visibility": "public",
+    "wrapper": "query",
+    "permission": "projects.read"
+  },
+  "timeEntries:unbilled": {
+    "kind": "query",
+    "visibility": "public",
+    "wrapper": "query",
+    "permission": "projects.read"
+  },
+  "timeEntries:update": {
+    "kind": "mutation",
+    "visibility": "public",
+    "wrapper": "mutation",
+    "permission": "time.write"
+  },
+  "timeEntries:updateRunning": {
+    "kind": "mutation",
+    "visibility": "public",
+    "wrapper": "mutation",
+    "permission": "time.write"
   },
   "vatIdChecks:check": {
     "kind": "action",

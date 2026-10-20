@@ -73,6 +73,18 @@ export const draftLineSchema = z.object({
   optional: z.boolean().optional(),
   /** Set by conversions (§4.3.3); the editor keeps it, it is never typed in. */
   sourceLineId: z.string().optional(),
+  /** F11 PRJ-002: line project (absent = the document's project). */
+  projectId: z.string().optional(),
+  /** F11 PRJ-010/012: set by „Zeiten abrechnen“; the editor keeps them (removing the line releases the entries). */
+  timeEntryIds: z.array(z.string()).max(1000).optional(),
+  timeRounding: z
+    .object({
+      incrementMinutes: int().min(0).max(60),
+      mode: z.enum(["up", "nearest"]),
+      minimumMinutes: int().min(0).max(240).optional(),
+      perGroup: z.boolean(),
+    })
+    .optional(),
 });
 
 export { INVOICE_DRAFT_TYPES };
@@ -138,6 +150,8 @@ export const draftSchema = z.object({
   tags: z.array(z.string()).max(50).optional(),
   customFields: z.record(z.string(), z.union([z.string(), z.number(), z.boolean()])).optional(),
   costCenterId: z.string().optional(),
+  /** F11 PRJ-002: the project the document belongs to. */
+  projectId: z.string().optional(),
   /** DOC-54 / SET-074: another layout than the type's default (drafts only; the version is frozen at finalisation). */
   layoutId: z.string().optional(),
   /** Quotes (QUO-01): explicit validity; default documentDate + quoteValidityDays at finalisation. */

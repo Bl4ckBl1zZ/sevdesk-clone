@@ -17,6 +17,7 @@ import {
 import { type LayoutDocType, SALES_DOC_TYPES } from "../../src/domain/documents/layout";
 import { isChainType } from "../../src/domain/documents/relations";
 import type { DocumentSnapshot } from "../../src/domain/documents/snapshot";
+import { checkStockCaches, checkTimeEntryLocks } from "../../src/domain/projects/invariants";
 import { ROLE_MAPPING_ROWS, seededAccount } from "../../src/domain/rules/accounting";
 import { defaultInterestRateBp } from "../../src/domain/rules/basiszinssatz";
 import { groupOverrides, overrideRowId } from "../../src/domain/rules/overrides";
@@ -232,6 +233,62 @@ export async function checkInvariants(ctx: ReadCtx): Promise<InvariantViolation[
   out.push(...(await checkDocumentInvariants(ctx)));
   out.push(...(await checkDunningInvariants(ctx)));
   out.push(...(await checkVoucherInvariants(ctx)));
+  out.push(...(await checkProjectInvariants(ctx)));
+  return out;
+}
+
+/** RI-30 (stock cache) and RI-31 (time entry locks); the pure checks live in src/domain/projects/invariants.ts. */
+export async function checkProjectInvariants(ctx: ReadCtx): Promise<InvariantViolation[]> {
+  const movements = await ctx.db.query("stockMovements").collect();
+  const products = (await ctx.db.query("products").collect()).filter(
+    (p) => p.stock !== undefined || movements.some((m) => m.productId === p._id),
+  );
+  const out: InvariantViolation[] = checkStockCaches(
+    products.map((p) => ({ id: String(p._id), label: p.number, quantityMilli: p.stock?.quantityMilli })),
+    movements.map((m) => ({
+      id: String(m._id),
+      productId: String(m.productId),
+      quantityMilli: m.quantityMilli,
+      ...(m.reversesId ? { reversesId: String(m.reversesId) } : {}),
+    })),
+  );
+  const entries = (await ctx.db.query("timeEntries").collect()).filter((e) => e.status !== "open");
+  if (entries.length === 0) return out;
+  const lines = new Map<string, { documentId: string; timeEntryIds: readonly string[] }>();
+  const docs = new Map<string, { status: string; retentionUntil?: string; lineEntryIds: Set<string> }>();
+  const docIds = new Set(entries.map((e) => e.draftDocumentId ?? e.invoicedDocumentId).filter((x) => x !== undefined));
+  for (const id of docIds) {
+    const d = await ctx.db.get(id);
+    if (!d) continue;
+    const lineEntryIds = new Set<string>();
+    for (const l of await ctx.db
+      .query("documentLines")
+      .withIndex("by_document", (q) => q.eq("documentId", id))
+      .collect()) {
+      lines.set(String(l._id), { documentId: String(id), timeEntryIds: (l.timeEntryIds ?? []).map(String) });
+      for (const t of l.timeEntryIds ?? []) lineEntryIds.add(String(t));
+    }
+    docs.set(String(id), {
+      status: d.status,
+      ...(d.retentionUntil ? { retentionUntil: d.retentionUntil } : {}),
+      lineEntryIds,
+    });
+  }
+  out.push(
+    ...checkTimeEntryLocks(
+      entries.map((e) => ({
+        id: String(e._id),
+        status: e.status,
+        ...(e.draftDocumentId ? { draftDocumentId: String(e.draftDocumentId) } : {}),
+        ...(e.invoicedLineId ? { invoicedLineId: String(e.invoicedLineId) } : {}),
+        ...(e.invoicedDocumentId ? { invoicedDocumentId: String(e.invoicedDocumentId) } : {}),
+        ...(e.lockedAt !== undefined ? { lockedAt: e.lockedAt } : {}),
+        ...(e.retentionUntil ? { retentionUntil: e.retentionUntil } : {}),
+      })),
+      lines,
+      docs,
+    ),
+  );
   return out;
 }
 

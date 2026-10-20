@@ -55,6 +55,8 @@ Each invariant is a pure function over a DB snapshot in `src/domain/invariants/`
 | RI-27 | Bank account balances: statement imports — opening balance = previous closing balance and opening + Σ entries = closing; feed — where delivered, `balance_after_transaction` continuity holds and the latest bank balance equals the opening balance + Σ booked transactions (tolerance 0, pending excluded) | WARN | GOBD-02 |
 | RI-28 | No expense/income in EÜR mode is dated by invoice date where the payment date is required (EÜR report recomputation consistency) | WARN | AO-02 |
 | RI-29 | No booking is recorded twice across sources: per bank account there are no two booked rows with the same `dedupeKey`, the same bank entry reference, or the same `contentHash` that are not explicitly resolved as „eigene Buchung“; the review list „Mögliche Dubletten“ has no entry older than 14 days | WARN | GOBD-02 |
+| RI-30 | Stock (P4, F03 PRD-090/092): every product's cached `stock.quantityMilli` equals Σ of its `stockMovements`; every `correction` that reverses a movement (`reversesId`) has exactly the opposite quantity (added 2026-10-20 with P4 stock: the cache is recomputed in the movement's transaction, the invariant proves it) | ERROR | GOBD-06 |
+| RI-31 | Time entries (P4, F11 PRJ-012/019): every `invoiced` entry points at a line of a finalised document whose `timeEntryIds` list it, with `lockedAt` and the document's `retentionUntil`; every `in_draft` entry is listed by a line of its draft (added 2026-10-20 with P4 time tracking: entries cannot be billed twice or lose their lock) | ERROR | GOBD-06, GOBD-20 |
 
 ## 3. Edge-case catalog
 

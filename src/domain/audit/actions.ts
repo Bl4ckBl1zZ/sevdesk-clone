@@ -125,6 +125,8 @@ const GROUPS: Record<string, readonly string[] | "*"> = {
   product: "*",
   project: "*",
   time_entry: "*",
+  // F11 PRJ-005: the running timer (timer.start, timer.update, timer.stop, timer.discard, timer.warn)
+  timer: "*",
   settings: "*", // settings.<section>.update
   rule_override: ["add", "delete"],
   api_key: ["create", "revoke"],

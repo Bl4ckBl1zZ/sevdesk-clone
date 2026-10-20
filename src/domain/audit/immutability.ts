@@ -342,6 +342,31 @@ export const IMMUTABILITY_MATRIX: Readonly<Record<string, TableRule>> = {
       reason: "once",
     },
   },
+  // ── F03 stock (PRD-092): movements are never edited or deleted; corrections are new movements. ────────────
+  stockMovements: {
+    kind: "append_only",
+    message: "Bestandsbuchungen sind unveränderbar. Bitte eine Korrektur buchen.",
+  },
+  // ── F11 time entries (03 §11 row "timeEntries", PRJ-012, GOBD-06) ───────────────────────────────────────────
+  // open: everything (audited); in_draft: locked (only the draft sync moves it back to open or on to invoiced);
+  // invoiced: frozen — only „wieder abrechenbar“ after a Storno (status → open, history appended). Once open again
+  // the entry is editable like any open entry; `retentionUntil` of the invoice stays (PRJ-019).
+  timeEntries: {
+    kind: "guarded",
+    frozenWhen: (doc) => doc.status !== "open",
+    fields: {
+      status: { transitions: { in_draft: ["open", "invoiced"], invoiced: ["open"] } },
+      draftDocumentId: "mutable",
+      roundedMinutes: "mutable",
+      invoicedLineId: "once",
+      invoicedDocumentId: "once",
+      invoicedLineHistory: "append",
+      lockedAt: "once",
+      retentionClass: { transitions: { none: ["vouchers8"] } },
+      retentionUntil: "once",
+    },
+    message: "Abgerechnete oder in einem Entwurf enthaltene Zeiteinträge können nicht geändert werden.",
+  },
   // ── F09 imports ─────────────────────────────────────────────────────────────
   // IMP-006: the idempotency keys of imported records are never changed or removed.
   importedRecords: APPEND_ONLY,

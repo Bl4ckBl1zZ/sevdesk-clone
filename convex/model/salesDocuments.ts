@@ -71,6 +71,8 @@ import { listCustomFieldDefs, listPaymentMethods, listUnits } from "./lookups";
 import { type NotificationInput, notify } from "./notifications";
 import { assignCounterNumber, listDefaultRanges, registerDerivedNumber } from "./numberRanges";
 import { loadRuleOverrides } from "./ruleOverrides";
+import { applyDeliveryNote } from "./stock";
+import { lockInvoicedEntries, releaseDraftEntries, syncDraftLocks } from "./timeEntries";
 import { turnoverTotals } from "./turnover";
 import type { ModelCtx, ReadCtx } from "./types";
 import { contactChecks, vatCheckFollowUp } from "./vatChecks";
@@ -182,6 +184,9 @@ const LINE_FIELDS = [
   "costCenterId",
   "optional",
   "sourceLineId",
+  "projectId",
+  "timeEntryIds",
+  "timeRounding",
 ] as const;
 
 function lineFromDoc(l: DocumentLineDoc): DraftLine {
@@ -237,6 +242,7 @@ export function draftFromDoc(
       ? { customFields: d.customFields as Record<string, string | number | boolean> }
       : {}),
     ...(d.costCenterId ? { costCenterId: d.costCenterId } : {}),
+    ...(d.projectId ? { projectId: d.projectId } : {}),
     ...(d.layoutId ? { layoutId: d.layoutId } : {}),
     lines: [...lines].sort((a, b) => a.position - b.position).map(lineFromDoc),
   };
@@ -599,6 +605,7 @@ function headerFrom(values: DraftValues) {
       : {}),
     ...(values.showPrices && values.type === "delivery_note" ? { showPrices: true } : {}),
     ...(values.costCenterId ? { costCenterId: values.costCenterId as Id<"costCenters"> } : {}),
+    ...(values.projectId ? { projectId: values.projectId as Id<"projects"> } : {}),
     ...(values.layoutId ? { layoutId: values.layoutId as Id<"layouts"> } : {}),
     ...(values.chainOrder?.number.trim()
       ? { chainOrder: { ...values.chainOrder, number: values.chainOrder.number.trim() } }
@@ -635,6 +642,7 @@ const CLEARABLE = [
   "showPrices",
   "chainOrder",
   "costCenterId",
+  "projectId",
   "layoutId",
 ] as const;
 
@@ -880,6 +888,7 @@ export async function createDraft(
     },
     { action },
   );
+  await syncDraftLocks(ctx, id); // F11 PRJ-012: entries billed on the lines → in_draft
   return id;
 }
 
@@ -958,6 +967,7 @@ export async function updateDraft(
     action: "document.update_draft",
     label: label(doc),
   });
+  await syncDraftLocks(ctx, id); // F11 PRJ-012: removed time lines release their entries, new ones lock them
   return { version: doc.version + 1, notices };
 }
 
@@ -966,6 +976,7 @@ export async function deleteDraft(ctx: ModelCtx, id: Id<"salesDocuments">): Prom
   const doc = await assertDraft(ctx, id);
   const t = transition(doc.type, doc.status, "delete");
   if (!t.ok) throw appError("illegal_transition", t.error.message);
+  await releaseDraftEntries(ctx, id); // F11 PRJ-012: the draft's time entries return to open
   for (const l of await documentLines(ctx, id)) {
     await auditedDelete(ctx, "documentLines", l._id, { action: "document.delete_draft" });
   }
@@ -1228,6 +1239,8 @@ export async function commitFinalization(
     { action: "document.finalize", label: assigned.number, ...(reasons.length ? { reason: reasons.join(" · ") } : {}) },
   );
   await afterChainFinalize(ctx, await getDocument(ctx, id));
+  await lockInvoicedEntries(ctx, await getDocument(ctx, id)); // F11 PRJ-012/019
+  await applyDeliveryNote(ctx, await getDocument(ctx, id)); // F03 PRD-091
   const event =
     journalEventFor(stored, snapshot) ?? (await chainJournalEvent(ctx, await getDocument(ctx, id), snapshot));
   if (event) await postJournalEntry(ctx, event);

@@ -155,3 +155,48 @@ describe("immutability matrix (03 §11)", () => {
     );
   });
 });
+
+describe("F11/F03 P4 rows", () => {
+  const open = {
+    _id: "t1",
+    status: "open",
+    description: "Workshop",
+    durationMinutes: 60,
+    invoicedLineHistory: [],
+    retentionClass: "none",
+  };
+  const patch = (before: Record<string, unknown>, p: Record<string, unknown>) => () =>
+    assertMutable("timeEntries", before, { op: "patch", patch: p });
+
+  test("PRJ-012 GOBD-06 TST-PRJ-10 open entries are free; in_draft and invoiced entries are locked", () => {
+    expect(patch(open, { description: "Workshop Kunde", durationMinutes: 90 })).not.toThrow();
+    expect(() => assertMutable("timeEntries", open, { op: "delete" })).not.toThrow();
+    const inDraft = { ...open, status: "in_draft", draftDocumentId: "d1" };
+    expect(patch(inDraft, { description: "geändert" })).toThrow("immutable_record");
+    expect(() => assertMutable("timeEntries", inDraft, { op: "delete" })).toThrow("immutable_record");
+    expect(patch(inDraft, { status: "open", draftDocumentId: undefined })).not.toThrow();
+    const finalize = { status: "invoiced", invoicedLineId: "l1", invoicedDocumentId: "d1", lockedAt: 5 };
+    expect(patch(inDraft, { ...finalize, retentionClass: "vouchers8", retentionUntil: "2034-12-31" })).not.toThrow();
+    const invoiced = { ...inDraft, ...finalize, retentionClass: "vouchers8", retentionUntil: "2034-12-31" };
+    expect(patch(invoiced, { durationMinutes: 30 })).toThrow("immutable_record");
+    expect(patch(invoiced, { invoicedLineId: "l2" })).toThrow("immutable_record");
+    expect(patch(invoiced, { retentionUntil: "2030-12-31" })).toThrow("immutable_record");
+    expect(patch(invoiced, { status: "in_draft" })).toThrow("immutable_record");
+    expect(() => assertMutable("timeEntries", invoiced, { op: "delete" })).toThrow("immutable_record");
+  });
+
+  test("PRJ-012 E-PRJ-25 TST-PRJ-11 after a Storno an invoiced entry may return to open with the line kept in the history", () => {
+    const invoiced = { ...open, status: "invoiced", invoicedLineId: "l1", invoicedLineHistory: [] };
+    expect(patch(invoiced, { status: "open", invoicedLineHistory: ["l1"] })).not.toThrow();
+    expect(
+      patch({ ...invoiced, invoicedLineHistory: ["l0"] }, { status: "open", invoicedLineHistory: ["l1"] }),
+    ).toThrow("appended");
+  });
+
+  test("PRD-092 GOBD-06 stock movements are append-only", () => {
+    expect(APPEND_ONLY_TABLES).toContain("stockMovements");
+    expect(IMMUTABILITY_MATRIX.stockMovements?.message).toBe(
+      "Bestandsbuchungen sind unveränderbar. Bitte eine Korrektur buchen.",
+    );
+  });
+});
