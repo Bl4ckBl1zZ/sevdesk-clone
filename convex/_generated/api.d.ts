@@ -121,6 +121,7 @@ import type * as model_dsgvo from "../model/dsgvo.js";
 import type * as model_dunning from "../model/dunning.js";
 import type * as model_files from "../model/files.js";
 import type * as model_finalizeGuard from "../model/finalizeGuard.js";
+import type * as model_forecast from "../model/forecast.js";
 import type * as model_gdpdu from "../model/gdpdu.js";
 import type * as model_idempotency from "../model/idempotency.js";
 import type * as model_imports from "../model/imports.js";
@@ -316,6 +317,7 @@ declare const fullApi: ApiFromModules<{
   "model/dunning": typeof model_dunning;
   "model/files": typeof model_files;
   "model/finalizeGuard": typeof model_finalizeGuard;
+  "model/forecast": typeof model_forecast;
   "model/gdpdu": typeof model_gdpdu;
   "model/idempotency": typeof model_idempotency;
   "model/imports": typeof model_imports;

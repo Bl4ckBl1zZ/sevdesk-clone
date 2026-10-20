@@ -419,7 +419,7 @@
     },
     "liquiditaet": {
       "title": "Liquidität",
-      "description": "Kontostände und Vorschau",
+      "description": "Erwarteter Kontostand der nächsten 90 Tage",
       "empty": "Noch keine Daten für die Liquiditätsvorschau."
     },
     "export": {
@@ -5919,6 +5919,34 @@
       "gross": "Brutto",
       "total": "Summe",
       "empty": "Keine Umsätze im Zeitraum."
+    },
+    "forecast": {
+      "threshold": "Mindestkontostand (€)",
+      "opening": "Kontostand heute",
+      "endExpected": "In 90 Tagen (erwartet)",
+      "endCautious": "In 90 Tagen (vorsichtig)",
+      "belowExpected": "Der erwartete Kontostand fällt am {date} unter den Mindestkontostand.",
+      "belowCautious": "Im vorsichtigen Szenario fällt der Kontostand am {date} unter den Mindestkontostand.",
+      "chartLabel": "Liquiditätsvorschau je Woche: erwartet und vorsichtig",
+      "expected": "erwartet",
+      "cautious": "vorsichtig (spätere Zahlung, Eingänge −10 %)",
+      "thresholdLine": "Mindestkontostand {amount}",
+      "week": "Woche",
+      "source": "Quelle",
+      "allSources": "Alle Quellen",
+      "sources": {
+        "receivable": "Offene Forderung",
+        "recurring_invoice": "Wiederkehrende Rechnung",
+        "payable": "Offener Beleg",
+        "recurring_voucher": "Wiederkehrender Beleg",
+        "tax": "Steuerzahlung",
+        "planned": "Geplante Position"
+      },
+      "expectedDate": "Erwartet am",
+      "cautiousDate": "Vorsichtig am",
+      "item": "Position",
+      "amount": "Betrag",
+      "delay": "Zahlt im Mittel {expected} Tage nach Fälligkeit (vorsichtig {cautious} Tage)"
     }
   }
 }

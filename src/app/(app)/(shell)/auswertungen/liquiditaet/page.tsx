@@ -1,7 +1,16 @@
-import { PlaceholderPage, placeholderMetadata } from "@/components/layout/placeholder-page";
+import { Suspense } from "react";
+import { CatalogPage, catalogMetadata } from "@/components/catalog/catalog-page";
+import { ForecastWorkspace } from "@/components/reports/forecast-workspace";
 
-export const generateMetadata = () => placeholderMetadata("liquiditaet");
+export const generateMetadata = () => catalogMetadata("liquiditaet");
 
+/** /auswertungen/liquiditaet (F08 §6, RPT-012): 90-day cash-flow forecast „erwartet“ / „vorsichtig“. */
 export default function Page() {
-  return <PlaceholderPage page="liquiditaet" />;
+  return (
+    <CatalogPage page="liquiditaet" permission="reports.read">
+      <Suspense fallback={null}>
+        <ForecastWorkspace />
+      </Suspense>
+    </CatalogPage>
+  );
 }

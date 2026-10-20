@@ -70,14 +70,26 @@ async function ytdProfit(ctx: ReadCtx, profile: Doc<"companyProfile">, year: num
   return { cents, basis: "accrual" as const };
 }
 
+/** Accounts holding the USt liability (Umsatzsteuer, Vorsteuer, USt-Vorauszahlungen) of the chart valid on `date`. */
+export async function vatAccountSet(
+  ctx: ReadCtx,
+  profile: Doc<"companyProfile">,
+  date: string,
+  o: { withPrepayments: boolean } = { withPrepayments: true },
+) {
+  const chart = chartAt(profile.chartOfAccounts, profile.fiscalYearStartMonth ?? 1, date);
+  const seed = chartAccounts(chart, calendarDate(date));
+  const keep = (k: string) => VAT_KEYS.has(k) && (o.withPrepayments || k !== "BA.UST_GEZAHLT");
+  const vat = new Set<string>();
+  for (const a of seed.ok ? seed.value : []) if (keep(a.euerKey)) vat.add(a.number);
+  for (const a of (await ledgerAccountsOf(ctx, chart)).custom) if (keep(a.euerKey)) vat.add(a.number);
+  return vat;
+}
+
 /** Open USt liability: balance of the VAT accounts (Umsatzsteuer − Vorsteuer − Vorauszahlungen) on `today`. */
 async function openUst(ctx: ReadCtx, profile: Doc<"companyProfile">, today: string) {
   if (kuOn(profile, today)) return 0;
-  const chart = chartAt(profile.chartOfAccounts, profile.fiscalYearStartMonth ?? 1, today);
-  const seed = chartAccounts(chart, calendarDate(today));
-  const vat = new Set<string>();
-  for (const a of seed.ok ? seed.value : []) if (VAT_KEYS.has(a.euerKey)) vat.add(a.number);
-  for (const a of (await ledgerAccountsOf(ctx, chart)).custom) if (VAT_KEYS.has(a.euerKey)) vat.add(a.number);
+  const vat = await vatAccountSet(ctx, profile, today);
   let cents = 0;
   for (const l of await reportLines(ctx, today)) if (vat.has(l.account)) cents += l.creditCents - l.debitCents;
   return cents;

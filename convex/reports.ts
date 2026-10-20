@@ -3,6 +3,7 @@ import { actorMutation, query, systemQuery } from "./functions";
 import { auditorScopedDb } from "./lib/auditorScope";
 import { appendAudit } from "./model/audit";
 import { getCompanyProfile } from "./model/companyProfile";
+import { forecastView } from "./model/forecast";
 import { bwaView, ledgerView, oposView, revenueView, susaView } from "./model/reports";
 import { taxReserveView } from "./model/taxReserve";
 
@@ -77,6 +78,13 @@ export const taxReserve = query({
     hebesatzBp: v.optional(v.number()),
   },
   handler: async (ctx, { year, ...overrides }) => taxReserveView(ctx, year, ctx.now(), overrides),
+});
+
+/** RPT-012 Liquiditätsvorschau: 90 daily points (erwartet / vorsichtig), items by source, threshold warning. */
+export const forecast = query({
+  permission: "reports.read",
+  args: { thresholdCents: v.optional(v.number()) },
+  handler: async (ctx, a) => forecastView(ctx, ctx.now(), a),
 });
 
 /** Input of a report download (RPT-014), rendered by convex/reportsNode.ts. */
