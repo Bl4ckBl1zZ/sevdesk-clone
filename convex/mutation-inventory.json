@@ -3343,6 +3343,12 @@
     "wrapper": "query",
     "permission": "tax.read"
   },
+  "taxes:euer": {
+    "kind": "query",
+    "visibility": "public",
+    "wrapper": "query",
+    "permission": "tax.read"
+  },
   "taxes:filings": {
     "kind": "query",
     "visibility": "public",
