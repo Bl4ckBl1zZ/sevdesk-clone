@@ -53,8 +53,8 @@ export function ElsterGuideSteps({ guide }: { guide: GuideLike }) {
   return (
     <ol className="flex flex-col gap-4">
       {guide.formYearWarning && (
-        <li role="alert" className="rounded-md border border-warning bg-warning/10 p-3 text-sm">
-          {guide.formYearWarning}
+        <li className="rounded-md border border-warning bg-warning/10 p-3 text-sm">
+          <p role="alert">{guide.formYearWarning}</p>
         </li>
       )}
       <Step n={2} title={t("setup")}>

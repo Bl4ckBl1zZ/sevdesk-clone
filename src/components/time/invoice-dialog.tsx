@@ -263,45 +263,43 @@ export function InvoiceEntriesDialog({
             )}
             {plan && (
               <>
-                <div className="overflow-x-auto">
-                  <Table>
-                    <TableHeader>
-                      <TableRow>
-                        <TableHead>{t("columns.line")}</TableHead>
-                        <TableHead className="text-right">{t("columns.raw")}</TableHead>
-                        <TableHead className="text-right">{t("columns.rounded")}</TableHead>
-                        <TableHead className="text-right">{t("columns.quantity")}</TableHead>
-                        <TableHead className="text-right">{t("columns.price")}</TableHead>
-                        <TableHead className="text-right">{t("columns.net")}</TableHead>
+                <Table scrollLabel={t("preview")}>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>{t("columns.line")}</TableHead>
+                      <TableHead className="text-right">{t("columns.raw")}</TableHead>
+                      <TableHead className="text-right">{t("columns.rounded")}</TableHead>
+                      <TableHead className="text-right">{t("columns.quantity")}</TableHead>
+                      <TableHead className="text-right">{t("columns.price")}</TableHead>
+                      <TableHead className="text-right">{t("columns.net")}</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {plan.lines.map((l) => (
+                      <TableRow key={`${l.name}-${l.timeEntryIds.join(",")}`}>
+                        <TableCell>
+                          {l.name}
+                          {l.description && (
+                            <span className="block text-muted-foreground text-xs">{l.description}</span>
+                          )}
+                        </TableCell>
+                        <TableCell className="text-right tabular-nums">{formatMinutes(l.rawMinutes)}</TableCell>
+                        <TableCell className="text-right tabular-nums">{formatMinutes(l.roundedMinutes)}</TableCell>
+                        <TableCell className="text-right tabular-nums">
+                          {formatMilli(l.quantityMilli)} {t(`units.${l.unitCode}`)}
+                        </TableCell>
+                        <TableCell className="text-right tabular-nums">{formatPrice(l.unitPriceMicros)}</TableCell>
+                        <TableCell className="text-right tabular-nums">{formatEuro(l.netCents)}</TableCell>
                       </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {plan.lines.map((l) => (
-                        <TableRow key={`${l.name}-${l.timeEntryIds.join(",")}`}>
-                          <TableCell>
-                            {l.name}
-                            {l.description && (
-                              <span className="block text-muted-foreground text-xs">{l.description}</span>
-                            )}
-                          </TableCell>
-                          <TableCell className="text-right tabular-nums">{formatMinutes(l.rawMinutes)}</TableCell>
-                          <TableCell className="text-right tabular-nums">{formatMinutes(l.roundedMinutes)}</TableCell>
-                          <TableCell className="text-right tabular-nums">
-                            {formatMilli(l.quantityMilli)} {t(`units.${l.unitCode}`)}
-                          </TableCell>
-                          <TableCell className="text-right tabular-nums">{formatPrice(l.unitPriceMicros)}</TableCell>
-                          <TableCell className="text-right tabular-nums">{formatEuro(l.netCents)}</TableCell>
-                        </TableRow>
-                      ))}
-                    </TableBody>
-                    <TableFooter>
-                      <TableRow>
-                        <TableCell colSpan={5}>{t("total")}</TableCell>
-                        <TableCell className="text-right tabular-nums">{formatEuro(total)}</TableCell>
-                      </TableRow>
-                    </TableFooter>
-                  </Table>
-                </div>
+                    ))}
+                  </TableBody>
+                  <TableFooter>
+                    <TableRow>
+                      <TableCell colSpan={5}>{t("total")}</TableCell>
+                      <TableCell className="text-right tabular-nums">{formatEuro(total)}</TableCell>
+                    </TableRow>
+                  </TableFooter>
+                </Table>
                 <p className="text-sm">
                   {plan.supplyDate.kind === "date"
                     ? t("supplyDate", { date: formatDate(plan.supplyDate.date) })

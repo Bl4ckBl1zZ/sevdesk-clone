@@ -207,6 +207,7 @@ describe("Zeiten abrechnen dialog (PRJ-009…013)", () => {
     expect(preview).toHaveTextContent("175,00 €");
     expect(preview).toHaveTextContent("Leistungszeitraum 01.10.2026 – 12.10.2026");
     expect(preview).toHaveTextContent("Gerundet auf 15 Minuten.");
+    expect(within(preview).getByRole("region", { name: "Vorschau" })).toHaveAttribute("tabindex", "0");
     const user = userEvent.setup();
     await user.selectOptions(screen.getByLabelText("Ziel"), "d9");
     await user.click(screen.getByRole("button", { name: "Zum Entwurf hinzufügen" }));
