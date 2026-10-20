@@ -81,11 +81,13 @@ test("TAX-003 TAX-011 TAX-020 UStVA: Kennzahlen step or Kleinunternehmer notice,
 }) => {
   await page.goto("/steuern/ustva");
   await expect(h1(page, "Umsatzsteuer-Voranmeldung")).toBeVisible();
-  await expect(page.getByLabel("Voranmeldungszeitraum")).toBeVisible();
+  // The settings section is a region with the same name; the select is the combobox.
+  await expect(page.getByRole("combobox", { name: "Voranmeldungszeitraum", exact: true })).toBeVisible();
   await expect(
     page
       .getByRole("heading", { name: "Werte prüfen" })
-      .or(page.getByText(/Kleinunternehmer|keine Umsatzsteuer-Voranmeldung/).first()),
+      .or(page.getByText(/Kleinunternehmer|keine Umsatzsteuer-Voranmeldung/))
+      .first(), // either branch; a KU year can show the notice next to other KU texts
   ).toBeVisible({ timeout: 20_000 });
   await expectNoAxeViolations();
 });
