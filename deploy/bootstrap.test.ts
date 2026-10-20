@@ -186,4 +186,25 @@ describe("bootstrap convex step (08 §5 step 5)", () => {
     expect(jwks).toBeLessThan(deploy);
     expect(r.out).not.toContain("auth:rotateKeys");
   });
+
+  test("AUD-004 RI-14 AUDIT_CHAIN_INSTANCE sets the Convex INSTANCE_NAME (genesis of a migrated chain) before the push; unset → untouched", () => {
+    const pem = generateKeyPairSync("ec", { namedCurve: "P-256" })
+      .privateKey.export({ format: "pem", type: "pkcs8" })
+      .toString()
+      .trim()
+      .replace(/\n/g, "\\n");
+    const base = [
+      "CONVEX_SELF_HOSTED_ADMIN_KEY='rechnungen|abc'",
+      "BETTER_AUTH_SECRET=s",
+      `JWT_PRIVATE_KEY_PEM="${pem}"`,
+    ];
+    const migrated = setup({ extraEnv: [...base, "AUDIT_CHAIN_INSTANCE=real"] }).run("--only", "convex");
+    expect(migrated.status).toBe(0);
+    const lines = migrated.out.split("\n");
+    const set = lines.findIndex((l) => l.includes("npx convex env set INSTANCE_NAME <redacted 4 chars>"));
+    expect(set).toBeGreaterThan(-1);
+    expect(set).toBeLessThan(lines.findIndex((l) => l.includes("npx convex deploy --yes")));
+    const fresh = setup({ extraEnv: base }).run("--only", "convex");
+    expect(fresh.out).not.toContain("convex env set INSTANCE_NAME");
+  });
 });

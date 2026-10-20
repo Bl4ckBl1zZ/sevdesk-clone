@@ -361,6 +361,7 @@ dokploy schedule create --name r2-monthly-copy --scheduleType server --serverId 
 | `APP_ENCRYPTION_KEY` | web (+ Convex env) | 32 bytes base64 | AES-GCM for secrets stored in Convex |
 | `EINVOICE_TOOLS_URL` | web | `http://einvoice-tools:8080` | Validators |
 | `INSTANCE_NAME`, `INSTANCE_SECRET`, `PG_PASSWORD`, `CONVEX_SHA` | backend/postgres/dashboard (`CONVEX_SHA` also web) | | Convex instance; web shows and checks the pinned image SHA (SET-130, AUD-020) |
+| `AUDIT_CHAIN_INSTANCE` | Convex env `INSTANCE_NAME` (set by the bootstrap Convex step) | empty, or the source installation's name | Only for data migrated from another installation: the audit chain's genesis is `SHA-256("genesis:" + INSTANCE_NAME)` of the installation that wrote seq 1 (AUD-004), which must never change afterwards. Empty → Convex default `rechnungen`. The production instance holds the chain started on the interim local instance (`real`, migrated 2026-10-18), so its value is `real`. Not the compose `INSTANCE_NAME` (Convex backend + Postgres database). |
 | `CADDY_TAG`, `WEB_TAG`, `EIT_TAG` | — | git SHA | Image tags (CI updates them) |
 | `LOG_LEVEL` | web | `info` | |
 

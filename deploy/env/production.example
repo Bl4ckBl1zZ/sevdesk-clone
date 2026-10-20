@@ -36,6 +36,9 @@ CONVEX_DASH_BASIC_AUTH=''
 # Pilot first (08 §8.1): rechnungen-pilot → go-live switches to rechnungen (runbooks/go-live.md)
 INSTANCE_NAME=rechnungen-pilot
 INSTANCE_SECRET=
+# Only for data migrated from another installation: that installation's INSTANCE_NAME, the audit-chain genesis
+# (AUD-004, 08 env table). Becomes the Convex env INSTANCE_NAME; empty → "rechnungen".
+AUDIT_CHAIN_INSTANCE=
 PG_PASSWORD=
 JWT_PRIVATE_KEY_PEM=""
 APP_ENCRYPTION_KEY=

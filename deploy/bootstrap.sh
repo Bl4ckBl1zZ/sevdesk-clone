@@ -495,6 +495,9 @@ do_convex() {
   convex_env_set OWNER_EMAIL "$OWNER_EMAIL"
   convex_env_set EINVOICE_TOOLS_URL "http://einvoice-tools:8080"
   [[ -z "${JWT_PRIVATE_KEY_PEM:-}" ]] || convex_env_set SERVER_JWKS "$(server_jwks)"
+  # Audit-chain genesis name (AUD-004): only for data migrated from another installation, whose chain starts at
+  # SHA-256("genesis:<its INSTANCE_NAME>"); it must never change afterwards. Unset → the Convex default "rechnungen".
+  [[ -z "${AUDIT_CHAIN_INSTANCE:-}" ]] || convex_env_set INSTANCE_NAME "$AUDIT_CHAIN_INSTANCE"
   local v
   for v in BETTER_AUTH_SECRET APP_ENCRYPTION_KEY CLOUDFLARE_ACCOUNT_ID CLOUDFLARE_EMAIL_API_TOKEN AUTH_MAIL_FROM \
     R2_ACCOUNT_ENDPOINT R2_CHECKPOINT_BUCKET R2_CHECKPOINT_ACCESS_KEY_ID R2_CHECKPOINT_SECRET_ACCESS_KEY \
