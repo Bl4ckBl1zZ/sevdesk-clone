@@ -3,9 +3,42 @@ import { api } from "./_generated/api";
 import { invoiceEvent, OWNER, post, setupBooks } from "./bookkeeping.fixtures";
 import { finalizedInvoice } from "./invoices.fixtures";
 import { errorCode } from "./lib/errors";
+import { auditedInsert } from "./model/audit";
 import { defaultInvoiceAccount } from "./model/bankAccounts";
 import { lockMonths } from "./model/periodLock";
-import { makeT } from "./test.setup";
+import { makeT, type TestT } from "./test.setup";
+import { header, setupCompany, TODAY, upload } from "./vouchers.fixtures";
+
+async function cashPayment(t: TestT, b: { bank: string; customer: string }, doc: string, date: string, cents: number) {
+  const paymentId = await t.model(OWNER, (ctx) =>
+    auditedInsert(
+      ctx,
+      "payments",
+      {
+        target: { kind: "salesDocument", id: doc },
+        contactId: b.customer as never,
+        date,
+        amountCents: cents,
+        currency: "EUR",
+        source: { kind: "cash" },
+        differences: [],
+        journalEntryIds: [],
+        actor: OWNER.actor,
+        recordedAt: Date.now(),
+      },
+      { action: "payment.record" },
+    ),
+  );
+  await post(t, {
+    kind: "payment_received",
+    paymentId,
+    date,
+    means: { kind: "bank_account", bankAccountId: b.bank as never },
+    amountCents: cents,
+    target: { kind: "salesDocument", id: doc },
+    contactId: b.customer,
+  });
+}
 
 const NOW = new Date("2026-10-12T10:00:00Z");
 
@@ -68,6 +101,43 @@ describe("Auswertungen read models (RPT-001, RPT-003…RPT-007)", () => {
     const revenue = r.rows.find((x) => x.key === "umsatz");
     expect(revenue).toMatchObject({ monthCents: 100000, ytdCents: 130000, priorYtdCents: 0 });
     expect(r.meta.params).toMatchObject({ monat: "2026-03", variante: "accrual" });
+  });
+
+  test("RPT-003 BWA (Ist) uses payment dates; the prior-year column comes from the prior year's payments", async () => {
+    const t = makeT();
+    const b = await setupBooks(t, { chart: "SKR04" });
+    await post(t, invoiceEvent(b.customer, "d0", "2025-02-20", 40000));
+    await cashPayment(t, b, "d0", "2025-03-05", 47600);
+    await post(t, invoiceEvent(b.customer, "d1", "2026-02-20", 100000));
+    await cashPayment(t, b, "d1", "2026-03-05", 119000);
+    const u = await t.asUser("owner");
+    const r = await u.query(api.reports.bwa, { month: "2026-03", variant: "cash" });
+    expect(r.rows.find((x) => x.key === "umsatz")).toMatchObject({
+      monthCents: 100000,
+      ytdCents: 100000,
+      priorYtdCents: 40000,
+    });
+    const accrual = await u.query(api.reports.bwa, { month: "2026-03", variant: "accrual" });
+    expect(accrual.rows.find((x) => x.key === "umsatz")).toMatchObject({ monthCents: 0, ytdCents: 100000 });
+  });
+
+  test("RPT-006 E-RPT-06 OPOS creditors: an open voucher is listed and reconciles with the payable account", async () => {
+    vi.useRealTimers();
+    const t = makeT();
+    const { supplier } = await setupCompany(t);
+    const owner = await t.asUser("owner");
+    const { voucherId } = await upload(t, owner);
+    await owner.mutation(api.vouchers.updateDraft, { id: voucherId, input: header({ supplierContactId: supplier }) });
+    await owner.mutation(api.vouchers.finalize, { id: voucherId });
+    const open = await owner.query(api.reports.openItems, { side: "creditors", asOf: TODAY });
+    expect(open.items).toEqual([
+      expect.objectContaining({ id: voucherId, openCents: 11900, href: `/belege/${voucherId}` }),
+    ]);
+    expect(open.reconciliation).toMatchObject({ accountBalanceCents: 11900, differenceCents: 0 });
+    await owner.mutation(api.vouchers.recordPayment, { id: voucherId, method: "private", date: TODAY });
+    const paid = await owner.query(api.reports.openItems, { side: "creditors", asOf: TODAY });
+    expect(paid.items).toEqual([]);
+    expect(paid.reconciliation.differenceCents).toBe(0);
   });
 
   test("RPT-006 TST-RPT-02 E-RPT-06 OPOS as of a past date reconstructs the open invoice; today it is paid and the account reconciles", async () => {
@@ -138,5 +208,13 @@ describe("Auswertungen read models (RPT-001, RPT-003…RPT-007)", () => {
       })
       .catch((e: unknown) => e);
     expect(errorCode(err)).toBe("not_found");
+    // a granted year downloads through the same year-scoped db as the screen
+    const granted = await t.asUser("auditor", { auditor: { purpose: "Betriebsprüfung", fiscalYears: [2026] } });
+    const ok = await granted.action(api.reportsNode.download, {
+      report: "susa",
+      params: { from: "2026-03-01", to: "2026-03-31" },
+      format: "csv",
+    });
+    expect(new TextDecoder().decode(ok.data)).toContain("4400;");
   });
 });

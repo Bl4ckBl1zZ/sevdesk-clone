@@ -1,5 +1,6 @@
 import { v } from "convex/values";
 import { actorMutation, query, systemQuery } from "./functions";
+import { auditorScopedDb } from "./lib/auditorScope";
 import { appendAudit } from "./model/audit";
 import { getCompanyProfile } from "./model/companyProfile";
 import { bwaView, ledgerView, oposView, revenueView, susaView } from "./model/reports";
@@ -66,10 +67,16 @@ export const reportInput = systemQuery({
   args: {
     report: v.union(v.literal("susa"), v.literal("ledger"), v.literal("bwa"), v.literal("opos"), v.literal("revenue")),
     params: v.any(),
+    /** F12 AUD-023: an auditor's download reads through the same year-scoped db as the screen. */
+    auditorYears: v.optional(v.array(v.number())),
   },
-  handler: async (ctx, { report, params }) => {
-    const now = ctx.now();
-    const company = (await getCompanyProfile(ctx))?.name ?? "";
+  handler: async (rawCtx, { report, params, auditorYears }) => {
+    const now = rawCtx.now();
+    const profile = await getCompanyProfile(rawCtx);
+    const company = profile?.name ?? "";
+    const ctx = auditorYears
+      ? { ...rawCtx, db: auditorScopedDb(rawCtx.db, auditorYears, profile?.fiscalYearStartMonth ?? 1) }
+      : rawCtx;
     switch (report) {
       case "susa":
         return { report, company, data: await susaView(ctx, params, now) } as const;

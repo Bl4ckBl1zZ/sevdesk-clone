@@ -51,7 +51,11 @@ export const download = action({
       if (yearsOf(a.params).some((y) => !granted.includes(y)))
         throw appError("not_found", "Zeitraum nicht freigegeben.");
     }
-    const input = await ctx.runQuery(internal.reports.reportInput, { report: a.report, params: a.params });
+    const input = await ctx.runQuery(internal.reports.reportInput, {
+      report: a.report,
+      params: a.params,
+      ...(ctx.role === "auditor" ? { auditorYears: ctx.actorContext.auditorYears ?? [] } : {}),
+    });
     const stamp = (input.data.meta.params.to ?? input.data.meta.params.stichtag ?? input.data.meta.params.monat ?? "")
       .toString()
       .replaceAll("-", "");
