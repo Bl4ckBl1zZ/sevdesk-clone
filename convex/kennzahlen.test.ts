@@ -50,6 +50,14 @@ describe("Kennzahlen sheets (EXP-020)", { timeout: 180_000 }, () => {
     const pdf = await f.owner.action(api.kennzahlenNode.download, { form: "ustva", period: "2026-10", format: "pdf" });
     expect(pdf.name).toBe("UStVA_2026-10_Kennzahlen.pdf");
     expect(new TextDecoder().decode(new Uint8Array(pdf.data).subarray(0, 5))).toBe("%PDF-");
+    // AUD-001: each download is audited for the member
+    const audit = await t.run((ctx) => ctx.db.query("auditLog").collect());
+    const downloads = audit.filter((e) => e.action === "export.kennzahlen");
+    expect(downloads.map((e) => e.entity.label)).toEqual([
+      "UStVA_2026-10_Kennzahlen.csv",
+      "UStVA_2026-10_Kennzahlen.pdf",
+    ]);
+    expect(downloads[0]?.actor).toBe(f.owner.actor);
 
     const zm = await f.owner.action(api.kennzahlenNode.download, { form: "zm", period: "2026-Q4", format: "csv" });
     expect(new TextDecoder().decode(zm.data)).toContain(

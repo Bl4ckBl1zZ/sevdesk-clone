@@ -2,7 +2,8 @@ import { v } from "convex/values";
 import type { SheetFooter } from "../src/domain/exports/kennzahlen";
 import type { UstvaSheet } from "../src/domain/tax/ustva";
 import type { ZmSheet } from "../src/domain/tax/zm";
-import { systemQuery } from "./functions";
+import { actorMutation, systemQuery } from "./functions";
+import { appendAudit } from "./model/audit";
 import { getCompanyProfile } from "./model/companyProfile";
 import { periodContext, ustvaView, zmView } from "./model/taxFilings";
 
@@ -42,5 +43,24 @@ export const sheetInput = systemQuery({
     const view = await zmView(ctx, period, now);
     const footer: SheetFooter = { ...base, ruleVersions: [view.guide.id ?? ""], filing: filingOf(view.filings) };
     return { form, zm: view.zm, footer, company };
+  },
+});
+
+/** AUD-001: the sheet leaves the system — audited like every export (attributed to the downloading member). */
+export const recordDownload = actorMutation({
+  permission: "tax.read",
+  args: {
+    form: v.union(v.literal("ustva"), v.literal("zm")),
+    period: v.string(),
+    format: v.union(v.literal("pdf"), v.literal("csv")),
+    name: v.string(),
+    sha256: v.string(),
+  },
+  handler: async (ctx, a) => {
+    await appendAudit(ctx, {
+      action: "export.kennzahlen",
+      entity: { table: "exports", id: `kennzahlen-${a.form}-${a.period}`, label: a.name },
+      diff: { after: { format: a.format, sha256: a.sha256 } },
+    });
   },
 });

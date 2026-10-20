@@ -2377,6 +2377,12 @@
     "wrapper": "systemQuery",
     "job": "cron.integrity.verify"
   },
+  "kennzahlen:recordDownload": {
+    "kind": "mutation",
+    "visibility": "internal",
+    "wrapper": "actorMutation",
+    "permission": "tax.read"
+  },
   "kennzahlen:sheetInput": {
     "kind": "query",
     "visibility": "internal",

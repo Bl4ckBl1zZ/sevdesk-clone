@@ -147,6 +147,8 @@ const GROUPS: Record<string, readonly string[] | "*"> = {
     "dsgvo",
     "gdpdu_download",
     "datev_download",
+    // F09 EXP-020 Kennzahlen sheet (UStVA/ZM PDF or CSV) downloaded
+    "kennzahlen",
   ],
   // F09 EXP-026 background jobs (jobs table): lifecycle and the 30-day result expiry.
   job: ["create", "start", "progress", "done", "fail", "cancel", "expire"],

@@ -1,6 +1,7 @@
 "use node";
 
 import { v } from "convex/values";
+import { sha256Hex } from "../src/domain/audit/chain";
 import { ustvaSheetCsv, ustvaSheetDocument, zmSheetCsv, zmSheetDocument } from "../src/domain/exports/kennzahlen";
 import { renderImportProtocol } from "../src/pdf/import-protocol";
 import { internal } from "./_generated/api";
@@ -30,10 +31,18 @@ export const download = action({
     });
     if (!input) throw appError("not_found", "Für diesen Zeitraum liegt keine Kennzahlen-Zuordnung vor.");
     const base = `${input.form === "ustva" ? "UStVA" : "ZM"}_${a.period}_Kennzahlen`;
+    const audit = async (name: string, bytes: Uint8Array) =>
+      ctx.runMutation(internal.kennzahlen.recordDownload, {
+        ...a,
+        name,
+        sha256: await sha256Hex(bytes),
+        actorContext: ctx.actorContext,
+      });
     if (a.format === "csv") {
       const csv =
         input.form === "ustva" ? ustvaSheetCsv(input.sheet, input.footer) : zmSheetCsv(input.zm, input.footer);
       const bytes = new TextEncoder().encode(csv);
+      await audit(`${base}.csv`, bytes);
       return { name: `${base}.csv`, mime: "text/csv;charset=utf-8", data: bytes.buffer as ArrayBuffer };
     }
     const doc =
@@ -41,6 +50,7 @@ export const download = action({
         ? ustvaSheetDocument(input.sheet, input.footer, input.company)
         : zmSheetDocument(input.zm, input.footer, input.company);
     const pdf = await renderImportProtocol(doc);
+    await audit(`${base}.pdf`, pdf);
     return { name: `${base}.pdf`, mime: "application/pdf", data: pdf.slice().buffer as ArrayBuffer };
   },
 });
