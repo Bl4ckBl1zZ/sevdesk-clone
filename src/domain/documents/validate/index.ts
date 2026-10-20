@@ -31,6 +31,7 @@ import {
   supplyRange,
   toLineDiscount,
 } from "../draft";
+import { selfBillingFindings } from "../self-billing";
 import type { SalesDocType } from "../snapshot";
 import { CATEGORIES_BY_TAX_CASE } from "../tax-case";
 import { chainFindings } from "./chain";
@@ -1358,6 +1359,15 @@ export function validateDocument(
     }
   }
   out.push(...chainFindings(draft, ctx, resolved));
+  // F04 §4.9 INV-16 / UST-33: a Gutschrift needs a valid self-billing agreement with the supplier at the document date
+  out.push(
+    ...selfBillingFindings({
+      type: draft.type,
+      documentDate: docDate,
+      supplierName: c?.buyer.name ?? "",
+      agreement: c?.selfBillingAgreement,
+    }),
+  );
   return { findings: dedupe(out), resolved, einvoice, ...(overriddenVatCheck ? { overriddenVatCheck } : {}) };
 }
 

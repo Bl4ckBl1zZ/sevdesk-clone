@@ -97,6 +97,8 @@ export const PERMISSIONS = {
   "accounting.write": { roles: ["owner", "bookkeeper"], scope: "accounting:write", write: true },
   /** F08 AST-001…AST-012 asset register: create, disposal, „AfA jetzt buchen“ (REST `accounting:write`, not MCP). */
   "assets.write": { roles: ["owner", "bookkeeper"], scope: "accounting:write", write: true },
+  /** F08 RPT-001…RPT-014 reports: BWA, SuSa, Kontenblatt, OPOS, revenue, tax reserve, forecast (REST/MCP `reports:read`). */
+  "reports.read": { roles: ALL, scope: "reports:read", write: false },
   /** F08 TAX-003…TAX-011 UStVA/ZM sheets, Mein ELSTER guide, deadlines (REST/MCP `reports:read`). */
   "tax.read": { roles: ALL, scope: "reports:read", write: false },
   /**

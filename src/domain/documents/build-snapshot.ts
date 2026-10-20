@@ -346,6 +346,8 @@ export function buildSnapshot(input: SnapshotInput): Result<DocumentSnapshot, Bu
     );
   }
   if (input.type === "proforma") notes.add("proforma_info", "title", {}, "AAI");
+  // UST-11 / INV-16: a Gutschrift states that the recipient issues it (§ 14 Abs. 2 Satz 2 UStG)
+  if (input.type === "self_billing") notes.add("sb_info", "title", {}, "AAI");
 
   // Tax-case notes (zone L, BT-22 subject REG).
   const categories = new Set(billable.map((l) => l.vatCategory));

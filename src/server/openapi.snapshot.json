@@ -61,6 +61,9 @@
     },
     {
       "name": "Posteingang"
+    },
+    {
+      "name": "Auswertungen"
     }
   ],
   "paths": {
@@ -25884,6 +25887,173 @@
           }
         }
       }
+    },
+    "/api/v1/reports/tax-reserve": {
+      "get": {
+        "operationId": "getTaxReserveEstimate",
+        "summary": "Steuer-Rücklage (Schätzung)",
+        "description": "Schätzung – keine Steuerberatung. Offene Umsatzsteuer, Einkommen-/Gewerbe-/Körperschaftsteuer auf den hochgerechneten Gewinn, Rücklage jetzt und Monatsbetrag. Antwort enthält immer `estimate: true`, `disclaimer` und `assumptions[]`; Abfrageparameter überschreiben die gespeicherten Annahmen nur für diese Anfrage.\n\nScope: `reports:read`.",
+        "tags": [
+          "Auswertungen"
+        ],
+        "parameters": [
+          {
+            "in": "query",
+            "name": "year",
+            "schema": {
+              "description": "Jahr (Standard: laufendes Jahr)",
+              "type": "integer",
+              "minimum": 2000,
+              "maximum": 2100
+            },
+            "description": "Jahr (Standard: laufendes Jahr)"
+          },
+          {
+            "in": "query",
+            "name": "profit_override_cents",
+            "schema": {
+              "description": "Jahresgewinn statt Hochrechnung",
+              "type": "integer",
+              "minimum": -9007199254740991,
+              "maximum": 9007199254740991
+            },
+            "description": "Jahresgewinn statt Hochrechnung"
+          },
+          {
+            "in": "query",
+            "name": "deductions_cents",
+            "schema": {
+              "description": "Abzüge je Person",
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 9007199254740991
+            },
+            "description": "Abzüge je Person"
+          },
+          {
+            "in": "query",
+            "name": "splitting",
+            "schema": {
+              "description": "Zusammenveranlagung",
+              "type": "string",
+              "enum": [
+                "true",
+                "false"
+              ]
+            },
+            "description": "Zusammenveranlagung"
+          },
+          {
+            "in": "query",
+            "name": "church_tax_bp",
+            "schema": {
+              "description": "Kirchensteuer 0, 8 % oder 9 %",
+              "type": "string",
+              "enum": [
+                "0",
+                "800",
+                "900"
+              ]
+            },
+            "description": "Kirchensteuer 0, 8 % oder 9 %"
+          },
+          {
+            "in": "query",
+            "name": "hebesatz_bp",
+            "schema": {
+              "description": "400 % = 40000",
+              "type": "integer",
+              "minimum": 20000,
+              "maximum": 150000
+            },
+            "description": "400 % = 40000"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Schätzung",
+            "headers": {
+              "RateLimit-Limit": {
+                "required": true,
+                "description": "Bucket-Größe",
+                "schema": {
+                  "type": "string",
+                  "description": "Bucket-Größe"
+                }
+              },
+              "RateLimit-Remaining": {
+                "required": true,
+                "description": "Verbleibende Anfragen",
+                "schema": {
+                  "type": "string",
+                  "description": "Verbleibende Anfragen"
+                }
+              },
+              "RateLimit-Reset": {
+                "required": true,
+                "description": "Sekunden bis zum vollen Bucket",
+                "schema": {
+                  "type": "string",
+                  "description": "Sekunden bis zum vollen Bucket"
+                }
+              },
+              "X-Request-Id": {
+                "required": true,
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TaxReserveEstimate"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "`unauthorized` – API-Schlüssel fehlt, ist ungültig, abgelaufen oder widerrufen.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "`insufficient_scope` – Der API-Schlüssel hat nicht die nötige Berechtigung.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "`rate_limited` – Zu viele Anfragen – bitte später erneut versuchen.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "`internal_error` – Interner Fehler.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
     }
   },
   "components": {
@@ -36252,6 +36422,312 @@
           "count",
           "message",
           "hits"
+        ],
+        "additionalProperties": false
+      },
+      "TaxReserveEstimate": {
+        "type": "object",
+        "properties": {
+          "estimate": {
+            "type": "boolean",
+            "const": true
+          },
+          "disclaimer": {
+            "type": "string",
+            "const": "Schätzung – keine Steuerberatung"
+          },
+          "year": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          },
+          "rule_version": {
+            "type": "string"
+          },
+          "rule_source": {
+            "type": "string"
+          },
+          "banner": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "notices": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "profit": {
+            "type": "object",
+            "properties": {
+              "ytd_cents": {
+                "type": "integer",
+                "minimum": -9007199254740991,
+                "maximum": 9007199254740991
+              },
+              "projected_cents": {
+                "type": "integer",
+                "minimum": -9007199254740991,
+                "maximum": 9007199254740991
+              },
+              "basis": {
+                "type": "string",
+                "enum": [
+                  "override",
+                  "annualised"
+                ]
+              },
+              "months_elapsed": {
+                "type": "integer",
+                "minimum": -9007199254740991,
+                "maximum": 9007199254740991
+              }
+            },
+            "required": [
+              "ytd_cents",
+              "projected_cents",
+              "basis",
+              "months_elapsed"
+            ],
+            "additionalProperties": false
+          },
+          "ust": {
+            "type": "object",
+            "properties": {
+              "open_cents": {
+                "type": "integer",
+                "minimum": -9007199254740991,
+                "maximum": 9007199254740991
+              },
+              "periods": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              }
+            },
+            "required": [
+              "open_cents",
+              "periods"
+            ],
+            "additionalProperties": false
+          },
+          "persons": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "name": {
+                  "type": "string"
+                },
+                "share_bp": {
+                  "type": "integer",
+                  "minimum": -9007199254740991,
+                  "maximum": 9007199254740991
+                },
+                "profit_cents": {
+                  "type": "integer",
+                  "minimum": -9007199254740991,
+                  "maximum": 9007199254740991,
+                  "description": "Gewinnanteil"
+                },
+                "zve_cents": {
+                  "type": "integer",
+                  "minimum": -9007199254740991,
+                  "maximum": 9007199254740991,
+                  "description": "Zu versteuerndes Einkommen (volle Euro)"
+                },
+                "est_tariff_cents": {
+                  "type": "integer",
+                  "minimum": -9007199254740991,
+                  "maximum": 9007199254740991,
+                  "description": "Einkommensteuer laut Tarif"
+                },
+                "par35_credit_cents": {
+                  "type": "integer",
+                  "minimum": -9007199254740991,
+                  "maximum": 9007199254740991,
+                  "description": "Gewerbesteueranrechnung § 35 EStG"
+                },
+                "est_cents": {
+                  "type": "integer",
+                  "minimum": -9007199254740991,
+                  "maximum": 9007199254740991,
+                  "description": "Einkommensteuer nach Anrechnung"
+                },
+                "soli_cents": {
+                  "type": "integer",
+                  "minimum": -9007199254740991,
+                  "maximum": 9007199254740991,
+                  "description": "Solidaritätszuschlag"
+                },
+                "church_tax_cents": {
+                  "type": "integer",
+                  "minimum": -9007199254740991,
+                  "maximum": 9007199254740991,
+                  "description": "Kirchensteuer"
+                },
+                "total_cents": {
+                  "type": "integer",
+                  "minimum": -9007199254740991,
+                  "maximum": 9007199254740991,
+                  "description": "Summe"
+                }
+              },
+              "required": [
+                "name",
+                "share_bp",
+                "profit_cents",
+                "zve_cents",
+                "est_tariff_cents",
+                "par35_credit_cents",
+                "est_cents",
+                "soli_cents",
+                "church_tax_cents",
+                "total_cents"
+              ],
+              "additionalProperties": false
+            }
+          },
+          "gewst": {
+            "anyOf": [
+              {
+                "type": "object",
+                "properties": {
+                  "gewerbeertrag_cents": {
+                    "type": "integer",
+                    "minimum": -9007199254740991,
+                    "maximum": 9007199254740991
+                  },
+                  "messbetrag_cents": {
+                    "type": "integer",
+                    "minimum": -9007199254740991,
+                    "maximum": 9007199254740991
+                  },
+                  "gewst_cents": {
+                    "type": "integer",
+                    "minimum": -9007199254740991,
+                    "maximum": 9007199254740991
+                  }
+                },
+                "required": [
+                  "gewerbeertrag_cents",
+                  "messbetrag_cents",
+                  "gewst_cents"
+                ],
+                "additionalProperties": false
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "kst": {
+            "anyOf": [
+              {
+                "type": "object",
+                "properties": {
+                  "kst_cents": {
+                    "type": "integer",
+                    "minimum": -9007199254740991,
+                    "maximum": 9007199254740991
+                  },
+                  "soli_cents": {
+                    "type": "integer",
+                    "minimum": -9007199254740991,
+                    "maximum": 9007199254740991
+                  }
+                },
+                "required": [
+                  "kst_cents",
+                  "soli_cents"
+                ],
+                "additionalProperties": false
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "annual_cents": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991,
+            "description": "Geschätzte Jahressteuer (ohne USt)"
+          },
+          "prepaid_cents": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991,
+            "description": "Erfasste Vorauszahlungen"
+          },
+          "remaining_cents": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991,
+            "description": "Noch offen nach Vorauszahlungen"
+          },
+          "reserve_now_cents": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991,
+            "description": "Jetzt zurückzulegen (inkl. offener USt)"
+          },
+          "monthly_cents": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991,
+            "description": "Monatlicher Betrag bis Jahresende"
+          },
+          "months_left": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          },
+          "assumptions": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "inputs": {
+            "type": "object",
+            "propertyNames": {
+              "type": "string"
+            },
+            "additionalProperties": {
+              "type": [
+                "string",
+                "number",
+                "boolean",
+                "null"
+              ]
+            }
+          }
+        },
+        "required": [
+          "estimate",
+          "disclaimer",
+          "year",
+          "rule_version",
+          "rule_source",
+          "banner",
+          "notices",
+          "profit",
+          "ust",
+          "persons",
+          "gewst",
+          "kst",
+          "annual_cents",
+          "prepaid_cents",
+          "remaining_cents",
+          "reserve_now_cents",
+          "monthly_cents",
+          "months_left",
+          "assumptions",
+          "inputs"
         ],
         "additionalProperties": false
       },

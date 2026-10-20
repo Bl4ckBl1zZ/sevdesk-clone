@@ -1,10 +1,12 @@
 import { v } from "convex/values";
 import type { SheetFooter } from "../src/domain/exports/kennzahlen";
+import type { Aveuer, EuerSheet } from "../src/domain/tax/euer";
 import type { UstvaSheet } from "../src/domain/tax/ustva";
 import type { ZmSheet } from "../src/domain/tax/zm";
 import { actorMutation, systemQuery } from "./functions";
 import { appendAudit } from "./model/audit";
 import { getCompanyProfile } from "./model/companyProfile";
+import { euerView } from "./model/euer";
 import { periodContext, ustvaView, zmView } from "./model/taxFilings";
 
 /**
@@ -14,13 +16,44 @@ import { periodContext, ustvaView, zmView } from "./model/taxFilings";
  */
 export type SheetInput =
   | { form: "ustva"; sheet: UstvaSheet; footer: SheetFooter; company: string }
-  | { form: "zm"; zm: ZmSheet; footer: SheetFooter; company: string };
+  | { form: "zm"; zm: ZmSheet; footer: SheetFooter; company: string }
+  | { form: "euer"; sheet: EuerSheet; aveuer: Aveuer | null; footer: SheetFooter; company: string };
 
 export const sheetInput = systemQuery({
   job: "exports.run",
-  args: { form: v.union(v.literal("ustva"), v.literal("zm")), period: v.string() },
+  args: { form: v.union(v.literal("ustva"), v.literal("zm"), v.literal("euer")), period: v.string() },
   handler: async (ctx, { form, period }): Promise<SheetInput | null> => {
     const now = ctx.now();
+    if (form === "euer") {
+      // F08 TAX-015/TAX-022: the Anlage EÜR of a calendar year (`YYYY`), footer over its 12 months
+      if (!/^\d{4}$/.test(period)) return null;
+      const view = await euerView(ctx, Number(period), now);
+      const months = Array.from({ length: 12 }, (_, i) => `${period}-${String(i + 1).padStart(2, "0")}`);
+      const periods = await ctx.db.query("periods").collect();
+      const lockedMonths = periods
+        .filter((p) => p.status === "locked" && months.includes(p.period))
+        .map((p) => p.period);
+      const footer: SheetFooter = {
+        generatedAt: now,
+        months,
+        lockedMonths,
+        ruleVersions: view.ruleVersions.filter((x): x is string => typeof x === "string"),
+        filing: view.filing
+          ? {
+              status: "submitted_manually",
+              submittedOn: view.filing.submittedOn,
+              transmissionTicket: view.filing.transmissionTicket,
+            }
+          : null,
+      };
+      return {
+        form,
+        sheet: view.sheet,
+        aveuer: view.aveuer,
+        footer,
+        company: (await getCompanyProfile(ctx))?.name ?? "",
+      };
+    }
     const pc = await periodContext(ctx, period, now);
     const periods = await ctx.db.query("periods").collect();
     const lockedMonths = periods
@@ -50,7 +83,7 @@ export const sheetInput = systemQuery({
 export const recordDownload = actorMutation({
   permission: "tax.read",
   args: {
-    form: v.union(v.literal("ustva"), v.literal("zm")),
+    form: v.union(v.literal("ustva"), v.literal("zm"), v.literal("euer")),
     period: v.string(),
     format: v.union(v.literal("pdf"), v.literal("csv")),
     name: v.string(),

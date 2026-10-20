@@ -139,6 +139,7 @@ export type NumberedDocType =
   | "delivery_note"
   | "proforma"
   | "reminder"
+  | "self_billing"
   | "contact"
   | "product"
   | "asset"
@@ -155,7 +156,6 @@ export interface SeedRange {
   startValue: number;
 }
 
-/** Gutschriften (self_billing, P3) are seeded with F08/F04 P3. */
 export const SEEDED_RANGES: readonly SeedRange[] = [
   {
     key: "invoice",
@@ -210,6 +210,15 @@ export const SEEDED_RANGES: readonly SeedRange[] = [
     name: "Mahnungen",
     docTypes: ["reminder"],
     format: "MA-{YYYY}-{####}",
+    resetPolicy: "yearly",
+    startValue: 1,
+  },
+  // F04 §4.9 INV-16: Gutschriften (self-billing) have their own gapless range
+  {
+    key: "self_billing",
+    name: "Gutschriften",
+    docTypes: ["self_billing"],
+    format: "GS-{YYYY}-{####}",
     resetPolicy: "yearly",
     startValue: 1,
   },

@@ -1,0 +1,84 @@
+{
+  "year": 2026,
+  "mappingVersion": "euer-2026.0",
+  "verified": false,
+  "lines": [
+    {
+      "zeile": 15,
+      "kz": "112",
+      "label": "Umsatzsteuerpflichtige Betriebseinnahmen (ohne solche zum ermäßigten Steuersatz von 0 %)",
+      "cents": 698000
+    },
+    {
+      "zeile": 17,
+      "kz": "140",
+      "label": "Vereinnahmte Umsatzsteuer sowie Umsatzsteuer auf unentgeltliche Wertabgaben",
+      "cents": 120860
+    },
+    {
+      "zeile": 33,
+      "kz": "130",
+      "label": "AfA auf bewegliche Wirtschaftsgüter",
+      "cents": 9000
+    },
+    {
+      "zeile": 51,
+      "kz": "229",
+      "label": "Arbeitsmittel (z. B. Bürobedarf, Porto, Fachliteratur)",
+      "cents": 15000
+    },
+    {
+      "zeile": 57,
+      "kz": "185",
+      "label": "Gezahlte und nach § 15 UStG abziehbare Vorsteuerbeträge",
+      "cents": 25050
+    },
+    {
+      "zeile": 58,
+      "kz": "186",
+      "label": "An das Finanzamt gezahlte und ggf. verrechnete Umsatzsteuer",
+      "cents": 110000
+    },
+    {
+      "zeile": 67,
+      "kz": "168",
+      "label": "Sonstige beschränkt abziehbare Betriebsausgaben – nicht abziehbar (u. a. Gewerbesteuer)",
+      "cents": 30000
+    },
+    {
+      "zeile": 106,
+      "kz": "122",
+      "label": "Entnahmen einschließlich Sach-, Leistungs- und Nutzungsentnahmen",
+      "cents": 100000
+    },
+    {
+      "zeile": 107,
+      "kz": "123",
+      "label": "Einlagen einschließlich Sach-, Leistungs- und Nutzungseinlagen",
+      "cents": 5350
+    }
+  ],
+  "sums": {
+    "einnahmenCents": 818860,
+    "ausgabenCents": 159050,
+    "gewinnCents": 659810,
+    "nichtAbziehbarCents": 30000,
+    "entnahmenCents": 100000,
+    "einlagenCents": 5350
+  },
+  "values": {
+    "112": 698000,
+    "122": 100000,
+    "123": 5350,
+    "130": 9000,
+    "140": 120860,
+    "159": 818860,
+    "168": 30000,
+    "185": 25050,
+    "186": 110000,
+    "199": 159050,
+    "219": 659810,
+    "229": 15000
+  },
+  "unmapped": []
+}

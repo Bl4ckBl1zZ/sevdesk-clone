@@ -637,6 +637,16 @@ export default defineSchema({
         replacedAt: v.optional(v.number()),
       }),
     ),
+    /** Gutschriftsvereinbarung with a supplier (F04 §4.9, INV-16; UST-33): required to issue a self-billing Gutschrift. */
+    selfBillingAgreement: v.optional(
+      v.object({
+        agreedOn: v.string(),
+        scope: v.string(),
+        validFrom: v.string(),
+        validTo: v.optional(v.string()),
+        file: v.optional(vFileRef),
+      }),
+    ),
     einvoice: v.object({
       preferredFormat: v.union(
         v.literal("auto"),
@@ -1397,6 +1407,18 @@ export default defineSchema({
   })
     .index("by_kind_period", ["kind", "period"])
     .index("by_period", ["period"]),
+
+  // taxReserveInputs (03 §8, F08 RPT-010) — assumptions of the tax reserve estimate per year. Not filing data; freely
+  // editable (audited), one row per year.
+  taxReserveInputs: defineTable({
+    year: v.number(),
+    profitOverrideCents: v.optional(v.number()),
+    deductionsCents: v.optional(v.number()),
+    splitting: v.boolean(),
+    churchTaxBp: v.optional(v.union(v.literal(0), v.literal(800), v.literal(900))),
+    gewerbesteuerHebesatzBp: v.optional(v.number()),
+    partners: v.optional(v.array(v.object({ name: v.string(), shareBp: v.number() }))),
+  }).index("by_year", ["year"]),
 
   // ledgerAccounts (03 §8, F08 ACC-009) — owner-created Sachkonten (`isSystem: false`) and archive markers of seeded
   // accounts (`isSystem: true`, the seed itself stays rule data). Custom accounts without postings may be deleted;

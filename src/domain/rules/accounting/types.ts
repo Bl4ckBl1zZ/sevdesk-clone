@@ -7,7 +7,11 @@ export const CHARTS_LIST: readonly Chart[] = ["SKR03", "SKR04"];
 
 export type AccountType = "asset" | "liability" | "equity" | "revenue" | "expense" | "neutral";
 
-/** Semantic EÜR keys (F08 §4.6). The per-year line mapping (`euer-<year>`) follows in P3. */
+/**
+ * Semantic EÜR keys (F08 §4.6). The per-year line mapping (`euer-<year>`, src/domain/rules/euer) turns them into
+ * Zeile/Kennzahl of the Anlage EÜR. The finer BA keys (Telekommunikation … Kfz-Leasing) follow the separate lines of
+ * the official form (Anlage EÜR 2025, Zeilen 39–70) so values can be entered line by line.
+ */
 export const EUER_KEYS = [
   "BE.KU",
   "BE.STPFL",
@@ -22,10 +26,23 @@ export const EUER_KEYS = [
   "BA.PERSONAL",
   "BA.AFA_BEWEGLICH",
   "BA.AFA_IMMATERIELL",
+  "BA.AFA_UNBEWEGLICH",
   "BA.GWG",
   "BA.SAMMELPOSTEN_AUFLOESUNG",
   "BA.RESTBUCHWERT",
   "BA.RAUMKOSTEN",
+  "BA.RAUM_SONSTIGE",
+  "BA.TELEKOMMUNIKATION",
+  "BA.FORTBILDUNG",
+  "BA.BERATUNG",
+  "BA.ERHALTUNG",
+  "BA.BEITRAEGE",
+  "BA.EDV",
+  "BA.ARBEITSMITTEL",
+  "BA.WERBUNG",
+  "BA.VERPFLEGUNG",
+  "BA.KFZ_LEASING",
+  "BA.KFZ_STEUERN_VERS",
   "BA.KFZ",
   "BA.REISE",
   "BA.BEWIRTUNG_ABZIEHBAR",

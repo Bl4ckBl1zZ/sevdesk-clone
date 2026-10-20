@@ -245,6 +245,28 @@
       },
       "todos": {
         "title": "Aufgaben"
+      },
+      "kpis": {
+        "title": "Kennzahlen",
+        "period": "Zeitraum",
+        "periods": {
+          "month": "Monat",
+          "quarter": "Quartal",
+          "year": "Jahr",
+          "custom": "Zeitraum"
+        },
+        "from": "Von",
+        "to": "Bis",
+        "revenue": "Umsatz (netto)",
+        "expenses": "Ausgaben (netto)",
+        "result": "Ergebnis",
+        "payables": "Offene Verbindlichkeiten",
+        "cash": "Kasse",
+        "ust": "USt-Zahllast {period}",
+        "afa": "AfA seit Jahresbeginn",
+        "reserve": "Steuer-Rücklage jetzt",
+        "liquidity": "Liquiditätsvorschau 90 Tage",
+        "liquidityEnd": "erwartet in 90 Tagen: {amount}"
       }
     },
     "angebote": {
@@ -419,7 +441,7 @@
     },
     "liquiditaet": {
       "title": "Liquidität",
-      "description": "Kontostände und Vorschau",
+      "description": "Erwarteter Kontostand der nächsten 90 Tage",
       "empty": "Noch keine Daten für die Liquiditätsvorschau."
     },
     "export": {
@@ -4289,16 +4311,18 @@
     },
     "kennzahlen": {
       "title": "Kennzahlen",
-      "description": "UStVA und Zusammenfassende Meldung eines Zeitraums als PDF oder CSV – zum Eintragen in Mein ELSTER und für die Ablage. Mit Erstellungszeit, Regelversionen, Festschreibung und Abgabestatus.",
+      "description": "UStVA, Zusammenfassende Meldung und Anlage EÜR als PDF oder CSV – zum Eintragen in Mein ELSTER und für die Ablage. Mit Erstellungszeit, Regelversionen, Festschreibung und Abgabestatus.",
       "form": "Meldung",
       "ustva": "Umsatzsteuer-Voranmeldung",
       "zm": "Zusammenfassende Meldung",
       "period": "Zeitraum",
-      "periodHint": "z. B. 2026-09 (Monat) oder 2026-Q3 (Quartal)",
+      "periodHint": "z. B. 2026-09 (Monat), 2026-Q3 (Quartal) oder 2025 (EÜR-Jahr)",
       "pdf": "PDF herunterladen",
       "csv": "CSV herunterladen",
       "toUstva": "Zur Umsatzsteuer-Voranmeldung",
-      "toZm": "Zur Zusammenfassenden Meldung"
+      "toZm": "Zur Zusammenfassenden Meldung",
+      "euer": "Anlage EÜR (Jahr)",
+      "toEuer": "Zur Einnahmenüberschussrechnung"
     },
     "datev": {
       "title": "DATEV-Export",
@@ -5596,7 +5620,8 @@
       "copied": "Kopiert: {value}",
       "copyFailed": "Kopieren nicht möglich. Bitte den Wert abschreiben.",
       "entered": "eingetragen",
-      "check": "Abschluss-Check"
+      "check": "Abschluss-Check",
+      "line": "Zeile {zeile}"
     },
     "submission": {
       "title": "Übermittlung erfassen",
@@ -5692,6 +5717,79 @@
       "title": "Steuertermine {year}",
       "done": "erledigt",
       "overdue": "überfällig"
+    },
+    "euer": {
+      "year": "Kalenderjahr",
+      "submitted": "übermittelt am {date}",
+      "notSubmitted": "nicht übermittelt",
+      "provisional": "Vorläufig – Zeitraum nicht festgeschrieben.",
+      "pdf": "PDF",
+      "csv": "CSV",
+      "blockers": "Vor der Übermittlung erledigen",
+      "check": "Werte prüfen",
+      "basis": "Einnahmen und Ausgaben nach Zahlungszeitpunkt (§ 11 EStG, 10-Tage-Regel um den Jahreswechsel), AfA aus dem Anlagenverzeichnis.",
+      "tableLabel": "Anlage EÜR {year}",
+      "line": "Zeile",
+      "label": "Bezeichnung",
+      "amount": "Betrag",
+      "sumIncome": "Summe Betriebseinnahmen",
+      "sumExpenses": "Summe Betriebsausgaben",
+      "profit": "Steuerpflichtiger Gewinn/Verlust",
+      "addBack": "Nicht abziehbare Betriebsausgaben (Bewirtung 30 %, Gewerbesteuer u. a.): {amount} – gebucht, aber nicht gewinnmindernd.",
+      "notDeductible": "nicht abziehbar",
+      "informational": "nachrichtlich",
+      "private": "Entnahmen und Einlagen (Einzelunternehmen)",
+      "aveuer": "Anlage AVEÜR (Anlageverzeichnis)",
+      "lineKz": "Zeile {zeile} · Kz {kz}",
+      "drill": "Buchungen zu Kennzahl {kz} anzeigen",
+      "drillSum": "{count, plural, one {# Buchung} other {# Buchungen}}, Summe {sum}",
+      "entry": "Buchung {seq}",
+      "tenDay": "10-Tage-Regel: {reason}",
+      "record": "Übermittlung erfassen",
+      "recordHint": "Nach dem Absenden in Mein ELSTER: Datum, Transferticket und Gewinn/Verlust laut ELSTER erfassen. Alle Monate des Jahres werden danach festgeschrieben.",
+      "crossCheck": "Gewinn/Verlust laut ELSTER (€)",
+      "late": "Nach Abgabe der EÜR {year} erfasst",
+      "lateHint": "Diese Buchungen betreffen das Jahr {year}, wurden aber nach der Übermittlung erfasst. Bitte prüfen, ob eine berichtigte Erklärung in ELSTER nötig ist.",
+      "lateEntry": "Buchung {seq} (ursprünglich {date})"
+    },
+    "reserve": {
+      "year": "Jahr",
+      "result": "Ergebnis der Schätzung",
+      "reserveNow": "Jetzt zurücklegen",
+      "monthly": "Monatlich bis Jahresende ({n, plural, one {# Monat} other {# Monate}})",
+      "annual": "Geschätzte Jahressteuer",
+      "position": "Position",
+      "amount": "Betrag",
+      "profit": "Jahresgewinn ({basis})",
+      "basis": {
+        "override": "vorgegeben",
+        "annualised": "hochgerechnet"
+      },
+      "ust": "Offene Umsatzsteuer",
+      "est": "Einkommensteuer",
+      "par35": "Gewerbesteueranrechnung (§ 35 EStG)",
+      "soli": "Solidaritätszuschlag",
+      "kist": "Kirchensteuer",
+      "kst": "Körperschaftsteuer",
+      "gewst": "Gewerbesteuer",
+      "prepaid": "Bereits geleistete Vorauszahlungen",
+      "remaining": "Noch offen für das Jahr",
+      "assumptions": "Annahmen",
+      "rules": "Regelversion {version} ({source})",
+      "inputs": "Annahmen anpassen",
+      "profitOverride": "Erwarteter Jahresgewinn (€, leer = Hochrechnung)",
+      "profitPlaceholder": "z. B. 60.000,00",
+      "deductions": "Abzüge je Person (€, z. B. Sonderausgaben)",
+      "kistLabel": "Kirchensteuer",
+      "kistNone": "keine",
+      "kist8": "8 % (Bayern, Baden-Württemberg)",
+      "kist9": "9 % (übrige Länder)",
+      "hebesatz": "Gewerbesteuer-Hebesatz der Gemeinde (%)",
+      "splitting": "Zusammenveranlagung (Splittingtarif)",
+      "save": "Annahmen speichern",
+      "saved": "Annahmen gespeichert.",
+      "invalid": "Bitte Beträge als Euro mit höchstens zwei Nachkommastellen und den Hebesatz als ganze Zahl eingeben.",
+      "tableLabel": "Aufstellung der Steuer-Rücklage"
     }
   },
   "manualEntry": {
@@ -6053,6 +6151,171 @@
       "title": "Nicht abgerechnete Zeiten",
       "summary": "{duration} offen · {value}",
       "link": "Zeiten abrechnen"
+    }
+  },
+  "reports": {
+    "back": "Alle Auswertungen",
+    "pdf": "PDF",
+    "csv": "CSV",
+    "provisional": "vorläufig",
+    "locked": "festgeschrieben",
+    "tiles": {
+      "bwa": {
+        "title": "BWA",
+        "description": "Betriebswirtschaftliche Auswertung: Monat, Jahr bis heute und Vorjahr"
+      },
+      "susa": {
+        "title": "Summen- und Saldenliste",
+        "description": "EB-Wert, Verkehrszahlen und Salden je Konto"
+      },
+      "kontenblatt": {
+        "title": "Kontenblatt",
+        "description": "Alle Buchungen eines Kontos mit laufendem Saldo"
+      },
+      "opos": {
+        "title": "Offene Posten zum Stichtag",
+        "description": "Debitoren und Kreditoren mit Abgleich zum Kontosaldo"
+      },
+      "umsatz": {
+        "title": "Umsatz",
+        "description": "Nach Kunde, Produkt, Monat oder Kostenstelle"
+      },
+      "journal": {
+        "title": "Journal",
+        "description": "Alle Buchungssätze in Reihenfolge"
+      },
+      "anlagenspiegel": {
+        "title": "Anlagenspiegel",
+        "description": "Anlagevermögen, AfA und Restbuchwerte"
+      },
+      "verprobung": {
+        "title": "USt-Verprobung",
+        "description": "Umsatzsteuer des Jahres gegen die Voranmeldungen"
+      },
+      "liquiditaet": {
+        "title": "Liquiditätsvorschau",
+        "description": "Erwarteter Kontostand der nächsten 90 Tage"
+      }
+    },
+    "bwa": {
+      "month": "Monat",
+      "variant": "Grundlage",
+      "accrual": "Soll (Buchungsdatum)",
+      "cash": "Ist (Zahlungsdatum)",
+      "row": "Position",
+      "monthCol": "Monat",
+      "ytd": "Jahr bis heute",
+      "share": "% Gesamtleistung",
+      "priorYtd": "Vorjahr bis heute",
+      "tableLabel": "BWA"
+    },
+    "susa": {
+      "from": "Von",
+      "to": "Bis",
+      "accountClass": "Kontenklasse",
+      "allClasses": "Alle Klassen",
+      "class": "Klasse {n}",
+      "account": "Konto",
+      "name": "Bezeichnung",
+      "opening": "EB-Wert",
+      "periodDebit": "Soll Zeitraum",
+      "periodCredit": "Haben Zeitraum",
+      "ytdDebit": "Soll kumuliert",
+      "ytdCredit": "Haben kumuliert",
+      "balance": "Saldo",
+      "total": "Summe",
+      "empty": "Keine Buchungen im Zeitraum.",
+      "tableLabel": "Summen- und Saldenliste"
+    },
+    "ledger": {
+      "account": "Konto",
+      "from": "Von",
+      "to": "Bis",
+      "show": "Anzeigen",
+      "pick": "Geben Sie eine Kontonummer ein, z. B. 1200.",
+      "date": "Datum",
+      "beleg": "Beleg",
+      "source": "Quelle",
+      "text": "Buchungstext",
+      "contra": "Gegenkonto",
+      "debit": "Soll",
+      "credit": "Haben",
+      "balance": "Saldo",
+      "opening": "Anfangssaldo",
+      "total": "Summe und Endsaldo",
+      "tableLabel": "Kontenblatt"
+    },
+    "opos": {
+      "side": "Art",
+      "debtors": "Debitoren (Forderungen)",
+      "creditors": "Kreditoren (Verbindlichkeiten)",
+      "asOf": "Stichtag",
+      "number": "Nummer",
+      "contact": "Kontakt",
+      "date": "Datum",
+      "due": "Fällig",
+      "amount": "Betrag",
+      "open": "Offen",
+      "bucket": "Überfällig (Tage)",
+      "dunning": "Mahnstufe",
+      "level": "Stufe {n}",
+      "total": "Summe offene Posten",
+      "empty": "Keine offenen Posten zum Stichtag.",
+      "reconciliation": "Saldo Konto {account}: {balance} €.",
+      "causes": "Mögliche Ursachen (manuelle Buchungen auf dem Konto):",
+      "tableLabel": "Offene Posten zum Stichtag"
+    },
+    "revenue": {
+      "from": "Von",
+      "to": "Bis",
+      "groupBy": "Gruppierung",
+      "basis": "Grundlage",
+      "groups": {
+        "customer": "Kunde",
+        "product": "Produkt",
+        "month": "Monat",
+        "cost_center": "Kostenstelle"
+      },
+      "bases": {
+        "document_date": "Rechnungsdatum",
+        "supply_date": "Leistungsdatum",
+        "cash": "Zahlungseingang"
+      },
+      "documents": "Belege",
+      "net": "Netto",
+      "gross": "Brutto",
+      "total": "Summe",
+      "empty": "Keine Umsätze im Zeitraum.",
+      "tableLabel": "Umsatz"
+    },
+    "forecast": {
+      "threshold": "Mindestkontostand (€)",
+      "opening": "Kontostand heute",
+      "endExpected": "In 90 Tagen (erwartet)",
+      "endCautious": "In 90 Tagen (vorsichtig)",
+      "belowExpected": "Der erwartete Kontostand fällt am {date} unter den Mindestkontostand.",
+      "belowCautious": "Im vorsichtigen Szenario fällt der Kontostand am {date} unter den Mindestkontostand.",
+      "chartLabel": "Liquiditätsvorschau je Woche: erwartet und vorsichtig",
+      "expected": "erwartet",
+      "cautious": "vorsichtig (spätere Zahlung, Eingänge −10 %)",
+      "thresholdLine": "Mindestkontostand {amount}",
+      "week": "Woche",
+      "source": "Quelle",
+      "allSources": "Alle Quellen",
+      "sources": {
+        "receivable": "Offene Forderung",
+        "recurring_invoice": "Wiederkehrende Rechnung",
+        "payable": "Offener Beleg",
+        "recurring_voucher": "Wiederkehrender Beleg",
+        "tax": "Steuerzahlung",
+        "planned": "Geplante Position"
+      },
+      "expectedDate": "Erwartet am",
+      "cautiousDate": "Vorsichtig am",
+      "item": "Position",
+      "amount": "Betrag",
+      "delay": "Zahlt im Mittel {expected} Tage nach Fälligkeit (vorsichtig {cautious} Tage)",
+      "tableLabel": "Positionen der Liquiditätsvorschau"
     }
   }
 }

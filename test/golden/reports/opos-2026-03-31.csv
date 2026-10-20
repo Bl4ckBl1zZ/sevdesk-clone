@@ -1,0 +1,10 @@
+﻿Nummer;Kontakt;Datum;Fällig am;Betrag;Bezahlt;Offen;Tage überfällig;Mahnstufe;Altersklasse
+RE-2026-0002;Muster GmbH;10.02.2026;24.02.2026;595,00;0,00;595,00;35;1;31–60
+
+Kontensaldo;;;;595,00
+Summe offene Posten;;;;595,00
+
+Erstellt am;02.04.2026, 10:00
+Parameter;from=2026-01-01, to=2026-03-31
+Regelversionen;chart-skr04
+Festschreibung;vorläufig (2 von 3 Monaten festgeschrieben)

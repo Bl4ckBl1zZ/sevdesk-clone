@@ -1,0 +1,25 @@
+﻿Position;Monat;Kumuliert;Vorjahr kumuliert;% der Gesamtleistung
+Umsatzerlöse;0,00;10000,00;9000,00;100,00
+Bestandsveränderungen (nicht geführt);0,00;0,00;0,00;0,00
+Gesamtleistung;0,00;10000,00;9000,00;100,00
+Material-/Wareneinkauf;0,00;3500,00;3000,00;35,00
+Rohertrag;0,00;6500,00;6000,00;65,00
+Personalkosten;0,00;0,00;0,00;0,00
+Raumkosten;1200,00;1200,00;0,00;12,00
+Betriebliche Steuern, Versicherungen, Beiträge;0,00;0,00;0,00;0,00
+Kfz-Kosten (ohne Steuer);450,00;450,00;0,00;4,50
+Werbe- und Reisekosten;300,00;300,00;0,00;3,00
+Abschreibungen;100,00;100,00;0,00;1,00
+Reparatur/Instandhaltung;0,00;0,00;0,00;0,00
+Sonstige Kosten;49,90;49,90;0,00;0,50
+Gesamtkosten;2099,90;2099,90;0,00;21,00
+Betriebsergebnis;-2099,90;4400,10;6000,00;44,00
+Zinsaufwand (saldiert);25,00;25,00;0,00;0,25
+Sonstiger neutraler Aufwand;0,00;0,00;0,00;0,00
+Sonstiger neutraler Ertrag;0,00;0,00;0,00;0,00
+Vorläufiges Ergebnis;-2124,90;4375,10;6000,00;43,75
+
+Erstellt am;02.04.2026, 10:00
+Parameter;from=2026-01-01, to=2026-03-31
+Regelversionen;chart-skr04
+Festschreibung;vorläufig (2 von 3 Monaten festgeschrieben)

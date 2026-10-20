@@ -5,6 +5,7 @@ import { mutation, query, systemMutation } from "./functions";
 import { isTest } from "./lib/env";
 import { appError } from "./lib/errors";
 import { getCompanyProfile, patchCompanyProfile } from "./model/companyProfile";
+import { euerView, recordEuerSubmission } from "./model/euer";
 import {
   activeFiling,
   filingsOf,
@@ -17,6 +18,7 @@ import {
   ustvaView,
   zmView,
 } from "./model/taxFilings";
+import { saveTaxReserveInputs as saveReserveInputs } from "./model/taxReserve";
 
 /**
  * Steuern (F08 §6 /steuern/ustva, /steuern/zm; TAX-001…TAX-011, TAX-019…TAX-021): Kennzahlen sheets with drill-down,
@@ -36,6 +38,16 @@ export const zm = query({
   permission: "tax.read",
   args: { period: v.string() },
   handler: async (ctx, { period }) => zmView(ctx, period, ctx.now()),
+});
+
+/**
+ * TAX-015/TAX-022 Anlage EÜR of a calendar year: lines by Zeile/Kennzahl with drill-down, AVEÜR, Mein ELSTER guide,
+ * blockers, the submission record and the postings recorded after it. Bilanz companies: 409 (E-RPT-02).
+ */
+export const euer = query({
+  permission: "tax.read",
+  args: { year: v.number() },
+  handler: async (ctx, { year }) => euerView(ctx, year, ctx.now()),
 });
 
 /** Dauerfristverlängerung / Sondervorauszahlung of a year (USt 1 H). */
@@ -114,6 +126,23 @@ export const setFilingPeriod = mutation({
   },
 });
 
+/** RPT-010 owner setting: the assumptions of the tax reserve estimate of a year (not filing data; audited). */
+export const saveTaxReserveInputs = mutation({
+  permission: "tax.settings",
+  args: {
+    year: v.number(),
+    profitOverrideCents: v.optional(v.union(v.number(), v.null())),
+    deductionsCents: v.optional(v.union(v.number(), v.null())),
+    splitting: v.boolean(),
+    churchTaxBp: v.optional(v.union(v.literal(0), v.literal(800), v.literal(900))),
+    gewerbesteuerHebesatzBp: v.optional(v.union(v.number(), v.null())),
+    partners: v.optional(v.array(v.object({ name: v.string(), shareBp: v.number() }))),
+  },
+  handler: async (ctx, a) => {
+    await saveReserveInputs(ctx, a);
+  },
+});
+
 /** Upload URL for the optional ELSTER Übermittlungsprotokoll (PDF). */
 export const protocolUploadUrl = mutation({
   permission: "tax.submit",
@@ -128,7 +157,7 @@ export const protocolUploadUrl = mutation({
 export const recordFilingSubmission = mutation({
   permission: "tax.submit",
   args: {
-    form: v.union(v.literal("ustva"), v.literal("zm"), v.literal("sondervorauszahlung")),
+    form: v.union(v.literal("ustva"), v.literal("zm"), v.literal("sondervorauszahlung"), v.literal("euer")),
     period: v.string(),
     submittedOn: v.string(),
     transferTicket: v.string(),
@@ -141,7 +170,12 @@ export const recordFilingSubmission = mutation({
     if (args.submittedOn > berlinCalendarDate(ctx.now())) {
       throw appError("invalid_input", "Das Übermittlungsdatum darf nicht in der Zukunft liegen.");
     }
-    return recordSubmission(ctx, args);
+    if (args.form === "euer") {
+      if (!/^\d{4}$/.test(args.period)) throw appError("invalid_input", "Ungültiger Zeitraum (JJJJ).");
+      const { form: _form, period, ...rest } = args;
+      return recordEuerSubmission(ctx, { ...rest, year: Number(period) });
+    }
+    return recordSubmission(ctx, { ...args, form: args.form });
   },
 });
 

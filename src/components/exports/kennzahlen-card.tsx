@@ -15,8 +15,8 @@ import { Label } from "@/components/ui/label";
 
 /**
  * F09 §6 „Kennzahlen" card on /export (EXP-020): the UStVA and ZM sheets of a filing period as PDF/A or CSV for
- * the manual entry in Mein ELSTER, with links to the tax pages (guide, submission record). The EÜR sheet follows
- * with F08 TAX-015/TAX-022.
+ * the manual entry in Mein ELSTER, with links to the tax pages (guide, submission record); the Anlage EÜR of a
+ * year (F08 TAX-015/TAX-022) the same way.
  */
 export function KennzahlenCard() {
   return (
@@ -26,9 +26,10 @@ export function KennzahlenCard() {
   );
 }
 
-/** Previous month (`YYYY-MM`) for UStVA, previous quarter (`YYYY-Qn`) for ZM. */
-export function defaultPeriod(form: "ustva" | "zm", today: string): string {
+/** Previous month (`YYYY-MM`) for UStVA, previous quarter (`YYYY-Qn`) for ZM, previous year (`YYYY`) for the EÜR. */
+export function defaultPeriod(form: "ustva" | "zm" | "euer", today: string): string {
   const y = Number(today.slice(0, 4));
+  if (form === "euer") return String(y - 1);
   const m = Number(today.slice(5, 7));
   if (form === "ustva") return m === 1 ? `${y - 1}-12` : `${y}-${String(m - 1).padStart(2, "0")}`;
   const q = Math.floor((m - 1) / 3);
@@ -49,7 +50,7 @@ function Inner() {
   const canRead = useCan("tax.read");
   const download = useAction(api.kennzahlenNode.download);
   const run = useRun();
-  const [form, setForm] = useState<"ustva" | "zm">("ustva");
+  const [form, setForm] = useState<"ustva" | "zm" | "euer">("ustva");
   const [period, setPeriod] = useState(() => defaultPeriod("ustva", todayBerlin()));
   const [busy, setBusy] = useState(false);
   const ids = { form: useId(), period: useId() };
@@ -77,13 +78,14 @@ function Inner() {
               className={selectClass}
               value={form}
               onChange={(e) => {
-                const next = e.target.value as "ustva" | "zm";
+                const next = e.target.value as "ustva" | "zm" | "euer";
                 setForm(next);
                 setPeriod(defaultPeriod(next, todayBerlin()));
               }}
             >
               <option value="ustva">{t("ustva")}</option>
               <option value="zm">{t("zm")}</option>
+              <option value="euer">{t("euer")}</option>
             </select>
           </div>
           <div className="flex flex-col gap-1">
@@ -115,6 +117,10 @@ function Inner() {
           {" · "}
           <Link className="underline underline-offset-4" href="/steuern/zm">
             {t("toZm")}
+          </Link>
+          {" · "}
+          <Link className="underline underline-offset-4" href="/steuern/euer">
+            {t("toEuer")}
           </Link>
         </p>
       </CardContent>

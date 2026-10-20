@@ -15,6 +15,7 @@ import { paymentTools } from "./tools/payments";
 import { previewTools } from "./tools/previews";
 import { productTools } from "./tools/products";
 import { recurringTools } from "./tools/recurring";
+import { reportTools } from "./tools/reports";
 import { settingsTools } from "./tools/settings";
 import { voucherTools } from "./tools/vouchers";
 
@@ -36,6 +37,7 @@ export const TOOLS: readonly RegisteredToolDef[] = [
   ...voucherTools,
   ...inboxTools,
   ...bankRuleTools,
+  ...reportTools,
 ];
 
 /** 06 §1: ≤ 2,048 characters, German domain primer and the safety workflow. */

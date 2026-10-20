@@ -6,7 +6,7 @@ import { PageBody } from "@/components/layout/list-layout";
 import { PageHeader } from "@/components/layout/page-header";
 import { TaxScopeNotice } from "./tax-scope-notice";
 
-type TaxPageKey = "ustva" | "zm";
+type TaxPageKey = "ustva" | "zm" | "euer" | "ustJahr" | "ruecklage";
 
 export async function taxMetadata(page: TaxPageKey): Promise<Metadata> {
   const t = await getTranslations("pages");
@@ -25,7 +25,7 @@ export async function TaxPage({ page, children }: { page: TaxPageKey; children: 
         breadcrumbs={[{ label: tNav("items.steuernBereich"), href: "/steuern/ustva" }, { label: t(`${page}.title`) }]}
       />
       <PageBody>
-        <TaxScopeNotice page="other" />
+        <TaxScopeNotice page={page === "euer" ? "euer" : "other"} />
         <RoleGate permission="tax.read">{children}</RoleGate>
       </PageBody>
     </>

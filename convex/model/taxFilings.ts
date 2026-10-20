@@ -760,6 +760,8 @@ const LINK: Record<string, string> = {
   ustva: "/steuern/ustva",
   zm: "/steuern/zm",
   sondervorauszahlung: "/steuern/ustva",
+  annual_euer: "/steuern/euer",
+  annual_ust: "/steuern/ust-jahr",
 };
 
 /** Daily run: reminders and due-day notifications for open deadlines (idempotent per deadline and day kind). */

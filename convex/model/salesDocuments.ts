@@ -390,6 +390,7 @@ export async function readContact(
         ...(c.revokedAt ? { revokedAt: c.revokedAt } : {}),
       })),
       certificates13b: src.reverseCharge13bCertificates,
+      ...(src.selfBillingAgreement ? { selfBillingAgreement: src.selfBillingAgreement } : {}),
       ...(src.buyerReference ? { buyerReference: src.buyerReference } : {}),
       ...(contact.status === "archived" ? { archived: true } : {}),
     },
