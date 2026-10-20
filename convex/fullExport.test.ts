@@ -125,7 +125,7 @@ describe("EXP-024 restore checks", { timeout: 60_000 }, () => {
     expect(audit.some((a) => a.action === "system.restore")).toBe(false);
   });
 
-  test("EXP-024 E-EXP-41 the restore is the first audit entry after the imported head; a newer off-host checkpoint warns", async () => {
+  test("EXP-024 E-EXP-41 EC-183 E-AUD-14 the restore is the first audit entry after the imported head; a newer off-host checkpoint warns", async () => {
     const t = makeT();
     await finalizedInvoice(t);
     const { head } = await t.query(internal.restore.headState, {});
