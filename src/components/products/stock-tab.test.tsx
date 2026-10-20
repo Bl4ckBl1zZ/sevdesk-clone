@@ -61,7 +61,7 @@ describe("Bestand tab (PRD-090…097)", () => {
     renderWithIntl(<StockTab productId={"p1" as never} canWrite />);
     expect(screen.getByTestId("stock-quantity")).toHaveTextContent("3 C62");
     expect(screen.getByText("Unter Meldebestand")).toBeInTheDocument();
-    expect(screen.getByRole("region", { name: "Buchungsverlauf" })).toHaveAttribute("tabindex", "0");
+    expect(screen.getByRole("region", { name: "Lagerbewegungen" })).toHaveAttribute("tabindex", "0");
     const rows = within(screen.getByTestId("stock-history")).getAllByRole("row").slice(1);
     expect(rows[0]).toHaveTextContent("Lieferschein");
     expect(rows[0]).toHaveTextContent("-7");

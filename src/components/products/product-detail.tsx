@@ -338,7 +338,7 @@ function CustomerPrices({ data, canWrite }: { data: Bundle; canWrite: boolean })
       {data.customerPrices.length === 0 ? (
         <p className="text-muted-foreground">{t("empty")}</p>
       ) : (
-        <Table scrollLabel={t("customer")}>
+        <Table scrollLabel={t("customerTable")}>
           <TableHeader>
             <TableRow>
               <TableHead>{t("contact")}</TableHead>

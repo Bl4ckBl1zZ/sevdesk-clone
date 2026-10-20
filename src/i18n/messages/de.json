@@ -2173,6 +2173,7 @@
     },
     "prices": {
       "customer": "Kundenpreise",
+      "customerTable": "Tabelle der Kundenpreise",
       "add": "Kundenpreis hinzufügen",
       "contact": "Kunde",
       "price": "Preis",
@@ -2282,6 +2283,7 @@
       "textHint": "Pflichtangabe, z. B. „Wareneingang“ oder „Inventur 2026“.",
       "booked": "Bestand gebucht.",
       "history": "Buchungsverlauf",
+      "historyTable": "Lagerbewegungen",
       "noMovements": "Noch keine Bestandsbuchungen.",
       "columns": {
         "at": "Zeitpunkt",
@@ -6124,6 +6126,7 @@
       "targetDraft": "Zu Entwurf „{name}“ hinzufügen",
       "draftUntitled": "ohne Betreff",
       "preview": "Vorschau",
+      "previewTable": "Positionen der Vorschau",
       "loading": "Vorschau wird berechnet …",
       "columns": {
         "line": "Position",

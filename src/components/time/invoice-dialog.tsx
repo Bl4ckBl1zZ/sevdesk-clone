@@ -263,7 +263,7 @@ export function InvoiceEntriesDialog({
             )}
             {plan && (
               <>
-                <Table scrollLabel={t("preview")}>
+                <Table scrollLabel={t("previewTable")}>
                   <TableHeader>
                     <TableRow>
                       <TableHead>{t("columns.line")}</TableHead>

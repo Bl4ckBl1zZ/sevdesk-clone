@@ -93,7 +93,7 @@ export function StockTab({ productId, canWrite }: { productId: Id<"products">; c
         {data.movements.length === 0 ? (
           <p className="text-muted-foreground">{t("noMovements")}</p>
         ) : (
-          <Table scrollLabel={t("history")} data-testid="stock-history">
+          <Table scrollLabel={t("historyTable")} data-testid="stock-history">
             <TableHeader>
               <TableRow>
                 <TableHead>{t("columns.at")}</TableHead>
