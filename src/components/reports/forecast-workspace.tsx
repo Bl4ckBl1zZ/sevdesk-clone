@@ -122,45 +122,43 @@ function Inner() {
               </select>
             </div>
           </div>
-          <div className="overflow-x-auto">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>{t("expectedDate")}</TableHead>
-                  <TableHead>{t("cautiousDate")}</TableHead>
-                  <TableHead>{t("item")}</TableHead>
-                  <TableHead>{t("source")}</TableHead>
-                  <TableHead className="text-right">{t("amount")}</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {data.items
-                  .filter((i) => source === "all" || i.source === source)
-                  .map((i) => (
-                    <TableRow key={i.id}>
-                      <TableCell>{dateDe(i.expectedDate)}</TableCell>
-                      <TableCell>{dateDe(i.cautiousDate)}</TableCell>
-                      <TableCell>
-                        {i.href ? (
-                          <Link className="underline-offset-4 hover:underline" href={i.href as Route}>
-                            {i.label}
-                          </Link>
-                        ) : (
-                          i.label
-                        )}
-                        {i.delay && i.delay.basis !== "none" && (
-                          <span className="block text-muted-foreground text-xs">
-                            {t("delay", { expected: i.delay.expectedDays, cautious: i.delay.cautiousDays })}
-                          </span>
-                        )}
-                      </TableCell>
-                      <TableCell>{t(`sources.${i.source}`)}</TableCell>
-                      <TableCell className="text-right tabular-nums">{euro(i.cents)}</TableCell>
-                    </TableRow>
-                  ))}
-              </TableBody>
-            </Table>
-          </div>
+          <Table aria-label={t("tableLabel")} scrollLabel={t("tableLabel")}>
+            <TableHeader>
+              <TableRow>
+                <TableHead>{t("expectedDate")}</TableHead>
+                <TableHead>{t("cautiousDate")}</TableHead>
+                <TableHead>{t("item")}</TableHead>
+                <TableHead>{t("source")}</TableHead>
+                <TableHead className="text-right">{t("amount")}</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {data.items
+                .filter((i) => source === "all" || i.source === source)
+                .map((i) => (
+                  <TableRow key={i.id}>
+                    <TableCell>{dateDe(i.expectedDate)}</TableCell>
+                    <TableCell>{dateDe(i.cautiousDate)}</TableCell>
+                    <TableCell>
+                      {i.href ? (
+                        <Link className="underline-offset-4 hover:underline" href={i.href as Route}>
+                          {i.label}
+                        </Link>
+                      ) : (
+                        i.label
+                      )}
+                      {i.delay && i.delay.basis !== "none" && (
+                        <span className="block text-muted-foreground text-xs">
+                          {t("delay", { expected: i.delay.expectedDays, cautious: i.delay.cautiousDays })}
+                        </span>
+                      )}
+                    </TableCell>
+                    <TableCell>{t(`sources.${i.source}`)}</TableCell>
+                    <TableCell className="text-right tabular-nums">{euro(i.cents)}</TableCell>
+                  </TableRow>
+                ))}
+            </TableBody>
+          </Table>
         </>
       )}
     </div>

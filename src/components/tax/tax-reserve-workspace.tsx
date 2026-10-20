@@ -113,47 +113,45 @@ export function Result({ view }: { view: View }) {
           </div>
         ))}
       </dl>
-      <div className="overflow-x-auto">
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead>{t("position")}</TableHead>
-              <TableHead className="text-right">{t("amount")}</TableHead>
+      <Table aria-label={t("tableLabel")} scrollLabel={t("tableLabel")}>
+        <TableHeader>
+          <TableRow>
+            <TableHead>{t("position")}</TableHead>
+            <TableHead className="text-right">{t("amount")}</TableHead>
+          </TableRow>
+        </TableHeader>
+        <TableBody>
+          <TableRow>
+            <TableCell>{t("profit", { basis: t(`basis.${view.profit.basis}`) })}</TableCell>
+            <TableCell className="text-right tabular-nums">{euro(view.profit.projectedCents)}</TableCell>
+          </TableRow>
+          <TableRow>
+            <TableCell>
+              {t("ust")}
+              {view.ust.periods.length > 0 && (
+                <span className="text-muted-foreground"> ({view.ust.periods.join(", ")})</span>
+              )}
+            </TableCell>
+            <TableCell className="text-right tabular-nums">{euro(view.ust.openCents)}</TableCell>
+          </TableRow>
+          {rows.map((r) => (
+            <TableRow key={r.label}>
+              <TableCell>{r.label}</TableCell>
+              <TableCell className="text-right tabular-nums">{euro(r.cents)}</TableCell>
             </TableRow>
-          </TableHeader>
-          <TableBody>
-            <TableRow>
-              <TableCell>{t("profit", { basis: t(`basis.${view.profit.basis}`) })}</TableCell>
-              <TableCell className="text-right tabular-nums">{euro(view.profit.projectedCents)}</TableCell>
-            </TableRow>
-            <TableRow>
-              <TableCell>
-                {t("ust")}
-                {view.ust.periods.length > 0 && (
-                  <span className="text-muted-foreground"> ({view.ust.periods.join(", ")})</span>
-                )}
-              </TableCell>
-              <TableCell className="text-right tabular-nums">{euro(view.ust.openCents)}</TableCell>
-            </TableRow>
-            {rows.map((r) => (
-              <TableRow key={r.label}>
-                <TableCell>{r.label}</TableCell>
-                <TableCell className="text-right tabular-nums">{euro(r.cents)}</TableCell>
-              </TableRow>
-            ))}
-            <TableRow>
-              <TableCell>{t("prepaid")}</TableCell>
-              <TableCell className="text-right tabular-nums">{euro(-view.prepaidCents)}</TableCell>
-            </TableRow>
-          </TableBody>
-          <TableFooter>
-            <TableRow>
-              <TableCell>{t("remaining")}</TableCell>
-              <TableCell className="text-right tabular-nums">{euro(view.remainingCents)}</TableCell>
-            </TableRow>
-          </TableFooter>
-        </Table>
-      </div>
+          ))}
+          <TableRow>
+            <TableCell>{t("prepaid")}</TableCell>
+            <TableCell className="text-right tabular-nums">{euro(-view.prepaidCents)}</TableCell>
+          </TableRow>
+        </TableBody>
+        <TableFooter>
+          <TableRow>
+            <TableCell>{t("remaining")}</TableCell>
+            <TableCell className="text-right tabular-nums">{euro(view.remainingCents)}</TableCell>
+          </TableRow>
+        </TableFooter>
+      </Table>
       <section className="flex flex-col gap-1 text-sm">
         <h3 className="font-medium">{t("assumptions")}</h3>
         <ul className="list-disc pl-5 text-muted-foreground">

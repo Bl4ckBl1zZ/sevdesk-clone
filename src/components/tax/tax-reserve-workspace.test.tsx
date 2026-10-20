@@ -31,5 +31,7 @@ describe("/steuern/ruecklage (RPT-011)", () => {
     expect(within(list).getAllByRole("listitem")).toHaveLength(view.assumptions.length);
     expect(screen.getByText("Gewerbesteueranrechnung (§ 35 EStG)")).toBeInTheDocument();
     expect(screen.getByText("Jetzt zurücklegen")).toBeInTheDocument();
+    // wider than a phone: the table scrolls in a named, keyboard-focusable region (axe scrollable-region-focusable)
+    expect(screen.getByRole("region", { name: "Aufstellung der Steuer-Rücklage" }).tabIndex).toBe(0);
   });
 });

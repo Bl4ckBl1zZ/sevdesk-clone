@@ -295,32 +295,30 @@ function BwaReport({ p }: { p: P }) {
       ) : (
         <>
           <MetaFacts meta={data.meta} />
-          <div className="@container overflow-x-auto">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>{t("row")}</TableHead>
-                  <HeadNum>{t("monthCol")}</HeadNum>
-                  <HeadNum>{t("ytd")}</HeadNum>
-                  <HeadNum>{t("share")}</HeadNum>
-                  <HeadNum>{t("priorYtd")}</HeadNum>
+          <Table aria-label={t("tableLabel")} scrollLabel={t("tableLabel")}>
+            <TableHeader>
+              <TableRow>
+                <TableHead>{t("row")}</TableHead>
+                <HeadNum>{t("monthCol")}</HeadNum>
+                <HeadNum>{t("ytd")}</HeadNum>
+                <HeadNum>{t("share")}</HeadNum>
+                <HeadNum>{t("priorYtd")}</HeadNum>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {data.rows.map((r) => (
+                <TableRow key={r.key} className={r.sum ? "font-medium" : undefined}>
+                  <TableCell>{r.label}</TableCell>
+                  <Num cents={r.monthCents} />
+                  <Num cents={r.ytdCents} />
+                  <TableCell className="text-right tabular-nums">
+                    {r.ytdShareBp === null ? "—" : `${(r.ytdShareBp / 100).toLocaleString("de-DE")} %`}
+                  </TableCell>
+                  <Num cents={r.priorYtdCents} />
                 </TableRow>
-              </TableHeader>
-              <TableBody>
-                {data.rows.map((r) => (
-                  <TableRow key={r.key} className={r.sum ? "font-medium" : undefined}>
-                    <TableCell>{r.label}</TableCell>
-                    <Num cents={r.monthCents} />
-                    <Num cents={r.ytdCents} />
-                    <TableCell className="text-right tabular-nums">
-                      {r.ytdShareBp === null ? "—" : `${(r.ytdShareBp / 100).toLocaleString("de-DE")} %`}
-                    </TableCell>
-                    <Num cents={r.priorYtdCents} />
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          </div>
+              ))}
+            </TableBody>
+          </Table>
         </>
       )}
     </>
@@ -356,61 +354,59 @@ function SusaReport({ p }: { p: P }) {
       ) : (
         <>
           <MetaFacts meta={data.meta} />
-          <div className="overflow-x-auto">
-            <Table>
-              <TableHeader>
+          <Table aria-label={t("tableLabel")} scrollLabel={t("tableLabel")}>
+            <TableHeader>
+              <TableRow>
+                <TableHead>{t("account")}</TableHead>
+                <TableHead>{t("name")}</TableHead>
+                <HeadNum>{t("opening")}</HeadNum>
+                <HeadNum>{t("periodDebit")}</HeadNum>
+                <HeadNum>{t("periodCredit")}</HeadNum>
+                <HeadNum>{t("ytdDebit")}</HeadNum>
+                <HeadNum>{t("ytdCredit")}</HeadNum>
+                <HeadNum>{t("balance")}</HeadNum>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {data.rows.length === 0 && (
                 <TableRow>
-                  <TableHead>{t("account")}</TableHead>
-                  <TableHead>{t("name")}</TableHead>
-                  <HeadNum>{t("opening")}</HeadNum>
-                  <HeadNum>{t("periodDebit")}</HeadNum>
-                  <HeadNum>{t("periodCredit")}</HeadNum>
-                  <HeadNum>{t("ytdDebit")}</HeadNum>
-                  <HeadNum>{t("ytdCredit")}</HeadNum>
-                  <HeadNum>{t("balance")}</HeadNum>
+                  <TableCell colSpan={8} className="text-muted-foreground">
+                    {t("empty")}
+                  </TableCell>
                 </TableRow>
-              </TableHeader>
-              <TableBody>
-                {data.rows.length === 0 && (
-                  <TableRow>
-                    <TableCell colSpan={8} className="text-muted-foreground">
-                      {t("empty")}
-                    </TableCell>
-                  </TableRow>
-                )}
-                {data.rows.map((r) => (
-                  <TableRow key={r.account}>
-                    <TableCell>
-                      <Link
-                        className="underline-offset-4 hover:underline"
-                        href={`/auswertungen?bericht=kontenblatt&konto=${r.account}&von=${from}&bis=${to}` as Route}
-                      >
-                        {r.account}
-                      </Link>
-                    </TableCell>
-                    <TableCell>{r.name}</TableCell>
-                    <Num cents={r.openingCents} />
-                    <Num cents={r.periodDebitCents} />
-                    <Num cents={r.periodCreditCents} />
-                    <Num cents={r.ytdDebitCents} />
-                    <Num cents={r.ytdCreditCents} />
-                    <Num cents={r.balanceCents} />
-                  </TableRow>
-                ))}
-              </TableBody>
-              <TableFooter>
-                <TableRow>
-                  <TableCell colSpan={2}>{t("total")}</TableCell>
-                  <Num cents={data.totals.openingCents} />
-                  <Num cents={data.totals.periodDebitCents} />
-                  <Num cents={data.totals.periodCreditCents} />
-                  <Num cents={data.totals.ytdDebitCents} />
-                  <Num cents={data.totals.ytdCreditCents} />
-                  <Num cents={data.totals.balanceCents} />
+              )}
+              {data.rows.map((r) => (
+                <TableRow key={r.account}>
+                  <TableCell>
+                    <Link
+                      className="underline-offset-4 hover:underline"
+                      href={`/auswertungen?bericht=kontenblatt&konto=${r.account}&von=${from}&bis=${to}` as Route}
+                    >
+                      {r.account}
+                    </Link>
+                  </TableCell>
+                  <TableCell>{r.name}</TableCell>
+                  <Num cents={r.openingCents} />
+                  <Num cents={r.periodDebitCents} />
+                  <Num cents={r.periodCreditCents} />
+                  <Num cents={r.ytdDebitCents} />
+                  <Num cents={r.ytdCreditCents} />
+                  <Num cents={r.balanceCents} />
                 </TableRow>
-              </TableFooter>
-            </Table>
-          </div>
+              ))}
+            </TableBody>
+            <TableFooter>
+              <TableRow>
+                <TableCell colSpan={2}>{t("total")}</TableCell>
+                <Num cents={data.totals.openingCents} />
+                <Num cents={data.totals.periodDebitCents} />
+                <Num cents={data.totals.periodCreditCents} />
+                <Num cents={data.totals.ytdDebitCents} />
+                <Num cents={data.totals.ytdCreditCents} />
+                <Num cents={data.totals.balanceCents} />
+              </TableRow>
+            </TableFooter>
+          </Table>
         </>
       )}
     </>
@@ -464,54 +460,52 @@ function LedgerReport({ p }: { p: P }) {
           <p className="text-sm">
             {data.account} {data.name}
           </p>
-          <div className="overflow-x-auto">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>{t("date")}</TableHead>
-                  <TableHead>{t("beleg")}</TableHead>
-                  <TableHead>{t("text")}</TableHead>
-                  <TableHead>{t("contra")}</TableHead>
-                  <HeadNum>{t("debit")}</HeadNum>
-                  <HeadNum>{t("credit")}</HeadNum>
-                  <HeadNum>{t("balance")}</HeadNum>
+          <Table aria-label={t("tableLabel")} scrollLabel={t("tableLabel")}>
+            <TableHeader>
+              <TableRow>
+                <TableHead>{t("date")}</TableHead>
+                <TableHead>{t("beleg")}</TableHead>
+                <TableHead>{t("text")}</TableHead>
+                <TableHead>{t("contra")}</TableHead>
+                <HeadNum>{t("debit")}</HeadNum>
+                <HeadNum>{t("credit")}</HeadNum>
+                <HeadNum>{t("balance")}</HeadNum>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              <TableRow>
+                <TableCell colSpan={6}>{t("opening")}</TableCell>
+                <Num cents={data.openingCents} />
+              </TableRow>
+              {data.rows.map((r) => (
+                <TableRow key={`${r.entryId}-${r.seq}-${r.debitCents}-${r.creditCents}`}>
+                  <TableCell>{dateDe(r.date)}</TableCell>
+                  <TableCell>
+                    {r.href ? (
+                      <Link className="underline-offset-4 hover:underline" href={r.href as Route}>
+                        {r.belegfeld1 || t("source")}
+                      </Link>
+                    ) : (
+                      r.belegfeld1
+                    )}
+                  </TableCell>
+                  <TableCell>{r.text}</TableCell>
+                  <TableCell>{r.contra}</TableCell>
+                  <Num cents={r.debitCents || null} />
+                  <Num cents={r.creditCents || null} />
+                  <Num cents={r.balanceCents} />
                 </TableRow>
-              </TableHeader>
-              <TableBody>
-                <TableRow>
-                  <TableCell colSpan={6}>{t("opening")}</TableCell>
-                  <Num cents={data.openingCents} />
-                </TableRow>
-                {data.rows.map((r) => (
-                  <TableRow key={`${r.entryId}-${r.seq}-${r.debitCents}-${r.creditCents}`}>
-                    <TableCell>{dateDe(r.date)}</TableCell>
-                    <TableCell>
-                      {r.href ? (
-                        <Link className="underline-offset-4 hover:underline" href={r.href as Route}>
-                          {r.belegfeld1 || t("source")}
-                        </Link>
-                      ) : (
-                        r.belegfeld1
-                      )}
-                    </TableCell>
-                    <TableCell>{r.text}</TableCell>
-                    <TableCell>{r.contra}</TableCell>
-                    <Num cents={r.debitCents || null} />
-                    <Num cents={r.creditCents || null} />
-                    <Num cents={r.balanceCents} />
-                  </TableRow>
-                ))}
-              </TableBody>
-              <TableFooter>
-                <TableRow>
-                  <TableCell colSpan={4}>{t("total")}</TableCell>
-                  <Num cents={data.debitCents} />
-                  <Num cents={data.creditCents} />
-                  <Num cents={data.closingCents} />
-                </TableRow>
-              </TableFooter>
-            </Table>
-          </div>
+              ))}
+            </TableBody>
+            <TableFooter>
+              <TableRow>
+                <TableCell colSpan={4}>{t("total")}</TableCell>
+                <Num cents={data.debitCents} />
+                <Num cents={data.creditCents} />
+                <Num cents={data.closingCents} />
+              </TableRow>
+            </TableFooter>
+          </Table>
         </>
       )}
     </>
@@ -573,62 +567,60 @@ function OposTable({ data }: { data: Opos }) {
           )}
         </section>
       )}
-      <div className="overflow-x-auto">
-        <Table>
-          <TableHeader>
+      <Table aria-label={t("tableLabel")} scrollLabel={t("tableLabel")}>
+        <TableHeader>
+          <TableRow>
+            <TableHead>{t("number")}</TableHead>
+            <TableHead>{t("contact")}</TableHead>
+            <TableHead>{t("date")}</TableHead>
+            <TableHead>{t("due")}</TableHead>
+            <HeadNum>{t("amount")}</HeadNum>
+            <HeadNum>{t("open")}</HeadNum>
+            <TableHead>{t("bucket")}</TableHead>
+            {data.side === "debtors" && <TableHead>{t("dunning")}</TableHead>}
+          </TableRow>
+        </TableHeader>
+        <TableBody>
+          {data.items.length === 0 && (
             <TableRow>
-              <TableHead>{t("number")}</TableHead>
-              <TableHead>{t("contact")}</TableHead>
-              <TableHead>{t("date")}</TableHead>
-              <TableHead>{t("due")}</TableHead>
-              <HeadNum>{t("amount")}</HeadNum>
-              <HeadNum>{t("open")}</HeadNum>
-              <TableHead>{t("bucket")}</TableHead>
-              {data.side === "debtors" && <TableHead>{t("dunning")}</TableHead>}
+              <TableCell colSpan={8} className="text-muted-foreground">
+                {t("empty")}
+              </TableCell>
             </TableRow>
-          </TableHeader>
-          <TableBody>
-            {data.items.length === 0 && (
-              <TableRow>
-                <TableCell colSpan={8} className="text-muted-foreground">
-                  {t("empty")}
-                </TableCell>
-              </TableRow>
-            )}
-            {data.items.map((i) => (
-              <TableRow key={i.id}>
-                <TableCell>
-                  {i.href ? (
-                    <Link className="underline-offset-4 hover:underline" href={i.href as Route}>
-                      {i.number}
-                    </Link>
-                  ) : (
-                    i.number
-                  )}
-                </TableCell>
-                <TableCell>{i.contactName}</TableCell>
-                <TableCell>{dateDe(i.documentDate)}</TableCell>
-                <TableCell>{i.dueDate ? dateDe(i.dueDate) : "—"}</TableCell>
-                <Num cents={i.payableCents} />
-                <Num cents={i.openCents} />
-                <TableCell>{data.totals.buckets.find((b) => b.key === i.bucket)?.label ?? i.bucket}</TableCell>
-                {data.side === "debtors" && (
-                  <TableCell>
-                    {data.dunningLevels[i.id] ? t("level", { n: data.dunningLevels[i.id] ?? 0 }) : "—"}
-                  </TableCell>
+          )}
+          {data.items.map((i) => (
+            <TableRow key={i.id}>
+              <TableCell>
+                {i.href ? (
+                  <Link className="underline-offset-4 hover:underline" href={i.href as Route}>
+                    {i.number}
+                  </Link>
+                ) : (
+                  i.number
                 )}
-              </TableRow>
-            ))}
-          </TableBody>
-          <TableFooter>
-            <TableRow>
-              <TableCell colSpan={5}>{t("total")}</TableCell>
-              <Num cents={rec.openItemsCents} />
-              <TableCell colSpan={2} />
+              </TableCell>
+              <TableCell>{i.contactName}</TableCell>
+              <TableCell>{dateDe(i.documentDate)}</TableCell>
+              <TableCell>{i.dueDate ? dateDe(i.dueDate) : "—"}</TableCell>
+              <Num cents={i.payableCents} />
+              <Num cents={i.openCents} />
+              <TableCell>{data.totals.buckets.find((b) => b.key === i.bucket)?.label ?? i.bucket}</TableCell>
+              {data.side === "debtors" && (
+                <TableCell>
+                  {data.dunningLevels[i.id] ? t("level", { n: data.dunningLevels[i.id] ?? 0 }) : "—"}
+                </TableCell>
+              )}
             </TableRow>
-          </TableFooter>
-        </Table>
-      </div>
+          ))}
+        </TableBody>
+        <TableFooter>
+          <TableRow>
+            <TableCell colSpan={5}>{t("total")}</TableCell>
+            <Num cents={rec.openItemsCents} />
+            <TableCell colSpan={2} />
+          </TableRow>
+        </TableFooter>
+      </Table>
     </>
   );
 }
@@ -672,42 +664,40 @@ function RevenueReport({ p }: { p: P }) {
       ) : (
         <>
           <MetaFacts meta={data.meta} />
-          <div className="overflow-x-auto">
-            <Table>
-              <TableHeader>
+          <Table aria-label={t("tableLabel")} scrollLabel={t("tableLabel")}>
+            <TableHeader>
+              <TableRow>
+                <TableHead>{t(`groups.${groupBy}`)}</TableHead>
+                <HeadNum>{t("documents")}</HeadNum>
+                <HeadNum>{t("net")}</HeadNum>
+                <HeadNum>{t("gross")}</HeadNum>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {data.groups.length === 0 && (
                 <TableRow>
-                  <TableHead>{t(`groups.${groupBy}`)}</TableHead>
-                  <HeadNum>{t("documents")}</HeadNum>
-                  <HeadNum>{t("net")}</HeadNum>
-                  <HeadNum>{t("gross")}</HeadNum>
+                  <TableCell colSpan={4} className="text-muted-foreground">
+                    {t("empty")}
+                  </TableCell>
                 </TableRow>
-              </TableHeader>
-              <TableBody>
-                {data.groups.length === 0 && (
-                  <TableRow>
-                    <TableCell colSpan={4} className="text-muted-foreground">
-                      {t("empty")}
-                    </TableCell>
-                  </TableRow>
-                )}
-                {data.groups.map((g) => (
-                  <TableRow key={g.key}>
-                    <TableCell>{g.label}</TableCell>
-                    <TableCell className="text-right tabular-nums">{g.documents}</TableCell>
-                    <Num cents={g.netCents} />
-                    <Num cents={g.grossCents} />
-                  </TableRow>
-                ))}
-              </TableBody>
-              <TableFooter>
-                <TableRow>
-                  <TableCell colSpan={2}>{t("total")}</TableCell>
-                  <Num cents={data.totals.netCents} />
-                  <Num cents={data.totals.grossCents} />
+              )}
+              {data.groups.map((g) => (
+                <TableRow key={g.key}>
+                  <TableCell>{g.label}</TableCell>
+                  <TableCell className="text-right tabular-nums">{g.documents}</TableCell>
+                  <Num cents={g.netCents} />
+                  <Num cents={g.grossCents} />
                 </TableRow>
-              </TableFooter>
-            </Table>
-          </div>
+              ))}
+            </TableBody>
+            <TableFooter>
+              <TableRow>
+                <TableCell colSpan={2}>{t("total")}</TableCell>
+                <Num cents={data.totals.netCents} />
+                <Num cents={data.totals.grossCents} />
+              </TableRow>
+            </TableFooter>
+          </Table>
         </>
       )}
     </>

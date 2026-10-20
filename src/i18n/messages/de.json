@@ -5755,7 +5755,8 @@
       "splitting": "Zusammenveranlagung (Splittingtarif)",
       "save": "Annahmen speichern",
       "saved": "Annahmen gespeichert.",
-      "invalid": "Bitte Beträge als Euro mit höchstens zwei Nachkommastellen und den Hebesatz als ganze Zahl eingeben."
+      "invalid": "Bitte Beträge als Euro mit höchstens zwei Nachkommastellen und den Hebesatz als ganze Zahl eingeben.",
+      "tableLabel": "Aufstellung der Steuer-Rücklage"
     }
   },
   "manualEntry": {
@@ -5865,7 +5866,8 @@
       "monthCol": "Monat",
       "ytd": "Jahr bis heute",
       "share": "% Gesamtleistung",
-      "priorYtd": "Vorjahr bis heute"
+      "priorYtd": "Vorjahr bis heute",
+      "tableLabel": "BWA"
     },
     "susa": {
       "from": "Von",
@@ -5882,7 +5884,8 @@
       "ytdCredit": "Haben kumuliert",
       "balance": "Saldo",
       "total": "Summe",
-      "empty": "Keine Buchungen im Zeitraum."
+      "empty": "Keine Buchungen im Zeitraum.",
+      "tableLabel": "Summen- und Saldenliste"
     },
     "ledger": {
       "account": "Konto",
@@ -5899,7 +5902,8 @@
       "credit": "Haben",
       "balance": "Saldo",
       "opening": "Anfangssaldo",
-      "total": "Summe und Endsaldo"
+      "total": "Summe und Endsaldo",
+      "tableLabel": "Kontenblatt"
     },
     "opos": {
       "side": "Art",
@@ -5918,7 +5922,8 @@
       "total": "Summe offene Posten",
       "empty": "Keine offenen Posten zum Stichtag.",
       "reconciliation": "Saldo Konto {account}: {balance} €.",
-      "causes": "Mögliche Ursachen (manuelle Buchungen auf dem Konto):"
+      "causes": "Mögliche Ursachen (manuelle Buchungen auf dem Konto):",
+      "tableLabel": "Offene Posten zum Stichtag"
     },
     "revenue": {
       "from": "Von",
@@ -5940,7 +5945,8 @@
       "net": "Netto",
       "gross": "Brutto",
       "total": "Summe",
-      "empty": "Keine Umsätze im Zeitraum."
+      "empty": "Keine Umsätze im Zeitraum.",
+      "tableLabel": "Umsatz"
     },
     "forecast": {
       "threshold": "Mindestkontostand (€)",
@@ -5968,7 +5974,8 @@
       "cautiousDate": "Vorsichtig am",
       "item": "Position",
       "amount": "Betrag",
-      "delay": "Zahlt im Mittel {expected} Tage nach Fälligkeit (vorsichtig {cautious} Tage)"
+      "delay": "Zahlt im Mittel {expected} Tage nach Fälligkeit (vorsichtig {cautious} Tage)",
+      "tableLabel": "Positionen der Liquiditätsvorschau"
     }
   }
 }

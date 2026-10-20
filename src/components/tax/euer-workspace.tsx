@@ -145,47 +145,45 @@ function YearView({ view, canSubmit }: { view: View; canSubmit: boolean }) {
           {t("check")}
         </h3>
         <p className="text-muted-foreground text-xs">{t("basis")}</p>
-        <div className="overflow-x-auto">
-          <Table aria-label={t("tableLabel", { year: view.year })}>
-            <TableHeader>
-              <TableRow>
-                <TableHead className="sticky left-0 w-16 bg-background">{t("line")}</TableHead>
-                <TableHead className="w-16">Kz</TableHead>
-                <TableHead>{t("label")}</TableHead>
-                <TableHead className="text-right">{t("amount")}</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {main
-                .filter((l) => l.valueCents !== 0)
-                .map((l) => (
-                  <LineRow key={`${l.zeile}-${l.kz}`} line={l} onDrill={() => setDrill(l)} />
-                ))}
-              {sheet.sumFields && (
-                <>
-                  <SumRow
-                    zeile={sheet.sumFields.einnahmen.zeile}
-                    kz={sheet.sumFields.einnahmen.kz}
-                    label={t("sumIncome")}
-                    cents={sheet.sums.einnahmenCents}
-                  />
-                  <SumRow
-                    zeile={sheet.sumFields.ausgaben.zeile}
-                    kz={sheet.sumFields.ausgaben.kz}
-                    label={t("sumExpenses")}
-                    cents={sheet.sums.ausgabenCents}
-                  />
-                  <SumRow
-                    zeile={sheet.sumFields.gewinn.zeile}
-                    kz={sheet.sumFields.gewinn.kz}
-                    label={t("profit")}
-                    cents={sheet.sums.gewinnCents}
-                  />
-                </>
-              )}
-            </TableBody>
-          </Table>
-        </div>
+        <Table aria-label={t("tableLabel", { year: view.year })} scrollLabel={t("tableLabel", { year: view.year })}>
+          <TableHeader>
+            <TableRow>
+              <TableHead className="sticky left-0 w-16 bg-background">{t("line")}</TableHead>
+              <TableHead className="w-16">Kz</TableHead>
+              <TableHead>{t("label")}</TableHead>
+              <TableHead className="text-right">{t("amount")}</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {main
+              .filter((l) => l.valueCents !== 0)
+              .map((l) => (
+                <LineRow key={`${l.zeile}-${l.kz}`} line={l} onDrill={() => setDrill(l)} />
+              ))}
+            {sheet.sumFields && (
+              <>
+                <SumRow
+                  zeile={sheet.sumFields.einnahmen.zeile}
+                  kz={sheet.sumFields.einnahmen.kz}
+                  label={t("sumIncome")}
+                  cents={sheet.sums.einnahmenCents}
+                />
+                <SumRow
+                  zeile={sheet.sumFields.ausgaben.zeile}
+                  kz={sheet.sumFields.ausgaben.kz}
+                  label={t("sumExpenses")}
+                  cents={sheet.sums.ausgabenCents}
+                />
+                <SumRow
+                  zeile={sheet.sumFields.gewinn.zeile}
+                  kz={sheet.sumFields.gewinn.kz}
+                  label={t("profit")}
+                  cents={sheet.sums.gewinnCents}
+                />
+              </>
+            )}
+          </TableBody>
+        </Table>
         {sheet.sums.nichtAbziehbarCents !== 0 && (
           <p className="text-sm">{t("addBack", { amount: euro(sheet.sums.nichtAbziehbarCents) })}</p>
         )}
