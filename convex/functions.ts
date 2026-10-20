@@ -14,6 +14,7 @@ import {
   query as rawQuery,
 } from "./_generated/server";
 import { resolveActor } from "./lib/actor";
+import { auditorScopedDb } from "./lib/auditorScope";
 import { appError } from "./lib/errors";
 import { consumeConfirmToken } from "./model/confirmTokens";
 import { guardedDb, newWriteStats, type WriteStats } from "./model/db";
@@ -74,6 +75,11 @@ export const SYSTEM_JOBS = [
   "test", // IS_TEST-only fixtures for the E2E journeys (convex/testFixtures.ts); refuse to run otherwise
   "migration", // migrations:run — the runner then acts as system:migration.<name> (AUD-028)
   "system.restore", // F09 EXP-024 ops only (npx convex run restore:preflight / restore:complete) → system.restore
+  "cron.retention.scan", // F12 PRV-003 monthly scan → retention.purge_eligible (never purges)
+  "cron.dsgvo.deadlines", // F12 PRV-010 daily: reminders at due − 7 / − 1 days, overdue error (E-PRV-12)
+  "retention.purge", // F12 PRV-006/008 purge worker reads (writes run as the owner via actorMutations)
+  "retention.replay", // F12 PRV-009 ops: re-applies the off-host purge log after a restore
+  "dsgvo.export", // F12 PRV-013 access/portability export worker reads (Node action)
 ] as const;
 export type SystemJob = (typeof SYSTEM_JOBS)[number];
 
@@ -179,7 +185,10 @@ export const query = tagged(
     args: {},
     input: async (ctx, _args, extra: { permission: Permission }) => {
       const a = await resolveActor(ctx, extra.permission, { checkSession: false, now: Date.now() });
-      return { ctx: fields(a), args: {} };
+      if (a.role !== "auditor") return { ctx: fields(a), args: {} };
+      // F12 AUD-023: year-scoped tables only show the granted fiscal years to an auditor.
+      const startMonth = (await ctx.db.query("companyProfile").first())?.fiscalYearStartMonth ?? 1;
+      return { ctx: { ...fields(a), db: auditorScopedDb(ctx.db, a.auditorYears ?? [], startMonth) }, args: {} };
     },
   }),
 );

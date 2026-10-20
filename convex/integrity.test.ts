@@ -205,6 +205,37 @@ describe("signed daily checkpoint (AUD-016, SEC-04)", () => {
     clearInvariantTarget();
   });
 
+  test("EC-183 TST-AUD-15 E-AUD-07 data older than the last checkpoint (restore from an older backup) is reported with the missing seq range", async () => {
+    const t = makeT();
+    await withActivity(t);
+    await t.action(internal.integrity.checkpoint, {});
+    const cp = await t.run((ctx) => ctx.db.query("integrityCheckpoints").order("desc").first());
+    const lastSeq = cp?.lastSeq ?? 0;
+    // the restored database ends two entries before the checkpoint (the checkpoint row is the off-host evidence)
+    await t.run(async (ctx) => {
+      const tail = await ctx.db
+        .query("auditLog")
+        .withIndex("by_seq", (q) => q.gt("seq", lastSeq - 2))
+        .collect();
+      for (const e of tail) await ctx.db.delete(e._id);
+    });
+    const res = await t.action(internal.integrity.verify, {});
+    expect(res.ok).toBe(false);
+    expect(res.findings).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          kind: "checkpoint_mismatch",
+          detail: expect.stringMatching(
+            new RegExp(
+              `^Der aktuelle Datenstand endet vor dem Prüfpunkt vom .+ \\(seq ${lastSeq - 2} < ${lastSeq}\\)\\.$`,
+            ),
+          ),
+        }),
+      ]),
+    );
+    clearInvariantTarget();
+  });
+
   test("SEC-04 crons skip under IS_TEST unless forced", async () => {
     const t = makeT();
     expect(await t.action(internal.integrity.verifyCron, {})).toBeNull();

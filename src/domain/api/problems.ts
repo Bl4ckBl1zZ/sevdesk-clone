@@ -41,6 +41,12 @@ export const PROBLEMS = {
     en: "Only the owner can change this setting, in the UI.",
   },
   not_found: { status: 404, de: "Nicht gefunden.", en: "Not found." },
+  // F12 PRV-012: a restricted contact (DSGVO Art. 18) — minimal data only, unless the key has `audit:read`.
+  contact_restricted: {
+    status: 410,
+    de: "Der Kontakt ist gesperrt (DSGVO Art. 18).",
+    en: "The contact is restricted (GDPR Art. 18).",
+  },
   method_not_allowed: { status: 405, de: "Methode nicht erlaubt.", en: "Method not allowed." },
   version_conflict: {
     status: 409,

@@ -12,7 +12,7 @@ import { useTranslations } from "next-intl";
 import { useId, useState } from "react";
 import { useWatch } from "react-hook-form";
 import { EntityHistory } from "@/components/audit/entity-history";
-import { ConfirmDialog, formatDateTime, useCan, useRun } from "@/components/catalog/shared";
+import { ConfirmDialog, formatDate, formatDateTime, useCan, useRun } from "@/components/catalog/shared";
 import { ConvexGuard } from "@/components/convex/convex-provider";
 import { SelectField } from "@/components/forms/fields";
 import { PageBody } from "@/components/layout/list-layout";
@@ -86,6 +86,11 @@ function ContactDetailInner({ id }: { id: Id<"contacts"> }) {
             <Link href={`/kontakte/${data.mergedInto._id}` as Route} className="font-medium underline">
               {data.mergedInto.displayName} ({data.mergedInto.number})
             </Link>
+          </p>
+        )}
+        {c.dsgvo?.restrictedAt !== undefined && (
+          <p role="status" className="rounded-md border border-warning/40 bg-warning/10 p-3 text-sm">
+            {t("dsgvoRestricted", { date: formatDate(c.dsgvo.scheduledPurgeAt ?? null) })}
           </p>
         )}
         {data.merges.length > 0 && <MergeBanner merges={data.merges} canMerge={canMerge} />}
@@ -171,6 +176,7 @@ function HeaderActions({ data, canMerge }: { data: ContactBundle; canMerge: bool
   const unarchive = useMutation(api.contacts.unarchive);
   const remove = useMutation(api.contacts.remove);
   const [dialog, setDialog] = useState<"delete" | "merge" | null>(null);
+  const canDsgvo = useCan("dsgvo.manage");
   const c = data.contact;
   const archived = c.status === "archived";
   return (
@@ -191,6 +197,14 @@ function HeaderActions({ data, canMerge }: { data: ContactBundle; canMerge: bool
         >
           {t("archive")}
         </Button>
+      )}
+      {canDsgvo && (
+        <Link
+          href={`/einstellungen/datenschutz?tab=anfragen&contact=${c._id}` as Route}
+          className={buttonVariants({ variant: "outline", className: "h-11 md:h-9" })}
+        >
+          {t("dsgvoRequest")}
+        </Link>
       )}
       {canMerge && !archived && (
         <Button variant="outline" className="h-11 md:h-9" onClick={() => setDialog("merge")}>

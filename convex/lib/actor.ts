@@ -79,6 +79,8 @@ export async function resolveActor(
       label: member.email,
       channel: "ui",
       ...(resolved.sessionId ? { sessionId: resolved.sessionId } : {}),
+      // F12 AUD-023: the auditor sees only the granted fiscal years (enforced by the query wrapper).
+      ...(member.role === "auditor" ? { auditorYears: [...(member.auditor?.fiscalYears ?? [])] } : {}),
     };
   }
 

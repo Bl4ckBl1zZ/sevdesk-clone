@@ -1,0 +1,4 @@
+# Byte-exact files: the official GDPdU DTD (CRLF, pinned by SHA-256) and the GDPdU/DATEV goldens (CRLF records).
+test/fixtures/gdpdu/*.dtd -text
+test/golden/gdpdu/** -text
+test/golden/datev/** -text

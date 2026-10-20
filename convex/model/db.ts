@@ -1,11 +1,14 @@
 import type { GenericId } from "convex/values";
+import { canonicalize } from "../../src/domain/audit/canonical";
 import {
   assertMutable,
+  changedFields,
   ImmutableRecordError,
   PROTECTED_TABLES,
   type WriteChange,
 } from "../../src/domain/audit/immutability";
 import { isTechnicalPatch, TECHNICAL_TABLES } from "../../src/domain/audit/technical";
+import { auditRetentionUntil, isPurgeEligible } from "../../src/domain/privacy/purge";
 import { isRetained, retentionMessage } from "../../src/domain/rules/retention";
 import { berlinCalendarDate } from "../../src/domain/time/berlin";
 import type { DatabaseWriter } from "../_generated/server";
@@ -26,10 +29,16 @@ export interface WriteStats {
   writes: number;
   audits: number;
   tables: Set<string>;
+  /**
+   * F12 PRV-006/PRV-008 sanctioned purge path: tombstones inserted in this transaction (`table:id` → retentionUntil)
+   * and the highest chain anchor inserted in it. Only these records may leave a protected table.
+   */
+  tombstoned: Map<string, string>;
+  anchorSeq: number;
 }
 
 export function newWriteStats(): WriteStats {
-  return { writes: 0, audits: 0, tables: new Set() };
+  return { writes: 0, audits: 0, tables: new Set(), tombstoned: new Map(), anchorSeq: 0 };
 }
 
 type AnyId = GenericId<string>;
@@ -53,10 +62,62 @@ export function guardedDb(db: DatabaseWriter, stats: WriteStats): DatabaseWriter
     return { table, id, rest: args.slice(1) };
   };
 
+  const today = () => berlinCalendarDate(Date.now());
+
+  /**
+   * GOBD-21 purge (PRV-006…008): a protected record may be deleted only after its retention ended AND with a
+   * tombstone inserted in the same transaction; audit entries only as a prefix behind a chain anchor (seq ≤ anchor)
+   * whose own 10-year retention ended. PRV-007: journal lines may lose the `contactId` of a contact anonymised (and
+   * tombstoned) in the same transaction — nothing else changes.
+   */
+  const purgeAllowed = async (
+    table: string,
+    id: AnyId,
+    stored: Record<string, unknown>,
+    change: WriteChange,
+  ): Promise<boolean> => {
+    if (change.op === "delete") {
+      if (table === "auditLog") {
+        const seq = stored.seq as number;
+        let anchor = stats.anchorSeq;
+        if (seq > anchor) {
+          const top = await db.query("chainAnchors").withIndex("by_seq").order("desc").first();
+          anchor = Math.max(anchor, top?.seq ?? 0);
+        }
+        return seq <= anchor && isPurgeEligible(auditRetentionUntil(stored.at as number), today());
+      }
+      const until = stats.tombstoned.get(`${table}:${id}`);
+      return until !== undefined && isPurgeEligible(until, today());
+    }
+    if (change.op !== "patch" || (table !== "journalEntries" && table !== "journalLines")) return false;
+    const changed = [...changedFields(stored, change).keys()];
+    const shredded = (cid: unknown) => typeof cid === "string" && stats.tombstoned.has(`contacts:${cid}`);
+    if (table === "journalLines") {
+      return (
+        changed.length === 1 &&
+        changed[0] === "contactId" &&
+        change.patch.contactId === undefined &&
+        shredded(stored.contactId)
+      );
+    }
+    if (changed.length !== 1 || changed[0] !== "lines") return false;
+    const before = stored.lines as Record<string, unknown>[];
+    const after = change.patch.lines as Record<string, unknown>[] | undefined;
+    if (!Array.isArray(after) || after.length !== before.length) return false;
+    return before.every((b, i) => {
+      const a = after[i] as Record<string, unknown>;
+      const { contactId: bc, ...bRest } = b;
+      const { contactId: ac, ...aRest } = a;
+      if (canonicalize(bRest) !== canonicalize(aRest)) return false;
+      return ac === bc || (ac === undefined && shredded(bc));
+    });
+  };
+
   const guard = async (table: string | undefined, id: AnyId, change: WriteChange) => {
     if (table === undefined || !PROTECTED_TABLES.includes(table)) return;
     const stored = await raw.get(table, id);
     if (!stored) return; // the underlying call reports the missing document
+    if (await purgeAllowed(table, id, stored, change)) return;
     // documentLines are frozen with their parent (03 §11): the matrix sees the parent's status.
     let before = stored;
     if (table === "documentLines" && typeof stored.documentId === "string") {
@@ -107,6 +168,10 @@ export function guardedDb(db: DatabaseWriter, stats: WriteStats): DatabaseWriter
     insert: async (table: string, value: Record<string, unknown>) => {
       if (table === "auditLog") stats.audits++;
       else count(table);
+      if (table === "purgeTombstones") {
+        stats.tombstoned.set(`${value.table as string}:${value.recordId as string}`, value.retentionUntil as string);
+      }
+      if (table === "chainAnchors") stats.anchorSeq = Math.max(stats.anchorSeq, value.seq as number);
       return raw.insert?.call(db, table, value);
     },
     patch: async (...args: unknown[]) => {
