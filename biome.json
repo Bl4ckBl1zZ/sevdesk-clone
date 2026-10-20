@@ -10,6 +10,7 @@
       "!next-env.d.ts",
       "!pnpm-lock.yaml",
       "!test/golden/cases",
+      "!test/golden/datev",
       "!test/fixtures",
       "!src/pdf/fonts/data.generated.ts",
       "!src/server/openapi.snapshot.json",
