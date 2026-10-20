@@ -107,7 +107,7 @@ test("DOC-35 „Duplizieren“ on an invoice opens a new draft", async ({ page, 
   await first.click();
   await page.getByRole("button", { name: "Duplizieren" }).click();
   await expect(page).toHaveURL(/\/rechnungen\/[a-z0-9]+$/);
-  await expect(h1(page, /Entwurf/)).toBeVisible();
+  await expect(h1(page, "Rechnungsentwurf")).toBeVisible();
   await expectNoAxeViolations();
 });
 
@@ -120,8 +120,10 @@ test("SET-132 AUD-026 /einstellungen/system shows the integrity status; Datensic
   await expect(page.getByTestId("integrity-head")).toBeVisible();
   await page.getByRole("link", { name: "Datensicherungen" }).click();
   await expect(page).toHaveURL(/\/einstellungen\/system\/backups$/);
-  await expect(page.getByText("Datensicherungen").first()).toBeVisible();
-  await expect(page.getByRole("button", { name: "Neu prüfen" })).toBeVisible();
+  await expect(h1(page, "Datensicherungen")).toBeVisible();
+  // The page loads the backup status on mount and disables „Neu prüfen“ meanwhile; axe the settled page, not a
+  // button that turns from disabled (50 % opacity) to enabled during the scan.
+  await expect(page.getByRole("button", { name: "Neu prüfen" })).toBeEnabled({ timeout: 30_000 });
   await expectNoAxeViolations();
 });
 
@@ -149,10 +151,10 @@ test("DOC-18 INV-30 a draft takes an attachment; the finalised invoice shows Anh
   await first.click();
   const section = page.getByRole("region", { name: "Anhänge und Nachweise" });
   await expect(section).toBeVisible();
-  await expect(section.getByRole("heading", { name: "Nachweise" })).toBeVisible();
+  await expect(section.getByRole("heading", { name: "Nachweise", exact: true })).toBeVisible();
   await expect(section.getByLabel("Art des Nachweises")).toBeVisible();
   await page.getByRole("button", { name: "Duplizieren" }).click();
-  await expect(h1(page, /Entwurf/)).toBeVisible();
+  await expect(h1(page, "Rechnungsentwurf")).toBeVisible();
   await page.getByLabel("Anhang hinzufügen (höchstens 10)").setInputFiles({
     name: "agb.pdf",
     mimeType: "application/pdf",
@@ -168,7 +170,12 @@ test("DOC-39 T-DOC-043 the invoice shows its Nummernkreis-Eintrag and links to t
 }) => {
   await page.goto("/rechnungen");
   await expect(h1(page, "Rechnungen")).toBeVisible();
-  const first = page.getByRole("link", { name: /^RE-/ }).filter({ visible: true }).first();
+  // An invoice numbered by the app (RE-YYYY-NNNN): the sevdesk-imported ones (RE-5004 …, sevdesk-import.spec.ts)
+  // have a register row without a number range, hence no register link.
+  const first = page
+    .getByRole("link", { name: /^RE-\d{4}-\d{4,}$/ })
+    .filter({ visible: true })
+    .first();
   test.skip((await first.count()) === 0, "no finalised invoice in this journey");
   await first.click();
   const entry = page.getByTestId("register-entry");
@@ -176,7 +183,7 @@ test("DOC-39 T-DOC-043 the invoice shows its Nummernkreis-Eintrag and links to t
   await entry.getByRole("link", { name: "Im Nummernregister anzeigen" }).click();
   await expect(page).toHaveURL(/\/einstellungen\/nummernkreise\/register\?range=/);
   await expect(page.getByTestId("number-register")).toBeVisible();
-  await expect(page.getByText("Lückenbericht")).toBeVisible();
+  await expect(page.getByText("Lückenbericht", { exact: true })).toBeVisible();
   await expectNoAxeViolations();
 });
 

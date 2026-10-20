@@ -34,11 +34,12 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         <div className="flex min-w-0 flex-1 flex-col" aria-hidden={expired || undefined}>
           <TopBar />
           <IntegrityBanner />
+          {/* Phones: room for the tab bar and the page action bar, which wraps to two rows from three actions. */}
           <main
             id="main"
             ref={mainRef}
             tabIndex={-1}
-            className="@container/main flex-1 pb-[calc(4.5rem+env(safe-area-inset-bottom))] outline-none has-data-[slot=page-actions]:pb-[calc(9rem+env(safe-area-inset-bottom))] md:pb-0 md:has-data-[slot=page-actions]:pb-0"
+            className="@container/main flex-1 pb-[calc(4.5rem+env(safe-area-inset-bottom))] outline-none has-data-[slot=page-actions]:pb-[calc(9rem+env(safe-area-inset-bottom))] has-[[data-slot=page-actions]>:nth-child(3)]:pb-[calc(12rem+env(safe-area-inset-bottom))] md:pb-0 md:has-data-[slot=page-actions]:pb-0 md:has-[[data-slot=page-actions]>:nth-child(3)]:pb-0"
           >
             {children}
           </main>

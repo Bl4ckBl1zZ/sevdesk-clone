@@ -155,6 +155,13 @@ describe("setup (BNK-101, BNK-013, SET-049, BNK-115)", () => {
     expect((await s.owner.query(api.bankFeed.connection, {})).redirectUrl).toBe(r.redirectUrl);
   });
 
+  test("BNK-101 BNK-115 the redirect URL to whitelist is shown before the setup is saved (checklist step 3)", async () => {
+    const s = await setup();
+    const view = await s.owner.query(api.bankFeed.connection, {});
+    expect(view.status).toBe("not_configured");
+    expect(view.redirectUrl).toBe("https://app.test.local/einstellungen/bank/callback");
+  });
+
   test("BNK-101 an uploaded private key is validated; an invalid key is refused", async () => {
     const s = await setup();
     const e = await s.owner

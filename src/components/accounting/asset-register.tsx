@@ -252,38 +252,31 @@ function Anlagenspiegel({ year }: { year: number }) {
     ["bookValueEndCents", t("bookValueEnd")],
   ] as const;
   return (
-    <div className="overflow-x-auto">
-      <Table aria-label={t("title", { year })}>
-        <TableHeader>
-          <TableRow>
-            <TableHead className="sticky left-0 bg-background">{t("asset")}</TableHead>
-            {cols.map(([k, label]) => (
-              <TableHead key={k} className="text-right">
-                {label}
-              </TableHead>
-            ))}
-          </TableRow>
-        </TableHeader>
-        <TableBody>
-          {data.groups.map((g) => (
-            <GroupRows
-              key={g.account}
-              group={g}
-              rows={data.assets.filter((a) => a.account === g.account)}
-              cols={cols}
-            />
+    <Table aria-label={t("title", { year })} scrollLabel={t("title", { year })}>
+      <TableHeader>
+        <TableRow>
+          <TableHead className="sticky left-0 bg-background">{t("asset")}</TableHead>
+          {cols.map(([k, label]) => (
+            <TableHead key={k} className="text-right">
+              {label}
+            </TableHead>
           ))}
-          <TableRow className="font-medium">
-            <TableCell className="sticky left-0 bg-background">{t("total")}</TableCell>
-            {cols.map(([k]) => (
-              <TableCell key={k} className="text-right tabular-nums">
-                {euro(data.total[k])}
-              </TableCell>
-            ))}
-          </TableRow>
-        </TableBody>
-      </Table>
-    </div>
+        </TableRow>
+      </TableHeader>
+      <TableBody>
+        {data.groups.map((g) => (
+          <GroupRows key={g.account} group={g} rows={data.assets.filter((a) => a.account === g.account)} cols={cols} />
+        ))}
+        <TableRow className="font-medium">
+          <TableCell className="sticky left-0 bg-background">{t("total")}</TableCell>
+          {cols.map(([k]) => (
+            <TableCell key={k} className="text-right tabular-nums">
+              {euro(data.total[k])}
+            </TableCell>
+          ))}
+        </TableRow>
+      </TableBody>
+    </Table>
   );
 }
 
@@ -337,38 +330,36 @@ function GwgList({ year }: { year: number }) {
       {rows.length === 0 ? (
         <p className="text-muted-foreground text-sm">{t("empty", { year })}</p>
       ) : (
-        <div className="overflow-x-auto">
-          <Table aria-label={t("title")}>
-            <TableHeader>
-              <TableRow>
-                <TableHead>{t("number")}</TableHead>
-                <TableHead>{t("name")}</TableHead>
-                <TableHead>{t("date")}</TableHead>
-                <TableHead className="text-right">{t("cost")}</TableHead>
-                <TableHead>{t("voucher")}</TableHead>
+        <Table aria-label={t("title")} scrollLabel={t("title")}>
+          <TableHeader>
+            <TableRow>
+              <TableHead>{t("number")}</TableHead>
+              <TableHead>{t("name")}</TableHead>
+              <TableHead>{t("date")}</TableHead>
+              <TableHead className="text-right">{t("cost")}</TableHead>
+              <TableHead>{t("voucher")}</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {rows.map((r) => (
+              <TableRow key={r.id}>
+                <TableCell className="font-mono text-xs">{r.inventoryNumber}</TableCell>
+                <TableCell>{r.name}</TableCell>
+                <TableCell className="tabular-nums">{dateDe(r.acquisitionDate)}</TableCell>
+                <TableCell className="text-right tabular-nums">{euro(r.costCents)}</TableCell>
+                <TableCell>
+                  {r.voucherId ? (
+                    <a className="text-primary underline-offset-4 hover:underline" href={`/belege/${r.voucherId}`}>
+                      {r.voucherNumber ?? t("voucherLink")}
+                    </a>
+                  ) : (
+                    "–"
+                  )}
+                </TableCell>
               </TableRow>
-            </TableHeader>
-            <TableBody>
-              {rows.map((r) => (
-                <TableRow key={r.id}>
-                  <TableCell className="font-mono text-xs">{r.inventoryNumber}</TableCell>
-                  <TableCell>{r.name}</TableCell>
-                  <TableCell className="tabular-nums">{dateDe(r.acquisitionDate)}</TableCell>
-                  <TableCell className="text-right tabular-nums">{euro(r.costCents)}</TableCell>
-                  <TableCell>
-                    {r.voucherId ? (
-                      <a className="text-primary underline-offset-4 hover:underline" href={`/belege/${r.voucherId}`}>
-                        {r.voucherNumber ?? t("voucherLink")}
-                      </a>
-                    ) : (
-                      "–"
-                    )}
-                  </TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-        </div>
+            ))}
+          </TableBody>
+        </Table>
       )}
     </div>
   );
@@ -483,31 +474,31 @@ function AssetSheet({ id, canWrite, onClose }: { id: Id<"assets"> | null; canWri
                 {data.plan.length === 0 ? (
                   <p className="text-muted-foreground text-sm">{t("noPlan")}</p>
                 ) : (
-                  <div className="max-h-96 overflow-auto">
-                    <Table>
-                      <TableHeader>
-                        <TableRow>
-                          <TableHead>{t("period")}</TableHead>
-                          <TableHead className="text-right">{t("amount")}</TableHead>
-                          <TableHead className="text-right">{t("bookValue")}</TableHead>
-                          <TableHead>{t("state")}</TableHead>
+                  // One scroll container for both axes, keyboard-focusable and named (axe scrollable-region-focusable:
+                  // on a phone the plan is wider than the sheet).
+                  <Table scrollLabel={t("plan")} containerClassName="max-h-96 overflow-y-auto">
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>{t("period")}</TableHead>
+                        <TableHead className="text-right">{t("amount")}</TableHead>
+                        <TableHead className="text-right">{t("bookValue")}</TableHead>
+                        <TableHead>{t("state")}</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {data.plan.map((r) => (
+                        <TableRow key={r.period}>
+                          <TableCell className="tabular-nums">{periodDe(r.period)}</TableCell>
+                          <TableCell className="text-right tabular-nums">{euro(r.amountCents)}</TableCell>
+                          <TableCell className="text-right tabular-nums">{euro(r.bookValueAfterCents)}</TableCell>
+                          <TableCell className="text-xs">
+                            {r.posted ? t("posted", { seq: r.posted.seq }) : r.preBook ? t("preBook") : t("planned")}
+                            {r.switchedToLinear && ` · ${t("switch")}`}
+                          </TableCell>
                         </TableRow>
-                      </TableHeader>
-                      <TableBody>
-                        {data.plan.map((r) => (
-                          <TableRow key={r.period}>
-                            <TableCell className="tabular-nums">{periodDe(r.period)}</TableCell>
-                            <TableCell className="text-right tabular-nums">{euro(r.amountCents)}</TableCell>
-                            <TableCell className="text-right tabular-nums">{euro(r.bookValueAfterCents)}</TableCell>
-                            <TableCell className="text-xs">
-                              {r.posted ? t("posted", { seq: r.posted.seq }) : r.preBook ? t("preBook") : t("planned")}
-                              {r.switchedToLinear && ` · ${t("switch")}`}
-                            </TableCell>
-                          </TableRow>
-                        ))}
-                      </TableBody>
-                    </Table>
-                  </div>
+                      ))}
+                    </TableBody>
+                  </Table>
                 )}
               </section>
               {canWrite && <NotesEditor id={a._id} notes={a.notes ?? ""} />}

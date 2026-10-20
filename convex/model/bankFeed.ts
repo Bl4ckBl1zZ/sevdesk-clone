@@ -8,6 +8,7 @@ import {
   expiryBanner,
   nextConnectionStatus,
   pollingActive,
+  redirectUrlFor,
   validityLabel,
 } from "../../src/domain/banking/feed/consent";
 import { FEED_MESSAGES } from "../../src/domain/banking/feed/messages";
@@ -32,6 +33,7 @@ import {
 import { berlinCalendarDate } from "../../src/domain/time/berlin";
 import { type CalendarDate, formatGermanDate } from "../../src/domain/time/calendar-date";
 import type { Doc, Id } from "../_generated/dataModel";
+import { baseDomain } from "../lib/env";
 import { appError } from "../lib/errors";
 import { auditedDelete, auditedInsert, auditedPatch } from "./audit";
 import { addStatementAccount, defaultInvoiceAccount } from "./bankAccounts";
@@ -1028,6 +1030,7 @@ export async function connectionView(ctx: ReadCtx, now: number) {
     );
   }
   const status: ConnectionStatus = c?.status ?? "not_configured";
+  const domain = baseDomain();
   const keyStored = !!c?.encryptedPrivateKeyPem;
   const configured = !!c?.applicationId && keyStored;
   const hadConsent = (c?.consentPeriods?.length ?? 0) > 0;
@@ -1041,7 +1044,9 @@ export async function connectionView(ctx: ReadCtx, now: number) {
     keyStored,
     keySource: c?.keySource ?? null,
     publicKeyPem: c?.publicKeyPem ?? null,
-    redirectUrl: c?.redirectUrl ?? null,
+    // BNK-101 step 3: the owner whitelists this URL in the Control Panel before entering the application ID, so it
+    // is shown before the setup is saved (from BASE_DOMAIN, like saveSetup).
+    redirectUrl: c?.redirectUrl ?? (domain ? redirectUrlFor(domain) : null),
     aspsp: c?.aspsp ?? null,
     validUntil: c?.validUntil ?? null,
     remindersSent: (c?.consentReminders ?? []).map((r) => r.daysBefore),

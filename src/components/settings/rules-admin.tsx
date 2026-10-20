@@ -139,44 +139,42 @@ function RuleGroupCard({
   const t = useTranslations("settings.rules");
   if (tables.length === 0) return null;
   const body = (
-    <div className="overflow-x-auto">
-      <Table>
-        <TableHeader>
-          <TableRow>
-            <TableHead>{t("table")}</TableHead>
-            <TableHead>{t("validity")}</TableHead>
-            <TableHead>{t("value")}</TableHead>
-            <TableHead>{t("source")}</TableHead>
-            <TableHead>{t("origin")}</TableHead>
-          </TableRow>
-        </TableHeader>
-        <TableBody>
-          {tables.flatMap((table) =>
-            table.rows.map((r) => (
-              <TableRow key={r.rowId} data-current={r.current || undefined}>
-                <TableCell className="font-mono text-xs">{table.id}</TableCell>
-                <TableCell className="whitespace-nowrap">
-                  {formatDate(r.validFrom)} – {r.validTo ? formatDate(r.validTo) : t("open")}
-                </TableCell>
-                <TableCell className="min-w-48 max-w-md">
-                  {r.value}
-                  {r.current && (
-                    <Badge variant="secondary" className="ml-2">
-                      {t("current")}
-                    </Badge>
-                  )}
-                </TableCell>
-                <TableCell className="min-w-40 max-w-sm text-muted-foreground text-xs">{r.source}</TableCell>
-                <TableCell className="whitespace-nowrap">
-                  {r.origin === "code" ? t("originCode") : t("originOverride")}
-                  {r.overrideId && locked.get(r.overrideId) && <span className="sr-only"> ({t("locked")})</span>}
-                </TableCell>
-              </TableRow>
-            )),
-          )}
-        </TableBody>
-      </Table>
-    </div>
+    <Table scrollLabel={RULE_GROUP_LABEL_DE[group]}>
+      <TableHeader>
+        <TableRow>
+          <TableHead>{t("table")}</TableHead>
+          <TableHead>{t("validity")}</TableHead>
+          <TableHead>{t("value")}</TableHead>
+          <TableHead>{t("source")}</TableHead>
+          <TableHead>{t("origin")}</TableHead>
+        </TableRow>
+      </TableHeader>
+      <TableBody>
+        {tables.flatMap((table) =>
+          table.rows.map((r) => (
+            <TableRow key={r.rowId} data-current={r.current || undefined}>
+              <TableCell className="font-mono text-xs">{table.id}</TableCell>
+              <TableCell className="whitespace-nowrap">
+                {formatDate(r.validFrom)} – {r.validTo ? formatDate(r.validTo) : t("open")}
+              </TableCell>
+              <TableCell className="min-w-48 max-w-md">
+                {r.value}
+                {r.current && (
+                  <Badge variant="secondary" className="ml-2">
+                    {t("current")}
+                  </Badge>
+                )}
+              </TableCell>
+              <TableCell className="min-w-40 max-w-sm text-muted-foreground text-xs">{r.source}</TableCell>
+              <TableCell className="whitespace-nowrap">
+                {r.origin === "code" ? t("originCode") : t("originOverride")}
+                {r.overrideId && locked.get(r.overrideId) && <span className="sr-only"> ({t("locked")})</span>}
+              </TableCell>
+            </TableRow>
+          )),
+        )}
+      </TableBody>
+    </Table>
   );
   return (
     <Card>

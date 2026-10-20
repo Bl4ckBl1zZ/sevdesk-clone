@@ -1,6 +1,6 @@
-import type { Locator, Page } from "@playwright/test";
+import type { Page } from "@playwright/test";
 import { backdateTestDraft, ownerStorageState } from "./backend";
-import { expect, test } from "./fixtures";
+import { expect, selectCustomer, test } from "./fixtures";
 
 /**
  * Mahnwesen (F05 T05-161, DUN-031, DUN-058, MISC-10) as the signed-in owner: the cockpit and its Vorschau, „Ausgewählte
@@ -26,12 +26,6 @@ test.describe.configure({ mode: "serial", timeout: 300_000 });
 
 const h1 = (page: Page, name: string | RegExp) => page.getByRole("heading", { level: 1, name });
 
-async function selectByText(select: Locator, text: string): Promise<void> {
-  const option = select.locator("option", { hasText: text }).first();
-  await expect(option).toBeAttached({ timeout: 20_000 });
-  await select.selectOption((await option.getAttribute("value")) ?? "");
-}
-
 const CUSTOMER = "Mahnung Muster GmbH";
 
 /** A finalised 119,00 € invoice for CUSTOMER; returns its number and detail URL. */
@@ -39,7 +33,7 @@ const CUSTOMER = "Mahnung Muster GmbH";
 async function finalisedInvoice(page: Page, opts: { backdateDays?: number } = {}) {
   await page.goto("/rechnungen/neu");
   await expect(h1(page, "Neue Rechnung")).toBeVisible();
-  await selectByText(page.getByRole("combobox", { name: "Kunde", exact: true }), CUSTOMER);
+  await selectCustomer(page, CUSTOMER);
   await expect(page.getByTestId("buyer")).toContainText(CUSTOMER);
   await page.getByLabel("Bezeichnung (Pos. 1)").fill("Beratung Mahnwesen");
   await page.getByLabel("Menge").first().fill("1");

@@ -32,6 +32,12 @@ test.use({
 test.describe.configure({ mode: "serial" });
 
 const h1 = (page: Page, name: string) => page.getByRole("heading", { level: 1, name });
+/**
+ * The sevdesk wizard's „Vorschau erstellen“. The generic CSV card below it on /einstellungen/import has its own
+ * button of the same name while a CSV session is shown (verwaltung-csv-import.spec.ts, shared backend); the sevdesk card
+ * comes first in the page.
+ */
+const sevdeskPreview = (page: Page) => page.getByRole("button", { name: "Vorschau erstellen" }).first();
 
 test("IMP-016 IMP-023 the import page explains the steps; phones get the desktop hint", async ({
   page,
@@ -79,7 +85,7 @@ test("TST-IMP-16 IMP-009 IMP-019 upload, preview with per-row errors, resolve, c
   await expect(page.getByRole("heading", { name: "2. Spaltenzuordnung: invoices.csv" })).toBeVisible();
   await expectNoAxeViolations();
 
-  await page.getByRole("button", { name: "Vorschau erstellen" }).click();
+  await sevdeskPreview(page).click();
   const counts = page.getByTestId("preview-counts");
   await expect(counts).toBeVisible({ timeout: 30_000 });
   await expect(page.getByRole("button", { name: "Import übernehmen" })).toBeDisabled();
@@ -89,7 +95,7 @@ test("TST-IMP-16 IMP-009 IMP-019 upload, preview with per-row errors, resolve, c
   const excludeAndPreview = async (row: ReturnType<Page["getByRole"]>) => {
     await row.getByRole("button", { name: "Zeile ausschließen" }).click();
     await expect(stale).toBeVisible({ timeout: 30_000 });
-    await page.getByRole("button", { name: "Vorschau erstellen" }).click();
+    await sevdeskPreview(page).click();
     await expect(stale).toBeHidden({ timeout: 30_000 });
     await expect(counts).toBeVisible({ timeout: 30_000 });
   };
