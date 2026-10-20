@@ -4254,6 +4254,19 @@
       "packageLine": "Wirtschaftsjahr {year}",
       "download": "{name} herunterladen"
     },
+    "kennzahlen": {
+      "title": "Kennzahlen",
+      "description": "UStVA und Zusammenfassende Meldung eines Zeitraums als PDF oder CSV – zum Eintragen in Mein ELSTER und für die Ablage. Mit Erstellungszeit, Regelversionen, Festschreibung und Abgabestatus.",
+      "form": "Meldung",
+      "ustva": "Umsatzsteuer-Voranmeldung",
+      "zm": "Zusammenfassende Meldung",
+      "period": "Zeitraum",
+      "periodHint": "z. B. 2026-09 (Monat) oder 2026-Q3 (Quartal)",
+      "pdf": "PDF herunterladen",
+      "csv": "CSV herunterladen",
+      "toUstva": "Zur Umsatzsteuer-Voranmeldung",
+      "toZm": "Zur Zusammenfassenden Meldung"
+    },
     "datev": {
       "title": "DATEV-Export",
       "description": "Buchungsstapel (EXTF), Debitoren/Kreditoren und Belege für einen Steuerberater. Vor dem Export wird geprüft; jeder Export bleibt mit Datei und Prüfsumme in der Historie.",

@@ -56,6 +56,8 @@ import type * as invites from "../invites.js";
 import type * as invoices from "../invoices.js";
 import type * as jobs from "../jobs.js";
 import type * as journalIntegrity from "../journalIntegrity.js";
+import type * as kennzahlen from "../kennzahlen.js";
+import type * as kennzahlenNode from "../kennzahlenNode.js";
 import type * as lib_actor from "../lib/actor.js";
 import type * as lib_auditorScope from "../lib/auditorScope.js";
 import type * as lib_authHardening from "../lib/authHardening.js";
@@ -245,6 +247,8 @@ declare const fullApi: ApiFromModules<{
   invoices: typeof invoices;
   jobs: typeof jobs;
   journalIntegrity: typeof journalIntegrity;
+  kennzahlen: typeof kennzahlen;
+  kennzahlenNode: typeof kennzahlenNode;
   "lib/actor": typeof lib_actor;
   "lib/auditorScope": typeof lib_auditorScope;
   "lib/authHardening": typeof lib_authHardening;

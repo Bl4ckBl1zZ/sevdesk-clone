@@ -2377,6 +2377,18 @@
     "wrapper": "systemQuery",
     "job": "cron.integrity.verify"
   },
+  "kennzahlen:sheetInput": {
+    "kind": "query",
+    "visibility": "internal",
+    "wrapper": "systemQuery",
+    "job": "exports.run"
+  },
+  "kennzahlenNode:download": {
+    "kind": "action",
+    "visibility": "public",
+    "wrapper": "action",
+    "permission": "tax.read"
+  },
   "lookups:archiveCostCenter": {
     "kind": "mutation",
     "visibility": "public",
