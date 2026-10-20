@@ -64,7 +64,9 @@ export function PageHeader({
       {actions && (
         <div
           data-slot="page-actions"
-          className="fixed inset-x-0 bottom-[calc(4rem+env(safe-area-inset-bottom))] z-30 flex gap-2 border-t bg-background p-3 *:flex-1 md:static md:z-auto md:border-0 md:bg-transparent md:p-0 md:*:flex-none"
+          // flex-wrap: three actions („Duplizieren“, „Exportieren“, „Als versendet markieren“) are wider than a
+          // phone; without wrapping the last one sat beyond the right edge of the viewport, unreachable.
+          className="fixed inset-x-0 bottom-[calc(4rem+env(safe-area-inset-bottom))] z-30 flex flex-wrap gap-2 border-t bg-background p-3 *:flex-1 md:static md:z-auto md:flex-nowrap md:border-0 md:bg-transparent md:p-0 md:*:flex-none"
         >
           {actions}
         </div>
