@@ -87,6 +87,7 @@ const EXPECTED: Record<Permission, readonly MemberRole[]> = {
   "exports.full": ["owner"],
   "exports.gdpdu": ["owner", "bookkeeper"],
   "exports.datev": ["owner", "bookkeeper"],
+  "exports.datev.lock": ["owner", "bookkeeper"],
   "exports.datev.validate": ["owner", "bookkeeper"],
   "exports.datev.read": ["owner", "bookkeeper"],
   "exports.datev.acceptance": ["owner"],

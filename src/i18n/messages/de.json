@@ -4285,7 +4285,7 @@
         "documents": "Belegdateien"
       },
       "lockPeriod": "Zeitraum beim Export festschreiben",
-      "lockPeriodLater": "Monate werden über die Periodensperre der Buchhaltung festgeschrieben; diese Option folgt mit ihr.",
+      "lockPeriodHint": "Schreibt die Monate des Zeitraums (lückenlos ab Beginn des Wirtschaftsjahres) vor dem Export unwiderruflich fest; der Export erhält Festschreibung 1.",
       "check": "Prüfen",
       "reportTitle": "Prüfbericht",
       "reportSummary": "{entries} Buchungen, {rows} DATEV-Zeilen, Umsatz {sum}, Festschreibung {fest, plural, =1 {ja} other {nein}}.",

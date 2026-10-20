@@ -58,7 +58,7 @@ export const list = query({
 /** „Prüfen" (EXP-007): the validation report without writing anything (also REST `…/validate`, MCP preview). */
 export const validate = action({
   permission: "exports.datev.validate",
-  args: exportArgs,
+  args: { ...exportArgs, lockPeriod: v.optional(v.boolean()) },
   handler: async (ctx, args): Promise<DatevReport> => {
     const { input, running } = await loadDatevInput(ctx, args, { withBytes: false, now: Date.now() });
     const { report } = await runDatevExport(input);
@@ -76,6 +76,20 @@ export const start = mutation({
   args: { ...exportArgs, confirmToken: vConfirmToken },
   handler: async (ctx, args) => {
     const jobId = await startDatevExport(ctx, args as DatevStartArgs);
+    await ctx.scheduler.runAfter(0, internal.datevJob.run, { jobId });
+    return { jobId };
+  },
+});
+
+/**
+ * ⚠ EXP-011 „Zeitraum beim Export festschreiben": locks the months of the range first (irreversible, reason
+ * `datev_export`, fresh session) and starts the job in the same transaction.
+ */
+export const startWithLock = mutation({
+  permission: "exports.datev.lock",
+  args: { ...exportArgs, confirmToken: vConfirmToken },
+  handler: async (ctx, args) => {
+    const jobId = await startDatevExport(ctx, { ...(args as DatevStartArgs), lockPeriod: true });
     await ctx.scheduler.runAfter(0, internal.datevJob.run, { jobId });
     return { jobId };
   },
@@ -128,7 +142,7 @@ export const setBelegnummer = mutation({
 
 export const context = systemQuery({
   job: "exports.run",
-  args: { from: v.string(), to: v.string() },
+  args: { from: v.string(), to: v.string(), lockPeriod: v.optional(v.boolean()) },
   handler: async (ctx, a) => datevContext(ctx, { ...a, now: ctx.now() }),
 });
 

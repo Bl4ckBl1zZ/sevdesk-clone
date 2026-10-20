@@ -115,6 +115,18 @@ describe("DatevCard (F09 §6, EXP-007, EXP-009, EXP-016)", () => {
     expect(startCall?.args).toMatchObject({ mode: "new" });
   });
 
+  test("EXP-011 „Zeitraum beim Export festschreiben“ checks with the lock and starts the ⚠ lock export", async () => {
+    renderWithIntl(<DatevCard />);
+    const user = userEvent.setup();
+    await user.click(screen.getByRole("checkbox", { name: "Zeitraum beim Export festschreiben" }));
+    await user.click(screen.getByRole("button", { name: "Prüfen" }));
+    expect(backend.calls[0]).toMatchObject({ name: "datev:validate", args: { lockPeriod: true } });
+    await user.click(await screen.findByRole("button", { name: "Export erstellen" }));
+    const call = backend.calls.find((c) => c.name === "datev:startWithLock");
+    expect(call?.args).not.toHaveProperty("lockPeriod");
+    expect(backend.calls.some((c) => c.name === "datev:start")).toBe(false);
+  });
+
   test("EXP-010 a full re-export of an unlocked range needs the confirmation before „Export erstellen“", async () => {
     backend.report = {
       ...report,

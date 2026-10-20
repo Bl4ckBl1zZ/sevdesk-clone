@@ -170,6 +170,18 @@ export const PERMISSIONS = {
    * token from `preview_action {action: "export_datev"}`.
    */
   "exports.datev": { roles: ["owner", "bookkeeper"], scope: "exports:run", write: true, confirm: "export_datev" },
+  /**
+   * F09 EXP-011 DATEV export with „Zeitraum beim Export festschreiben": locks the months first (F08 lockThrough,
+   * reason `datev_export`) — ⚠ irreversible, fresh session (02 §4.2 "DATEV export with lock"), same roles as
+   * `accounting.lock`; MCP needs the `export_datev` confirm token (E-EXP-19).
+   */
+  "exports.datev.lock": {
+    roles: ["owner", "bookkeeper"],
+    scope: "exports:run",
+    write: true,
+    fresh: true,
+    confirm: "export_datev",
+  },
   /** F09 EXP-007 the DATEV dry run („Prüfen", REST `…/validate`, MCP preview): reads only, no confirm token. */
   "exports.datev.validate": { roles: ["owner", "bookkeeper"], scope: "exports:run", write: false },
   /** F09 EXP-009 DATEV export history and the download of the stored ZIP (audited). */

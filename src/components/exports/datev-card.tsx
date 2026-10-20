@@ -6,6 +6,7 @@ import { useAction, useMutation } from "convex/react";
 import { CheckCircle2Icon, DownloadIcon, FileArchiveIcon, ListChecksIcon, TriangleAlertIcon } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { useId, useState } from "react";
+import { useFreshAction } from "@/components/auth/fresh-action";
 import {
   ConfirmDialog,
   formatDate,
@@ -109,6 +110,9 @@ function ExportForm() {
   const t = useTranslations("exports.datev");
   const validate = useAction(api.datev.validate);
   const start = useMutation(api.datev.start);
+  const startWithLock = useMutation(api.datev.startWithLock);
+  const fresh = useFreshAction();
+  const [lockPeriod, setLockPeriod] = useState(false);
   const run = useRun();
   const initial = presetRange("month", todayBerlin());
   const [from, setFrom] = useState(initial.from);
@@ -130,13 +134,13 @@ function ExportForm() {
   };
   const check = async () => {
     setBusy(true);
-    const r = await run(() => validate(args));
+    const r = await run(() => validate({ ...args, ...(lockPeriod ? { lockPeriod: true } : {}) }));
     setBusy(false);
     if (r.ok) setReport(r.value);
   };
   const create = async () => {
     setBusy(true);
-    const r = await run(() => start(args), t("started"));
+    const r = await run(() => (lockPeriod ? fresh(() => startWithLock(args)) : start(args)), t("started"));
     setBusy(false);
     if (r.ok) {
       setReport(null);
@@ -206,13 +210,21 @@ function ExportForm() {
         </div>
       </fieldset>
       <div className="flex items-start gap-2">
-        <Checkbox id={ids.lock} checked={false} disabled aria-describedby={`${ids.lock}-hint`} />
+        <Checkbox
+          id={ids.lock}
+          checked={lockPeriod}
+          onCheckedChange={(v) => {
+            setLockPeriod(v === true);
+            setReport(null);
+          }}
+          aria-describedby={`${ids.lock}-hint`}
+        />
         <div className="flex flex-col">
           <Label htmlFor={ids.lock} className="font-normal">
             {t("lockPeriod")}
           </Label>
           <span id={`${ids.lock}-hint`} className="text-muted-foreground text-xs">
-            {t("lockPeriodLater")}
+            {t("lockPeriodHint")}
           </span>
         </div>
       </div>

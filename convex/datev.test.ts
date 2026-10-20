@@ -191,6 +191,32 @@ describe("DATEV export (F09 EXP-001…016)", { timeout: 180_000 }, () => {
     expect(await exportsOf(t)).toHaveLength(2);
   });
 
+  test("TST-EXP-10 TST-EXP-09 EXP-011 E-EXP-04 GOBD-06 „Zeitraum festschreiben“ locks the months first (flag 1); the full re-export is identical and „nicht erneut importieren“", async () => {
+    const t = makeT();
+    const f = await setup(t);
+    const preview = await f.owner.action(api.datev.validate, { ...ARGS, lockPeriod: true });
+    expect(preview.blocking).toBe(false);
+    expect(preview.festschreibung).toBe(1);
+    // the plain start has no lock argument; the lock needs its own ⚠ mutation (fresh session)
+    await f.owner.mutation(api.datev.startWithLock, ARGS);
+    await settle(t);
+    const periods = await t.run((ctx) => ctx.db.query("periods").collect());
+    expect(periods.find((p) => p.period === "2026-10")).toMatchObject({ status: "locked", reason: "datev_export" });
+    const [first] = await exportsOf(t);
+    expect(first?.festschreibung).toBe(true);
+    const zip1 = await zipOf(t, first?._id as Id<"datevExports">);
+    expect(cp.decode(zip1["EXTF_Buchungsstapel_20261001_20261031.csv"]).split("\r\n")[0]).toContain(';1;0;1;"EUR";');
+
+    await f.owner.mutation(api.datev.start, { ...ARGS, mode: "full" });
+    await settle(t);
+    const [, again] = await exportsOf(t);
+    expect(again).toMatchObject({ isRepeat: true, doNotReimport: true, festschreibung: true });
+    expect(again?.file.name).toBe("DATEV_20261001_20261031_Wiederholung_nicht_importieren.zip");
+    expect(again?.files[0]?.rowsSha256).toBe(first?.files[0]?.rowsSha256);
+    const viewer = await t.asUser("viewer");
+    expect(dataOf(await catching(viewer.mutation(api.datev.startWithLock, ARGS))).code).toBe("forbidden_role");
+  });
+
   test("E-EXP-01 E-EXP-20 EXP-002 missing keys block, overlapping exports are refused, roles and scopes", async () => {
     const t = makeT();
     const f = await finalizedInvoice(t);

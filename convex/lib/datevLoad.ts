@@ -16,6 +16,7 @@ export interface DatevLoadArgs {
   mode: "new" | "full";
   festschreibung?: boolean | undefined;
   confirmReplace?: boolean | undefined;
+  lockPeriod?: boolean | undefined;
 }
 
 export async function loadDatevInput(
@@ -23,7 +24,11 @@ export async function loadDatevInput(
   args: DatevLoadArgs,
   opts: { withBytes: boolean; now: number },
 ): Promise<{ input: DatevRunInput; running: boolean }> {
-  const c: DatevContext = await ctx.runQuery(internal.datev.context, { from: args.from, to: args.to });
+  const c: DatevContext = await ctx.runQuery(internal.datev.context, {
+    from: args.from,
+    to: args.to,
+    ...(args.lockPeriod ? { lockPeriod: true } : {}),
+  });
   const entries: DatevJournalEntry[] = [];
   const belege: DatevRunInput["belege"] = {};
   const contacts = new Map<string, DatevContactData>(c.contacts.map((x) => [x.id, x]));
@@ -72,6 +77,7 @@ export async function loadDatevInput(
       settings: c.settings,
       years: c.years,
       lockedMonths: c.lockedMonths,
+      lockBlockers: c.lockBlockers,
       previous: c.previous,
       entries,
       belege,

@@ -106,6 +106,8 @@ export interface DatevRunInput {
   settings: DatevRunSettings;
   years: readonly DatevYear[];
   lockedMonths: readonly string[];
+  /** EXP-011: blockers of the requested period lock (F08 ACC-017 checklist) — blocking errors. */
+  lockBlockers?: readonly string[] | undefined;
   /** Exports whose range overlaps the requested one. */
   previous: readonly PreviousExport[];
   /** Entries of the range in the selected booking scopes, ordered by seq. */
@@ -217,6 +219,7 @@ export async function runDatevExport(input: DatevRunInput): Promise<DatevRunResu
   for (const i of validateDatevKeys(s)) add("error", i.code, i.message);
   if (input.from > input.to || input.years.length === 0) add("error", "DATEV_RANGE", DATEV_MESSAGES.rangeInvalid);
   if (input.scope.length === 0) add("error", "DATEV_SCOPE", DATEV_MESSAGES.nothingSelected);
+  for (const m of input.lockBlockers ?? []) add("error", "DATEV_LOCK_BLOCKED", m);
   if (issues.some((i) => i.level === "error")) return empty({ nothingToExport: false });
   if (input.years.length > 1) add("info", "DATEV_TWO_YEARS", DATEV_MESSAGES.twoYears);
 

@@ -1,3 +1,4 @@
+import { ConvexError } from "convex/values";
 import { chartAt, supplyEnd } from "../../src/domain/accounting/period";
 import { splitByFiscalYear } from "../../src/domain/datev/extf";
 import type { DatevBeleg, DatevJournalEntry } from "../../src/domain/datev/mapping";
@@ -21,6 +22,7 @@ import { getCompanyProfile } from "./companyProfile";
 import { ensurePersonalAccount } from "./contacts";
 import { createJob } from "./jobs";
 import { resolveContextAt } from "./journal";
+import { lockThrough, previewLock } from "./periodLock";
 import type { ModelCtx, ReadCtx } from "./types";
 
 /**
@@ -33,6 +35,8 @@ export interface DatevContext {
   settings: DatevRunSettings;
   years: DatevYear[];
   lockedMonths: string[];
+  /** EXP-011 with „Zeitraum festschreiben": the lock checklist blockers (F08 ACC-017) — the export cannot start. */
+  lockBlockers: string[];
   previous: PreviousExport[];
   accepted: boolean;
   running: boolean;
@@ -106,7 +110,10 @@ async function contactData(ctx: ReadCtx, c: Doc<"contacts">): Promise<DatevConta
   };
 }
 
-export async function datevContext(ctx: ReadCtx, a: { from: string; to: string; now: number }): Promise<DatevContext> {
+export async function datevContext(
+  ctx: ReadCtx,
+  a: { from: string; to: string; now: number; lockPeriod?: boolean | undefined },
+): Promise<DatevContext> {
   const profile = await getCompanyProfile(ctx);
   if (!profile) throw appError("not_found", "Unternehmensdaten fehlen.");
   const startMonth = profile.fiscalYearStartMonth ?? 1;
@@ -129,6 +136,19 @@ export async function datevContext(ctx: ReadCtx, a: { from: string; to: string; 
   const lockedMonths = periods
     .filter((p) => p.status === "locked" && p.period >= a.from.slice(0, 7) && p.period <= a.to.slice(0, 7))
     .map((p) => p.period);
+  const lockBlockers: string[] = [];
+  if (a.lockPeriod) {
+    // EXP-011: the months the lock would cover count as locked for the preview; blockers stop the export.
+    for (const y of years) {
+      try {
+        const p = await previewLock(ctx, y.to.slice(0, 7), a.now);
+        for (const m of p.months) if (m >= a.from.slice(0, 7) && m <= a.to.slice(0, 7)) lockedMonths.push(m);
+        lockBlockers.push(...p.checklist.blockers.map((b) => b.message));
+      } catch (e) {
+        if (errorCode(e) !== "period_locked") lockBlockers.push(errorMessage(e));
+      }
+    }
+  }
   const exports = await ctx.db.query("datevExports").collect();
   const previous = exports.filter((e) => overlaps(e, a)).map(previousOf);
   let running = false;
@@ -154,7 +174,8 @@ export async function datevContext(ctx: ReadCtx, a: { from: string; to: string; 
       companyName: profile.name,
     },
     years,
-    lockedMonths,
+    lockedMonths: [...new Set(lockedMonths)],
+    lockBlockers,
     previous,
     accepted: (await ctx.db.query("datevAcceptance").first()) !== null,
     running,
@@ -276,7 +297,13 @@ export interface DatevStartArgs {
   mode: "new" | "full";
   festschreibung?: boolean | undefined;
   confirmReplace?: boolean | undefined;
+  /** EXP-011 „Zeitraum beim Export festschreiben" (only via `exports.datev.lock`, fresh session). */
+  lockPeriod?: boolean | undefined;
 }
+
+const errorCode = (e: unknown) => (e instanceof ConvexError ? (e.data as { code?: string }).code : undefined);
+const errorMessage = (e: unknown) =>
+  e instanceof ConvexError ? String((e.data as { message?: string }).message ?? "") : String(e);
 
 /** E-EXP-20: one export per overlapping range at a time; the job carries the arguments. */
 export async function startDatevExport(ctx: ModelCtx, args: DatevStartArgs): Promise<Id<"jobs">> {
@@ -294,6 +321,18 @@ export async function startDatevExport(ctx: ModelCtx, args: DatevStartArgs): Pro
       .collect();
     if (jobs.some((j) => j.kind === "datev_export" && overlaps(j.params as DatevStartArgs, args))) {
       throw appError("conflict", "Für diesen Zeitraum läuft bereits ein Export.");
+    }
+  }
+  if (args.lockPeriod) {
+    // EXP-011 / §4.1.3: the lock must succeed before the file is written with Festschreibung = 1 (same transaction
+    // as the job; blockers abort both — `period_lock_blocked`). Already locked fiscal years are skipped.
+    const profile = await getCompanyProfile(ctx);
+    for (const y of splitByFiscalYear(args.from, args.to, profile?.fiscalYearStartMonth ?? 1)) {
+      try {
+        await lockThrough(ctx, y.to.slice(0, 7), "datev_export");
+      } catch (e) {
+        if (errorCode(e) !== "period_locked") throw e;
+      }
     }
   }
   return createJob(ctx, {
