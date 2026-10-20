@@ -477,53 +477,51 @@ function AccountsCard({ view }: { view: ConnectionView }) {
         {view.accounts.length === 0 ? (
           <p className="text-sm text-muted-foreground">{t("empty")}</p>
         ) : (
-          <div className="overflow-x-auto">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>{t("name")}</TableHead>
-                  <TableHead>{t("iban")}</TableHead>
-                  <TableHead>{t("lastPoll")}</TableHead>
-                  <TableHead>{t("budget")}</TableHead>
-                  <TableHead>{t("state")}</TableHead>
+          <Table scrollLabel={t("title")}>
+            <TableHeader>
+              <TableRow>
+                <TableHead>{t("name")}</TableHead>
+                <TableHead>{t("iban")}</TableHead>
+                <TableHead>{t("lastPoll")}</TableHead>
+                <TableHead>{t("budget")}</TableHead>
+                <TableHead>{t("state")}</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {view.accounts.map((a) => (
+                <TableRow key={a.id}>
+                  <TableCell>
+                    <Link className="underline-offset-4 hover:underline" href={`/bank/${a.id}`}>
+                      {a.name}
+                    </Link>{" "}
+                    <span className="text-muted-foreground">{a.currency}</span>
+                  </TableCell>
+                  <TableCell className="whitespace-nowrap">{a.iban ?? "—"}</TableCell>
+                  <TableCell className="whitespace-nowrap">
+                    {a.lastPolledAt ? formatDateTime(a.lastPolledAt) : "—"}
+                  </TableCell>
+                  <TableCell>{t("budgetValue", { used: a.unattendedToday, limit: a.unattendedLimit })}</TableCell>
+                  <TableCell className="text-sm">
+                    {a.missing ? (
+                      <span className="inline-flex items-center gap-1 text-warning">
+                        <CircleAlertIcon className="size-4" aria-hidden="true" />
+                        {t("missing")}
+                      </span>
+                    ) : a.backoffUntil ? (
+                      t("backoff", { until: formatDateTime(a.backoffUntil) })
+                    ) : a.linked ? (
+                      t("linked")
+                    ) : (
+                      t("notLinked")
+                    )}
+                    {a.pending > 0 && (
+                      <span className="block text-muted-foreground">{t("pending", { count: a.pending })}</span>
+                    )}
+                  </TableCell>
                 </TableRow>
-              </TableHeader>
-              <TableBody>
-                {view.accounts.map((a) => (
-                  <TableRow key={a.id}>
-                    <TableCell>
-                      <Link className="underline-offset-4 hover:underline" href={`/bank/${a.id}`}>
-                        {a.name}
-                      </Link>{" "}
-                      <span className="text-muted-foreground">{a.currency}</span>
-                    </TableCell>
-                    <TableCell className="whitespace-nowrap">{a.iban ?? "—"}</TableCell>
-                    <TableCell className="whitespace-nowrap">
-                      {a.lastPolledAt ? formatDateTime(a.lastPolledAt) : "—"}
-                    </TableCell>
-                    <TableCell>{t("budgetValue", { used: a.unattendedToday, limit: a.unattendedLimit })}</TableCell>
-                    <TableCell className="text-sm">
-                      {a.missing ? (
-                        <span className="inline-flex items-center gap-1 text-warning">
-                          <CircleAlertIcon className="size-4" aria-hidden="true" />
-                          {t("missing")}
-                        </span>
-                      ) : a.backoffUntil ? (
-                        t("backoff", { until: formatDateTime(a.backoffUntil) })
-                      ) : a.linked ? (
-                        t("linked")
-                      ) : (
-                        t("notLinked")
-                      )}
-                      {a.pending > 0 && (
-                        <span className="block text-muted-foreground">{t("pending", { count: a.pending })}</span>
-                      )}
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          </div>
+              ))}
+            </TableBody>
+          </Table>
         )}
       </CardContent>
     </Card>

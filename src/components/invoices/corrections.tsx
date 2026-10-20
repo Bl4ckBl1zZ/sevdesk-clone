@@ -521,24 +521,22 @@ export function ChainTable({ relations }: { relations: Relations }) {
   if (!c) return null;
   return (
     <div className="@container/chain flex flex-col gap-2">
-      <div className="overflow-x-auto">
-        <Table aria-label={t("advances")}>
-          <TableHeader>
-            <TableRow>
-              <TableHead>{t("advance")}</TableHead>
-              <TableHead className="text-right">{t("invoiced")}</TableHead>
-              <TableHead className="text-right">{t("received")}</TableHead>
-              <TableHead className="text-right">{t("open")}</TableHead>
-              <TableHead>{t("beforeFinal")}</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {c.advances.map((a) => (
-              <AdvanceRow key={a.id} a={a} onStorno={setStorno} />
-            ))}
-          </TableBody>
-        </Table>
-      </div>
+      <Table scrollLabel={t("advances")} aria-label={t("advances")}>
+        <TableHeader>
+          <TableRow>
+            <TableHead>{t("advance")}</TableHead>
+            <TableHead className="text-right">{t("invoiced")}</TableHead>
+            <TableHead className="text-right">{t("received")}</TableHead>
+            <TableHead className="text-right">{t("open")}</TableHead>
+            <TableHead>{t("beforeFinal")}</TableHead>
+          </TableRow>
+        </TableHeader>
+        <TableBody>
+          {c.advances.map((a) => (
+            <AdvanceRow key={a.id} a={a} onStorno={setStorno} />
+          ))}
+        </TableBody>
+      </Table>
       {storno && <StornoDialog id={storno} onClose={() => setStorno(null)} />}
     </div>
   );

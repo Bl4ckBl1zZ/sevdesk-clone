@@ -87,6 +87,15 @@ describe("ContactReceivables (PAY-004)", () => {
     expect(screen.getByTestId("dunning-card")).toHaveTextContent("c1");
   });
 
+  test("PAY-004 the open-items and payment tables scroll in keyboard-focusable named regions (axe scrollable-region-focusable)", () => {
+    renderWithIntl(<ContactReceivables contactId="c1" />);
+    for (const name of ["Offene Posten", "Zahlungshistorie"]) {
+      const region = screen.getByRole("region", { name });
+      expect(region).toHaveAttribute("tabindex", "0");
+      expect(within(region).getByRole("table")).toBeInTheDocument();
+    }
+  });
+
   test("PAY-004 empty customer shows the empty states", () => {
     backend.data["payments:contactReceivables"] = {
       items: [],

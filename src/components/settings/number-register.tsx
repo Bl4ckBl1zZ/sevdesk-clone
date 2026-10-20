@@ -145,41 +145,39 @@ function NumberRegisterInner({ initialRange, initialPeriod }: { initialRange?: s
           </div>
           {data && data.rows.length === 0 && <p className="text-muted-foreground text-sm">{t("empty")}</p>}
           {data && data.rows.length > 0 && (
-            <div className="overflow-x-auto">
-              <Table data-testid="number-register">
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>{t("number")}</TableHead>
-                    <TableHead>{t("type")}</TableHead>
-                    <TableHead>{t("assignedAt")}</TableHead>
-                    <TableHead>{t("status")}</TableHead>
-                    <TableHead>{t("document")}</TableHead>
+            <Table scrollLabel={t("title")} data-testid="number-register">
+              <TableHeader>
+                <TableRow>
+                  <TableHead>{t("number")}</TableHead>
+                  <TableHead>{t("type")}</TableHead>
+                  <TableHead>{t("assignedAt")}</TableHead>
+                  <TableHead>{t("status")}</TableHead>
+                  <TableHead>{t("document")}</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {data.rows.map((r) => (
+                  <TableRow key={`${r.number}-${r.assignedAt}`}>
+                    <TableCell className="font-mono">{r.number}</TableCell>
+                    <TableCell>
+                      {NUMBERED_TYPE_LABEL_DE[r.docType] ?? r.docType}
+                      {r.imported ? ` · ${t("imported")}` : ""}
+                    </TableCell>
+                    <TableCell>{formatDateTime(r.assignedAt)}</TableCell>
+                    <TableCell>{tStatus(r.status)}</TableCell>
+                    <TableCell>
+                      {r.link ? (
+                        <Link href={r.link as Route} className="underline" aria-label={`${r.number} ${t("open")}`}>
+                          {t("open")}
+                        </Link>
+                      ) : (
+                        "—"
+                      )}
+                    </TableCell>
                   </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {data.rows.map((r) => (
-                    <TableRow key={`${r.number}-${r.assignedAt}`}>
-                      <TableCell className="font-mono">{r.number}</TableCell>
-                      <TableCell>
-                        {NUMBERED_TYPE_LABEL_DE[r.docType] ?? r.docType}
-                        {r.imported ? ` · ${t("imported")}` : ""}
-                      </TableCell>
-                      <TableCell>{formatDateTime(r.assignedAt)}</TableCell>
-                      <TableCell>{tStatus(r.status)}</TableCell>
-                      <TableCell>
-                        {r.link ? (
-                          <Link href={r.link as Route} className="underline" aria-label={`${r.number} ${t("open")}`}>
-                            {t("open")}
-                          </Link>
-                        ) : (
-                          "—"
-                        )}
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            </div>
+                ))}
+              </TableBody>
+            </Table>
           )}
         </CardContent>
       </Card>

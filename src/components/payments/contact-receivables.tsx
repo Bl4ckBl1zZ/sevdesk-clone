@@ -55,43 +55,41 @@ export function ContactReceivables({ contactId }: { contactId: string }) {
           {data.items.length === 0 ? (
             <p className="text-muted-foreground text-sm">{t("noItems")}</p>
           ) : (
-            <div className="overflow-x-auto">
-              <Table data-testid="contact-open-items">
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>{t("number")}</TableHead>
-                    <TableHead>{t("date")}</TableHead>
-                    <TableHead>{t("due")}</TableHead>
-                    <TableHead className="text-right">{t("openAmount")}</TableHead>
+            <Table scrollLabel={t("items")} data-testid="contact-open-items">
+              <TableHeader>
+                <TableRow>
+                  <TableHead>{t("number")}</TableHead>
+                  <TableHead>{t("date")}</TableHead>
+                  <TableHead>{t("due")}</TableHead>
+                  <TableHead className="text-right">{t("openAmount")}</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {data.items.map((i) => (
+                  <TableRow key={i.id}>
+                    <TableCell>
+                      {i.kind === "salesDocument" ? (
+                        <Link href={`/rechnungen/${i.id}` as Route} className="font-medium underline">
+                          {i.number}
+                        </Link>
+                      ) : (
+                        i.number
+                      )}
+                    </TableCell>
+                    <TableCell>{formatDate(i.documentDate)}</TableCell>
+                    <TableCell>
+                      {formatDate(i.dueDate)}
+                      {i.overdue && (
+                        <Badge variant="outline" className="ml-2 border-danger/60 text-danger">
+                          {t("overdueDays", { days: i.daysOverdue })}
+                        </Badge>
+                      )}
+                    </TableCell>
+                    <TableCell className="text-right tabular-nums">{money(i.openCents, i.currency)}</TableCell>
                   </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {data.items.map((i) => (
-                    <TableRow key={i.id}>
-                      <TableCell>
-                        {i.kind === "salesDocument" ? (
-                          <Link href={`/rechnungen/${i.id}` as Route} className="font-medium underline">
-                            {i.number}
-                          </Link>
-                        ) : (
-                          i.number
-                        )}
-                      </TableCell>
-                      <TableCell>{formatDate(i.documentDate)}</TableCell>
-                      <TableCell>
-                        {formatDate(i.dueDate)}
-                        {i.overdue && (
-                          <Badge variant="outline" className="ml-2 border-danger/60 text-danger">
-                            {t("overdueDays", { days: i.daysOverdue })}
-                          </Badge>
-                        )}
-                      </TableCell>
-                      <TableCell className="text-right tabular-nums">{money(i.openCents, i.currency)}</TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            </div>
+                ))}
+              </TableBody>
+            </Table>
           )}
         </CardContent>
       </Card>
@@ -105,40 +103,38 @@ export function ContactReceivables({ contactId }: { contactId: string }) {
           {data.payments.length === 0 ? (
             <p className="text-muted-foreground text-sm">{t("noPayments")}</p>
           ) : (
-            <div className="overflow-x-auto">
-              <Table data-testid="contact-payment-history">
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>{t("date")}</TableHead>
-                    <TableHead>{t("number")}</TableHead>
-                    <TableHead>{t("source")}</TableHead>
-                    <TableHead className="text-right">{t("amount")}</TableHead>
+            <Table scrollLabel={t("history")} data-testid="contact-payment-history">
+              <TableHeader>
+                <TableRow>
+                  <TableHead>{t("date")}</TableHead>
+                  <TableHead>{t("number")}</TableHead>
+                  <TableHead>{t("source")}</TableHead>
+                  <TableHead className="text-right">{t("amount")}</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {data.payments.map((p) => (
+                  <TableRow key={p.paymentId}>
+                    <TableCell>{formatDate(p.date)}</TableCell>
+                    <TableCell>
+                      {p.targetKind === "salesDocument" && p.number ? (
+                        <Link href={`/rechnungen/${p.targetId}` as Route} className="underline">
+                          {p.number}
+                        </Link>
+                      ) : p.targetKind === "contactCredit" ? (
+                        t("creditRow")
+                      ) : (
+                        (p.number ?? "—")
+                      )}
+                      {p.reversed && <span className="ml-2 text-muted-foreground">({t("reversed")})</span>}
+                      {p.reversal && <span className="ml-2 text-muted-foreground">({t("reversal")})</span>}
+                    </TableCell>
+                    <TableCell>{PAYMENT_SOURCE_LABEL_DE[p.source] ?? p.source}</TableCell>
+                    <TableCell className="text-right tabular-nums">{money(p.amountCents, p.currency)}</TableCell>
                   </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {data.payments.map((p) => (
-                    <TableRow key={p.paymentId}>
-                      <TableCell>{formatDate(p.date)}</TableCell>
-                      <TableCell>
-                        {p.targetKind === "salesDocument" && p.number ? (
-                          <Link href={`/rechnungen/${p.targetId}` as Route} className="underline">
-                            {p.number}
-                          </Link>
-                        ) : p.targetKind === "contactCredit" ? (
-                          t("creditRow")
-                        ) : (
-                          (p.number ?? "—")
-                        )}
-                        {p.reversed && <span className="ml-2 text-muted-foreground">({t("reversed")})</span>}
-                        {p.reversal && <span className="ml-2 text-muted-foreground">({t("reversal")})</span>}
-                      </TableCell>
-                      <TableCell>{PAYMENT_SOURCE_LABEL_DE[p.source] ?? p.source}</TableCell>
-                      <TableCell className="text-right tabular-nums">{money(p.amountCents, p.currency)}</TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            </div>
+                ))}
+              </TableBody>
+            </Table>
           )}
           {data.truncated && <p className="mt-2 text-muted-foreground text-xs">{t("truncated")}</p>}
         </CardContent>

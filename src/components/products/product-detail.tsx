@@ -338,44 +338,42 @@ function CustomerPrices({ data, canWrite }: { data: Bundle; canWrite: boolean })
       {data.customerPrices.length === 0 ? (
         <p className="text-muted-foreground">{t("empty")}</p>
       ) : (
-        <div className="overflow-x-auto">
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>{t("contact")}</TableHead>
-                <TableHead className="text-right">{t("price")}</TableHead>
-                <TableHead>{t("mode")}</TableHead>
-                <TableHead>{t("validFrom")}</TableHead>
-                {canWrite && <TableHead className="sr-only">{t("remove")}</TableHead>}
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {data.customerPrices.map((cp) => (
-                <TableRow key={cp._id}>
+        <Table scrollLabel={t("customer")}>
+          <TableHeader>
+            <TableRow>
+              <TableHead>{t("contact")}</TableHead>
+              <TableHead className="text-right">{t("price")}</TableHead>
+              <TableHead>{t("mode")}</TableHead>
+              <TableHead>{t("validFrom")}</TableHead>
+              {canWrite && <TableHead className="sr-only">{t("remove")}</TableHead>}
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {data.customerPrices.map((cp) => (
+              <TableRow key={cp._id}>
+                <TableCell>
+                  <Link href={`/kontakte/${cp.contact._id}` as Route} className="hover:underline">
+                    {cp.contact.displayName} ({cp.contact.number})
+                  </Link>
+                </TableCell>
+                <TableCell className="text-right tabular-nums">{formatPrice(cp.unitPriceMicros)}</TableCell>
+                <TableCell>{t(`modes.${cp.priceMode}`)}</TableCell>
+                <TableCell>{cp.validFrom ? formatDate(cp.validFrom) : t("always")}</TableCell>
+                {canWrite && (
                   <TableCell>
-                    <Link href={`/kontakte/${cp.contact._id}` as Route} className="hover:underline">
-                      {cp.contact.displayName} ({cp.contact.number})
-                    </Link>
+                    <Button
+                      variant="ghost"
+                      className="h-11 text-danger md:h-8"
+                      onClick={() => void run(() => remove({ priceId: cp._id }), t("removed"))}
+                    >
+                      {t("remove")}
+                    </Button>
                   </TableCell>
-                  <TableCell className="text-right tabular-nums">{formatPrice(cp.unitPriceMicros)}</TableCell>
-                  <TableCell>{t(`modes.${cp.priceMode}`)}</TableCell>
-                  <TableCell>{cp.validFrom ? formatDate(cp.validFrom) : t("always")}</TableCell>
-                  {canWrite && (
-                    <TableCell>
-                      <Button
-                        variant="ghost"
-                        className="h-11 text-danger md:h-8"
-                        onClick={() => void run(() => remove({ priceId: cp._id }), t("removed"))}
-                      >
-                        {t("remove")}
-                      </Button>
-                    </TableCell>
-                  )}
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-        </div>
+                )}
+              </TableRow>
+            ))}
+          </TableBody>
+        </Table>
       )}
       {open && <CustomerPriceDialog data={data} onClose={() => setOpen(false)} />}
     </section>
