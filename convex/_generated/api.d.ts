@@ -161,6 +161,7 @@ import type * as model_settlement from "../model/settlement.js";
 import type * as model_setup from "../model/setup.js";
 import type * as model_system from "../model/system.js";
 import type * as model_taxFilings from "../model/taxFilings.js";
+import type * as model_taxReserve from "../model/taxReserve.js";
 import type * as model_textTemplates from "../model/textTemplates.js";
 import type * as model_turnover from "../model/turnover.js";
 import type * as model_types from "../model/types.js";
@@ -355,6 +356,7 @@ declare const fullApi: ApiFromModules<{
   "model/setup": typeof model_setup;
   "model/system": typeof model_system;
   "model/taxFilings": typeof model_taxFilings;
+  "model/taxReserve": typeof model_taxReserve;
   "model/textTemplates": typeof model_textTemplates;
   "model/turnover": typeof model_turnover;
   "model/types": typeof model_types;

@@ -18,6 +18,7 @@ import {
   ustvaView,
   zmView,
 } from "./model/taxFilings";
+import { saveTaxReserveInputs as saveReserveInputs } from "./model/taxReserve";
 
 /**
  * Steuern (F08 §6 /steuern/ustva, /steuern/zm; TAX-001…TAX-011, TAX-019…TAX-021): Kennzahlen sheets with drill-down,
@@ -122,6 +123,23 @@ export const setFilingPeriod = mutation({
     rows.push({ year, period, dauerfrist });
     rows.sort((a, b) => a.year - b.year);
     await patchCompanyProfile(ctx, { ustvaPeriod: rows }, { action: "settings.tax.update" });
+  },
+});
+
+/** RPT-010 owner setting: the assumptions of the tax reserve estimate of a year (not filing data; audited). */
+export const saveTaxReserveInputs = mutation({
+  permission: "tax.settings",
+  args: {
+    year: v.number(),
+    profitOverrideCents: v.optional(v.union(v.number(), v.null())),
+    deductionsCents: v.optional(v.union(v.number(), v.null())),
+    splitting: v.boolean(),
+    churchTaxBp: v.optional(v.union(v.literal(0), v.literal(800), v.literal(900))),
+    gewerbesteuerHebesatzBp: v.optional(v.union(v.number(), v.null())),
+    partners: v.optional(v.array(v.object({ name: v.string(), shareBp: v.number() }))),
+  },
+  handler: async (ctx, a) => {
+    await saveReserveInputs(ctx, a);
   },
 });
 

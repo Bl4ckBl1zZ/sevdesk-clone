@@ -4,6 +4,7 @@ import { auditorScopedDb } from "./lib/auditorScope";
 import { appendAudit } from "./model/audit";
 import { getCompanyProfile } from "./model/companyProfile";
 import { bwaView, ledgerView, oposView, revenueView, susaView } from "./model/reports";
+import { taxReserveView } from "./model/taxReserve";
 
 /**
  * Auswertungen (F08 §6 /auswertungen; RPT-001, RPT-003…RPT-007): SuSa, Kontenblatt, BWA-light, Offene Posten as of a
@@ -59,6 +60,23 @@ export const revenue = query({
   permission: "reports.read",
   args: revenueArgs,
   handler: async (ctx, a) => revenueView(ctx, a, ctx.now()),
+});
+
+/**
+ * RPT-010/011 tax reserve estimate of a year: always `estimate: true` with the disclaimer „Schätzung – keine
+ * Steuerberatung“, assumptions and inputs. Optional overrides (REST query / MCP arguments) are not saved.
+ */
+export const taxReserve = query({
+  permission: "reports.read",
+  args: {
+    year: v.number(),
+    profitOverrideCents: v.optional(v.number()),
+    deductionsCents: v.optional(v.number()),
+    splitting: v.optional(v.boolean()),
+    churchTaxBp: v.optional(v.union(v.literal(0), v.literal(800), v.literal(900))),
+    hebesatzBp: v.optional(v.number()),
+  },
+  handler: async (ctx, { year, ...overrides }) => taxReserveView(ctx, year, ctx.now(), overrides),
 });
 
 /** Input of a report download (RPT-014), rendered by convex/reportsNode.ts. */

@@ -10,6 +10,7 @@ import { metaResource } from "./meta";
 import { paymentsResource } from "./payments";
 import { productsResource } from "./products";
 import { recurringResource } from "./recurring";
+import { reportsResource } from "./reports";
 import { settingsResource } from "./settings";
 import { recurringVouchersResource, vouchersResource } from "./vouchers";
 
@@ -31,6 +32,7 @@ export const RESOURCES: readonly Resource[] = [
   recurringVouchersResource,
   inboxResource,
   bankFeedResource,
+  reportsResource,
 ];
 
 export const ROUTES = compileRoutes(RESOURCES);

@@ -1395,6 +1395,18 @@ export default defineSchema({
     .index("by_kind_period", ["kind", "period"])
     .index("by_period", ["period"]),
 
+  // taxReserveInputs (03 §8, F08 RPT-010) — assumptions of the tax reserve estimate per year. Not filing data; freely
+  // editable (audited), one row per year.
+  taxReserveInputs: defineTable({
+    year: v.number(),
+    profitOverrideCents: v.optional(v.number()),
+    deductionsCents: v.optional(v.number()),
+    splitting: v.boolean(),
+    churchTaxBp: v.optional(v.union(v.literal(0), v.literal(800), v.literal(900))),
+    gewerbesteuerHebesatzBp: v.optional(v.number()),
+    partners: v.optional(v.array(v.object({ name: v.string(), shareBp: v.number() }))),
+  }).index("by_year", ["year"]),
+
   // ledgerAccounts (03 §8, F08 ACC-009) — owner-created Sachkonten (`isSystem: false`) and archive markers of seeded
   // accounts (`isSystem: true`, the seed itself stays rule data). Custom accounts without postings may be deleted;
   // any account with postings is only archived (`archivedAt`), which blocks new postings (E-ACC-06).
