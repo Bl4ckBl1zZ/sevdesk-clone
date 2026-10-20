@@ -40,3 +40,20 @@ export function berlinEndOfDay(date: CalendarDate): number {
 export function berlinStartOfDay(date: CalendarDate): number {
   return berlinEndOfDay(fromEpochDay(toEpochDay(date) - 1)) + 1;
 }
+
+/**
+ * The instant of a Europe/Berlin wall-clock time on `date` (`minuteOfDay` 0…1439), e.g. a manual time entry
+ * „09:00–10:30“ (F11 PRJ-006/PRJ-007). In the repeated hour of the autumn switch the earlier (summer-time) instant is
+ * taken; a time inside the skipped spring hour resolves to the instant one hour later on the wall clock.
+ */
+export function berlinWallClockInstant(date: CalendarDate, minuteOfDay: number): number {
+  if (!Number.isInteger(minuteOfDay) || minuteOfDay < 0 || minuteOfDay >= 1440) {
+    throw new InstantError(`${minuteOfDay} is not a minute of the day`);
+  }
+  const wall = toEpochDay(date) * MS_PER_DAY + minuteOfDay * MS_PER_MINUTE;
+  const before = wall - tzOffset(BUSINESS_TIME_ZONE, new Date(wall - MS_PER_DAY)) * MS_PER_MINUTE;
+  const after = wall - tzOffset(BUSINESS_TIME_ZONE, new Date(wall + MS_PER_DAY)) * MS_PER_MINUTE;
+  const fits = (instant: number) => instant + tzOffset(BUSINESS_TIME_ZONE, new Date(instant)) * MS_PER_MINUTE === wall;
+  if (fits(before) || !fits(after)) return before; // repeated hour: summer time; skipped hour: one hour later
+  return after;
+}

@@ -27,6 +27,7 @@ import {
   TIMELY_RECORDING,
   VERZUG_SURCHARGES,
 } from "./thresholds";
+import { TRAVEL_RATES } from "./travel-expenses";
 import { VAT_RATE_KEYS } from "./vat-rates";
 import { ZM_GOODS_THRESHOLD } from "./zm";
 
@@ -57,4 +58,5 @@ export const ALL_RULE_TABLES: readonly RuleTable<unknown>[] = [
   NEUGRUENDER_RULE,
   ANNUAL_RETURN_DEADLINE,
   ZM_GOODS_THRESHOLD,
+  TRAVEL_RATES,
 ];
