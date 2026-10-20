@@ -3235,6 +3235,12 @@
     "wrapper": "query",
     "permission": "reports.read"
   },
+  "reports:kpis": {
+    "kind": "query",
+    "visibility": "public",
+    "wrapper": "query",
+    "permission": "reports.read"
+  },
   "reports:ledger": {
     "kind": "query",
     "visibility": "public",

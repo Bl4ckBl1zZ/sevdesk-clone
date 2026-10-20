@@ -4,6 +4,7 @@ import { auditorScopedDb } from "./lib/auditorScope";
 import { appendAudit } from "./model/audit";
 import { getCompanyProfile } from "./model/companyProfile";
 import { forecastView } from "./model/forecast";
+import { kpiView } from "./model/kpis";
 import { bwaView, ledgerView, oposView, revenueView, susaView } from "./model/reports";
 import { taxReserveView } from "./model/taxReserve";
 
@@ -85,6 +86,17 @@ export const forecast = query({
   permission: "reports.read",
   args: { thresholdCents: v.optional(v.number()) },
   handler: async (ctx, a) => forecastView(ctx, ctx.now(), a),
+});
+
+/** RPT-002 dashboard KPIs of a period (month / quarter / year to date or custom). */
+export const kpis = query({
+  permission: "reports.read",
+  args: {
+    period: v.union(v.literal("month"), v.literal("quarter"), v.literal("year"), v.literal("custom")),
+    from: v.optional(v.string()),
+    to: v.optional(v.string()),
+  },
+  handler: async (ctx, a) => kpiView(ctx, ctx.now(), a),
 });
 
 /** Input of a report download (RPT-014), rendered by convex/reportsNode.ts. */

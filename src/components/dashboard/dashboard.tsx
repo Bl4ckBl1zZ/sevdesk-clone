@@ -28,6 +28,7 @@ import { useAuthedQuery } from "@/hooks/use-authed-query";
 import { formatIsoDate, formatTimestamp } from "@/i18n/format";
 import { cn } from "@/lib/utils";
 import { api } from "../../../convex/_generated/api";
+import { KpiCard } from "./kpi-card";
 import { EXPENSE_BAR, INCOME_BAR, ResultChart } from "./result-chart";
 
 /**
@@ -49,7 +50,8 @@ export function Dashboard({ todos }: { todos?: React.ReactNode }) {
 function DashboardLive({ todos }: { todos?: React.ReactNode }) {
   const data = useAuthedQuery(api.dashboard.overview, {});
   if (data === undefined) return <DashboardLoading />;
-  return <DashboardView data={data} todos={todos} />;
+  // F08 RPT-002: the self-loading „Kennzahlen“ card below „Gewinn vor Steuern“ (accounting readers)
+  return <DashboardView data={data} todos={todos} kpis={data.result ? <KpiCard /> : undefined} />;
 }
 
 function Greeting({ name }: { name: string | null }) {
@@ -83,7 +85,15 @@ const can = (role: MemberRole | null, p: Permission) => role !== null && canDo(r
 const MotionSlot = createContext(0);
 const STAGGER_MS = 60;
 
-export function DashboardView({ data, todos }: { data: DashboardData; todos?: React.ReactNode }) {
+export function DashboardView({
+  data,
+  todos,
+  kpis,
+}: {
+  data: DashboardData;
+  todos?: React.ReactNode;
+  kpis?: React.ReactNode;
+}) {
   let next = 0;
   const slot = (node: React.ReactNode) => <MotionSlot.Provider value={next++}>{node}</MotionSlot.Provider>;
   return (
@@ -91,6 +101,7 @@ export function DashboardView({ data, todos }: { data: DashboardData; todos?: Re
       <Greeting name={data.greetingName} />
       <QuickActions role={data.role} />
       {data.result && slot(<ResultCard result={data.result} />)}
+      {kpis && slot(kpis)}
       <div className="grid gap-4 @3xl/main:grid-cols-2">
         {data.receivables &&
           slot(<ReceivablesCard r={data.receivables} canWrite={can(data.role, "documents.write")} />)}

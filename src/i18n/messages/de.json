@@ -245,6 +245,28 @@
       },
       "todos": {
         "title": "Aufgaben"
+      },
+      "kpis": {
+        "title": "Kennzahlen",
+        "period": "Zeitraum",
+        "periods": {
+          "month": "Monat",
+          "quarter": "Quartal",
+          "year": "Jahr",
+          "custom": "Zeitraum"
+        },
+        "from": "Von",
+        "to": "Bis",
+        "revenue": "Umsatz (netto)",
+        "expenses": "Ausgaben (netto)",
+        "result": "Ergebnis",
+        "payables": "Offene Verbindlichkeiten",
+        "cash": "Kasse",
+        "ust": "USt-Zahllast {period}",
+        "afa": "AfA seit Jahresbeginn",
+        "reserve": "Steuer-Rücklage jetzt",
+        "liquidity": "Liquiditätsvorschau 90 Tage",
+        "liquidityEnd": "erwartet in 90 Tagen: {amount}"
       }
     },
     "angebote": {

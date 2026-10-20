@@ -135,6 +135,7 @@ import type * as model_invoiceChains from "../model/invoiceChains.js";
 import type * as model_invoiceCorrections from "../model/invoiceCorrections.js";
 import type * as model_jobs from "../model/jobs.js";
 import type * as model_journal from "../model/journal.js";
+import type * as model_kpis from "../model/kpis.js";
 import type * as model_kuMonitor from "../model/kuMonitor.js";
 import type * as model_layouts from "../model/layouts.js";
 import type * as model_ledgerAccounts from "../model/ledgerAccounts.js";
@@ -331,6 +332,7 @@ declare const fullApi: ApiFromModules<{
   "model/invoiceCorrections": typeof model_invoiceCorrections;
   "model/jobs": typeof model_jobs;
   "model/journal": typeof model_journal;
+  "model/kpis": typeof model_kpis;
   "model/kuMonitor": typeof model_kuMonitor;
   "model/layouts": typeof model_layouts;
   "model/ledgerAccounts": typeof model_ledgerAccounts;
