@@ -31,7 +31,9 @@ test("RPT-001 TST-RPT-10 /auswertungen lists the report tiles and opens the SuSa
   await expectNoAxeViolations();
   await page.getByRole("link", { name: /Summen- und Saldenliste/ }).click();
   await expect(page).toHaveURL(/bericht=susa/);
-  await expect(page.getByRole("status")).toContainText("Vorläufig – Zeitraum nicht festgeschrieben.");
+  await expect(page.getByRole("status").filter({ hasText: "Vorläufig" })).toContainText(
+    "Vorläufig – Zeitraum nicht festgeschrieben.",
+  );
   await expectNoAxeViolations();
   const csv = page.waitForEvent("download");
   await page.getByRole("button", { name: "CSV" }).click();
