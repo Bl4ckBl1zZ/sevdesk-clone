@@ -4256,16 +4256,18 @@
     },
     "kennzahlen": {
       "title": "Kennzahlen",
-      "description": "UStVA und Zusammenfassende Meldung eines Zeitraums als PDF oder CSV – zum Eintragen in Mein ELSTER und für die Ablage. Mit Erstellungszeit, Regelversionen, Festschreibung und Abgabestatus.",
+      "description": "UStVA, Zusammenfassende Meldung und Anlage EÜR als PDF oder CSV – zum Eintragen in Mein ELSTER und für die Ablage. Mit Erstellungszeit, Regelversionen, Festschreibung und Abgabestatus.",
       "form": "Meldung",
       "ustva": "Umsatzsteuer-Voranmeldung",
       "zm": "Zusammenfassende Meldung",
       "period": "Zeitraum",
-      "periodHint": "z. B. 2026-09 (Monat) oder 2026-Q3 (Quartal)",
+      "periodHint": "z. B. 2026-09 (Monat), 2026-Q3 (Quartal) oder 2025 (EÜR-Jahr)",
       "pdf": "PDF herunterladen",
       "csv": "CSV herunterladen",
       "toUstva": "Zur Umsatzsteuer-Voranmeldung",
-      "toZm": "Zur Zusammenfassenden Meldung"
+      "toZm": "Zur Zusammenfassenden Meldung",
+      "euer": "Anlage EÜR (Jahr)",
+      "toEuer": "Zur Einnahmenüberschussrechnung"
     },
     "datev": {
       "title": "DATEV-Export",
@@ -5563,7 +5565,8 @@
       "copied": "Kopiert: {value}",
       "copyFailed": "Kopieren nicht möglich. Bitte den Wert abschreiben.",
       "entered": "eingetragen",
-      "check": "Abschluss-Check"
+      "check": "Abschluss-Check",
+      "line": "Zeile {zeile}"
     },
     "submission": {
       "title": "Übermittlung erfassen",
@@ -5659,6 +5662,40 @@
       "title": "Steuertermine {year}",
       "done": "erledigt",
       "overdue": "überfällig"
+    },
+    "euer": {
+      "year": "Kalenderjahr",
+      "submitted": "übermittelt am {date}",
+      "notSubmitted": "nicht übermittelt",
+      "provisional": "Vorläufig – Zeitraum nicht festgeschrieben.",
+      "pdf": "PDF",
+      "csv": "CSV",
+      "blockers": "Vor der Übermittlung erledigen",
+      "check": "Werte prüfen",
+      "basis": "Einnahmen und Ausgaben nach Zahlungszeitpunkt (§ 11 EStG, 10-Tage-Regel um den Jahreswechsel), AfA aus dem Anlagenverzeichnis.",
+      "tableLabel": "Anlage EÜR {year}",
+      "line": "Zeile",
+      "label": "Bezeichnung",
+      "amount": "Betrag",
+      "sumIncome": "Summe Betriebseinnahmen",
+      "sumExpenses": "Summe Betriebsausgaben",
+      "profit": "Steuerpflichtiger Gewinn/Verlust",
+      "addBack": "Nicht abziehbare Betriebsausgaben (Bewirtung 30 %, Gewerbesteuer u. a.): {amount} – gebucht, aber nicht gewinnmindernd.",
+      "notDeductible": "nicht abziehbar",
+      "informational": "nachrichtlich",
+      "private": "Entnahmen und Einlagen (Einzelunternehmen)",
+      "aveuer": "Anlage AVEÜR (Anlageverzeichnis)",
+      "lineKz": "Zeile {zeile} · Kz {kz}",
+      "drill": "Buchungen zu Kennzahl {kz} anzeigen",
+      "drillSum": "{count, plural, one {# Buchung} other {# Buchungen}}, Summe {sum}",
+      "entry": "Buchung {seq}",
+      "tenDay": "10-Tage-Regel: {reason}",
+      "record": "Übermittlung erfassen",
+      "recordHint": "Nach dem Absenden in Mein ELSTER: Datum, Transferticket und Gewinn/Verlust laut ELSTER erfassen. Alle Monate des Jahres werden danach festgeschrieben.",
+      "crossCheck": "Gewinn/Verlust laut ELSTER (€)",
+      "late": "Nach Abgabe der EÜR {year} erfasst",
+      "lateHint": "Diese Buchungen betreffen das Jahr {year}, wurden aber nach der Übermittlung erfasst. Bitte prüfen, ob eine berichtigte Erklärung in ELSTER nötig ist.",
+      "lateEntry": "Buchung {seq} (ursprünglich {date})"
     }
   },
   "manualEntry": {

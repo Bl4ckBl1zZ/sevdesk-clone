@@ -5,11 +5,12 @@
  * the footer: generation time, rule versions, period lock status and filing status. Pure; the sheets themselves are
  * computed by F08 (src/domain/tax/ustva.ts, zm.ts).
  *
- * The EÜR sheet (Anlage EÜR lines, F08 TAX-015/TAX-022, P3) is not built yet; it plugs in with the same footer.
+ * The EÜR sheet (Anlage EÜR lines and AVEÜR, F08 TAX-015/TAX-022) uses the same footer.
  */
 import { writeCsv } from "../csv/csv";
 import type { ImportProtocol, ProtocolSection } from "../import/sevdesk/protocol";
 import { formatEuro } from "../money";
+import type { Aveuer, EuerSheet } from "../tax/euer";
 import { filingPeriodLabel, type UstvaSheet } from "../tax/ustva";
 import type { ZmSheet } from "../tax/zm";
 
@@ -173,6 +174,94 @@ export function zmSheetDocument(zm: ZmSheet, footer: SheetFooter, company: strin
       ...(zm.warnings.length ? [{ title: "Hinweise", paragraphs: [...zm.warnings] }] : []),
       { title: "Stand", table: { headers: ["Angabe", "Wert"], widths: [25, 75], rows: footerLines(footer) } },
     ],
+    footer: footerText(footer),
+  };
+}
+
+// ── EÜR (F08 TAX-015/TAX-022) ────────────────────────────────────────────────────────────────────────────
+
+const EUER_HINT: Readonly<Record<string, string>> = { nicht_abziehbar: " (nicht abziehbar)" };
+
+/** Rows Zeile · Kz · Bezeichnung · Betrag: non-zero lines by Zeile, then the sums 159/199/219. */
+export function euerRows(sheet: EuerSheet): [string, string, string, number][] {
+  const rows: [string, string, string, number][] = sheet.lines
+    .filter((l) => l.valueCents !== 0 && l.section !== "PRIVAT")
+    .sort((a, b) => a.zeile - b.zeile)
+    .map((l) => [
+      String(l.zeile),
+      l.kz,
+      `${l.label}${l.column ? (EUER_HINT[l.column] ?? "") : ""}${l.informational ? " (nachrichtlich)" : ""}`,
+      l.valueCents,
+    ]);
+  if (sheet.sumFields) {
+    const s = sheet.sumFields;
+    rows.push(
+      [String(s.einnahmen.zeile), s.einnahmen.kz, "Summe Betriebseinnahmen", sheet.sums.einnahmenCents],
+      [String(s.ausgaben.zeile), s.ausgaben.kz, "Summe Betriebsausgaben", sheet.sums.ausgabenCents],
+      [String(s.gewinn.zeile), s.gewinn.kz, "Steuerpflichtiger Gewinn/Verlust", sheet.sums.gewinnCents],
+    );
+  }
+  for (const l of sheet.lines.filter((x) => x.section === "PRIVAT" && x.valueCents !== 0)) {
+    rows.push([String(l.zeile), l.kz, l.label, l.valueCents]);
+  }
+  return rows;
+}
+
+export function euerSheetCsv(sheet: EuerSheet, aveuer: Aveuer | null, footer: SheetFooter): string {
+  const rows: (string | number)[][] = euerRows(sheet).map(([z, kz, label, cents]) => [z, kz, label, plain(cents)]);
+  if (aveuer) {
+    rows.push([], ["Anlage AVEÜR"]);
+    for (const g of aveuer.groups) {
+      for (const f of g.fields) rows.push([String(f.zeile), f.kz, `${g.title}: ${f.label}`, plain(f.valueCents)]);
+    }
+  }
+  rows.push([], ...footerLines(footer).map(([k, v]) => [k, v]));
+  return writeCsv(["Zeile", "Kz", "Bezeichnung", "Betrag"], rows);
+}
+
+export function euerSheetDocument(
+  sheet: EuerSheet,
+  aveuer: Aveuer | null,
+  footer: SheetFooter,
+  company: string,
+): ImportProtocol {
+  const sections: ProtocolSection[] = [
+    {
+      title: "Anlage EÜR",
+      paragraphs: [
+        "Werte zur manuellen Eingabe in Mein ELSTER (Einnahmen und Ausgaben nach Zahlungszeitpunkt, § 11 EStG; Beträge in Euro und Cent).",
+      ],
+      table: {
+        headers: ["Zeile", "Kz", "Bezeichnung", "Betrag"],
+        widths: [8, 8, 64, 20],
+        rows: euerRows(sheet).map(([z, kz, label, cents]) => [z, kz, label, formatEuro(cents)]),
+      },
+    },
+    ...(aveuer
+      ? [
+          {
+            title: "Anlage AVEÜR",
+            table: {
+              headers: ["Zeile", "Kz", "Bezeichnung", "Betrag"],
+              widths: [8, 8, 64, 20],
+              rows: aveuer.groups.flatMap((g) =>
+                g.fields.map((f) => [String(f.zeile), f.kz, `${g.title}: ${f.label}`, formatEuro(f.valueCents)]),
+              ),
+            },
+          },
+        ]
+      : []),
+    ...(sheet.notices.length || sheet.blockers.length
+      ? [{ title: "Hinweise", paragraphs: [...new Set([...sheet.notices, ...sheet.blockers])] }]
+      : []),
+    { title: "Stand", table: { headers: ["Angabe", "Wert"], widths: [25, 75], rows: footerLines(footer) } },
+  ];
+  return {
+    title: `Anlage EÜR ${sheet.year} – Zeilenwerte`,
+    subtitle: `${company} · Zuordnung ${sheet.mappingVersion ?? "—"}${sheet.verified ? "" : " (nicht gegen den amtlichen Vordruck geprüft)"}`,
+    fileName: `EUER_${sheet.year}_Kennzahlen.pdf`,
+    createdAt: footer.generatedAt,
+    sections,
     footer: footerText(footer),
   };
 }

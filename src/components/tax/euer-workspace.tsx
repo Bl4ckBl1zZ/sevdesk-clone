@@ -1,18 +1,19 @@
 "use client";
 
 import { api } from "@convex/_generated/api";
+import { useAction } from "convex/react";
 import type { FunctionReturnType } from "convex/server";
+import { FileDownIcon } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { useId, useState } from "react";
 import { dateDe, euro } from "@/components/accounting/format";
 import { ConvexGuard } from "@/components/convex/convex-provider";
-import { ReportExportButtons } from "@/components/reports/report-export";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { euerCsv } from "@/domain/reports/exports";
+import { useAdapterErrorToast } from "@/hooks/use-adapter-error-toast";
 import { useAuthedQuery } from "@/hooks/use-authed-query";
 import { ElsterGuideSteps, SubmissionDialog } from "./elster-guide-steps";
 import { SELECT } from "./ustva-workspace";
@@ -71,16 +72,43 @@ function Inner({ canSubmit }: { canSubmit: boolean }) {
             {view.status.provisional && <Badge variant="outline">{t("provisional")}</Badge>}
           </div>
         )}
-        {view && (
-          <ReportExportButtons
-            className="ml-auto"
-            filename={`EUER_${year}`}
-            csv={() => euerCsv(view.sheet)}
-            title={t("pdfTitle", { year })}
-          />
-        )}
+        {view && <Downloads year={year} />}
       </div>
       {view === undefined ? <div className="h-60" aria-busy="true" /> : <YearView view={view} canSubmit={canSubmit} />}
+    </div>
+  );
+}
+
+/** PDF/A and CSV of the sheet (F09 EXP-020 Kennzahlen export, RPT-014), audited per download. */
+function Downloads({ year }: { year: number }) {
+  const t = useTranslations("tax.euer");
+  const download = useAction(api.kennzahlenNode.download);
+  const showError = useAdapterErrorToast();
+  const [busy, setBusy] = useState(false);
+  const get = async (format: "pdf" | "csv") => {
+    setBusy(true);
+    try {
+      const r = await download({ form: "euer", period: String(year), format });
+      const url = URL.createObjectURL(new Blob([r.data], { type: r.mime }));
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = r.name;
+      a.click();
+      setTimeout(() => URL.revokeObjectURL(url), 1000);
+    } catch (e) {
+      showError(e);
+    } finally {
+      setBusy(false);
+    }
+  };
+  return (
+    <div className="ml-auto flex gap-2 pb-1">
+      {(["pdf", "csv"] as const).map((f) => (
+        <Button key={f} variant="outline" className="h-11 md:h-9" disabled={busy} onClick={() => get(f)}>
+          <FileDownIcon aria-hidden="true" />
+          {t(f)}
+        </Button>
+      ))}
     </div>
   );
 }
@@ -211,11 +239,7 @@ function YearView({ view, canSubmit }: { view: View; canSubmit: boolean }) {
             {t("record")}
           </h3>
           <p className="text-muted-foreground text-sm">{t("recordHint")}</p>
-          <Button
-            className="h-11 self-start md:h-9"
-            disabled={view.guide.blocked}
-            onClick={() => setSubmitting(true)}
-          >
+          <Button className="h-11 self-start md:h-9" disabled={view.guide.blocked} onClick={() => setSubmitting(true)}>
             {t("record")}
           </Button>
         </section>
@@ -223,7 +247,7 @@ function YearView({ view, canSubmit }: { view: View; canSubmit: boolean }) {
       {view.lateEntries.length > 0 && (
         <section role="note" className="flex flex-col gap-2 rounded-md border border-warning bg-warning/10 p-3 text-sm">
           <h3 className="font-medium">{t("late", { year: view.year })}</h3>
-          <p>{t("lateHint")}</p>
+          <p>{t("lateHint", { year: view.year })}</p>
           <ul className="flex flex-col gap-1">
             {view.lateEntries.map((e) => (
               <li key={e.entryId}>
@@ -316,7 +340,10 @@ function DrillSheet({ line, onClose }: { line: Line | null; onClose: () => void 
             </SheetHeader>
             <ul className="flex flex-col divide-y px-4 pb-6 text-sm">
               {rows.map((r) => (
-                <li key={`${r.entryId}-${r.cents}-${r.via?.id ?? ""}`} className="flex flex-wrap items-center justify-between gap-2 py-2">
+                <li
+                  key={`${r.entryId}-${r.cents}-${r.via?.id ?? ""}`}
+                  className="flex flex-wrap items-center justify-between gap-2 py-2"
+                >
                   <span>
                     <span className="text-muted-foreground">
                       {t("entry", { seq: r.seq })} · {dateDe(r.date)}

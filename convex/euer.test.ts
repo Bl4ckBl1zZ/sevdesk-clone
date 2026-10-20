@@ -183,3 +183,26 @@ describe("EÜR submission record (TAX-022, TAX-021, ACC-016)", () => {
     );
   });
 });
+
+describe("EÜR sheet download (EXP-020, RPT-014)", { timeout: 120_000 }, () => {
+  test("EXP-020 RPT-014 TAX-015 the Anlage EÜR 2025 as CSV equals the page values; PDF/A renders; each download is audited", async () => {
+    const t = makeT();
+    const b = await setupBooks(t, { ku: true, chart: "SKR04" });
+    await post(t, kuInvoice(b, "d1", "2025-06-10", 200000));
+    await pay(t, b, "d1", "2025-06-20", 200000);
+    const u = await t.asUser("owner");
+    const csv = await u.action(api.kennzahlenNode.download, { form: "euer", period: "2025", format: "csv" });
+    expect(csv.name).toBe("EUER_2025_Kennzahlen.csv");
+    const text = new TextDecoder().decode(csv.data);
+    expect(text).toContain("\r\n12;111;");
+    expect(text).toContain(";2000,00\r\n");
+    expect(text).toContain("Regelversionen;euer-2025.1, elster-euer-2025");
+    const pdf = await u.action(api.kennzahlenNode.download, { form: "euer", period: "2025", format: "pdf" });
+    expect(new TextDecoder().decode(new Uint8Array(pdf.data).subarray(0, 5))).toBe("%PDF-");
+    const audit = await t.run((ctx) => ctx.db.query("auditLog").collect());
+    expect(audit.filter((e) => e.action === "export.kennzahlen").map((e) => e.entity.label)).toEqual([
+      "EUER_2025_Kennzahlen.csv",
+      "EUER_2025_Kennzahlen.pdf",
+    ]);
+  });
+});
