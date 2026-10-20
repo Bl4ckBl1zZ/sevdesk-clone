@@ -93,43 +93,41 @@ export function StockTab({ productId, canWrite }: { productId: Id<"products">; c
         {data.movements.length === 0 ? (
           <p className="text-muted-foreground">{t("noMovements")}</p>
         ) : (
-          <div className="overflow-x-auto">
-            <Table data-testid="stock-history">
-              <TableHeader>
-                <TableRow>
-                  <TableHead>{t("columns.at")}</TableHead>
-                  <TableHead>{t("columns.reason")}</TableHead>
-                  <TableHead className="text-right">{t("columns.quantity")}</TableHead>
-                  <TableHead className="text-right">{t("columns.balance")}</TableHead>
-                  <TableHead>{t("columns.text")}</TableHead>
+          <Table scrollLabel={t("history")} data-testid="stock-history">
+            <TableHeader>
+              <TableRow>
+                <TableHead>{t("columns.at")}</TableHead>
+                <TableHead>{t("columns.reason")}</TableHead>
+                <TableHead className="text-right">{t("columns.quantity")}</TableHead>
+                <TableHead className="text-right">{t("columns.balance")}</TableHead>
+                <TableHead>{t("columns.text")}</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {data.movements.map((m) => (
+                <TableRow key={m.id}>
+                  <TableCell className="whitespace-nowrap tabular-nums">{formatDateTime(m.at)}</TableCell>
+                  <TableCell>{STOCK_REASON_LABELS[m.reason]}</TableCell>
+                  <TableCell
+                    className={cn("text-right tabular-nums", m.quantityMilli < 0 ? "text-danger" : "text-success")}
+                  >
+                    {m.quantityMilli > 0 ? "+" : ""}
+                    {formatMilli(m.quantityMilli)}
+                  </TableCell>
+                  <TableCell className="text-right tabular-nums">{formatMilli(m.balanceMilli)}</TableCell>
+                  <TableCell>
+                    {m.document ? (
+                      <Link href={m.document.href as Route} className="hover:underline">
+                        {m.document.label}
+                      </Link>
+                    ) : (
+                      (m.text ?? "—")
+                    )}
+                  </TableCell>
                 </TableRow>
-              </TableHeader>
-              <TableBody>
-                {data.movements.map((m) => (
-                  <TableRow key={m.id}>
-                    <TableCell className="whitespace-nowrap tabular-nums">{formatDateTime(m.at)}</TableCell>
-                    <TableCell>{STOCK_REASON_LABELS[m.reason]}</TableCell>
-                    <TableCell
-                      className={cn("text-right tabular-nums", m.quantityMilli < 0 ? "text-danger" : "text-success")}
-                    >
-                      {m.quantityMilli > 0 ? "+" : ""}
-                      {formatMilli(m.quantityMilli)}
-                    </TableCell>
-                    <TableCell className="text-right tabular-nums">{formatMilli(m.balanceMilli)}</TableCell>
-                    <TableCell>
-                      {m.document ? (
-                        <Link href={m.document.href as Route} className="hover:underline">
-                          {m.document.label}
-                        </Link>
-                      ) : (
-                        (m.text ?? "—")
-                      )}
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          </div>
+              ))}
+            </TableBody>
+          </Table>
         )}
       </section>
       {booking && <AdjustDialog productId={productId} unitCode={data.unitCode} onClose={() => setBooking(false)} />}
