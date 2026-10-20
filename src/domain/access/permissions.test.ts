@@ -39,6 +39,7 @@ const EXPECTED: Record<Permission, readonly MemberRole[]> = {
   "accounting.lock": ["owner", "bookkeeper"],
   "accounting.write": ["owner", "bookkeeper"],
   "assets.write": ["owner", "bookkeeper"],
+  "reports.read": ["owner", "bookkeeper", "viewer", "auditor"],
   "tax.read": ["owner", "bookkeeper", "viewer", "auditor"],
   "tax.submit": ["owner", "bookkeeper"],
   "tax.settings": ["owner"],

@@ -1,0 +1,24 @@
+﻿Konto;Bezeichnung;Kontenklasse;EB-Wert;Soll Zeitraum;Haben Zeitraum;Soll kumuliert;Haben kumuliert;Saldo
+1200;Forderungen aus Lieferungen und Leistungen;1;9000,00;0,00;0,00;11900,00;11900,00;9000,00
+1800;Bank;1;-3000,00;0,00;2124,90;11900,00;5624,90;3275,10
+3806;Umsatzsteuer 19 %;3;0,00;0,00;0,00;0,00;1900,00;-1900,00
+4400;Erlöse 19 % USt;4;-9000,00;0,00;0,00;0,00;10000,00;-19000,00
+5400;Wareneingang 19 % Vorsteuer;5;3000,00;0,00;0,00;3500,00;0,00;6500,00
+6220;Abschreibungen auf Sachanlagen;6;0,00;100,00;0,00;100,00;0,00;100,00
+6310;Miete (unbewegliche Wirtschaftsgüter);6;0,00;1200,00;0,00;1200,00;0,00;1200,00
+6520;Kfz-Versicherungen;6;0,00;450,00;0,00;450,00;0,00;450,00
+6600;Werbekosten;6;0,00;300,00;0,00;300,00;0,00;300,00
+6815;Bürobedarf;6;0,00;49,90;0,00;49,90;0,00;49,90
+7300;Zinsen und ähnliche Aufwendungen;7;0,00;25,00;0,00;25,00;0,00;25,00
+Summe Klasse 1;;1;6000,00;0,00;2124,90;23800,00;17524,90;12275,10
+Summe Klasse 3;;3;0,00;0,00;0,00;0,00;1900,00;-1900,00
+Summe Klasse 4;;4;-9000,00;0,00;0,00;0,00;10000,00;-19000,00
+Summe Klasse 5;;5;3000,00;0,00;0,00;3500,00;0,00;6500,00
+Summe Klasse 6;;6;0,00;2099,90;0,00;2099,90;0,00;2099,90
+Summe Klasse 7;;7;0,00;25,00;0,00;25,00;0,00;25,00
+Summe;Soll = Haben;;0,00;2124,90;2124,90;29424,90;29424,90;0,00
+
+Erstellt am;02.04.2026, 10:00
+Parameter;from=2026-01-01, to=2026-03-31
+Regelversionen;chart-skr04
+Festschreibung;vorläufig (2 von 3 Monaten festgeschrieben)
