@@ -530,7 +530,8 @@ describe("polling (BNK-106, BNK-107, BNK-111)", () => {
     );
   });
 
-  test("BNK-107 Q-06 without a PSU IP the owner-present fetch counts against the unattended budget", async () => {
+  // F07 open question Q-06 (is a tailnet IP accepted as Psu-Ip-Address?): fall back to the unattended budget.
+  test("BNK-107 without a PSU IP the owner-present fetch counts against the unattended budget", async () => {
     const s = await connected();
     await s.owner.action(api.bankFeedNode.syncNow, {});
     expect((await s.owner.query(api.bankFeed.connection, {})).accounts[0]?.unattendedToday).toBe(1);
