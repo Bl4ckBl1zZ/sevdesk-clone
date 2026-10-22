@@ -51,6 +51,23 @@ function Inner({ canLock }: { canLock: boolean }) {
   return (
     <div className="flex flex-col gap-4">
       <p className="text-muted-foreground text-sm">{t("intro")}</p>
+      {data.suggestion.reminder ? (
+        <p role="alert" className="rounded-md border border-warning bg-warning/10 p-3 text-sm">
+          {data.suggestion.reminder}
+        </p>
+      ) : data.suggestion.dueSoon ? (
+        <p className="rounded-md border bg-muted p-3 text-sm">
+          {t("dueSoon", {
+            period: periodDe(data.suggestion.dueSoon.period),
+            date: format.dateTime(new Date(`${data.suggestion.dueSoon.by}T12:00:00Z`), {
+              day: "2-digit",
+              month: "2-digit",
+              year: "numeric",
+              timeZone: "Europe/Berlin",
+            }),
+          })}
+        </p>
+      ) : null}
       <div className="flex flex-col gap-1.5">
         <Label htmlFor={yearId}>{t("year")}</Label>
         <select id={yearId} className={SELECT} value={fy} onChange={(e) => setYear(Number(e.target.value))}>

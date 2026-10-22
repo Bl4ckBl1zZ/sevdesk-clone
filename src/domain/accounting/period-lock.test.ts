@@ -1,5 +1,5 @@
 import { describe, expect, test } from "vitest";
-import { lockChecklist, monthsBetween, planLock } from "./period-lock";
+import { lockChecklist, lockSuggestion, monthsBetween, planLock } from "./period-lock";
 
 const clean = {
   draftsInPeriod: 0,
@@ -109,5 +109,36 @@ describe("period lock (Festschreibung)", () => {
   test("ACC-015 monthsBetween enumerates calendar months across a year boundary", () => {
     expect(monthsBetween("2025-11", "2026-02")).toEqual(["2025-11", "2025-12", "2026-01", "2026-02"]);
     expect(monthsBetween("2026-02", "2026-01")).toEqual([]);
+  });
+
+  test("ACC-018 suggestion: lock month M by the end of M+1; a reminder once an open month is older than 2 months", () => {
+    const periods = [
+      { period: "2026-01", status: "locked" as const },
+      { period: "2026-02", status: "locked" as const },
+    ];
+    const s = lockSuggestion({ periods, today: "2026-10-23", firstMonth: "2026-01" });
+    // March … August are past their „end of M+1“; September is due by 31.10.
+    expect(s.overdue).toEqual(["2026-03", "2026-04", "2026-05", "2026-06", "2026-07", "2026-08"]);
+    expect(s.suggestedTarget).toBe("2026-08");
+    expect(s.dueSoon).toEqual({ period: "2026-09", by: "2026-10-31" });
+    expect(s.reminder).toBe(
+      "Festschreibung empfohlen: 03/2026 bis 07/2026 sind seit mehr als zwei Monaten nicht festgeschrieben.",
+    );
+    // all locked up to August: September only due soon, no reminder
+    const ok = lockSuggestion({
+      periods: ["01", "02", "03", "04", "05", "06", "07", "08"].map((m) => ({
+        period: `2026-${m}`,
+        status: "locked" as const,
+      })),
+      today: "2026-10-23",
+      firstMonth: "2026-01",
+    });
+    expect(ok).toMatchObject({ overdue: [], suggestedTarget: null, reminder: null, dueSoon: { period: "2026-09" } });
+    // months before the first booked month are ignored
+    expect(lockSuggestion({ periods: [], today: "2026-10-23", firstMonth: "2026-09" })).toMatchObject({
+      overdue: [],
+      reminder: null,
+      dueSoon: { period: "2026-09", by: "2026-10-31" },
+    });
   });
 });

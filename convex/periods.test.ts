@@ -1,5 +1,5 @@
-import { describe, expect, test } from "vitest";
-import { api } from "./_generated/api";
+import { describe, expect, test, vi } from "vitest";
+import { api, internal } from "./_generated/api";
 import { invoiceEvent, OWNER, post, setupBooks } from "./bookkeeping.fixtures";
 import { errorCode } from "./lib/errors";
 import { auditedInsert } from "./model/audit";
@@ -125,5 +125,38 @@ describe("Festschreibung (ACC-015…ACC-017)", () => {
     ]);
     expect(entries[1]?.originalDate).toBe("2026-08-20");
     expect(entries[1]?.latePosting?.reason).toMatch(/08\/2026/);
+  });
+
+  test("ACC-018 the overview suggests the next lock; an open month older than 2 months sends one deadlines.notify reminder", async () => {
+    vi.useFakeTimers({ toFake: ["Date"] });
+    vi.setSystemTime(new Date("2026-10-23T08:00:00Z"));
+    try {
+      const t = makeT();
+      await setupBooks(t, { bookkeepingStartDate: "2026-07-01" });
+      const owner = await t.asUser("owner");
+      const view = await owner.query(api.periods.overview, {});
+      expect(view.suggestion).toEqual({
+        overdue: ["2026-07", "2026-08"],
+        suggestedTarget: "2026-08",
+        dueSoon: { period: "2026-09", by: "2026-10-31" },
+        reminder: "Festschreibung empfohlen: 07/2026 ist seit mehr als zwei Monaten nicht festgeschrieben.",
+      });
+      await t.mutation(internal.taxes.notifyTaxDeadlinesCron, { force: true });
+      await t.mutation(internal.taxes.notifyTaxDeadlinesCron, { force: true }); // idempotent per month
+      const reminders = (await t.run((ctx) => ctx.db.query("notifications").collect())).filter(
+        (n) => n.kind === "deadline.period_lock",
+      );
+      expect(reminders).toHaveLength(1);
+      expect(reminders[0]).toMatchObject({ link: "/buchhaltung/festschreibung" });
+      // after locking through August only September is due (no reminder)
+      await owner.mutation(api.periods.lock, { period: "2026-08" });
+      expect((await owner.query(api.periods.overview, {})).suggestion).toMatchObject({
+        overdue: [],
+        reminder: null,
+        dueSoon: { period: "2026-09" },
+      });
+    } finally {
+      vi.useRealTimers();
+    }
   });
 });

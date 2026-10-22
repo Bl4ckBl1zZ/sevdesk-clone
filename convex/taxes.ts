@@ -6,6 +6,7 @@ import { isTest } from "./lib/env";
 import { appError } from "./lib/errors";
 import { getCompanyProfile, patchCompanyProfile } from "./model/companyProfile";
 import { euerView, recordEuerSubmission } from "./model/euer";
+import { notifyPeriodLock } from "./model/periodLock";
 import {
   activeFiling,
   filingsOf,
@@ -187,6 +188,6 @@ export const notifyTaxDeadlinesCron = systemMutation({
   args: { force: v.optional(v.boolean()) },
   handler: async (ctx, { force }) => {
     if (isTest() && !force) return { created: 0 };
-    return { created: await notifyTaxDeadlines(ctx) };
+    return { created: (await notifyTaxDeadlines(ctx)) + (await notifyPeriodLock(ctx)) };
   },
 });

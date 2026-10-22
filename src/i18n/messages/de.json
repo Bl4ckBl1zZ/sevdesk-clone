@@ -5584,6 +5584,7 @@
   },
   "periodLock": {
     "intro": "Festgeschriebene Monate sind unveränderbar (GoBD). Korrekturen sind danach nur per Gegenbuchung in einem offenen Monat möglich. Mit der Übermittlung einer Umsatzsteuer-Voranmeldung werden die Monate automatisch festgeschrieben.",
+    "dueSoon": "Empfehlung: {period} bis zum {date} festschreiben (spätestens Ende des Folgemonats).",
     "year": "Geschäftsjahr",
     "open": "offen",
     "locking": "wird festgeschrieben",

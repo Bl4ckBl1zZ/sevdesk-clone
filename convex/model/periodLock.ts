@@ -4,6 +4,7 @@ import {
   type LockChecklist,
   type LockReason,
   lockChecklist,
+  lockSuggestion,
   monthsBetween,
   planLock,
 } from "../../src/domain/accounting/period-lock";
@@ -15,6 +16,7 @@ import { appError } from "../lib/errors";
 import { auditedInsert, auditedPatch } from "./audit";
 import { getCompanyProfile } from "./companyProfile";
 import { resolveContextAt } from "./journal";
+import { notify } from "./notifications";
 import type { ModelCtx, ReadCtx } from "./types";
 
 /**
@@ -40,6 +42,30 @@ export async function periodRows(ctx: ReadCtx): Promise<Doc<"periods">[]> {
   return ctx.db.query("periods").collect();
 }
 
+/** ACC-018: suggestion from the first booked month (Buchungsbeginn or first journal entry) to today. */
+export async function periodLockSuggestion(ctx: ReadCtx, now: number) {
+  const profile = await getCompanyProfile(ctx);
+  const first = await ctx.db.query("journalEntries").withIndex("by_seq").first();
+  const today = berlinCalendarDate(now);
+  const firstMonth = periodOf(profile?.bookkeepingStartDate ?? first?.date ?? today);
+  return lockSuggestion({ periods: await periodRows(ctx), today, firstMonth });
+}
+
+/** ACC-018 `deadlines.notify` part: one reminder per month while an open month is older than 2 months. */
+export async function notifyPeriodLock(ctx: ModelCtx): Promise<number> {
+  const s = await periodLockSuggestion(ctx, ctx.now());
+  if (!s.reminder) return 0;
+  await notify(ctx, {
+    kind: "deadline.period_lock",
+    severity: "warning",
+    title: "Festschreibung empfohlen",
+    body: s.reminder,
+    link: "/buchhaltung/festschreibung",
+    dedupeKey: `period_lock|${s.overdue[0] ?? ""}|${berlinCalendarDate(ctx.now()).slice(0, 7)}`,
+  });
+  return 1;
+}
+
 /** Month grid of a fiscal year (F08 §6 /buchhaltung/festschreibung). */
 export async function periodsOverview(ctx: ReadCtx, now: number, fiscalYear?: number) {
   const profile = await getCompanyProfile(ctx);
@@ -53,6 +79,7 @@ export async function periodsOverview(ctx: ReadCtx, now: number, fiscalYear?: nu
   return {
     fiscalYear: fy,
     currentPeriod: periodOf(today),
+    suggestion: await periodLockSuggestion(ctx, now),
     months: months.map((p) => {
       const r = rows.get(p);
       return {
