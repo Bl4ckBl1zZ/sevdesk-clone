@@ -196,7 +196,7 @@ describe("validateVoucher — tax rules (VOU-010, VOU-020, VOU-021, VOU-026)", (
     );
   });
 
-  test("CSH-023 EC-VOU-30: corporations have no Privatkonto — kind „private“ is blocked", () => {
+  test("CSH-023 EC-VOU-17 corporations have no Privatkonto — kind „private“ is blocked", () => {
     expect(
       codes(validateVoucher(draft({ kind: "private", taxRule: "no_input_vat" }), { ...ctx, corporation: true })),
     ).toContain("private_corporation");
