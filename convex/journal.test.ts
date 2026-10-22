@@ -318,6 +318,26 @@ describe("journal model (ACC-001…ACC-006)", () => {
     );
   });
 
+  test("E-ACC-20 TST-ACC-12 RI-13 a posting while the lock job holds 09 as `locking` never lands in 09", async () => {
+    const { t, bank } = await setup();
+    await post(t, invoice("doc1", "2026-08-10"));
+    await t.model(OWNER, (ctx) =>
+      auditedInsert(ctx, "periods", { period: "2026-09", status: "locking" }, { action: "period.lock" }),
+    );
+    // user-chosen date → refused like a locked month (E-ACC-04 text)
+    const user = await post(t, payment("p1", { date: "2026-09-15" })).catch((e) => e);
+    expect(errorCode(user)).toBe("period_locked");
+    // externally dated (bank) → late-posted into the first open month, original date kept (ACC-006 b)
+    const r = await post(
+      t,
+      payment("p2", { date: "2026-09-15", means: { kind: "bank_account", bankAccountId: bank } }),
+    );
+    expect(r).toMatchObject({ status: "posted", entries: [{ period: "2026-10" }] });
+    const all = await entries(t);
+    expect(all.filter((e) => e.period === "2026-09")).toEqual([]);
+    expect(all.at(-1)).toMatchObject({ originalDate: "2026-09-15", period: "2026-10", latePosting: expect.anything() });
+  });
+
   test("CSH-020 CSH-026 TST-ACC-35 EC-149 AO-05 one cash account with its opening balance never goes negative, also through backdating and reversals", async () => {
     const { t } = await setup();
     const owner = await t.asUser("owner");

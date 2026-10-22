@@ -27,6 +27,11 @@ export interface TaxReserveInput {
   /** Profit of the year up to `today` (EÜR cash basis or accrual result), cents. */
   ytdProfitCents: number;
   profitBasis: "euer" | "accrual";
+  /**
+   * AST-013: AfA of the year from the asset register — posted so far (contained in `ytdProfitCents`) and planned
+   * for the whole year. When given, AfA is not annualised but taken from the plan.
+   */
+  afa?: { postedYtdCents: number; plannedYearCents: number };
   profitOverrideCents?: number;
   /** Deductions (Sonderausgaben, außergewöhnliche Belastungen …) per person, cents. */
   deductionsCents?: number;
@@ -151,11 +156,21 @@ export function estimateTaxReserve(input: TaxReserveInput): TaxReserveResult {
     basis = "override";
     assumptions.push(`Jahresgewinn vorgegeben: ${formatEuro(projected)}.`);
   } else {
-    projected = elapsed > 0 ? n(roundHalfAway(B(input.ytdProfitCents) * 12n, B(elapsed))) : 0;
+    const afa = input.afa && (input.afa.postedYtdCents !== 0 || input.afa.plannedYearCents !== 0) ? input.afa : null;
+    const beforeAfa = input.ytdProfitCents + (afa?.postedYtdCents ?? 0);
+    const annualised = elapsed > 0 ? n(roundHalfAway(B(beforeAfa) * 12n, B(elapsed))) : 0;
+    projected = annualised - (afa?.plannedYearCents ?? 0);
     basis = "annualised";
     assumptions.push(
-      `Jahresgewinn hochgerechnet: ${formatEuro(input.ytdProfitCents)} in ${elapsed} ${elapsed === 1 ? "Monat" : "Monaten"} × 12 / ${elapsed} = ${formatEuro(projected)} (${input.profitBasis === "euer" ? "EÜR, Zufluss/Abfluss" : "Soll-Ergebnis"}).`,
+      afa
+        ? `Jahresgewinn hochgerechnet: ${formatEuro(beforeAfa)} vor AfA in ${elapsed} ${elapsed === 1 ? "Monat" : "Monaten"} × 12 / ${elapsed} − geplante AfA ${formatEuro(afa.plannedYearCents)} = ${formatEuro(projected)} (${input.profitBasis === "euer" ? "EÜR, Zufluss/Abfluss" : "Soll-Ergebnis"}).`
+        : `Jahresgewinn hochgerechnet: ${formatEuro(input.ytdProfitCents)} in ${elapsed} ${elapsed === 1 ? "Monat" : "Monaten"} × 12 / ${elapsed} = ${formatEuro(projected)} (${input.profitBasis === "euer" ? "EÜR, Zufluss/Abfluss" : "Soll-Ergebnis"}).`,
     );
+    if (afa) {
+      assumptions.push(
+        `AfA laut Anlagenverzeichnis: ${formatEuro(afa.postedYtdCents)} gebucht, ${formatEuro(afa.plannedYearCents)} im Jahr geplant – nicht hochgerechnet, sondern mit dem Plan angesetzt.`,
+      );
+    }
   }
 
   const hebesatz = input.hebesatzBp ?? 40_000;

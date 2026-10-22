@@ -7,8 +7,14 @@
  *
  *  - `euer-2025.1`: transcribed from the official Vordruck „Anlage EÜR 2025“ and its Anleitung, BMF-Schreiben vom
  *    29.08.2025 (GZ IV C 6 - S 2142/00023/010/001, BStBl I 2025 S. 1652) — verified.
- *  - `euer-2026.0`: the 2025 structure carried forward. The 2026 Vordruck (BMF-Schreiben of September 2026) has not
- *    been checked against this table yet → unverified until a data release confirms or corrects the lines.
+ *  - `euer-2026.1`: transcribed from the official Vordruck „Anlage EÜR 2026“ (2026AnlEÜR801–803, August 2026), the
+ *    Anlage AVEÜR 2026 and the Anleitung, BMF-Schreiben vom 01.09.2026 (GZ IV C 6 - S 2142/00024/010/001,
+ *    DOK COO.7005.100.3.15620198; https://www.bundesfinanzministerium.de/Content/DE/Downloads/BMF_Schreiben/
+ *    Steuerarten/Einkommensteuer/2026-09-01-anlage-EUER-2026.pdf) — verified line by line on 2026-10-23.
+ *    Change against 2025: a new Zeile 27 „Bildung Rücklage Tierbewertung bei Land- und Forstwirten“ (Anlage LuF,
+ *    not supported by the app); the Übertrag moves to Zeile 28, „Waren, Rohstoffe und Hilfsstoffe“ from Zeile 27 to
+ *    Zeile 29 and every later line one down (Summe Betriebsausgaben Zeile 76, Gewinn Zeile 98, Entnahmen/Einlagen
+ *    Zeile 107/108). No Kennzahl changed; Zeilen 1–23 and the Anlage AVEÜR Zeilen/Kennzahlen are unchanged.
  *
  * LEGAL-OPEN: 01-compliance open item 6 (Anlage EÜR lines per year, verified per data release).
  */
@@ -261,31 +267,104 @@ const AVEUER_2025: AveuerMapping = {
   ],
 };
 
-const base = (version: string, formYear: number) => ({
-  version,
-  formYear,
-  formName: `Anlage EÜR ${formYear} (Einnahmenüberschussrechnung nach § 4 Abs. 3 EStG)`,
-  lines: LINES_2025,
-  sums: {
-    einnahmen: { zeile: 23, kz: "159" },
-    ausgaben: { zeile: 75, kz: "199" },
-    gewinn: { zeile: 97, kz: "219" },
-  },
-  anlageSzThresholdCents: 205_000,
-  aveuer: AVEUER_2025,
+/**
+ * Anlage EÜR 2026 (BMF 01.09.2026): the 2025 lines with the 2026 Zeilen. Kennzahlen, labels and keys are unchanged;
+ * „Waren …“ (Kz 100) moved from Zeile 27 to 29 (after the new Zeile 27 and the Übertrag in Zeile 28), every line from
+ * the former Zeile 29 on moved down by one. Each Zeile below was read from the 2026 Vordruck (test pins every pair).
+ */
+const ZEILE_2026_BY_KZ: Readonly<Record<string, number>> = {
+  "111": 12,
+  "119": 13,
+  "112": 15,
+  "103": 16,
+  "140": 17,
+  "141": 18,
+  "102": 19,
+  "108": 21,
+  "100": 29,
+  "110": 30,
+  "120": 31,
+  "136": 32,
+  "131": 33,
+  "130": 34,
+  "132": 37,
+  "137": 38,
+  "135": 39,
+  "150": 40,
+  "151": 42,
+  "280": 44,
+  "221": 45,
+  "281": 46,
+  "194": 47,
+  "225": 49,
+  "223": 50,
+  "228": 51,
+  "229": 52,
+  "224": 55,
+  "234": 57,
+  "185": 58,
+  "186": 59,
+  "183": 61,
+  "164": 63,
+  "174": 63,
+  "165": 64,
+  "175": 64,
+  "171": 65,
+  "168": 68,
+  "144": 69,
+  "145": 70,
+  "146": 71,
+  "122": 107,
+  "123": 108,
+};
+
+const LINES_2026: readonly EuerLine[] = LINES_2025.map((l) => {
+  const zeile = ZEILE_2026_BY_KZ[l.kz];
+  if (zeile === undefined) throw new Error(`Anlage EÜR 2026: Kz ${l.kz} has no verified Zeile`);
+  return { ...l, zeile };
 });
+
+const formName = (formYear: number) => `Anlage EÜR ${formYear} (Einnahmenüberschussrechnung nach § 4 Abs. 3 EStG)`;
 
 export const EUER_MAPPINGS: Readonly<Record<number, EuerMapping>> = {
   2025: {
-    ...base("euer-2025.1", 2025),
+    version: "euer-2025.1",
+    formYear: 2025,
+    formName: formName(2025),
+    lines: LINES_2025,
+    sums: {
+      einnahmen: { zeile: 23, kz: "159" },
+      ausgaben: { zeile: 75, kz: "199" },
+      gewinn: { zeile: 97, kz: "219" },
+    },
+    anlageSzThresholdCents: 205_000,
+    aveuer: AVEUER_2025,
     verifiedAgainstForm: {
       source:
         "Vordruck Anlage EÜR 2025 und Anlage AVEÜR 2025 mit Anleitung, BMF-Schreiben vom 29.08.2025, IV C 6 - S 2142/00023/010/001, BStBl I 2025 S. 1652",
       verifiedOn: "2026-10-20",
     },
   },
-  // Carried forward from 2025 until the 2026 Vordruck is checked (E-UVA-20): values shown, instructions blocked.
-  2026: base("euer-2026.0", 2026),
+  2026: {
+    version: "euer-2026.1",
+    formYear: 2026,
+    formName: formName(2026),
+    lines: LINES_2026,
+    sums: {
+      einnahmen: { zeile: 23, kz: "159" },
+      ausgaben: { zeile: 76, kz: "199" },
+      gewinn: { zeile: 98, kz: "219" },
+    },
+    // BMF-Schreiben 01.09.2026: Anlage SZ above 2.050 € Schuldzinsen (unchanged)
+    anlageSzThresholdCents: 205_000,
+    // Anlage AVEÜR 2026: Zeilen and Kennzahlen identical to 2025 (only year labels and EÜR cross-references changed)
+    aveuer: AVEUER_2025,
+    verifiedAgainstForm: {
+      source:
+        "Vordruck Anlage EÜR 2026 (2026AnlEÜR801–803, August 2026) und Anlage AVEÜR 2026 mit Anleitung, BMF-Schreiben vom 01.09.2026, IV C 6 - S 2142/00024/010/001",
+      verifiedOn: "2026-10-23",
+    },
+  },
 };
 
 /** The mapping of a tax year (= calendar year of the EÜR), or null (E-UVA-07: not shipped yet). */

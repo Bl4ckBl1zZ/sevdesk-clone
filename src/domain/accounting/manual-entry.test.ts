@@ -137,6 +137,24 @@ describe("ACC-011 manual journal entries", () => {
     expect(ack.ok && ack.value.warnings).toEqual([]);
   });
 
+  test("ACC-011 E-ACC-21 a date more than 30 days ahead is allowed with a non-blocking notice", () => {
+    const lines = [
+      { account: "6815", debitCents: 10_000, creditCents: 0 },
+      { account: "1800", debitCents: 0, creditCents: 10_000 },
+    ];
+    const at = (date: string) => buildManualLines({ ...base, date, lines }, { ...ctx, today: "2026-05-04" });
+    const far = at("2026-06-04"); // 31 days ahead
+    expect(far.ok && far.value.warnings).toEqual([]);
+    expect(far.ok && far.value.notices.map((n) => [n.code, n.message])).toEqual([
+      ["E-ACC-21", "Das Buchungsdatum liegt mehr als 30 Tage in der Zukunft."],
+    ]);
+    const near = at("2026-06-03"); // exactly 30 days ahead
+    expect(near.ok && near.value.notices).toEqual([]);
+    // without `today` (e.g. a pure recomputation) no notice
+    const plain = buildManualLines({ ...base, date: "2027-01-01", lines }, ctx);
+    expect(plain.ok && plain.value.notices).toEqual([]);
+  });
+
   test("ACC-011 the M1 posting is user-dated, keeps cost centres and gives VAT lines their UStVA period", () => {
     const built = buildManualLines(
       {
@@ -176,5 +194,31 @@ describe("ACC-011 manual journal entries", () => {
         expect(sources).toBeLessThanOrEqual(1);
       }
     }
+  });
+
+  test("AST-011 außerplanmäßige AfA / change of useful life only as a manual entry with reason: template on afa.extraordinary against the asset account", () => {
+    const tpl = MANUAL_TEMPLATES.find((t) => t.key === "afa_extraordinary");
+    expect(tpl).toMatchObject({
+      label: "Außerplanmäßige AfA / Änderung der Nutzungsdauer",
+      text: "Außerplanmäßige AfA",
+      lines: [{ role: "afa.extraordinary", side: "debit" }, { side: "credit" }],
+    });
+    // the asset account is picked by the user; the reason goes into the Eigenbeleg (attachment mandatory, E-ACC-02)
+    expect(tpl?.hint).toBe(
+      "Grund (z. B. dauernde Wertminderung, geänderte Nutzungsdauer) im Eigenbeleg angeben und anhängen. Der Abschreibungsplan der Anlage wird nicht neu berechnet; vergangene Zeiträume bleiben unverändert.",
+    );
+    const r = buildManualLines(
+      {
+        ...base,
+        text: "Außerplanmäßige AfA",
+        attachmentCount: 0,
+        lines: [
+          { account: "6815", debitCents: 50_000, creditCents: 0 },
+          { account: "1800", debitCents: 0, creditCents: 50_000 },
+        ],
+      },
+      ctx,
+    );
+    expect(!r.ok && r.error.code).toBe("E-ACC-02");
   });
 });

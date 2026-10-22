@@ -204,7 +204,7 @@ describe("planPayment (F05 §4.1, PAY-010 ff.)", () => {
     ).toBe("skonto_without_vat_rate");
   });
 
-  test("T05-034 EC-122 late Skonto accepted only as `other` Kulanz with reason and VAT correction", () => {
+  test("T05-034 EC-122 E-TAX-14 late Skonto accepted only as `other` Kulanz with reason and VAT correction", () => {
     const r = planPayment(
       pay(116620, {
         allocations: [

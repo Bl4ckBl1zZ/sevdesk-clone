@@ -2371,6 +2371,12 @@
     "wrapper": "query",
     "permission": "documents.export"
   },
+  "journalIntegrity:clockReadings": {
+    "kind": "query",
+    "visibility": "internal",
+    "wrapper": "systemQuery",
+    "job": "cron.integrity.verify"
+  },
   "journalIntegrity:journalPage": {
     "kind": "query",
     "visibility": "internal",
@@ -3313,11 +3319,23 @@
     "wrapper": "query",
     "permission": "reports.read"
   },
+  "reports:plannedCashItems": {
+    "kind": "query",
+    "visibility": "public",
+    "wrapper": "query",
+    "permission": "reports.read"
+  },
   "reports:recordDownload": {
     "kind": "mutation",
     "visibility": "internal",
     "wrapper": "actorMutation",
     "permission": "reports.read"
+  },
+  "reports:removePlannedCashItem": {
+    "kind": "mutation",
+    "visibility": "public",
+    "wrapper": "mutation",
+    "permission": "accounting.write"
   },
   "reports:reportInput": {
     "kind": "query",
@@ -3331,6 +3349,12 @@
     "wrapper": "query",
     "permission": "reports.read"
   },
+  "reports:savePlannedCashItem": {
+    "kind": "mutation",
+    "visibility": "public",
+    "wrapper": "mutation",
+    "permission": "accounting.write"
+  },
   "reports:susa": {
     "kind": "query",
     "visibility": "public",
@@ -3338,6 +3362,12 @@
     "permission": "reports.read"
   },
   "reports:taxReserve": {
+    "kind": "query",
+    "visibility": "public",
+    "wrapper": "query",
+    "permission": "reports.read"
+  },
+  "reports:verprobung": {
     "kind": "query",
     "visibility": "public",
     "wrapper": "query",
@@ -3914,6 +3944,12 @@
     "permission": "tax.read"
   },
   "taxes:sourceKennzahlen": {
+    "kind": "query",
+    "visibility": "public",
+    "wrapper": "query",
+    "permission": "tax.read"
+  },
+  "taxes:ustAnnual": {
     "kind": "query",
     "visibility": "public",
     "wrapper": "query",

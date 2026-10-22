@@ -368,12 +368,84 @@ describe("Anlage EÜR sheet (TAX-015, TAX-022)", () => {
     expect(ku.values["103"]).toBeUndefined();
   });
 
-  test("TAX-015 E-UVA-20 the 2026 table is not verified against the official Vordruck: banner, guide blocked", () => {
+  test("TAX-015 E-UVA-20 the 2026 table is verified against the Anlage EÜR 2026 (BMF 01.09.2026): no banner, no blocker", () => {
     const s = computeEuer(2026, [], euerMappingFor(2026), { ku: false });
-    expect(s.verified).toBe(false);
-    expect(s.notices).toContain(
-      "Zeilen gegen amtlichen Vordruck prüfen – die Zuordnung für 2026 ist noch nicht geprüft.",
-    );
+    expect(s.verified).toBe(true);
+    expect(s.mappingVersion).toBe("euer-2026.1");
+    expect(s.notices.join(" ")).not.toContain("Zeilen gegen amtlichen Vordruck prüfen");
+    expect(s.blockers).toEqual([]);
+    expect(euerMappingFor(2026)?.verifiedAgainstForm?.source).toContain("IV C 6 - S 2142/00024/010/001");
+  });
+
+  test("TAX-015 Anlage EÜR 2026 lines: new Zeile 27 (Tierbewertung) shifts Waren to 29 and every later line by one; Kz unchanged", () => {
+    const m = euerMappingFor(2026);
+    const m25 = euerMappingFor(2025);
+    const zeile = (kz: string, mm = m) => mm?.lines.filter((l) => l.kz === kz).map((l) => l.zeile);
+    // Betriebseinnahmen unchanged (Zeilen 12–23)
+    for (const [kz, z] of [
+      ["111", 12],
+      ["119", 13],
+      ["112", 15],
+      ["103", 16],
+      ["140", 17],
+      ["141", 18],
+      ["102", 19],
+      ["108", 21],
+    ] as const) {
+      expect(zeile(kz)).toEqual([z]);
+    }
+    // Betriebsausgaben, read verbatim from the Vordruck 2026AnlEÜR801/802/803
+    const expected2026: [string, number][] = [
+      ["100", 29],
+      ["110", 30],
+      ["120", 31],
+      ["136", 32],
+      ["131", 33],
+      ["130", 34],
+      ["132", 37],
+      ["137", 38],
+      ["135", 39],
+      ["150", 40],
+      ["151", 42],
+      ["280", 44],
+      ["221", 45],
+      ["281", 46],
+      ["194", 47],
+      ["225", 49],
+      ["223", 50],
+      ["228", 51],
+      ["229", 52],
+      ["224", 55],
+      ["234", 57],
+      ["185", 58],
+      ["186", 59],
+      ["183", 61],
+      ["164", 63],
+      ["174", 63],
+      ["165", 64],
+      ["175", 64],
+      ["171", 65],
+      ["168", 68],
+      ["144", 69],
+      ["145", 70],
+      ["146", 71],
+      ["122", 107],
+      ["123", 108],
+    ];
+    for (const [kz, z] of expected2026) expect([kz, zeile(kz)]).toEqual([kz, [z]]);
+    // every line of the 2025 table exists in 2026 with the same Kennzahl and key set
+    expect(m?.lines.map((l) => [l.kz, l.keys])).toEqual(m25?.lines.map((l) => [l.kz, l.keys]));
+    expect(m?.sums).toEqual({
+      einnahmen: { zeile: 23, kz: "159" },
+      ausgaben: { zeile: 76, kz: "199" },
+      gewinn: { zeile: 98, kz: "219" },
+    });
+    expect(m?.anlageSzThresholdCents).toBe(205_000);
+    // Anlage AVEÜR 2026: Zeilen/Kz identical to 2025
+    expect(m?.aveuer).toEqual(m25?.aveuer);
+  });
+
+  test("TAX-015 E-UVA-07 E-UVA-20 a year without a table shows the missing-mapping notice", () => {
     expect(computeEuer(2030, [], euerMappingFor(2030), { ku: false }).notices).toContain(
       "Die Zeilenzuordnung der Anlage EÜR für 2030 ist noch nicht hinterlegt. Bitte Update einspielen.",
     );
@@ -462,8 +534,23 @@ describe("Mein ELSTER guide for the Anlage EÜR (TAX-020, TAX-022, AO-02)", () =
     expect(partnership.formYearWarning).toBe("Achtung: Formular 2025 wählen, nicht 2026.");
   });
 
-  test("TAX-022 E-UVA-20 the unverified 2026 table blocks the guide", () => {
+  test("TAX-022 E-UVA-20 the verified 2026 table unblocks the guide; the Gewinn hint names Zeile 98 of the 2026 form", () => {
     const sheet = computeEuer(2026, [], euerMappingFor(2026), { ku: false });
+    const guide = buildEuerGuide(sheet, null, { legalForm: "einzelunternehmen", today: "2027-03-01", sheetHash: "h" });
+    expect(guide.blocked).toBe(false);
+    const result = guide.steps.find((s) => s.fields.some((f) => f.kz === "219"));
+    expect(result?.fields.find((f) => f.kz === "219")?.zeile).toBe(98);
+    expect(result?.instruction).toContain("Zeile 98");
+  });
+
+  test("TAX-022 E-UVA-20 a table without verifiedAgainstForm still blocks the guide", () => {
+    const m = euerMappingFor(2026);
+    if (!m) throw new Error("2026 mapping missing");
+    const { verifiedAgainstForm: _v, ...unverified } = m;
+    const sheet = computeEuer(2026, [], unverified, { ku: false });
+    expect(sheet.notices).toContain(
+      "Zeilen gegen amtlichen Vordruck prüfen – die Zuordnung für 2026 ist noch nicht geprüft.",
+    );
     const guide = buildEuerGuide(sheet, null, { legalForm: "einzelunternehmen", today: "2027-03-01", sheetHash: "h" });
     expect(guide.blocked).toBe(true);
   });

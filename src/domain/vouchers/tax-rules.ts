@@ -119,7 +119,11 @@ export const TAX_RULE_HELP_DE: Readonly<Record<TaxRule, string>> = {
 };
 
 export type TaxRuleCheckIssue = Issue<
-  "ku_supplier_vat" | "reverse_charge_vat_shown" | "own_vat_id_missing" | "supplier_vat_id_not_eu"
+  | "ku_supplier_vat"
+  | "reverse_charge_vat_shown"
+  | "own_vat_id_missing"
+  | "supplier_vat_id_not_eu"
+  | "supplier_vat_id_missing"
 >;
 
 const EU_PREFIXES = new Set([
@@ -181,11 +185,17 @@ export function checkTaxRule(input: {
       ),
     );
   }
-  if (
-    (input.taxRule === "reverse_charge_eu" || input.taxRule === "intra_community_acquisition") &&
-    !isForeignEuVatId(input.supplierVatId)
-  ) {
+  if (input.taxRule === "reverse_charge_eu" && !isForeignEuVatId(input.supplierVatId)) {
     warnings.push(issue("supplier_vat_id_not_eu", "USt-IdNr des Lieferanten fehlt oder ist keine EU-Nummer."));
+  }
+  // F08 E-TAX-17 (conservative, stricter than the EC-VOU-13 warning): an igE needs the supplier's EU USt-IdNr
+  if (input.taxRule === "intra_community_acquisition" && !isForeignEuVatId(input.supplierVatId)) {
+    errors.push(
+      issue(
+        "supplier_vat_id_missing",
+        "Für einen innergemeinschaftlichen Erwerb ist die USt-IdNr des Lieferanten erforderlich.",
+      ),
+    );
   }
   if (input.taxRule === "intra_community_acquisition" && !input.ownVatId?.trim()) {
     errors.push(

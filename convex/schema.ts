@@ -1398,6 +1398,8 @@ export default defineSchema({
     elsterReportedTotalCents: v.optional(v.number()),
     submittedValuesDiffer: v.optional(v.boolean()),
     valuesDifferReason: v.optional(v.string()),
+    /** TAX-010 / E-UVA-13: reason given to record a ZM whose Σ L/S differs from the UStVA Kz 41/21. */
+    reconciliationOverrideReason: v.optional(v.string()),
     submittedAt: v.optional(v.number()),
     transmissionTicket: v.optional(v.string()),
     protocolStorageId: v.optional(v.id("_storage")),
@@ -1419,6 +1421,33 @@ export default defineSchema({
     gewerbesteuerHebesatzBp: v.optional(v.number()),
     partners: v.optional(v.array(v.object({ name: v.string(), shareBp: v.number() }))),
   }).index("by_year", ["year"]),
+
+  // plannedCashItems (F08 RPT-013) — manual planned items of the Liquiditätsvorschau, one-off or recurring. Not
+  // bookkeeping data: freely editable and removable (audited).
+  plannedCashItems: defineTable({
+    label: v.string(),
+    /** Signed: + inflow, − outflow. */
+    amountCents: v.number(),
+    /** One-off date or the first occurrence. */
+    date: v.string(),
+    recurrence: v.union(
+      v.literal("once"),
+      v.literal("P7D"),
+      v.literal("P14D"),
+      v.literal("P1M"),
+      v.literal("P2M"),
+      v.literal("P3M"),
+      v.literal("P6M"),
+      v.literal("P1Y"),
+      v.literal("P2Y"),
+      v.literal("P3Y"),
+      v.literal("P4Y"),
+      v.literal("P5Y"),
+    ),
+    endDate: v.optional(v.string()),
+    confidence: v.union(v.literal("high"), v.literal("medium"), v.literal("low")),
+    createdBy: vActor,
+  }),
 
   // ledgerAccounts (03 §8, F08 ACC-009) — owner-created Sachkonten (`isSystem: false`) and archive markers of seeded
   // accounts (`isSystem: true`, the seed itself stays rule data). Custom accounts without postings may be deleted;

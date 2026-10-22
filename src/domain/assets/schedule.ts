@@ -193,3 +193,58 @@ export function depreciationPlan(input: PlanInput): Result<PlanRow[], AssetIssue
 export function sumThrough(plan: readonly PlanRow[], period: string): number {
   return plan.filter((r) => r.period <= period).reduce((s, r) => s + r.amountCents, 0);
 }
+
+// ── AST-013: planned vs posted, AfA forecast ──────────────────────────────────────────────────────────
+
+export interface DepreciationTableRow extends PlanRow {
+  status: "posted" | "planned";
+}
+
+/** AST-013: the plan of one asset with each month marked as posted (journal) or still planned. */
+export function depreciationTable(
+  plan: readonly PlanRow[],
+  postedPeriods: ReadonlySet<string>,
+): DepreciationTableRow[] {
+  return plan.map((r) => ({ ...r, status: postedPeriods.has(r.period) ? "posted" : "planned" }));
+}
+
+export interface AfaForecast {
+  year: number;
+  /** AfA of the year already posted. */
+  postedCents: number;
+  /** Planned AfA of the whole year (posted + still planned). */
+  plannedYearCents: number;
+  /** Planned AfA of the year not posted yet. */
+  remainingCents: number;
+  /** Planned AfA per month of the year (all 12 months). */
+  byMonth: { period: string; cents: number }[];
+}
+
+/**
+ * AST-013: AfA forecast of a calendar year over all assets (feeds the tax reserve, RPT-010). Uses the plan rows,
+ * so one-off write-offs (GWG, e-vehicle year 1) land in their month instead of being spread.
+ */
+export function afaForecast(
+  assets: readonly { plan: readonly PlanRow[]; postedPeriods: ReadonlySet<string> }[],
+  year: number,
+): AfaForecast {
+  const months = Array.from({ length: 12 }, (_, i) => `${year}-${String(i + 1).padStart(2, "0")}`);
+  const byMonth = new Map(months.map((m) => [m, 0]));
+  let posted = 0;
+  let remaining = 0;
+  for (const a of assets) {
+    for (const r of a.plan) {
+      if (!byMonth.has(r.period)) continue;
+      byMonth.set(r.period, (byMonth.get(r.period) ?? 0) + r.amountCents);
+      if (a.postedPeriods.has(r.period)) posted += r.amountCents;
+      else remaining += r.amountCents;
+    }
+  }
+  return {
+    year,
+    postedCents: posted,
+    plannedYearCents: posted + remaining,
+    remainingCents: remaining,
+    byMonth: months.map((m) => ({ period: m, cents: byMonth.get(m) ?? 0 })),
+  };
+}

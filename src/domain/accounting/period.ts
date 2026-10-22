@@ -5,7 +5,7 @@
 
 import { err, type Issue, issue, ok, type Result } from "../result";
 import type { Chart } from "../rules/accounting";
-import { addDays, type CalendarDate, calendarDate, daysInMonth } from "../time/calendar-date";
+import { addDays, type CalendarDate, calendarDate, daysBetween, daysInMonth } from "../time/calendar-date";
 import type { SupplyDate, TaxationMethod } from "./events";
 
 /** `YYYY-MM` of a business date (03 §8 `journalEntries.period`). */
@@ -111,6 +111,17 @@ export interface PostingDate {
 
 const formatPeriod = (p: string) => `${p.slice(5, 7)}/${p.slice(0, 4)}`;
 const formatDate = (d: string) => `${d.slice(8, 10)}.${d.slice(5, 7)}.${d.slice(0, 4)}`;
+
+/** E-ACC-21: future dates are allowed (the period is open); more than this many days ahead carries a notice. */
+export const FUTURE_NOTICE_DAYS = 30;
+
+/** E-ACC-21 notice for a business date more than 30 days after `today` (Europe/Berlin), else null. */
+export function futureDateNotice(date: string, today: string): Issue<"E-ACC-21"> | null {
+  const days = daysBetween(calendarDate(today), calendarDate(date));
+  return days > FUTURE_NOTICE_DAYS
+    ? issue("E-ACC-21", "Das Buchungsdatum liegt mehr als 30 Tage in der Zukunft.", { days })
+    : null;
+}
 
 /** E-ACC-04 */
 export const periodLockedIssue = (period: string): Issue<"period_locked"> =>

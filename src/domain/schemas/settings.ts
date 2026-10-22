@@ -273,8 +273,8 @@ export const taxSchema = z
       ctx.addIssue({
         code: "custom",
         path: ["profitMethod"],
-        message:
-          "Für diese Rechtsform ist die Bilanzierung Pflicht; eine Einnahmenüberschussrechnung ist nicht zulässig.",
+        // F08 E-TAX-21
+        message: `Für ${f.nameSuffix?.abbreviations[0] ?? "diese Rechtsform"} ist die Einnahmen-Überschuss-Rechnung nicht zulässig (Buchführungspflicht nach HGB).`,
       });
     }
     if (v.profitMethod === "euer" && f.euerNeedsConfirmation && !v.euerConfirmed) {

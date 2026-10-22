@@ -244,7 +244,7 @@ describe("line accounts (VOU-024, EC-VOU-37/38)", () => {
     expect(offered).not.toContain("1600");
   });
 
-  test("VOU-013 E-ACC-28: bank fees with input VAT need an attached invoice and a ⚑ acknowledgement", () => {
+  test("VOU-013 E-ACC-28 bank fees with input VAT need an attached invoice and a ⚑ acknowledgement", () => {
     const fee = line({ account: "6855", netCents: 500, vatCents: 95, grossCents: 595 });
     expect(codes(validateVoucher(draft({ lines: [fee], originalFiles: [], statementIsBeleg: true }), ctx))).toContain(
       "bank_fee_vat",

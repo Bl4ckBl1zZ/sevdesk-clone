@@ -256,3 +256,40 @@ describe("ACC-023 foreign-currency vouchers", () => {
     });
   });
 });
+
+describe("ACC-019 cost centres on voucher postings", () => {
+  test("ACC-019 a voucher line's cost centre is carried onto its expense/revenue journal line (DATEV KOST1), not onto VAT or the open item", () => {
+    const lines = linesOf(
+      booked({
+        lines: [
+          { account: "6815", netCents: 10_000, vatCents: 1900, vatRateBp: 1900, costCenterId: "kst1" },
+          { account: "6805", netCents: 5000, vatCents: 950, vatRateBp: 1900 },
+        ],
+      }),
+    );
+    expect(lines.find((l) => l.account === "6815")).toMatchObject({ debitCents: 10_000, costCenterId: "kst1" });
+    expect(lines.find((l) => l.account === "6805")?.costCenterId).toBeUndefined();
+    const other = lines.filter((l) => l.role?.startsWith("vat.") || l.role === "payable");
+    expect(other.length).toBeGreaterThan(0);
+    expect(other.every((l) => l.costCenterId === undefined)).toBe(true);
+    // income voucher: the revenue line keeps the cost centre
+    const income = linesOf(
+      booked({
+        direction: "income",
+        taxRule: "output_vat",
+        lines: [{ account: "8400", netCents: 10_000, vatCents: 1900, vatRateBp: 1900, costCenterId: "kst2" }],
+      }),
+    );
+    expect(income.find((l) => l.account === "8400")).toMatchObject({ creditCents: 10_000, costCenterId: "kst2" });
+    // Bewirtung: both the deductible and the non-deductible part keep the cost centre
+    const bew = linesOf(
+      booked({
+        voucherKind: "bewirtung",
+        lines: [{ account: "6640", netCents: 10_000, vatCents: 1900, vatRateBp: 1900, costCenterId: "kst1" }],
+      }),
+    );
+    const ent = bew.filter((l) => l.role?.startsWith("expense.entertainment"));
+    expect(ent).toHaveLength(2);
+    expect(ent.every((l) => l.costCenterId === "kst1")).toBe(true);
+  });
+});

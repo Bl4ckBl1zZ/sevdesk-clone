@@ -5584,6 +5584,7 @@
   },
   "periodLock": {
     "intro": "Festgeschriebene Monate sind unveränderbar (GoBD). Korrekturen sind danach nur per Gegenbuchung in einem offenen Monat möglich. Mit der Übermittlung einer Umsatzsteuer-Voranmeldung werden die Monate automatisch festgeschrieben.",
+    "dueSoon": "Empfehlung: {period} bis zum {date} festschreiben (spätestens Ende des Folgemonats).",
     "year": "Geschäftsjahr",
     "open": "offen",
     "locking": "wird festgeschrieben",
@@ -5634,6 +5635,7 @@
       "protocol": "Übermittlungsprotokoll (PDF, optional)",
       "expected": "Laut dieser Seite: {amount}",
       "differs": "Abweichend übermittelt – Begründung",
+      "reconciliationReason": "Abweichung zur Umsatzsteuer-Voranmeldung – Begründung (Pflicht)",
       "invalidAmount": "Bitte einen gültigen Betrag eingeben.",
       "uploadFailed": "Das Protokoll konnte nicht hochgeladen werden.",
       "done": "Übermittlung gespeichert.",
@@ -5792,6 +5794,35 @@
       "saved": "Annahmen gespeichert.",
       "invalid": "Bitte Beträge als Euro mit höchstens zwei Nachkommastellen und den Hebesatz als ganze Zahl eingeben.",
       "tableLabel": "Aufstellung der Steuer-Rücklage"
+    },
+    "ustAnnual": {
+      "year": "Kalenderjahr",
+      "basis": "Jahressummen aus der Buchhaltung nach Steuerzeitpunkt (wie die Voranmeldungen), abgeglichen mit den übermittelten Voranmeldungen. Keine Übermittlungserfassung – die Monate sind bereits durch die Voranmeldungen festgeschrieben.",
+      "periods": "Voranmeldungen {year}",
+      "filed": "übermittelt",
+      "notFiled": "nicht übermittelt",
+      "blockers": "Vor dem Ausfüllen erledigen",
+      "values": "Zeilen der Umsatzsteuererklärung {year}",
+      "tableLabel": "Umsatzsteuererklärung {year}",
+      "line": "Zeile",
+      "kz": "Kz",
+      "label": "Bezeichnung",
+      "amount": "Betrag",
+      "review": "Bitte prüfen",
+      "drill": "Buchungen zu Kennzahl {kz} anzeigen",
+      "drillTitle": "Buchungen zu UStVA-Kennzahl {kz}",
+      "drillSum": "{count, plural, one {# Buchung} other {# Buchungen}}",
+      "entry": "Buchung {seq}",
+      "reconciliation": "Abgleich mit den Voranmeldungen",
+      "verbleibend": "Umsatzsteuer laut Jahreserklärung",
+      "vorauszahlungssoll": "Vorauszahlungssoll (übermittelte Voranmeldungen einschließlich Sondervorauszahlung)",
+      "abschluss": "Erwartete Abschlusszahlung (negativ: Erstattung)",
+      "noDifference": "Die Jahreswerte entsprechen den übermittelten Voranmeldungen.",
+      "causes": "Ursachen der Differenz",
+      "causeAmount": "Betrag",
+      "causeEntries": "{count, plural, one {# Buchung} other {# Buchungen}}",
+      "guide": "Ausfüllhilfe für Mein ELSTER",
+      "guideBlocked": "Die Ausfüllhilfe ist gesperrt, bis die oben genannten Punkte erledigt sind. Die Werte können Sie bereits prüfen."
     }
   },
   "manualEntry": {
@@ -6246,7 +6277,7 @@
       },
       "verprobung": {
         "title": "USt-Verprobung",
-        "description": "Umsatzsteuer des Jahres gegen die Voranmeldungen"
+        "description": "Gebuchte Umsatz- und Vorsteuer je Steuersatz gegen Bemessungsgrundlage × Satz"
       },
       "liquiditaet": {
         "title": "Liquiditätsvorschau",
@@ -6372,7 +6403,61 @@
       "item": "Position",
       "amount": "Betrag",
       "delay": "Zahlt im Mittel {expected} Tage nach Fälligkeit (vorsichtig {cautious} Tage)",
-      "tableLabel": "Positionen der Liquiditätsvorschau"
+      "tableLabel": "Positionen der Liquiditätsvorschau",
+      "confidence": "Einschätzung",
+      "planned": {
+        "title": "Geplante Positionen",
+        "add": "Geplante Position hinzufügen",
+        "empty": "Noch keine geplanten Positionen. Erwartete Einnahmen oder Ausgaben ohne Beleg (z. B. Darlehen, Förderung, Miete) hier erfassen.",
+        "formLabel": "Geplante Position",
+        "label": "Bezeichnung",
+        "direction": "Art",
+        "inflow": "Einnahme",
+        "outflow": "Ausgabe",
+        "amount": "Betrag (€)",
+        "date": "Datum",
+        "firstDate": "Erster Termin",
+        "recurrence": "Rhythmus",
+        "once": "Einmalig",
+        "endDate": "Letzter Termin (optional)",
+        "confidenceLabel": "Einschätzung",
+        "confidence": {
+          "high": "hoch",
+          "medium": "mittel",
+          "low": "niedrig"
+        },
+        "onceOn": "einmalig am {date}",
+        "recurringFrom": "{rhythm} ab {date}",
+        "until": "bis {date}",
+        "edit": "{label} bearbeiten",
+        "remove": "{label} entfernen",
+        "removed": "{label} entfernt.",
+        "saved": "Geplante Position gespeichert.",
+        "save": "Speichern",
+        "cancel": "Abbrechen"
+      }
+    },
+    "verprobung": {
+      "from": "Von (Buchungsdatum)",
+      "to": "Bis",
+      "basis": "Summen je Beleg über alle Buchungen (Rechnung, Storno, Korrekturen); erwartete Steuer = Bemessungsgrundlage × Steuersatz, kaufmännisch gerundet. Bis 1 Cent je Buchungszeile gilt als Rundung.",
+      "tableLabel": "USt-Verprobung je Steuersatz",
+      "side": "Art",
+      "rate": "Steuersatz",
+      "base": "Bemessungsgrundlage",
+      "expected": "Steuer rechnerisch",
+      "booked": "Steuer gebucht",
+      "difference": "Differenz",
+      "sides": {
+        "output": "Umsatzsteuer",
+        "input": "Vorsteuer"
+      },
+      "empty": "Keine steuerpflichtigen Buchungen im Zeitraum.",
+      "documents": "{count, plural, =0 {Keine Belege mit Differenz} one {# Beleg mit Differenz} other {# Belege mit Differenz}}",
+      "noDifferences": "Gebuchte Steuer und Bemessungsgrundlagen passen bei allen Belegen zusammen.",
+      "rounding": "Rundung",
+      "docLine": "{side} {rate}: Bemessungsgrundlage {base}, rechnerisch {expected}, gebucht {booked}",
+      "entry": "Buchung {seq}"
     }
   }
 }

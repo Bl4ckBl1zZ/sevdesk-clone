@@ -127,6 +127,15 @@ export function computeZm(
   };
 }
 
+/**
+ * E-UVA-12: ZM rows whose USt-IdNr has no qualified confirmation (BZSt eVatR, CON-054) on record → warning (K/AE
+ * invoices are blocked earlier, MISC-04). `qualifiedVatIds` holds the normalised IDs with a qualified check.
+ */
+export function unconfirmedVatIdWarnings(rows: readonly ZmRow[], qualifiedVatIds: ReadonlySet<string>): string[] {
+  const ids = [...new Set(rows.map((r) => r.vatId).filter((id) => id !== ""))];
+  return ids.filter((id) => !qualifiedVatIds.has(id)).map((id) => `USt-IdNr ${id} nicht qualifiziert bestätigt.`);
+}
+
 /** TAX-010 / E-UVA-13: Σ ZM L = Kz 41, Σ ZM S = Kz 21 (whole euros) for the same months. */
 export function reconcileZmWithUstva(zm: ZmSheet, kz41Euros: number, kz21Euros: number): string[] {
   const out: string[] = [];

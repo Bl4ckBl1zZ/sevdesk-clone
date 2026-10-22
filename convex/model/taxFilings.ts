@@ -1,6 +1,7 @@
 import { endOfMonth, periodOf } from "../../src/domain/accounting/period";
 import type { LockReason } from "../../src/domain/accounting/period-lock";
 import { monthsBetween, planLock } from "../../src/domain/accounting/period-lock";
+import { isQualified } from "../../src/domain/contacts/vat-check";
 import { formatCents, roundHalfAway } from "../../src/domain/money";
 import { elsterGuideFor } from "../../src/domain/rules/elster";
 import { retentionUntilFor } from "../../src/domain/rules/retention";
@@ -31,11 +32,19 @@ import {
   NO_CORRECTION_NEEDED,
   sheetHash,
   sheetValues,
+  submittedPeriodNotices,
   type TaxJournalEntry,
   type TaxJournalLine,
   type UstvaSheet,
 } from "../../src/domain/tax/ustva";
-import { computeZm, reconcileZmWithUstva, type ZmSheet, zmContributions, zmCsv } from "../../src/domain/tax/zm";
+import {
+  computeZm,
+  reconcileZmWithUstva,
+  unconfirmedVatIdWarnings,
+  type ZmSheet,
+  zmContributions,
+  zmCsv,
+} from "../../src/domain/tax/zm";
 import { berlinCalendarDate } from "../../src/domain/time/berlin";
 import type { Doc, Id } from "../_generated/dataModel";
 import { appError } from "../lib/errors";
@@ -312,6 +321,9 @@ export async function ustvaView(ctx: ReadCtx, period: string, now: number) {
     : 0;
   if (correction?.required) correction.notice = correctionRequiredNotice(Math.max(1, lateCount), label);
   const isCorrection = active !== null;
+  sheet.notices.push(
+    ...submittedPeriodNotices({ submitted: isCorrection, periodLabel: label, period, today: berlinCalendarDate(now) }),
+  );
   const blockers = await filingBlockers(ctx, pc.months, now);
   const mapping = ustvaMappingFor(pc.year);
   const guideData = elsterGuideFor("ustva", pc.year);
@@ -342,7 +354,7 @@ export async function ustvaView(ctx: ReadCtx, period: string, now: number) {
 }
 
 /** TAX-005: per Kennzahl the contributing entries with seq, date, text and a link to the source document. */
-async function drillDownLabels(ctx: ReadCtx, drill: UstvaSheet["drillDown"]) {
+export async function drillDownLabels(ctx: ReadCtx, drill: UstvaSheet["drillDown"]) {
   const out: Record<
     string,
     {
@@ -415,10 +427,25 @@ export async function computeZmFor(ctx: ReadCtx, pc: PeriodContext): Promise<ZmS
   return computeZm(pc.period, contributions, { quarterGoodsCents: quarterGoods, date: `${pc.year}-01-01` });
 }
 
+/** E-UVA-12: normalised USt-IdNr of the rows whose latest check is a qualified BZSt confirmation (CON-054). */
+async function qualifiedVatIds(ctx: ReadCtx, rows: readonly { vatId: string }[]): Promise<Set<string>> {
+  const out = new Set<string>();
+  for (const id of new Set(rows.map((r) => r.vatId))) {
+    const checks = await ctx.db
+      .query("vatIdChecks")
+      .withIndex("by_vatId", (q) => q.eq("vatId", id))
+      .collect();
+    if (checks.some((c) => isQualified(c.provider, c.status, c.qualified))) out.add(id);
+  }
+  return out;
+}
+
 export async function zmView(ctx: ReadCtx, period: string, now: number) {
   const pc = await periodContext(ctx, period, now);
   const label = filingPeriodLabel(period);
   const zm = await computeZmFor(ctx, pc);
+  // E-UVA-12: a warning only (not a guide blocker, unlike a missing USt-IdNr)
+  const vatIdWarnings = unconfirmedVatIdWarnings(zm.rows, await qualifiedVatIds(ctx, zm.rows));
   const filings = await filingsOf(ctx, "zm", period);
   const active = activeFiling(filings);
   const blockers = await filingBlockers(ctx, pc.months, now);
@@ -450,6 +477,7 @@ export async function zmView(ctx: ReadCtx, period: string, now: number) {
     zm,
     csv: zmCsv(zm),
     reconciliation,
+    vatIdWarnings,
     guide,
     blockers: guide.blockers,
     filings: filings.map(filingView),
@@ -565,6 +593,8 @@ export interface SubmissionInput {
   sheetHash: string;
   /** „abweichend übermittelt“ (E-UVA-19). */
   valuesDifferReason?: string;
+  /** ZM only (TAX-010, E-UVA-13): reason to record despite a difference to the UStVA Kz 41/21. */
+  reconciliationOverrideReason?: string;
 }
 
 const formatEur = (c: number) => formatCents(c);
@@ -597,6 +627,7 @@ export async function recordSubmission(ctx: ModelCtx, input: SubmissionInput) {
   let months: string[] = [];
   let label: string;
   let lock: LockReason | null = null;
+  let reconciliationReason = "";
   const filings = await filingsOf(ctx, input.form, input.period);
   const active = activeFiling(filings);
 
@@ -641,6 +672,17 @@ export async function recordSubmission(ctx: ModelCtx, input: SubmissionInput) {
       appTotal = view.zm.totalEuros * 100;
       ruleVersion = guide.id ?? `zm-${pc.year}`;
       lock = "zm_submitted";
+      // TAX-010 / E-UVA-13: a difference to the UStVA Kz 41/21 blocks unless the owner gives a reason
+      if (view.reconciliation.length > 0) {
+        reconciliationReason = input.reconciliationOverrideReason?.trim() ?? "";
+        if (reconciliationReason.length < 5) {
+          throw appError(
+            "filing_blocked",
+            `${view.reconciliation.join(" ")} Bitte die Abweichung prüfen oder mit Begründung trotzdem erfassen.`,
+            { reason: "ZM_RECONCILIATION" },
+          );
+        }
+      }
       if (active && view.correction && !view.correction.required) {
         throw appError(
           "filing_blocked",
@@ -708,6 +750,7 @@ export async function recordSubmission(ctx: ModelCtx, input: SubmissionInput) {
       ...(differs
         ? { elsterReportedTotalCents: input.crossCheckCents, submittedValuesDiffer: true, valuesDifferReason: reason }
         : {}),
+      ...(reconciliationReason ? { reconciliationOverrideReason: reconciliationReason } : {}),
       submittedAt: now,
       transmissionTicket: ticket,
       ...(input.protocolStorageId ? { protocolStorageId: input.protocolStorageId } : {}),

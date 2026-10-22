@@ -26,7 +26,10 @@ import { shareOfSettlement } from "./pro-rata";
 import { bankRole, rateSuffix } from "./roles";
 
 type Target = { role: string } | { account: string };
-type Extra = Pick<RoleLine, "contactId" | "taxKey" | "taxPointDate" | "currency" | "amountFx" | "fxRate">;
+type Extra = Pick<
+  RoleLine,
+  "contactId" | "taxKey" | "taxPointDate" | "currency" | "amountFx" | "fxRate" | "costCenterId"
+>;
 
 function debit(target: Target, cents: number, extra: Extra = {}): RoleLine[] {
   if (cents === 0) return [];
@@ -38,6 +41,7 @@ function debit(target: Target, cents: number, extra: Extra = {}): RoleLine[] {
   if (extra.currency !== undefined) clean.currency = extra.currency;
   if (extra.amountFx !== undefined) clean.amountFx = extra.amountFx;
   if (extra.fxRate !== undefined) clean.fxRate = extra.fxRate;
+  if (extra.costCenterId !== undefined) clean.costCenterId = extra.costCenterId;
   return [{ ...target, ...sides, ...clean }];
 }
 
@@ -46,6 +50,8 @@ const fxOf = (e: VoucherBookedEvent): Extra =>
   e.fx ? { currency: e.fx.currency, amountFx: e.fx.grossFxCents, fxRate: e.fx.fxRate } : {};
 const credit = (target: Target, cents: number, extra: Extra = {}) => debit(target, -cents, extra);
 const R = (role: string): Target => ({ role });
+/** ACC-019: the line's cost centre on its expense/revenue line only (not VAT, private share or open item). */
+const kstOf = (l: VoucherPostingLine): Extra => (l.costCenterId ? { costCenterId: l.costCenterId } : {});
 
 const invalid = (message: string): PostingIssue => issue("invalid_event", message);
 const rateUnsupported = (rateBp: number): PostingIssue =>
@@ -161,7 +167,9 @@ export function postVoucherBooked(
       if (e.taxRule === "output_vat") {
         if (l.vatRateBp !== 0 && !suffix) return err(rateUnsupported(l.vatRateBp));
         const tp = supplyEnd(e.supplyDate);
-        lines.push(...credit(baseTarget(l), l.netCents, suffix ? { taxKey: `USt${suffix}` } : {}));
+        lines.push(
+          ...credit(baseTarget(l), l.netCents, { ...(suffix ? { taxKey: `USt${suffix}` } : {}), ...kstOf(l) }),
+        );
         if (suffix && l.vatCents !== 0) {
           if (ctx.taxationMethod === "ist") lines.push(...credit(R(`vat.output.notdue.${suffix}`), l.vatCents));
           else lines.push(...credit(R(`vat.output.${suffix}`), l.vatCents, { taxPointDate: tp }));
@@ -169,7 +177,7 @@ export function postVoucherBooked(
       } else {
         if (l.vatCents !== 0)
           return err(invalid("Steuerfreie oder nicht steuerbare Einnahmen haben keine Umsatzsteuer."));
-        lines.push(...credit(baseTarget(l), l.netCents));
+        lines.push(...credit(baseTarget(l), l.netCents, kstOf(l)));
       }
       gross += l.netCents + l.vatCents;
     }
@@ -204,10 +212,15 @@ export function postVoucherBooked(
 
     if (bewirtung) {
       if (occasion === "arbeitnehmer") {
-        lines.push(...debit(R("expense.staff_events"), base, deductible && suffix ? { taxKey: `VSt${suffix}` } : {}));
+        lines.push(
+          ...debit(R("expense.staff_events"), base, {
+            ...(deductible && suffix ? { taxKey: `VSt${suffix}` } : {}),
+            ...kstOf(l),
+          }),
+        );
       } else {
         const nd = Number(roundShare(base, l.nonDeductibleShareBp ?? 3000));
-        const taxKey = deductible && suffix ? { taxKey: `VSt${suffix}` } : {};
+        const taxKey = { ...(deductible && suffix ? { taxKey: `VSt${suffix}` } : {}), ...kstOf(l) };
         lines.push(...debit(R("expense.entertainment"), base - nd, taxKey));
         lines.push(...debit(R("expense.entertainment.nd"), nd, taxKey));
       }
@@ -225,7 +238,7 @@ export function postVoucherBooked(
       if (!sfx || (sa.family === "13b" && sfx !== "19")) return err(rateUnsupported(l.vatRateBp));
       const tp =
         sa.tp === "month_end" ? endOfMonth(periodOf(supplyEnd(e.supplyDate))) : icSupplyTaxPoint(e.date, e.supplyDate);
-      lines.push(...debit(baseTarget(l), bizBase, { taxKey: `${sa.key}${sfx}` }));
+      lines.push(...debit(baseTarget(l), bizBase, { taxKey: `${sa.key}${sfx}`, ...kstOf(l) }));
       if (privBase !== 0) lines.push(...debit(R(privateRole), privBase));
       lines.push(...credit(R(`vat.output.${sa.family}.${sfx}`), vat, { taxPointDate: tp }));
       if (ku) lines.push(...debit(R("expense.vat_nondeductible"), vat));
@@ -233,7 +246,10 @@ export function postVoucherBooked(
       continue;
     }
     lines.push(
-      ...debit(baseTarget(l), bizBase, deductible && suffix && l.vatRateBp !== 0 ? { taxKey: `VSt${suffix}` } : {}),
+      ...debit(baseTarget(l), bizBase, {
+        ...(deductible && suffix && l.vatRateBp !== 0 ? { taxKey: `VSt${suffix}` } : {}),
+        ...kstOf(l),
+      }),
     );
     if (bizVat !== 0) lines.push(...debit(R(`vat.input.${suffix}`), bizVat, { taxPointDate: inputTp }));
     if (privBase + privVat !== 0) lines.push(...debit(R(privateRole), privBase + privVat));

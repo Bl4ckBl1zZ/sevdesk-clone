@@ -1,5 +1,5 @@
 import { v } from "convex/values";
-import { type JournalCursor, verifyJournalPage } from "../src/domain/accounting/journal-integrity";
+import { clockSkewFindings, type JournalCursor, verifyJournalPage } from "../src/domain/accounting/journal-integrity";
 import type { IntegrityFinding } from "../src/domain/audit/chain";
 import { internal } from "./_generated/api";
 import type { ActionCtx } from "./_generated/server";
@@ -39,6 +39,20 @@ export const lockedPeriods = systemQuery({
       .map((p) => ({ period: p.period, lockedAt: p.lockedAt as number })),
 });
 
+/** E-ACC-27: the clock readings kept for 7 days (F12 AUD-019). */
+export const clockReadings = systemQuery({
+  job: "cron.integrity.verify",
+  args: {},
+  handler: async (ctx) =>
+    (await ctx.db.query("clockReadings").withIndex("by_at").collect()).map((r) => ({
+      id: r._id as string,
+      at: r.at,
+      offsetMs: r.offsetMs,
+      status: r.status,
+      detail: r.detail,
+    })),
+});
+
 /** Called by `runVerify` (integrity.ts). */
 export async function verifyJournal(
   ctx: Pick<ActionCtx, "runQuery">,
@@ -58,5 +72,6 @@ export async function verifyJournal(
     cursor = r.cursor;
     if (page.length < PAGE || findings.length >= 100) break;
   }
+  findings.push(...clockSkewFindings(await ctx.runQuery(internal.journalIntegrity.clockReadings, {})));
   return { checked, findings };
 }

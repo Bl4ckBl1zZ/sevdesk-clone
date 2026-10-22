@@ -10,6 +10,7 @@ import { useTranslations } from "next-intl";
 import { useId, useMemo, useState } from "react";
 import { toast } from "sonner";
 import { uploadFile } from "@/components/banking/shared";
+import { todayBerlin } from "@/components/catalog/shared";
 import { ConvexGuard } from "@/components/convex/convex-provider";
 import { adapterErrorReason } from "@/components/setup/actions";
 import { Button } from "@/components/ui/button";
@@ -136,6 +137,7 @@ function Editor() {
             accountType: (nr) => accounts.get(nr)?.type ?? null,
             vatAccounts,
             acknowledged: ackVat ? ["E-ACC-10"] : [],
+            today: todayBerlin(),
           },
         )
       : null;
@@ -473,6 +475,13 @@ function Editor() {
           </Table>
         ) : null}
       </section>
+
+      {preview?.ok &&
+        preview.value.notices.map((n) => (
+          <p key={n.code} role="status" className="rounded-md border bg-muted p-3 text-sm">
+            {n.message}
+          </p>
+        ))}
 
       {(vatWarning || (needsVatAck && ackVat)) && (
         <div className="flex items-start gap-2 rounded-md border border-warning bg-warning/10 p-3">

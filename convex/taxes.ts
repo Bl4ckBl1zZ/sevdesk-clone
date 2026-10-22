@@ -6,6 +6,7 @@ import { isTest } from "./lib/env";
 import { appError } from "./lib/errors";
 import { getCompanyProfile, patchCompanyProfile } from "./model/companyProfile";
 import { euerView, recordEuerSubmission } from "./model/euer";
+import { notifyPeriodLock } from "./model/periodLock";
 import {
   activeFiling,
   filingsOf,
@@ -19,6 +20,7 @@ import {
   zmView,
 } from "./model/taxFilings";
 import { saveTaxReserveInputs as saveReserveInputs } from "./model/taxReserve";
+import { ustAnnualView } from "./model/ustAnnual";
 
 /**
  * Steuern (F08 §6 /steuern/ustva, /steuern/zm; TAX-001…TAX-011, TAX-019…TAX-021): Kennzahlen sheets with drill-down,
@@ -48,6 +50,16 @@ export const euer = query({
   permission: "tax.read",
   args: { year: v.number() },
   handler: async (ctx, { year }) => euerView(ctx, year, ctx.now()),
+});
+
+/**
+ * TAX-023 USt-Jahreserklärung worksheet of a calendar year: USt 2 A lines with year totals, reconciliation with the
+ * submitted UStVAs (expected Abschlusszahlung/Erstattung per cause) and the Mein ELSTER guide. No submission record.
+ */
+export const ustAnnual = query({
+  permission: "tax.read",
+  args: { year: v.number() },
+  handler: async (ctx, { year }) => ustAnnualView(ctx, year, ctx.now()),
 });
 
 /** Dauerfristverlängerung / Sondervorauszahlung of a year (USt 1 H). */
@@ -165,6 +177,8 @@ export const recordFilingSubmission = mutation({
     crossCheckCents: v.number(),
     sheetHash: v.string(),
     valuesDifferReason: v.optional(v.string()),
+    /** TAX-010 / E-UVA-13: ZM only — reason for recording despite a difference to the UStVA Kz 41/21. */
+    reconciliationOverrideReason: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
     if (args.submittedOn > berlinCalendarDate(ctx.now())) {
@@ -185,6 +199,6 @@ export const notifyTaxDeadlinesCron = systemMutation({
   args: { force: v.optional(v.boolean()) },
   handler: async (ctx, { force }) => {
     if (isTest() && !force) return { created: 0 };
-    return { created: await notifyTaxDeadlines(ctx) };
+    return { created: (await notifyTaxDeadlines(ctx)) + (await notifyPeriodLock(ctx)) };
   },
 });

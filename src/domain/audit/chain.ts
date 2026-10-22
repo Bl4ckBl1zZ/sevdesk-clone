@@ -53,7 +53,9 @@ export interface IntegrityFinding {
     // F08 ACC-020: journal seq gap, unbalanced entry, entry recorded after its period's lock (RI-13)
     | "journal_seq_gap"
     | "journal_unbalanced"
-    | "journal_after_lock";
+    | "journal_after_lock"
+    // F08 E-ACC-27 (GOBD-22): the server clock deviated > 2 s while postings continued (recordedAt = server time)
+    | "clock_skew";
   severity: FindingSeverity;
   detail: string;
   entity?: { table: string; id: string };

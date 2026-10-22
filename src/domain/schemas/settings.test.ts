@@ -119,7 +119,7 @@ describe("Steuern (F01 §5.3)", () => {
 
   test("SET-039 EÜR is refused for a GmbH and needs the §241a confirmation for an e.K.", () => {
     const gmbh = { ...taxDefaults("gmbh"), vatId: "DE123456788", profitMethod: "euer" as const };
-    expect(messagesOf(taxSchema.safeParse(gmbh)).profitMethod).toMatch(/Bilanzierung Pflicht/);
+    expect(messagesOf(taxSchema.safeParse(gmbh)).profitMethod).toMatch(/Buchführungspflicht nach HGB/);
     const ek = { ...taxDefaults("ek"), vatId: "DE123456788", profitMethod: "euer" as const };
     expect(messagesOf(taxSchema.safeParse(ek)).euerConfirmed).toMatch(/§ 241a HGB/);
   });

@@ -31,4 +31,23 @@ describe("ACC-020 journal integrity in integrity.verify", () => {
     expect(r.findings.map((f) => f.kind)).toEqual(expect.arrayContaining(["journal_seq_gap", "journal_after_lock"]));
     clearInvariantTarget(); // tampered on purpose
   });
+
+  test("E-ACC-27 GOBD-22 clock skew > 2 s: postings continue with server time, integrity.verify reports a warning", async () => {
+    const t = makeT();
+    const { customer } = await setupBooks(t);
+    expect(
+      await t.mutation(internal.system.recordClock, { offsetMs: 5_000, reference: "https://time.example.test" }),
+    ).toBe("warning");
+    const before = Date.now();
+    await post(t, invoiceEvent(customer, "doc-1", "2026-03-10", 100_000));
+    const entry = await t.run((ctx) => ctx.db.query("journalEntries").first());
+    expect(entry?.recordedAt).toBeGreaterThanOrEqual(before);
+    expect(entry?.recordedAt).toBeLessThanOrEqual(Date.now());
+    const r = await t.action(internal.integrity.verify, {});
+    const skew = r.findings.filter((f) => f.kind === "clock_skew");
+    expect(skew).toHaveLength(1);
+    expect(skew[0]?.severity).toBe("warning");
+    expect(skew[0]?.detail).toMatch(/^Serverzeit weicht ab: 1 Messung\(en\) über 2 s, größte Abweichung 5 s/);
+    expect(r.findings.filter((f) => f.kind.startsWith("journal_"))).toEqual([]);
+  });
 });

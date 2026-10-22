@@ -68,7 +68,7 @@ function Inner({ canSubmit }: { canSubmit: boolean }) {
         <div className="h-60" aria-busy="true" />
       ) : (
         <>
-          {[...view.zm.warnings, ...view.reconciliation].map((w) => (
+          {[...view.zm.warnings, ...view.vatIdWarnings, ...view.reconciliation].map((w) => (
             <p key={w} role="alert" className="rounded-md border border-warning bg-warning/10 p-3 text-sm">
               {w}
             </p>
@@ -151,6 +151,7 @@ function Inner({ canSubmit }: { canSubmit: boolean }) {
               crossCheckLabel={t("crossCheck")}
               expectedCents={view.zm.totalEuros * 100}
               locks
+              reconciliation={view.reconciliation}
               onClose={() => setSubmitting(false)}
             />
           )}

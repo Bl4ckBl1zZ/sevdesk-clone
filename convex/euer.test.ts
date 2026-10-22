@@ -171,16 +171,15 @@ describe("EÜR submission record (TAX-022, TAX-021, ACC-016)", () => {
     expect(await submit(u, 2025).catch(errorCode)).toBe("filing_blocked");
   });
 
-  test("TAX-022 E-UVA-20 the unverified 2026 table blocks the guide and the submission", async () => {
+  test("TAX-022 E-UVA-20 the 2026 table is verified (BMF 01.09.2026): no mapping banner; lines carry the 2026 Zeilen", async () => {
     const t = makeT();
     await setupBooks(t, { ku: true, chart: "SKR04" });
     const u = await t.asUser("owner");
     const view = await u.query(api.taxes.euer, { year: 2026 });
-    expect(view.sheet.verified).toBe(false);
-    expect(view.guide.blocked).toBe(true);
-    expect(view.blockers).toContain(
-      "Zeilen gegen amtlichen Vordruck prüfen – die Zuordnung für 2026 ist noch nicht geprüft.",
-    );
+    expect(view.sheet.verified).toBe(true);
+    expect(view.sheet.mappingVersion).toBe("euer-2026.1");
+    expect(view.blockers.join(" ")).not.toContain("Zeilen gegen amtlichen Vordruck prüfen");
+    expect(view.sheet.lines.find((l) => l.kz === "100")?.zeile).toBe(29);
   });
 });
 

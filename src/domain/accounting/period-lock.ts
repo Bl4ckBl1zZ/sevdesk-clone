@@ -193,3 +193,56 @@ export function lockChecklist(input: LockChecklistInput): LockChecklist {
 /** The irreversible confirmation text of the lock dialog (F08 §6 /buchhaltung/festschreibung). */
 export const LOCK_CONFIRM_TEXT =
   "Festschreiben kann nicht rückgängig gemacht werden. Korrekturen sind danach nur per Gegenbuchung möglich.";
+
+// ── ACC-018 lock suggestion ─────────────────────────────────────────────────────────────────────────────
+
+export interface LockSuggestion {
+  /** Open months whose suggested lock date (end of M+1) has passed. */
+  overdue: string[];
+  /** The month to lock now (latest overdue month; earlier open months are locked with it, ACC-016). */
+  suggestedTarget: string | null;
+  /** The previous month: to be locked by the end of the current month. */
+  dueSoon: { period: string; by: string } | null;
+  /** `deadlines.notify` text when an open month is older than 2 months, else null. */
+  reminder: string | null;
+}
+
+const lastDayOf = (p: string): string => {
+  const y = Number(p.slice(0, 4));
+  const m = Number(p.slice(5, 7));
+  return `${p}-${String(new Date(Date.UTC(y, m, 0)).getUTCDate()).padStart(2, "0")}`;
+};
+const prevMonthOf = (p: string): string => {
+  const y = Number(p.slice(0, 4));
+  const m = Number(p.slice(5, 7));
+  return m === 1 ? `${y - 1}-12` : `${y}-${String(m - 1).padStart(2, "0")}`;
+};
+
+/**
+ * ACC-018 (sevdesk advice, GOBD-06): lock month M by the end of month M+1 (or right after the UStVA, which locks
+ * automatically); a reminder is due once an open month is older than 2 months. `firstMonth` = the first month with
+ * bookings (Buchungsbeginn); earlier months are ignored.
+ */
+export function lockSuggestion(input: {
+  periods: readonly { period: string; status: PeriodStatus }[];
+  today: string;
+  firstMonth: string;
+}): LockSuggestion {
+  const status = new Map(input.periods.map((p) => [p.period, p.status]));
+  const current = input.today.slice(0, 7);
+  const previous = prevMonthOf(current);
+  const open = (p: string) => (status.get(p) ?? "open") === "open";
+  const overdue = monthsBetween(input.firstMonth, prevMonthOf(previous)).filter(open);
+  const stale = monthsBetween(input.firstMonth, prevMonthOf(prevMonthOf(previous))).filter(open);
+  return {
+    overdue,
+    suggestedTarget: overdue.at(-1) ?? null,
+    dueSoon: previous >= input.firstMonth && open(previous) ? { period: previous, by: lastDayOf(current) } : null,
+    reminder:
+      stale.length > 0
+        ? `Festschreibung empfohlen: ${formatMonth(stale[0] as string)}${
+            stale.length > 1 ? ` bis ${formatMonth(stale.at(-1) as string)} sind` : " ist"
+          } seit mehr als zwei Monaten nicht festgeschrieben.`
+        : null,
+  };
+}

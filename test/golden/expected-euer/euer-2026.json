@@ -1,7 +1,7 @@
 {
   "year": 2026,
-  "mappingVersion": "euer-2026.0",
-  "verified": false,
+  "mappingVersion": "euer-2026.1",
+  "verified": true,
   "lines": [
     {
       "zeile": 15,
@@ -16,43 +16,43 @@
       "cents": 120860
     },
     {
-      "zeile": 33,
+      "zeile": 34,
       "kz": "130",
       "label": "AfA auf bewegliche Wirtschaftsgüter",
       "cents": 9000
     },
     {
-      "zeile": 51,
+      "zeile": 52,
       "kz": "229",
       "label": "Arbeitsmittel (z. B. Bürobedarf, Porto, Fachliteratur)",
       "cents": 15000
     },
     {
-      "zeile": 57,
+      "zeile": 58,
       "kz": "185",
       "label": "Gezahlte und nach § 15 UStG abziehbare Vorsteuerbeträge",
       "cents": 25050
     },
     {
-      "zeile": 58,
+      "zeile": 59,
       "kz": "186",
       "label": "An das Finanzamt gezahlte und ggf. verrechnete Umsatzsteuer",
       "cents": 110000
     },
     {
-      "zeile": 67,
+      "zeile": 68,
       "kz": "168",
       "label": "Sonstige beschränkt abziehbare Betriebsausgaben – nicht abziehbar (u. a. Gewerbesteuer)",
       "cents": 30000
     },
     {
-      "zeile": 106,
+      "zeile": 107,
       "kz": "122",
       "label": "Entnahmen einschließlich Sach-, Leistungs- und Nutzungsentnahmen",
       "cents": 100000
     },
     {
-      "zeile": 107,
+      "zeile": 108,
       "kz": "123",
       "label": "Einlagen einschließlich Sach-, Leistungs- und Nutzungseinlagen",
       "cents": 5350

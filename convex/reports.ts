@@ -1,12 +1,13 @@
 import { v } from "convex/values";
-import { actorMutation, query, systemQuery } from "./functions";
+import { actorMutation, mutation, query, systemQuery } from "./functions";
 import { auditorScopedDb } from "./lib/auditorScope";
 import { appendAudit } from "./model/audit";
 import { getCompanyProfile } from "./model/companyProfile";
-import { forecastView } from "./model/forecast";
+import { forecastView, plannedItems, removePlannedItem, savePlannedItem } from "./model/forecast";
 import { kpiView } from "./model/kpis";
 import { bwaView, ledgerView, oposView, revenueView, susaView } from "./model/reports";
 import { taxReserveView } from "./model/taxReserve";
+import { verprobungView } from "./model/verprobung";
 
 /**
  * Auswertungen (F08 §6 /auswertungen; RPT-001, RPT-003…RPT-007): SuSa, Kontenblatt, BWA-light, Offene Posten as of a
@@ -70,6 +71,13 @@ export const revenue = query({
   handler: async (ctx, a) => revenueView(ctx, a, ctx.now()),
 });
 
+/** RPT-009 USt-Verprobung: booked VAT per rate vs. bases × rate, differences per document. */
+export const verprobung = query({
+  permission: "reports.read",
+  args: range,
+  handler: async (ctx, a) => verprobungView(ctx, a, ctx.now()),
+});
+
 /**
  * RPT-010/011 tax reserve estimate of a year: always `estimate: true` with the disclaimer „Schätzung – keine
  * Steuerberatung“, assumptions and inputs. Optional overrides (REST query / MCP arguments) are not saved.
@@ -92,6 +100,50 @@ export const forecast = query({
   permission: "reports.read",
   args: { thresholdCents: v.optional(v.number()) },
   handler: async (ctx, a) => forecastView(ctx, ctx.now(), a),
+});
+
+const vRecurrence = v.union(
+  v.literal("once"),
+  v.literal("P7D"),
+  v.literal("P14D"),
+  v.literal("P1M"),
+  v.literal("P2M"),
+  v.literal("P3M"),
+  v.literal("P6M"),
+  v.literal("P1Y"),
+  v.literal("P2Y"),
+  v.literal("P3Y"),
+  v.literal("P4Y"),
+  v.literal("P5Y"),
+);
+
+/** RPT-013 the planned items of the Liquiditätsvorschau (one-off or recurring). */
+export const plannedCashItems = query({
+  permission: "reports.read",
+  args: {},
+  handler: async (ctx) => plannedItems(ctx),
+});
+
+/** RPT-013 add or edit a planned item (not bookkeeping data; audited). */
+export const savePlannedCashItem = mutation({
+  permission: "accounting.write",
+  args: {
+    id: v.optional(v.id("plannedCashItems")),
+    label: v.string(),
+    amountCents: v.number(),
+    date: v.string(),
+    recurrence: vRecurrence,
+    endDate: v.optional(v.string()),
+    confidence: v.union(v.literal("high"), v.literal("medium"), v.literal("low")),
+  },
+  handler: async (ctx, a) => savePlannedItem(ctx, a),
+});
+
+/** RPT-013 remove a planned item (audited). */
+export const removePlannedCashItem = mutation({
+  permission: "accounting.write",
+  args: { id: v.id("plannedCashItems") },
+  handler: async (ctx, { id }) => removePlannedItem(ctx, id),
 });
 
 /** RPT-002 dashboard KPIs of a period (month / quarter / year to date or custom). */

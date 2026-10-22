@@ -13,6 +13,7 @@ import {
   monthsOfFilingPeriod,
   sheetHash,
   sheetValues,
+  submittedPeriodNotices,
   type TaxJournalEntry,
 } from "./ustva";
 
@@ -258,7 +259,7 @@ describe("UStVA computation (TAX-003, TAX-004, TAX-011)", () => {
     expect(nov.totalCents).toBe(9500);
   });
 
-  test("TST-TAX-09 EC-173 Soll advance paid in Oct → Oct Kz 81; the Schlussrechnung in Nov declares only the remainder", () => {
+  test("TST-TAX-09 EC-173 E-TAX-05 Soll advance paid in Oct → Oct Kz 81; the Schlussrechnung in Nov declares only the remainder", () => {
     const advance = post({
       kind: "advance_payment_received",
       paymentId: "adv",
@@ -355,5 +356,204 @@ describe("UStVA computation (TAX-003, TAX-004, TAX-011)", () => {
     expect(s.notices).toContain(
       "Die Ausfüllhilfe für Umsatzsteuer-Voranmeldung 2027 ist noch nicht gegen das amtliche Formular geprüft. Bitte Update einspielen.",
     );
+  });
+});
+
+describe("F08 §5.2/§5.3 tax timing and form edge cases", () => {
+  const istPay = (
+    id: string,
+    date: string,
+    amountCents: number,
+    before: number,
+    over: Record<string, unknown> = {},
+  ): BusinessEvent =>
+    ({
+      kind: "payment_received",
+      paymentId: id,
+      date,
+      means: { kind: "cash" },
+      amountCents,
+      target: { kind: "salesDocument", id: "i1", number: "RE-i1" },
+      contactId: "c1",
+      ist: { notDueVat: [{ rateBp: 1900, vatCents: 19000 }], payableCents: 119000, settledBeforeCents: before },
+      ...over,
+    }) as BusinessEvent;
+
+  test("E-TAX-04 Ist overpayment: only the allocated amount is VAT-relevant; the excess is a credit balance without VAT", () => {
+    const inv = post(invoice("i1", "2026-03-10", [{ rateBp: 1900, net: 100000, vat: 19000 }]), "ist");
+    const paid = post(istPay("p1", "2026-04-02", 119000, 0), "ist");
+    // the 100 € excess of the same transfer goes to the customer's credit (P6), no Ist basis
+    const credit = post(
+      {
+        kind: "payment_received",
+        paymentId: "p1-credit",
+        date: "2026-04-02",
+        means: { kind: "cash" },
+        amountCents: 10000,
+        target: { kind: "contactCredit", id: "c1" },
+        contactId: "c1",
+      },
+      "ist",
+    );
+    expect(credit.lines.some((l) => l.role?.startsWith("vat."))).toBe(false);
+    const april = sheet([inv, paid, credit], "2026-04");
+    expect(field(april, "81")).toMatchObject({ valueCents: 100000, bookedTaxCents: 19000 });
+    expect(april.totalCents).toBe(19000);
+  });
+
+  test("E-TAX-06 UST-41 advance paid at 19 %, supply after the rate fell to 7 % (restaurant food 2026-01-01): the final declares the new rate and corrects the advance VAT in its own period", () => {
+    const advance = post({
+      kind: "advance_payment_received",
+      paymentId: "adv",
+      date: "2025-12-05",
+      means: { kind: "cash" },
+      amountCents: 119000,
+      advance: {
+        documentId: "a1",
+        number: "AR-1",
+        vatGroups: [{ rateBp: 1900, netCents: 100000, vatCents: 19000 }],
+        payableCents: 119000,
+        settledBeforeCents: 0,
+      },
+      contactId: "c1",
+    });
+    const final = post({
+      ...invoice("f1", "2026-01-15", [{ rateBp: 700, net: 300000, vat: 21000 }]),
+      documentType: "final_invoice",
+      advanceDeductions: [{ advanceDocumentId: "a1", rateBp: 1900, netCents: 100000, vatCents: 19000 }],
+    } as BusinessEvent);
+    const c = [advance, final].flatMap((e) => entryContributions(e, M));
+    const of = (p: string) =>
+      computeUstva(
+        p,
+        c.filter((x) => filingPeriodOf(x.taxPointDate, "monthly") === p),
+        M,
+        { ku: false },
+      );
+    const dec = of("2025-12");
+    expect(sheetValues(dec)).toMatchObject({ "81": 100000 });
+    expect(dec.totalCents).toBe(19000);
+    const jan = of("2026-01");
+    // the whole supply at 7 % (Kz 86), the 19 % advance reversed in Kz 81 of the final's period
+    expect(sheetValues(jan)).toMatchObject({ "86": 300000, "81": -100000 });
+    expect(field(jan, "86")?.bookedTaxCents).toBe(21000);
+    expect(field(jan, "81")?.bookedTaxCents).toBe(-19000);
+    expect(jan.totalCents).toBe(21000 - 19000);
+  });
+
+  test("E-TAX-07 TST-ACC-15 EC-115 Soll → Ist on 2027-01-01: a 2026 Soll invoice paid in Feb 2027 is not declared again", () => {
+    const inv = post(invoice("i1", "2026-12-10", [{ rateBp: 1900, net: 100000, vat: 19000 }]), "soll");
+    // finalised under Soll → no „nicht fällig“ VAT → the 2027 payment carries no Ist basis
+    expect(inv.lines.some((l) => l.role?.startsWith("vat.output.notdue"))).toBe(false);
+    const paid = post(istPay("p1", "2027-02-03", 119000, 0, { ist: undefined }), "ist");
+    expect(paid.lines.some((l) => l.role?.startsWith("vat."))).toBe(false);
+    const c = [inv, paid].flatMap((e) => entryContributions(e, M));
+    expect(c.filter((x) => x.taxPointDate.startsWith("2027"))).toEqual([]);
+    expect(c.filter((x) => x.taxPointDate === "2026-12-10").map((x) => [x.kz, x.part, x.cents])).toEqual([
+      ["81", "base", 100000],
+      ["81", "tax", 19000],
+    ]);
+  });
+
+  test("E-TAX-12 write-off of an Ist invoice: no UStVA effect, the „nicht fällig“ VAT is cleared", () => {
+    const inv = post(invoice("i1", "2026-03-10", [{ rateBp: 1900, net: 100000, vat: 19000 }]), "ist");
+    const wo = post(
+      istPay("wo", "2026-06-20", 0, 0, {
+        means: { kind: "none" },
+        differences: [
+          {
+            reason: "write_off",
+            amountCents: 119000,
+            vatCorrection: [{ rateBp: 1900, netCents: 100000, vatCents: 19000 }],
+          },
+        ],
+      }),
+      "ist",
+    );
+    const notdue = [inv, wo]
+      .flatMap((e) => e.lines)
+      .filter((l) => l.role === "vat.output.notdue.19")
+      .reduce((s, l) => s + l.creditCents - l.debitCents, 0);
+    expect(notdue).toBe(0);
+    for (const month of ["2026-03", "2026-06"]) expect(sheetValues(sheet([inv, wo], month))).toEqual({ "83": 0 });
+  });
+
+  test("E-UVA-16 TAX-004 tiny amounts: the base truncates to 0 € while VAT > 0 — both shown, Kz 83 per form arithmetic", () => {
+    const s = sheet([post(invoice("t", "2026-09-10", [{ rateBp: 1900, net: 40, vat: 8 }]))], "2026-09");
+    expect(field(s, "81")).toMatchObject({ valueCents: 0, exactCents: 40, formTaxCents: 0, bookedTaxCents: 8 });
+    expect(field(s, "81")?.differenceCents).toBe(-8);
+    expect(s.totalCents).toBe(0);
+    expect(field(s, "83")?.valueCents).toBe(0);
+    expect(elsterCopyString("total", s.totalCents)).toBe("0,00");
+  });
+
+  test("E-UVA-17 negative Kz 81 (more credits than sales) is allowed and copied with a leading minus", () => {
+    const original = post(invoice("x", "2026-09-28", [{ rateBp: 1900, net: 50000, vat: 9500 }]));
+    const storno = asEntry(
+      reversalPosting(
+        {
+          kind: "invoice_cancelled",
+          documentId: "st",
+          documentNumber: "ST-1",
+          originalDocumentId: "x",
+          date: "2026-10-03",
+        },
+        { lines: original.lines.map((l) => ({ ...l })) as RoleLine[], text: original.text },
+        ctxOf(),
+      ),
+    );
+    const small = post(invoice("y", "2026-10-05", [{ rateBp: 1900, net: 10000, vat: 1900 }]));
+    const oct = sheet([original, storno, small], "2026-10");
+    expect(field(oct, "81")).toMatchObject({ valueCents: -40000, formTaxCents: -7600 });
+    expect(oct.totalCents).toBe(-7600);
+    expect(elsterCopyString("base_computed", -40000)).toBe("-400");
+    expect(elsterCopyString("total", oct.totalCents)).toBe("-76,00");
+  });
+
+  test("E-UVA-04 E-UVA-06 a submitted period offers only a berichtigte Voranmeldung; a prior-year period warns about the annual return", () => {
+    expect(
+      submittedPeriodNotices({ submitted: false, periodLabel: "09/2026", period: "2026-09", today: "2026-10-20" }),
+    ).toEqual([]);
+    expect(
+      submittedPeriodNotices({ submitted: true, periodLabel: "09/2026", period: "2026-09", today: "2026-10-20" }),
+    ).toEqual([
+      "Für 09/2026 wurde bereits eine Voranmeldung übermittelt. Bitte eine berichtigte Voranmeldung erstellen.",
+    ]);
+    expect(
+      submittedPeriodNotices({ submitted: true, periodLabel: "Q4/2025", period: "2025-Q4", today: "2026-10-20" }),
+    ).toEqual([
+      "Für Q4/2025 wurde bereits eine Voranmeldung übermittelt. Bitte eine berichtigte Voranmeldung erstellen.",
+      "Für 2025 ist die Jahreserklärung bereits abgegeben? Dann bitte keine berichtigte Voranmeldung, sondern eine berichtigte Umsatzsteuer-Jahreserklärung in Mein ELSTER übermitteln (Arbeitsblatt USt-Jahreserklärung).",
+    ]);
+  });
+
+  test("E-TAX-23 MISC-08 a foreign-currency invoice paid at a different rate: FX difference to FX gain/loss, VAT stays at the invoice's EUR VAT", () => {
+    // USD invoice booked at the invoice-date rate: 1,000 € net + 190 € VAT; the customer's payment yields 1,170 €
+    const fxPay = (method: "soll" | "ist") =>
+      post(
+        {
+          kind: "payment_received",
+          paymentId: `fx-${method}`,
+          date: "2026-05-04",
+          means: { kind: "bank_account", bankAccountId: "bank1" },
+          amountCents: 117000,
+          target: { kind: "salesDocument", id: "usd1", number: "RE-usd1" },
+          contactId: "c1",
+          differences: [{ reason: "fx_difference", amountCents: 2000 }],
+          ...(method === "ist"
+            ? { ist: { notDueVat: [{ rateBp: 1900, vatCents: 19000 }], payableCents: 119000, settledBeforeCents: 0 } }
+            : {}),
+        } as BusinessEvent,
+        method,
+      );
+    const soll = fxPay("soll");
+    expect(soll.lines.filter((l) => l.role === "expense.fx_loss").map((l) => l.debitCents)).toEqual([2000]);
+    expect(soll.lines.some((l) => l.role?.startsWith("vat."))).toBe(false);
+    expect(sheetValues(sheet([soll], "2026-05"))).toEqual({ "83": 0 });
+    // Ist: the whole invoice VAT (190 €) becomes due — the FX loss does not reduce the tax base
+    const inv = post(invoice("usd1", "2026-04-10", [{ rateBp: 1900, net: 100000, vat: 19000 }]), "ist");
+    const ist = fxPay("ist");
+    const may = sheet([inv, ist], "2026-05");
+    expect(field(may, "81")).toMatchObject({ valueCents: 100000, bookedTaxCents: 19000 });
   });
 });
