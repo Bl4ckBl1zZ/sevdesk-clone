@@ -309,10 +309,13 @@ export function validateDocument(
       ),
     );
   }
-  // EC-DOC-15: blocked for invoice, final invoice and correction; advance/partial/quote/proforma/order may lie ahead.
+  // EC-DOC-15: blocked for invoice, final invoice and correction; advance/partial/quote/proforma/order may lie ahead
+  // — and so may the correction of an advance/partial, which keeps the advance's expected supply date.
+  const originalType = ctx.relations?.original?.type;
+  const correctsAdvance = originalType === "advance_invoice" || originalType === "partial_invoice";
   if (
     range &&
-    (draft.type === "invoice" || draft.type === "final_invoice" || draft.type === "correction") &&
+    (draft.type === "invoice" || draft.type === "final_invoice" || (draft.type === "correction" && !correctsAdvance)) &&
     range.from > docDate
   ) {
     push(

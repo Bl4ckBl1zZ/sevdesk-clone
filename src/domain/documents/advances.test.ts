@@ -62,7 +62,7 @@ describe("advance amounts from an order (F04 App. E.5)", () => {
     ]);
   });
 
-  test("UST-40 EC-078 T-EC-061 advances of 60 % and 50 % → partial_exceeds_order on the second", () => {
+  test("UST-40 EC-078 EC-DOC-61 T-EC-061 advances of 60 % and 50 % → partial_exceeds_order on the second", () => {
     const first = advanceGroups(ORDER, { kind: "percent", bp: 6000 });
     expect(partialExceedsOrder(ORDER, [], first)).toEqual([]);
     const second = advanceGroups(ORDER, { kind: "percent", bp: 5000 });
@@ -88,7 +88,7 @@ describe("final invoice deductions (F04 App. E.4, UST-41, RI-08)", () => {
     });
   });
 
-  test("UST-32 T-EC-059 case D: a Skonto difference on the advance reduces the deduction per rate", () => {
+  test("UST-32 EC-DOC-59 T-EC-059 case D: a Skonto difference on the advance reduces the deduction per rate", () => {
     const d = deductionOf(advance({ groups: [g(1900, 300_000, 57_000)], differences: [g(1900, 6000, 1140)] }));
     expect(d.byGroup).toEqual([
       { category: "S", rateBp: 1900, netCents: 294_000, vatCents: 55_860, grossCents: 349_860 },
@@ -96,7 +96,7 @@ describe("final invoice deductions (F04 App. E.4, UST-41, RI-08)", () => {
     expect(d.deductedGrossCents).toBe(349_860);
   });
 
-  test("EC-071 T-EC-056 case E: an advance reduced by its Rechnungskorrektur is deducted with the received amount", () => {
+  test("EC-071 EC-DOC-56 T-EC-056 case E: an advance reduced by its Rechnungskorrektur is deducted with the received amount", () => {
     const corr = remainderCorrectionGroups([g(1900, 300_000, 57_000)], 178_500);
     expect(corr).toEqual([g(1900, -150_000, -28_500)]);
     const d = deductionOf(advance({ groups: [g(1900, 300_000, 57_000)], corrections: corr }));
@@ -129,15 +129,15 @@ describe("final invoice deductions (F04 App. E.4, UST-41, RI-08)", () => {
     );
   });
 
-  test("INV-08 EC-073 T-EC-020 case B: final at 7 % deducts the 19 % advance; tax effect 7 %: +1.000/+70, 19 %: −1.000/−190", () => {
+  test("INV-08 EC-073 EC-DOC-20 T-EC-020 case B: final at 7 % deducts the 19 % advance; tax effect 7 %: +1.000/+70, 19 %: −1.000/−190", () => {
     const deductions = finalDeductions({
       advances: [advance({ groups: [g(1900, 100_000, 19_000)], date: "2025-11-20", paidOn: "2025-11-28" })],
     });
     expect(deductions.map((d) => d.deductedGrossCents)).toEqual([119_000]);
-    expect(finalTaxEffect([g(700, 100_000, 7000)], deductions)).toEqual([
-      g(1900, -100_000, -19_000),
-      g(700, 100_000, 7000),
-    ]);
+    const effect = finalTaxEffect([g(700, 100_000, 7000)], deductions);
+    expect(effect).toEqual([g(1900, -100_000, -19_000), g(700, 100_000, 7000)]);
+    // golden G-14: VAT remainder of the final invoice −120,00 €
+    expect(effect.reduce((a, x) => a + x.vatCents, 0)).toBe(-12_000);
   });
 
   test("UST-41 T-EC-057 a cancelled advance is not deducted; INV-06 case C two advances", () => {
@@ -161,7 +161,7 @@ describe("final-invoice preconditions (F04 INV-07, §5.1.6)", () => {
     expect(codes([advance()])).toEqual([]);
   });
 
-  test("UST-41 EC-070 T-EC-055 an unpaid advance blocks the final with advance_not_settled (no 'nicht abziehen')", () => {
+  test("UST-41 EC-070 EC-DOC-55 T-EC-055 an unpaid advance blocks the final with advance_not_settled (no 'nicht abziehen')", () => {
     const f = finalChainFindings(FINAL, { advances: [advance({ openCents: 357_000 })] });
     expect(f.map((x) => x.code)).toEqual(["advance_not_settled"]);
     expect(f[0]?.severity).toBe("E");
@@ -170,7 +170,7 @@ describe("final-invoice preconditions (F04 INV-07, §5.1.6)", () => {
     );
   });
 
-  test("UST-41 EC-071 a partially paid advance blocks the final and names the received amount", () => {
+  test("UST-41 EC-071 EC-DOC-56 a partially paid advance blocks the final and names the received amount", () => {
     const f = finalChainFindings(FINAL, { advances: [advance({ openCents: 178_500 })] });
     expect(f[0]?.params).toMatchObject({ number: "RE-2026-0010", open: 178_500, received: 178_500 });
   });

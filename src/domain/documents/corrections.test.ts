@@ -36,7 +36,7 @@ describe("Storno guards (F04 INV-10/INV-11, §5.1.6)", () => {
     expect(cancellationGuard({ ...invoice, status: "sent" })).toBeNull();
   });
 
-  test("UST-30 EC-074 T-EC-062 a (partially) paid invoice → storno_paid_invoice with both legal paths", () => {
+  test("UST-30 EC-074 EC-DOC-62 T-EC-062 a (partially) paid invoice → storno_paid_invoice with both legal paths", () => {
     const e = cancellationGuard({ ...invoice, hasPayments: true });
     expect(e?.code).toBe("storno_paid_invoice");
     expect(e?.message).toBe(
@@ -44,14 +44,14 @@ describe("Storno guards (F04 INV-10/INV-11, §5.1.6)", () => {
     );
   });
 
-  test("UST-30 EC-075 T-EC-063 a Storno cannot be cancelled; already cancelled → already_cancelled", () => {
+  test("UST-30 EC-075 EC-DOC-63 T-EC-063 a Storno cannot be cancelled; already cancelled → already_cancelled", () => {
     expect(cancellationGuard({ ...invoice, type: "cancellation" })?.code).toBe("storno_of_storno");
     expect(cancellationGuard({ ...invoice, status: "cancelled", cancelledBy: "RE-2026-0050" })?.message).toBe(
       "Rechnung RE-2026-0042 wurde bereits durch RE-2026-0050 storniert.",
     );
   });
 
-  test("UST-41 EC-072 T-EC-058 an advance deducted in a non-cancelled final → storno_advance_deducted", () => {
+  test("UST-41 EC-072 EC-DOC-58 T-EC-058 an advance deducted in a non-cancelled final → storno_advance_deducted", () => {
     const e = cancellationGuard({ ...invoice, type: "advance_invoice", deductedIn: "RE-2026-0060" });
     expect(e?.code).toBe("storno_advance_deducted");
     expect(e?.message).toContain("Schlussrechnung RE-2026-0060");
@@ -69,7 +69,7 @@ describe("Storno guards (F04 INV-10/INV-11, §5.1.6)", () => {
     expect(cancellationGuard({ ...corr, correctionKind: "rectification" })?.code).toBe("illegal_transition");
   });
 
-  test("UST-30 T-EC-064 T-EC-066 correction targets: invoice family only, never a correction, cancelled → already_cancelled", () => {
+  test("UST-30 EC-DOC-66 T-EC-064 T-EC-066 correction targets: invoice family only, never a correction, cancelled → already_cancelled", () => {
     expect(correctionTargetGuard(invoice)).toBeNull();
     expect(correctionTargetGuard({ ...invoice, type: "final_invoice" })).toBeNull();
     expect(correctionTargetGuard({ ...invoice, type: "correction" })?.code).toBe("correction_target_invalid");
@@ -169,7 +169,7 @@ describe("Rechnungskorrektur (INV-12, RI-07)", () => {
     expect(creditDeltaLines(lines, []).map((l) => l.quantityMilli)).toEqual([-10_000, -1000]);
   });
 
-  test("UST-30 RI-07 T-EC-065 remaining 238,00 and a credit of 300,00 → correction_exceeds_original", () => {
+  test("UST-30 RI-07 EC-DOC-65 T-EC-065 remaining 238,00 and a credit of 300,00 → correction_exceeds_original", () => {
     const original = [g(1900, 100_000, 19_000)];
     const earlier = [g(1900, -80_000, -15_200)];
     expect(creditCapFindings(original, [earlier], [g(1900, -20_000, -3800)])).toEqual([]);
@@ -229,7 +229,7 @@ describe("Rechnungskorrektur (INV-12, RI-07)", () => {
 });
 
 describe("Rechnungsberichtigung (INV-13, UST-31)", () => {
-  test("UST-31 EC-081 T-EC-067 changed amounts → rectification_amount_changed; nothing changed → rectification_no_change", () => {
+  test("UST-31 EC-081 EC-DOC-67 T-EC-067 changed amounts → rectification_amount_changed; nothing changed → rectification_no_change", () => {
     const groups = [g(1900, 100_000, 19_000)];
     expect(rectificationFindings(groups, groups, ["buyer.address"])).toEqual([]);
     expect(rectificationFindings(groups, [g(1900, 100_100, 19_019)], ["buyer.address"]).map((f) => f.code)).toEqual([

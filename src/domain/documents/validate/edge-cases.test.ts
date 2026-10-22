@@ -129,6 +129,11 @@ describe("F04 §5.2 dates (EC-DOC-13…18)", () => {
     for (const type of ["advance_invoice", "partial_invoice", "quote", "proforma", "order_confirmation"] as const) {
       expect(codes(makeDraft({ type, ...future })), type).not.toContain("supply_date_in_future");
     }
+    // the correction of an advance keeps the advance's expected supply date
+    const ofAdvance = makeContext({ relations: { original: { ...ORIGINAL, type: "advance_invoice" } } });
+    expect(codes(makeDraft({ type: "correction", correctionKind: "credit", ...future }), ofAdvance)).not.toContain(
+      "supply_date_in_future",
+    );
     // a period that starts on or before the date and ends later is info only
     const running = makeDraft({ supplyDate: { kind: "period", from: "2026-10-01", to: "2026-10-31" } });
     expect(severityOf("supply_period_ends_after_date", running)).toBe("I");
