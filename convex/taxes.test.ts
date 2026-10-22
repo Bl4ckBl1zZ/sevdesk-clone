@@ -1,6 +1,8 @@
 import { describe, expect, test } from "vitest";
+import type { BusinessEvent } from "../src/domain/accounting/events";
 import { berlinCalendarDate } from "../src/domain/time/berlin";
 import { api } from "./_generated/api";
+import type { Id } from "./_generated/dataModel";
 import { invoiceEvent, OWNER, post, setupBooks } from "./bookkeeping.fixtures";
 import { errorCode } from "./lib/errors";
 import { auditedInsert } from "./model/audit";
@@ -19,6 +21,49 @@ describe("deadline notifications (TAX-019)", () => {
     const ustva = rows.filter((r) => r.kind === "deadline.ustva");
     expect(ustva.map((r) => [r.title, r.count])).toEqual([["UStVA 09/2026 – fällig am 12.10.2026", 2]]);
   });
+});
+
+/** An EU business customer with a USt-IdNr (ZM rows, E-UVA-12…14). */
+function euCustomer(t: TestT, n: string, name: string, vatId: string) {
+  return t.model(OWNER, (ctx) =>
+    auditedInsert(
+      ctx,
+      "contacts",
+      {
+        kind: "organization",
+        number: n,
+        numberNormalized: n,
+        roles: ["customer"],
+        status: "active",
+        organizationName: name,
+        displayName: name,
+        searchText: name.toLowerCase(),
+        isConsumer: false,
+        isPublicAuthority: false,
+        vatId,
+        reverseCharge13bCertificates: [],
+        einvoice: { preferredFormat: "auto", pdfConsents: [] },
+        language: "en",
+        currency: "EUR",
+        tags: [],
+        customFields: {},
+        version: 1,
+      } as never,
+      { action: "contact.create" },
+    ),
+  );
+}
+
+const igl = (id: string, contactId: string, date: string, netCents: number, supply = date): BusinessEvent => ({
+  kind: "invoice_finalised",
+  documentId: id,
+  documentNumber: `RE-${id}`,
+  documentType: "invoice",
+  date,
+  supplyDate: { kind: "date", date: supply },
+  taxCase: "intra_community_supply",
+  contactId,
+  vatGroups: [{ category: "K", rateBp: 0, netCents, vatCents: 0 }],
 });
 
 const SEP = "2026-09";
@@ -332,6 +377,145 @@ describe("UStVA submission records (TAX-006, TAX-007, TAX-021)", () => {
     expect(r.kind).toBe("zm");
     const periods = await t.run((ctx) => ctx.db.query("periods").collect());
     expect(periods.filter((p) => p.reason === "zm_submitted").map((p) => p.period)).toEqual(monthsTo(9));
+  });
+
+  test("TAX-010 E-UVA-13 ZM Σ L differs from Kz 41 (per-row truncation) → warning; recording needs a reason, which is stored", async () => {
+    const t = makeT();
+    await setupBooks(t, { period: "quarterly" });
+    const fr = await euCustomer(t, "10001", "Client SARL", "FR12345678901");
+    const it = await euCustomer(t, "10002", "Cliente SRL", "IT12345678901");
+    for (const [id, contactId] of [
+      ["ig1", fr],
+      ["ig2", it],
+    ] as const) {
+      await post(t, {
+        kind: "invoice_finalised",
+        documentId: id,
+        documentNumber: `RE-${id}`,
+        documentType: "invoice",
+        date: "2026-08-14",
+        supplyDate: { kind: "date", date: "2026-08-14" },
+        taxCase: "intra_community_supply",
+        contactId,
+        vatGroups: [{ category: "K", rateBp: 0, netCents: 10060, vatCents: 0 }],
+      });
+    }
+    const u = await owner(t);
+    const view = await u.query(api.taxes.zm, { period: "2026-Q3" });
+    // ZM: 100 € + 100 € (each row truncated); UStVA Kz 41: 201.20 € → 201 €
+    expect(view.zm.totalsByType.L).toBe(200);
+    expect(view.reconciliation).toEqual(["ZM-Summe (200 €) weicht von UStVA Kz 41 (201 €) ab."]);
+    const args = {
+      form: "zm" as const,
+      period: "2026-Q3",
+      submittedOn: "2026-10-12",
+      transferTicket: "zm-ticket-1",
+      crossCheckCents: 20000,
+      sheetHash: view.guide.sheetHash,
+    };
+    const blocked = await u.mutation(api.taxes.recordFilingSubmission, args).catch((e: unknown) => e);
+    expect(errorCode(blocked)).toBe("filing_blocked");
+    expect((blocked as { data: { message: string } }).data.message).toContain(
+      "ZM-Summe (200 €) weicht von UStVA Kz 41 (201 €) ab.",
+    );
+    const r = await u.mutation(api.taxes.recordFilingSubmission, {
+      ...args,
+      reconciliationOverrideReason: "Rundung je USt-IdNr in der ZM",
+    });
+    expect(r.kind).toBe("zm");
+    const filing = await t.run((ctx) => ctx.db.query("taxFilings").first());
+    expect(filing?.reconciliationOverrideReason).toBe("Rundung je USt-IdNr in der ZM");
+  });
+
+  test("E-UVA-12 a ZM row whose USt-IdNr has no qualified confirmation warns; a qualified eVatR check clears it", async () => {
+    const t = makeT();
+    await setupBooks(t, { period: "quarterly" });
+    const fr = await euCustomer(t, "10001", "Client SARL", "FR12345678901");
+    await post(t, igl("ig1", fr, "2026-08-14", 100000));
+    const u = await owner(t);
+    const warn = "USt-IdNr FR12345678901 nicht qualifiziert bestätigt.";
+    expect((await u.query(api.taxes.zm, { period: "2026-Q3" })).vatIdWarnings).toContain(warn);
+    await t.model(OWNER, (ctx) =>
+      auditedInsert(
+        ctx,
+        "vatIdChecks",
+        {
+          contactId: fr as Id<"contacts">,
+          vatId: "FR12345678901",
+          provider: "bzst_evatr",
+          request: {},
+          response: {},
+          status: "valid",
+          qualified: { name: "A", street: "A", postalCode: "A", city: "A" },
+          checkedAt: Date.now(),
+          retentionUntil: "2036-12-31",
+        },
+        { action: "contact.vat_check" },
+      ),
+    );
+    expect((await u.query(api.taxes.zm, { period: "2026-Q3" })).vatIdWarnings).not.toContain(warn);
+  });
+
+  test("E-UVA-14 TAX-009 ZM correction for an already reported customer/period carries that customer's corrected total in the original period", async () => {
+    const t = makeT();
+    await setupBooks(t, { period: "quarterly" });
+    const fr = await euCustomer(t, "10001", "Client SARL", "FR12345678901");
+    const it = await euCustomer(t, "10002", "Cliente SRL", "IT12345678901");
+    await post(t, igl("ig1", fr, "2026-08-14", 250000));
+    await post(t, igl("ig2", it, "2026-08-20", 100000));
+    const u = await owner(t);
+    const record = async (crossCheckCents: number) => {
+      const view = await u.query(api.taxes.zm, { period: "2026-Q3" });
+      return u.mutation(api.taxes.recordFilingSubmission, {
+        form: "zm",
+        period: "2026-Q3",
+        submittedOn: "2026-10-12",
+        transferTicket: `zm-${crossCheckCents}`,
+        crossCheckCents,
+        sheetHash: view.guide.sheetHash,
+      });
+    };
+    await record(350000);
+    // invoice of 2026-10-02 for an August supply to FR: igL tax point end of September → Q3 (§13 Abs. 1 Nr. 6)
+    await post(t, igl("ig3", fr, "2026-10-02", 40000, "2026-08-25"));
+    const view = await u.query(api.taxes.zm, { period: "2026-Q3" });
+    expect(view.correction).toMatchObject({
+      required: true,
+      deltas: [
+        { kz: "FR12345678901|L", beforeCents: 250000, afterCents: 290000, deltaCents: 40000 },
+        { kz: "sum", beforeCents: 350000, afterCents: 390000, deltaCents: 40000 },
+      ],
+    });
+    expect(view.zm.rows.map((r) => [r.vatId, r.euros])).toEqual([
+      ["FR12345678901", 2900],
+      ["IT12345678901", 1000],
+    ]);
+    const r = await record(390000);
+    expect(r.kind).toBe("zm_correction");
+    const filings = await t.run((ctx) => ctx.db.query("taxFilings").collect());
+    expect(filings.map((f) => [f.kind, f.status])).toEqual([
+      ["zm", "superseded"],
+      ["zm_correction", "submitted_manually"],
+    ]);
+    // complete values for the period: the corrected FR total and the unchanged IT row
+    expect(filings[1]?.zmRows).toEqual([
+      { vatId: "FR12345678901", type: "L", euros: 2900 },
+      { vatId: "IT12345678901", type: "L", euros: 1000 },
+    ]);
+  });
+
+  test("E-UVA-09 E-UVA-08 Dauerfristverlängerung, monthly filer without a recorded Sondervorauszahlung → December warns, Kz 39 stays empty", async () => {
+    const t = makeT();
+    const { customer } = await setupBooks(t, { dauerfrist: true });
+    await post(t, invoiceEvent(customer, "d12", "2026-12-01", 100000));
+    const u = await owner(t);
+    const dec = await u.query(api.taxes.ustva, { period: "2026-12" });
+    expect(dec.sheet?.notices).toContain("Sondervorauszahlung nicht erfasst – Kz 39 bleibt leer.");
+    expect(dec.sheet?.fields.find((f) => f.kz === "39")?.valueCents).toBe(0);
+    expect(dec.sheet?.totalCents).toBe(19000);
+    // only December carries the warning
+    const nov = await u.query(api.taxes.ustva, { period: "2026-11" });
+    expect(nov.sheet?.notices).not.toContain("Sondervorauszahlung nicht erfasst – Kz 39 bleibt leer.");
   });
 
   test("TAX-002 UVA-02 the Sondervorauszahlung is 1/11 of the prior year's Kz 83, recorded without lock and deducted in December (Kz 39)", async () => {

@@ -5634,6 +5634,7 @@
       "protocol": "Übermittlungsprotokoll (PDF, optional)",
       "expected": "Laut dieser Seite: {amount}",
       "differs": "Abweichend übermittelt – Begründung",
+      "reconciliationReason": "Abweichung zur Umsatzsteuer-Voranmeldung – Begründung (Pflicht)",
       "invalidAmount": "Bitte einen gültigen Betrag eingeben.",
       "uploadFailed": "Das Protokoll konnte nicht hochgeladen werden.",
       "done": "Übermittlung gespeichert.",

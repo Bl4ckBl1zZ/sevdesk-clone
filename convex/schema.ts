@@ -1398,6 +1398,8 @@ export default defineSchema({
     elsterReportedTotalCents: v.optional(v.number()),
     submittedValuesDiffer: v.optional(v.boolean()),
     valuesDifferReason: v.optional(v.string()),
+    /** TAX-010 / E-UVA-13: reason given to record a ZM whose Σ L/S differs from the UStVA Kz 41/21. */
+    reconciliationOverrideReason: v.optional(v.string()),
     submittedAt: v.optional(v.number()),
     transmissionTicket: v.optional(v.string()),
     protocolStorageId: v.optional(v.id("_storage")),

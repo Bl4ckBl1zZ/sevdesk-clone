@@ -165,6 +165,8 @@ export const recordFilingSubmission = mutation({
     crossCheckCents: v.number(),
     sheetHash: v.string(),
     valuesDifferReason: v.optional(v.string()),
+    /** TAX-010 / E-UVA-13: ZM only — reason for recording despite a difference to the UStVA Kz 41/21. */
+    reconciliationOverrideReason: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
     if (args.submittedOn > berlinCalendarDate(ctx.now())) {

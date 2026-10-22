@@ -27,6 +27,7 @@ const data: Record<string, unknown> = {
     filings: [],
     blockers: [],
     reconciliation: [],
+    vatIdWarnings: [],
     guide: null,
     csv: "",
     zm: {

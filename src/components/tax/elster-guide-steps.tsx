@@ -210,6 +210,7 @@ export function SubmissionDialog({
   crossCheckLabel,
   expectedCents,
   locks,
+  reconciliation = [],
   onClose,
 }: {
   form: "ustva" | "zm" | "sondervorauszahlung" | "euer";
@@ -218,6 +219,8 @@ export function SubmissionDialog({
   crossCheckLabel: string;
   expectedCents: number;
   locks: boolean;
+  /** ZM (TAX-010, E-UVA-13): differences to the UStVA Kz 41/21 — recording needs a reason. */
+  reconciliation?: readonly string[];
   onClose: () => void;
 }) {
   const t = useTranslations("tax.submission");
@@ -229,6 +232,7 @@ export function SubmissionDialog({
   const [ticket, setTicket] = useState("");
   const [cross, setCross] = useState((expectedCents / 100).toLocaleString("de-DE", { minimumFractionDigits: 2 }));
   const [reason, setReason] = useState("");
+  const [reconReason, setReconReason] = useState("");
   const [file, setFile] = useState<File | null>(null);
   const [busy, setBusy] = useState(false);
   const parsed = parseCents(cross.replace(/^−/, "-"));
@@ -256,6 +260,9 @@ export function SubmissionDialog({
         sheetHash,
         ...(protocolStorageId ? { protocolStorageId } : {}),
         ...(differs && reason.trim() ? { valuesDifferReason: reason.trim() } : {}),
+        ...(reconciliation.length > 0 && reconReason.trim()
+          ? { reconciliationOverrideReason: reconReason.trim() }
+          : {}),
       });
       toast.success(t("done"));
       onClose();
@@ -304,6 +311,17 @@ export function SubmissionDialog({
             <div className="flex flex-col gap-1.5">
               <Label htmlFor={`${base}-reason`}>{t("differs")}</Label>
               <Textarea id={`${base}-reason`} value={reason} onChange={(e) => setReason(e.target.value)} />
+            </div>
+          )}
+          {reconciliation.length > 0 && (
+            <div className="flex flex-col gap-1.5">
+              <ul className="list-disc pl-5 text-sm" role="alert">
+                {reconciliation.map((r) => (
+                  <li key={r}>{r}</li>
+                ))}
+              </ul>
+              <Label htmlFor={`${base}-recon`}>{t("reconciliationReason")}</Label>
+              <Textarea id={`${base}-recon`} value={reconReason} onChange={(e) => setReconReason(e.target.value)} />
             </div>
           )}
         </div>
