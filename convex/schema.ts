@@ -1788,6 +1788,8 @@ export default defineSchema({
     internalNote: v.optional(v.string()),
     /** F11 PRJ-002: the project the document belongs to. */
     projectId: v.optional(v.id("projects")),
+    /** F11 PRJ-014: render a Leistungsnachweis of the billed time entries at finalisation (`timesheet_pdf`). */
+    attachTimesheet: v.optional(v.boolean()),
     /** DOC-53: cost centre of the document (DATEV KOST1 default for its lines). */
     costCenterId: v.optional(v.id("costCenters")),
     /** DOC-18: ≤ 10 attachments, frozen at finalisation (`includeInExport` SND-16, `embedInXml` BG-24). */
@@ -2006,6 +2008,7 @@ export default defineSchema({
       v.literal("xrechnung_xml"),
       v.literal("validation_report_kosit"),
       v.literal("validation_report_mustang"),
+      v.literal("timesheet_pdf"), // F11 PRJ-014 Leistungsnachweis
     ),
     variant: v.optional(v.union(v.literal("original"), v.literal("copy"), v.literal("reading"))),
     storageId: v.id("_storage"),

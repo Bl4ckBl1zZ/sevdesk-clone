@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
 import { emptyProjectForm, emptyTimeEntryForm, type ProjectFormValues } from "../src/domain/schemas/projects";
+import { pdfTextLayer } from "../src/pdf/hybrid";
 import { api, internal } from "./_generated/api";
 import type { Id } from "./_generated/dataModel";
 import { b2bBuyer, consumerBuyer, invoiceValues, settle, setupInvoicing } from "./invoices.fixtures";
@@ -662,5 +663,85 @@ describe("PRJ-018 offline queue", () => {
       endedAt: at(0),
     });
     expect(await owner.query(api.timeEntries.timer, {})).toMatchObject({ deviceId: "desktop", startedAt: at(0) });
+  });
+});
+
+describe("PRJ-014 timesheet (Leistungsnachweis)", () => {
+  test("PRJ-014 TST-PRJ-14 finalising an invoice with the option archives a timesheet_pdf of the frozen entries (SHA-256, invoice retention)", async () => {
+    const t = makeT();
+    const { owner, personId } = await setup(t);
+    const p = await project(owner, personId);
+    const ids = [
+      await logEntry(owner, p, "2026-10-01", "2h", "Workshop Startseite"),
+      await logEntry(owner, p, "2026-10-02", "50m", "Abstimmung Texte"),
+    ];
+    const r = await owner.mutation(api.timeEntries.createInvoice, {
+      values: {
+        entryIds: ids,
+        grouping: "summary",
+        rounding: { incrementMinutes: 15, mode: "up" },
+        attachTimesheet: true,
+      },
+    });
+    expect((await doc(t, r.id)).attachTimesheet).toBe(true);
+    const fin = await owner.action(api.invoices.finalize, { id: r.id, version: (await doc(t, r.id)).version });
+    await settle(t);
+    const d = await doc(t, r.id);
+    const artifacts = await t.run((ctx) =>
+      ctx.db
+        .query("documentArtifacts")
+        .withIndex("by_document", (q) => q.eq("documentId", r.id).eq("kind", "timesheet_pdf"))
+        .collect(),
+    );
+    expect(artifacts).toHaveLength(1);
+    const a = artifacts[0];
+    if (!a) throw new Error("missing artifact");
+    expect(a).toMatchObject({
+      mime: "application/pdf",
+      name: `Leistungsnachweis_${fin.number.replace(/[^A-Za-z0-9._-]/g, "_")}.pdf`,
+      retentionUntil: d.retentionUntil,
+    });
+    const bytes = new Uint8Array(
+      await t.run(async (ctx) => ((await ctx.storage.get(a.storageId)) as Blob).arrayBuffer()),
+    );
+    const digest = await crypto.subtle.digest("SHA-256", bytes);
+    expect(Array.from(new Uint8Array(digest), (b) => b.toString(16).padStart(2, "0")).join("")).toBe(a.sha256);
+    expect(a.bytes).toBe(bytes.length);
+    const text = (await pdfTextLayer(bytes)).replace(/\s+/g, " ");
+    expect(text).toContain(`Leistungsnachweis zur Rechnung ${fin.number}`);
+    expect(text).toContain("Workshop Startseite");
+    expect(text).toContain("Abstimmung Texte");
+    expect(text).toContain("0:50 h"); // raw
+    expect(text).toContain("1:00 h"); // rounded (15 min up)
+    expect(text).toContain("01.10.–02.10.2026");
+    // the artifact is audited like the pipeline artifacts
+    const audit = await t.run((ctx) => ctx.db.query("auditLog").collect());
+    expect(audit.some((x) => x.entity.table === "documentArtifacts" && x.entity.id === a._id)).toBe(true);
+  });
+
+  test("PRJ-014 the option defaults to the project setting; without it no timesheet is rendered", async () => {
+    const t = makeT();
+    const { owner, personId } = await setup(t);
+    const withDefault = await project(owner, personId, { name: "Mit Nachweis", attachTimesheetDefault: true });
+    const plain = await project(owner, personId, { name: "Ohne Nachweis" });
+    const a = await logEntry(owner, withDefault, "2026-10-01", "1h");
+    const b = await logEntry(owner, plain, "2026-10-01", "1h");
+    const preview = await owner.query(api.timeEntries.previewInvoice, {
+      values: { entryIds: [a], grouping: "summary" },
+    });
+    expect(preview.ok && preview.timesheetDefault).toBe(true);
+    const ra = await owner.mutation(api.timeEntries.createInvoice, { values: { entryIds: [a], grouping: "summary" } });
+    expect((await doc(t, ra.id)).attachTimesheet).toBe(true);
+    const rb = await owner.mutation(api.timeEntries.createInvoice, { values: { entryIds: [b], grouping: "summary" } });
+    expect((await doc(t, rb.id)).attachTimesheet).toBeUndefined();
+    await owner.action(api.invoices.finalize, { id: rb.id, version: (await doc(t, rb.id)).version });
+    await settle(t);
+    const none = await t.run((ctx) =>
+      ctx.db
+        .query("documentArtifacts")
+        .withIndex("by_document", (q) => q.eq("documentId", rb.id).eq("kind", "timesheet_pdf"))
+        .collect(),
+    );
+    expect(none).toEqual([]);
   });
 });

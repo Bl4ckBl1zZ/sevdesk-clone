@@ -25,12 +25,14 @@ import {
 } from "../../src/domain/projects/unbilled";
 import { berlinCalendarDate } from "../../src/domain/time/berlin";
 import { addDays, type CalendarDate, isCalendarDate } from "../../src/domain/time/calendar-date";
+import { internal } from "../_generated/api";
 import type { Doc, Id } from "../_generated/dataModel";
 import { appError } from "../lib/errors";
 import { auditedDelete, auditedInsert, auditedPatch } from "./audit";
 import { getCompanyProfile } from "./companyProfile";
 import { notify, notifyKind } from "./notifications";
 import { checkBudget, getProject, PROJECT_MESSAGES } from "./projects";
+import { recordArtifacts } from "./salesDocuments";
 import type { ModelCtx, ReadCtx } from "./types";
 
 /**
@@ -629,7 +631,46 @@ export async function lockInvoicedEntries(ctx: ModelCtx, doc: Doc<"salesDocument
     );
     n++;
   }
+  // PRJ-014: the Leistungsnachweis is rendered from the now frozen entries (Node action, archived as an artifact).
+  if (n > 0 && doc.attachTimesheet) {
+    await ctx.scheduler.runAfter(0, internal.timesheetsNode.render, { documentId: doc._id });
+  }
   return n;
+}
+
+/**
+ * PRJ-014: archives the rendered Leistungsnachweis as `documentArtifacts.kind = "timesheet_pdf"` (SHA-256, the
+ * invoice's retention). Once per invoice; a second render's file is dropped.
+ */
+export async function recordTimesheet(
+  ctx: ModelCtx,
+  documentId: Id<"salesDocuments">,
+  file: { storageId: Id<"_storage">; sha256: string; bytes: number; name: string },
+): Promise<Id<"documentArtifacts"> | null> {
+  const existing = await ctx.db
+    .query("documentArtifacts")
+    .withIndex("by_document", (q) => q.eq("documentId", documentId).eq("kind", "timesheet_pdf"))
+    .first();
+  if (existing) {
+    await ctx.storage.delete(file.storageId);
+    return null;
+  }
+  const [id] = await recordArtifacts(
+    ctx,
+    documentId,
+    [
+      {
+        kind: "timesheet_pdf",
+        storageId: file.storageId,
+        sha256: file.sha256,
+        bytes: file.bytes,
+        mime: "application/pdf",
+        name: file.name,
+      },
+    ],
+    { initial: false },
+  );
+  return id ?? null;
 }
 
 /** E-PRJ-25: after the Storno of an invoice with time entries, offer them as „wieder abrechenbar“. */

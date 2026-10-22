@@ -209,6 +209,19 @@ export async function invoiceFromEntries(
     };
     id = await createDraft(ctx, values, {}, { reason: "Aus Zeiteinträgen erstellt" });
   }
+  // PRJ-014: „Leistungsnachweis anhängen“ per invoice, default from the project.
+  const project = projectId ? await ctx.db.get(projectId) : null;
+  const attach = v.attachTimesheet ?? project?.attachTimesheetDefault === true;
+  const target = await getDocument(ctx, id);
+  if (attach !== (target.attachTimesheet === true) && (attach || v.attachTimesheet === false)) {
+    await auditedPatch(
+      ctx,
+      "salesDocuments",
+      id,
+      { attachTimesheet: attach },
+      { action: "document.update_draft", label: "Entwurf", reason: "Leistungsnachweis anhängen (PRJ-014)" },
+    );
+  }
   // PRJ-009: rounded minutes per entry are stored at invoicing (raw durations never change).
   for (const e of docs) {
     const rounded = p.roundedByEntry[e._id];

@@ -10,7 +10,7 @@ import { useId, useState } from "react";
 import { type UseFormReturn, useWatch } from "react-hook-form";
 import { toast } from "sonner";
 import { FormDialog, FormSection, useRun } from "@/components/catalog/shared";
-import { FormErrorSummary, SelectField, TextField } from "@/components/forms/fields";
+import { CheckboxField, FormErrorSummary, SelectField, TextField } from "@/components/forms/fields";
 import { useZodForm } from "@/components/setup/use-zod-form";
 import { ContactSelectField } from "@/components/time/time-shared";
 import { Button } from "@/components/ui/button";
@@ -145,6 +145,12 @@ function ProjectFields({
             <TextField form={form} name="roundingMinimum" label={t("roundingMinimum")} inputMode="numeric" />
           </>
         )}
+        <CheckboxField
+          form={form}
+          name="attachTimesheetDefault"
+          label={t("attachTimesheetDefault")}
+          className="@lg/form:col-span-2"
+        />
       </FormSection>
     </>
   );

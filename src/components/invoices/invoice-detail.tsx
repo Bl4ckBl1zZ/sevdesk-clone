@@ -64,6 +64,7 @@ const ARTIFACT_LABELS: Record<string, string> = {
   xrechnung_xml: "E-Rechnung (XML)",
   validation_report_kosit: "Prüfbericht KoSIT",
   validation_report_mustang: "Prüfbericht Mustang",
+  timesheet_pdf: "Leistungsnachweis",
 };
 const VARIANT_LABELS: Record<string, string> = { original: "Original", copy: "Kopie", reading: "Lesefassung" };
 

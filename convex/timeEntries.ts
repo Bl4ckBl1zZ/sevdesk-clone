@@ -14,9 +14,10 @@ import { berlinCalendarDate } from "../src/domain/time/berlin";
 import { type CalendarDate, isCalendarDate } from "../src/domain/time/calendar-date";
 import { internal } from "./_generated/api";
 import type { Doc, Id } from "./_generated/dataModel";
-import { mutation, query, systemMutation } from "./functions";
+import { mutation, query, systemMutation, systemQuery } from "./functions";
 import { appError } from "./lib/errors";
 import { parse } from "./lib/parse";
+import { getCompanyProfile } from "./model/companyProfile";
 import { projectBudget } from "./model/projects";
 import {
   checkRunningTimer,
@@ -26,6 +27,7 @@ import {
   discardTimer,
   notifyOfflineConflict,
   processedOfflineOps,
+  recordTimesheet,
   reopenCandidates,
   reopenEntries,
   runningTimer,
@@ -334,7 +336,12 @@ export const previewInvoice = query({
   args: { values: v.any() },
   handler: async (ctx, { values }) => {
     const r = await planFromEntries(ctx, parse(invoiceFromEntriesSchema, values));
-    return r.plan.ok ? { ok: true as const, plan: r.plan.value } : { ok: false as const, error: r.plan.error };
+    // PRJ-014: the dialog's „Leistungsnachweis anhängen“ defaults to the project's setting.
+    const project = r.projectId ? await ctx.db.get(r.projectId) : null;
+    const timesheetDefault = project?.attachTimesheetDefault === true;
+    return r.plan.ok
+      ? { ok: true as const, plan: r.plan.value, timesheetDefault }
+      : { ok: false as const, error: r.plan.error };
   },
 });
 
@@ -377,6 +384,54 @@ export const unbilled = query({
   permission: "projects.read",
   args: {},
   handler: async (ctx) => unbilledSummary(ctx, berlinCalendarDate(ctx.now())),
+});
+
+// ── timesheet / Leistungsnachweis (PRJ-014) ──────────────────────────────────────────────────────────────────
+
+/** Render input of `timesheetsNode.render`: the finalised invoice and its frozen (invoiced) entries. */
+export const timesheetInput = systemQuery({
+  job: "documents.pipeline",
+  args: { documentId: v.id("salesDocuments") },
+  handler: async (ctx, { documentId }) => {
+    const doc = await ctx.db.get(documentId);
+    if (!doc || doc.status === "draft" || !doc.number || !doc.attachTimesheet) return null;
+    const entries = (
+      await ctx.db
+        .query("timeEntries")
+        .withIndex("by_invoice", (q) => q.eq("invoicedDocumentId", documentId))
+        .collect()
+    ).filter((e) => e.status === "invoiced");
+    if (entries.length === 0) return null;
+    const profile = await getCompanyProfile(ctx);
+    const project = doc.projectId ? await ctx.db.get(doc.projectId) : null;
+    return {
+      invoiceNumber: doc.number,
+      documentDate: (doc.documentDate ?? berlinCalendarDate(doc.finalizedAt ?? ctx.now())) as CalendarDate,
+      sellerName: profile?.name ?? "",
+      customerName: doc.billingAddress?.name ?? doc.contactName ?? "",
+      ...(project ? { projectLabel: `${project.number} ${project.name}` } : {}),
+      createdAt: doc.finalizedAt ?? ctx.now(),
+      entries: entries.map((e) => ({
+        date: e.date as CalendarDate,
+        description: e.description,
+        durationMinutes: e.durationMinutes,
+        ...(e.roundedMinutes !== undefined ? { roundedMinutes: e.roundedMinutes } : {}),
+        hourlyRateMicros: e.hourlyRateMicros,
+      })),
+    };
+  },
+});
+
+export const storeTimesheet = systemMutation({
+  job: "documents.pipeline",
+  args: {
+    documentId: v.id("salesDocuments"),
+    storageId: v.id("_storage"),
+    sha256: v.string(),
+    bytes: v.number(),
+    name: v.string(),
+  },
+  handler: async (ctx, { documentId, ...file }) => recordTimesheet(ctx, documentId, file),
 });
 
 // ── offline queue (PRJ-018, E-PRJ-29) ─────────────────────────────────────────────────────────────────────────

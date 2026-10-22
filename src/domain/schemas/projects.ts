@@ -63,6 +63,8 @@ export const projectFormSchema = z
     roundingIncrement: z.enum(["default", "0", "1", "5", "6", "10", "15", "30", "60"]),
     roundingMode: z.enum(["up", "nearest"]),
     roundingMinimum: trimmed().regex(/^\d{0,3}$/, "Bitte Minuten als ganze Zahl angeben."),
+    /** PRJ-014: default of the per-invoice option „Leistungsnachweis anhängen“. */
+    attachTimesheetDefault: z.boolean().optional(),
   })
   .superRefine((v, ctx) => {
     if (v.budgetKind !== "none") {
@@ -107,6 +109,7 @@ export const projectFormSchema = z
             },
           }
         : {}),
+      ...(v.attachTimesheetDefault ? { attachTimesheetDefault: true } : {}),
     };
   });
 
@@ -129,6 +132,7 @@ export const emptyProjectForm = (): ProjectFormValues => ({
   roundingIncrement: "default",
   roundingMode: "up",
   roundingMinimum: "",
+  attachTimesheetDefault: false,
 });
 
 /** A stored project (ids as strings) → edit-form values; `projectFormSchema` parses them back unchanged. */
@@ -145,6 +149,7 @@ export interface ProjectRecord {
   readonly endDate?: string | undefined;
   readonly defaultProductId?: string | undefined;
   readonly rounding?: TimeRounding | undefined;
+  readonly attachTimesheetDefault?: boolean | undefined;
 }
 
 export function projectFormFromRecord(p: ProjectRecord): ProjectFormValues {
@@ -171,6 +176,7 @@ export function projectFormFromRecord(p: ProjectRecord): ProjectFormValues {
       : "default",
     roundingMode: p.rounding?.mode ?? "up",
     roundingMinimum: p.rounding?.minimumMinutes !== undefined ? String(p.rounding.minimumMinutes) : "",
+    attachTimesheetDefault: p.attachTimesheetDefault === true,
   };
 }
 
@@ -260,6 +266,8 @@ export const invoiceFromEntriesSchema = z.object({
   perGroup: z.boolean().optional(),
   /** Append to this draft (same contact) instead of creating a new one. */
   draftId: z.string().optional(),
+  /** PRJ-014: attach a Leistungsnachweis (default from the project). */
+  attachTimesheet: z.boolean().optional(),
 });
 
 export type InvoiceFromEntriesValues = z.infer<typeof invoiceFromEntriesSchema>;

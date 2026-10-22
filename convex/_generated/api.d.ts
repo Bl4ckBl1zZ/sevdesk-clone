@@ -200,6 +200,7 @@ import type * as system from "../system.js";
 import type * as taxes from "../taxes.js";
 import type * as testFixtures from "../testFixtures.js";
 import type * as timeEntries from "../timeEntries.js";
+import type * as timesheetsNode from "../timesheetsNode.js";
 import type * as validators from "../validators.js";
 import type * as vatIdChecks from "../vatIdChecks.js";
 import type * as verfahrensdoku from "../verfahrensdoku.js";
@@ -406,6 +407,7 @@ declare const fullApi: ApiFromModules<{
   taxes: typeof taxes;
   testFixtures: typeof testFixtures;
   timeEntries: typeof timeEntries;
+  timesheetsNode: typeof timesheetsNode;
   validators: typeof validators;
   vatIdChecks: typeof vatIdChecks;
   verfahrensdoku: typeof verfahrensdoku;

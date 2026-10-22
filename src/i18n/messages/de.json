@@ -5926,6 +5926,7 @@
       },
       "roundingMinimum": "Mindestdauer je Eintrag (Minuten)",
       "roundingHint": "Gerundet wird erst beim Abrechnen; die erfasste Zeit bleibt unverändert.",
+      "attachTimesheetDefault": "Rechnungen standardmäßig mit Leistungsnachweis (PDF der abgerechneten Zeiten)",
       "saved": "Projekt gespeichert.",
       "rateChanged": "{count, plural, one {# offener Eintrag hat} other {# offene Einträge haben}} noch den alten Stundensatz.",
       "applyRate": "Neuen Satz übernehmen",
@@ -6154,6 +6155,7 @@
       "invalidPeriod": "Das Ende des Zeitraums liegt vor dem Beginn."
     },
     "invoice": {
+      "attachTimesheet": "Leistungsnachweis anhängen (PDF mit den abgerechneten Zeiten)",
       "title": "Zeiten abrechnen",
       "description": "{count, plural, one {# Eintrag} other {# Einträge}} ausgewählt",
       "grouping": "Positionen",

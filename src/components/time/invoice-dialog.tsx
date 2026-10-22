@@ -84,9 +84,19 @@ export function InvoiceEntriesDialog({
   const [increment, setIncrement] = useState<Increment>("default");
   const [mode, setMode] = useState<"up" | "nearest">("up");
   const [perGroup, setPerGroup] = useState(false);
+  /** PRJ-014: null = the project's default. */
+  const [attach, setAttach] = useState<boolean | null>(null);
   const [target, setTarget] = useState("new");
   const [busy, setBusy] = useState(false);
-  const ids = { grouping: useId(), unit: useId(), increment: useId(), mode: useId(), target: useId(), pg: useId() };
+  const ids = {
+    grouping: useId(),
+    unit: useId(),
+    increment: useId(),
+    mode: useId(),
+    target: useId(),
+    pg: useId(),
+    ts: useId(),
+  };
 
   const values = useMemo(
     () =>
@@ -109,6 +119,7 @@ export function InvoiceEntriesDialog({
       Boolean(contactId) && canReadDocs,
     ) ?? [];
   const draftTarget = drafts.some((d) => d._id === target) ? target : "new";
+  const attachTimesheet = attach ?? (preview?.ok ? preview.timesheetDefault : false);
 
   const toggle = (id: string) =>
     setSelected((s) => {
@@ -121,7 +132,9 @@ export function InvoiceEntriesDialog({
   const submit = async () => {
     setBusy(true);
     const r = await run(() =>
-      create({ values: { ...values, ...(draftTarget !== "new" ? { draftId: draftTarget } : {}) } }),
+      create({
+        values: { ...values, attachTimesheet, ...(draftTarget !== "new" ? { draftId: draftTarget } : {}) },
+      }),
     );
     setBusy(false);
     if (!r.ok) return;
@@ -231,6 +244,16 @@ export function InvoiceEntriesDialog({
                 {t("perGroup")}
               </label>
             )}
+            <label htmlFor={ids.ts} className="flex min-h-11 items-center gap-2 text-sm @lg/form:col-span-2">
+              <input
+                id={ids.ts}
+                type="checkbox"
+                className="size-5 md:size-4"
+                checked={attachTimesheet}
+                onChange={(e) => setAttach(e.target.checked)}
+              />
+              {t("attachTimesheet")}
+            </label>
             {drafts.length > 0 && (
               <Labeled id={ids.target} label={t("target")}>
                 <select

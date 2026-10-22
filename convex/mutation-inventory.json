@@ -4045,6 +4045,12 @@
     "wrapper": "mutation",
     "permission": "time.write"
   },
+  "timeEntries:storeTimesheet": {
+    "kind": "mutation",
+    "visibility": "internal",
+    "wrapper": "systemMutation",
+    "job": "documents.pipeline"
+  },
   "timeEntries:syncOffline": {
     "kind": "mutation",
     "visibility": "public",
@@ -4056,6 +4062,12 @@
     "visibility": "public",
     "wrapper": "query",
     "permission": "projects.read"
+  },
+  "timeEntries:timesheetInput": {
+    "kind": "query",
+    "visibility": "internal",
+    "wrapper": "systemQuery",
+    "job": "documents.pipeline"
   },
   "timeEntries:unbilled": {
     "kind": "query",
@@ -4074,6 +4086,12 @@
     "visibility": "public",
     "wrapper": "mutation",
     "permission": "time.write"
+  },
+  "timesheetsNode:render": {
+    "kind": "action",
+    "visibility": "internal",
+    "wrapper": "systemAction",
+    "job": "documents.pipeline"
   },
   "vatIdChecks:check": {
     "kind": "action",
