@@ -2371,6 +2371,12 @@
     "wrapper": "query",
     "permission": "documents.export"
   },
+  "journalIntegrity:clockReadings": {
+    "kind": "query",
+    "visibility": "internal",
+    "wrapper": "systemQuery",
+    "job": "cron.integrity.verify"
+  },
   "journalIntegrity:journalPage": {
     "kind": "query",
     "visibility": "internal",
