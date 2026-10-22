@@ -76,6 +76,10 @@ describe("letterhead upload and rendering (F01 SET-071/072)", { timeout: 60_000 
     expect((await currentConfig(t, layoutId)).letterheadStorageId).toBe(storageId);
     const audit = await t.run((ctx) => ctx.db.query("auditLog").collect());
     expect(audit.some((a) => a.action === "settings.letterhead.update")).toBe(true);
+    // SET-073: the layout preview receives the file of the current version
+    const preview = await owner.query(api.settings.layoutPreviewData, { layoutId });
+    expect(preview.letterheadUrl).toEqual(expect.any(String));
+    expect(preview.letterheadFollowUrl).toBeNull();
 
     const { personId } = await b2bBuyer(owner);
     const { id } = await owner.mutation(api.invoices.createDraft, { values: invoiceValues(personId) });

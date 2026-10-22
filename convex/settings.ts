@@ -638,6 +638,13 @@ export const layoutPreviewData = query({
         })),
       kleinunternehmer: ku?.isKU ?? false,
       logoUrl: profile?.logoStorageId ? await ctx.storage.getUrl(profile.logoStorageId) : null,
+      // SET-072: the letterhead files of the layout version shown in the preview
+      letterheadUrl: version?.config.letterheadStorageId
+        ? await ctx.storage.getUrl(version.config.letterheadStorageId)
+        : null,
+      letterheadFollowUrl: version?.config.letterheadPage2StorageId
+        ? await ctx.storage.getUrl(version.config.letterheadPage2StorageId)
+        : null,
     };
   },
 });

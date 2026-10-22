@@ -1,5 +1,14 @@
 import { inflateSync } from "node:zlib";
-import { PDFArray, PDFDocument, PDFName, type PDFRawStream, PDFString, rgb, StandardFonts } from "@cantoo/pdf-lib";
+import {
+  cmyk,
+  PDFArray,
+  PDFDocument,
+  PDFName,
+  type PDFRawStream,
+  PDFString,
+  rgb,
+  StandardFonts,
+} from "@cantoo/pdf-lib";
 import { makeSnapshot } from "@test/factories/snapshot";
 import { pdfText } from "@test/golden/pdf-text";
 import { describe, expect, test } from "vitest";
@@ -75,6 +84,20 @@ describe("letterhead upload checks (F01 SET-072, ER-11)", () => {
     // an incremental update whose trailer names an encryption dictionary
     const encrypted = new TextEncoder().encode(`${plain}\ntrailer\n<< /Encrypt 9 0 R >>\n%%EOF\n`);
     expect(await validateLetterhead(encrypted)).toMatchObject({ code: "letterhead_encrypted" });
+  });
+
+  test("SET-072 ER-11 a DeviceCMYK letterhead is refused (the PDF/A-3 output intent is sRGB, LEGAL-OPEN)", async () => {
+    const doc = await PDFDocument.create();
+    doc.addPage(A4).drawRectangle({ x: 0, y: 780, width: 595, height: 60, color: cmyk(0.9, 0.1, 0, 0.2) });
+    expect(await validateLetterhead(await doc.save())).toEqual({
+      ok: false,
+      code: "letterhead_cmyk",
+      message: LETTERHEAD_MESSAGES.letterhead_cmyk,
+    });
+    // a CMYK image or colour space resource is caught as well
+    const named = await PDFDocument.load(await vectorLetterhead(1));
+    named.getPage(0).node.set(PDFName.of("Resources"), named.context.obj({ ColorSpace: { CS0: "DeviceCMYK" } }));
+    expect(await validateLetterhead(await named.save())).toMatchObject({ code: "letterhead_cmyk" });
   });
 
   test("SET-072 a letterhead with non-embedded fonts is refused (no rasteriser on the server, LEGAL-OPEN)", async () => {

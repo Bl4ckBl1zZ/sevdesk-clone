@@ -9,8 +9,20 @@
  * LEGAL-OPEN: SET-072 converts a non-conforming letterhead (e.g. non-embedded fonts) into a 300 dpi image background
  * ("Briefpapier wurde für PDF/A in ein Bild umgewandelt."). The server has no rasteriser (no canvas dependency), so
  * such a letterhead is refused with a German message instead; the owner exports it again with embedded fonts (PDF/A).
+ * The same applies to DeviceCMYK content (operators `k`/`K`, CMYK colour space names): the rendered PDF/A-3 carries an
+ * sRGB output intent (ER-11), so device CMYK would make the finalised ZUGFeRD file non-conforming. ICCBased and Lab
+ * colours are device-independent and pass. Inline images with an abbreviated `/CS /CMYK` are not inspected.
  */
-import { PDFArray, PDFDict, PDFDocument, PDFName, type PDFPage, PDFRawStream, PDFStream } from "@cantoo/pdf-lib";
+import {
+  decodePDFRawStream,
+  PDFArray,
+  PDFDict,
+  PDFDocument,
+  PDFName,
+  type PDFPage,
+  PDFRawStream,
+  PDFStream,
+} from "@cantoo/pdf-lib";
 import { isEncryptedPdf } from "./hybrid";
 
 export const LETTERHEAD_MAX_BYTES = 5 * 1024 * 1024;
@@ -26,7 +38,8 @@ export type LetterheadIssueCode =
   | "letterhead_page_count"
   | "letterhead_not_a4_portrait"
   | "letterhead_javascript"
-  | "letterhead_fonts_not_embedded";
+  | "letterhead_fonts_not_embedded"
+  | "letterhead_cmyk";
 
 export const LETTERHEAD_MESSAGES: Readonly<Record<LetterheadIssueCode, string>> = {
   letterhead_not_pdf: "Das Briefpapier muss eine PDF-Datei sein.",
@@ -40,6 +53,8 @@ export const LETTERHEAD_MESSAGES: Readonly<Record<LetterheadIssueCode, string>> 
     "Das Briefpapier enthält JavaScript oder Aktionen. Bitte eine PDF ohne aktive Inhalte hochladen.",
   letterhead_fonts_not_embedded:
     "Im Briefpapier sind nicht alle Schriften eingebettet. Bitte die PDF mit eingebetteten Schriften (z. B. als PDF/A) exportieren.",
+  letterhead_cmyk:
+    "Das Briefpapier verwendet CMYK-Farben. Bitte die PDF im RGB-Farbraum (z. B. sRGB, als PDF/A) exportieren.",
 };
 
 export type LetterheadCheck =
@@ -69,10 +84,36 @@ function* dictsOf(obj: unknown): Generator<PDFDict> {
   for (const v of values) if (v instanceof PDFDict || v instanceof PDFArray) yield* dictsOf(v);
 }
 
-/** JavaScript, launch actions and fonts without an embedded program, over every parsed object (incl. object streams). */
-function scanObjects(doc: PDFDocument): { javascript: boolean; missingFont: boolean } {
+const DEVICE_CMYK = PDFName.of("DeviceCMYK");
+/** `c m y k k` / `c m y k K`: the fill/stroke operators that select DeviceCMYK. */
+const CMYK_OPERATOR = /(?:^|\s)(?:[-+]?(?:\d+\.?\d*|\.\d+)\s+){4}[kK](?=\s|$)/;
+
+function contentUsesCmyk(stream: PDFRawStream): boolean {
+  try {
+    const bytes = decodePDFRawStream(stream).decode();
+    return CMYK_OPERATOR.test(new TextDecoder("latin1").decode(bytes));
+  } catch {
+    return false;
+  }
+}
+
+/** True when a dictionary/array names DeviceCMYK directly (colour spaces, images, Separation/DeviceN alternates). */
+function namesCmyk(dict: PDFDict): boolean {
+  for (const [, v] of dict.entries()) {
+    if (v === DEVICE_CMYK) return true;
+    if (v instanceof PDFArray && v.asArray().some((x) => x === DEVICE_CMYK)) return true;
+  }
+  return false;
+}
+
+/**
+ * JavaScript, launch actions, fonts without an embedded program and DeviceCMYK, over every parsed object (incl.
+ * object streams).
+ */
+function scanObjects(doc: PDFDocument): { javascript: boolean; missingFont: boolean; cmyk: boolean } {
   let javascript = false;
   let missingFont = false;
+  let cmyk = false;
   const checkDict = (dict: PDFDict) => {
     const s = nameOf(dict, "S");
     if (dict.has(PDFName.of("JS")) || s === "JavaScript" || s === "Launch") javascript = true;
@@ -84,14 +125,22 @@ function scanObjects(doc: PDFDocument): { javascript: boolean; missingFont: bool
         (fd.has(PDFName.of("FontFile")) || fd.has(PDFName.of("FontFile2")) || fd.has(PDFName.of("FontFile3")));
       if (!embedded) missingFont = true;
     }
+    if (namesCmyk(dict)) cmyk = true;
   };
   for (const [, obj] of doc.context.enumerateIndirectObjects()) {
     for (const dict of dictsOf(obj)) checkDict(dict);
+    // an indirect colour-space array, e.g. [/Separation /Gold /DeviceCMYK …]
+    if (obj instanceof PDFArray && obj.asArray().some((x) => x === DEVICE_CMYK)) cmyk = true;
+    if (cmyk || !(obj instanceof PDFRawStream)) continue;
+    // content streams: page contents (no Type/Subtype) and Form XObjects
+    const subtype = nameOf(obj.dict, "Subtype");
+    const isContent = subtype === "Form" || (!obj.dict.has(PDFName.of("Type")) && subtype === undefined);
+    if (isContent && contentUsesCmyk(obj)) cmyk = true;
   }
   // The name tree of document-level scripts.
   const names = doc.catalog.lookup(PDFName.of("Names"));
   if (names instanceof PDFDict && names.has(PDFName.of("JavaScript"))) javascript = true;
-  return { javascript, missingFont };
+  return { javascript, missingFont, cmyk };
 }
 
 function isA4Portrait(page: PDFPage): boolean {
@@ -119,6 +168,7 @@ export async function validateLetterhead(bytes: Uint8Array): Promise<LetterheadC
   const scan = scanObjects(doc);
   if (scan.javascript) return fail("letterhead_javascript");
   if (scan.missingFont) return fail("letterhead_fonts_not_embedded");
+  if (scan.cmyk) return fail("letterhead_cmyk");
   return { ok: true, pages: count as 1 | 2 };
 }
 

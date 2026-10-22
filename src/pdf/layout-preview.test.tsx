@@ -1,3 +1,4 @@
+import { PDFDocument, StandardFonts } from "@cantoo/pdf-lib";
 import { getDocument } from "pdfjs-dist/legacy/build/pdf.mjs";
 import { describe, expect, test } from "vitest";
 import { buildLayoutPreview, type LayoutPreviewData, renderLayoutPreview } from "./layout-preview";
@@ -49,6 +50,17 @@ describe("SET-073 layout preview PDF", () => {
     expect(text).toContain("Registergericht: Amtsgericht Charlottenburg");
     expect(text).toContain("IBAN: DE89 3704 0044 0532 0130 00");
     expect(text).toContain("Seite 1 von 1");
+  });
+
+  test("SET-073 SET-072 the preview shows the uploaded letterhead as the page background", async () => {
+    const lh = await PDFDocument.create();
+    const font = await lh.embedFont(StandardFonts.Helvetica);
+    lh.addPage([595.28, 841.89]).drawText("BRIEFPAPIER-VORSCHAU", { x: 40, y: 800, size: 9, font });
+    const model = buildLayoutPreview(DATA, { type: "invoice", b2b: true });
+    const text = await pdfText(await renderLayoutPreview(model, null, { first: await lh.save() }));
+    expect(text).toContain("BRIEFPAPIER-VORSCHAU");
+    expect(text).toContain("RE-2026-0001 (Muster)");
+    expect(await pdfText(await renderLayoutPreview(model))).not.toContain("BRIEFPAPIER-VORSCHAU");
   });
 
   test("SET-073 KU-02 the Kleinunternehmer switch removes VAT and prints the § 19 note", async () => {
