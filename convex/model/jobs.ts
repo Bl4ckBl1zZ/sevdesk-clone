@@ -199,6 +199,35 @@ export async function resultUrl(
   };
 }
 
+/**
+ * 05 §4.7 `GET /jobs/{id}`: one job of the caller (the owner sees all) with progress and — while the 30-day result is
+ * stored (EXP-026) — its download link. Another actor's job is „not found“ (its existence never leaks).
+ */
+export async function jobDetail(
+  ctx: ReadCtx & { actor: string; role?: string | undefined; now: () => number },
+  id: Id<"jobs">,
+) {
+  const j = await ctx.db.get(id);
+  if (!j || (j.actor !== ctx.actor && ctx.role !== "owner")) throw appError("not_found");
+  const live = j.resultStorageId !== undefined && (j.expiresAt === undefined || j.expiresAt > ctx.now());
+  return {
+    id: j._id as string,
+    kind: j.kind,
+    label: j.label,
+    status: j.status,
+    progress: j.progress,
+    resultName: j.resultName ?? null,
+    resultSha256: j.resultSha256 ?? null,
+    resultBytes: j.resultBytes ?? null,
+    resultUrl: live && j.resultStorageId ? await ctx.storage.getUrl(j.resultStorageId) : null,
+    error: j.error ?? null,
+    actor: j.actor as string,
+    createdAt: j.createdAt,
+    finishedAt: j.finishedAt ?? null,
+    expiresAt: j.expiresAt ?? null,
+  };
+}
+
 /** Cron: results older than 30 days are deleted from storage (jobs rows stay as the audit trail). */
 export async function expireJobResults(ctx: ModelCtx): Promise<number> {
   let n = 0;

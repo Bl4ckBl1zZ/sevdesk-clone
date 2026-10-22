@@ -89,6 +89,7 @@ const EXPECTED: Record<Permission, readonly MemberRole[]> = {
   "projects.write": ["owner", "bookkeeper"],
   "time.write": ["owner", "bookkeeper"],
   "exports.full": ["owner"],
+  "jobs.read": ["owner", "bookkeeper", "viewer", "auditor"],
   "exports.gdpdu": ["owner", "bookkeeper"],
   "exports.datev": ["owner", "bookkeeper"],
   "exports.datev.lock": ["owner", "bookkeeper"],

@@ -45,6 +45,10 @@ export const ID_PREFIXES = {
   recurringVouchers: "rvo_",
   // F07 BNK-050 matching rules (`/matching-rules`; 05 §3 had no prefix).
   matchingRules: "mrl_",
+  // F09 exports (05 §3 „IDs“: `job_`; `dvx_` DATEV export history and `gdx_` GDPdU packages had no prefix).
+  jobs: "job_",
+  datevExports: "dvx_",
+  gdpduExports: "gdx_",
 } as const;
 
 export type IdTable = keyof typeof ID_PREFIXES;
