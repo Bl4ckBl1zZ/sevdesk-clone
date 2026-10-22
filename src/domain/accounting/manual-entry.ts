@@ -11,6 +11,7 @@ import { err, type Issue, issue, ok, type Result } from "../result";
 import type { AccountType } from "../rules/accounting";
 import { lookupVatRate } from "../rules/vat-rates";
 import { type CalendarDate, isCalendarDate } from "../time/calendar-date";
+import { futureDateNotice } from "./period";
 import type { RoleLine } from "./post";
 
 export const MANUAL_TAX_KEYS = ["USt19", "USt7", "VSt19", "VSt7"] as const;
@@ -40,9 +41,18 @@ export interface ManualContext {
   vatAccounts: ReadonlySet<string>;
   /** Warning codes the user confirmed. */
   acknowledged?: readonly string[];
+  /** Today (Europe/Berlin) for the E-ACC-21 future-date notice; omitted → no notice. */
+  today?: string;
 }
 
-export type ManualIssueCode = "E-ACC-01" | "E-ACC-02" | "E-ACC-10" | "E-ACC-11" | "manual_invalid" | "rule_missing";
+export type ManualIssueCode =
+  | "E-ACC-01"
+  | "E-ACC-02"
+  | "E-ACC-10"
+  | "E-ACC-11"
+  | "E-ACC-21"
+  | "manual_invalid"
+  | "rule_missing";
 export type ManualIssue = Issue<ManualIssueCode>;
 
 export const MANUAL_MESSAGES = {
@@ -73,6 +83,8 @@ export interface ManualPosting {
   lines: RoleLine[];
   /** ⚑ warnings that need confirmation (E-ACC-10); the posting is refused while unacknowledged. */
   warnings: ManualIssue[];
+  /** Non-blocking notices (E-ACC-21: date more than 30 days ahead — allowed, the period is open). */
+  notices: ManualIssue[];
 }
 
 export function buildManualLines(input: ManualEntryInput, ctx: ManualContext): Result<ManualPosting, ManualIssue> {
@@ -133,7 +145,8 @@ export function buildManualLines(input: ManualEntryInput, ctx: ManualContext): R
   }
   if (debit !== credit)
     return err(issue("E-ACC-01", MANUAL_MESSAGES.unbalanced(debit - credit), { diffCents: debit - credit }));
-  return ok({ lines: out, warnings });
+  const future = ctx.today ? futureDateNotice(input.date, ctx.today) : null;
+  return ok({ lines: out, warnings, notices: future ? [future] : [] });
 }
 
 /**

@@ -5,6 +5,7 @@ import {
   fiscalYearEnd,
   fiscalYearOf,
   fiscalYearStart,
+  futureDateNotice,
   icSupplyTaxPoint,
   isBeforeBookkeepingStart,
   periodOf,
@@ -17,7 +18,7 @@ import {
 const d = calendarDate;
 
 describe("periods and date-effective settings", () => {
-  test("ACC-006 TST-ACC-04 EC-170 externally dated postings in a locked period move to the first open period", () => {
+  test("ACC-006 TST-ACC-04 EC-170 E-ACC-03 externally dated postings in a locked period move to the first open period", () => {
     const locked = new Set(["2026-09"]);
     expect(resolvePostingDate(d("2026-09-20"), "external", locked, d("2026-10-05"))).toEqual({
       ok: true,
@@ -54,6 +55,19 @@ describe("periods and date-effective settings", () => {
           "Der Zeitraum 09/2026 ist festgeschrieben. Korrekturen sind nur als Gegenbuchung in einem offenen Zeitraum möglich.",
         params: { period: "2026-09" },
       },
+    });
+  });
+
+  test("E-ACC-21 events in a future period post normally (open); more than 30 days ahead carries a notice", () => {
+    expect(resolvePostingDate(d("2026-12-15"), "user", new Set(["2026-09"]), d("2026-10-05"))).toEqual({
+      ok: true,
+      value: { date: "2026-12-15", period: "2026-12" },
+    });
+    expect(futureDateNotice("2026-11-04", "2026-10-05")).toBeNull();
+    expect(futureDateNotice("2026-11-05", "2026-10-05")).toEqual({
+      code: "E-ACC-21",
+      message: "Das Buchungsdatum liegt mehr als 30 Tage in der Zukunft.",
+      params: { days: 31 },
     });
   });
 

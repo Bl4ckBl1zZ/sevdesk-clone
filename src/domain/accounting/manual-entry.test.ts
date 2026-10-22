@@ -137,6 +137,24 @@ describe("ACC-011 manual journal entries", () => {
     expect(ack.ok && ack.value.warnings).toEqual([]);
   });
 
+  test("ACC-011 E-ACC-21 a date more than 30 days ahead is allowed with a non-blocking notice", () => {
+    const lines = [
+      { account: "6815", debitCents: 10_000, creditCents: 0 },
+      { account: "1800", debitCents: 0, creditCents: 10_000 },
+    ];
+    const at = (date: string) => buildManualLines({ ...base, date, lines }, { ...ctx, today: "2026-05-04" });
+    const far = at("2026-06-04"); // 31 days ahead
+    expect(far.ok && far.value.warnings).toEqual([]);
+    expect(far.ok && far.value.notices.map((n) => [n.code, n.message])).toEqual([
+      ["E-ACC-21", "Das Buchungsdatum liegt mehr als 30 Tage in der Zukunft."],
+    ]);
+    const near = at("2026-06-03"); // exactly 30 days ahead
+    expect(near.ok && near.value.notices).toEqual([]);
+    // without `today` (e.g. a pure recomputation) no notice
+    const plain = buildManualLines({ ...base, date: "2027-01-01", lines }, ctx);
+    expect(plain.ok && plain.value.notices).toEqual([]);
+  });
+
   test("ACC-011 the M1 posting is user-dated, keeps cost centres and gives VAT lines their UStVA period", () => {
     const built = buildManualLines(
       {
