@@ -587,6 +587,7 @@ Validators live in `src/domain/documents/validate/*.ts` and return `{ code, seve
 | `contact_missing` | E | all | no contact | Kein Kunde ausgewählt. | UST-03 |
 | `buyer_name_missing` | E | all | snapshot buyer name empty | Name des Kunden fehlt. | UST-03 |
 | `buyer_address_incomplete` | E | all except Kleinbetrag | street/PO box, postal code, city or country missing | Anschrift des Kunden unvollständig: {fields} fehlt. | UST-03 |
+| `contact_archived` | W | all | the contact is archived (EC-DOC-106; the draft can still be finalised) | Kontakt ist archiviert. | UST-03 |
 | `seller_address_incomplete` | E | all | company address incomplete | Firmenanschrift unvollständig → Einstellungen › Unternehmen. | UST-03 |
 | `seller_tax_id_missing` | E | invoice types | neither tax number nor VAT ID | Steuernummer oder USt-IdNr. des Unternehmens fehlt → Einstellungen › Steuern. | UST-04 |
 | `seller_vat_id_required` | E | K/AE (EU) lines | company VAT ID missing | Für innergemeinschaftliche Umsätze ist die eigene USt-IdNr. Pflicht (§ 14a UStG) → Einstellungen › Steuern. | UST-20, UST-21 |
@@ -669,6 +670,7 @@ Validators live in `src/domain/documents/validate/*.ts` and return `{ code, seve
 | `buyer_vat_id_qualified_mismatch` | E (override) | K | qualified result ≠ A for name/city | Die qualifizierte Bestätigung weicht ab ({fields}: {codes}). Der Vertrauensschutz für die steuerfreie Lieferung ist gefährdet. Freigabe nur mit Begründung. | MISC-04, UST-21 |
 | `buyer_vat_id_check_old` | W | K/AE | last check > 3 months | Letzte USt-IdNr.-Prüfung am {date}. Bitte erneut prüfen. | MISC-04 |
 | `no_vat_id_foreign_business` | W | EU business contact without VAT ID | | Keine USt-IdNr. hinterlegt – die Leistung wird mit deutscher Umsatzsteuer abgerechnet. USt-IdNr. jetzt prüfen? | UST-20 |
+| `foreign_vat_id_domestic_establishment` | W | business contact with country DE and a non-DE VAT ID (EC-DOC-108) | | Der Kunde hat eine ausländische USt-IdNr. ({vatId}), aber eine Anschrift in Deutschland. Maßgeblich ist die Niederlassung, die die Leistung empfängt – bitte prüfen. | UST-20 |
 | `igl_delivery_country_invalid` | E | intra_community_supply | delivery country = DE or non-EU | Innergemeinschaftliche Lieferung: Die Lieferadresse muss in einem anderen EU-Mitgliedstaat liegen. | UST-21 |
 | `export_delivery_country_invalid` | E | export | delivery country in the EU | Ausfuhrlieferung: Die Lieferadresse muss außerhalb der EU liegen. | UST-23 |
 | `igl_services_ancillary` | I | intra_community_supply | service lines present | Dienstleistungspositionen werden als Nebenleistung zur Lieferung behandelt (steuerfrei). | UST-21 |
@@ -681,7 +683,7 @@ Validators live in `src/domain/documents/validate/*.ts` and return `{ code, seve
 | `delivery_address_missing` | E | intra_community_supply, export | no delivery address on the document (the contact's default delivery address is applied to drafts first; DOC-23, added 2026-10-19 because DOC-23 says "mandatory" without a code) | Lieferadresse fehlt. Bei innergemeinschaftlichen Lieferungen und Ausfuhren ist die Lieferanschrift Pflicht. | UST-21, UST-23 |
 | `margin_scheme_blocked` | E | any | tax case/notes for §25/§25a requested | Differenzbesteuerung und Reiseleistungen (§§ 25, 25a UStG) werden in dieser Version nicht unterstützt. Bitte mit einem Steuerberater abstimmen. | UST-24 |
 | `oss_threshold_exceeded` | E | EU B2C | EU distance sales (current or prior year) > 10.000 € | Ihre EU-Fernverkäufe an Privatkunden überschreiten 10.000 €. Das OSS-Verfahren wird erst in einer späteren Version unterstützt; diese Rechnung kann nicht mit deutscher Umsatzsteuer ausgestellt werden. | UVA-07 |
-| `place_of_supply_ambiguous` | E | any | non-DE customer, service product without `placeOfSupplyRule` decision | Für „{product}“ ist der Leistungsort nicht eindeutig (z. B. Grundstück, Veranstaltung). Bitte Leistungsort-Regel wählen. | UST-23 |
+| `place_of_supply_ambiguous` | E | any | non-DE customer, service line whose `placeOfSupplyRule` is not one of the known rules (03 §0.2). An absent rule means `general` (03 §0.2), so it is not ambiguous — v1.2 note: blocking every service without an explicit rule would block all free-text EU/third-country service lines | Für „{product}“ ist der Leistungsort nicht eindeutig (z. B. Grundstück, Veranstaltung). Bitte Leistungsort-Regel wählen. | UST-23 |
 | `advance_rate_differs` | W | advance/partial | expected supply date resolves to another rate | Für den voraussichtlichen Leistungszeitpunkt gilt {rate} %. Die Differenz wird in der Schlussrechnung ausgeglichen. | UST-41 |
 | `tax_case_changed_notice` | I | drafts, conversions | derivation result changed | Steuerfall geändert: {old} → {new} ({reason}). | UST-20…23 |
 

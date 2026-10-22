@@ -10,9 +10,10 @@ import { isValidIBAN } from "ibantools";
 import { certificateGate } from "../../contacts/consent";
 import { vatCheckGate } from "../../contacts/vat-check";
 import { validateLeitwegId } from "../../einvoice/leitweg-id";
-import { isSupportedCurrency } from "../../money/currencies";
+import { CURRENCIES, isSupportedCurrency } from "../../money/currencies";
 import { formatBasisPoints, formatEuro, formatMilli } from "../../money/format";
 import { lineAmountCents } from "../../money/line";
+import { PLACE_OF_SUPPLY_RULES } from "../../products/product";
 import { revenueAccountIssue } from "../../products/revenue-account";
 import { isEuVatCountry, isEuVatPrefix } from "../../rules/eu-vat-countries";
 import { lookupRule } from "../../rules/rule-table";
@@ -20,6 +21,7 @@ import { isWithinKleinbetragLimit, KLEINUNTERNEHMER_LIMITS } from "../../rules/t
 import { TAX_CASE_LABELS } from "../../tax/tax-case";
 import { ossBlock } from "../../tax/turnover";
 import { validateVatId } from "../../tax/vat-id";
+import { validatePlaceholders } from "../../templates/placeholders";
 import { addDays, type CalendarDate, daysBetween, formatGermanDate } from "../../time/calendar-date";
 import { DOC_TYPE_PLURAL_DE } from "../doc-types";
 import {
@@ -189,6 +191,10 @@ export function validateDocument(
       }
     }
   }
+  if (c?.archived) {
+    // EC-DOC-106: drafts of an archived contact can still be finalised; the snapshot is built from the contact data.
+    push(finding("contact_archived", "W", "UST-03", "hinweise", "Kontakt ist archiviert.", { field: "contactId" }));
+  }
   for (const i of ctx.company.validation.blocking) {
     const field = (i.params?.field as string | undefined) ?? "";
     if (
@@ -303,7 +309,12 @@ export function validateDocument(
       ),
     );
   }
-  if (range && (draft.type === "invoice" || draft.type === "final_invoice") && range.from > docDate) {
+  // EC-DOC-15: blocked for invoice, final invoice and correction; advance/partial/quote/proforma/order may lie ahead.
+  if (
+    range &&
+    (draft.type === "invoice" || draft.type === "final_invoice" || draft.type === "correction") &&
+    range.from > docDate
+  ) {
     push(
       finding(
         "supply_date_in_future",
@@ -353,10 +364,10 @@ export function validateDocument(
   }
   if (isInvoice && range) {
     const kuFrom = resolved.kleinunternehmer;
-    const change = ctx.company.kleinunternehmer.find(
-      (e) => e.validFrom > range.from && e.validFrom <= range.to && e.isKU !== kuFrom,
-    );
-    const startKu = ctx.company.kleinunternehmer.filter((e) => e.validFrom <= range.from).at(-1)?.isKU ?? false;
+    const history = [...ctx.company.kleinunternehmer].sort((a, b) => (a.validFrom < b.validFrom ? -1 : 1));
+    const startKu = history.filter((e) => e.validFrom <= range.from).at(-1)?.isKU ?? false;
+    // EC-DOC-17: the first entry inside the period that changes the status the period started with.
+    const change = history.find((e) => e.validFrom > range.from && e.validFrom <= range.to && e.isKU !== startKu);
     if (change || startKu !== kuFrom) {
       const at = change?.validFrom ?? range.to;
       push(
@@ -721,6 +732,31 @@ export function validateDocument(
       );
     }
   }
+  // EC-DOC-99 (DOC-17): every {{…}} in a draft text must be a known placeholder — they are resolved at finalisation.
+  const placeholderTexts: (readonly [string, string | undefined, "document_head" | "document_foot"])[] = [
+    ["subject", draft.subject, "document_head"],
+    ["headText", draft.headText, "document_head"],
+    ["footText", draft.footText, "document_foot"],
+    ...draft.lines.flatMap(
+      (l, i) =>
+        [
+          [`lines.${i}.name`, l.name, "document_head"],
+          [`lines.${i}.description`, l.description, "document_head"],
+        ] as const,
+    ),
+  ];
+  for (const [field, text, kind] of placeholderTexts) {
+    if (!text?.includes("{{")) continue;
+    const check = validatePlaceholders(text, { kind, docTypes: [draft.type] });
+    if (!check.ok && check.error.code === "PLACEHOLDER_UNKNOWN") {
+      push(
+        finding("placeholder_unknown", "E", "DOC-17", "pflichtangaben", check.error.message, {
+          field,
+          params: { name: String(check.error.params?.name ?? "") },
+        }),
+      );
+    }
+  }
   if (isInvoice && totals && c) {
     const supplyEndDate = range?.to;
     const dup = (ctx.recentInvoices ?? []).find(
@@ -1081,6 +1117,39 @@ export function validateDocument(
       }
     }
   }
+  // EC-DOC-34: a non-DE customer's service line with a place-of-supply rule we do not know cannot be decided.
+  if (c && c.countryCode !== "DE") {
+    for (const r of resolved.lines) {
+      const l = draft.lines[r.index];
+      const rule = l?.placeOfSupplyRule;
+      if (!l || l.productType === "good" || !rule || (PLACE_OF_SUPPLY_RULES as readonly string[]).includes(rule)) {
+        continue;
+      }
+      push(
+        finding(
+          "place_of_supply_ambiguous",
+          "E",
+          "UST-23",
+          "steuern",
+          `Für „${l.name ?? ""}“ ist der Leistungsort nicht eindeutig (z. B. Grundstück, Veranstaltung). Bitte Leistungsort-Regel wählen.`,
+          { field: `lines.${r.index}.placeOfSupplyRule`, params: { product: l.name ?? "", n: r.position } },
+        ),
+      );
+    }
+  }
+  // EC-DOC-108: German address but a foreign VAT ID — the tax case follows the contact country (establishment).
+  if (c && !c.isConsumer && c.countryCode === "DE" && c.vatId && !c.vatId.toUpperCase().startsWith("DE")) {
+    push(
+      finding(
+        "foreign_vat_id_domestic_establishment",
+        "W",
+        "UST-20",
+        "steuern",
+        `Der Kunde hat eine ausländische USt-IdNr. (${c.vatId}), aber eine Anschrift in Deutschland. Maßgeblich ist die Niederlassung, die die Leistung empfängt – bitte prüfen.`,
+        { field: "contactId", params: { vatId: c.vatId } },
+      ),
+    );
+  }
   if (
     c &&
     !c.isConsumer &&
@@ -1186,7 +1255,8 @@ export function validateDocument(
   }
 
   // ── §5.1.5 currency ─────────────────────────────────────────────────────────────────────────────────────────
-  if (!isSupportedCurrency(draft.currency)) {
+  // EC-DOC-54: documents support currencies with 2 minor units only (JPY 0, KWD 3 → refused).
+  if (!isSupportedCurrency(draft.currency) || CURRENCIES[draft.currency].exponent !== 2) {
     push(
       finding(
         "currency_unsupported",
