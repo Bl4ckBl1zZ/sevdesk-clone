@@ -1,11 +1,13 @@
 import { v } from "convex/values";
 import { eigenbelegContent } from "../src/domain/banking/eigenbeleg";
+import { CASH_BELEG_REQUIRED, CASH_CHANGED } from "../src/domain/cash/check";
 import { cashPeriod, cashReportCsv } from "../src/domain/cash/movements";
 import { berlinCalendarDate } from "../src/domain/time/berlin";
 import { renderEigenbeleg } from "../src/pdf/eigenbeleg";
 import { api, internal } from "./_generated/api";
 import type { Id } from "./_generated/dataModel";
 import { action, actorMutation, mutation, query, vConfirmToken } from "./functions";
+import { appError, errorCode } from "./lib/errors";
 import type { FileRefValue } from "./model/bankImport";
 import {
   cashMovementRows,
@@ -98,7 +100,11 @@ export const recordTransferInternal = actorMutation({
   args: { ...transferArgs, eigenbeleg: v.optional(vFileRef), confirmToken: vConfirmToken },
   // The token binds what the caller chose; the Eigenbeleg is rendered by the server after the preview.
   confirmArgs: Object.keys(transferArgs),
-  handler: async (ctx, args) => recordCashTransfer(ctx, args),
+  handler: async (ctx, args) => {
+    // EC-CSH-09: the transfer's Beleg is its Eigenbeleg; no path records a cash movement without one.
+    if (!args.eigenbeleg) throw appError("invalid_input", CASH_BELEG_REQUIRED, { reason: "BELEG_REQUIRED" });
+    return recordCashTransfer(ctx, args);
+  },
 });
 
 const sha256Hex = async (bytes: Uint8Array) =>
@@ -131,6 +137,9 @@ export const recordTransfer = action({
       });
     } catch (e) {
       await ctx.storage.delete(storageId);
+      // EC-CSH-08 / EC-151: the pre-check above passed, so a concurrent movement changed the till meanwhile; the
+      // serialisable posting re-checked and aborted this one.
+      if (errorCode(e) === "cash_negative") throw appError("cash_negative", CASH_CHANGED, { reason: "CASH_CHANGED" });
       throw e;
     }
   },
