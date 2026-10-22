@@ -52,7 +52,7 @@ describe("list CSV export (F09 EXP-021, EXP-022)", () => {
     expect(csvFileName("dokumente", "technical", "2026-10-12")).toBe("dokumente-2026-10-12-technisch.csv");
   });
 
-  test("EXP-022 TST-EXP-19 formula characters are neutralised in the Excel variant, including the OPOS list", () => {
+  test("EXP-022 TST-EXP-19 E-EXP-35 formula characters are neutralised in the Excel variant, including the OPOS list", () => {
     for (const v of ["=1+1", "+49 123", "-x", "@SUM(A1)", "\tTab", "\rCR"]) expect(neutraliseFormula(v)).toBe(`'${v}`);
     expect(neutraliseFormula("Müller GmbH")).toBe("Müller GmbH");
     const text = formatTextCsv(

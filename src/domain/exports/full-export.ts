@@ -27,6 +27,12 @@ export interface FullExportManifest {
   readonly exportedAt: string;
   /** Audit chain head at the export (E-EXP-37: the tables are read after it, so later entries may appear). */
   readonly auditHead: { readonly seq: number; readonly hash: string } | null;
+  /**
+   * E-EXP-37: the readable tables are read page by page after `auditHead`, so they are not a point-in-time snapshot.
+   * When the chain moved while the export ran, the audit entries written meanwhile are named here (seq range) —
+   * rows they touched may or may not be in the tables; `auditHead` stays the reference for a restore check.
+   */
+  readonly writesDuringExport: { readonly fromSeq: number; readonly toSeq: number } | null;
   readonly lastCheckpoint: { readonly date: string; readonly lastSeq: number; readonly lastHash: string } | null;
   readonly snapshot: { readonly included: false; readonly reason: string };
   readonly tables: Readonly<Record<string, number>>;
@@ -37,10 +43,13 @@ export const SNAPSHOT_NOT_INCLUDED =
   "convex-snapshot.zip ist nicht enthalten: Die wiederherstellbare Sicherung ist der tägliche convex-export (Runbook Wiederherstellung).";
 
 export function buildManifest(
-  input: Omit<FullExportManifest, "format" | "snapshot" | "files"> & {
+  input: Omit<FullExportManifest, "format" | "snapshot" | "files" | "writesDuringExport"> & {
     files: readonly ManifestFile[];
+    /** Seqs of other actors' audit entries written while the tables were read (E-EXP-37; the job's own excluded). */
+    otherWritesSeqs?: readonly number[];
   },
 ): FullExportManifest {
+  const seqs = input.otherWritesSeqs ?? [];
   return {
     format: FULL_EXPORT_FORMAT,
     appVersion: input.appVersion,
@@ -48,6 +57,7 @@ export function buildManifest(
     instanceName: input.instanceName,
     exportedAt: input.exportedAt,
     auditHead: input.auditHead,
+    writesDuringExport: seqs.length > 0 ? { fromSeq: Math.min(...seqs), toSeq: Math.max(...seqs) } : null,
     lastCheckpoint: input.lastCheckpoint,
     snapshot: { included: false, reason: SNAPSHOT_NOT_INCLUDED },
     tables: Object.fromEntries(Object.entries(input.tables).sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0))),
@@ -109,6 +119,12 @@ export function ndjson(rows: readonly unknown[]): string {
   return rows.map((r) => JSON.stringify(r)).join("\n") + (rows.length ? "\n" : "");
 }
 
+/**
+ * E-EXP-42 / AO-06: the owner chooses where the export is stored (the app offers no storage target) — every full
+ * export (card and README) carries the warning that books must be kept in the EU (§ 146 Abs. 2 AO).
+ */
+export const EU_STORAGE_WARNING = "Die Bücher müssen in der EU aufbewahrt werden (§ 146 Abs. 2 AO).";
+
 export function fullExportReadme(m: FullExportManifest): string {
   const head = m.auditHead ? `seq ${m.auditHead.seq}, Hash ${m.auditHead.hash}` : "keine Einträge";
   return [
@@ -116,6 +132,12 @@ export function fullExportReadme(m: FullExportManifest): string {
     "",
     `Format ${m.format} · App-Version ${m.appVersion} · Schema ${m.schemaVersion}`,
     `Prüfkette (Audit-Log) beim Export: ${head}`,
+    ...(m.writesDuringExport
+      ? [
+          `Während des Exports wurden weitere Änderungen protokolliert (seq ${m.writesDuringExport.fromSeq}–${m.writesDuringExport.toSeq}).`,
+          "Die Tabellen können diese Änderungen teilweise enthalten; maßgeblich ist der Prüfkettenkopf oben.",
+        ]
+      : []),
     m.lastCheckpoint
       ? `Letzter signierter Prüfpunkt: ${m.lastCheckpoint.date} (seq ${m.lastCheckpoint.lastSeq})`
       : "Noch kein signierter Prüfpunkt.",
@@ -137,6 +159,10 @@ export function fullExportReadme(m: FullExportManifest): string {
     `${m.snapshot.reason} Dieser Export ist die lesbare Kopie für die Aufbewahrung (GoBD) und zum Abgleich:`,
     "Nach einer Wiederherstellung bestätigt `restore:complete` mit seq und Hash aus manifest.json, dass die",
     "Prüfkette bis zu diesem Stand unverändert ist (deploy/runbooks/restore.md).",
+    "",
+    "Aufbewahrung",
+    `${EU_STORAGE_WARNING} Diese Datei nur bei einem Speicherort in der EU ablegen (kein Cloud-Speicher`,
+    "außerhalb der EU); 10 Jahre aufbewahren und lesbar halten.",
     "",
   ].join("\n");
 }

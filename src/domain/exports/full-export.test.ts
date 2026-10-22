@@ -3,6 +3,7 @@ import {
   base64ToHex,
   buildManifest,
   checkpointPayload,
+  EU_STORAGE_WARNING,
   fullExportReadme,
   ndjson,
   restoreCheckpointWarning,
@@ -53,6 +54,33 @@ describe("Vollexport (F09 EXP-023)", () => {
     expect(storedFilePath("deadbeef", undefined)).toBe("files/deadbeef");
     expect(ndjson([{ a: 1 }, { b: "x" }])).toBe('{"a":1}\n{"b":"x"}\n');
     expect(ndjson([])).toBe("");
+  });
+
+  test("E-EXP-37 writes by others while the tables were read are named in manifest and README; the head stays the reference", () => {
+    expect(manifest.writesDuringExport).toBeNull();
+    expect(fullExportReadme(manifest)).not.toContain("Während des Exports");
+    const busy = buildManifest({
+      appVersion: "1.4.0",
+      schemaVersion: "p0-1",
+      instanceName: "rechnungen",
+      exportedAt: "2026-10-19T10:00:00.000Z",
+      auditHead: { seq: 42, hash: "ab".repeat(32) },
+      lastCheckpoint: null,
+      tables: {},
+      files: [],
+      otherWritesSeqs: [47, 44, 45],
+    });
+    expect(busy.auditHead).toEqual({ seq: 42, hash: "ab".repeat(32) });
+    expect(busy.writesDuringExport).toEqual({ fromSeq: 44, toSeq: 47 });
+    expect(fullExportReadme(busy)).toContain(
+      "Während des Exports wurden weitere Änderungen protokolliert (seq 44–47).\nDie Tabellen können diese Änderungen teilweise enthalten; maßgeblich ist der Prüfkettenkopf oben.",
+    );
+  });
+
+  test("E-EXP-42 AO-06 the README of every full export carries the EU storage warning (§ 146 Abs. 2 AO)", () => {
+    expect(EU_STORAGE_WARNING).toBe("Die Bücher müssen in der EU aufbewahrt werden (§ 146 Abs. 2 AO).");
+    const readme = fullExportReadme(manifest);
+    expect(readme).toContain(`Aufbewahrung\n${EU_STORAGE_WARNING}`);
   });
 });
 

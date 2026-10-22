@@ -56,6 +56,24 @@ export const meta = systemQuery({
   },
 });
 
+/**
+ * E-EXP-37: audit entries written after the manifest head while the tables were read, excluding the job's own
+ * progress entries — the README and manifest name them (the readable export is not a point-in-time snapshot).
+ */
+export const writesSince = systemQuery({
+  job: "exports.run",
+  args: { jobId: v.id("jobs"), afterSeq: v.number() },
+  handler: async (ctx, { jobId, afterSeq }) =>
+    (
+      await ctx.db
+        .query("auditLog")
+        .withIndex("by_seq", (q) => q.gt("seq", afterSeq))
+        .take(10_000)
+    )
+      .filter((e) => !(e.entity.table === "jobs" && e.entity.id === jobId))
+      .map((e) => e.seq),
+});
+
 export const tablePage = systemQuery({
   job: "exports.run",
   args: { table: v.string(), paginationOpts: paginationOptsValidator },

@@ -6,6 +6,7 @@ import { api, internal } from "./_generated/api";
 import type { Id } from "./_generated/dataModel";
 import { finalizedInvoice, settle } from "./invoices.fixtures";
 import { checkpointKey, memoryCheckpointObjects } from "./lib/checkpointStore";
+import { appendAudit } from "./model/audit";
 import { makeT } from "./test.setup";
 
 /** F09 EXP-023 Vollexport job and EXP-024 restore checks (E-EXP-38…41). */
@@ -33,6 +34,40 @@ async function catching(p: Promise<unknown>): Promise<unknown> {
 const text = (b: Uint8Array | undefined) => new TextDecoder().decode(b ?? new Uint8Array());
 
 describe("EXP-023 Vollexport", { timeout: 60_000 }, () => {
+  test("E-EXP-37 the manifest head is the chain head when the job read it; the job's own progress entries are not „writes during the export“; others' are", async () => {
+    const t = makeT();
+    const { owner } = await finalizedInvoice(t);
+    const { jobId } = await owner.mutation(api.fullExport.start, {});
+    const headBefore = await t.run((ctx) => ctx.db.query("auditLog").withIndex("by_seq").order("desc").first());
+    await settle(t);
+    const job = await t.run((ctx) => ctx.db.get(jobId as Id<"jobs">));
+    const buf = await t.run(async (ctx) =>
+      (await ctx.storage.get(job?.resultStorageId as Id<"_storage">))?.arrayBuffer(),
+    );
+    const zip = unzipSync(new Uint8Array(buf as ArrayBuffer));
+    const manifest = JSON.parse(text(zip["manifest.json"]));
+    expect(manifest.auditHead).toEqual({ seq: headBefore?.seq, hash: headBefore?.hash });
+    // the export's own job.start/job.progress entries follow the head but are not foreign writes
+    const ownAfter = await t.run(async (ctx) =>
+      (await ctx.db.query("auditLog").collect()).filter((e) => e.seq > (headBefore?.seq ?? 0) && e.entity.id === jobId),
+    );
+    expect(ownAfter.length).toBeGreaterThan(0);
+    expect(manifest.writesDuringExport).toBeNull();
+    expect(text(zip["README.txt"])).not.toContain("Während des Exports");
+
+    // a write by someone else after the head is reported, the job's own entries are not
+    const head = await t.run((ctx) => ctx.db.query("auditLog").withIndex("by_seq").order("desc").first());
+    await t.model({ actor: "user:test-owner", role: "owner", channel: "ui" } as const, async (ctx) => {
+      await appendAudit(ctx, { action: "settings.company.update", entity: { table: "companyProfile", id: "x" } });
+      await appendAudit(ctx, { action: "job.progress", entity: { table: "jobs", id: jobId } });
+    });
+    const seqs = await t.query(internal.fullExport.writesSince, {
+      jobId: jobId as Id<"jobs">,
+      afterSeq: head?.seq ?? 0,
+    });
+    expect(seqs).toEqual([(head?.seq ?? 0) + 1]);
+  });
+
   test("EXP-023 the full export ZIP has every table as NDJSON, every stored file by hash, manifest, sums and README (ohne convex-snapshot.zip, siehe Runbook)", async () => {
     const t = makeT();
     const { owner, id } = await finalizedInvoice(t);

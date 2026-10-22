@@ -106,6 +106,11 @@ export const run = systemAction({
       }
       add("files/index.csv", enc.encode(writeCsv(["Speicher-ID", "Datei", "Typ", "Bytes"], index)));
 
+      // E-EXP-37: other actors' writes while the tables were read are named in the manifest and README
+      const otherWritesSeqs: number[] = await ctx.runQuery(internal.fullExport.writesSince, {
+        jobId,
+        afterSeq: meta.auditHead?.seq ?? 0,
+      });
       const manifest = buildManifest({
         appVersion: meta.appVersion,
         schemaVersion: meta.schemaVersion,
@@ -115,6 +120,7 @@ export const run = systemAction({
         lastCheckpoint: meta.lastCheckpoint,
         tables: counts,
         files,
+        otherWritesSeqs,
       });
       zipFiles["manifest.json"] = enc.encode(`${JSON.stringify(manifest, null, 2)}\n`);
       zipFiles["SHA256SUMS.txt"] = enc.encode(sha256Sums(manifest.files));

@@ -97,7 +97,10 @@ describe("export menu and jobs (EXP-021, EXP-026)", () => {
     expect(toast.success).toHaveBeenCalledWith("1 Zeilen exportiert.");
     await userEvent.click(screen.getByRole("button", { name: "Export als CSV" }));
     await userEvent.click(await screen.findByRole("menuitem", { name: "CSV (technisch)" }));
-    expect(toast.info).toHaveBeenCalledWith("6000 Zeilen – der Export läuft im Hintergrund.", expect.anything());
+    expect(toast.info).toHaveBeenCalledWith(
+      "6000 Zeilen – der Export läuft im Hintergrund. Sie werden benachrichtigt.",
+      expect.anything(),
+    );
   });
 
   test("EXP-026 jobs show progress, cancel while running, skipped documents and the download with hash", async () => {
