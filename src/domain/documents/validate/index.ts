@@ -949,7 +949,7 @@ export function validateDocument(
     if (limits.ok) {
       const L = limits.value.value;
       const year = Number(docDate.slice(0, 4));
-      const prior = ctx.company.priorYearTurnover.find((t) => t.year === year - 1);
+      const prior = ctx.company.priorYearTurnover.find((t) => t.year === year - 1 && !t.provisional);
       if (prior && prior.amountCents > L.priorYearLimitCents) {
         push(
           finding(

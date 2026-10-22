@@ -502,7 +502,7 @@ export async function loadDocumentContext(
     setupComplete: profile?.setupCompletedAt !== undefined,
     integrityAlertOpen: (await unacknowledgedFailure(ctx)) !== null,
     numberRangeAvailable: (await listDefaultRanges(ctx)).some((r) => r.docTypes.includes(doc.type)),
-    company,
+    company: withProvisionalTurnover(company, supplyYear - 1, turnover?.gesamtumsatz.priorYearCents ?? 0),
     contact: contact?.context ?? null,
     ...(bank?.iban
       ? {
@@ -542,6 +542,19 @@ export async function loadDocumentContext(
 
 const supplyEndOf = (s: NonNullable<SalesDocumentDoc["supplyDate"]>): string =>
   s.kind === "date" ? s.date : s.kind === "period" ? s.to : `${s.month}-31`;
+
+/**
+ * EC-DOC-86 (ER-03): without a confirmed prior-year turnover the decision uses the running total of the finalised
+ * documents, flagged `provisional` (warning `turnover_provisional`). Nothing recorded in the app for that year → no
+ * entry, so ER-03 stays at the conservative "turnover missing" rule (MUST_E). KU-01 keeps using confirmed figures.
+ */
+export function withProvisionalTurnover(company: CompanyContext, year: number, computedCents: number): CompanyContext {
+  if (computedCents <= 0 || company.priorYearTurnover.some((t) => t.year === year)) return company;
+  return {
+    ...company,
+    priorYearTurnover: [...company.priorYearTurnover, { year, amountCents: computedCents, provisional: true }],
+  };
+}
 
 /** Full validation of a stored draft (compliance panel, preview, commit). */
 export async function validateStored(

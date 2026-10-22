@@ -112,7 +112,7 @@ describe("mark-sent matrix (F04 App. D.3, T-TAB-04)", () => {
 });
 
 describe("mark-sent dates, notes and files (§5.1.8)", () => {
-  test("SND-07 EC-195 sentOn ≤ today and ≥ the finalisation date; backdating > 10 days needs a note", () => {
+  test("SND-07 EC-195 EC-DOC-111 T-EC-111 sentOn ≤ today and ≥ the finalisation date; backdating > 10 days needs a note", () => {
     expect(codes(mark({ sentOn: "2026-10-13" }))).toEqual(["mark_sent_date_future"]);
     expect(codes(mark({ sentOn: "2026-09-30" }))).toEqual(["mark_sent_date_before_finalization"]);
     const late = ctx({ finalizedOn: "2026-09-01" });

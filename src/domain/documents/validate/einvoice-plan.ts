@@ -51,7 +51,7 @@ export function planEinvoice(draft: DraftDocument, ctx: DocumentContext, resolve
     hasAeLine: items.some((l) => l.vatCategory === "AE"),
     issuer: {
       isKleinunternehmer: resolved.kleinunternehmer,
-      priorYearTurnover: turnover ? { cents: turnover.amountCents, final: true } : null,
+      priorYearTurnover: turnover ? { cents: turnover.amountCents, final: !turnover.provisional } : null,
       ...(ctx.company.foundedOn ? { foundedOn: ctx.company.foundedOn } : {}),
     },
     recipient: {

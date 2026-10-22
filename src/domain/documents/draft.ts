@@ -165,7 +165,12 @@ export interface CompanyContext {
   readonly validation: { readonly blocking: readonly Issue[]; readonly warnings: readonly Issue[] };
   readonly kleinunternehmer: readonly { readonly validFrom: string; readonly isKU: boolean }[];
   readonly taxationMethod: readonly { readonly validFrom: string; readonly method: "soll" | "ist" }[];
-  readonly priorYearTurnover: readonly { readonly year: number; readonly amountCents: number }[];
+  /** Prior-year total turnover; `provisional` = the running total computed from the documents (no confirmed figure, EC-DOC-86). */
+  readonly priorYearTurnover: readonly {
+    readonly year: number;
+    readonly amountCents: number;
+    readonly provisional?: boolean | undefined;
+  }[];
   readonly foundedOn?: string | undefined;
   readonly backdateWindowDays: number;
   readonly paymentReferencePrefix?: string | undefined;
