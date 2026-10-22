@@ -40,8 +40,8 @@ import { useAuthedQuery } from "@/hooks/use-authed-query";
  * festgeschrieben, the RPT-001 facts (Erstellt am, Parameter, Regelversionen) and PDF/CSV export.
  */
 
-type ReportKey = "bwa" | "susa" | "kontenblatt" | "opos" | "umsatz";
-const REPORTS: ReportKey[] = ["bwa", "susa", "kontenblatt", "opos", "umsatz"];
+type ReportKey = "bwa" | "susa" | "kontenblatt" | "opos" | "umsatz" | "verprobung";
+const REPORTS: ReportKey[] = ["bwa", "susa", "kontenblatt", "opos", "umsatz", "verprobung"];
 
 const today = () => new Date().toLocaleDateString("sv-SE", { timeZone: "Europe/Berlin" });
 const yearStart = () => `${today().slice(0, 4)}-01-01`;
@@ -83,7 +83,7 @@ function Inner() {
   return report ? <ReportView report={report} p={p} /> : <Tiles />;
 }
 
-type TileKey = ReportKey | "journal" | "anlagenspiegel" | "verprobung" | "liquiditaet";
+type TileKey = ReportKey | "journal" | "anlagenspiegel" | "liquiditaet";
 
 const TILES: { key: TileKey; href: string; icon: typeof ChartColumnIcon }[] = [
   { key: "bwa", href: "/auswertungen?bericht=bwa", icon: ChartColumnIcon },
@@ -93,7 +93,7 @@ const TILES: { key: TileKey; href: string; icon: typeof ChartColumnIcon }[] = [
   { key: "umsatz", href: "/auswertungen?bericht=umsatz", icon: UsersIcon },
   { key: "journal", href: "/buchhaltung/journal", icon: BookOpenIcon },
   { key: "anlagenspiegel", href: "/buchhaltung/anlagen", icon: Building2Icon },
-  { key: "verprobung", href: "/steuern/ust-jahr", icon: PercentIcon },
+  { key: "verprobung", href: "/auswertungen?bericht=verprobung", icon: PercentIcon },
   { key: "liquiditaet", href: "/auswertungen/liquiditaet", icon: TrendingUpIcon },
 ];
 
@@ -137,6 +137,7 @@ function ReportView({ report, p }: { report: ReportKey; p: P }) {
       {report === "kontenblatt" && <LedgerReport p={p} />}
       {report === "opos" && <OposReport p={p} />}
       {report === "umsatz" && <RevenueReport p={p} />}
+      {report === "verprobung" && <VerprobungReport p={p} />}
     </div>
   );
 }
@@ -700,6 +701,112 @@ function RevenueReport({ p }: { p: P }) {
           </Table>
         </>
       )}
+    </>
+  );
+}
+
+type VerprobungData = FunctionReturnType<typeof api.reports.verprobung>;
+
+/** RPT-009 USt-Verprobung: booked VAT per rate vs. base × rate; documents with a difference, linked to the source. */
+function VerprobungReport({ p }: { p: P }) {
+  const t = useTranslations("reports.verprobung");
+  const from = p.get("von", yearStart());
+  const to = p.get("bis", today());
+  const data = useAuthedQuery(api.reports.verprobung, { from, to });
+  return (
+    <>
+      <div className="flex flex-wrap items-end gap-3">
+        <DateField label={t("from")} value={from} onChange={(v) => p.set({ von: v })} />
+        <DateField label={t("to")} value={to} onChange={(v) => p.set({ bis: v })} />
+      </div>
+      {data === undefined ? <Busy /> : <VerprobungResult data={data} />}
+    </>
+  );
+}
+
+export function VerprobungResult({ data }: { data: VerprobungData }) {
+  const t = useTranslations("reports.verprobung");
+  const rate = (bp: number) => `${bp / 100} %`;
+  return (
+    <>
+      <MetaFacts meta={data.meta} />
+      <p className="text-muted-foreground text-xs">{t("basis")}</p>
+      <Table aria-label={t("tableLabel")} scrollLabel={t("tableLabel")}>
+        <TableHeader>
+          <TableRow>
+            <TableHead>{t("side")}</TableHead>
+            <TableHead>{t("rate")}</TableHead>
+            <HeadNum>{t("base")}</HeadNum>
+            <HeadNum>{t("expected")}</HeadNum>
+            <HeadNum>{t("booked")}</HeadNum>
+            <HeadNum>{t("difference")}</HeadNum>
+          </TableRow>
+        </TableHeader>
+        <TableBody>
+          {data.rows.length === 0 && (
+            <TableRow>
+              <TableCell colSpan={6} className="text-muted-foreground">
+                {t("empty")}
+              </TableCell>
+            </TableRow>
+          )}
+          {data.rows.map((r) => (
+            <TableRow key={`${r.side}-${r.rateBp}`}>
+              <TableCell>{t(`sides.${r.side}`)}</TableCell>
+              <TableCell>{rate(r.rateBp)}</TableCell>
+              <Num cents={r.baseCents} />
+              <Num cents={r.expectedVatCents} />
+              <Num cents={r.bookedVatCents} />
+              <Num
+                cents={r.differenceCents}
+                className={r.differenceCents !== 0 ? "font-medium text-destructive" : ""}
+              />
+            </TableRow>
+          ))}
+        </TableBody>
+      </Table>
+      <section aria-labelledby="verprobung-docs" className="flex flex-col gap-2">
+        <h3 id="verprobung-docs" className="font-medium">
+          {t("documents", { count: data.totals.differences })}
+        </h3>
+        {data.documents.length === 0 ? (
+          <p className="text-muted-foreground text-sm">{t("noDifferences")}</p>
+        ) : (
+          <ul className="flex flex-col divide-y rounded-md border text-sm">
+            {data.documents.map((d) => (
+              <li key={`${d.source.kind}-${d.source.id}-${d.side}-${d.rateBp}`} className="flex flex-col gap-1 p-2">
+                <span className="flex flex-wrap items-center justify-between gap-2">
+                  <span>
+                    {d.href ? (
+                      <Link className="text-primary underline-offset-4 hover:underline" href={d.href as Route}>
+                        {d.entries[0]?.text ?? d.source.id}
+                      </Link>
+                    ) : (
+                      (d.entries[0]?.text ?? d.source.id)
+                    )}
+                    {d.withinRounding && (
+                      <Badge variant="outline" className="ml-2">
+                        {t("rounding")}
+                      </Badge>
+                    )}
+                  </span>
+                  <span className="tabular-nums">{euro(d.differenceCents)}</span>
+                </span>
+                <span className="text-muted-foreground text-xs">
+                  {t("docLine", {
+                    side: t(`sides.${d.side}`),
+                    rate: rate(d.rateBp),
+                    base: euro(d.baseCents),
+                    expected: euro(d.expectedVatCents),
+                    booked: euro(d.bookedVatCents),
+                  })}{" "}
+                  · {d.entries.map((e) => `${t("entry", { seq: e.seq })} (${dateDe(e.date)})`).join(", ")}
+                </span>
+              </li>
+            ))}
+          </ul>
+        )}
+      </section>
     </>
   );
 }

@@ -6224,7 +6224,7 @@
       },
       "verprobung": {
         "title": "USt-Verprobung",
-        "description": "Umsatzsteuer des Jahres gegen die Voranmeldungen"
+        "description": "Gebuchte Umsatz- und Vorsteuer je Steuersatz gegen Bemessungsgrundlage × Satz"
       },
       "liquiditaet": {
         "title": "Liquiditätsvorschau",
@@ -6350,6 +6350,28 @@
       "amount": "Betrag",
       "delay": "Zahlt im Mittel {expected} Tage nach Fälligkeit (vorsichtig {cautious} Tage)",
       "tableLabel": "Positionen der Liquiditätsvorschau"
+    },
+    "verprobung": {
+      "from": "Von (Buchungsdatum)",
+      "to": "Bis",
+      "basis": "Summen je Beleg über alle Buchungen (Rechnung, Storno, Korrekturen); erwartete Steuer = Bemessungsgrundlage × Steuersatz, kaufmännisch gerundet. Bis 1 Cent je Buchungszeile gilt als Rundung.",
+      "tableLabel": "USt-Verprobung je Steuersatz",
+      "side": "Art",
+      "rate": "Steuersatz",
+      "base": "Bemessungsgrundlage",
+      "expected": "Steuer rechnerisch",
+      "booked": "Steuer gebucht",
+      "difference": "Differenz",
+      "sides": {
+        "output": "Umsatzsteuer",
+        "input": "Vorsteuer"
+      },
+      "empty": "Keine steuerpflichtigen Buchungen im Zeitraum.",
+      "documents": "{count, plural, =0 {Keine Belege mit Differenz} one {# Beleg mit Differenz} other {# Belege mit Differenz}}",
+      "noDifferences": "Gebuchte Steuer und Bemessungsgrundlagen passen bei allen Belegen zusammen.",
+      "rounding": "Rundung",
+      "docLine": "{side} {rate}: Bemessungsgrundlage {base}, rechnerisch {expected}, gebucht {booked}",
+      "entry": "Buchung {seq}"
     }
   }
 }

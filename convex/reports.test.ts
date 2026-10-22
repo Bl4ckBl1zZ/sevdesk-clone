@@ -218,3 +218,31 @@ describe("Auswertungen read models (RPT-001, RPT-003…RPT-007)", () => {
     expect(new TextDecoder().decode(ok.data)).toContain("4400;");
   });
 });
+
+describe("USt-Verprobung (RPT-009)", () => {
+  test("RPT-009 RPT-001 booked VAT per rate from the journal reconciles with base × rate; meta marks the range vorläufig", async () => {
+    const t = makeT();
+    const { customer } = await setupBooks(t);
+    await post(t, invoiceEvent(customer, "v1", "2026-09-10", 100000));
+    await post(t, invoiceEvent(customer, "v2", "2026-09-12", 33333));
+    const u = await t.asUser("viewer");
+    const r = await u.query(api.reports.verprobung, { from: "2026-01-01", to: "2026-12-31" });
+    expect(r.rows).toEqual([
+      {
+        side: "output",
+        rateBp: 1900,
+        baseCents: 133333,
+        bookedVatCents: 25333,
+        expectedVatCents: 25333,
+        differenceCents: 0,
+      },
+    ]);
+    expect(r.documents).toEqual([]);
+    expect(r.meta).toMatchObject({ report: "verprobung", provisional: true });
+    const before = await u.query(api.reports.verprobung, { from: "2026-01-01", to: "2026-08-31" });
+    expect(before.rows).toEqual([]);
+    expect(await u.query(api.reports.verprobung, { from: "2026-12-31", to: "2026-01-01" }).catch(errorCode)).toBe(
+      "invalid_input",
+    );
+  });
+});

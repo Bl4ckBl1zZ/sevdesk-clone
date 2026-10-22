@@ -174,6 +174,7 @@ import type * as model_turnover from "../model/turnover.js";
 import type * as model_types from "../model/types.js";
 import type * as model_ustAnnual from "../model/ustAnnual.js";
 import type * as model_vatChecks from "../model/vatChecks.js";
+import type * as model_verprobung from "../model/verprobung.js";
 import type * as model_verfahrensdoku from "../model/verfahrensdoku.js";
 import type * as model_voucherPayments from "../model/voucherPayments.js";
 import type * as model_voucherStatus from "../model/voucherStatus.js";
@@ -381,6 +382,7 @@ declare const fullApi: ApiFromModules<{
   "model/types": typeof model_types;
   "model/ustAnnual": typeof model_ustAnnual;
   "model/vatChecks": typeof model_vatChecks;
+  "model/verprobung": typeof model_verprobung;
   "model/verfahrensdoku": typeof model_verfahrensdoku;
   "model/voucherPayments": typeof model_voucherPayments;
   "model/voucherStatus": typeof model_voucherStatus;

@@ -7,6 +7,7 @@ import { forecastView } from "./model/forecast";
 import { kpiView } from "./model/kpis";
 import { bwaView, ledgerView, oposView, revenueView, susaView } from "./model/reports";
 import { taxReserveView } from "./model/taxReserve";
+import { verprobungView } from "./model/verprobung";
 
 /**
  * Auswertungen (F08 §6 /auswertungen; RPT-001, RPT-003…RPT-007): SuSa, Kontenblatt, BWA-light, Offene Posten as of a
@@ -62,6 +63,13 @@ export const revenue = query({
   permission: "reports.read",
   args: revenueArgs,
   handler: async (ctx, a) => revenueView(ctx, a, ctx.now()),
+});
+
+/** RPT-009 USt-Verprobung: booked VAT per rate vs. bases × rate, differences per document. */
+export const verprobung = query({
+  permission: "reports.read",
+  args: range,
+  handler: async (ctx, a) => verprobungView(ctx, a, ctx.now()),
 });
 
 /**
