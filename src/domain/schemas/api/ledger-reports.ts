@@ -391,7 +391,7 @@ type EuerViewLike = {
   year: number;
   ku: boolean;
   sheet: Omit<EuerSheet, "lines"> & {
-    lines: (EuerSheet["lines"][number] & {
+    lines: (Omit<EuerSheet["lines"][number], "drillDown"> & {
       drillDown: { seq: number; date: string; cents: number; text?: string }[];
     })[];
   };
