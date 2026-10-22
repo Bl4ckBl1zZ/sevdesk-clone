@@ -45,7 +45,7 @@ describe("PRJ-003 budget monitoring", () => {
 });
 
 describe("PRJ-004 profitability", () => {
-  test("PRJ-004 TST-PRJ-17 invoices 10.000 €, Storno 1.000 €, vouchers 2.000 €, 40 h × 30 € → margin 5.800 €", () => {
+  test("PRJ-004 TST-PRJ-17 invoices 10.000 €, Storno 1.000 €, vouchers 2.000 €, 40 h × 30 € → margin 5.800 € (64,44 %)", () => {
     const p = computeProfitability({
       revenue: [
         { id: "i1", kind: "invoice", netCents: 1_000_000 },
@@ -63,8 +63,7 @@ describe("PRJ-004 profitability", () => {
       marginCents: 580_000,
       minutes: 2400,
     });
-    // Margin % on the net revenue after the Storno (5.800 / 9.000 = 64,44 %); F11 TST-PRJ-17 prints 58 % (= 5.800 /
-    // 10.000, gross of the Storno) — reported as a spec inconsistency, the net reading is implemented.
+    // Margin % on the revenue after the Storno: 5.800 / 9.000 = 64,44 % (owner decision 2026-10-22, F11 PRJ-004).
     expect(p.marginBp).toBe(6444);
   });
 
