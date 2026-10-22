@@ -384,9 +384,11 @@ export function PaymentDialog({
                   {(() => {
                     const p = preview.postings[i];
                     if (p?.status !== "lines") return null;
+                    // PAY-015: account (role resolved to the chart), debit S / credit H, tax key
                     return p.lines.map((l) => (
                       <li key={`${l.account}-${l.debitCents}-${l.creditCents}`}>
                         {l.account} {l.debitCents ? `${money(l.debitCents)} S` : `${money(l.creditCents)} H`}
+                        {l.taxKey ? ` · ${l.taxKey}` : ""}
                       </li>
                     ));
                   })()}

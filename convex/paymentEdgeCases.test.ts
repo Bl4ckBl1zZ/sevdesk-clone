@@ -408,4 +408,43 @@ describe("F05 §5.1 EC-PAY edge cases", { timeout: 30_000 }, () => {
     expect(finalAfter.totals).toEqual(finalBefore.totals);
     expect(finalAfter.status).toBe(finalBefore.status);
   });
+
+  test("PAY-015 GOBD-01 the booking preview shows the journal lines with SKR accounts, S/H and tax key; nothing is written", async () => {
+    const t = makeT();
+    const { owner, id, bankAccount } = await invoice(t);
+    const args = {
+      documentId: id,
+      source: { kind: "clearing" as const, accountId: bankAccount },
+      date: "2026-10-12",
+      amountCents: 116_620,
+      differences: [{ reason: "skonto" as const, amountCents: 2_380 }],
+    };
+    const p = await owner.query(api.payments.previewInvoicePayment, args);
+    expect(p.ok).toBe(true);
+    if (!p.ok) return;
+    const posting = p.postings[0];
+    expect(posting?.status).toBe("lines");
+    if (posting?.status !== "lines") return;
+    const lines = posting.lines.map((l) => [l.account, l.debitCents, l.creditCents, l.taxKey ?? null]);
+    expect(lines).toEqual(
+      expect.arrayContaining([
+        ["1200", 116_620, 0, null], // bank (clearing account's ledger account)
+        ["1400", 0, 119_000, null], // receivable
+        ["8736", 2_000, 0, "USt19"], // Skonto granted 19 % (SKR03)
+        ["1776", 380, 0, null], // output VAT correction
+      ]),
+    );
+    expect(posting.lines.reduce((s, l) => s + l.debitCents - l.creditCents, 0)).toBe(0);
+    // recomputed live: without Skonto the lines change
+    const plain = await owner.query(api.payments.previewInvoicePayment, {
+      ...args,
+      amountCents: 50_000,
+      differences: [],
+    });
+    expect(plain.ok && plain.postings[0]?.status === "lines" && plain.postings[0].lines.map((l) => l.account)).toEqual([
+      "1200",
+      "1400",
+    ]);
+    expect(await t.run((ctx) => ctx.db.query("payments").collect())).toEqual([]);
+  });
 });
