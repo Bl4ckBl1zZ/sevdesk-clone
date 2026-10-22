@@ -17,6 +17,7 @@ import type { DocumentSnapshot } from "../src/domain/documents/snapshot";
 import type { XmlAttachment } from "../src/domain/einvoice/model";
 import { exportRequestSchema } from "../src/domain/schemas/documents";
 import { readEmbeddedFiles } from "../src/pdf/embedded-files";
+import { type LetterheadFiles, validateLetterhead } from "../src/pdf/letterhead";
 import { renderArtifacts } from "../src/pdf/render-artifacts";
 import type { PdfLogo } from "../src/pdf/sales-document";
 import { internal } from "./_generated/api";
@@ -58,6 +59,48 @@ async function loadLogo(ctx: ActionCtx, storageId: Id<"_storage"> | null): Promi
   if (data[0] === 0xff && data[1] === 0xd8) return { data, format: "jpg" };
   return null; // SVG logos are not supported by react-pdf (F01 SET-070)
 }
+
+/** SET-072: the letterhead files of the frozen layout version (validated when they were uploaded). */
+async function loadLetterhead(ctx: ActionCtx, config: unknown): Promise<LetterheadFiles | null> {
+  const c = config as { letterheadStorageId?: Id<"_storage">; letterheadPage2StorageId?: Id<"_storage"> } | null;
+  if (!c?.letterheadStorageId) return null;
+  const bytesOf = async (id: Id<"_storage">) => {
+    const blob = await ctx.storage.get(id);
+    if (!blob) throw new Error("Briefpapier fehlt im Speicher");
+    return new Uint8Array(await blob.arrayBuffer());
+  };
+  return {
+    first: await bytesOf(c.letterheadStorageId),
+    ...(c.letterheadPage2StorageId ? { follow: await bytesOf(c.letterheadPage2StorageId) } : {}),
+  };
+}
+
+/**
+ * F01 SET-072 „Briefpapier hochladen“: the uploaded PDF is checked (A4 portrait, 1–2 pages, ≤ 5 MB, no JavaScript,
+ * no encryption, embedded fonts) before a new layout version references it (SET-070); `follow` is an optional
+ * separate file for the later pages.
+ */
+export const uploadLetterhead = action({
+  permission: "settings.write",
+  args: {
+    layoutId: v.id("layouts"),
+    storageId: v.id("_storage"),
+    slot: v.union(v.literal("first"), v.literal("follow")),
+  },
+  handler: async (ctx, a): Promise<{ pages: number }> => {
+    const blob = await ctx.storage.get(a.storageId);
+    if (!blob) throw appError("invalid_input", "Die hochgeladene Datei wurde nicht gefunden.");
+    const check = await validateLetterhead(new Uint8Array(await blob.arrayBuffer()));
+    if (!check.ok) throw appError("invalid_input", check.message, { reason: check.code });
+    await ctx.runMutation(internal.settings.setLetterhead, {
+      actorContext: ctx.actorContext,
+      layoutId: a.layoutId,
+      slot: a.slot,
+      storageId: a.storageId,
+    });
+    return { pages: check.pages };
+  },
+});
 
 async function store(ctx: ActionCtx, bytes: Uint8Array, mime: string): Promise<Id<"_storage">> {
   return ctx.storage.store(new Blob([bytes as Uint8Array<ArrayBuffer>], { type: mime }));
@@ -104,6 +147,7 @@ export const render = systemAction({
       const xmlAttachments = await loadXmlAttachments(ctx, input.xmlAttachments, snapshot);
       const r = await renderArtifacts(snapshot, layoutOf(input.layoutConfig), "original", {
         logo: await loadLogo(ctx, input.logoStorageId),
+        letterhead: await loadLetterhead(ctx, input.layoutConfig),
         createdAt,
         ...(xmlAttachments.length ? { xmlAttachments } : {}),
       });
@@ -324,6 +368,7 @@ async function collectExportFiles(
         "copy",
         {
           logo: await loadLogo(ctx, r.logoStorageId),
+          letterhead: await loadLetterhead(ctx, r.layoutConfig),
           createdAt: new Date(r.finalizedAt ?? Date.now()),
         },
       );

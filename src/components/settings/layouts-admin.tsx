@@ -29,6 +29,7 @@ import { NUMBERED_TYPE_LABEL_DE } from "@/domain/numbering/register";
 import { layoutCreateSchema } from "@/domain/schemas/settings";
 import { useAdapterErrorToast } from "@/hooks/use-adapter-error-toast";
 import { useAuthedQuery } from "@/hooks/use-authed-query";
+import { LetterheadDialog } from "./letterhead-dialog";
 
 type Layout = FunctionReturnType<typeof api.settings.listLayoutsWithDefaults>[number];
 type CreateForm = UseFormReturn<{ name: string }, unknown, { name: string }>;
@@ -55,6 +56,8 @@ function LayoutsAdminInner() {
   const [creating, setCreating] = useState(false);
   const [editing, setEditing] = useState<Layout | null>(null);
   const [history, setHistory] = useState<Layout | null>(null);
+  const [letterhead, setLetterhead] = useState<Layout | null>(null);
+  const tLetterhead = useTranslations("letterhead");
   if (layouts === undefined) return <div className="h-40" aria-busy="true" />;
   return (
     <>
@@ -87,6 +90,7 @@ function LayoutsAdminInner() {
                     />
                     {l.name}
                     <Badge variant="outline">{t("version", { version: l.version })}</Badge>
+                    {l.letterhead && <Badge variant="secondary">{tLetterhead("badge")}</Badge>}
                   </span>
                   <span className="text-muted-foreground">
                     {l.isDefaultFor.length
@@ -97,6 +101,10 @@ function LayoutsAdminInner() {
                 <div className="flex flex-wrap gap-2">
                   <Button variant="outline" size="sm" className="h-11 md:h-8" onClick={() => setHistory(l)}>
                     {t("versions")}
+                    <span className="sr-only"> ({l.name})</span>
+                  </Button>
+                  <Button variant="outline" size="sm" className="h-11 md:h-8" onClick={() => setLetterhead(l)}>
+                    {tLetterhead("button")}
                     <span className="sr-only"> ({l.name})</span>
                   </Button>
                   <Button variant="outline" size="sm" className="h-11 md:h-8" onClick={() => setEditing(l)}>
@@ -113,6 +121,7 @@ function LayoutsAdminInner() {
       <CreateLayoutDialog open={creating} onOpenChange={setCreating} />
       {editing && <DefaultsDialog layout={editing} onClose={() => setEditing(null)} />}
       {history && <HistoryDialog layout={history} onClose={() => setHistory(null)} />}
+      {letterhead && <LetterheadDialog layout={letterhead} onClose={() => setLetterhead(null)} />}
     </>
   );
 }

@@ -94,6 +94,49 @@ export async function saveDefaultLayout(ctx: ModelCtx, values: LayoutValues): Pr
   });
 }
 
+/**
+ * F01 SET-071/072: sets or removes the letterhead of a layout (`first` = page 1 / both pages, `follow` = a separate
+ * file for the later pages) as a new immutable version; old versions keep their files (SET-023, files.ts).
+ */
+export async function setLetterhead(
+  ctx: ModelCtx,
+  layoutId: Id<"layouts">,
+  slot: "first" | "follow",
+  storageId: Id<"_storage"> | null,
+): Promise<Id<"layoutVersions">> {
+  const layout = await ctx.db.get(layoutId);
+  if (!layout) throw appError("not_found", "Layout nicht gefunden.");
+  const current = layout.currentVersionId ? await ctx.db.get(layout.currentVersionId) : null;
+  const previous = current?.config ?? DEFAULT_CONFIG;
+  const key = slot === "first" ? "letterheadStorageId" : "letterheadPage2StorageId";
+  if (slot === "follow" && storageId && !previous.letterheadStorageId) {
+    throw appError("invalid_input", "Bitte zuerst das Briefpapier für die erste Seite hochladen.");
+  }
+  const { [key]: _old, ...rest } = previous;
+  // Removing page 1 removes the follow-page file too (it is only a variant of the same letterhead).
+  const { letterheadPage2StorageId: _follow, ...withoutFollow } = rest as LayoutConfig;
+  const base = slot === "first" && !storageId ? withoutFollow : (rest as LayoutConfig);
+  const config: LayoutConfig = { ...base, ...(storageId ? { [key]: storageId } : {}) };
+  const version = (current?.version ?? 0) + 1;
+  const versionId = await auditedInsert(
+    ctx,
+    "layoutVersions",
+    { layoutId, version, config, createdAt: ctx.now() },
+    { action: "settings.layout.update", label: `${layout.name} v${version}` },
+  );
+  await auditedPatch(
+    ctx,
+    "layouts",
+    layoutId,
+    { currentVersionId: versionId },
+    {
+      action: storageId ? "settings.letterhead.update" : "settings.letterhead.remove",
+      label: layout.name,
+    },
+  );
+  return versionId;
+}
+
 export async function listLayouts(ctx: ReadCtx): Promise<Doc<"layouts">[]> {
   return ctx.db.query("layouts").collect();
 }

@@ -6374,5 +6374,21 @@
     "cancel": "Abbrechen",
     "agreementSaved": "Gutschriftsvereinbarung gespeichert.",
     "create": "Gutschrift erstellen"
+  },
+  "letterhead": {
+    "button": "Briefpapier",
+    "title": "Briefpapier für „{name}“",
+    "description": "PDF im Format A4 hochkant, 1–2 Seiten, höchstens 5 MB, ohne JavaScript und Verschlüsselung, alle Schriften eingebettet. Seite 1 ist der Hintergrund der ersten Seite, Seite 2 (oder eine eigene Datei) der Hintergrund der Folgeseiten. Jede Änderung ist eine neue Layout-Version; festgeschriebene Dokumente behalten ihr Briefpapier.",
+    "first": "Briefpapier (Seite 1 bzw. alle Seiten)",
+    "follow": "Eigene Datei für Folgeseiten (optional)",
+    "present": "hinterlegt",
+    "missing": "nicht hinterlegt",
+    "upload": "PDF hochladen",
+    "remove": "Entfernen",
+    "uploading": "Wird geprüft …",
+    "uploaded": "Briefpapier gespeichert (neue Layout-Version).",
+    "removed": "Briefpapier entfernt (neue Layout-Version).",
+    "followNeedsFirst": "Zuerst das Briefpapier für die erste Seite hochladen.",
+    "badge": "Briefpapier"
   }
 }
