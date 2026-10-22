@@ -110,6 +110,39 @@ describe("image quality (VOU-124, GOBD-08)", () => {
   });
 });
 
+describe("private vouchers (VOU-066)", () => {
+  test("VOU-066 a private voucher books S Privatentnahmen · H Verbindlichkeiten (no expense, no input VAT); GmbH blocked", async () => {
+    const t = makeT();
+    await setupCompany(t);
+    const owner = await t.asUser("owner");
+    const id = await draft(t, owner, { kind: "private" });
+    const r = await owner.mutation(api.vouchers.finalize, { id });
+    expect(r.infos.map((i) => i.code)).toContain("private_no_input_vat");
+    expect((await voucher(t, id)).taxRule).toBe("no_input_vat");
+    const [entry] = await t.run((ctx) =>
+      ctx.db
+        .query("journalEntries")
+        .withIndex("by_source", (q) => q.eq("source.kind", "voucher").eq("source.id", id))
+        .collect(),
+    );
+    expect(entry?.explanation).toBe("V-private");
+    expect(entry?.lines.map((l) => [l.account, l.debitCents, l.creditCents])).toEqual([
+      ["2100", 11_900, 0],
+      ["3300", 0, 11_900],
+    ]);
+
+    const g = makeT();
+    await setupCompany(g, { legalForm: "gmbh" });
+    const gOwner = await g.asUser("owner");
+    const gid = await draft(g, gOwner, { kind: "private" });
+    const e = await gOwner.mutation(api.vouchers.finalize, { id: gid }).catch((x: unknown) => x);
+    expect((e as { data?: { message?: string } }).data?.message).toContain(
+      "Kapitalgesellschaften haben kein Privatkonto",
+    );
+    expect((await voucher(g, gid)).status).toBe("draft");
+  });
+});
+
 describe("„Mit Banking-App bezahlen“ (VOU-135, MISC-01)", () => {
   test("VOU-135 the detail of an open voucher carries the GiroCode (open amount, supplier IBAN, document number); none once paid", async () => {
     const t = makeT();
