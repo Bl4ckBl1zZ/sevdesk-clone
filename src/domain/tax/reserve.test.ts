@@ -191,4 +191,27 @@ describe("estimateTaxReserve (RPT-010, RPT-011)", () => {
       "Tarif 2027 noch nicht hinterlegt – Berechnung mit Tarif 2026.",
     );
   });
+
+  test("AST-013 RPT-010 the AfA forecast replaces the linear projection of AfA: profit before AfA annualised − planned AfA of the year", () => {
+    // 10 months: 50,000 € profit after 6,000 € AfA posted; the plan of the year has 9,000 € AfA (GWG in Nov)
+    const r = estimateTaxReserve({
+      ...base,
+      profitOverrideCents: undefined,
+      ytdProfitCents: 5_000_000,
+      afa: { postedYtdCents: 600_000, plannedYearCents: 900_000 },
+    });
+    // (50,000 + 6,000) × 12 / 10 − 9,000 = 58,200 €
+    expect(r.profit).toMatchObject({ projectedCents: 5_820_000, basis: "annualised", monthsElapsed: 10 });
+    expect(r.assumptions).toContain(
+      `AfA laut Anlagenverzeichnis: ${formatEuro(600_000)} gebucht, ${formatEuro(900_000)} im Jahr geplant – nicht hochgerechnet, sondern mit dem Plan angesetzt.`,
+    );
+    // without an asset plan the old annualisation applies
+    const plain = estimateTaxReserve({ ...base, profitOverrideCents: undefined, ytdProfitCents: 5_000_000 });
+    expect(plain.profit.projectedCents).toBe(6_000_000);
+    // an override wins
+    expect(
+      estimateTaxReserve({ ...base, afa: { postedYtdCents: 600_000, plannedYearCents: 900_000 } }).profit
+        .projectedCents,
+    ).toBe(6_000_000);
+  });
 });

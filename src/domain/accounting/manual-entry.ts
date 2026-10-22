@@ -236,4 +236,12 @@ export const MANUAL_TEMPLATES: readonly ManualTemplate[] = [
     ],
     hint: "1 % des Bruttolistenpreises je Monat; der Anteil ohne Vorsteuerabzug (pauschal 20 %) ist als eigene Zeile ohne Steuerschlüssel zu buchen. Eigenbeleg anhängen.",
   },
+  {
+    // AST-011: impairment and a changed useful life are manual entries with a reason, never a recomputation
+    key: "afa_extraordinary",
+    label: "Außerplanmäßige AfA / Änderung der Nutzungsdauer",
+    text: "Außerplanmäßige AfA",
+    lines: [{ role: "afa.extraordinary", side: "debit" }, { side: "credit" }],
+    hint: "Grund (z. B. dauernde Wertminderung, geänderte Nutzungsdauer) im Eigenbeleg angeben und anhängen. Der Abschreibungsplan der Anlage wird nicht neu berechnet; vergangene Zeiträume bleiben unverändert.",
+  },
 ];

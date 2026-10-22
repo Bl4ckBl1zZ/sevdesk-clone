@@ -8,6 +8,7 @@ import { berlinCalendarDate } from "../../src/domain/time/berlin";
 import { calendarDate } from "../../src/domain/time/calendar-date";
 import type { Doc } from "../_generated/dataModel";
 import { appError } from "../lib/errors";
+import { afaForecastOf } from "./assets";
 import { auditedInsert, auditedPatch } from "./audit";
 import { getCompanyProfile } from "./companyProfile";
 import { euerContext, isBilanz } from "./euer";
@@ -121,6 +122,8 @@ export async function taxReserveView(
   const today = berlinCalendarDate(now);
   const saved = await taxReserveInputsOf(ctx, year);
   const profit = await ytdProfit(ctx, profile, year, today);
+  // AST-013: AfA from the asset plan instead of annualising the posted AfA
+  const afa = await afaForecastOf(ctx, year);
   const openDeadlines = (await taxDeadlines(ctx, year)).filter((d) => d.kind === "ustva" && !d.done && d.period);
   const profitOverride = overrides.profitOverrideCents ?? saved?.profitOverrideCents;
   const deductions = overrides.deductionsCents ?? saved?.deductionsCents;
@@ -132,6 +135,7 @@ export async function taxReserveView(
     gewerbe: !NO_GEWERBE.has(profile.legalForm),
     ytdProfitCents: profit.cents,
     profitBasis: profit.basis,
+    afa: { postedYtdCents: afa.postedCents, plannedYearCents: afa.plannedYearCents },
     ...(profitOverride !== undefined ? { profitOverrideCents: profitOverride } : {}),
     ...(deductions !== undefined ? { deductionsCents: deductions } : {}),
     splitting: overrides.splitting ?? saved?.splitting ?? false,

@@ -6,7 +6,7 @@ import { planDisposal } from "./disposal";
 import { assetDraftsFromVoucher } from "./from-voucher";
 import { afaRoleFor, allowedMethods, assetClassOf, validateAssetSetup } from "./methods";
 import { anlagenspiegel, gwgList, poolSummary } from "./report";
-import { depreciationPlan, sumThrough } from "./schedule";
+import { afaForecast, depreciationPlan, depreciationTable, sumThrough } from "./schedule";
 
 const d = calendarDate;
 const jstg = [{ ...JSTG_2026_ASSET_THRESHOLDS_DRAFT, id: "jstg" }];
@@ -61,7 +61,7 @@ describe("AST-003 methods valid for the acquisition date (afaRules)", () => {
     expect(r.ok && r.value.ruleVersion).toContain("afa_rules@2025-07-01");
   });
 
-  test("AST-003 TST-AST-04 EC-175 GWG limit by acquisition date: 900 € on the JStG validFrom with the row activated", () => {
+  test("AST-003 TST-AST-04 EC-175 E-AST-03 GWG limit by acquisition date: 900 € on the JStG validFrom with the row activated", () => {
     const at = (date: string, overrides = jstg) =>
       validateAssetSetup({
         acquisitionDate: d(date),
@@ -296,7 +296,7 @@ describe("AST-004…AST-008 depreciation schedules", () => {
     expect(list[0]?.voucherNumber).toBe("BE-2026-00007");
   });
 
-  test("AST-008 TST-AST-06 pool 2026 with 3 items 3,000 € → 600 € per year 2026–2030; disposal changes nothing", () => {
+  test("AST-008 TST-AST-06 E-AST-07 pool 2026 with 3 items 3,000 € → 600 € per year 2026–2030; disposal changes nothing", () => {
     const items = [100_000, 90_000, 110_000].map((c, i) => ({
       id: `p${i}`,
       plan: planOf({ acquisitionDate: d("2026-04-10"), costCents: c, method: "pool" }),
@@ -346,7 +346,7 @@ describe("AST-004…AST-008 depreciation schedules", () => {
 describe("AST-010 disposal (EC-176)", () => {
   const plan = planOf({ acquisitionDate: d("2026-01-10"), costCents: 360_000, method: "linear", usefulLifeMonths: 36 });
 
-  test("AST-010 TST-AST-07 EC-176 linear 3,600 € sold 2026-06-15 for 3,000 €: AfA Jan–Jun 600 €, RBW 3,000 €, no gain", () => {
+  test("AST-010 TST-AST-07 EC-176 E-AST-06 linear 3,600 € sold 2026-06-15 for 3,000 €: AfA Jan–Jun 600 €, RBW 3,000 €, no gain", () => {
     const r = planDisposal({
       method: "linear",
       costCents: 360_000,
@@ -543,5 +543,67 @@ describe("AST-002 assets from voucher lines", () => {
     expect(voucherLineBaseCents({ ...line, nonDeductibleShareBp: 2000 }, "input_vat_deductible", false)).toBe(80_000);
     expect(voucherInputVatDeducted("input_vat_deductible", false)).toBe(true);
     expect(voucherInputVatDeducted("input_vat_deductible", true)).toBe(false);
+  });
+
+  test("AST-013 depreciation table per asset (planned vs posted) and the AfA forecast of a year", () => {
+    const linear = planOf({
+      acquisitionDate: d("2026-01-10"),
+      costCents: 360_000,
+      method: "linear",
+      usefulLifeMonths: 36,
+    });
+    const gwg = planOf({ acquisitionDate: d("2026-11-03"), costCents: 79_900, method: "gwg" });
+    const table = depreciationTable(linear, new Set(["2026-01", "2026-02", "2026-03"]));
+    expect(table.slice(0, 4).map((r) => [r.period, r.amountCents, r.status])).toEqual([
+      ["2026-01", 10_000, "posted"],
+      ["2026-02", 10_000, "posted"],
+      ["2026-03", 10_000, "posted"],
+      ["2026-04", 10_000, "planned"],
+    ]);
+    expect(table.at(-1)).toMatchObject({ period: "2028-12", bookValueAfterCents: 0, status: "planned" });
+    const f = afaForecast(
+      [
+        { plan: linear, postedPeriods: new Set(["2026-01", "2026-02", "2026-03"]) },
+        { plan: gwg, postedPeriods: new Set() },
+      ],
+      2026,
+    );
+    expect(f).toEqual({
+      year: 2026,
+      postedCents: 30_000,
+      plannedYearCents: 120_000 + 79_900,
+      remainingCents: 90_000 + 79_900,
+      byMonth: expect.arrayContaining([
+        { period: "2026-11", cents: 10_000 + 79_900 },
+        { period: "2026-12", cents: 10_000 },
+      ]),
+    });
+    expect(f.byMonth).toHaveLength(12);
+  });
+
+  test("AST-007 E-AST-16 an item ≤ 250 € net may be registered: allowed, expensed in full in its month, not in the GWG list", () => {
+    const setup = validateAssetSetup({
+      acquisitionDate: d("2026-05-12"),
+      costCents: 19_900,
+      method: "gwg",
+      assetClass: "movable",
+    });
+    expect(setup.ok).toBe(true);
+    const plan = planOf({ acquisitionDate: d("2026-05-12"), costCents: 19_900, method: "gwg" });
+    expect(plan).toEqual([{ period: "2026-05", amountCents: 19_900, bookValueAfterCents: 0, fiscalYear: 2026 }]);
+    const list = gwgList(
+      [
+        {
+          id: "a1",
+          inventoryNumber: "AV-00009",
+          name: "Tastatur",
+          acquisitionDate: "2026-05-12",
+          costCents: 19_900,
+          method: "gwg",
+        },
+      ],
+      { from: "2026-01-01", to: "2026-12-31" },
+    );
+    expect(list).toEqual([]);
   });
 });

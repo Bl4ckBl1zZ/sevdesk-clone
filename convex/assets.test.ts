@@ -103,7 +103,7 @@ describe("AST-002 assets from booked vouchers", () => {
     expect(runs[0]?.entries[0]).toMatchObject({ period: MONTH, amountCents: 50_000 });
   });
 
-  test("AST-002 E-AST-11 an „Anlage“ line needs the useful life before the run posts AfA", async () => {
+  test("AST-002 E-AST-11 AST-001 E-AST-10 AST-011 an „Anlage“ line needs the useful life; after the first AfA cost and useful life are frozen", async () => {
     const t = makeT();
     await setupCompany(t);
     const owner = await t.asUser("owner");
@@ -248,7 +248,7 @@ describe("AST-010 disposal (EC-176)", () => {
     expect(err.message).toBe("Ein Verkauf braucht die Ausgangsrechnung über den Erlös.");
   });
 
-  test("AST-010 TST-AST-08 EC-170 disposal in a locked month: RBW late-posted, the asset keeps the real date", async () => {
+  test("AST-010 TST-AST-08 EC-170 E-AST-09 disposal in a locked month: RBW late-posted, the asset keeps the real date", async () => {
     const t = makeT();
     const { owner } = await finalizedInvoice(t);
     const id = await linearAsset(t, owner);
@@ -269,6 +269,29 @@ describe("AST-010 disposal (EC-176)", () => {
     expect(runs[0]?.findings[0]?.message).toBe(
       `AfA 01/${YEAR} konnte wegen Festschreibung nicht gebucht werden und wurde im 07/${YEAR} nachgeholt.`,
     );
+  });
+
+  test("E-AST-14 AST-009 the AfA run hits locked months: skipped with a finding, caught up in the first open month with the late-posting flag", async () => {
+    const t = makeT();
+    const { owner } = await finalizedInvoice(t);
+    await linearAsset(t, owner);
+    await t.model(OWNER, (ctx) => lockMonths(ctx, [`${YEAR}-01`, `${YEAR}-02`], "manual"));
+    const r = await owner.mutation(api.assets.depreciateNow, { through: `${YEAR}-03` });
+    expect(r.posted).toBe(3);
+    const entries = (await afaEntries(t)).sort((a, b) => a.seq - b.seq);
+    expect(entries.map((e) => [e.source.id.split(":")[1], e.period, e.originalDate ?? null])).toEqual([
+      [`${YEAR}-01`, `${YEAR}-03`, `${YEAR}-01-31`],
+      [`${YEAR}-02`, `${YEAR}-03`, `${YEAR}-02-${new Date(Date.UTC(YEAR, 2, 0)).getUTCDate()}`],
+      [`${YEAR}-03`, `${YEAR}-03`, null],
+    ]);
+    expect(entries.slice(0, 2).every((e) => e.latePosting !== undefined)).toBe(true);
+    expect(entries[2]?.latePosting).toBeUndefined();
+    expect(r.findings.map((f) => f.message)).toEqual([
+      `AfA 01/${YEAR} konnte wegen Festschreibung nicht gebucht werden und wurde im 03/${YEAR} nachgeholt.`,
+      `AfA 02/${YEAR} konnte wegen Festschreibung nicht gebucht werden und wurde im 03/${YEAR} nachgeholt.`,
+    ]);
+    // idempotent: a second run posts nothing (E-AST-13)
+    expect((await owner.mutation(api.assets.depreciateNow, { through: `${YEAR}-03` })).posted).toBe(0);
   });
 
   test("AST-010 E-AST-08 disposal before the last posted AfA month is blocked", async () => {

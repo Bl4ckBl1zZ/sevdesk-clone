@@ -21,7 +21,7 @@ import {
   type YearChoice,
 } from "../../src/domain/assets/methods";
 import { anlagenspiegel, gwgList, type Movement, poolSummary } from "../../src/domain/assets/report";
-import { depreciationPlan, type PlanRow } from "../../src/domain/assets/schedule";
+import { afaForecast, depreciationPlan, type PlanRow } from "../../src/domain/assets/schedule";
 import { roundHalfAway } from "../../src/domain/money";
 import { seedRange } from "../../src/domain/numbering/format";
 import { lookupAssetThresholds } from "../../src/domain/rules/thresholds";
@@ -894,4 +894,16 @@ export async function poolsOf(ctx: ReadCtx, year: number) {
     disposed: a.disposal !== undefined,
   }));
   return poolSummary(items, year).map((p) => ({ ...p, list: items.filter((i) => i.poolYear === p.poolYear) }));
+}
+
+/** AST-013: AfA forecast of a calendar year over all assets (planned vs posted), for the tax reserve (RPT-010). */
+export async function afaForecastOf(ctx: ReadCtx, year: number) {
+  const profile = await profileOrThrow(ctx);
+  const fyStart = fyStartOf(profile);
+  const assets = [];
+  for (const a of await ctx.db.query("assets").collect()) {
+    const posted = await postedOf(ctx, a);
+    assets.push({ plan: planOf(a, fyStart), postedPeriods: new Set(posted.afa.map((p) => p.period)) });
+  }
+  return afaForecast(assets, year);
 }

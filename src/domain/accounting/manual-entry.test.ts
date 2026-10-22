@@ -195,4 +195,30 @@ describe("ACC-011 manual journal entries", () => {
       }
     }
   });
+
+  test("AST-011 außerplanmäßige AfA / change of useful life only as a manual entry with reason: template on afa.extraordinary against the asset account", () => {
+    const tpl = MANUAL_TEMPLATES.find((t) => t.key === "afa_extraordinary");
+    expect(tpl).toMatchObject({
+      label: "Außerplanmäßige AfA / Änderung der Nutzungsdauer",
+      text: "Außerplanmäßige AfA",
+      lines: [{ role: "afa.extraordinary", side: "debit" }, { side: "credit" }],
+    });
+    // the asset account is picked by the user; the reason goes into the Eigenbeleg (attachment mandatory, E-ACC-02)
+    expect(tpl?.hint).toBe(
+      "Grund (z. B. dauernde Wertminderung, geänderte Nutzungsdauer) im Eigenbeleg angeben und anhängen. Der Abschreibungsplan der Anlage wird nicht neu berechnet; vergangene Zeiträume bleiben unverändert.",
+    );
+    const r = buildManualLines(
+      {
+        ...base,
+        text: "Außerplanmäßige AfA",
+        attachmentCount: 0,
+        lines: [
+          { account: "6815", debitCents: 50_000, creditCents: 0 },
+          { account: "1800", debitCents: 0, creditCents: 50_000 },
+        ],
+      },
+      ctx,
+    );
+    expect(!r.ok && r.error.code).toBe("E-ACC-02");
+  });
 });
