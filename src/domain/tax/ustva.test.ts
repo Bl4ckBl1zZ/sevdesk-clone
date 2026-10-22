@@ -526,4 +526,34 @@ describe("F08 §5.2/§5.3 tax timing and form edge cases", () => {
       "Für 2025 ist die Jahreserklärung bereits abgegeben? Dann bitte keine berichtigte Voranmeldung, sondern eine berichtigte Umsatzsteuer-Jahreserklärung in Mein ELSTER übermitteln (Arbeitsblatt USt-Jahreserklärung).",
     ]);
   });
+
+  test("E-TAX-23 MISC-08 a foreign-currency invoice paid at a different rate: FX difference to FX gain/loss, VAT stays at the invoice's EUR VAT", () => {
+    // USD invoice booked at the invoice-date rate: 1,000 € net + 190 € VAT; the customer's payment yields 1,170 €
+    const fxPay = (method: "soll" | "ist") =>
+      post(
+        {
+          kind: "payment_received",
+          paymentId: `fx-${method}`,
+          date: "2026-05-04",
+          means: { kind: "bank_account", bankAccountId: "bank1" },
+          amountCents: 117000,
+          target: { kind: "salesDocument", id: "usd1", number: "RE-usd1" },
+          contactId: "c1",
+          differences: [{ reason: "fx_difference", amountCents: 2000 }],
+          ...(method === "ist"
+            ? { ist: { notDueVat: [{ rateBp: 1900, vatCents: 19000 }], payableCents: 119000, settledBeforeCents: 0 } }
+            : {}),
+        } as BusinessEvent,
+        method,
+      );
+    const soll = fxPay("soll");
+    expect(soll.lines.filter((l) => l.role === "expense.fx_loss").map((l) => l.debitCents)).toEqual([2000]);
+    expect(soll.lines.some((l) => l.role?.startsWith("vat."))).toBe(false);
+    expect(sheetValues(sheet([soll], "2026-05"))).toEqual({ "83": 0 });
+    // Ist: the whole invoice VAT (190 €) becomes due — the FX loss does not reduce the tax base
+    const inv = post(invoice("usd1", "2026-04-10", [{ rateBp: 1900, net: 100000, vat: 19000 }]), "ist");
+    const ist = fxPay("ist");
+    const may = sheet([inv, ist], "2026-05");
+    expect(field(may, "81")).toMatchObject({ valueCents: 100000, bookedTaxCents: 19000 });
+  });
 });

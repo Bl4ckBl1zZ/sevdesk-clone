@@ -152,6 +152,31 @@ describe("SET-044 SET-034 tax form guards", () => {
     ).toBe(true);
   });
 
+  test("ACC-022 E-TAX-09 TST-ACC-17 EC-115 Soll/Ist cannot change for a year that already has postings (only from 1 January of a new year)", () => {
+    const stored = { ...base(), taxationMethod: [{ validFrom: "2026-01-01", method: "soll" as const }] };
+    const midYear = taxPatchFromForm(form({ taxationMethod: "ist", istConfirmed: true }), stored, {
+      ...ctx,
+      journalFiscalYears: [2026],
+    });
+    expect(midYear).toMatchObject({
+      ok: false,
+      error: {
+        code: "TAXATION_METHOD_LOCKED",
+        message:
+          "Ein Wechsel der Versteuerungsart ist nur zum Jahresbeginn möglich – oder mit Genehmigung des Finanzamts (bitte Bescheid hinterlegen).",
+      },
+    });
+    // unchanged method, or a year without postings yet (effective 1 January) → allowed
+    expect(taxPatchFromForm(form({ taxationMethod: "soll" }), stored, { ...ctx, journalFiscalYears: [2026] }).ok).toBe(
+      true,
+    );
+    const before = taxPatchFromForm(form({ taxationMethod: "ist", istConfirmed: true }), stored, {
+      ...ctx,
+      journalFiscalYears: [2025],
+    });
+    expect(before.ok && before.patch.taxationMethod).toEqual([{ validFrom: "2026-01-01", method: "ist" }]);
+  });
+
   test("SET-042 the fiscal year start is locked after the first journal entry", () => {
     const stored = { ...base(), fiscalYearStartMonth: 1 };
     const r = taxPatchFromForm(form({ fiscalYearStartMonth: 7, profitMethod: "bilanz" }), stored, {

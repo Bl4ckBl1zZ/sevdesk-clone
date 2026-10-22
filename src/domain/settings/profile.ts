@@ -367,6 +367,18 @@ export function taxPatchFromForm(
       ),
     };
   }
+  // F08 ACC-022 / E-TAX-09 (EC-115): Soll ↔ Ist only at 1 January — a year with postings keeps its method. The
+  // Finanzamt-approval path for a mid-year switch is not offered (conservative: always blocked).
+  const methodBefore = latest(current.taxationMethod, (m) => m.validFrom, `${year}-12-31`)?.method ?? "soll";
+  if (booked.includes(year) && methodBefore !== v.taxationMethod) {
+    return {
+      ok: false,
+      error: issue(
+        "TAXATION_METHOD_LOCKED",
+        "Ein Wechsel der Versteuerungsart ist nur zum Jahresbeginn möglich – oder mit Genehmigung des Finanzamts (bitte Bescheid hinterlegen).",
+      ),
+    };
+  }
   // SET-042: the fiscal year start is locked after the first journal entry.
   if (booked.length > 0 && v.fiscalYearStartMonth !== current.fiscalYearStartMonth) {
     return {
