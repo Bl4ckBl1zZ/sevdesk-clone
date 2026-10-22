@@ -631,11 +631,16 @@ export async function lockInvoicedEntries(ctx: ModelCtx, doc: Doc<"salesDocument
     );
     n++;
   }
-  // PRJ-014: the Leistungsnachweis is rendered from the now frozen entries (Node action, archived as an artifact).
-  if (n > 0 && doc.attachTimesheet) {
-    await ctx.scheduler.runAfter(0, internal.timesheetsNode.render, { documentId: doc._id });
-  }
   return n;
+}
+
+/**
+ * PRJ-014: once the invoice PDF/XML is archived, the Leistungsnachweis is rendered from the frozen entries (Node
+ * action, archived as `timesheet_pdf`). Not earlier: the invoice pipeline skips documents that already have an
+ * artifact, so a timesheet archived first would block the invoice PDF.
+ */
+export async function afterInvoiceArtifacts(ctx: ModelCtx, doc: Doc<"salesDocuments">) {
+  if (doc.attachTimesheet) await ctx.scheduler.runAfter(0, internal.timesheetsNode.render, { documentId: doc._id });
 }
 
 /**

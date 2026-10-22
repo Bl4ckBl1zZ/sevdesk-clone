@@ -405,6 +405,8 @@ export const timesheetInput = systemQuery({
     const profile = await getCompanyProfile(ctx);
     const project = doc.projectId ? await ctx.db.get(doc.projectId) : null;
     return {
+      /** The F04 pipeline renders the invoice first (it skips documents that already have artifacts). */
+      artifactsReady: doc.artifactStatus === "ready",
       invoiceNumber: doc.number,
       documentDate: (doc.documentDate ?? berlinCalendarDate(doc.finalizedAt ?? ctx.now())) as CalendarDate,
       sellerName: profile?.name ?? "",

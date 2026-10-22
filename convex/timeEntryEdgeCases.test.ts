@@ -719,6 +719,38 @@ describe("PRJ-014 timesheet (Leistungsnachweis)", () => {
     expect(audit.some((x) => x.entity.table === "documentArtifacts" && x.entity.id === a._id)).toBe(true);
   });
 
+  test("PRJ-014 the timesheet waits for the invoice pipeline (which skips documents that already have artifacts)", async () => {
+    const t = makeT();
+    const { owner, personId } = await setup(t);
+    const p = await project(owner, personId);
+    const ids = [await logEntry(owner, p, "2026-10-01", "1h", "Workshop")];
+    const r = await owner.mutation(api.timeEntries.createInvoice, {
+      values: { entryIds: ids, grouping: "summary", attachTimesheet: true },
+    });
+    await owner.action(api.invoices.finalize, { id: r.id, version: (await doc(t, r.id)).version });
+    // before the pipeline ran: nothing is archived (the render is scheduled again once the invoice artifacts exist)
+    expect(await t.action(internal.timesheetsNode.render, { documentId: r.id })).toBeNull();
+    const early = await t.run((ctx) =>
+      ctx.db
+        .query("documentArtifacts")
+        .withIndex("by_document", (q) => q.eq("documentId", r.id))
+        .collect(),
+    );
+    expect(early).toEqual([]);
+    await settle(t);
+    expect((await doc(t, r.id)).artifactStatus).toBe("ready");
+    const kinds = await t.run(async (ctx) =>
+      (
+        await ctx.db
+          .query("documentArtifacts")
+          .withIndex("by_document", (q) => q.eq("documentId", r.id))
+          .collect()
+      ).map((a) => a.kind),
+    );
+    expect(kinds).toContain("timesheet_pdf");
+    expect(kinds.some((k) => k === "pdf" || k === "zugferd_pdf")).toBe(true);
+  });
+
   test("PRJ-014 the option defaults to the project setting; without it no timesheet is rendered", async () => {
     const t = makeT();
     const { owner, personId } = await setup(t);

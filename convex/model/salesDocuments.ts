@@ -72,7 +72,7 @@ import { type NotificationInput, notify } from "./notifications";
 import { assignCounterNumber, listDefaultRanges, registerDerivedNumber } from "./numberRanges";
 import { loadRuleOverrides } from "./ruleOverrides";
 import { applyDeliveryNote } from "./stock";
-import { lockInvoicedEntries, releaseDraftEntries, syncDraftLocks } from "./timeEntries";
+import { afterInvoiceArtifacts, lockInvoicedEntries, releaseDraftEntries, syncDraftLocks } from "./timeEntries";
 import { turnoverTotals } from "./turnover";
 import type { ModelCtx, ReadCtx } from "./types";
 import { contactChecks, vatCheckFollowUp } from "./vatChecks";
@@ -1360,6 +1360,7 @@ export async function recordArtifacts(
   }
   if (opts.initial && doc.artifactStatus !== "ready") {
     await auditedPatch(ctx, "salesDocuments", id, { artifactStatus: "ready" }, { action, label: label(doc) });
+    await afterInvoiceArtifacts(ctx, doc);
   }
   return ids;
 }

@@ -354,7 +354,7 @@ describe("Header timer pill (PRJ-005, F11 §6)", () => {
     expect(pill).toHaveAttribute("data-running", "true");
     expect(pill).toHaveTextContent("Website-Relaunch");
     expect(screen.getByTestId("timer-pill-elapsed").textContent).toMatch(/^1:02:0[5-9]$/);
-    expect(pill.getAttribute("aria-label")).toMatch(/^Timer läuft: Website-Relaunch, 1:02:0\d$/);
+    expect(pill.getAttribute("aria-label")).toBe("Timer läuft: Website-Relaunch");
     const user = userEvent.setup();
     await user.click(pill);
     const popover = await screen.findByTestId("timer-popover");

@@ -10,7 +10,8 @@ import { systemAction } from "./functions";
 /**
  * F11 PRJ-014 Leistungsnachweis: renders the PDF/A-3b table of the billed (frozen) entries of a finalised invoice
  * with the generic section renderer and archives it as `documentArtifacts.kind = "timesheet_pdf"` (SHA-256, the
- * invoice's retention). Scheduled at finalisation when the invoice has „Leistungsnachweis anhängen“.
+ * invoice's retention). Scheduled at finalisation when the invoice has „Leistungsnachweis anhängen“, after
+ * the invoice artifacts are archived.
  *
  * LEGAL-OPEN: F11 §9 Q1 — embedding the timesheet in the XRechnung (BG-24) / ZUGFeRD attachment and attaching it to
  * the export bundle are not done (size limits and acceptance by the customer's systems are open; ⚠ legally
@@ -22,6 +23,9 @@ export const render = systemAction({
   handler: async (ctx, { documentId }): Promise<Id<"documentArtifacts"> | null> => {
     const input = await ctx.runQuery(internal.timeEntries.timesheetInput, { documentId });
     if (!input) return null;
+    // Scheduled by `recordArtifacts` once the invoice PDF/XML is archived; never archive before it (the invoice
+    // pipeline skips documents that already have an artifact).
+    if (!input.artifactsReady) return null;
     const model = buildTimesheet(input);
     const pdf = await renderImportProtocol(model);
     const digest = await crypto.subtle.digest("SHA-256", pdf as Uint8Array<ArrayBuffer>);

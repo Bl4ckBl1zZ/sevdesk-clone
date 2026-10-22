@@ -51,7 +51,7 @@ function TimerPillInner() {
             className="h-9 max-w-72 gap-2 rounded-full px-3"
             data-testid="timer-pill"
             data-running={timer ? "true" : "false"}
-            aria-label={timer ? t("pillRunning", { project, elapsed }) : t("pillIdle")}
+            aria-label={timer ? t("pillRunning", { project }) : t("pillIdle")}
           />
         }
       >

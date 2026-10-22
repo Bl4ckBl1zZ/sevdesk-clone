@@ -6103,7 +6103,7 @@
       "discardDescription": "Die laufende Zeit wird nicht gespeichert.",
       "confirmTitle": "Es läuft bereits ein Timer",
       "confirmStop": "Stoppen und neu starten",
-      "pillRunning": "Timer läuft: {project}, {elapsed}",
+      "pillRunning": "Timer läuft: {project}",
       "pillIdle": "Zeit starten",
       "offlineQueued": "Offline gespeichert – wird übertragen, sobald die Verbindung zurück ist.",
       "offlineBadge": "Offline",
