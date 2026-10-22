@@ -146,10 +146,16 @@ describe("planPayment (F05 §4.1, PAY-010 ff.)", () => {
   });
 
   test("EC-PAY-03 GOBD-02 a transaction allocated meanwhile by another client fails the re-check with „neu laden“", () => {
-    // Client B planned against the full 1.190,00; client A has allocated 1.000,00 of it in the meantime.
+    // Client B planned against the full 1.190,00; client A has allocated all of it in the meantime.
     const bank = (allocatedCents: number): SourceFacts => ({
       kind: "bank",
-      bank: { bookingDate: "2026-10-12", amountCents: 119000, allocatedCents, currency: "EUR", status: "open" },
+      bank: {
+        bookingDate: "2026-10-12",
+        amountCents: 119000,
+        allocatedCents,
+        currency: "EUR",
+        status: allocatedCents === 0 ? "open" : allocatedCents === 119000 ? "matched" : "partially_matched",
+      },
     });
     const input: PaymentInput = {
       source: { kind: "bank", transactionId: "tx" },
@@ -157,14 +163,13 @@ describe("planPayment (F05 §4.1, PAY-010 ff.)", () => {
       allocations: [{ target: INV.ref, amountCents: 119000 }],
     };
     expect(planPayment(input, ctx({}, undefined, bank(0))).ok).toBe(true);
-    expect(errorOf(planPayment(input, ctx({}, undefined, { ...bank(100000) }))) ?? null).toEqual({
+    expect(errorOf(planPayment(input, ctx({}, undefined, bank(119000))))).toEqual({
       code: "concurrent_allocation",
       message: "Diese Bankbuchung wurde soeben anderweitig zugeordnet. Bitte neu laden.",
     });
-    // more than the transaction itself is still EC-PAY-02 (no concurrency involved)
-    const tooMuch = { ...input, allocations: [{ target: INV.ref, amountCents: 119001 }] };
-    expect(errorOf(planPayment(tooMuch, ctx({}, [{ ...INV, openAmountCents: 200000 }], bank(100000))))?.code).toBe(
-      "source_exceeded",
+    // a partially matched transaction keeps the informative EC-PAY-02 message
+    expect(errorOf(planPayment(input, ctx({}, undefined, bank(100000))))?.message).toBe(
+      "Die Zuordnungen (1.190,00\u00a0€) übersteigen den verfügbaren Betrag der Zahlung (190,00\u00a0€).",
     );
   });
 

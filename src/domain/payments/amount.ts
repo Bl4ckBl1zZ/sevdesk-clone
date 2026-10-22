@@ -24,11 +24,7 @@ const DOT_TOO_PRECISE = /^[+\-−]?\d+\.\d{4,}$|^[+\-−]?\d{4,}\.\d{3}$/;
 const AMBIGUOUS_GROUPING = /^[+\-−]?\d{1,3}\.\d{3}$/;
 
 export function parsePaymentAmount(input: string): Result<ParsedAmount, Issue<"amount_invalid" | "amount_precision">> {
-  const s = input
-    .replace(/\s+/g, " ")
-    .trim()
-    .replace(/^€\s*/, "")
-    .replace(/\s*€$/, "");
+  const s = input.replace(/\s+/g, " ").trim().replace(/^€\s*/, "").replace(/\s*€$/, "");
   if (DOT_DECIMAL.test(s)) {
     const r = parseDecimal(s, { scale: 2, decimalSeparator: ".", grouping: false, max: BigInt(MAX_AMOUNT_CENTS) });
     return r.ok ? ok({ cents: Number(r.value) }) : err(issue("amount_invalid", INVALID_MESSAGE));

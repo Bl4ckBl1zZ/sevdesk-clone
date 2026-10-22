@@ -308,9 +308,10 @@ export function planPayment(input: PaymentInput, ctx: PlanContext): Result<Payme
       return fail("credit_other_contact", PAY_MESSAGES.creditOtherContact);
     }
   } else if (money > available) {
-    // EC-PAY-03: it would have fit the transaction, but another allocation took the room meanwhile (the client
-    // planned on a stale state; the Convex mutation re-reads `allocatedCents` serializably).
-    if (bank && bank.allocatedCents > 0 && money <= Math.abs(bank.amountCents)) {
+    // EC-PAY-03: it would have fit the transaction, but another allocation fully matched it meanwhile — a matched
+    // transaction is never offered for allocation, so the client planned on a stale state (the Convex mutation
+    // re-reads `allocatedCents` serializably). A partially matched one keeps the informative EC-PAY-02 message.
+    if (bank && bank.status === "matched" && money <= Math.abs(bank.amountCents)) {
       return fail("concurrent_allocation", PAY_MESSAGES.concurrent);
     }
     return fail("source_exceeded", PAY_MESSAGES.sourceExceeded(money, available), { sum: money, available });

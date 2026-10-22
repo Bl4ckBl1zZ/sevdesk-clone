@@ -1246,7 +1246,9 @@ export async function onDispatchChanged(ctx: ModelCtx, documentId: Id<"salesDocu
     const before = await caseOf(ctx, documentId);
     await refreshDefaultStart(ctx, documentId);
     // EC-DUE-10: the invoice mark was retracted → Zugang gone, a default start depending on it was reset.
-    if (!d.zugang && before?.defaultStartDate && before.status !== "closed") {
+    // (A calendar-route default start needs no Zugang and survives — then nothing was reset.)
+    const after = before ? await caseOf(ctx, documentId) : null;
+    if (!d.zugang && before?.defaultStartDate && !after?.defaultStartDate && before.status !== "closed") {
       await upsertNotification(ctx, {
         kind: "dunning_reset",
         severity: "warning",
