@@ -380,4 +380,28 @@ describe("F05 §5.2 dunning edge cases (pure)", () => {
     expect(SKIP_REASON_LABEL_DE.payment_signal).toBe("Zahlung möglicherweise eingegangen – Zuordnung prüfen.");
     expect(evaluateInvoice(today, inv({ paymentSignal: false }), ctx).kind).toBe("create_draft");
   });
+
+  test("EC-DUN-27 MISC-08 a reminder on a USD invoice: fees and interest in USD, the 40 € in EUR apart from the total", () => {
+    const a = evaluateInvoice(today, { ...atLevel2("i1"), currency: "USD" }, ctx);
+    expect(a.kind).toBe("create_draft");
+    if (a.kind !== "create_draft") return;
+    const c = a.claim;
+    expect([c.currency, c.flatFeeCurrency, c.flatFee40Cents]).toEqual(["USD", "EUR", 4000]);
+    // total in the document currency: open + fee + interest, without the EUR flat fee
+    expect(c.totalCents).toBe(c.openAmountCents + c.feeCents + c.interestCents);
+    expect(a.notes).toContain("Pauschale nach § 288 Abs. 5 BGB wird in EUR ausgewiesen.");
+    const eur = evaluateInvoice(today, atLevel2("i1"), ctx);
+    expect(
+      eur.kind === "create_draft" && [eur.claim.currency, eur.claim.totalCents - eur.claim.flatFee40Cents],
+    ).toEqual([undefined, c.totalCents]);
+    // manual reminder: the W finding must be acknowledged
+    const manual = applyManualAmounts(c, {}, { isConsumer: false, flatFeeCharged: false, date: today });
+    expect(manual.findings).toContainEqual({
+      code: "flat_fee_eur",
+      severity: "W",
+      rule: "MAHN-03",
+      message: "Pauschale nach § 288 Abs. 5 BGB wird in EUR ausgewiesen.",
+    });
+    expect(manual.claim.totalCents).toBe(c.totalCents);
+  });
 });

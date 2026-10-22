@@ -423,6 +423,7 @@ export async function loadInvoiceState(ctx: ReadCtx, inv: SalesDoc, today: Calen
     reminders: reminders.map((r) => reminderState(r, dunningCase)),
     paymentSignal: await paymentSignal(ctx, inv, contactName, today),
     history: await principalHistory(ctx, inv),
+    ...(inv.currency !== "EUR" ? { currency: inv.currency } : {}),
   };
   return { inv, contact, dunningCase, reminders, state };
 }
@@ -647,6 +648,7 @@ export async function planReminder(
     flatFeeCharged: loaded.dunningCase?.flatFeeCharged ?? false,
     state: settings.ctx.state,
     ...(settings.ctx.overrides ? { overrides: settings.ctx.overrides } : {}),
+    ...(inv.currency !== "EUR" ? { currency: inv.currency } : {}),
   });
   if (!computedR.ok) throw appError("invalid_input", computedR.error.message, { reason: computedR.error.code });
   const flatFeeRem = loaded.dunningCase?.flatFeeReminderId
@@ -666,6 +668,18 @@ export async function planReminder(
     date: today,
   });
   findings.push(...applied.findings);
+  // EC-DUN-27: the reminder document prints all amounts in the document currency; until it can show the EUR flat
+  // fee as a separate line, a non-EUR reminder with the 40 € may be drafted but not finalised.
+  // LEGAL-OPEN: F05 EC-DUN-27 spec note (snapshot/PDF currency split, F04 template).
+  if (opts.forFinalize && applied.claim.flatFeeCurrency && applied.claim.flatFee40Cents > 0) {
+    findings.push(
+      err(
+        "flat_fee_eur_not_printable",
+        "Die 40-€-Pauschale einer Rechnung in Fremdwährung kann auf der Mahnung noch nicht gesondert in EUR ausgewiesen werden. Bitte die Pauschale weglassen und gesondert in EUR geltend machen.",
+        "MAHN-03",
+      ),
+    );
+  }
   return { inv, loaded, settings, policyId, step, computed: computedR.value, claim: applied.claim, findings };
 }
 

@@ -343,4 +343,40 @@ describe("F05 §5.2 dunning edge cases (EC-DUN)", { timeout: 30_000 }, () => {
     await markSent(owner, r1, "2026-10-19", "email_manual");
     expect((await docOf(t, r1)).status).toBe("sent");
   });
+
+  test("EC-DUN-27 a reminder with the 40 € on a USD invoice: drafted with the EUR hint, finalisation blocked until the EUR line exists", async () => {
+    const t = makeT();
+    const s = await dunningSetup(t);
+    const { id } = await s.owner.mutation(api.invoices.createDraft, {
+      values: invoiceValues(s.contactId, {
+        currency: "USD",
+        fxRateToEur: { rate: "1.19", source: "manual", sourceText: "Vertragskurs", date: "2026-10-12" as CalendarDate },
+        paymentTerms: { dueDays: 0 },
+        bankAccountId: s.bankAccount,
+        showEpcQr: false,
+      }),
+    });
+    await s.owner.action(api.invoices.finalize, { id, version: 1 });
+    await settle(t);
+    const usd = id as Id<"salesDocuments">;
+    await markSent(s.owner, usd, "2026-10-12", "email_manual");
+    const owner = await jump(t, s.owner, "2026-11-20T08:00:00Z"); // in default since 12.11. (30-day route)
+    const w = await catching(
+      owner.mutation(api.dunning.createReminder, { invoiceId: usd, values: { includeFlatFee: true } }),
+    );
+    expect(messageOf(w)).toContain("Pauschale nach § 288 Abs. 5 BGB wird in EUR ausgewiesen.");
+    const { id: rid } = await owner.mutation(api.dunning.createReminder, {
+      invoiceId: usd,
+      values: { includeFlatFee: true, acknowledgeWarnings: ["flat_fee_eur"] },
+    });
+    const draft = await docOf(t, rid as Id<"salesDocuments">);
+    expect(draft.reminder).toMatchObject({ flatFee40Cents: 4000 });
+    expect(draft.reminder?.totalCents).toBe(
+      (draft.reminder?.openAmountCents ?? 0) + (draft.reminder?.feeCents ?? 0) + (draft.reminder?.interestCents ?? 0),
+    );
+    const e = await catching(owner.mutation(api.dunning.finalize, { id: rid as Id<"salesDocuments"> }));
+    expect(messageOf(e)).toBe(
+      "Die 40-€-Pauschale einer Rechnung in Fremdwährung kann auf der Mahnung noch nicht gesondert in EUR ausgewiesen werden. Bitte die Pauschale weglassen und gesondert in EUR geltend machen.",
+    );
+  });
 });
