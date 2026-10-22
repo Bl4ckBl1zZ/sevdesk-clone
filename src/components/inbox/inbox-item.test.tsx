@@ -35,6 +35,7 @@ function detail(over: Partial<InboxDetail> = {}): InboxDetail {
     documentDate: "2026-10-18",
     voucherStatus: "draft",
     visualisationUrl: null,
+    mailRenditionUrl: null,
     to: null,
     messageId: null,
     mailText: null,

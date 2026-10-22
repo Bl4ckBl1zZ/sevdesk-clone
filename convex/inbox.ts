@@ -157,6 +157,8 @@ export const get = query({
       ...(await rowOf(ctx, item)),
       voucherStatus: voucher?.status ?? null,
       visualisationUrl: vis ? await ctx.storage.getUrl(vis.storageId) : null,
+      // INB-007: readable PDF of a mail without attachment (rendition of the .eml).
+      mailRenditionUrl: item.mailRendition ? await ctx.storage.getUrl(item.mailRendition.storageId) : null,
       to: item.to ?? null,
       messageId: item.messageId ?? null,
       mailText: item.mailText ?? null,
@@ -551,6 +553,7 @@ export const mailParsedInternal = actorMutation({
     messageId: v.optional(v.string()),
     mailText: v.optional(v.string()),
     files: v.array(vNewFile),
+    mailRendition: v.optional(v.object({ storageId: v.id("_storage"), sha256: v.string() })),
     skipped: v.array(
       v.object({
         name: v.string(),

@@ -475,6 +475,8 @@ export const voucherTables = {
     ),
     /** The .eml has been unpacked into its attachments (INB-050; idempotent classification). */
     mailParsed: v.optional(v.boolean()),
+    /** INB-007: readable PDF of a mail without attachment (a rendition of the .eml, never the original). */
+    mailRendition: v.optional(v.object({ storageId: v.id("_storage"), sha256: v.string(), createdAt: v.number() })),
     classification: v.optional(
       v.union(v.literal("xrechnung"), v.literal("zugferd"), v.literal("pdf"), v.literal("image"), v.literal("other")),
     ),

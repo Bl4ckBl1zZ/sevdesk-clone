@@ -5087,7 +5087,8 @@
       "mail_unparseable": "E-Mail nicht lesbar",
       "ocr_pending": "Wartet auf Belegerkennung",
       "pdf_encrypted": "PDF verschlüsselt",
-      "kleinunternehmer_supplier": "Kleinunternehmer"
+      "kleinunternehmer_supplier": "Kleinunternehmer",
+      "no_attachment": "Keine Anlage"
     },
     "item": {
       "untitled": "Beleg",
@@ -5147,6 +5148,7 @@
         "eml": "E-Mail (Original)"
       },
       "visualisation": "Visualisierung als PDF",
+      "mailRendition": "Darstellung der E-Mail als PDF",
       "rendition": "Rendition – Visualisierung, nicht das Original",
       "skipped": {
         "too_large": "{name} ({mb} MB) – zu groß, bleibt in der E-Mail",

@@ -40,6 +40,7 @@ const FLAG_KEYS = [
   "ocr_pending",
   "pdf_encrypted",
   "kleinunternehmer_supplier",
+  "no_attachment",
 ] as const;
 type FlagKey = (typeof FLAG_KEYS)[number];
 const isFlag = (f: string): f is FlagKey => (FLAG_KEYS as readonly string[]).includes(f);
@@ -401,6 +402,17 @@ function FilesList({ item }: { item: InboxDetail }) {
           <div className="flex min-w-0 flex-col">
             <a href={item.visualisationUrl} target="_blank" rel="noreferrer" className="font-medium hover:underline">
               {t("visualisation")}
+            </a>
+            <span className="text-muted-foreground text-xs">{t("rendition")}</span>
+          </div>
+        </li>
+      )}
+      {item.mailRenditionUrl && (
+        <li className="flex flex-wrap items-start gap-2 rounded-md border border-dashed p-2 text-sm">
+          <FileIcon className="mt-0.5 size-4 shrink-0 text-muted-foreground" aria-hidden="true" />
+          <div className="flex min-w-0 flex-col">
+            <a href={item.mailRenditionUrl} target="_blank" rel="noreferrer" className="font-medium hover:underline">
+              {t("mailRendition")}
             </a>
             <span className="text-muted-foreground text-xs">{t("rendition")}</span>
           </div>

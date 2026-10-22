@@ -243,6 +243,8 @@ export async function recordMailParse(
     messageId?: string;
     mailText?: string;
     files: readonly NewInboxFile[];
+    /** INB-007: the PDF rendition of a mail without attachment. */
+    mailRendition?: { storageId: Id<"_storage">; sha256: string };
     skipped: NonNullable<InboxItem["skippedAttachments"]>;
     flags: readonly string[];
     warnings: readonly InboxWarning[];
@@ -293,6 +295,7 @@ export async function recordMailParse(
       ...(args.subject ? { subject: args.subject.replace(/\s+/g, " ").slice(0, 600) } : {}),
       ...(messageId ? { messageId } : {}),
       ...(args.mailText ? { mailText: args.mailText.slice(0, 20_000) } : {}),
+      ...(args.mailRendition ? { mailRendition: { ...args.mailRendition, createdAt: now } } : {}),
       ...(args.skipped.length ? { skippedAttachments: args.skipped } : {}),
       ...(flags.length ? { flags } : {}),
       warnings: [...(item.warnings ?? []), ...args.warnings, ...(dupWarning ? [dupWarning] : [])],
@@ -532,7 +535,24 @@ export async function finishClassification(
               },
             ],
           }
-        : {}),
+        : item.mailRendition
+          ? {
+              // INB-007: the readable PDF of the mail travels with the draft as a rendition of the .eml.
+              renditions: [
+                {
+                  storageId: item.mailRendition.storageId,
+                  sha256: item.mailRendition.sha256,
+                  mime: "application/pdf",
+                  ofFileIndex: Math.max(
+                    item.files.findIndex((f) => f.role === "eml"),
+                    0,
+                  ),
+                  kind: "html_pdf" as const,
+                  createdAt: item.mailRendition.createdAt,
+                },
+              ],
+            }
+          : {}),
       ...(r.einvoice && xml
         ? {
             einvoice: {

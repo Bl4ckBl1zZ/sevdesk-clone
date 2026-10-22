@@ -26,6 +26,7 @@ import type { CalendarDate } from "../src/domain/time/calendar-date";
 import { pageCount } from "../src/domain/vouchers/capture";
 import { renderEinvoiceVisualisation } from "../src/pdf/einvoice-visualisation";
 import { ENCRYPTED_PDF_MESSAGE, extractInvoiceXml, multipleXmlMessage, pdfTextLayer } from "../src/pdf/hybrid";
+import { renderMailRendition } from "../src/pdf/mail-rendition";
 import { internal } from "./_generated/api";
 import type { Doc, Id } from "./_generated/dataModel";
 import { action, systemAction } from "./functions";
@@ -78,6 +79,29 @@ async function storeVisualisation(
 ): Promise<{ storageId: Id<"_storage">; sha256: string } | undefined> {
   try {
     const pdf = await renderEinvoiceVisualisation(inv);
+    return { storageId: await storeBytes(ctx, pdf, "application/pdf"), sha256: await sha256Hex(pdf) };
+  } catch {
+    return undefined;
+  }
+}
+
+/** INB-007: best effort — a rendering failure never blocks the item (the .eml and its text stay available). */
+async function storeMailRendition(
+  ctx: { storage: { store: (b: Blob) => Promise<Id<"_storage">> } },
+  mail: { from?: string; to?: string; subject?: string; date?: string; text: string },
+  createdAt: number,
+): Promise<{ storageId: Id<"_storage">; sha256: string } | undefined> {
+  try {
+    const pdf = await renderMailRendition(
+      {
+        ...(mail.from ? { from: mail.from } : {}),
+        ...(mail.to ? { to: mail.to } : {}),
+        ...(mail.subject ? { subject: mail.subject } : {}),
+        ...(mail.date ? { date: mail.date } : {}),
+        text: mail.text,
+      },
+      createdAt,
+    );
     return { storageId: await storeBytes(ctx, pdf, "application/pdf"), sha256: await sha256Hex(pdf) };
   } catch {
     return undefined;
@@ -156,6 +180,7 @@ export const classify = systemAction({
             }
           }
           if (files.length === 0 && !mailFlags.includes("attachment_too_large")) {
+            mailFlags.push("no_attachment");
             mailWarnings.push({ code: "mail_no_attachment", message: INBOX_MAIL_MESSAGES.noAttachment });
           }
           if (!senderAllowed(parsed.value.from, input.allowlist)) {
@@ -171,6 +196,9 @@ export const classify = systemAction({
           }
         }
         const p = parsed.ok ? parsed.value : null;
+        // INB-007 / EC-INB-21: no attachment → a readable PDF of the mail (rendition; the .eml stays the original).
+        const mailRendition =
+          p && mailFlags.includes("no_attachment") ? await storeMailRendition(ctx, p, Date.now()) : undefined;
         const r = await ctx.runMutation(internal.inbox.mailParsedInternal, {
           actorContext,
           id,
@@ -180,6 +208,7 @@ export const classify = systemAction({
           ...(p?.messageId ? { messageId: p.messageId } : {}),
           ...(p?.text ? { mailText: p.text } : {}),
           files,
+          ...(mailRendition ? { mailRendition } : {}),
           skipped,
           flags: mailFlags,
           warnings: mailWarnings,
