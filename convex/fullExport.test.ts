@@ -186,3 +186,39 @@ describe("EXP-024 restore checks", { timeout: 60_000 }, () => {
     expect(run).toMatchObject({ ok: true });
   });
 });
+
+describe("EXP-025 yearly archive reminder", { timeout: 60_000 }, () => {
+  test("EXP-025 on 31.01. one in-app reminder per closed year with bookings; later runs never add or reopen it", async () => {
+    const t = makeT();
+    await finalizedInvoice(t);
+    const reminders = () =>
+      t.run((ctx) =>
+        ctx.db
+          .query("notifications")
+          .withIndex("by_dedupe", (q) => q.eq("dedupeKey", "archive_export|2026"))
+          .collect(),
+      );
+    // not yet due in the booking year itself
+    expect(await t.mutation(internal.fullExport.archiveReminderCron, { force: true })).toEqual({ created: 0 });
+
+    vi.setSystemTime(new Date("2027-01-31T07:10:00Z"));
+    expect(await t.mutation(internal.fullExport.archiveReminderCron, { force: true })).toEqual({ created: 1 });
+    const [n] = await reminders();
+    expect(n).toMatchObject({
+      kind: "archive_export_due",
+      title: "Jahresarchiv 2026 sichern",
+      link: "/export",
+      count: 1,
+    });
+    // the next daily run neither bumps the counter (as a plain re-notify would) nor creates a second reminder
+    vi.setSystemTime(new Date("2027-02-01T07:10:00Z"));
+    expect(await t.mutation(internal.fullExport.archiveReminderCron, { force: true })).toEqual({ created: 0 });
+    const again = await reminders();
+    expect(again).toHaveLength(1);
+    expect(again[0]).toMatchObject({ count: 1 });
+    // the closed year 2027 has no bookings → no reminder on 31.01.2028
+    vi.setSystemTime(new Date("2028-01-31T07:10:00Z"));
+    expect(await t.mutation(internal.fullExport.archiveReminderCron, { force: true })).toEqual({ created: 0 });
+    await settle(t);
+  });
+});

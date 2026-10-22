@@ -4,7 +4,8 @@ import { internal } from "./_generated/api";
 import type { TableNames } from "./_generated/dataModel";
 import { mutation, systemMutation, systemQuery } from "./functions";
 import { SCHEMA_VERSION } from "./integrity";
-import { env, instanceName } from "./lib/env";
+import { env, instanceName, isTest } from "./lib/env";
+import { notifyArchiveReminder } from "./model/archiveReminder";
 import { chainHead } from "./model/audit";
 import { createJob, finishJob } from "./model/jobs";
 import schema from "./schema";
@@ -99,6 +100,16 @@ export const storagePage = systemQuery({
       isDone: page.isDone,
       continueCursor: page.continueCursor,
     };
+  },
+});
+
+/** F09 EXP-025: daily check, from 31.01. one reminder per closed year (see model/archiveReminder.ts). */
+export const archiveReminderCron = systemMutation({
+  job: "cron.exports.archiveReminder",
+  args: { force: v.optional(v.boolean()) },
+  handler: async (ctx, { force }) => {
+    if (isTest() && !force) return { created: 0 };
+    return { created: await notifyArchiveReminder(ctx) };
   },
 });
 

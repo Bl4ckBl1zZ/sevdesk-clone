@@ -76,6 +76,9 @@ crons.cron("notifications.maintain", "40 * * * *", internal.notifications.mainta
 
 // jobs.expire — daily 03:15 UTC: export job results older than 30 days are removed from storage (F09 EXP-026).
 crons.cron("jobs.expire", "15 3 * * *", internal.jobs.expireCron, {});
+// exports.archiveReminder — daily 08:10 Europe/Berlin in winter (07:10 UTC): from 31.01. one reminder per closed year
+// to archive the full export + GDPdU off-host (F09 EXP-025); once per year (dedupe key), later runs are no-ops.
+crons.cron("exports.archiveReminder", "10 7 * * *", internal.fullExport.archiveReminderCron, {});
 // recurringVouchers.generate — daily 06:15 Europe/Berlin (04:15 / 05:15 UTC; F06 VOU-064). Idempotent per (template,
 // occurrence date), so the second registration of the day finds nothing due.
 crons.cron("recurringVouchers.generate (CEST)", "15 4 * * *", internal.vouchers.generateRecurringCron, {});
