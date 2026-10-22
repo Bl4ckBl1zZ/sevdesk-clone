@@ -9,7 +9,12 @@ import { taxationMethodAt } from "../../src/domain/accounting/period";
 import { derivePaymentStatus, NEGATIVE_OPEN_MESSAGE, type StatusRow } from "../../src/domain/documents/payment-status";
 import { isArchiveOnlyImport } from "../../src/domain/import/sevdesk/types";
 import { formatEuro } from "../../src/domain/money/format";
-import { averageDaysToPay, type PaidInvoice } from "../../src/domain/payments/customer";
+import {
+  averageDaysToPay,
+  type PaidInvoice,
+  paymentBehaviour,
+  type SettledInvoice,
+} from "../../src/domain/payments/customer";
 import { PAY_MESSAGES } from "../../src/domain/payments/messages";
 import { computeOpenItems, type OpenItemDocument, type SettlementRow } from "../../src/domain/payments/open-items";
 import {
@@ -1396,6 +1401,7 @@ export async function contactReceivables(ctx: ReadCtx, contactId: Id<"contacts">
   const totals = { openCents: 0, overdueCents: 0, dueWithin7Cents: 0 };
   const payments: PaymentDoc[] = [];
   const paid: PaidInvoice[] = [];
+  const settled: SettledInvoice[] = [];
   let creditCents = 0;
   for (const cid of ids) {
     const open = await openItemsAsOf(ctx, { asOf: today, contactId: cid });
@@ -1416,7 +1422,18 @@ export async function contactReceivables(ctx: ReadCtx, contactId: Id<"contacts">
       .collect()) {
       if (!PAYABLE_TYPES.has(d.type) || d.paymentStatus !== "paid" || !d.documentDate) continue;
       const st = await documentSettlement(ctx, d._id);
-      if (st.paidOn && st.receivedCents > 0) paid.push({ documentDate: d.documentDate, paidOn: st.paidOn });
+      if (st.paidOn && st.receivedCents > 0) {
+        paid.push({ documentDate: d.documentDate, paidOn: st.paidOn });
+        // PAY-008: weighted by the received amount (EUR; foreign-currency receipts are not recordable yet, PAY-018)
+        if (d.currency === "EUR") {
+          settled.push({
+            documentDate: d.documentDate,
+            ...(d.dueDate ? { dueDate: d.dueDate } : {}),
+            paidOn: st.paidOn,
+            amountCents: st.receivedCents,
+          });
+        }
+      }
     }
   }
   items.sort((a, b) => (a.dueDate ?? a.documentDate).localeCompare(b.dueDate ?? b.documentDate));
@@ -1427,6 +1444,7 @@ export async function contactReceivables(ctx: ReadCtx, contactId: Id<"contacts">
     creditCents,
     averageDaysToPay: averageDaysToPay(paid),
     paidInvoices: paid.length,
+    behaviour: paymentBehaviour(settled, today),
     truncated: payments.length > HISTORY_LIMIT,
     payments: payments.slice(0, HISTORY_LIMIT).map((p) => ({
       paymentId: p._id,

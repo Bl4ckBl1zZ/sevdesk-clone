@@ -37,6 +37,7 @@ beforeEach(() => {
       creditCents: 1_500,
       averageDaysToPay: 12,
       paidInvoices: 3,
+      behaviour: { averageDaysToPay: 14, lateShareBp: 3333, invoices: 3, from: "2025-10-24" },
       truncated: false,
       payments: [
         {
@@ -103,6 +104,7 @@ describe("ContactReceivables (PAY-004)", () => {
       creditCents: 0,
       averageDaysToPay: null,
       paidInvoices: 0,
+      behaviour: null,
       truncated: false,
       payments: [],
     };
@@ -110,5 +112,11 @@ describe("ContactReceivables (PAY-004)", () => {
     expect(screen.getByText("Keine offenen Posten.")).toBeInTheDocument();
     expect(screen.getByText("Noch keine Zahlungen erfasst.")).toBeInTheDocument();
     expect(screen.getByText("Noch keine bezahlten Rechnungen")).toBeInTheDocument();
+  });
+
+  test("PAY-008 shows the payment behaviour of the last 12 months (weighted days, late share)", () => {
+    renderWithIntl(<ContactReceivables contactId="c1" />);
+    expect(screen.getByText("Zahlungsverhalten (12 Monate)")).toBeInTheDocument();
+    expect(screen.getByText("Ø 14 Tage (betragsgewichtet), 33,33 % verspätet – 3 Rechnungen")).toBeInTheDocument();
   });
 });
