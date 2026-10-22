@@ -7,6 +7,7 @@ import type { FunctionReturnType } from "convex/server";
 import { FileDownIcon, FileUpIcon, Trash2Icon } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { useId, useState } from "react";
+import { toast } from "sonner";
 import { uploadFile } from "@/components/banking/shared";
 import { formatDateTime, selectClass, useRun } from "@/components/catalog/shared";
 import { ConvexGuard } from "@/components/convex/convex-provider";
@@ -23,7 +24,7 @@ import {
   type GenericTarget,
   genericErrorCsv,
 } from "@/domain/import/generic/csv-import";
-import { targetFields, targetLabel } from "@/domain/import/sevdesk/mapping";
+import { applyPreset as applyPresetColumns, targetFields, targetLabel } from "@/domain/import/sevdesk/mapping";
 import { useAuthedQuery } from "@/hooks/use-authed-query";
 
 type View = NonNullable<FunctionReturnType<typeof api.csvImports.get>>;
@@ -62,18 +63,27 @@ function GenericCsvImportInner({ canRun, canCommit }: { canRun: boolean; canComm
   const [target, setTarget] = useState<GenericTarget>("contacts");
   const [selected, setSelected] = useState<Id<"imports"> | null>(null);
   const [busy, setBusy] = useState(false);
+  const [unclear, setUnclear] = useState<EncodingQuestion | null>(null);
   const active = selected ?? list?.find((i) => i.status !== "done" && i.status !== "discarded")?.id ?? null;
 
-  const start = async (file: File) => {
+  const start = async (file: File, encoding?: Encoding, existing?: Id<"imports">) => {
     setBusy(true);
+    setUnclear(null);
     try {
       const r = await run(async () => {
-        const importId = await create({});
+        const importId = existing ?? (await create({}));
         const storageId = await uploadFile(await uploadUrl({}), file);
-        await setFile({ importId, storageId, name: file.name, target });
-        return importId;
-      }, t("uploaded"));
-      if (r.ok) setSelected(r.value);
+        const res = await setFile({ importId, storageId, name: file.name, target, ...(encoding ? { encoding } : {}) });
+        return { importId, res };
+      });
+      if (!r.ok) return;
+      // E-IMP-15: the encoding is unclear — the owner chooses (sample rows in both readings), then it is read again.
+      if ("needsEncoding" in r.value.res) {
+        setUnclear({ file, importId: r.value.importId, message: r.value.res.message, samples: r.value.res.samples });
+        return;
+      }
+      toast.success(t("uploaded"));
+      setSelected(r.value.importId);
     } finally {
       setBusy(false);
     }
@@ -151,6 +161,9 @@ function GenericCsvImportInner({ canRun, canCommit }: { canRun: boolean; canComm
           </ul>
         ) : null}
 
+        {unclear && !busy ? (
+          <EncodingChoice question={unclear} onChoose={(e) => void start(unclear.file, e, unclear.importId)} />
+        ) : null}
         {busy ? (
           <p role="status" aria-busy="true" className="text-muted-foreground text-sm">
             {t("uploading")}
@@ -160,6 +173,51 @@ function GenericCsvImportInner({ canRun, canCommit }: { canRun: boolean; canComm
         ) : null}
       </CardContent>
     </Card>
+  );
+}
+
+type Encoding = "windows-1252" | "utf-8";
+interface EncodingQuestion {
+  file: File;
+  importId: Id<"imports">;
+  message: string;
+  samples: Record<Encoding, string[][]>;
+}
+
+/** F09 E-IMP-15: „Zeichenkodierung unklar – bitte Windows-1252 oder UTF-8 wählen.“ with the first rows in both. */
+function EncodingChoice({ question, onChoose }: { question: EncodingQuestion; onChoose: (e: Encoding) => void }) {
+  const t = useTranslations("genericImport");
+  const headingId = useId();
+  return (
+    <section
+      aria-labelledby={headingId}
+      className="flex flex-col gap-3 rounded-md border border-warning p-3"
+      data-testid="generic-import-encoding"
+    >
+      <h3 id={headingId} role="alert" className="font-medium">
+        {question.message}
+      </h3>
+      <div className="grid gap-3 @lg:grid-cols-2">
+        {(["windows-1252", "utf-8"] as const).map((e) => (
+          <div key={e} className="flex flex-col gap-2 rounded-md border p-2">
+            <p className="text-muted-foreground text-xs">{t("encodingSample", { encoding: e })}</p>
+            <ul className="text-sm">
+              {question.samples[e].map((row, i) => (
+                // biome-ignore lint/suspicious/noArrayIndexKey: static sample rows
+                <li key={i} className="truncate">
+                  {row.join(" · ")}
+                </li>
+              ))}
+            </ul>
+            <div>
+              <Button variant="outline" size="sm" className="h-11 md:h-9" onClick={() => onChoose(e)}>
+                {t("encodingChoose", { encoding: e === "utf-8" ? "UTF-8" : "Windows-1252" })}
+              </Button>
+            </div>
+          </div>
+        ))}
+      </div>
+    </section>
   );
 }
 
@@ -198,6 +256,7 @@ function GenericMapping({ view, editable }: { view: View; editable: boolean }) {
   const [columns, setColumns] = useState<Record<string, string>>(view.columns);
   const [presetName, setPresetName] = useState(view.preset ?? "");
   const [savePreset, setSavePreset] = useState(false);
+  const [updateExisting, setUpdateExisting] = useState(view.onExisting === "update");
   const check = checkGenericMapping(target, headers, columns);
   const sample = (header: string | undefined) => {
     const i = header ? headers.indexOf(header) : -1;
@@ -206,7 +265,8 @@ function GenericMapping({ view, editable }: { view: View; editable: boolean }) {
   const applyPreset = (id: string) => {
     const p = view.presets.find((x) => x.id === id);
     if (!p) return;
-    setColumns(Object.fromEntries(Object.entries(p.columns).filter(([, h]) => headers.includes(h))));
+    // IMP-013: matched by normalised header name (shipped presets such as lexoffice are not byte-exact)
+    setColumns(applyPresetColumns(headers, p.columns));
     setPresetName(p.name);
   };
 
@@ -319,6 +379,12 @@ function GenericMapping({ view, editable }: { view: View; editable: boolean }) {
             <input type="checkbox" checked={savePreset} onChange={(e) => setSavePreset(e.target.checked)} />
             {t("savePreset")}
           </label>
+          {target === "contacts" ? (
+            <label className="flex items-center gap-2 text-sm">
+              <input type="checkbox" checked={updateExisting} onChange={(e) => setUpdateExisting(e.target.checked)} />
+              {t("updateExisting")}
+            </label>
+          ) : null}
           <Button
             variant="outline"
             className="h-11 md:h-9"
@@ -330,6 +396,7 @@ function GenericMapping({ view, editable }: { view: View; editable: boolean }) {
                     columns,
                     ...(presetName.trim() ? { preset: presetName.trim() } : {}),
                     ...(savePreset ? { savePreset: true } : {}),
+                    ...(target === "contacts" ? { onExisting: updateExisting ? "update" : "skip" } : {}),
                   }),
                 t("mappingSaved"),
               )
@@ -340,6 +407,7 @@ function GenericMapping({ view, editable }: { view: View; editable: boolean }) {
         </div>
       ) : null}
       <p className="text-muted-foreground text-xs">{t("presetHint")}</p>
+      {target === "contacts" ? <p className="text-muted-foreground text-xs">{t("updateExistingHint")}</p> : null}
     </section>
   );
 }
@@ -392,6 +460,7 @@ function GenericPreview({
         <p role="status" className="text-sm" data-testid="generic-import-done">
           {t("done", {
             created: view.stats.created ?? 0,
+            updated: view.stats.updated ?? 0,
             skipped: view.stats.skipped ?? 0,
             existing: view.stats.existing ?? 0,
             errors: view.stats.errors ?? 0,
@@ -405,11 +474,16 @@ function GenericPreview({
       ) : null}
       {p ? (
         <>
-          <dl className="grid grid-cols-2 gap-2 text-sm @lg:grid-cols-6" data-testid="generic-import-counts">
-            {(["rows", "new", "skipped", "existing", "duplicates", "errors"] as const).map((k) => (
+          {(p.notices ?? []).map((n) => (
+            <p key={n} role="note" className="rounded-md border p-2 text-sm">
+              {n}
+            </p>
+          ))}
+          <dl className="grid grid-cols-2 gap-2 text-sm @lg:grid-cols-7" data-testid="generic-import-counts">
+            {(["rows", "new", "updates", "skipped", "existing", "duplicates", "errors"] as const).map((k) => (
               <div key={k} className="flex flex-col rounded-md border p-2">
                 <dt className="text-muted-foreground text-xs">{t(`counts.${k}`)}</dt>
-                <dd className="font-semibold tabular-nums">{p.counts[k]}</dd>
+                <dd className="font-semibold tabular-nums">{p.counts[k] ?? 0}</dd>
               </div>
             ))}
           </dl>
@@ -470,7 +544,7 @@ function GenericPreview({
         {canCommit && view.status === "previewed" && view.previewHash && p ? (
           <Button
             className="h-11 md:h-9"
-            disabled={busy || p.counts.new === 0}
+            disabled={busy || p.counts.new + (p.counts.updates ?? 0) === 0}
             onClick={() =>
               void act(
                 () => commitAction({ importId: view.id, previewHash: view.previewHash as string }),
@@ -478,7 +552,7 @@ function GenericPreview({
               )
             }
           >
-            {t("commit", { n: p.counts.new })}
+            {t("commit", { n: p.counts.new + (p.counts.updates ?? 0) })}
           </Button>
         ) : null}
         {canCommit && view.status === "failed" && view.previewHash ? (

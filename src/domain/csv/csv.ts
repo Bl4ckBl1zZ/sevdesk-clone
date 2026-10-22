@@ -38,15 +38,30 @@ export function detectEncoding(bytes: Uint8Array): Result<CsvEncoding, Issue<"IM
   return ok(!c1 && euro15 ? "iso-8859-15" : "windows-1252");
 }
 
+/**
+ * Decodes with the detected encoding, or with `encoding` when the owner chose one (F09 E-IMP-15: then decoded
+ * non-fatally, e.g. a mostly-UTF-8 file with a stray Windows-1252 byte).
+ */
 export function decodeCsv(
   bytes: Uint8Array,
+  encoding?: CsvEncoding,
 ): Result<{ text: string; encoding: CsvEncoding }, Issue<"IMPORT_ENCODING">> {
-  const enc = detectEncoding(bytes);
+  const enc = encoding ? ok(encoding) : detectEncoding(bytes);
   if (!enc.ok) return enc;
   let text = new TextDecoder(enc.value).decode(bytes);
   if (text.charCodeAt(0) === 0xfeff) text = text.slice(1);
   return ok({ text, encoding: enc.value });
 }
+
+/** F09 E-IMP-15: the encoding chosen by the owner when the detection is unclear. */
+export const CHOOSABLE_ENCODINGS = ["windows-1252", "utf-8"] as const satisfies readonly CsvEncoding[];
+
+// UTF-8 umlauts/typography read as Windows-1252: „Ã¤“, „Ã–“, „â€ž“, „â‚¬“, „Â°“ …
+const MOJIBAKE =
+  /\u00C3[\u0080-\u00BF\u0152\u0153\u0160\u0161\u0178\u017D\u017E\u0192\u02C6\u02DC\u2013-\u203A\u20AC\u2122]|\u00E2\u20AC|\u00E2\u201A\u00AC|\u00C2[\u00A0-\u00BF]/;
+
+/** F09 E-IMP-15: decoded text that looks like UTF-8 read as Windows-1252 (or double-encoded) → ask the owner. */
+export const looksLikeMojibake = (text: string): boolean => MOJIBAKE.test(text);
 
 /** Separator of the header line: the most frequent of `;`, `,`, tab outside quotes (ties prefer `;`). */
 export function detectSeparator(text: string): CsvSeparator {
@@ -149,13 +164,17 @@ export interface CsvRecordTable {
   readonly separator: CsvSeparator;
 }
 
-/** Like `readCsv`, but keeps the file line of every data record (F09 import preview, E-IMP-16). */
+/**
+ * Like `readCsv`, but keeps the file line of every data record (F09 import preview, E-IMP-16); `encoding` forces the
+ * owner-chosen encoding (E-IMP-15).
+ */
 export function readCsvRecords(
   bytes: Uint8Array,
+  encoding?: CsvEncoding,
 ): Result<CsvRecordTable, Issue<"IMPORT_ENCODING" | "IMPORT_TOO_LARGE" | "IMPORT_EMPTY">> {
   const tooLarge = issue("IMPORT_TOO_LARGE", "Die Datei ist zu groß (max. 10 MB bzw. 20.000 Zeilen).");
   if (bytes.length > IMPORT_MAX_BYTES) return err(tooLarge);
-  const decoded = decodeCsv(bytes);
+  const decoded = decodeCsv(bytes, encoding);
   if (!decoded.ok) return decoded;
   const separator = detectSeparator(decoded.value.text);
   const [header, ...records] = parseCsvRecords(decoded.value.text, separator);

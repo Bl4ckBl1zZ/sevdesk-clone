@@ -60,7 +60,7 @@ describe("IMP-012 generic CSV import (contacts and products)", () => {
       presetLabel("contacts"),
     );
     const plan = buildGenericPlan("contacts", rows, EMPTY);
-    expect(plan.counts).toEqual({ rows: 3, new: 2, existing: 0, skipped: 0, duplicates: 0, errors: 1 });
+    expect(plan.counts).toEqual({ rows: 3, new: 2, existing: 0, updates: 0, skipped: 0, duplicates: 0, errors: 1 });
     const error = plan.rows.find((r) => r.status === "error");
     expect(error?.line).toBe(3);
     expect(error?.message).toMatch(/^Zeile 3:/);

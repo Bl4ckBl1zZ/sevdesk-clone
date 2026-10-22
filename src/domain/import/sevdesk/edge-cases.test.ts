@@ -1,5 +1,6 @@
 import { PROTOCOL_INPUT } from "@test/factories/import-protocol";
 import { describe, expect, test } from "vitest";
+import { sevdeskFixtureBytes } from "../../../../test/fixtures/sevdesk-export/load";
 import type { CalendarDate } from "../../time/calendar-date";
 import { inspectFile } from "./files";
 import { autoMap, isMappedCsvKind } from "./mapping";
@@ -145,6 +146,22 @@ describe("sevdesk import edge cases (F09 §5.3)", () => {
     const h2 = previewHashInput(files, mappings, { ...base, expectedOpenTotalCents: 15900 }, diff);
     expect(h1).not.toBe(h2);
     expect(h1).not.toContain("expectedOpenTotalCents");
+  });
+
+  test("E-IMP-18 a sevdesk import with contacts reminds to note the source in the processing record (Art. 14 DSGVO)", () => {
+    const info = inspectFile("kontakte.csv", sevdeskFixtureBytes("kontakte.csv"));
+    if (!isMappedCsvKind(info.kind) || !info.headers || !info.table) throw new Error("fixture is not a contact list");
+    const files = [{ id: "c", name: "kontakte.csv", sha256: "sha-c", kind: info.kind, table: info.table }];
+    const parsed = parseImportFiles(files, { c: { columns: autoMap(info.kind, info.headers) } }, TODAY);
+    expect(parsed.contacts.length).toBeGreaterThan(0);
+    expect(parsed.findings.find((f) => f.code === "E-IMP-18")).toEqual({
+      code: "E-IMP-18",
+      severity: "info",
+      message:
+        "Sie übernehmen personenbezogene Daten aus sevdesk. Bitte die Herkunft der Daten im Verzeichnis von Verarbeitungstätigkeiten (Einstellungen › Datenschutz) vermerken – Informationspflicht nach Art. 14 DSGVO.",
+    });
+    // an invoice list alone carries no contact records → no notice
+    expect(listFiles([OPEN_ROW]).parsed.findings.some((f) => f.code === "E-IMP-18")).toBe(false);
   });
 
   test("IMP-022 IMP-024 the acknowledged open-item difference is recorded among the decisions of the import protocol", () => {

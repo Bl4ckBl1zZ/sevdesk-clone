@@ -2211,6 +2211,8 @@ export default defineSchema({
           dateFormat: v.optional(v.union(v.literal("dmy"), v.literal("mdy"))),
           /** F09 IMP-012: name of the saved preset the generic CSV mapping came from (part of the idempotency key). */
           preset: v.optional(v.string()),
+          /** F09 E-IMP-17: generic CSV contacts — „Vorhandene Kontakte aktualisieren“ (default: skip). */
+          onExisting: v.optional(v.literal("update")),
         }),
       ),
     ),

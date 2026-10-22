@@ -20,6 +20,7 @@ import { lookupVatRate } from "../../rules/vat-rates";
 import { contactCreateSchema, emptyContactForm } from "../../schemas/contacts";
 import { productSchema } from "../../schemas/products";
 import { type CalendarDate, formatGermanDate } from "../../time/calendar-date";
+import { IMPORT_PRIVACY_NOTICE_CODE, importPrivacyNotice } from "../privacy-notice";
 import { type DateFormat, detectDateFormat, detectNumberFormat, type NumberFormat } from "./formats";
 import {
   type ImportedDocument,
@@ -450,6 +451,13 @@ export function parseImportFiles(
       code: "E-IMP-38",
       severity: "info",
       message: `${fromCompany} Rechnungen ohne Steuerangabe werden als Kleinunternehmer-Rechnungen (§ 19 UStG) übernommen, weil Ihr Unternehmen am Rechnungsdatum Kleinunternehmer war (Einstellungen › Steuern).`,
+    });
+  }
+  if (contacts.length > 0) {
+    findings.push({
+      code: IMPORT_PRIVACY_NOTICE_CODE,
+      severity: "info",
+      message: importPrivacyNotice("sevdesk"),
     });
   }
   if (skippedDrafts > 0) {
