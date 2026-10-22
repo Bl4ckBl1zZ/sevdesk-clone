@@ -37,6 +37,7 @@ const ISSUE_ERROR: Record<ManualIssue["code"], ErrorCode> = {
   "E-ACC-02": "invalid_input",
   "E-ACC-10": "invalid_input",
   "E-ACC-11": "invalid_input",
+  "E-ACC-21": "invalid_input", // notice only (never raised as an error)
   manual_invalid: "invalid_input",
   rule_missing: "posting_rejected",
 };

@@ -119,7 +119,11 @@ export const TAX_RULE_HELP_DE: Readonly<Record<TaxRule, string>> = {
 };
 
 export type TaxRuleCheckIssue = Issue<
-  "ku_supplier_vat" | "reverse_charge_vat_shown" | "own_vat_id_missing" | "supplier_vat_id_not_eu"
+  | "ku_supplier_vat"
+  | "reverse_charge_vat_shown"
+  | "own_vat_id_missing"
+  | "supplier_vat_id_not_eu"
+  | "supplier_vat_id_missing"
 >;
 
 const EU_PREFIXES = new Set([
