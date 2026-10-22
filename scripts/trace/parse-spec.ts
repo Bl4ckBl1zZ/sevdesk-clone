@@ -20,6 +20,8 @@ export interface Requirement {
   title: string;
   /** Test cases: the IDs listed in the "Covers" column (resolved against the registry by the caller). */
   covers: string[];
+  /** Rows marked „Withdrawn (v1.1) …“: still known IDs (tests may name them), but nothing to build or test. */
+  withdrawn: boolean;
 }
 
 function cells(line: string): string[] {
@@ -100,6 +102,7 @@ export function parseSpec(file: string, markdown: string): Requirement[] {
       phase: kind === "test-case" ? null : parsePhase(at((h) => h === "phase")),
       title: clean(row[1] ?? "").slice(0, 80),
       covers: coversCell ? [...new Set(clean(coversCell).match(COVERS_ID_RE) ?? [])].filter((c) => c !== id) : [],
+      withdrawn: /^withdrawn\b/i.test(clean(row[1] ?? "")),
     });
   }
   return out;

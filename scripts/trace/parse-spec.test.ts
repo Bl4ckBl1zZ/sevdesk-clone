@@ -126,3 +126,24 @@ test("SMOKE trace scans vitest and playwright test calls", () => {
     ["UST-06", false],
   ]);
 });
+
+test("SMOKE trace flags withdrawn rows so they need no test but stay known IDs", () => {
+  const reqs = parseSpec(
+    "x.md",
+    `
+| ID | Requirement | Priority | Phase |
+|---|---|---|---|
+| SND-01 | Withdrawn (v1.1) — B2: no e-mail send dialog | MUST | P1 |
+| SND-02 | Mark as sent | MUST | P1 |
+
+| ID | Situation | Required behaviour | Test |
+|---|---|---|---|
+| EC-097 | **Withdrawn (v1.1)** — B2: SMTP failure | — | — |
+`,
+  );
+  expect(reqs.map((r) => [r.id, r.withdrawn])).toEqual([
+    ["SND-01", true],
+    ["SND-02", false],
+    ["EC-097", true],
+  ]);
+});

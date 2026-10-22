@@ -57,11 +57,11 @@ const refs: TestRef[] = testFiles.flatMap((f) => scanTests(relative(ROOT, f), re
 // Test-case IDs (T-SET-005, TST-AUD-07, T05-001) and edge cases (E-AUD-17) are spec rows too; a test-case ID also
 // counts for the requirements its row covers. EN 16931 terms (BT-81) are annotations; anything else is unknown.
 const { testsById, unknown } = buildCoverage(registry, refs);
-const requirements = [...registry.values()].filter((r) => r.kind !== "test-case");
-const testCaseCount = registry.size - requirements.length;
+const requirements = [...registry.values()].filter((r) => r.kind !== "test-case" && !r.withdrawn);
+const testCaseCount = [...registry.values()].filter((r) => r.kind === "test-case").length;
 
 const inScope = (r: Requirement) => targetPhase === null || (r.phase !== null && r.phase <= targetPhase);
-const gated = (r: Requirement) => r.priority === "MUST" && r.phase !== null && inScope(r);
+const gated = (r: Requirement) => r.priority === "MUST" && !r.withdrawn && r.phase !== null && inScope(r);
 
 // ── report ────────────────────────────────────────────────────────────────────
 type Row = { group: string; total: number; tested: number };
@@ -87,7 +87,7 @@ lines.push(`| **Total** | **${total}** | **${tested}** | **${pct(tested, total)}
 
 const phaseLines: string[] = [`| Phase | MUST | MUST tested |`, `|---|---:|---:|`];
 for (let p = 0; p <= 4; p++) {
-  const must = [...registry.values()].filter((r) => r.priority === "MUST" && r.phase === p);
+  const must = requirements.filter((r) => r.priority === "MUST" && r.phase === p);
   phaseLines.push(`| P${p} | ${must.length} | ${must.filter((r) => testsById.has(r.id)).length} |`);
 }
 
