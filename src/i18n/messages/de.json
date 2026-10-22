@@ -4666,6 +4666,7 @@
     "presetHint": "Der Vorlagenname ist Teil des Wiederholungsschlüssels: Zeilen, die mit derselben Vorlage schon importiert wurden, werden übersprungen.",
     "updateExisting": "Vorhandene Kontakte aktualisieren",
     "updateExistingHint": "Ohne diese Option werden vorhandene Kontakte (gleiche Nummer, USt-IdNr oder E-Mail-Adresse) übersprungen. Mit der Option werden ihre Stammdaten aus den zugeordneten, nicht leeren Spalten aktualisiert; Kundennummer, Adressen und Kommunikationswege bleiben unverändert.",
+    "encodingTitle": "Zeichenkodierung wählen",
     "encodingSample": "Gelesen als {encoding}:",
     "encodingChoose": "Als {encoding} lesen",
     "previewTitle": "Vorschau",

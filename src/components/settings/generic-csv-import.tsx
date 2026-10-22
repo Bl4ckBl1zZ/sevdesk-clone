@@ -194,9 +194,12 @@ function EncodingChoice({ question, onChoose }: { question: EncodingQuestion; on
       className="flex flex-col gap-3 rounded-md border border-warning p-3"
       data-testid="generic-import-encoding"
     >
-      <h3 id={headingId} role="alert" className="font-medium">
-        {question.message}
+      <h3 id={headingId} className="font-medium">
+        {t("encodingTitle")}
       </h3>
+      <p role="alert" className="text-sm">
+        {question.message}
+      </p>
       <div className="grid gap-3 @lg:grid-cols-2">
         {(["windows-1252", "utf-8"] as const).map((e) => (
           <div key={e} className="flex flex-col gap-2 rounded-md border p-2">
