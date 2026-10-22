@@ -67,9 +67,9 @@ describe("voucher tax rules", () => {
       vatShownCents: 0,
       supplierVatId: "ATU12345678",
     });
-    expect(ige.errors[0]?.message).toBe(
+    expect(ige.errors.map((e) => e.message)).toEqual([
       "Für innergemeinschaftliche Erwerbe ist Ihre USt-IdNr erforderlich (Einstellungen › Unternehmen).",
-    );
+    ]);
     expect(isForeignEuVatId("EL123456789")).toBe(true);
   });
 

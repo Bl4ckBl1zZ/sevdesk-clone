@@ -10,7 +10,7 @@ describe("Skonto eligibility by date and amount (PAY-021, PAY-022, EC-122)", () 
     expect(evaluateSkonto({ terms, paymentDate: "2026-10-10", shortfallCents: 1000 })).toEqual({ eligible: true });
   });
 
-  test("T05-034 EC-PAY-09 EC-122 after the deadline or above the agreed rate → never Skonto, exact message", () => {
+  test("T05-034 EC-PAY-09 EC-122 E-TAX-14 after the deadline or above the agreed rate → never Skonto, exact message", () => {
     const late = evaluateSkonto({ terms, paymentDate: "2026-10-24", shortfallCents: 2380 });
     expect(late).toMatchObject({ eligible: false, reason: "late" });
     if (!late.eligible)
