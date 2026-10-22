@@ -354,7 +354,7 @@ export async function ustvaView(ctx: ReadCtx, period: string, now: number) {
 }
 
 /** TAX-005: per Kennzahl the contributing entries with seq, date, text and a link to the source document. */
-async function drillDownLabels(ctx: ReadCtx, drill: UstvaSheet["drillDown"]) {
+export async function drillDownLabels(ctx: ReadCtx, drill: UstvaSheet["drillDown"]) {
   const out: Record<
     string,
     {

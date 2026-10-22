@@ -20,6 +20,7 @@ import {
   zmView,
 } from "./model/taxFilings";
 import { saveTaxReserveInputs as saveReserveInputs } from "./model/taxReserve";
+import { ustAnnualView } from "./model/ustAnnual";
 
 /**
  * Steuern (F08 §6 /steuern/ustva, /steuern/zm; TAX-001…TAX-011, TAX-019…TAX-021): Kennzahlen sheets with drill-down,
@@ -49,6 +50,16 @@ export const euer = query({
   permission: "tax.read",
   args: { year: v.number() },
   handler: async (ctx, { year }) => euerView(ctx, year, ctx.now()),
+});
+
+/**
+ * TAX-023 USt-Jahreserklärung worksheet of a calendar year: USt 2 A lines with year totals, reconciliation with the
+ * submitted UStVAs (expected Abschlusszahlung/Erstattung per cause) and the Mein ELSTER guide. No submission record.
+ */
+export const ustAnnual = query({
+  permission: "tax.read",
+  args: { year: v.number() },
+  handler: async (ctx, { year }) => ustAnnualView(ctx, year, ctx.now()),
 });
 
 /** Dauerfristverlängerung / Sondervorauszahlung of a year (USt 1 H). */

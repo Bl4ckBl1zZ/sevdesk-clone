@@ -569,3 +569,42 @@ describe("UStVA submission records (TAX-006, TAX-007, TAX-021)", () => {
 function monthsTo(m: number): string[] {
   return Array.from({ length: m }, (_, i) => `2026-${String(i + 1).padStart(2, "0")}`);
 }
+
+describe("USt-Jahreserklärung worksheet (TAX-023)", () => {
+  test("TAX-023 TST-TAX-35 year totals from the journal; reconciliation with the UStVA in force names the late Sept entry; superseded filings excluded", async () => {
+    const t = makeT();
+    const { customer } = await setupBooks(t);
+    await post(t, invoiceEvent(customer, "a", "2026-09-10", 100000));
+    const u = await owner(t);
+    await submitUstva(u, SEP);
+    await post(
+      t,
+      invoiceEvent(customer, "late", "2026-10-03", 20000, { supplyDate: { kind: "date", date: "2026-09-28" } }),
+    );
+    const view = await u.query(api.taxes.ustAnnual, { year: 2026 });
+    expect(view.sheet.mappingVersion).toBe("ust-annual-2026.1");
+    expect(view.sheet.rows.find((r) => r.kz === "177")).toMatchObject({ zeile: 24, valueCents: 120000 });
+    expect(view.sheet.totals).toEqual({
+      verbleibendCents: 22800,
+      vorauszahlungssollCents: 19000,
+      abschlussCents: 3800,
+    });
+    const late = view.sheet.reconciliation.causes.find((c) => c.kind === "nachgemeldet");
+    expect(late).toMatchObject({ period: SEP, amountCents: 3800 });
+    expect(late?.entries.map((e) => e.source)).toEqual([{ kind: "salesDocument", id: "late" }]);
+    expect(view.drillDown["81"]?.map((d) => d.source.id)).toEqual(["a", "late"]);
+    // the year is not over: copy strings blocked, values visible
+    expect(view.sheet.guide.blocked).toBe(true);
+    expect(view.sheet.blockers).toContain("Das Jahr 2026 ist noch nicht abgeschlossen.");
+    // the correction supersedes the first filing → the worksheet reconciles to 0
+    await submitUstva(u, SEP, { submittedOn: "2026-10-10" });
+    const after = await u.query(api.taxes.ustAnnual, { year: 2026 });
+    expect(after.sheet.totals.abschlussCents).toBe(0);
+    expect(after.sheet.reconciliation.causes).toEqual([]);
+    // no submission record of its own
+    expect((await t.run((ctx) => ctx.db.query("taxFilings").collect())).map((f) => f.kind)).toEqual([
+      "ustva",
+      "ustva_correction",
+    ]);
+  });
+});
