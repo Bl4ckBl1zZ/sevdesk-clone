@@ -628,8 +628,7 @@ export function buildEuerGuide(
           true,
         ),
       ],
-      instruction:
-        "ELSTER berechnet die Zwischensummen selbst. Der Gewinn/Verlust in Zeile 97 muss mit dem Wert dieser Seite übereinstimmen.",
+      instruction: `ELSTER berechnet die Zwischensummen selbst. Der Gewinn/Verlust in Zeile ${sheet.sumFields.gewinn.zeile} muss mit dem Wert dieser Seite übereinstimmen.`,
     });
   }
   if (!partnership) {
