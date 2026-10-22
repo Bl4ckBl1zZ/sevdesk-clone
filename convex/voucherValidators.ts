@@ -83,6 +83,14 @@ export const vStatedTotals = v.object({
 });
 
 /** 03 §6 `vouchers.originalFiles[]` (GOBD-07/08, VOU-120…122). */
+/** VOU-124: header-measured pixel size and the „Bildqualität niedrig“ verdict of a captured image. */
+export const vImageQuality = v.object({
+  width: v.number(),
+  height: v.number(),
+  estimatedDpi: v.number(),
+  low: v.boolean(),
+});
+
 export const vOriginalFile = v.object({
   storageId: v.id("_storage"),
   sha256: v.string(),
@@ -97,6 +105,7 @@ export const vOriginalFile = v.object({
   capturedVia: vCaptureChannel,
   replacedBy: v.optional(v.number()),
   replaceReason: v.optional(v.string()),
+  image: v.optional(vImageQuality),
 });
 
 export const vRendition = v.object({
@@ -223,6 +232,7 @@ export const vInboxFile = v.object({
   clientCapturedAt: v.optional(v.number()),
   capturedBy: vActor,
   capturedVia: vCaptureChannel,
+  image: v.optional(vImageQuality),
 });
 
 /** Validation finding mapped to the BMF categories (INB-024). */

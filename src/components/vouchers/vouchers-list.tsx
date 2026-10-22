@@ -41,7 +41,17 @@ import { money, useVoucherUpload, VoucherStatusBadge } from "./voucher-shared";
  * on phones; upload button and a drop zone (left half = Ausgabe, right half = Einnahme, as sevdesk); drafts can be
  * selected for the batch queue (VOU-100).
  */
-const TABS = ["all", "draft", "open", "overdue", "partially_paid", "paid", "cancelled", "unbooked"] as const;
+const TABS = [
+  "all",
+  "draft",
+  "open",
+  "overdue",
+  "partially_paid",
+  "paid",
+  "cancelled",
+  "unbooked",
+  "paper_destructible",
+] as const;
 type Tab = (typeof TABS)[number];
 
 export const voucherPath = (id: string) => `/belege/${id}` as Route;
@@ -99,7 +109,8 @@ function VouchersListInner() {
     <StatusFilter
       label={t("tabsLabel")}
       current={tab}
-      options={TABS.map((s) => ({
+      // VOU-123: „Papier vernichtbar“ only under a released scanning procedure (Verfahrensdokumentation).
+      options={TABS.filter((s) => s !== "paper_destructible" || counts?.paperDestructibleAvailable).map((s) => ({
         value: s,
         label: t(`tabs.${s}`),
         ...(counts ? { count: counts[s] } : {}),

@@ -1,6 +1,7 @@
 import { berlinCalendarDate } from "../../src/domain/time/berlin";
 import type { CalendarDate } from "../../src/domain/time/calendar-date";
 import { activeOriginals } from "../../src/domain/vouchers/capture";
+import { IMAGE_QUALITY_MESSAGE } from "../../src/domain/vouchers/image-quality";
 import { VOUCHER_STATUS_DE } from "../../src/domain/vouchers/lifecycle";
 import {
   overdueVouchers,
@@ -11,6 +12,7 @@ import {
   unbookedOlderThan,
 } from "../../src/domain/vouchers/missing-receipts";
 import { PAYMENT_METHOD_DE } from "../../src/domain/vouchers/payment-choice";
+import { paperDestructible, scanningProcedureReleased } from "../../src/domain/vouchers/scanning";
 import { TAX_RULE_LABEL_DE } from "../../src/domain/vouchers/tax-rules";
 import type { Doc, Id } from "../_generated/dataModel";
 import { journalEntryView } from "./accounting";
@@ -29,12 +31,24 @@ export const VOUCHER_TABS = [
   "paid",
   "cancelled",
   "unbooked",
+  "paper_destructible",
 ] as const;
 export type VoucherTab = (typeof VOUCHER_TABS)[number];
 
 const DAY_MS = 86_400_000;
 
-export function tabMatches(v: Doc<"vouchers">, tab: VoucherTab, now: number): boolean {
+/** VOU-123: a released Verfahrensdokumentation documents the scanning procedure (gate of „Papier vernichtbar“). */
+export async function scanningReleased(ctx: ReadCtx): Promise<boolean> {
+  const latest = await ctx.db.query("verfahrensdokuVersions").withIndex("by_version").order("desc").first();
+  return !!latest && latest.supersededAt === undefined && scanningProcedureReleased(latest.sourceJson);
+}
+
+export function tabMatches(
+  v: Doc<"vouchers">,
+  tab: VoucherTab,
+  now: number,
+  opts: { scanningReleased?: boolean } = {},
+): boolean {
   switch (tab) {
     case "all":
       return true;
@@ -56,6 +70,8 @@ export function tabMatches(v: Doc<"vouchers">, tab: VoucherTab, now: number): bo
       return v.status === "cancelled";
     case "unbooked":
       return v.status === "draft" && now - v.receivedAt > UNBOOKED_DAYS * DAY_MS;
+    case "paper_destructible":
+      return paperDestructible(v, opts.scanningReleased ?? false);
   }
 }
 
@@ -80,6 +96,7 @@ export function listRow(v: Doc<"vouchers">, today: string) {
     taxRule: v.taxRule,
     taxRuleLabel: TAX_RULE_LABEL_DE[v.taxRule],
     hasFile: activeOriginals(v.originalFiles).length > 0 || !!v.eigenbeleg?.approvedAt,
+    checkedComplete: !!v.checkedComplete,
     receivedAt: v.receivedAt,
   };
 }
@@ -133,6 +150,8 @@ export async function voucherDetail(ctx: ReadCtx, id: Id<"vouchers">, now: numbe
         capturedVia: f.capturedVia,
         replacedBy: f.replacedBy ?? null,
         replaceReason: f.replaceReason ?? null,
+        // VOU-124: „Bildqualität niedrig“ with „Neu aufnehmen“ for a low-resolution capture.
+        qualityWarning: f.image?.low ? IMAGE_QUALITY_MESSAGE(f.image) : null,
         url: await fileUrl(f.storageId),
       })),
     ),

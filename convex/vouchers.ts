@@ -9,6 +9,7 @@ import { allowedAccounts } from "../src/domain/vouchers/accounts";
 import { bewirtungEigenbelegContent } from "../src/domain/vouchers/bewirtung";
 import { checkUpload, pageCount } from "../src/domain/vouchers/capture";
 import { voucherEigenbelegContent } from "../src/domain/vouchers/eigenbeleg";
+import { withImageQuality } from "../src/domain/vouchers/image-quality";
 import { UNBOOKED_DAYS } from "../src/domain/vouchers/missing-receipts";
 import { PAYMENT_MESSAGES } from "../src/domain/vouchers/payment-choice";
 import { upcomingVoucherDates } from "../src/domain/vouchers/recurring";
@@ -63,6 +64,7 @@ import {
 import {
   listRow,
   missingReceipts,
+  scanningReleased,
   tabMatches,
   unbookedVouchers,
   VOUCHER_TABS,
@@ -73,6 +75,7 @@ import { vFileRef } from "./validators";
 import {
   vBewirtungInput,
   vEigenbelegInput,
+  vImageQuality,
   vRecurringTemplate,
   vVoucherDraftInput,
   vVoucherPaymentInput,
@@ -99,9 +102,10 @@ export const list = query({
       [d.supplierName, d.documentNumber, d.internalNumber, d.internalNote]
         .filter((s): s is string => !!s)
         .some((s) => s.toLowerCase().includes(needle));
+    const opts = { scanningReleased: t === "paper_destructible" ? await scanningReleased(ctx) : false };
     const page = await filter(
       ctx.db.query("vouchers").withIndex("by_documentDate").order("desc"),
-      (d) => tabMatches(d, t, now) && matches(d),
+      (d) => tabMatches(d, t, now, opts) && matches(d),
     ).paginate(paginationOpts);
     return { ...page, page: page.page.map((d) => listRow(d, today)) };
   },
@@ -114,8 +118,10 @@ export const counts = query({
     const now = ctx.now();
     const all = await ctx.db.query("vouchers").collect();
     const out = Object.fromEntries(VOUCHER_TABS.map((t) => [t, 0])) as Record<VoucherTab, number>;
-    for (const d of all) for (const t of VOUCHER_TABS) if (tabMatches(d, t, now)) out[t]++;
-    return out;
+    const opts = { scanningReleased: await scanningReleased(ctx) };
+    for (const d of all) for (const t of VOUCHER_TABS) if (tabMatches(d, t, now, opts)) out[t]++;
+    // VOU-123: the „Papier vernichtbar“ tab is offered only under a released scanning procedure.
+    return { ...out, paperDestructibleAvailable: opts.scanningReleased };
   },
 });
 
@@ -366,6 +372,7 @@ export const attachFileInternal = actorMutation({
       name: v.string(),
       pages: v.number(),
       clientCapturedAt: v.optional(v.number()),
+      image: v.optional(vImageQuality),
     }),
     replaceIndex: v.optional(v.number()),
     reason: v.optional(v.string()),
@@ -442,6 +449,7 @@ export const attachFile = action({
           name: args.name.trim() || "beleg",
           pages: pageCount(bytes, checked.value.mime),
           ...(args.clientCapturedAt ? { clientCapturedAt: args.clientCapturedAt } : {}),
+          ...withImageQuality(bytes, checked.value.mime),
         },
         ...(args.replaceIndex !== undefined ? { replaceIndex: args.replaceIndex } : {}),
         ...(args.reason ? { reason: args.reason } : {}),

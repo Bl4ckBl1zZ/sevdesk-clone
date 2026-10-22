@@ -1,7 +1,7 @@
 "use client";
 
 import type { Id } from "@convex/_generated/dataModel";
-import { FileIcon, PlusIcon, RefreshCwIcon } from "lucide-react";
+import { CameraIcon, FileIcon, PlusIcon, RefreshCwIcon, TriangleAlertIcon } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { useId, useRef, useState } from "react";
 import { ConfirmDialog, formatDateTime, useRun } from "@/components/catalog/shared";
@@ -19,6 +19,8 @@ export interface VoucherFileView {
   capturedAt: number;
   replacedBy: number | null;
   replaceReason: string | null;
+  /** VOU-124 „Bildqualität niedrig“ (German text from the server). */
+  qualityWarning?: string | null;
   url: string | null;
 }
 
@@ -126,6 +128,15 @@ export function VoucherFiles({
                   <span className="break-all font-mono text-muted-foreground text-xs">
                     {t("sha", { hash: f.sha256 })}
                   </span>
+                  {f.qualityWarning && f.replacedBy === null && (
+                    <span className="flex items-start gap-1 text-xs" data-testid="quality-low">
+                      <TriangleAlertIcon className="mt-0.5 size-3.5 shrink-0 text-warning" aria-hidden="true" />
+                      <span>
+                        <span className="sr-only">{t("qualityLow")}: </span>
+                        {f.qualityWarning}
+                      </span>
+                    </span>
+                  )}
                   {f.replacedBy !== null && (
                     <span className="text-muted-foreground text-xs">
                       {t("replacedBy", { n: f.replacedBy + 1 })}
@@ -143,8 +154,8 @@ export function VoucherFiles({
                     replaceRef.current?.click();
                   }}
                 >
-                  <RefreshCwIcon aria-hidden="true" />
-                  {t("replace")}
+                  {f.qualityWarning ? <CameraIcon aria-hidden="true" /> : <RefreshCwIcon aria-hidden="true" />}
+                  {f.qualityWarning ? t("retake") : t("replace")}
                 </Button>
               )}
             </li>

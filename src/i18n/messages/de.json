@@ -4688,7 +4688,8 @@
         "partially_paid": "Teilbezahlt",
         "paid": "Bezahlt",
         "cancelled": "Storniert",
-        "unbooked": "Unbearbeitet > 10 Tage"
+        "unbooked": "Unbearbeitet > 10 Tage",
+        "paper_destructible": "Papier vernichtbar"
       },
       "columns": {
         "select": "Auswahl",
@@ -4897,7 +4898,9 @@
       "added": "Datei hinzugefügt",
       "captured": "Erfasst am {date}",
       "eigenbelegFile": "Eigenbeleg (PDF)",
-      "bewirtungFile": "Bewirtungsbeleg (PDF)"
+      "bewirtungFile": "Bewirtungsbeleg (PDF)",
+      "retake": "Neu aufnehmen",
+      "qualityLow": "Bildqualität niedrig"
     },
     "bewirtung": {
       "title": "Bewirtungsbeleg",

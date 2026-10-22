@@ -52,6 +52,7 @@ export interface NewInboxFile {
   clientCapturedAt?: number;
   role?: InboxFileValue["role"];
   derivedFrom?: number;
+  image?: InboxFileValue["image"];
 }
 
 export interface InboxWarning {
@@ -82,6 +83,7 @@ function toInboxFile(ctx: ModelCtx, f: NewInboxFile, source: InboxItem["source"]
     ...(f.clientCapturedAt !== undefined ? { clientCapturedAt: f.clientCapturedAt } : {}),
     capturedBy: ctx.actor,
     capturedVia: source,
+    ...(f.image ? { image: f.image } : {}),
   };
 }
 
@@ -510,6 +512,7 @@ export async function finishClassification(
       ...(f.clientCapturedAt !== undefined ? { clientCapturedAt: f.clientCapturedAt } : {}),
       capturedBy: f.capturedBy,
       capturedVia: f.capturedVia,
+      ...(f.image ? { image: f.image } : {}),
     })),
     receivedAt: item.receivedAt,
     extra: {

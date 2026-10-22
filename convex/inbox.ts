@@ -11,6 +11,7 @@ import {
 } from "../src/domain/inbox/status";
 import { berlinCalendarDate } from "../src/domain/time/berlin";
 import { CAPTURE_MESSAGES, checkUpload, pageCount } from "../src/domain/vouchers/capture";
+import { type ImageQuality, withImageQuality } from "../src/domain/vouchers/image-quality";
 import { internal } from "./_generated/api";
 import type { Doc, Id } from "./_generated/dataModel";
 import { action, actorMutation, mutation, query, systemMutation, systemQuery } from "./functions";
@@ -41,7 +42,7 @@ import {
 } from "./model/inboxSettings";
 import { getIntegration, recordIntegrationTest } from "./model/integrations";
 import { kuOn } from "./model/vouchers";
-import { vVoucherDraftInput } from "./voucherValidators";
+import { vImageQuality, vVoucherDraftInput } from "./voucherValidators";
 
 /**
  * Posteingang (F06 §3.1–3.3, §6.1): capture, list/detail, reject, duplicate override, settings. The classification
@@ -222,6 +223,7 @@ const vNewFile = v.object({
     v.union(v.literal("original"), v.literal("extracted_xml"), v.literal("embedded_attachment"), v.literal("eml")),
   ),
   derivedFrom: v.optional(v.number()),
+  image: v.optional(vImageQuality),
 });
 
 export const storeInternal = actorMutation({
@@ -249,6 +251,7 @@ interface Checked {
   bytes: number;
   pages: number;
   clientCapturedAt?: number;
+  image?: ImageQuality;
 }
 
 /** Reads and checks stored uploads (magic bytes, size); on any rejection every stored blob of the call is deleted. */
@@ -286,6 +289,7 @@ async function checkStored(
       bytes: bytes.byteLength,
       pages: pageCount(bytes, checked.value.mime),
       ...(f.clientCapturedAt !== undefined ? { clientCapturedAt: f.clientCapturedAt } : {}),
+      ...withImageQuality(bytes, checked.value.mime),
     });
   }
   return out;
