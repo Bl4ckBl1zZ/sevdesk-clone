@@ -36,6 +36,8 @@ import { CertificateCard, ConsentCard, VatCheckCard } from "./contact-tax";
 import { VatBadge } from "./contacts-list";
 import { MergeDialog } from "./duplicates-panel";
 
+import { SelfBillingAgreementCard } from "./self-billing-agreement";
+
 export type ContactBundle = NonNullable<FunctionReturnType<typeof api.contacts.get>>;
 
 /** Contact detail (F02 §6.3): header with actions, facts, tabs Verlauf / Stammdaten / Adressen / Steuer / Personen. */
@@ -149,6 +151,7 @@ function ContactDetailInner({ id }: { id: Id<"contacts"> }) {
               <VatCheckCard data={data} canWrite={canWrite} />
               <ConsentCard data={data} canWrite={canWrite} />
               <CertificateCard data={data} canWrite={canWrite} />
+              <SelfBillingAgreementCard data={data} canWrite={canWrite} />
             </TabsContent>
             {showReceivables && (
               <TabsContent value="receivables" className="pt-4">

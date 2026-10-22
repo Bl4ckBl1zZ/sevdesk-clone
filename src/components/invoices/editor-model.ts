@@ -91,7 +91,8 @@ export const typeFeatures = (type: DraftType) => ({
   showPrices: type === "delivery_note",
   /** Supply date optional („voraussichtlich“) on quotes and orders; mandatory on invoices and delivery notes. */
   supplyOptional: type === "quote" || type === "order_confirmation",
-  payment: type !== "delivery_note",
+  /** A self-billing Gutschrift is paid by us to the supplier: no payment terms, no EPC QR (F04 §4.9). */
+  payment: type !== "delivery_note" && type !== "self_billing",
   einvoice: isInvoiceDraftType(type),
   invoiceFlags: isInvoiceDraftType(type),
   epcQr: isInvoiceDraftType(type) || type === "proforma",

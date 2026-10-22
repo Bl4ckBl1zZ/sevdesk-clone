@@ -73,6 +73,7 @@ export function InvoiceEditor({
   chainRoot?: boolean;
 }) {
   const t = useTranslations("invoices.editor");
+  const tSb = useTranslations("selfBilling");
   const tc = useTranslations("invoiceCorrections");
   const initialType: DraftType = (initial?.type as DraftType | undefined) ?? typeProp ?? "invoice";
   const router = useRouter();
@@ -249,6 +250,11 @@ export function InvoiceEditor({
     // The query container wraps only the form grid: a container is the containing block of `position: fixed`
     // descendants, so the phone action bar below must stay outside it to be fixed to the viewport.
     <div className="flex flex-col gap-4 pb-28 md:pb-0">
+      {state.type === "self_billing" && (
+        <p role="note" className="rounded-md border border-info/40 bg-info/10 p-3 text-sm">
+          {tSb("editorBanner")}
+        </p>
+      )}
       <div className="@container/editor">
         <div className="grid grid-cols-1 gap-4 @4xl/editor:grid-cols-[minmax(0,1fr)_22rem]">
           <div className="flex min-w-0 flex-col gap-4">

@@ -55,6 +55,7 @@ import { ChainCard, DocumentFlowActions } from "./document-actions";
 import { DuplicateButton } from "./duplicate-button";
 import { InvoiceEditor } from "./invoice-editor";
 import { DECISION_LABELS, downloadExport, FORMAT_LABELS, InvoiceStatusBadge, money } from "./invoice-shared";
+import { SelfBillingPanel } from "./self-billing";
 
 type Detail = NonNullable<FunctionReturnType<typeof api.invoices.get>>;
 
@@ -90,6 +91,7 @@ function InvoiceDetailInner({ id }: { id: Id<"salesDocuments"> }) {
   const tDoc = useTranslations("documents.detail");
   const tNav = useTranslations("nav");
   const tc = useTranslations("invoiceCorrections");
+  const tSb = useTranslations("selfBilling");
   const data = useAuthedQuery(api.invoices.get, { id });
   const chain = useAuthedQuery(api.documentFlows.chain, { id });
   const canWrite = useCan("documents.write");
@@ -111,8 +113,14 @@ function InvoiceDetailInner({ id }: { id: Id<"salesDocuments"> }) {
   const typeLabel = DOC_TYPE_LABEL_DE[type];
   const letter = isLetterType(type);
   const kind = docTypeKey(data.doc.type, data.doc.correctionKind);
+  // F04 §4.9: a self-billing Gutschrift (titles from its own namespace; no receivable, no dunning, no Storno).
+  const selfBilling = data.doc.type === "self_billing";
   if (data.doc.status === "draft") {
-    const draftTitle = letter ? tDoc("draftTitle", { label: typeLabel }) : tc(`draftTitles.${kind}` as never);
+    const draftTitle = selfBilling
+      ? tSb("draftTitle")
+      : letter
+        ? tDoc("draftTitle", { label: typeLabel })
+        : tc(`draftTitles.${kind}` as never);
     return (
       <>
         <PageHeader
@@ -147,7 +155,11 @@ function InvoiceDetailInner({ id }: { id: Id<"salesDocuments"> }) {
     <>
       <PageHeader
         title={
-          letter ? tDoc("title", { label: typeLabel, number }) : tc(`titles.${kind}` as "titles.invoice", { number })
+          selfBilling
+            ? tSb("title", { number })
+            : letter
+              ? tDoc("title", { label: typeLabel, number })
+              : tc(`titles.${kind}` as "titles.invoice", { number })
         }
         description={`${data.doc.contactName ?? ""} · ${status.label}`}
         breadcrumbs={[...crumbs, { label: number }]}
@@ -171,9 +183,14 @@ function InvoiceDetailInner({ id }: { id: Id<"salesDocuments"> }) {
         <DocumentFlowActions doc={data.doc} targets={chain?.targets ?? []} />
         <ChainCard chain={chain} />
         <RelationsPanel id={id} type={data.doc.type} />
+        {selfBilling && <SelfBillingPanel doc={data.doc} />}
         <SnapshotView snapshot={data.snapshot as DocumentSnapshot | null} />
-        {data.doc.status !== "cancelled" && <PaymentsSection documentId={data.doc._id} number={number} />}
-        {data.doc.status !== "cancelled" && <InvoiceDunningSection invoiceId={data.doc._id} type={data.doc.type} />}
+        {data.doc.status !== "cancelled" && !selfBilling && (
+          <PaymentsSection documentId={data.doc._id} number={number} />
+        )}
+        {data.doc.status !== "cancelled" && !selfBilling && (
+          <InvoiceDunningSection invoiceId={data.doc._id} type={data.doc.type} />
+        )}
         <Files data={data} />
         <AttachmentsSection id={data.doc._id} draft={false} files={data.files} />
         <SendLog data={data} />
