@@ -31,6 +31,7 @@ import {
   NO_CORRECTION_NEEDED,
   sheetHash,
   sheetValues,
+  submittedPeriodNotices,
   type TaxJournalEntry,
   type TaxJournalLine,
   type UstvaSheet,
@@ -312,6 +313,9 @@ export async function ustvaView(ctx: ReadCtx, period: string, now: number) {
     : 0;
   if (correction?.required) correction.notice = correctionRequiredNotice(Math.max(1, lateCount), label);
   const isCorrection = active !== null;
+  sheet.notices.push(
+    ...submittedPeriodNotices({ submitted: isCorrection, periodLabel: label, period, today: berlinCalendarDate(now) }),
+  );
   const blockers = await filingBlockers(ctx, pc.months, now);
   const mapping = ustvaMappingFor(pc.year);
   const guideData = elsterGuideFor("ustva", pc.year);

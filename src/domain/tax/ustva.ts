@@ -347,6 +347,28 @@ export function kennzahlDeltas(before: Record<string, number>, after: Record<str
     .filter((d) => d.deltaCents !== 0);
 }
 
+/** E-UVA-04: a second „übermittelt“ for the same period is only possible as a berichtigte Anmeldung (Kz 10 = 1). */
+export const alreadySubmittedNotice = (periodLabel: string) =>
+  `Für ${periodLabel} wurde bereits eine Voranmeldung übermittelt. Bitte eine berichtigte Voranmeldung erstellen.`;
+
+/**
+ * E-UVA-06: a correction for a period of a prior year — once the annual return of that year is filed, corrections
+ * go into a berichtigte Jahreserklärung. The app keeps no annual-return record (TAX-023: worksheet only), so the
+ * warning is shown for every correction of a period before the current year.
+ */
+export const priorYearCorrectionWarning = (year: number) =>
+  `Für ${year} ist die Jahreserklärung bereits abgegeben? Dann bitte keine berichtigte Voranmeldung, sondern eine berichtigte Umsatzsteuer-Jahreserklärung in Mein ELSTER übermitteln (Arbeitsblatt USt-Jahreserklärung).`;
+
+/** Notices of a filing period that already has a submitted UStVA (E-UVA-04, E-UVA-06). */
+export function submittedPeriodNotices(o: { submitted: boolean; periodLabel: string; period: string; today: string }) {
+  if (!o.submitted) return [];
+  const year = Number(o.period.slice(0, 4));
+  return [
+    alreadySubmittedNotice(o.periodLabel),
+    ...(year < Number(o.today.slice(0, 4)) ? [priorYearCorrectionWarning(year)] : []),
+  ];
+}
+
 /** E-UVA-05 */
 export const NO_CORRECTION_NEEDED =
   "Die berichtigten Werte entsprechen der letzten Meldung – keine Berichtigung nötig.";

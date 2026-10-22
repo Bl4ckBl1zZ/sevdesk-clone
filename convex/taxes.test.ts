@@ -115,6 +115,22 @@ describe("UStVA submission records (TAX-006, TAX-007, TAX-021)", () => {
     expect(await submitUstva(u, SEP).catch(errorCode)).toBe("filing_blocked");
   });
 
+  test("E-UVA-04 after the submission the period only offers a berichtigte Voranmeldung (guide with Kz 10 = 1)", async () => {
+    const t = makeT();
+    const { customer } = await setupBooks(t);
+    await post(t, invoiceEvent(customer, "d9", "2026-09-10", 100000));
+    const u = await owner(t);
+    await submitUstva(u, SEP);
+    const view = await u.query(api.taxes.ustva, { period: SEP });
+    expect(view.sheet?.notices).toContain(
+      "Für 09/2026 wurde bereits eine Voranmeldung übermittelt. Bitte eine berichtigte Voranmeldung erstellen.",
+    );
+    expect(view.guide?.steps[0]?.title).toBe("Berichtigte Anmeldung");
+    expect(view.guide?.correction).toBe(true);
+    // a plain second record is refused (no delta → E-UVA-05); with a delta it becomes ustva_correction (TST-TAX-07)
+    expect(await submitUstva(u, SEP).catch(errorCode)).toBe("filing_blocked");
+  });
+
   test("TAX-021 E-UVA-01 E-UVA-18 TST-TAX-28 no Transferticket → blocked; a sheet hash from before a late posting → sheet_changed", async () => {
     const t = makeT();
     const { customer } = await setupBooks(t);
@@ -157,7 +173,7 @@ describe("UStVA submission records (TAX-006, TAX-007, TAX-021)", () => {
     });
   });
 
-  test("TAX-007 TST-TAX-07 TST-TAX-24 EC-171 RI-23 a late Sept supply posted in Oct → „Korrektur erforderlich“, correction with Kz 10 supersedes, Sept stays locked", async () => {
+  test("TAX-007 TST-TAX-07 TST-TAX-24 EC-171 RI-23 E-TAX-01 a late Sept supply posted in Oct → „Korrektur erforderlich“, correction with Kz 10 supersedes, Sept stays locked", async () => {
     const t = makeT();
     const { customer } = await setupBooks(t);
     await post(t, invoiceEvent(customer, "a", "2026-09-10", 100000));
