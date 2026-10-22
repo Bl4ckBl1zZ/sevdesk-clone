@@ -120,6 +120,19 @@ export function InvoiceDunningSection({ invoiceId, type }: { invoiceId: string; 
         {data.contactBlocked && <Badge variant="outline">{t("contactBlocked")}</Badge>}
         <LimitationBadge limitation={data.limitation} />
       </div>
+      {data.zugangNotice && (data.dunnable || data.zugangNotice.severity === "I") && (
+        <p
+          role="status"
+          data-testid="zugang-notice"
+          className={
+            data.zugangNotice.severity === "W"
+              ? "rounded-md border border-warning/40 bg-warning/5 p-2 text-sm"
+              : "text-muted-foreground text-sm"
+          }
+        >
+          {data.zugangNotice.message}
+        </p>
+      )}
       <FactList
         items={[
           {

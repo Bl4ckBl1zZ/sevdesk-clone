@@ -33,6 +33,7 @@ import {
   validatePolicy,
 } from "../../src/domain/dunning/policy";
 import { defaultReminderTexts, reminderPlaceholderValues } from "../../src/domain/dunning/templates";
+import { validateZugangOverride, ZUGANG_MESSAGES } from "../../src/domain/dunning/zugang";
 import { basiszinsRuleVersions } from "../../src/domain/rules/overrides";
 import type { DunningSettingsValues, PolicyValues, ReminderCreateValues } from "../../src/domain/schemas/dunning";
 import { berlinCalendarDate } from "../../src/domain/time/berlin";
@@ -1131,6 +1132,7 @@ export async function withdrawReminder(ctx: ModelCtx, id: Id<"salesDocuments">, 
     );
   }
   await resolveNotifications(ctx, id, "reminder_mark_sent");
+  await resolveNotifications(ctx, id, "reminder_withdraw_suggested");
   await refreshDefaultStart(ctx, r.reminder.invoiceId);
 }
 
@@ -1177,6 +1179,16 @@ export async function onSettlementChanged(ctx: ModelCtx, change: SettlementChang
           link: `/mahnungen/${r._id}`,
           entity: { table: "salesDocuments", id: r._id },
           dedupeKey: `reminder_mark_sent:${r._id}`,
+        });
+      } else if (r.status === "sent" && r.number) {
+        // EC-DUN-23 / DUN-009: the reminder stays (immutable); „gegenstandslos“ (+ optional notice) is suggested.
+        await upsertNotification(ctx, {
+          kind: "reminder_withdraw_suggested",
+          severity: "info",
+          title: `Mahnung ${r.number}: Zahlung nach Mahnung eingegangen – Mahnung als gegenstandslos markieren?`,
+          link: `/mahnungen/${r._id}`,
+          entity: { table: "salesDocuments", id: r._id },
+          dedupeKey: `reminder_withdraw_suggested:${r._id}`,
         });
       }
     }
@@ -1231,7 +1243,19 @@ export async function onDispatchChanged(ctx: ModelCtx, documentId: Id<"salesDocu
     if (d.sentAt !== undefined) await resolveNotifications(ctx, documentId, "reminder_mark_sent");
     await refreshDefaultStart(ctx, d.reminder.invoiceId);
   } else if (DUNNABLE.has(d.type)) {
+    const before = await caseOf(ctx, documentId);
     await refreshDefaultStart(ctx, documentId);
+    // EC-DUE-10: the invoice mark was retracted → Zugang gone, a default start depending on it was reset.
+    if (!d.zugang && before?.defaultStartDate && before.status !== "closed") {
+      await upsertNotification(ctx, {
+        kind: "dunning_reset",
+        severity: "warning",
+        title: `${d.number ?? "Rechnung"}: ${ZUGANG_MESSAGES.markRetracted}`,
+        link: `/rechnungen/${documentId}`,
+        entity: { table: "salesDocuments", id: documentId },
+        dedupeKey: `dunning_reset:${documentId}:${before.defaultStartDate}`,
+      });
+    }
   }
 }
 
@@ -1468,14 +1492,8 @@ export async function overrideZugang(
   v: { date: string; reason: string },
 ) {
   const d = await getDocument(ctx, documentId);
-  const today = todayOf(ctx);
-  if (!d.sentOn || v.date < d.sentOn || v.date > today || v.reason.trim().length < 5) {
-    throw appError(
-      "invalid_input",
-      `Das Zugangsdatum muss zwischen Versanddatum (${d.sentOn ? formatGermanDate(d.sentOn as CalendarDate) : "–"}) und heute liegen und begründet werden.`,
-      { field: "date" },
-    );
-  }
+  const invalid = validateZugangOverride({ date: v.date, reason: v.reason, sentOn: d.sentOn, today: todayOf(ctx) });
+  if (invalid) throw appError("invalid_input", invalid, { field: "date" });
   await assertRetractionAllowed(ctx, d).catch(() => {
     throw appError(
       "conflict",

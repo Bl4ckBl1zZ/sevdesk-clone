@@ -12,6 +12,7 @@ import {
   nextLevelEarliest,
   planDigest,
   type ReminderState,
+  SKIP_REASON_LABEL_DE,
 } from "./evaluate";
 import { DEFAULT_POLICIES, paymentTermsWarning, resolvePolicyId, validatePolicy } from "./policy";
 
@@ -344,5 +345,39 @@ describe("DUN-030 DUN-033 DUN-054 DUN-055 DUN-057 evaluateDunning (§4.5)", () =
     expect(a.kind === "skip" && a.reason).toBe("draft_pending");
     const plan = evaluateDunning(today, [inv(), inv({ invoiceId: "i0", zugang: undefined })], ctx);
     expect(planDigest(plan)).toBe(planDigest([...plan].reverse()));
+  });
+});
+
+describe("F05 §5.2 dunning edge cases (pure)", () => {
+  const today = d("2026-10-16");
+  const atLevel2 = (invoiceId: string, flatFeeCharged = false) =>
+    inv({
+      invoiceId,
+      number: `RE-2026-000${invoiceId.slice(1)}`,
+      reminders: [reminder({ id: `${invoiceId}-r1` })],
+      case: { status: "active", currentLevel: 1, flatFeeCharged },
+    });
+
+  test("EC-DUN-03 MAHN-03 two invoices of the same customer in default: the 40 € once per invoice (per claim)", () => {
+    const [a, b] = evaluateDunning(today, [atLevel2("i1"), atLevel2("i2")], ctx);
+    for (const x of [a, b]) {
+      expect(x?.kind).toBe("create_draft");
+      expect(x?.kind === "create_draft" && [x.level, x.claim.inDefault, x.claim.flatFee40Cents]).toEqual([
+        2,
+        true,
+        4000,
+      ]);
+    }
+    // the first claim already carries its 40 € — the second still gets its own
+    const [c, e] = evaluateDunning(today, [atLevel2("i1", true), atLevel2("i2")], ctx);
+    expect(c?.kind === "create_draft" && [c.claim.flatFee40Cents, c.claim.flatFeeAlreadyClaimed]).toEqual([0, true]);
+    expect(e?.kind === "create_draft" && e.claim.flatFee40Cents).toBe(4000);
+  });
+
+  test("EC-DUN-18 EC-152 an unconfirmed match / incoming payment signal skips the invoice with the review hint", () => {
+    const a = evaluateInvoice(today, inv({ paymentSignal: true }), ctx);
+    expect(a).toMatchObject({ kind: "skip", reason: "payment_signal", level: 1 });
+    expect(SKIP_REASON_LABEL_DE.payment_signal).toBe("Zahlung möglicherweise eingegangen – Zuordnung prüfen.");
+    expect(evaluateInvoice(today, inv({ paymentSignal: false }), ctx).kind).toBe("create_draft");
   });
 });
