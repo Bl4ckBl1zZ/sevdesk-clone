@@ -309,6 +309,63 @@ describe("F09 sevdesk-Import (/einstellungen/import)", () => {
     expect(toast.success).toHaveBeenCalledWith("Import übernommen: 6 Belege, 4 Kontakte, 2 Artikel.");
   });
 
+  test("IMP-022 the owner enters the sevdesk open total; a difference must be acknowledged before „Import übernehmen“", async () => {
+    const blocked = workspace()
+      .preview?.findings.filter((f) => f.severity === "error")
+      .map((f) => f.rowRef as string);
+    const plain = workspace({ excluded: blocked });
+    setWorkspace(plain);
+    const { unmount } = renderWithIntl(<SevdeskImport canRun canCommit />);
+    await userEvent.type(
+      screen.getByLabelText("Summe offene Posten laut sevdesk (Ansicht „Offene Posten“)"),
+      "5.000,00",
+    );
+    await userEvent.click(screen.getByRole("button", { name: "Abgleichen" }));
+    expect(backend.mutations["imports:setResolutions"]).toHaveBeenCalledWith({
+      importId: "imp1",
+      resolutions: { excluded: blocked, expectedOpenTotalCents: 500_000 },
+    });
+    unmount();
+
+    const ws = workspace({ excluded: blocked, expectedOpenTotalCents: 500_000 });
+    const diff = ws.preview?.openItemDifference;
+    expect(diff?.expectedCents).toBe(500_000);
+    setWorkspace(ws);
+    backend.mutations["imports:commit"] = vi.fn().mockResolvedValue({ status: "done", counts: {} });
+    renderWithIntl(<SevdeskImport canRun canCommit />);
+    expect(screen.getByText(/^Abweichung: Import .* laut sevdesk 5\.000,00 €/)).toBeInTheDocument();
+    await userEvent.click(screen.getByLabelText("Ohne Original-PDF übernehmen"));
+    await userEvent.type(screen.getByLabelText("Begründung"), "PDF fehlt");
+    const commit = screen.getByRole("button", { name: "Import übernehmen" });
+    expect(commit).toBeDisabled();
+    await userEvent.click(screen.getByLabelText("Abweichung der offenen Posten geprüft – trotzdem übernehmen"));
+    await userEvent.click(commit);
+    expect(backend.mutations["imports:commit"]).toHaveBeenCalledWith(
+      expect.objectContaining({ openItemDifferenceAcknowledged: true }),
+    );
+  });
+
+  test("IMP-015 the cutover checklist lists every step from freezing sevdesk to storing the exports in the EU", () => {
+    renderWithIntl(<SevdeskImport canRun canCommit />);
+    const list = screen.getByRole("heading", { name: "So gehen Sie vor" }).nextElementSibling as HTMLElement;
+    const steps = Array.from(list.querySelectorAll("li")).map((li) => li.textContent ?? "");
+    expect(steps).toHaveLength(11);
+    const order = [
+      /^sevdesk einfrieren/,
+      /DATEV-Export und .*GoBD-\/Datenexport/,
+      /^Buchungsbeginn festlegen/,
+      /Spaltenzuordnung prüfen/,
+      /^Import-Vorschau prüfen/,
+      /^Nummernkreise bestätigen/,
+      /^Offene Posten mit der Summe in sevdesk/,
+      /^Import übernehmen/,
+      /^Wiederkehrende Rechnungen hier neu anlegen/,
+      /Testrechnung/,
+      /extern \(EU-Speicherort\)/,
+    ];
+    order.forEach((re, i) => expect(steps[i]).toMatch(re));
+  });
+
   test("IMP-019 E-IMP-11 number-range proposals appear once the preview arrives after „Vorschau erstellen“", async () => {
     setWorkspace(workspace({}, "uploaded"));
     const { rerender } = renderWithIntl(<SevdeskImport canRun canCommit />);

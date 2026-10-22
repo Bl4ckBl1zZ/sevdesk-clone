@@ -310,6 +310,8 @@ export interface ImportResolutionsInput {
   postBookedPeriod?: boolean;
   /** EC-203 / E-IMP-37: gross from the PDF with the owner's reason (document key → value). */
   correctedTotals?: Record<string, { grossCents: number; reason: string }>;
+  /** IMP-022: Σ open items as shown in sevdesk (EUR cents), entered by the owner. */
+  expectedOpenTotalCents?: number;
 }
 
 /**
@@ -326,6 +328,10 @@ export async function setImportResolutions(
   for (const cents of Object.values(resolutions.openAmounts ?? {})) {
     if (!Number.isSafeInteger(cents) || cents < 0)
       throw appError("invalid_input", "Offene Beträge in ganzen Cent ≥ 0.");
+  }
+  const expected = resolutions.expectedOpenTotalCents;
+  if (expected !== undefined && (!Number.isSafeInteger(expected) || expected < 0)) {
+    throw appError("invalid_input", "Die Summe der offenen Posten in ganzen Cent ≥ 0 angeben.");
   }
   for (const c of Object.values(resolutions.correctedTotals ?? {})) {
     if (!Number.isSafeInteger(c.grossCents) || c.grossCents === 0) {
@@ -378,13 +384,21 @@ export async function discardImport(ctx: ModelCtx, importId: Id<"imports">): Pro
 
 export async function importLocalState(ctx: ReadCtx, keys: LookupKeys, today: CalendarDate): Promise<LocalImportState> {
   const imported: Record<string, string> = {};
+  const importedOpen: Record<string, number> = {};
   for (const k of keys.imported) {
     const sep = k.indexOf("|");
     const hit = await ctx.db
       .query("importedRecords")
       .withIndex("by_external", (q) => q.eq("externalType", k.slice(0, sep)).eq("externalId", k.slice(sep + 1)))
       .first();
-    if (hit) imported[k] = hit.localId;
+    if (!hit) continue;
+    imported[k] = hit.localId;
+    // E-IMP-19: the local open amount of an earlier imported document (a newer export may list it as paid)
+    if (hit.externalType === EXTERNAL_TYPES.document) {
+      const id = ctx.db.normalizeId("salesDocuments", hit.localId);
+      const doc = id ? await ctx.db.get(id) : null;
+      if (doc) importedOpen[k] = doc.openAmountCents ?? 0;
+    }
   }
   const registerNumbers: Record<string, true> = {};
   const documentsByNumber: Record<string, { id: string; type: string }> = {};
@@ -450,6 +464,7 @@ export async function importLocalState(ctx: ReadCtx, keys: LookupKeys, today: Ca
     documentsByNumber,
     ranges,
     opening: await openingContextForImport(ctx),
+    importedOpen,
   };
 }
 
@@ -462,6 +477,8 @@ export interface CommitDecisions {
   postBookedPeriod?: boolean;
   /** EC-203: corrected totals (document key → gross + reason) as committed. */
   correctedTotals?: Record<string, { grossCents: number; reason: string }>;
+  /** IMP-022: the acknowledged difference between the imported open items and the sevdesk total. */
+  openItemDifference?: { expectedCents: number; importedCents: number; differenceCents: number };
 }
 
 /** previewed → running (only with the current preview hash, E-IMP-27); failed → running resumes. */

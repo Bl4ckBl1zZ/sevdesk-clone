@@ -89,6 +89,11 @@ export interface ImportResolutions {
   readonly postBookedPeriod?: boolean;
   /** EC-203 / E-IMP-37: gross from the PDF for a row without VAT, with the owner's reason (document key → value). */
   readonly correctedTotals?: Readonly<Record<string, CorrectedTotal>>;
+  /**
+   * IMP-022: Σ of the open items as shown in sevdesk's open-items view, entered by the owner (EUR cents). A
+   * difference to the imported open items is a warning that the commit must acknowledge.
+   */
+  readonly expectedOpenTotalCents?: number;
 }
 
 export interface CorrectedTotal {
@@ -120,6 +125,8 @@ export interface LocalImportState {
    * `receivablesPosted`: the fiscal year already has a (non-reversed) receivables opening posting.
    */
   readonly opening?: OpeningContext | null;
+  /** E-IMP-19: local open amount (EUR cents) of documents imported earlier, by `importedKey`. */
+  readonly importedOpen?: Readonly<Record<string, number>>;
 }
 
 export interface OpeningContext {
@@ -551,6 +558,8 @@ export interface ImportPlan {
   readonly documentFiles: ParsedImport["documentFiles"];
   readonly numberRanges: RangeProposal[];
   readonly openItems: { count: number; totalCents: number };
+  /** IMP-022: the owner-entered sevdesk open total differs from the imported open items (`null` = equal / not entered). */
+  readonly openItemDifference: { expectedCents: number; importedCents: number; differenceCents: number } | null;
   /** Opening receivables posted at commit through F08 (`null` = no open items). */
   readonly opening: (Omit<OpeningContext, "receivablesPosted"> & { items: OpeningItemPlan[] }) | null;
   /** E-IMP-10: rows dated on/after the Buchungsbeginn and the owner's choice (`null` = none or no Buchungsbeginn). */
@@ -778,6 +787,17 @@ export function buildPlan(
     }
     const prior = isImported(EXTERNAL_TYPES.document, d.key);
     if (prior) {
+      // E-IMP-19: paid in sevdesk after the earlier import (newer export), still open here — the owner records the
+      // payment locally (bank match or cash payment); the archived document itself is never updated.
+      const localOpen = local.importedOpen?.[importedKey(EXTERNAL_TYPES.document, d.key)] ?? 0;
+      if (localOpen > 0 && d.openAmountCents === 0) {
+        findings.push({
+          code: "E-IMP-19",
+          severity: "warning",
+          message: `${d.number} ist laut neuem sevdesk-Export bezahlt, hier noch offen.`,
+          ...at,
+        });
+      }
       planned.push({ ...base, status: "skip", localId: prior });
       continue;
     }
@@ -1166,6 +1186,23 @@ export function buildPlan(
   const bookedPeriod: BookedPeriod | null =
     opening && bookedRows > 0 ? { date: opening.date, count: bookedRows, post: postBooked, paidInSevdesk } : null;
   const openItems = { count: open.length, totalCents: open.reduce((s, p) => s + (p.openAmountCents ?? 0), 0) };
+  // IMP-022 open-item reconciliation with the total the owner reads from sevdesk's open-items view.
+  const expectedOpen = resolutions.expectedOpenTotalCents;
+  const openItemDifference: ImportPlan["openItemDifference"] =
+    expectedOpen !== undefined && expectedOpen !== openItems.totalCents
+      ? {
+          expectedCents: expectedOpen,
+          importedCents: openItems.totalCents,
+          differenceCents: openItems.totalCents - expectedOpen,
+        }
+      : null;
+  if (openItemDifference) {
+    findings.push({
+      code: "IMP-022",
+      severity: "warning",
+      message: `Summe der offenen Posten im Import (${euroText(openItems.totalCents)}) weicht von der Summe laut sevdesk (${euroText(openItemDifference.expectedCents)}) um ${euroText(Math.abs(openItemDifference.differenceCents))} ab. Bitte prüfen und die Abweichung vor der Übernahme bestätigen.`,
+    });
+  }
   const openingPlan: ImportPlan["opening"] =
     opening && open.length > 0
       ? {
@@ -1236,6 +1273,7 @@ export function buildPlan(
     documentFiles: parsed.documentFiles,
     numberRanges,
     openItems,
+    openItemDifference,
     opening: openingPlan,
     bookedPeriod,
     counts,
@@ -1329,6 +1367,9 @@ export function previewHashInput(
       openAmounts: resolutions.openAmounts ?? {},
       postBookedPeriod: resolutions.postBookedPeriod === true,
       correctedTotals: resolutions.correctedTotals ?? {},
+      ...(resolutions.expectedOpenTotalCents !== undefined
+        ? { expectedOpenTotalCents: resolutions.expectedOpenTotalCents }
+        : {}),
     },
     contacts: plan.contacts.map((c) => [c.key, c.status, c.localId ?? null]),
     products: plan.products.map((p) => [p.key, p.status, p.localId ?? null]),
@@ -1375,6 +1416,7 @@ export function summarizePlan(plan: ImportPlan, findingLimit = 500) {
     findingsTotal: plan.findings.length,
     numberRanges: plan.numberRanges,
     openItems: plan.openItems,
+    openItemDifference: plan.openItemDifference,
     bookedPeriod: plan.bookedPeriod,
     correctable: correctableRows(plan),
     pdf: {

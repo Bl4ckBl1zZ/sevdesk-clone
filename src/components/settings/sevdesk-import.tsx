@@ -50,6 +50,24 @@ const STATUS_VARIANT = {
 const euro = formatEuro;
 
 /**
+ * IMP-015 cutover checklist in the order the importer needs it: the Buchungsbeginn comes before the preview because
+ * open invoices only become opening receivables at the Buchungsbeginn (E-IMP-34).
+ */
+const CUTOVER_STEPS = [
+  "checklist1",
+  "checklist2",
+  "checklist3",
+  "checklist4",
+  "checklist5",
+  "checklist6",
+  "checklist7",
+  "checklist8",
+  "checklist9",
+  "checklist10",
+  "checklist11",
+] as const;
+
+/**
  * „sevdesk-Exporte importieren“ (F09 §6 `/einstellungen/import`, IMP-009/016/017/019/023): upload → file kinds →
  * column mapping with sample values and saved presets → preview (counts, Fehler/Warnungen/Hinweise with row
  * exclusion, PDF assignment and entered open amounts, number-range continuation) → commit (owner) or discard.
@@ -104,11 +122,9 @@ function SevdeskImportInner({ canRun, canCommit }: { canRun: boolean; canCommit:
           <div>
             <h3 className="font-medium text-sm">{t("checklistTitle")}</h3>
             <ol className="mt-2 list-decimal space-y-1 pl-5 text-muted-foreground text-sm">
-              {(["checklist1", "checklist2", "checklist3", "checklist4", "checklist5", "checklist6"] as const).map(
-                (k) => (
-                  <li key={k}>{t(k)}</li>
-                ),
-              )}
+              {CUTOVER_STEPS.map((k) => (
+                <li key={k}>{t(k)}</li>
+              ))}
             </ol>
           </div>
           <p className="text-muted-foreground text-xs">{t("layoutHint")}</p>
@@ -558,7 +574,10 @@ function PreviewSection({
   const [confirmMissing, setConfirmMissing] = useState(false);
   const [reason, setReason] = useState("");
   const [askDiscard, setAskDiscard] = useState(false);
+  const [ackDiff, setAckDiff] = useState(false);
   const preview = view.preview;
+  // IMP-022: a difference to the owner-entered sevdesk open total must be acknowledged before the commit
+  const openDiff = preview?.openItemDifference ?? null;
   const [ranges, setRanges] = useState<Record<string, RangeChoice>>(() =>
     Object.fromEntries(
       (preview?.numberRanges ?? []).map((r) => {
@@ -599,6 +618,7 @@ function PreviewSection({
         previewHash: view.previewHash as string,
         numberRanges,
         ...(confirmMissing && reason.trim() ? { missingPdfReason: reason.trim() } : {}),
+        ...(openDiff && ackDiff ? { openItemDifferenceAcknowledged: true } : {}),
       }),
     );
     setBusy(false);
@@ -624,7 +644,8 @@ function PreviewSection({
     (resuming ||
       (view.status === "previewed" &&
         preview.blocking === 0 &&
-        (missingPdf === 0 || (confirmMissing && !!reason.trim()))));
+        (missingPdf === 0 || (confirmMissing && !!reason.trim())) &&
+        (!openDiff || ackDiff)));
 
   return (
     <>
@@ -659,6 +680,15 @@ function PreviewSection({
                 ))}
               </dl>
               <p className="text-sm">{t("openTotal", { amount: euro(preview.openItems.totalCents) })}</p>
+              <OpenTotalReconciliation
+                editable={editable}
+                expectedCents={res.expectedOpenTotalCents}
+                difference={preview.openItemDifference ?? null}
+                onSave={(cents) => {
+                  const { expectedOpenTotalCents: _e, ...rest } = res;
+                  updateRes(cents === null ? rest : { ...rest, expectedOpenTotalCents: cents });
+                }}
+              />
               {preview.bookedPeriod ? (
                 <BookedPeriodChoice
                   booked={preview.bookedPeriod}
@@ -796,6 +826,17 @@ function PreviewSection({
                   </div>
                 ) : null}
               </div>
+            ) : null}
+            {preview && view.status === "previewed" && openDiff ? (
+              <label className="flex items-center gap-2 text-sm">
+                <input
+                  type="checkbox"
+                  className="size-4"
+                  checked={ackDiff}
+                  onChange={(e) => setAckDiff(e.target.checked)}
+                />
+                {t("openDiffConfirm")}
+              </label>
             ) : null}
             {!canCommit ? <p className="text-muted-foreground text-sm">{t("ownerOnly")}</p> : null}
             <div className="flex flex-wrap gap-2">
@@ -1006,6 +1047,62 @@ function CorrectedTotalRow({
         </div>
       </TableCell>
     </TableRow>
+  );
+}
+
+/** IMP-022: Σ open items as shown in sevdesk, compared with the imported open items (difference → acknowledgement). */
+function OpenTotalReconciliation({
+  editable,
+  expectedCents,
+  difference,
+  onSave,
+}: {
+  editable: boolean;
+  expectedCents: number | undefined;
+  difference: { expectedCents: number; importedCents: number; differenceCents: number } | null;
+  onSave: (cents: number | null) => void;
+}) {
+  const t = useTranslations("imports");
+  const id = useId();
+  const [amount, setAmount] = useState(() =>
+    expectedCents === undefined ? "" : formatEuro(expectedCents).replace(/\s*€$/, ""),
+  );
+  const parsed = parseCents(amount);
+  return (
+    <div className="flex flex-col gap-2">
+      {editable ? (
+        <>
+          <Label htmlFor={id}>{t("reconcileLabel")}</Label>
+          <p className="text-muted-foreground text-xs">{t("reconcileHint")}</p>
+          <div className="flex flex-wrap gap-2">
+            <Input
+              id={id}
+              className="max-w-48"
+              inputMode="decimal"
+              value={amount}
+              onChange={(e) => setAmount(e.target.value)}
+            />
+            <Button
+              size="sm"
+              variant="secondary"
+              disabled={amount.trim() !== "" && !(parsed.ok && parsed.value >= 0)}
+              onClick={() => onSave(amount.trim() === "" ? null : parsed.ok ? parsed.value : null)}
+            >
+              {t("reconcileSave")}
+            </Button>
+          </div>
+        </>
+      ) : null}
+      {difference ? (
+        <p className="text-sm text-warning" role="status">
+          {t("openDiff", {
+            imported: euro(difference.importedCents),
+            expected: euro(difference.expectedCents),
+            diff: euro(Math.abs(difference.differenceCents)),
+          })}
+        </p>
+      ) : null}
+    </div>
   );
 }
 

@@ -2223,6 +2223,8 @@ export default defineSchema({
         postBookedPeriod: v.optional(v.boolean()),
         /** EC-203 / E-IMP-37: gross from the PDF per document key, with the owner's reason. */
         correctedTotals: v.optional(v.record(v.string(), v.object({ grossCents: v.number(), reason: v.string() }))),
+        /** IMP-022: Σ open items as shown in sevdesk, entered by the owner (EUR cents). */
+        expectedOpenTotalCents: v.optional(v.number()),
       }),
     ),
     /** Owner decisions recorded at commit start (number ranges, missing-PDF reason, opening items). */
