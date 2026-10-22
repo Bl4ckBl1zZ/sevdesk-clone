@@ -363,7 +363,7 @@ describe("F09 sevdesk-Import (/einstellungen/import)", () => {
       /Testrechnung/,
       /extern \(EU-Speicherort\)/,
     ];
-    order.forEach((re, i) => expect(steps[i]).toMatch(re));
+    for (const [i, re] of order.entries()) expect(steps[i]).toMatch(re);
   });
 
   test("IMP-019 E-IMP-11 number-range proposals appear once the preview arrives after „Vorschau erstellen“", async () => {
