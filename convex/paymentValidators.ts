@@ -70,6 +70,8 @@ export const vAllocationInput = v.object({
   target: vPaymentTarget,
   amountCents: v.number(),
   differences: v.optional(v.array(vDifferenceInput)),
+  /** PAY-018: EUR actually received for a foreign-currency target (EC-PAY-22). */
+  eurAmountCents: v.optional(v.number()),
 });
 
 /** Provenance of a bank match (F07 BNK-042/043): score, reason chips and whether it was auto-applied. */

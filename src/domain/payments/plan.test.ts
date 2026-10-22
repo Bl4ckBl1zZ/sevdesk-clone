@@ -511,3 +511,79 @@ describe("single-invoice shape and excess resolution (PAY-030)", () => {
     expect(allocationsForInvoice({ invoice, sourceKind: "bank", amountCents: 120000 }).ok).toBe(false);
   });
 });
+
+describe("foreign-currency payments (PAY-018, MISC-08)", () => {
+  // USD invoice 1.190,00 USD at „1 EUR = 1.19 USD“ → 1.000,00 € at invoice
+  const USD: TargetFacts = { ...INV, currency: "USD", fxRateToEur: "1.19", skonto: null };
+  const fx = (amountCents: number, eurAmountCents?: number, facts: TargetFacts = USD) =>
+    planPayment(
+      pay(amountCents, {
+        allocations: [{ target: INV.ref, amountCents, ...(eurAmountCents !== undefined ? { eurAmountCents } : {}) }],
+      }),
+      ctx({}, [facts]),
+    );
+
+  test("EC-PAY-22 a payment on a foreign-currency invoice without the EUR amount received is rejected", () => {
+    expect(errorOf(fx(119000))).toEqual({
+      code: "fx_missing",
+      message: "Bitte den tatsächlich erhaltenen Euro-Betrag angeben (Fremdwährung).",
+    });
+    expect(errorOf(fx(119000, 0))?.code).toBe("amount_positive");
+  });
+
+  test("EC-PAY-23 PAY-018 the EUR difference to the value at invoice is an FX gain/loss (never Skonto), rounded once on the EUR side", () => {
+    const loss = fx(119000, 98000);
+    expect(loss.ok && loss.value.rows[0]).toMatchObject({
+      amountCents: 119000,
+      settlesCents: 119000,
+      openAfterCents: 0,
+      differences: [],
+      eurAmountCents: 98000,
+      eurAtInvoiceCents: 100000,
+      fxDifferenceCents: 2000, // + = loss
+    });
+    expect(loss.ok && loss.value.warnings).toEqual([
+      { code: "fx_difference", message: "Kursdifferenz: 20,00\u00a0€ (Kursverlust)", ack: false },
+    ]);
+    const gain = fx(119000, 101050);
+    expect(gain.ok && gain.value.rows[0]?.fxDifferenceCents).toBe(-1050);
+    expect(gain.ok && gain.value.warnings[0]?.message).toBe("Kursdifferenz: 10,50\u00a0€ (Kursgewinn)");
+    const none = fx(119000, 100000);
+    expect(none.ok && [none.value.rows[0]?.fxDifferenceCents, none.value.warnings]).toEqual([0, []]);
+    // partial payments: the EUR value at invoice is taken cumulatively, so the last payment absorbs the rounding
+    // 0,01 USD → 0,0084 € → 0,01 €; the rest 1.189,99 USD → 1.000,00 − 0,01 = 999,99 €
+    const first = fx(1, 1);
+    expect(first.ok && first.value.rows[0]?.eurAtInvoiceCents).toBe(1);
+    const rest = fx(118999, 99999, { ...USD, openAmountCents: 118999 });
+    expect(rest.ok && rest.value.rows[0]?.eurAtInvoiceCents).toBe(99999);
+  });
+
+  test("PAY-018 P1: differences (Skonto, fees, write-off) are not offered on a foreign-currency payment", () => {
+    const r = planPayment(
+      pay(116620, {
+        allocations: [
+          {
+            target: INV.ref,
+            amountCents: 116620,
+            eurAmountCents: 98000,
+            differences: [{ reason: "bank_fees", amountCents: 2380 }],
+          },
+        ],
+      }),
+      ctx({}, [USD]),
+    );
+    expect(errorOf(r)).toEqual({
+      code: "differences_not_allowed",
+      message:
+        "Differenzen (Skonto, Gebühren, Ausbuchung) sind bei Zahlungen in Fremdwährung noch nicht möglich. Bitte den Zahlbetrag ohne Differenz erfassen; der Rest bleibt offen.",
+    });
+  });
+
+  test("EC-CSH-35 cash on a foreign-currency invoice stays impossible; an invoice without a rate is deferred", () => {
+    expect(errorOf(planPayment(pay(100, { source: { kind: "cash" } }), ctx({}, [USD], { kind: "cash" })))?.code).toBe(
+      "cash_eur_only",
+    );
+    const { fxRateToEur: _, ...noRate } = USD;
+    expect(errorOf(fx(100, 84, noRate))?.code).toBe("fx_deferred");
+  });
+});

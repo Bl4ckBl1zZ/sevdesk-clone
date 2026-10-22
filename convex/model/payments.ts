@@ -284,6 +284,7 @@ async function loadTarget(ctx: ReadCtx, ref: TargetRef, date: string): Promise<L
         methodOnDate,
         claimedFeesCents: 0,
         claimedInterestCents: 0,
+        ...(doc.fxRateToEur ? { fxRateToEur: doc.fxRateToEur.rate } : {}),
       },
     };
   }
@@ -418,6 +419,13 @@ export async function planFor(ctx: ReadCtx, original: RecordArgs, now: number): 
     ...(args.allowWrittenOff ? { allowWrittenOff: true } : {}),
   });
   if (!r.ok) rejected(r.error);
+  // PAY-018 gate: the domain plans foreign-currency payments (EUR received, FX difference, EC-PAY-22/23), but the
+  // invoice journal entry of a non-EUR document is still posted in document-currency cents (F08 `invoice_finalised`
+  // carries no EUR conversion), so an FX payment could not be booked against a matching EUR receivable yet.
+  // LEGAL-OPEN: F05 PAY-018 spec note — lifted once non-EUR invoices post in EUR (MISC-08, W1/W4).
+  if (r.value.rows.some((row) => row.eurAmountCents !== undefined)) {
+    throw appError("invalid_input", PAY_MESSAGES.fxDeferred, { reason: "FX_DEFERRED" });
+  }
   return { plan: r.value, targets, ...(tx ? { tx } : {}) };
 }
 

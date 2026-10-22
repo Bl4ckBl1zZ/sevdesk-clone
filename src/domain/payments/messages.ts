@@ -36,6 +36,11 @@ export const PAY_MESSAGES = {
     `Besteuerungsart hat sich seit der Rechnung geändert. Die USt-Korrektur folgt der Versteuerung der Rechnung (${method}).`,
   writtenOff: "Die Forderung wurde abgeschrieben. Bitte ‚Zahlungseingang auf abgeschriebene Forderung‘ verwenden.",
   fxMissing: "Bitte den tatsächlich erhaltenen Euro-Betrag angeben (Fremdwährung).",
+  /** EC-PAY-23 preview: + = loss, − = gain */
+  fxDifference: (cents: number) =>
+    `Kursdifferenz: ${eur(Math.abs(cents))} (${cents > 0 ? "Kursverlust" : "Kursgewinn"})`,
+  fxDifferencesNotAllowed:
+    "Differenzen (Skonto, Gebühren, Ausbuchung) sind bei Zahlungen in Fremdwährung noch nicht möglich. Bitte den Zahlbetrag ohne Differenz erfassen; der Rest bleibt offen.",
   fxDeferred:
     "Zahlungen in Fremdwährung können erst mit der EUR-Bewertung gebucht werden. Bitte die Rechnung in EUR ausstellen oder die Zahlung später erfassen.",
   alreadyReversed: "Diese Zahlung wurde bereits storniert.",

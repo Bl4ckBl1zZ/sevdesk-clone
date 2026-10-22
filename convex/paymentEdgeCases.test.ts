@@ -447,4 +447,44 @@ describe("F05 §5.1 EC-PAY edge cases", { timeout: 30_000 }, () => {
     ]);
     expect(await t.run((ctx) => ctx.db.query("payments").collect())).toEqual([]);
   });
+
+  test("EC-PAY-22 PAY-018 a USD invoice: without the EUR amount received → rejected; with it → still deferred (gate)", async () => {
+    const t = makeT();
+    const setup = await setupInvoicing(t);
+    const { owner, bankAccount } = setup;
+    const { personId } = await b2bBuyer(owner);
+    const id = await secondInvoice(t, owner, personId, {
+      currency: "USD",
+      fxRateToEur: {
+        rate: "1.19",
+        source: "manual",
+        sourceText: "Kurs laut Auftrag",
+        date: "2026-10-12" as CalendarDate,
+      },
+      paymentTerms: { dueDays: 30 },
+      bankAccountId: bankAccount,
+      showEpcQr: false,
+    });
+    const d = await docOf(t, id);
+    expect(d.currency).toBe("USD");
+    const record = (eurAmountCents?: number) =>
+      owner.mutation(api.payments.record, {
+        source: { kind: "clearing", accountId: bankAccount },
+        date: "2026-10-12",
+        allocations: [
+          {
+            target: { kind: "salesDocument", id },
+            amountCents: d.totals.payableCents,
+            ...(eurAmountCents !== undefined ? { eurAmountCents } : {}),
+          },
+        ],
+      });
+    const missing = await catching(record());
+    expect(reasonOf(missing)).toBe("FX_MISSING");
+    expect(messageOf(missing)).toBe("Bitte den tatsächlich erhaltenen Euro-Betrag angeben (Fremdwährung).");
+    // LEGAL-OPEN F05 PAY-018: booking waits until non-EUR invoices post their receivable in EUR
+    const deferred = await catching(record(98_000));
+    expect(reasonOf(deferred)).toBe("FX_DEFERRED");
+    expect(await t.run((ctx) => ctx.db.query("payments").collect())).toEqual([]);
+  });
 });
