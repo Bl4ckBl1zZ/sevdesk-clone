@@ -10,6 +10,7 @@ import { bewirtungEigenbelegContent } from "../src/domain/vouchers/bewirtung";
 import { checkUpload, pageCount } from "../src/domain/vouchers/capture";
 import { voucherEigenbelegContent } from "../src/domain/vouchers/eigenbeleg";
 import { UNBOOKED_DAYS } from "../src/domain/vouchers/missing-receipts";
+import { PAYMENT_MESSAGES } from "../src/domain/vouchers/payment-choice";
 import { upcomingVoucherDates } from "../src/domain/vouchers/recurring";
 import { suggestAccount } from "../src/domain/vouchers/suggest";
 import { supplierKeys } from "../src/domain/vouchers/supplier-key";
@@ -28,11 +29,11 @@ import {
   vConfirmToken,
 } from "./functions";
 import { isTest } from "./lib/env";
-import { appError, errorCode } from "./lib/errors";
+import { appError } from "./lib/errors";
 import { auditedInsert } from "./model/audit";
 import type { FileRefValue } from "./model/bankImport";
 import { getCompanyProfile } from "./model/companyProfile";
-import { assertCashOutflowAllowed, cashLines, previewJournal, resolveContextAt } from "./model/journal";
+import { cashLines, cashOutflowDip, previewJournal, resolveContextAt } from "./model/journal";
 import {
   createRecurringVoucher,
   generateDueRecurringVouchers,
@@ -147,15 +148,10 @@ export const preview = query({
         const balanceCents = rows.reduce((sum, l) => sum + l.debitCents - l.creditCents, 0);
         cash = { balanceCents, balanceAfterCents: balanceCents + deltaCents };
       }
-      if (deltaCents < 0) {
-        try {
-          await assertCashOutflowAllowed(ctx, p.payment.date, -deltaCents);
-        } catch (e) {
-          if (errorCode(e) !== "cash_negative") throw e;
-          const data = (e as { data?: { message?: string } }).data;
-          errors.push({ code: "cash_negative", message: data?.message ?? "Der Kassenbestand würde negativ." });
-        }
-      }
+      // EC-VOU-39: the same text as the act (with the hint to „Privat bezahlt“).
+      const dip = deltaCents < 0 ? await cashOutflowDip(ctx, p.payment.date, -deltaCents) : null;
+      if (dip)
+        errors.push({ code: "cash_negative", message: PAYMENT_MESSAGES.cashNegative(dip.date, dip.balanceCents) });
     }
     return {
       id: args.id,

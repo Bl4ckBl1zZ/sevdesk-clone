@@ -24,7 +24,7 @@ import {
   reversalPosting,
 } from "../../src/domain/accounting/post";
 import { type ResolveContext, type ResolveIssue, resolveLines, resolveRole } from "../../src/domain/accounting/resolve";
-import { cashNegativeIssue, firstNegativeBalance } from "../../src/domain/cash/check";
+import { type CashDip, cashNegativeIssue, firstNegativeBalance } from "../../src/domain/cash/check";
 import type { Chart } from "../../src/domain/rules/accounting";
 import { berlinCalendarDate } from "../../src/domain/time/berlin";
 import { type CalendarDate, isCalendarDate } from "../../src/domain/time/calendar-date";
@@ -364,10 +364,16 @@ async function assertCashNeverNegative(
 
 /** CSH-026 dry run (previews, the Eigenbeleg step before the act): would an outflow on `date` dip the till? */
 export async function assertCashOutflowAllowed(ctx: ReadCtx, date: string, outflowCents: number): Promise<void> {
-  if (!isCalendarDate(date)) return;
+  const dip = await cashOutflowDip(ctx, date, outflowCents);
+  if (dip) fail("cash_negative", cashNegativeIssue(dip, date, false));
+}
+
+/** The first date on which an outflow on `date` would make the till negative (CSH-026 dry run), else null. */
+export async function cashOutflowDip(ctx: ReadCtx, date: string, outflowCents: number): Promise<CashDip | null> {
+  if (!isCalendarDate(date)) return null;
   const cash = resolveRole("cash", await resolveContextAt(ctx, date));
-  if (!cash.ok || !cash.value.account) return;
-  const dip = firstNegativeBalance([
+  if (!cash.ok || !cash.value.account) return null;
+  return firstNegativeBalance([
     ...(await cashLines(ctx, cash.value.account)).map((l) => ({
       date: l.date,
       seq: l.seq,
@@ -375,7 +381,6 @@ export async function assertCashOutflowAllowed(ctx: ReadCtx, date: string, outfl
     })),
     { date, seq: Number.MAX_SAFE_INTEGER, amountCents: -outflowCents },
   ]);
-  if (dip) fail("cash_negative", cashNegativeIssue(dip, date, false));
 }
 
 export async function cashLines(ctx: ReadCtx, account: string): Promise<Doc<"journalLines">[]> {

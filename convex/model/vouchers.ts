@@ -5,7 +5,7 @@ import { isCorporation } from "../../src/domain/accounting/roles";
 import { berlinCalendarDate } from "../../src/domain/time/berlin";
 import { type CalendarDate, isCalendarDate } from "../../src/domain/time/calendar-date";
 import { type AccountContext, accountContextFor } from "../../src/domain/vouchers/accounts";
-import { checkBewirtungApproval } from "../../src/domain/vouchers/bewirtung";
+import { BEWIRTUNG_MESSAGES, checkBewirtungApproval } from "../../src/domain/vouchers/bewirtung";
 import { activeOriginals, checkReplacement, replaceOriginal } from "../../src/domain/vouchers/capture";
 import { type DuplicateCandidate, findDuplicates } from "../../src/domain/vouchers/duplicates";
 import { checkEigenbelegApproval } from "../../src/domain/vouchers/eigenbeleg";
@@ -72,11 +72,16 @@ export const VOUCHER_ERRORS = {
     "Nur Entwürfe können bearbeitet oder gelöscht werden. Gebuchte Belege bitte über „Beleg korrigieren“ ändern.",
   notBooked: "Der Beleg ist nicht gebucht.",
   cancelled: "Der Beleg ist storniert.",
-  locked:
-    "Der Beleg ist festgeschrieben und kann nicht mehr geändert werden. Bitte stornieren und neu erfassen („Duplizieren“).",
+  // F06 EC-VOU-18 (exact text)
+  locked: "Der Beleg ist festgeschrieben und kann nicht geändert werden. Bitte stornieren und neu erfassen.",
   outdated: "Der Beleg wurde inzwischen geändert. Bitte neu laden.",
   reason: "Bitte einen Grund angeben (mindestens 5 Zeichen).",
-  activePayments: "Der Beleg hat Zahlungen. Bitte zuerst die Zahlungen stornieren.",
+  // F06 EC-VOU-19 (exact text)
+  correctionReason: "Bitte einen Grund für die Korrektur angeben.",
+  // F06 EC-VOU-20 (exact text)
+  activePayments: "Der Beleg hat Zahlungen. Bitte zuerst die Zahlungszuordnung stornieren.",
+  // F06 EC-VOU-21 (exact text, 409 immutable_record)
+  bookedDelete: "Gebuchte Belege können nicht gelöscht werden.",
   humanApproval: "Die Freigabe eines Eigenbelegs ist eine persönliche Erklärung und nur in der App möglich.",
   eigenbelegApproved: "Der Eigenbeleg ist freigegeben und unveränderbar.",
   bewirtungReason: "Bitte angeben, warum der freigegebene Bewirtungsbeleg berichtigt wird.",
@@ -357,11 +362,13 @@ async function applyInput(ctx: ModelCtx, v: VoucherDoc, input: DraftInput, actio
   const patch: Partial<VoucherDoc> = { ...headerPatch(input), totals: totalsOf(lines), version: v.version + 1 };
   if (input.bewirtung) {
     if (v.bewirtung?.approvedAt)
-      throw appError("invalid_input", "Der Bewirtungsbeleg ist freigegeben. Bitte eine berichtigte Fassung freigeben.");
+      throw appError("immutable_record", BEWIRTUNG_MESSAGES.approved, { reason: "ALREADY_APPROVED" });
     patch.bewirtung = { ...input.bewirtung, versions: v.bewirtung?.versions ?? [] };
   }
   if (input.eigenbeleg) {
-    if (v.eigenbeleg?.approvedAt) throw appError("invalid_input", VOUCHER_ERRORS.eigenbelegApproved);
+    if (v.eigenbeleg?.approvedAt) {
+      throw appError("immutable_record", VOUCHER_ERRORS.eigenbelegApproved, { reason: "ALREADY_APPROVED" });
+    }
     patch.eigenbeleg = input.eigenbeleg;
   }
   await auditedPatch(ctx, "vouchers", v._id, patch, { action, label: label(v), ...(reason ? { reason } : {}) });
@@ -388,7 +395,7 @@ export async function updateVoucherDraft(
 /** VOU-007: drafts can be deleted; the deletion is audited with the content (03 §11). */
 export async function deleteVoucherDraft(ctx: ModelCtx, id: Id<"vouchers">): Promise<void> {
   const v = await requireVoucher(ctx, id);
-  if (v.status !== "draft") throw appError("invalid_input", VOUCHER_ERRORS.notDraft, { reason: "NOT_DRAFT" });
+  if (v.status !== "draft") throw appError("immutable_record", VOUCHER_ERRORS.bookedDelete, { reason: "NOT_DRAFT" });
   for (const l of await linesOf(ctx, id))
     await auditedDelete(ctx, "voucherLines", l._id, { action: "voucher.delete_draft" });
   for (const h of await ctx.db
@@ -860,9 +867,11 @@ export interface FinalizeResult {
  */
 export async function finalizeVoucher(ctx: ModelCtx, args: FinalizeArgs): Promise<FinalizeResult> {
   const v = await requireVoucher(ctx, args.id);
+  // EC-VOU-26: the version check comes first, so the loser of two parallel „Buchen“ clicks (same version) gets
+  // „Der Beleg wurde inzwischen geändert. Bitte neu laden.“ — finalisation bumps the version.
+  checkVersion(v, args.version);
   if (v.status !== "draft")
     throw appError("invalid_input", "Der Beleg ist bereits gebucht.", { reason: "ALREADY_BOOKED" });
-  checkVersion(v, args.version);
   const p = await previewVoucher(ctx, { id: v._id, ...(args.payment ? { payment: args.payment } : {}) }, ctx.now());
   const { check, payment, context: c } = p;
   blockOnErrors(check);
@@ -890,6 +899,7 @@ export async function finalizeVoucher(ctx: ModelCtx, args: FinalizeArgs): Promis
       ...(v.supplyDate ? {} : v.documentDate ? { supplyDate: { kind: "date" as const, date: v.documentDate } } : {}),
       ...(check.inputVatAtRisk.length > 0 ? { inputVatAtRisk: check.inputVatAtRisk } : {}),
       ...(args.acknowledgeWarnings?.length ? { acknowledgedWarnings: args.acknowledgeWarnings } : {}),
+      version: v.version + 1,
     },
     { action: "voucher.finalize", label: number },
   );
@@ -1042,7 +1052,7 @@ export async function correctVoucher(
   checkVersion(v, args.version);
   await assertUnlocked(ctx, v);
   const reason = args.reason.trim();
-  if (reason.length < REASON_MIN) throw appError("invalid_input", VOUCHER_ERRORS.reason);
+  if (reason.length < REASON_MIN) throw appError("invalid_input", VOUCHER_ERRORS.correctionReason);
   const p = await previewVoucher(ctx, { id: v._id, input: args.input }, ctx.now());
   blockOnErrors(p.check);
   // Duplicate findings of the booked voucher itself were decided at booking.

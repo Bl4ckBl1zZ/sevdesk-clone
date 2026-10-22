@@ -231,7 +231,10 @@ describe("F06 §5.2 voucher validation edge cases", () => {
     // SKR04: 1600 Kasse, 1460 Geldtransit, 2100 Privatentnahmen, 1810 a bank ledger account.
     for (const a of ["1600", "1460", "2100", "1810"]) {
       const r = validateVoucher(
-        draft({ taxRule: "no_input_vat", lines: [line({ account: a, vatRateBp: 0, vatCents: 0, grossCents: 10_000 })] }),
+        draft({
+          taxRule: "no_input_vat",
+          lines: [line({ account: a, vatRateBp: 0, vatCents: 0, grossCents: 10_000 })],
+        }),
         ctx,
       );
       expect(messages(r)).toContain(`Das Konto ${a} wird nur über Bankfunktionen gebucht (Privat/Geldtransit).`);

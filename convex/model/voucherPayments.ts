@@ -4,7 +4,7 @@ import { checkCashDating } from "../../src/domain/cash/dating";
 import { splitDifferenceByVat } from "../../src/domain/payments/split";
 import { berlinCalendarDate } from "../../src/domain/time/berlin";
 import { type CalendarDate, daysBetween, isCalendarDate } from "../../src/domain/time/calendar-date";
-import { checkPaymentChoice } from "../../src/domain/vouchers/payment-choice";
+import { checkPaymentChoice, PAYMENT_MESSAGES } from "../../src/domain/vouchers/payment-choice";
 import { jaroWinkler, normaliseSupplierName } from "../../src/domain/vouchers/supplier-key";
 import { deductsInputVat } from "../../src/domain/vouchers/tax-rules";
 import type { TaxRule } from "../../src/domain/vouchers/types";
@@ -14,7 +14,7 @@ import { auditedInsert, auditedPatch } from "./audit";
 import { applyAllocation, requireTransaction } from "./bankTransactions";
 import { cashOpeningDate } from "./cash";
 import { getCompanyProfile } from "./companyProfile";
-import { postJournalEntry } from "./journal";
+import { cashOutflowDip, postJournalEntry } from "./journal";
 import { closedPeriods, reversePayment } from "./payments";
 import type { ModelCtx, ReadCtx } from "./types";
 import { refreshVoucher } from "./voucherStatus";
@@ -155,6 +155,16 @@ export async function recordVoucherPayment(
       });
       if (!dating.ok)
         throw appError("invalid_input", dating.error.message, { reason: dating.error.code.toUpperCase() });
+      // EC-VOU-39 / CSH-026: an outflow that would make the till negative on any date is refused with the hint to
+      // „Privat bezahlt“ before anything is written (the journal check stays the backstop).
+      const deltaCents = (v.direction === "expense" ? -sign : sign) * amount;
+      const dip = deltaCents < 0 ? await cashOutflowDip(ctx, date, -deltaCents) : null;
+      if (dip) {
+        throw appError("cash_negative", PAYMENT_MESSAGES.cashNegative(dip.date, dip.balanceCents), {
+          date: dip.date,
+          balanceCents: dip.balanceCents,
+        });
+      }
     }
   } else if (settles <= 0 || settles > Math.abs(open)) {
     throw appError("invalid_input", "Der Betrag darf den offenen Betrag nicht übersteigen.", {
