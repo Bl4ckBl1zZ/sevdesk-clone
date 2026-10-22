@@ -9,6 +9,7 @@ import { vActor, vChannel, vTimeRounding } from "./validators";
  *  - `timeEntries.invoicedDocumentId` (the finalised invoice of `invoicedLineId`, for the Storno offer E-PRJ-25)
  *  - `projects.numberNormalized`, `projects.searchText` (lookups like products)
  *  - `products.stock.belowReorderSince` (PRD-096 „one notification until the stock rises above it again“)
+ *  - `timeEntries.offlineOpIds`, `runningTimer.offlineOpId` (PRJ-018 idempotent replay of the offline queue)
  */
 
 export const vProjectStatus = v.union(v.literal("active"), v.literal("done"), v.literal("archived"));
@@ -89,6 +90,8 @@ export const projectTables = {
     incomplete: v.optional(v.boolean()),
     conflict: v.optional(v.boolean()),
     flaggedForReview: v.optional(v.boolean()),
+    /** PRJ-018: IDs of the queued offline operations that produced the entry (replay is idempotent). */
+    offlineOpIds: v.optional(v.array(v.string())),
     lockedAt: v.optional(v.number()),
     retentionClass: v.union(v.literal("vouchers8"), v.literal("none")),
     retentionUntil: v.optional(v.string()),
@@ -113,6 +116,8 @@ export const projectTables = {
     startedVia: vChannel,
     deviceId: v.optional(v.string()),
     warnedAt: v.optional(v.number()),
+    /** PRJ-018: the queued offline start that created the timer. */
+    offlineOpId: v.optional(v.string()),
   }),
 
   // 03 §3 stockMovements (PRD-090…097): append-only; corrections are new movements (GOBD-06).

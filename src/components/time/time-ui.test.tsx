@@ -8,6 +8,7 @@ import { addDays, type CalendarDate } from "@/domain/time/calendar-date";
 import { weekStart } from "@/domain/time/week";
 import { renderWithIntl } from "@/i18n/test-utils";
 import { InvoiceEntriesDialog, invoiceValues } from "./invoice-dialog";
+import { memoryStore, OfflineTimeQueue, setOfflineTimeQueue } from "./offline-queue";
 import { ReopenBanners, TimeEntryList } from "./time-entries";
 import type { TimeEntryRow } from "./time-shared";
 import { TimeReportView, WeekView } from "./time-views";
@@ -255,8 +256,8 @@ describe("Timer (PRJ-005)", () => {
     expect(dialog).toHaveTextContent("läuft seit 42 Minuten");
     await user.click(within(dialog).getByRole("button", { name: "Stoppen und neu starten" }));
     expect(backend.calls.filter((c) => c.name === "timeEntries:start").map((c) => c.args)).toEqual([
-      { description: "Konzept" },
-      { description: "Konzept", confirmStop: true },
+      { description: "Konzept", deviceId: expect.any(String) },
+      { description: "Konzept", deviceId: expect.any(String), confirmStop: true },
     ]);
   });
 
@@ -279,6 +280,62 @@ describe("Timer (PRJ-005)", () => {
       name: "timeEntries:stop",
       args: { description: "Support", splitAtMidnight: true },
     });
+  });
+});
+
+describe("Offline capture (PRJ-018)", () => {
+  test("PRJ-018 offline: start and stop are queued (no backend call) and the queued timer is shown as running", async () => {
+    const queue = new OfflineTimeQueue(memoryStore());
+    setOfflineTimeQueue(queue);
+    const online = Object.getOwnPropertyDescriptor(Navigator.prototype, "onLine");
+    Object.defineProperty(navigator, "onLine", { configurable: true, get: () => false });
+    try {
+      backend.data["timeEntries:timer"] = undefined;
+      renderWithIntl(<TimerCard />);
+      const user = userEvent.setup();
+      expect(screen.getByTestId("timer-offline")).toHaveTextContent("Offline");
+      await user.type(screen.getByLabelText("Tätigkeit"), "Baustellentermin");
+      await user.click(screen.getByRole("button", { name: "Zeit starten" }));
+      expect(await screen.findByRole("button", { name: "Stoppen" })).toBeInTheDocument();
+      expect(screen.getByTestId("timer")).toHaveAttribute("data-running", "true");
+      expect(screen.queryByRole("button", { name: "Verwerfen" })).toBeNull();
+      await user.click(screen.getByRole("button", { name: "Stoppen" }));
+      expect(await screen.findByRole("button", { name: "Zeit starten" })).toBeInTheDocument();
+      expect(queue.snapshot().map((o) => [o.kind, o.kind === "timer_start" ? o.fields.description : null])).toEqual([
+        ["timer_start", "Baustellentermin"],
+        ["timer_stop", null],
+      ]);
+      expect(backend.calls.filter((c) => c.name.startsWith("timeEntries:"))).toEqual([]);
+    } finally {
+      if (online) Object.defineProperty(navigator, "onLine", online);
+      else delete (navigator as { onLine?: boolean }).onLine;
+      setOfflineTimeQueue(null);
+    }
+  });
+
+  test("PRJ-018 back online: the queue is replayed with the device ID and cleared", async () => {
+    const queue = new OfflineTimeQueue(
+      memoryStore([{ id: "op-1", kind: "manual", at: 1, values: { duration: "1h", description: "Aufmaß" } }]),
+    );
+    setOfflineTimeQueue(queue);
+    await queue.load();
+    expect(queue.snapshot()).toHaveLength(1);
+    backend.results["timeEntries:syncOffline"] = {
+      applied: ["op-1"],
+      skipped: [],
+      entryIds: ["e9"],
+      conflict: false,
+      warnings: [],
+    };
+    backend.data["timeEntries:timer"] = null;
+    try {
+      renderWithIntl(<TimerCard />);
+      await vi.waitFor(() => expect(queue.snapshot()).toEqual([]));
+      const call = backend.calls.find((c) => c.name === "timeEntries:syncOffline");
+      expect(call?.args).toMatchObject({ deviceId: expect.any(String), ops: [{ id: "op-1", kind: "manual" }] });
+    } finally {
+      setOfflineTimeQueue(null);
+    }
   });
 });
 

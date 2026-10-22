@@ -540,3 +540,127 @@ describe("RPT-007 revenue by project", () => {
     expect(report.totals.netCents).toBe(118_000);
   });
 });
+
+describe("PRJ-018 offline queue", () => {
+  const MIN = 60_000;
+  const at = (minutes: number) => NOW.getTime() + minutes * MIN;
+
+  test("PRJ-018 queued manual entries and an offline timer run sync with server IDs; a replay applies nothing twice", async () => {
+    const t = makeT();
+    const { owner, personId } = await setup(t);
+    const p = await project(owner, personId);
+    vi.setSystemTime(new Date(at(120)));
+    const ops = [
+      {
+        id: "op-1",
+        kind: "manual" as const,
+        at: at(5),
+        values: entryForm(p, "2026-10-12", "1:30", "Angebot erstellt"),
+      },
+      {
+        id: "op-2",
+        kind: "timer_start" as const,
+        at: at(10),
+        fields: { projectId: p, description: "Zugfahrt Konzept" },
+      },
+      { id: "op-3", kind: "timer_stop" as const, at: at(55) },
+    ];
+    const r = await owner.mutation(api.timeEntries.syncOffline, { deviceId: "phone", ops });
+    expect(r).toMatchObject({ applied: ["op-1", "op-2", "op-3"], skipped: [], conflict: false });
+    expect(r.entryIds).toHaveLength(2);
+    const [manual, run] = await Promise.all(r.entryIds.map((id) => entry(t, id)));
+    expect(manual).toMatchObject({
+      source: "offline",
+      durationMinutes: 90,
+      offlineOpIds: ["op-1"],
+      actor: owner.actor,
+    });
+    expect(run).toMatchObject({
+      source: "offline",
+      durationMinutes: 45,
+      startedAt: at(10),
+      endedAt: at(55),
+      offlineOpIds: ["op-2", "op-3"],
+    });
+    expect(await owner.query(api.timeEntries.timer, {})).toBeNull();
+    // the client retries after a lost response → nothing is applied twice
+    const again = await owner.mutation(api.timeEntries.syncOffline, { deviceId: "phone", ops });
+    expect(again).toMatchObject({ applied: [], skipped: ["op-1", "op-2", "op-3"], entryIds: [] });
+    expect(await t.run((ctx) => ctx.db.query("timeEntries").collect())).toHaveLength(2);
+  });
+
+  test("PRJ-018 an offline start with no running timer becomes the running timer with its offline start instant", async () => {
+    const t = makeT();
+    const { owner, personId } = await setup(t);
+    const p = await project(owner, personId);
+    vi.setSystemTime(new Date(at(30)));
+    await owner.mutation(api.timeEntries.syncOffline, {
+      deviceId: "phone",
+      ops: [{ id: "op-1", kind: "timer_start", at: at(10), fields: { projectId: p, description: "Vor-Ort-Termin" } }],
+    });
+    expect(await owner.query(api.timeEntries.timer, {})).toMatchObject({
+      startedAt: at(10),
+      deviceId: "phone",
+      offlineOpId: "op-1",
+      projectName: "Website-Relaunch",
+    });
+    vi.setSystemTime(new Date(at(70)));
+    const stopped = await owner.mutation(api.timeEntries.stop, {});
+    expect(await entry(t, stopped.entryIds[0] as Id<"timeEntries">)).toMatchObject({
+      durationMinutes: 60,
+      offlineOpIds: ["op-1"],
+    });
+  });
+
+  test("E-PRJ-29 TST-PRJ-20 the later offline start wins: the other device's timer is saved flagged „Konflikt“", async () => {
+    const t = makeT();
+    const { owner, personId } = await setup(t);
+    const p = await project(owner, personId);
+    await owner.mutation(api.timeEntries.start, { projectId: p, description: "Desktop-Arbeit", deviceId: "desktop" });
+    vi.setSystemTime(new Date(at(40)));
+    const r = await owner.mutation(api.timeEntries.syncOffline, {
+      deviceId: "phone",
+      ops: [{ id: "op-1", kind: "timer_start", at: at(20), fields: { projectId: p, description: "Unterwegs" } }],
+    });
+    expect(r.conflict).toBe(true);
+    expect(r.warnings).toContain("Zeitkonflikt: Ein Timer wurde auf zwei Geräten gestartet.");
+    expect(await entry(t, r.entryIds[0] as Id<"timeEntries">)).toMatchObject({
+      description: "Desktop-Arbeit",
+      durationMinutes: 20,
+      conflict: true,
+      source: "timer",
+    });
+    expect(await owner.query(api.timeEntries.timer, {})).toMatchObject({
+      startedAt: at(20),
+      deviceId: "phone",
+      description: "Unterwegs",
+    });
+    const [n] = await notificationsOf(t, "time_offline_conflict");
+    expect(n).toMatchObject({
+      title: "Zeitkonflikt: Ein Timer wurde auf zwei Geräten gestartet.",
+      severity: "warning",
+    });
+  });
+
+  test("E-PRJ-29 an earlier offline start loses: the offline run becomes the conflict entry up to the other start", async () => {
+    const t = makeT();
+    const { owner, personId } = await setup(t);
+    const p = await project(owner, personId);
+    await owner.mutation(api.timeEntries.start, { projectId: p, description: "Desktop-Arbeit", deviceId: "desktop" });
+    vi.setSystemTime(new Date(at(15)));
+    const r = await owner.mutation(api.timeEntries.syncOffline, {
+      deviceId: "phone",
+      ops: [{ id: "op-1", kind: "timer_start", at: at(-30), fields: { projectId: p, description: "Frühstart" } }],
+    });
+    expect(r.conflict).toBe(true);
+    expect(await entry(t, r.entryIds[0] as Id<"timeEntries">)).toMatchObject({
+      description: "Frühstart",
+      durationMinutes: 30,
+      conflict: true,
+      source: "offline",
+      startedAt: at(-30),
+      endedAt: at(0),
+    });
+    expect(await owner.query(api.timeEntries.timer, {})).toMatchObject({ deviceId: "desktop", startedAt: at(0) });
+  });
+});

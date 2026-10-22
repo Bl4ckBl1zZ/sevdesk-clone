@@ -1,6 +1,7 @@
 import type { DeadlineCustomer } from "../../src/domain/documents/uninvoiced-supplies";
 import { applicableCustomerPrice, basePriceOn, convertPriceMode, resolveRate } from "../../src/domain/products/pricing";
 import { checkSupplyCoversEntries, exactTimeNetCents } from "../../src/domain/projects/invoicing";
+import { OFFLINE_CONFLICT_MESSAGE } from "../../src/domain/projects/offline";
 import { hourlyFromUnitPrice, resolveHourlyRate } from "../../src/domain/projects/rates";
 import {
   checkDurationRange,
@@ -23,7 +24,7 @@ import {
   unbilledWarningText,
 } from "../../src/domain/projects/unbilled";
 import { berlinCalendarDate } from "../../src/domain/time/berlin";
-import { type CalendarDate, isCalendarDate } from "../../src/domain/time/calendar-date";
+import { addDays, type CalendarDate, isCalendarDate } from "../../src/domain/time/calendar-date";
 import type { Doc, Id } from "../_generated/dataModel";
 import { appError } from "../lib/errors";
 import { auditedDelete, auditedInsert, auditedPatch } from "./audit";
@@ -54,6 +55,12 @@ export interface EntryInput {
   rateOverrideMicros?: number;
   source: TimeEntrySource;
   flaggedForReview?: boolean;
+  /** The duration comes from instants (timer, offline timer run): the manual-entry checks do not apply. */
+  fromInstants?: boolean;
+  /** E-PRJ-29: the earlier of two timers started on two devices. */
+  conflict?: boolean;
+  /** PRJ-018: queued offline operations that produced the entry. */
+  offlineOpIds?: string[];
 }
 
 export async function getEntry(ctx: ReadCtx, id: Id<"timeEntries">): Promise<TimeEntryDoc> {
@@ -186,7 +193,7 @@ export async function createEntry(
   input: EntryInput,
 ): Promise<{ id: Id<"timeEntries">; warnings: string[] }> {
   const today = berlinCalendarDate(ctx.now());
-  if (input.source !== "timer") checkEntryValues(input, today);
+  if (input.source !== "timer" && !input.fromInstants) checkEntryValues(input, today);
   const refs = await resolveRefs(ctx, input);
   const rate = await resolveEntryRate(ctx, refs, input.date, input.rateOverrideMicros);
   const description = input.description.trim();
@@ -217,6 +224,8 @@ export async function createEntry(
       source: input.source,
       ...(incomplete ? { incomplete: true } : {}),
       ...(input.flaggedForReview ? { flaggedForReview: true } : {}),
+      ...(input.conflict ? { conflict: true } : {}),
+      ...(input.offlineOpIds?.length ? { offlineOpIds: input.offlineOpIds } : {}),
       retentionClass: "none",
       actor: ctx.actor,
     },
@@ -341,7 +350,7 @@ export interface TimerFields {
 
 export async function startTimer(
   ctx: ModelCtx,
-  input: TimerFields & { deviceId?: string; confirmStop?: boolean },
+  input: TimerFields & { deviceId?: string; confirmStop?: boolean; startedAt?: number; offlineOpId?: string },
 ): Promise<{ stoppedEntryIds: Id<"timeEntries">[] }> {
   const running = await runningTimer(ctx);
   let stoppedEntryIds: Id<"timeEntries">[] = [];
@@ -361,7 +370,7 @@ export async function startTimer(
     ctx,
     "runningTimer",
     {
-      startedAt: ctx.now(),
+      startedAt: input.startedAt !== undefined ? Math.min(input.startedAt, ctx.now()) : ctx.now(),
       ...(refs.project ? { projectId: refs.project._id } : {}),
       ...(input.contactId && refs.contactId ? { contactId: refs.contactId } : {}),
       ...(input.description?.trim() ? { description: input.description.trim() } : {}),
@@ -369,6 +378,7 @@ export async function startTimer(
       ...(input.billable !== undefined ? { billable: input.billable } : {}),
       startedVia: ctx.actorContext.channel,
       ...(input.deviceId ? { deviceId: input.deviceId } : {}),
+      ...(input.offlineOpId ? { offlineOpId: input.offlineOpId } : {}),
     },
     { action: "timer.start", label: input.description?.trim() || "Timer" },
   );
@@ -401,12 +411,21 @@ export async function updateTimer(ctx: ModelCtx, input: TimerFields): Promise<vo
  */
 export async function stopTimer(
   ctx: ModelCtx,
-  input: TimerFields & { splitAtMidnight?: boolean; endedAt?: number; flaggedForReview?: boolean },
+  input: TimerFields & {
+    splitAtMidnight?: boolean;
+    endedAt?: number;
+    flaggedForReview?: boolean;
+    /** E-PRJ-29 / PRJ-018 (offline replay). */
+    conflict?: boolean;
+    source?: TimeEntrySource;
+    offlineOpIds?: string[];
+  },
 ): Promise<{ entryIds: Id<"timeEntries">[]; warnings: string[] }> {
   const t = await runningTimer(ctx);
   if (!t) throw appError("conflict", "Es läuft kein Timer.", { reason: "TIMER_NOT_RUNNING" });
   // E-PRJ-03: a run longer than 24 h is cut at 24 h and flagged for review.
-  const requested = input.endedAt ?? ctx.now();
+  const requested = Math.max(t.startedAt, Math.min(input.endedAt ?? ctx.now(), ctx.now()));
+  const offlineOpIds = [...(t.offlineOpId ? [t.offlineOpId] : []), ...(input.offlineOpIds ?? [])];
   const capped = requested - t.startedAt > TIMER_AUTO_STOP_MS;
   const endedAt = capped ? t.startedAt + TIMER_AUTO_STOP_MS : requested;
   const flaggedForReview = input.flaggedForReview === true || capped;
@@ -432,8 +451,11 @@ export async function stopTimer(
       ...(fields.contactId ? { contactId: fields.contactId } : {}),
       ...(fields.productId ? { productId: fields.productId } : {}),
       ...(fields.billable !== undefined ? { billable: fields.billable } : {}),
-      source: "timer",
+      source: input.source ?? "timer",
+      fromInstants: true,
       ...(flaggedForReview ? { flaggedForReview: true } : {}),
+      ...(input.conflict ? { conflict: true } : {}),
+      ...(offlineOpIds.length ? { offlineOpIds } : {}),
     });
     entryIds.push(r.id);
     warnings.push(...r.warnings);
@@ -768,6 +790,80 @@ export async function runUnbilledTimeDeadlines(ctx: ModelCtx): Promise<{ warning
     });
   }
   return counts;
+}
+
+// ── offline replay (PRJ-018, E-PRJ-29) ──────────────────────────────────────────────────────────────────────
+
+/**
+ * IDs of queued offline operations that were already applied (a replay after a lost response must not apply them
+ * twice): the running timer's start op and the ops recorded on entries dated around the ops' instants.
+ */
+export async function processedOfflineOps(
+  ctx: ReadCtx,
+  ops: readonly { id: string; at: number; date?: string }[],
+): Promise<Set<string>> {
+  const done = new Set<string>();
+  if (ops.length === 0) return done;
+  const t = await runningTimer(ctx);
+  if (t?.offlineOpId) done.add(t.offlineOpId);
+  const dates = new Set<string>();
+  for (const o of ops) {
+    const d = berlinCalendarDate(o.at);
+    dates.add(d);
+    dates.add(addDays(d, -1));
+    if (o.date && isCalendarDate(o.date)) dates.add(o.date);
+  }
+  for (const date of dates) {
+    for (const e of await ctx.db
+      .query("timeEntries")
+      .withIndex("by_date", (q) => q.eq("date", date))
+      .collect()) {
+      for (const id of e.offlineOpIds ?? []) done.add(id);
+    }
+  }
+  return done;
+}
+
+/**
+ * An offline timer run that never became the running timer (E-PRJ-29) saved as an entry from its instants; capped
+ * at 24 h and flagged for review like the timer (E-PRJ-03).
+ */
+export async function createOfflineRunEntry(
+  ctx: ModelCtx,
+  run: TimerFields & { startedAt: number; endedAt: number; conflict: boolean; opId: string },
+): Promise<{ id: Id<"timeEntries">; warnings: string[] } | null> {
+  const capped = run.endedAt - run.startedAt > TIMER_AUTO_STOP_MS;
+  const endedAt = capped ? run.startedAt + TIMER_AUTO_STOP_MS : run.endedAt;
+  const [span] = spansFromInstants(run.startedAt, endedAt);
+  if (!span || span.durationMinutes < 1) return null;
+  return createEntry(ctx, {
+    date: span.date,
+    startedAt: span.startedAt,
+    endedAt: span.endedAt,
+    durationMinutes: span.durationMinutes,
+    description: run.description ?? "",
+    ...(run.projectId ? { projectId: run.projectId } : {}),
+    ...(run.contactId ? { contactId: run.contactId } : {}),
+    ...(run.productId ? { productId: run.productId } : {}),
+    ...(run.billable !== undefined ? { billable: run.billable } : {}),
+    source: "offline",
+    fromInstants: true,
+    ...(capped ? { flaggedForReview: true } : {}),
+    ...(run.conflict ? { conflict: true } : {}),
+    offlineOpIds: [run.opId],
+  });
+}
+
+/** E-PRJ-29 notification. */
+export async function notifyOfflineConflict(ctx: ModelCtx, entryIds: readonly Id<"timeEntries">[]): Promise<void> {
+  await notify(ctx, {
+    kind: "time_offline_conflict",
+    severity: "warning",
+    title: OFFLINE_CONFLICT_MESSAGE,
+    link: "/zeiten",
+    ...(entryIds[0] ? { entity: { table: "timeEntries", id: entryIds[0] } } : {}),
+    dedupeKey: `time_offline_conflict:${entryIds[0] ?? ctx.now()}`,
+  });
 }
 
 /** PRD-073 / E-PRJ-31 helper: entries using a product. */

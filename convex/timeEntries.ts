@@ -1,6 +1,7 @@
 import { v } from "convex/values";
 import { exactTimeNetCents, selectableForInvoicing } from "../src/domain/projects/invoicing";
 import { resolveProjectRef } from "../src/domain/projects/lookup";
+import { OFFLINE_CONFLICT_MESSAGE, type OfflineOp, planOfflineSync } from "../src/domain/projects/offline";
 import {
   buildManualEntry,
   TIMER_AUTO_STOP_MS,
@@ -20,8 +21,11 @@ import { projectBudget } from "./model/projects";
 import {
   checkRunningTimer,
   createEntry,
+  createOfflineRunEntry,
   deleteEntry,
   discardTimer,
+  notifyOfflineConflict,
+  processedOfflineOps,
   reopenCandidates,
   reopenEntries,
   runningTimer,
@@ -373,6 +377,111 @@ export const unbilled = query({
   permission: "projects.read",
   args: {},
   handler: async (ctx) => unbilledSummary(ctx, berlinCalendarDate(ctx.now())),
+});
+
+// ── offline queue (PRJ-018, E-PRJ-29) ─────────────────────────────────────────────────────────────────────────
+
+const vOfflineFields = v.object(vTimerFields);
+
+/**
+ * Replays the offline queue of one device (manual entries, timer start/stop) in one transaction; the server assigns
+ * the IDs. Two devices with a timer → the later start wins, the earlier run is saved flagged „Konflikt“ (E-PRJ-29).
+ * Already applied operations (a replay after a lost response) are skipped.
+ */
+export const syncOffline = mutation({
+  permission: "time.write",
+  args: {
+    deviceId: v.string(),
+    ops: v.array(
+      v.union(
+        v.object({ id: v.string(), kind: v.literal("manual"), at: v.number(), values: v.any() }),
+        v.object({ id: v.string(), kind: v.literal("timer_start"), at: v.number(), fields: vOfflineFields }),
+        v.object({
+          id: v.string(),
+          kind: v.literal("timer_stop"),
+          at: v.number(),
+          fields: v.optional(vOfflineFields),
+        }),
+      ),
+    ),
+  },
+  handler: async (ctx, { deviceId, ops }) => {
+    if (ops.length > 500) throw appError("invalid_input", "Zu viele Offline-Einträge in einem Abgleich.");
+    const done = await processedOfflineOps(
+      ctx,
+      ops.map((o) => ({
+        id: o.id,
+        at: o.at,
+        ...(o.kind === "manual" && typeof o.values?.date === "string" ? { date: o.values.date } : {}),
+      })),
+    );
+    const fresh = ops.filter((o) => !done.has(o.id)) as OfflineOp[];
+    const t = await runningTimer(ctx);
+    const plan = planOfflineSync(
+      t ? { startedAt: t.startedAt, ...(t.deviceId ? { deviceId: t.deviceId } : {}) } : null,
+      deviceId,
+      fresh,
+      ctx.now(),
+    );
+    const today = berlinCalendarDate(ctx.now());
+    const entryIds: Id<"timeEntries">[] = [];
+    const conflictIds: Id<"timeEntries">[] = [];
+    const warnings: string[] = [];
+    for (const a of plan.actions) {
+      if (a.type === "manual") {
+        const r = await createEntry(ctx, { ...manualFrom(a.values, today), source: "offline", offlineOpIds: [a.opId] });
+        entryIds.push(r.id);
+        warnings.push(...r.warnings);
+      } else if (a.type === "start_timer") {
+        await startTimer(ctx, { ...a.fields, deviceId, startedAt: a.startedAt, offlineOpId: a.opId });
+        const started = await runningTimer(ctx);
+        if (started) {
+          // E-PRJ-03 measured from the offline start instant (the daily deadlines job is the fallback)
+          const elapsed = ctx.now() - started.startedAt;
+          for (const after of [TIMER_WARN_AFTER_MS, TIMER_AUTO_STOP_MS]) {
+            await ctx.scheduler.runAfter(Math.max(0, after - elapsed), internal.timeEntries.checkTimer, {
+              timerId: started._id,
+            });
+          }
+        }
+      } else if (a.type === "stop_timer") {
+        const r = await stopTimer(ctx, {
+          ...(a.fields ?? {}),
+          endedAt: a.endedAt,
+          conflict: a.conflict,
+          source: a.conflict ? "timer" : "offline",
+          offlineOpIds: [a.opId],
+        });
+        entryIds.push(...r.entryIds);
+        if (a.conflict) conflictIds.push(...r.entryIds);
+        warnings.push(...r.warnings);
+      } else if (a.type === "entry") {
+        const r = await createOfflineRunEntry(ctx, {
+          ...a.fields,
+          startedAt: a.startedAt,
+          endedAt: a.endedAt,
+          conflict: a.conflict,
+          opId: a.opId,
+        });
+        if (r) {
+          entryIds.push(r.id);
+          if (a.conflict) conflictIds.push(r.id);
+          warnings.push(...r.warnings);
+        }
+      }
+    }
+    if (plan.conflict) {
+      await notifyOfflineConflict(ctx, conflictIds);
+      warnings.push(OFFLINE_CONFLICT_MESSAGE);
+    }
+    return {
+      applied: fresh.map((o) => o.id),
+      skipped: ops.filter((o) => done.has(o.id)).map((o) => o.id),
+      entryIds,
+      conflict: plan.conflict,
+      warnings: [...new Set(warnings)],
+    };
+  },
 });
 
 // ── time reports (PRJ-017) ──────────────────────────────────────────────────────────────────────────────────

@@ -14,7 +14,19 @@ import { formatElapsed } from "@/domain/projects/time-entries";
 import { berlinClockTime } from "@/domain/time/berlin";
 import { useAuthedQuery } from "@/hooks/use-authed-query";
 import { cn } from "@/lib/utils";
+import { deviceId } from "./offline-queue";
 import { useProjectOptions } from "./time-shared";
+import { useOfflineTime } from "./use-offline-time";
+
+interface ShownTimer {
+  _id: string;
+  startedAt: number;
+  description?: string;
+  projectId?: string;
+  projectName: string | null;
+  /** A queued offline start (PRJ-018), not yet on the server. */
+  offline?: boolean;
+}
 
 const errorOf = (e: unknown) => (e as { data?: { reason?: string; message?: string } }).data;
 
@@ -45,7 +57,23 @@ export function useNow(active: boolean) {
 
 function TimerInner({ projectId, embedded }: { projectId?: string; embedded: boolean }) {
   const t = useTranslations("time.timer");
-  const timer = useAuthedQuery(api.timeEntries.timer, {});
+  const serverTimer = useAuthedQuery(api.timeEntries.timer, {});
+  const offline = useOfflineTime();
+  // PRJ-018: while offline (or until the queue is synced) a queued start is shown as the running timer.
+  const local = offline.localTimer;
+  const timer: ShownTimer | null | undefined =
+    local && (!offline.online || !serverTimer)
+      ? {
+          _id: "offline",
+          startedAt: local.startedAt,
+          ...(local.fields.description ? { description: local.fields.description } : {}),
+          ...(local.fields.projectId ? { projectId: local.fields.projectId } : {}),
+          projectName: null,
+          offline: true,
+        }
+      : serverTimer === undefined && !offline.online
+        ? null
+        : serverTimer;
   const canWrite = useCan("time.write");
   const projects = useProjectOptions();
   const run = useRun();
@@ -80,8 +108,13 @@ function TimerInner({ projectId, embedded }: { projectId?: string; embedded: boo
   const fields = { ...(description.trim() ? { description } : {}), ...(project ? { projectId: project } : {}) };
 
   const doStart = async (confirmStop: boolean) => {
+    if (!offline.online) {
+      await offline.enqueue({ kind: "timer_start", at: Date.now(), fields });
+      toast.info(t("offlineQueued"));
+      return;
+    }
     try {
-      await start({ ...fields, ...(confirmStop ? { confirmStop } : {}) });
+      await start({ ...fields, deviceId: deviceId(), ...(confirmStop ? { confirmStop } : {}) });
       toast.success(t("started"));
       setConflict(null);
     } catch (e) {
@@ -95,6 +128,11 @@ function TimerInner({ projectId, embedded }: { projectId?: string; embedded: boo
   };
 
   const doStop = async () => {
+    if (!offline.online || timer?.offline) {
+      await offline.enqueue({ kind: "timer_stop", at: Date.now(), fields });
+      toast.info(t("offlineQueued"));
+      return;
+    }
     const r = await run(() => stop({ ...fields, ...(split ? { splitAtMidnight: true } : {}) }));
     if (!r.ok) return;
     toast.success(t("stopped"));
@@ -109,8 +147,16 @@ function TimerInner({ projectId, embedded }: { projectId?: string; embedded: boo
       className={cn("@container/timer flex flex-col gap-3 p-4", !embedded && "rounded-xl border")}
     >
       <div className="flex flex-wrap items-baseline justify-between gap-2">
-        <h2 id={ids.heading} className="font-semibold text-base">
+        <h2 id={ids.heading} className="flex items-center gap-2 font-semibold text-base">
           {t("heading")}
+          {(!offline.online || offline.ops.length > 0) && (
+            <span
+              className="rounded-full border border-warning/50 bg-warning/10 px-2 font-normal text-xs"
+              data-testid="timer-offline"
+            >
+              {offline.online ? t("offlinePending", { count: offline.ops.length }) : t("offlineBadge")}
+            </span>
+          )}
         </h2>
         {timer ? (
           <p className="text-sm">
@@ -165,16 +211,20 @@ function TimerInner({ projectId, embedded }: { projectId?: string; embedded: boo
                   <SquareIcon aria-hidden="true" />
                   {t("stop")}
                 </Button>
-                <Button
-                  variant="outline"
-                  className="h-11 md:h-9"
-                  onClick={() => void run(() => updateRunning(fields), t("updated"))}
-                >
-                  {t("update")}
-                </Button>
-                <Button variant="ghost" className="h-11 text-danger md:h-9" onClick={() => setConfirmDiscard(true)}>
-                  {t("discard")}
-                </Button>
+                {!timer.offline && (
+                  <>
+                    <Button
+                      variant="outline"
+                      className="h-11 md:h-9"
+                      onClick={() => void run(() => updateRunning(fields), t("updated"))}
+                    >
+                      {t("update")}
+                    </Button>
+                    <Button variant="ghost" className="h-11 text-danger md:h-9" onClick={() => setConfirmDiscard(true)}>
+                      {t("discard")}
+                    </Button>
+                  </>
+                )}
               </>
             ) : (
               <Button className="h-11 md:h-9" onClick={() => void doStart(false)}>
