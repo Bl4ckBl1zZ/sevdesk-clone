@@ -1,6 +1,14 @@
 import { describe, expect, test } from "vitest";
 import { addDays, type CalendarDate } from "../time/calendar-date";
-import { computeForecast, median, NO_HISTORY_NOTICE, paymentDelays, percentile } from "./forecast";
+import {
+  computeForecast,
+  median,
+  NO_HISTORY_NOTICE,
+  paymentDelays,
+  percentile,
+  plannedItemInputs,
+  validatePlannedItem,
+} from "./forecast";
 
 const TODAY = "2026-10-20" as CalendarDate;
 const d = (n: number) => addDays(TODAY, n);
@@ -94,5 +102,115 @@ describe("payment behaviour (F08 §4.8, RPT-012)", () => {
     expect(f.belowThreshold).toEqual({ expected: d(20), cautious: d(20) });
     expect(f.weeks).toHaveLength(13);
     expect(f.weeks.at(-1)?.expectedCents).toBe(15_000);
+  });
+});
+
+describe("forecast items and planned items (RPT-013)", () => {
+  test("RPT-013 a monthly planned item expands to its occurrences inside the 90 days (end date honoured, day clamped)", () => {
+    const items = plannedItemInputs(
+      [
+        { id: "rent", label: "Miete", cents: -120_000, date: "2026-08-31", recurrence: "P1M", confidence: "high" },
+        {
+          id: "grant",
+          label: "Förderung",
+          cents: 500_000,
+          date: "2026-11-15",
+          recurrence: "once",
+          confidence: "low",
+        },
+        {
+          id: "ended",
+          label: "Altvertrag",
+          cents: -1_000,
+          date: "2026-01-01",
+          recurrence: "P1M",
+          endDate: "2026-11-30",
+          confidence: "medium",
+        },
+      ],
+      TODAY,
+    );
+    expect(items.map((i) => [i.id, i.date, i.cents, i.confidence])).toEqual([
+      ["rent:2026-10-31", "2026-10-31", -120_000, "high"],
+      ["rent:2026-11-30", "2026-11-30", -120_000, "high"],
+      ["rent:2026-12-31", "2026-12-31", -120_000, "high"],
+      ["grant", "2026-11-15", 500_000, "low"],
+      ["ended:2026-11-01", "2026-11-01", -1_000, "medium"],
+    ]);
+    expect(items.every((i) => i.source === "planned")).toBe(true);
+  });
+
+  test("RPT-013 every item carries source, expected date, amount and a confidence; planned items move the balance", () => {
+    const f = computeForecast({
+      today: TODAY,
+      openingCents: 0,
+      history,
+      items: [
+        { id: "inv1", source: "receivable", label: "RE-1", cents: 50_000, date: d(5), contactId: "c1" },
+        { id: "inv2", source: "receivable", label: "RE-2", cents: 10_000, date: d(5), contactId: "new" },
+        { id: "v1", source: "payable", label: "ER-1", cents: -5_000, date: d(3) },
+        { id: "t1", source: "tax", label: "UStVA", cents: -2_000, date: d(20) },
+        ...plannedItemInputs(
+          [{ id: "p", label: "Darlehen", cents: 30_000, date: d(1), recurrence: "once", confidence: "medium" }],
+          TODAY,
+        ),
+      ],
+    });
+    expect(f.items.map((i) => [i.id, i.source, i.confidence])).toEqual([
+      ["p", "planned", "medium"],
+      ["v1", "payable", "high"],
+      ["inv1", "receivable", "high"],
+      ["inv2", "receivable", "medium"],
+      ["t1", "tax", "medium"],
+    ]);
+    expect(f.days[1]?.expectedCents).toBe(30_000);
+  });
+
+  test("RPT-013 E-RPT-09 receivables without any history and dunning level ≥ 2 are low confidence", () => {
+    const f = computeForecast({
+      today: TODAY,
+      openingCents: 0,
+      history: [],
+      items: [
+        { id: "a", source: "receivable", label: "RE-A", cents: 1_000, date: d(2), contactId: "x" },
+        { id: "b", source: "receivable", label: "RE-B", cents: 1_000, date: d(2), contactId: "x", dunningLevel: 2 },
+      ],
+    });
+    expect(f.items.map((i) => i.confidence)).toEqual(["low", "low"]);
+  });
+
+  test("RPT-013 planned item validation: label, non-zero integer amount, valid dates, end ≥ start, known recurrence", () => {
+    expect(
+      validatePlannedItem({
+        label: "Miete",
+        cents: -120_000,
+        date: "2026-11-01",
+        recurrence: "P1M",
+        confidence: "high",
+      }),
+    ).toEqual([]);
+    expect(
+      validatePlannedItem({
+        label: " ",
+        cents: 0,
+        date: "2026-13-01",
+        recurrence: "weekly" as never,
+        endDate: "2026-01-01",
+        confidence: "sure" as never,
+      }).map((i) => i.field),
+    ).toEqual(["label", "cents", "date", "recurrence", "confidence"]);
+    expect(
+      validatePlannedItem({
+        label: "x",
+        cents: 1.5,
+        date: "2026-11-01",
+        recurrence: "once",
+        endDate: "2026-10-01",
+        confidence: "low",
+      }).map((i) => [i.field, i.message]),
+    ).toEqual([
+      ["cents", "Bitte einen Betrag ungleich 0 € eingeben."],
+      ["endDate", "Das Enddatum darf nicht vor dem ersten Termin liegen."],
+    ]);
   });
 });

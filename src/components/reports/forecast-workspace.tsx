@@ -15,6 +15,7 @@ import { Label } from "@/components/ui/label";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { formatCents, formatDecimal, parseCents } from "@/domain/money";
 import { useAuthedQuery } from "@/hooks/use-authed-query";
+import { PlannedItems } from "./planned-items";
 
 type View = FunctionReturnType<typeof api.reports.forecast>;
 type Week = View["weeks"][number];
@@ -23,7 +24,8 @@ const SOURCES: Source[] = ["receivable", "recurring_invoice", "payable", "recurr
 
 /**
  * /auswertungen/liquiditaet (F08 §6, RPT-012): 90-day forecast — weekly chart „erwartet“ vs „vorsichtig“ with the
- * threshold line, the first day below it, and the items by source. The threshold is a URL parameter (`?minimum=`).
+ * threshold line, the first day below it, and the items by source with their confidence (RPT-013); planned items are
+ * added and edited below the list. The threshold is a URL parameter (`?minimum=`).
  */
 export function ForecastWorkspace() {
   return (
@@ -129,6 +131,7 @@ function Inner() {
                 <TableHead>{t("cautiousDate")}</TableHead>
                 <TableHead>{t("item")}</TableHead>
                 <TableHead>{t("source")}</TableHead>
+                <TableHead>{t("confidence")}</TableHead>
                 <TableHead className="text-right">{t("amount")}</TableHead>
               </TableRow>
             </TableHeader>
@@ -154,11 +157,13 @@ function Inner() {
                       )}
                     </TableCell>
                     <TableCell>{t(`sources.${i.source}`)}</TableCell>
+                    <TableCell>{t(`planned.confidence.${i.confidence}`)}</TableCell>
                     <TableCell className="text-right tabular-nums">{euro(i.cents)}</TableCell>
                   </TableRow>
                 ))}
             </TableBody>
           </Table>
+          <PlannedItems />
         </>
       )}
     </div>

@@ -6349,7 +6349,39 @@
       "item": "Position",
       "amount": "Betrag",
       "delay": "Zahlt im Mittel {expected} Tage nach Fälligkeit (vorsichtig {cautious} Tage)",
-      "tableLabel": "Positionen der Liquiditätsvorschau"
+      "tableLabel": "Positionen der Liquiditätsvorschau",
+      "confidence": "Einschätzung",
+      "planned": {
+        "title": "Geplante Positionen",
+        "add": "Geplante Position hinzufügen",
+        "empty": "Noch keine geplanten Positionen. Erwartete Einnahmen oder Ausgaben ohne Beleg (z. B. Darlehen, Förderung, Miete) hier erfassen.",
+        "formLabel": "Geplante Position",
+        "label": "Bezeichnung",
+        "direction": "Art",
+        "inflow": "Einnahme",
+        "outflow": "Ausgabe",
+        "amount": "Betrag (€)",
+        "date": "Datum",
+        "firstDate": "Erster Termin",
+        "recurrence": "Rhythmus",
+        "once": "Einmalig",
+        "endDate": "Letzter Termin (optional)",
+        "confidenceLabel": "Einschätzung",
+        "confidence": {
+          "high": "hoch",
+          "medium": "mittel",
+          "low": "niedrig"
+        },
+        "onceOn": "einmalig am {date}",
+        "recurringFrom": "{rhythm} ab {date}",
+        "until": "bis {date}",
+        "edit": "{label} bearbeiten",
+        "remove": "{label} entfernen",
+        "removed": "{label} entfernt.",
+        "saved": "Geplante Position gespeichert.",
+        "save": "Speichern",
+        "cancel": "Abbrechen"
+      }
     },
     "verprobung": {
       "from": "Von (Buchungsdatum)",

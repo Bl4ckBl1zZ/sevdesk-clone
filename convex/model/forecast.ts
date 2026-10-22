@@ -6,10 +6,16 @@ import {
   FORECAST_DAYS,
   type ForecastItemInput,
   type PaidInvoice,
+  type PlannedCashItem,
+  plannedItemInputs,
+  validatePlannedItem,
 } from "../../src/domain/reports/forecast";
 import { monthsOfFilingPeriod } from "../../src/domain/tax/ustva";
 import { berlinCalendarDate } from "../../src/domain/time/berlin";
 import { addDays, type CalendarDate } from "../../src/domain/time/calendar-date";
+import type { Id } from "../_generated/dataModel";
+import { appError } from "../lib/errors";
+import { auditedDelete, auditedInsert, auditedPatch } from "./audit";
 import { accountsOverview } from "./bankViews";
 import { getCompanyProfile } from "./companyProfile";
 import { resolveContextAt } from "./journal";
@@ -17,7 +23,7 @@ import { openItemsAsOf, settlesOf } from "./payments";
 import { reportLines } from "./reports";
 import { taxDeadlines } from "./taxFilings";
 import { vatAccountSet } from "./taxReserve";
-import type { ReadCtx } from "./types";
+import type { ModelCtx, ReadCtx } from "./types";
 import { kuOn } from "./vouchers";
 
 /**
@@ -211,6 +217,9 @@ export async function forecastView(ctx: ReadCtx, now: number, a: { thresholdCent
     });
   }
 
+  // planned items (RPT-013): one-off or recurring, expanded inside the window
+  items.push(...plannedItemInputs(await plannedItems(ctx), today));
+
   // payment history: fully paid invoices with a due date (date of the last settling payment)
   const paidDate = new Map<string, string>();
   for (const p of await ctx.db.query("payments").collect()) {
@@ -237,4 +246,63 @@ export async function forecastView(ctx: ReadCtx, now: number, a: { thresholdCent
     notices,
   });
   return { ...forecast, openingParts, end: end as CalendarDate };
+}
+
+// ── planned items (RPT-013) ──────────────────────────────────────────────────────────────────────────
+
+/** All planned items (domain shape), oldest first. */
+export async function plannedItems(ctx: ReadCtx): Promise<PlannedCashItem[]> {
+  const rows = await ctx.db.query("plannedCashItems").collect();
+  return rows.map((r) => ({
+    id: r._id,
+    label: r.label,
+    cents: r.amountCents,
+    date: r.date,
+    recurrence: r.recurrence,
+    ...(r.endDate ? { endDate: r.endDate } : {}),
+    confidence: r.confidence,
+  }));
+}
+
+export interface PlannedItemInput {
+  id?: Id<"plannedCashItems">;
+  label: string;
+  amountCents: number;
+  date: string;
+  recurrence: PlannedCashItem["recurrence"];
+  endDate?: string;
+  confidence: PlannedCashItem["confidence"];
+}
+
+/** Create or update a planned item (validated, audited). Not bookkeeping data — no period lock applies. */
+export async function savePlannedItem(ctx: ModelCtx, input: PlannedItemInput): Promise<Id<"plannedCashItems">> {
+  const value = {
+    label: input.label.trim(),
+    amountCents: input.amountCents,
+    date: input.date,
+    recurrence: input.recurrence,
+    ...(input.endDate ? { endDate: input.endDate } : {}),
+    confidence: input.confidence,
+  };
+  const issues = validatePlannedItem({ ...value, cents: value.amountCents });
+  if (issues.length > 0) {
+    throw appError("invalid_input", issues.map((i) => i.message).join(" "), {
+      fields: issues.map((i) => i.field).join(","),
+    });
+  }
+  const audit = { action: "settings.forecast_planned_item.update", label: value.label };
+  if (!input.id) return auditedInsert(ctx, "plannedCashItems", { ...value, createdBy: ctx.actor }, audit);
+  const existing = await ctx.db.get(input.id);
+  if (!existing) throw appError("not_found", "Die geplante Position existiert nicht.");
+  await auditedPatch(ctx, "plannedCashItems", input.id, { ...value, endDate: value.endDate }, audit);
+  return input.id;
+}
+
+export async function removePlannedItem(ctx: ModelCtx, id: Id<"plannedCashItems">): Promise<void> {
+  const existing = await ctx.db.get(id);
+  if (!existing) throw appError("not_found", "Die geplante Position existiert nicht.");
+  await auditedDelete(ctx, "plannedCashItems", id, {
+    action: "settings.forecast_planned_item.remove",
+    label: existing.label,
+  });
 }
