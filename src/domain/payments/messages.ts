@@ -39,6 +39,8 @@ export const PAY_MESSAGES = {
   fxDeferred:
     "Zahlungen in Fremdwährung können erst mit der EUR-Bewertung gebucht werden. Bitte die Rechnung in EUR ausstellen oder die Zahlung später erfassen.",
   alreadyReversed: "Diese Zahlung wurde bereits storniert.",
+  advanceReopened: (number: string, open: number) =>
+    `Die Zahlung auf Abschlagsrechnung ${number} wurde zurückgebucht; die Abschlagsrechnung ist wieder offen (${eur(open)}).`,
   reversalOfReversal: "Eine Stornobuchung kann nicht storniert werden. Bitte die Zahlung neu erfassen.",
   reversalLocked: (today: string) =>
     `Der ursprüngliche Zeitraum ist festgeschrieben. Die Stornobuchung erfolgt mit Datum ${de(today)}.`,

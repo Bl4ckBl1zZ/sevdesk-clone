@@ -412,7 +412,7 @@ describe("INV-03 INV-06 INV-07 advance and final invoices", { timeout: 30_000 },
     expect((await journal(t)).some((e) => e.source.id === advanceId)).toBe(false);
   });
 
-  test("PAY-017 UST-40 a payment on an advance posts S10: output VAT due on receipt (Mindest-Ist) also when Soll-taxing", async () => {
+  test("PAY-017 EC-PAY-35 UST-40 a payment on an advance posts S10: output VAT due on receipt (Mindest-Ist) also when Soll-taxing", async () => {
     const t = makeT();
     const { owner, advanceId } = await finalizedAdvance(t);
     const profile = await t.run(async (ctx) => ctx.db.query("companyProfile").first());

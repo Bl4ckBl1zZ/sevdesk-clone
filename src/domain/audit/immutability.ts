@@ -119,6 +119,8 @@ export const IMMUTABILITY_MATRIX: Readonly<Record<string, TableRule>> = {
       receiptFile: "once",
       journalEntryIds: "append",
     },
+    // F05 EC-PAY-30
+    message: "Zahlungen können nicht geändert oder gelöscht werden. Bitte stornieren und neu erfassen.",
   },
   journalEntries: { kind: "guarded", fields: { lockedAt: "once" } },
   // F08 ACC-013 opening items: the reference data is frozen; payments maintain the open amount (like salesDocuments).

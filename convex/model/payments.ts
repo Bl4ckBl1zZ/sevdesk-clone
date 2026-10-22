@@ -325,6 +325,10 @@ async function sourceFacts(
   source: SourceArg,
 ): Promise<{ facts: SourceFacts; tx?: Doc<"bankTransactions"> }> {
   if (source.kind === "bank") {
+    // EC-PAY-25 / BNK-111: a provisional (PDNG) feed row is never booked or matched — only its booked successor.
+    if (ctx.db.normalizeId("bankPendingTransactions", source.transactionId) !== null) {
+      throw appError("invalid_input", PAY_MESSAGES.pendingTx, { reason: "TX_PENDING" });
+    }
     const tx = await requireTransaction(ctx, source.transactionId);
     if (tx.currency !== "EUR") throw appError("invalid_input", PAY_MESSAGES.fxDeferred, { reason: "FX_DEFERRED" });
     return {
@@ -811,7 +815,17 @@ export async function reversePayment(
     }
     ids.push(reversalId);
   }
-  return { reversalIds: ids, date: plan.value.date, warnings: plan.value.warnings };
+  const warnings = [...plan.value.warnings];
+  // EC-PAY-34 / UST-41: a reversed advance payment after the final invoice deducted it — the advance re-opens as a
+  // separate receivable; the finalised deduction stays (RI-08). The owner is warned in the reversal result.
+  for (const r of rows) {
+    if (r.target.kind !== "salesDocument") continue;
+    const advance = await ctx.db.get(r.target.id as Id<"salesDocuments">);
+    if (advance?.type !== "advance_invoice" || !advance.deductedInId) continue;
+    const message = PAY_MESSAGES.advanceReopened(advance.number ?? "", advance.openAmountCents ?? 0);
+    warnings.push({ code: "advance_reopened", message, ack: false });
+  }
+  return { reversalIds: ids, date: plan.value.date, warnings };
 }
 
 /** BNK-047 „Zuordnung aufheben“ / BNK-121 bank reversal: reverses every active allocation of a transaction. */

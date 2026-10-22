@@ -153,7 +153,8 @@ export type PaymentWarningCode =
   | "cash_daily_recording"
   | "write_off_ist"
   | "taxation_method_changed"
-  | "reversal_period_locked";
+  | "reversal_period_locked"
+  | "advance_reopened";
 
 export interface PaymentWarning {
   code: PaymentWarningCode;
@@ -185,6 +186,8 @@ export type PaymentErrorCode =
   | "tx_not_allocatable"
   | "tx_direction"
   | "source_exceeded"
+  | "concurrent_allocation"
+  | "cash_without_invoice"
   | "target_unknown"
   | "draft"
   | "cancelled"
@@ -223,6 +226,10 @@ const userDated = (k: SourceInput["kind"]) => k !== "bank";
 export function planPayment(input: PaymentInput, ctx: PlanContext): Result<PaymentPlan, PaymentIssue> {
   const src = input.source;
   if (src.kind === "private") return fail("private_source", PAY_MESSAGES.privateOnSales);
+  // EC-PAY-43 / AO-04: no cash function — cash always settles an issued document (an excess may become credit).
+  if (src.kind === "cash" && !input.allocations.some((a) => a.target.kind !== "contactCredit")) {
+    return fail("cash_without_invoice", PAY_MESSAGES.cashWithoutInvoice);
+  }
   if (input.allocations.length === 0) return fail("no_allocations", PAY_MESSAGES.noAllocations);
   const seen = new Set<string>();
   for (const a of input.allocations) {
@@ -301,6 +308,11 @@ export function planPayment(input: PaymentInput, ctx: PlanContext): Result<Payme
       return fail("credit_other_contact", PAY_MESSAGES.creditOtherContact);
     }
   } else if (money > available) {
+    // EC-PAY-03: it would have fit the transaction, but another allocation took the room meanwhile (the client
+    // planned on a stale state; the Convex mutation re-reads `allocatedCents` serializably).
+    if (bank && bank.allocatedCents > 0 && money <= Math.abs(bank.amountCents)) {
+      return fail("concurrent_allocation", PAY_MESSAGES.concurrent);
+    }
     return fail("source_exceeded", PAY_MESSAGES.sourceExceeded(money, available), { sum: money, available });
   }
   return ok({
