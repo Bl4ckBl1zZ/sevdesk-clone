@@ -351,6 +351,8 @@ export const ingestBase64 = action({
   args: {
     files: v.array(v.object({ filename: v.string(), contentBase64: v.string() })),
     note: v.optional(v.string()),
+    /** INB-004: the PWA share target (a signed-in UI session) records its items as `source = "app"`. */
+    via: v.optional(v.literal("app")),
   },
   handler: async (ctx, args): Promise<{ id: Id<"inboxItems">; status: ItemDoc["status"] }> => {
     if (args.files.length === 0 || args.files.length > MAX_FILES) {
@@ -381,7 +383,10 @@ export const ingestBase64 = action({
     try {
       const r = await ctx.runMutation(internal.inbox.storeInternal, {
         actorContext: ctx.actorContext,
-        source: SOURCE_BY_CHANNEL[ctx.actorContext.channel] ?? "api",
+        source:
+          args.via === "app" && ctx.actorContext.channel === "ui"
+            ? "app"
+            : (SOURCE_BY_CHANNEL[ctx.actorContext.channel] ?? "api"),
         files: checked,
         ...(args.note ? { note: args.note } : {}),
       });
