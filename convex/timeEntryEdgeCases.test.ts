@@ -3,6 +3,7 @@ import { emptyProjectForm, emptyTimeEntryForm, type ProjectFormValues } from "..
 import { api, internal } from "./_generated/api";
 import type { Id } from "./_generated/dataModel";
 import { b2bBuyer, consumerBuyer, invoiceValues, settle, setupInvoicing } from "./invoices.fixtures";
+import { patchCompanyProfile } from "./model/companyProfile";
 import { makeT, type TestT } from "./test.setup";
 
 /**
@@ -202,6 +203,65 @@ describe("F11 §5 invoicing edge cases", () => {
     expect(line).toMatchObject({ unitPriceMicros: 1_071_000, quantityMilli: 2000, unitCode: "HUR" });
     expect(d.totals.netCents).toBe(18_000);
     expect(d.totals.grossCents).toBe(21_420);
+  });
+});
+
+describe("F11 §5 rule changes and billing modes at invoicing", () => {
+  test("E-PRJ-16 EC-025 entries spanning the end of the Kleinunternehmer status are split into two lines with the info", async () => {
+    const t = makeT();
+    const s = await setupInvoicing(t, { seller: "ku" });
+    const { personId } = await b2bBuyer(s.owner);
+    await t.model({ actor: s.owner.actor, role: "owner", channel: "ui" }, (ctx) =>
+      patchCompanyProfile(
+        ctx,
+        {
+          kleinunternehmer: [
+            { validFrom: "2020-01-01", isKU: true },
+            { validFrom: "2026-10-05", isKU: false },
+          ],
+        },
+        { action: "settings.company.update" },
+      ),
+    );
+    const p = await project(s.owner, personId);
+    const ids = [
+      await logEntry(s.owner, p, "2026-10-01", "1h"),
+      await logEntry(s.owner, p, "2026-10-02", "1h"),
+      await logEntry(s.owner, p, "2026-10-06", "2h"),
+    ];
+    const preview = await s.owner.query(api.timeEntries.previewInvoice, {
+      values: { entryIds: ids, grouping: "summary" },
+    });
+    expect(preview.ok && preview.plan.notices).toContain(
+      "Wegen Änderung der Kleinunternehmerregelung am 05.10.2026 wurden die Zeiten auf zwei Positionen aufgeteilt.",
+    );
+    const r = await s.owner.mutation(api.timeEntries.createInvoice, { values: { entryIds: ids, grouping: "summary" } });
+    expect(r.lines).toBe(2);
+    const lines = await linesOf(t, r.id);
+    expect(lines.map((l) => [l.linePeriod ?? null, l.quantityMilli, l.timeEntryIds])).toEqual([
+      [{ from: "2026-10-01", to: "2026-10-02" }, 2000, ids.slice(0, 2)],
+      [null, 2000, ids.slice(2)],
+    ]);
+  });
+
+  test("E-PRJ-32 invoicing entries of a fixed-price project warns that time is not billed individually", async () => {
+    const t = makeT();
+    const { owner, personId } = await setup(t);
+    const fixed = await project(owner, personId, { name: "Festpreis-Shop", billingMode: "fixed" });
+    const id = await logEntry(owner, fixed, "2026-10-01", "3h");
+    const preview = await owner.query(api.timeEntries.previewInvoice, {
+      values: { entryIds: [id], grouping: "summary" },
+    });
+    expect(preview.ok && preview.plan.notices).toEqual(["Festpreisprojekt – Zeiten werden nicht einzeln abgerechnet."]);
+    const r = await owner.mutation(api.timeEntries.createInvoice, { values: { entryIds: [id], grouping: "summary" } });
+    expect(r.notices).toContain("Festpreisprojekt – Zeiten werden nicht einzeln abgerechnet.");
+    // hourly projects get no such warning
+    const hourly = await project(owner, personId);
+    const other = await logEntry(owner, hourly, "2026-10-01", "1h");
+    const plain = await owner.query(api.timeEntries.previewInvoice, {
+      values: { entryIds: [other], grouping: "summary" },
+    });
+    expect(plain.ok && plain.plan.notices).toEqual([]);
   });
 });
 

@@ -87,8 +87,21 @@ export async function planFromEntries(ctx: ReadCtx, v: InvoiceFromEntriesValues)
   const profile = await getCompanyProfile(ctx);
   const unit = v.unit ?? profile?.defaults.time?.unitCode ?? "HUR";
   const overrides = await loadRuleOverrides(ctx);
+  // E-PRJ-16 / EC-025: the date-effective KU status rows of the company split the lines like a VAT rate change.
+  const kuRows = [...(profile?.kleinunternehmer ?? [])].sort((a, b) => (a.validFrom < b.validFrom ? -1 : 1));
+  const kuRowOf = (date: CalendarDate) => {
+    const row = kuRows.filter((r) => r.validFrom <= date).at(-1);
+    return row ? { rowId: `ku:${row.isKU}`, validFrom: row.validFrom as CalendarDate } : null;
+  };
+  // E-PRJ-32: entries of a fixed-price project are invoiced only with the warning.
+  let fixedPrice = false;
+  for (const pid of new Set(docs.map((d) => d.projectId))) {
+    if (pid && (await ctx.db.get(pid))?.billingMode === "fixed") fixedPrice = true;
+  }
   const plan = planTimeInvoice(entries, {
     grouping: v.grouping,
+    fixedPrice,
+    kuRowOf,
     rounding,
     perGroup: v.perGroup === true,
     unit,

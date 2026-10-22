@@ -226,6 +226,37 @@ describe("PRJ-010/PRJ-011 invoice lines from time entries", () => {
   });
 });
 
+describe("F11 §5 notices", () => {
+  test("E-PRJ-16 EC-025 entries spanning a Kleinunternehmer status change are split into lines by sub-period", () => {
+    const kuRows = [
+      { rowId: "ku-2020", validFrom: d("2020-01-01"), isKU: true },
+      { rowId: "ku-2026-11", validFrom: d("2026-11-01"), isKU: false },
+    ];
+    const kuRowOf = (date: CalendarDate) => [...kuRows].reverse().find((r) => r.validFrom <= date) ?? null;
+    const es = [entry("a", "2026-10-29", 60), entry("b", "2026-10-31", 30), entry("c", "2026-11-02", 90)];
+    const plan = planTimeInvoice(es, { grouping: "summary", kuRowOf });
+    expect(plan.ok).toBe(true);
+    if (!plan.ok) return;
+    expect(plan.value.lines.map((l) => [l.linePeriod, l.roundedMinutes, l.timeEntryIds])).toEqual([
+      [{ from: "2026-10-29", to: "2026-10-31" }, 90, ["a", "b"]],
+      [{ from: "2026-11-02", to: "2026-11-02" }, 90, ["c"]],
+    ]);
+    expect(plan.value.notices).toEqual([
+      "Wegen Änderung der Kleinunternehmerregelung am 01.11.2026 wurden die Zeiten auf zwei Positionen aufgeteilt.",
+    ]);
+    // no change inside the period → one line, no notice
+    const same = planTimeInvoice(es.slice(0, 2), { grouping: "summary", kuRowOf });
+    expect(same.ok && [same.value.lines.length, same.value.notices]).toEqual([1, []]);
+  });
+
+  test("E-PRJ-32 invoicing entries of a fixed-price project is allowed with the warning", () => {
+    const plan = planTimeInvoice([entry("a", "2026-09-01", 60)], { grouping: "summary", fixedPrice: true });
+    expect(plan.ok && plan.value.notices).toEqual(["Festpreisprojekt – Zeiten werden nicht einzeln abgerechnet."]);
+    const hourly = planTimeInvoice([entry("a", "2026-09-01", 60)], { grouping: "summary" });
+    expect(hourly.ok && hourly.value.notices).toEqual([]);
+  });
+});
+
 describe("PRJ-013 supply period of an invoice from entries", () => {
   test("PRJ-013 UST-08 TST-PRJ-12 entries 03.09.–28.09.2026 → period; narrowing → E-PRJ-18; widening ok", () => {
     const es = [entry("a", "2026-09-28", 60), entry("b", "2026-09-03", 60), entry("c", "2026-09-10", 60)];
