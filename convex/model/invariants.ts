@@ -496,7 +496,9 @@ export async function checkVoucherInvariants(ctx: ReadCtx): Promise<InvariantVio
       recurringReference:
         (v.recurringVoucherId !== undefined && withReference.has(String(v.recurringVoucherId))) ||
         // F07 BNK-052: the bank statement is the Beleg of a rule voucher „Kontoauszug genügt als Beleg“.
-        (v.statementIsBeleg === true && v.bankTransactionId !== undefined),
+        (v.statementIsBeleg === true && v.bankTransactionId !== undefined) ||
+        // F04 §4.9: the self-billing Gutschrift (archived sales document) is the Beleg of its voucher.
+        v.selfBillingDocumentId !== undefined,
     })),
   );
 }

@@ -52,7 +52,10 @@ export type CancelBlockCode =
   | "correction_refund_allocated";
 
 /** INV-10/INV-11/INV-15: null = the document may be cancelled by a Storno. */
-export function cancellationGuard(t: CancelTarget): Issue<CancelBlockCode> | null {
+export function cancellationGuard(
+  t: CancelTarget,
+  opts: { readonly selfBillingObjection?: boolean } = {},
+): Issue<CancelBlockCode> | null {
   const nr = t.number ?? "";
   if (t.type === "cancellation") return issue("storno_of_storno", "Eine Stornorechnung kann nicht storniert werden.");
   if (t.status === "cancelled") {
@@ -66,7 +69,9 @@ export function cancellationGuard(t: CancelTarget): Issue<CancelBlockCode> | nul
     );
   }
   const isCredit = t.type === "correction" && t.correctionKind === "credit";
-  if (!ISSUED.includes(t.status) || (!INVOICE_FAMILY.includes(t.type) && !isCredit)) {
+  // F04 §4.2.8: a self-billing Gutschrift is cancelled only by the supplier's objection (mirror cancellation).
+  const selfBilling = t.type === "self_billing" && opts.selfBillingObjection === true;
+  if (!ISSUED.includes(t.status) || (!INVOICE_FAMILY.includes(t.type) && !isCredit && !selfBilling)) {
     return issue(
       "illegal_transition",
       "Nur fertiggestellte Rechnungen und Rechnungskorrekturen können storniert werden.",

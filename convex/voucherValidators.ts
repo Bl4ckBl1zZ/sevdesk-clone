@@ -364,6 +364,8 @@ export const voucherTables = {
     bankTransactionId: v.optional(v.id("bankTransactions")),
     /** F07 BNK-052: the bank statement is the Beleg (rule „Kontoauszug genügt als Beleg“, e.g. bank fees). */
     statementIsBeleg: v.optional(v.literal(true)),
+    /** F04 §4.9: the purchase voucher of our self-billing Gutschrift — the Gutschrift itself is the Beleg. */
+    selfBillingDocumentId: v.optional(v.id("salesDocuments")),
     /** F07 BNK-052: the matching rule that created the voucher; `receiptMissing` = draft flagged „Beleg fehlt“. */
     ruleId: v.optional(v.id("matchingRules")),
     receiptMissing: v.optional(v.literal(true)),

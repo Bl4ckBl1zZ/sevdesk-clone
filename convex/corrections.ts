@@ -14,6 +14,7 @@ import {
   chainOverview,
   createChainDraft as createChainDraftModel,
   createCorrectionDraft,
+  recordObjection as recordObjectionModel,
   reduceAdvanceToReceived,
 } from "./model/invoiceCorrections";
 import { getDocument } from "./model/salesDocuments";
@@ -128,6 +129,25 @@ export const cancel = mutation({
     }
     const r = await cancelDocument(ctx, a.id, optionsOf(a));
     await ctx.scheduler.runAfter(0, internal.documentArtifacts.render, { id: r.id });
+    return r;
+  },
+});
+
+/**
+ * ⚠ „Widerspruch erfassen“ (F04 §4.2.8, INV-16): the supplier objected to our self-billing Gutschrift — recorded with
+ * its date; the Gutschrift is cancelled by a mirror cancellation and its purchase voucher reversed (05 §2
+ * `invoices:cancel`). MCP callers need a confirm token like the Storno.
+ */
+export const recordObjection = mutation({
+  permission: "invoices.cancel",
+  args: { id: v.id("salesDocuments"), date: v.string(), text: v.string(), confirmToken: vConfirmToken },
+  handler: async (ctx, a) => {
+    const scopes = ctx.actorContext.scopes;
+    if (scopes && !canKeyDo(scopes, "invoices.finalize")) {
+      throw appError("forbidden_scope", undefined, { permission: "invoices.finalize" });
+    }
+    const r = await recordObjectionModel(ctx, a.id, { date: a.date, text: a.text });
+    await ctx.scheduler.runAfter(0, internal.documentArtifacts.render, { id: r.cancellationId });
     return r;
   },
 });

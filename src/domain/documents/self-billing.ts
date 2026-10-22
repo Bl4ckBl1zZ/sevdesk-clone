@@ -7,7 +7,7 @@
  */
 import type { CalendarDate } from "../time/calendar-date";
 import type { CompanyContext, ContactContext, DocumentContext } from "./draft";
-import type { SnapshotBuyer } from "./snapshot";
+import { billableItems, type DocumentSnapshot, type SnapshotBuyer } from "./snapshot";
 import { type Finding, finding } from "./validate/finding";
 
 export interface SelfBillingAgreement {
@@ -281,4 +281,82 @@ export function selfBillingContext(type: string, ctx: DocumentContext): Document
       : {}),
     selfBilling: { issuer, supplierName: supplier.buyer.name },
   };
+}
+
+// ── purchase voucher (F04 §4.9 step 4) ──────────────────────────────────────────────────────────────────────────────
+
+/** The voucher draft input (F06 VOU-001 shape) a finalised Gutschrift is recorded as. */
+export interface SelfBillingVoucherInput {
+  readonly direction: "expense";
+  readonly supplierName: string;
+  readonly supplierVatId?: string;
+  readonly supplierTaxNumber?: string;
+  readonly supplierAddress: string;
+  readonly documentNumber: string;
+  readonly documentDate: string;
+  readonly supplyDate?: DocumentSnapshot["supplyDate"];
+  readonly currency: string;
+  readonly priceMode: "net";
+  readonly lines: {
+    readonly account: string;
+    readonly description: string;
+    readonly amountCents: number;
+    readonly vatRateBp: number;
+    readonly vatCents: number;
+  }[];
+  readonly statedTotals: { readonly grossCents: number };
+}
+
+/**
+ * One net line per VAT group of the Gutschrift (base and VAT exactly as in the snapshot, so the stated total
+ * reconciles to the cent); the expense account is the role `expense.services` (Fremdleistungen) resolved by the
+ * caller — the owner can recategorise the voucher (VOU-008). Our input-VAT deduction follows our own KU status in F06.
+ */
+export function selfBillingVoucherInput(s: DocumentSnapshot, account: string): SelfBillingVoucherInput {
+  const a = s.seller.address;
+  const subject = billableItems(s)[0]?.name;
+  return {
+    direction: "expense",
+    supplierName: s.seller.name,
+    ...(s.seller.vatId ? { supplierVatId: s.seller.vatId } : {}),
+    ...(s.seller.taxNumber ? { supplierTaxNumber: s.seller.taxNumber } : {}),
+    supplierAddress: [a.street, `${a.postalCode} ${a.city}`.trim()].filter(Boolean).join(", "),
+    documentNumber: s.number,
+    documentDate: s.documentDate,
+    ...(s.supplyDate ? { supplyDate: s.supplyDate } : {}),
+    currency: s.currency,
+    priceMode: "net",
+    lines: s.totals.byGroup.map((g) => ({
+      account,
+      description: `${SELF_BILLING_TITLE} ${s.number}${subject ? ` – ${subject}` : ""}`,
+      amountCents: g.baseCents,
+      vatRateBp: g.category === "KU" ? 0 : g.rateBp,
+      vatCents: g.vatCents,
+    })),
+    statedTotals: { grossCents: s.totals.grossCents },
+  };
+}
+
+export const OBJECTION_MESSAGES = {
+  type: "Ein Widerspruch kann nur zu einer Gutschrift erfasst werden.",
+  status: "Ein Widerspruch ist nur bei einer fertiggestellten, nicht stornierten Gutschrift möglich.",
+  date: "Das Datum des Widerspruchs darf nicht vor der Gutschrift und nicht in der Zukunft liegen.",
+  text: "Bitte den Inhalt des Widerspruchs angeben.",
+} as const;
+
+/** F04 §4.2.8 / INV-16: a Widerspruch (date, text) on a finalised or sent Gutschrift. */
+export function objectionIssue(input: {
+  type: string;
+  status: string;
+  documentDate: string;
+  date: string;
+  text: string;
+  today: string;
+}): string | null {
+  if (input.type !== "self_billing") return OBJECTION_MESSAGES.type;
+  if (input.status !== "finalized" && input.status !== "sent") return OBJECTION_MESSAGES.status;
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(input.date) || input.date < input.documentDate || input.date > input.today)
+    return OBJECTION_MESSAGES.date;
+  if (!input.text.trim()) return OBJECTION_MESSAGES.text;
+  return null;
 }

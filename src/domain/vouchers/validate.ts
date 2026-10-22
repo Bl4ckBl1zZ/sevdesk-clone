@@ -67,6 +67,8 @@ export interface VoucherDraft {
   recurringReference?: boolean;
   /** The bank statement line is the Beleg (bank fees, VOU-013). */
   statementIsBeleg?: boolean;
+  /** F04 §4.9: the voucher of our self-billing Gutschrift — the archived Gutschrift is the Beleg. */
+  selfBillingDocument?: boolean;
 }
 
 export interface ValidationContext {
@@ -311,7 +313,7 @@ export function validateVoucher(d: VoucherDraft, ctx: ValidationContext): Vouche
     files: d.originalFiles,
     kind: d.kind,
     ...(d.eigenbeleg?.approvedAt ? { eigenbelegApproved: true } : {}),
-    ...(d.recurringReference || d.statementIsBeleg ? { recurringReference: true } : {}),
+    ...(d.recurringReference || d.statementIsBeleg || d.selfBillingDocument ? { recurringReference: true } : {}),
   });
   if (!beleg) errors.push(issue("voucher_file_missing", CAPTURE_MESSAGES.noFile));
   let inputVatAtRisk: string[] = [];

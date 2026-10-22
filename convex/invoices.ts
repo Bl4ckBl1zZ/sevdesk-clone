@@ -115,6 +115,8 @@ const INVOICE_LIKE: readonly Doc<"salesDocuments">["type"][] = [
   "final_invoice",
   "cancellation",
   "correction",
+  // F04 §4.9 / 04 §3: self-billing Gutschriften live under /rechnungen (filter „Gutschriften“).
+  "self_billing",
 ];
 const isInvoiceLike = (d: Pick<Doc<"salesDocuments">, "type">) => INVOICE_LIKE.includes(d.type);
 

@@ -12,6 +12,7 @@ import {
 import type { DraftLine } from "../../src/domain/documents/draft";
 import { retentionClassFor, retentionUntil } from "../../src/domain/documents/finalize";
 import { isAdvanceType, isChainType } from "../../src/domain/documents/relations";
+import { objectionIssue } from "../../src/domain/documents/self-billing";
 import {
   canonicalSnapshotJson,
   type DocumentSnapshot,
@@ -38,6 +39,7 @@ import {
   nextStatus,
   resolveNotifications,
 } from "./salesDocuments";
+import { reverseSelfBillingVoucher } from "./selfBilling";
 import { activeCredits, settlementOf } from "./settlement";
 import { offerReopenAfterStorno } from "./timeEntries";
 import type { ModelCtx, ReadCtx } from "./types";
@@ -84,6 +86,8 @@ export async function cancelTargetOf(ctx: ReadCtx, doc: SalesDoc): Promise<Cance
 
 export interface CancelOptions {
   reason?: string | undefined;
+  /** F04 §4.2.8: the mirror cancellation of a self-billing Gutschrift after the supplier's objection. */
+  selfBillingObjection?: boolean | undefined;
   /** Default: today (Europe/Berlin). Not before the original, not in the future. */
   documentDate?: string | undefined;
 }
@@ -163,7 +167,9 @@ export async function cancelDocument(
 ): Promise<{ id: Id<"salesDocuments">; number: string }> {
   await assertClockOk(ctx); // AUD-019 / EC-027: no business date while the clock is off by > 60 s
   const original = await getDocument(ctx, id);
-  const guard = cancellationGuard(await cancelTargetOf(ctx, original));
+  const guard = cancellationGuard(await cancelTargetOf(ctx, original), {
+    selfBillingObjection: o.selfBillingObjection === true,
+  });
   if (guard) throw appError("conflict", guard.message, { reason: guard.code });
   const snap = await storedSnapshot(ctx, original);
   if (!snap) throw appError("conflict", "Die Rechnung hat keinen festgeschriebenen Stand.");
@@ -327,6 +333,42 @@ export async function cancelDocument(
     date: documentDate,
   });
   return { id: stornoId, number: assigned.number };
+}
+
+// ── self-billing objection (F04 §4.2.8, §4.9 step 5, INV-16) ─────────────────────────────────────────────────────
+
+/**
+ * „Widerspruch erfassen“: the supplier objects to our Gutschrift (§ 14 Abs. 2 Satz 3 UStG — the Gutschrift loses its
+ * effect as an invoice). Recorded with its date and text; the Gutschrift is cancelled by a mirror cancellation dated
+ * on the objection date and its purchase voucher is reversed. One transaction: a paid voucher blocks everything.
+ */
+export async function recordObjection(
+  ctx: ModelCtx,
+  id: Id<"salesDocuments">,
+  input: { date: string; text: string },
+): Promise<{ cancellationId: Id<"salesDocuments">; number: string }> {
+  const doc = await getDocument(ctx, id);
+  const issue = objectionIssue({
+    type: doc.type,
+    status: doc.status,
+    documentDate: doc.documentDate ?? "",
+    date: input.date,
+    text: input.text,
+    today: berlinCalendarDate(ctx.now()),
+  });
+  if (issue) throw appError("invalid_input", issue, { reason: "OBJECTION_INVALID" });
+  const text = input.text.trim();
+  const reason = `Widerspruch vom ${input.date.split("-").reverse().join(".")}: ${text}`;
+  await reverseSelfBillingVoucher(ctx, doc, reason);
+  const r = await cancelDocument(ctx, id, { reason, documentDate: input.date, selfBillingObjection: true });
+  await auditedPatch(
+    ctx,
+    "salesDocuments",
+    id,
+    { objection: { date: input.date, text, recordedAt: ctx.now() } },
+    { action: "document.objection", label: `${label(doc)} → ${r.number}`, reason },
+  );
+  return { cancellationId: r.id, number: r.number };
 }
 
 // ── correction drafts (INV-12/13/14) ─────────────────────────────────────────────────────────────────────────────

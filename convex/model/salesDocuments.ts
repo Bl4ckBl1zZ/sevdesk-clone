@@ -28,6 +28,7 @@ import { ossNetEurCentsOf, resolveDraft } from "../../src/domain/documents/draft
 import { type DuplicateSource, duplicateValues } from "../../src/domain/documents/duplicate";
 import { buildSnapshotInput, retentionClassFor, retentionUntil } from "../../src/domain/documents/finalize";
 import { transition } from "../../src/domain/documents/lifecycle";
+import { selfBillingContext } from "../../src/domain/documents/self-billing";
 import {
   canonicalSnapshotJson,
   type DocumentSnapshot,
@@ -71,6 +72,7 @@ import { listCustomFieldDefs, listPaymentMethods, listUnits } from "./lookups";
 import { type NotificationInput, notify } from "./notifications";
 import { assignCounterNumber, listDefaultRanges, registerDerivedNumber } from "./numberRanges";
 import { loadRuleOverrides } from "./ruleOverrides";
+import { attachSelfBillingPdf, recordSelfBillingVoucher } from "./selfBilling";
 import { applyDeliveryNote } from "./stock";
 import { lockInvoicedEntries, releaseDraftEntries, syncDraftLocks } from "./timeEntries";
 import { turnoverTotals } from "./turnover";
@@ -335,6 +337,7 @@ export async function readContact(
     ...(parent ? await contactChannels(ctx, parent._id) : []),
   ];
   const invoiceEmail = channels.find((c) => c.type === "email" && c.isInvoiceEmail)?.value;
+  const phone = channels.find((c) => c.type === "phone" || c.type === "mobile")?.value;
   const src = billingOwner;
   const buyer: SnapshotBuyer = {
     name: buyerName,
@@ -393,6 +396,7 @@ export async function readContact(
       ...(src.selfBillingAgreement ? { selfBillingAgreement: src.selfBillingAgreement } : {}),
       ...(src.buyerReference ? { buyerReference: src.buyerReference } : {}),
       ...(contact.status === "archived" ? { archived: true } : {}),
+      ...(phone ? { phone } : {}),
     },
     ...(address ? { billingAddressId: address._id } : {}),
     warnings,
@@ -487,45 +491,45 @@ export async function loadDocumentContext(
   const chain = await chainContextFor(ctx, doc, draftLines ?? []);
   const relations = await loadRelations(ctx, doc);
   const ruleOverrides = await loadRuleOverrides(ctx);
+  // F04 §4.9: a Gutschrift runs through the same pipeline with the parties swapped (seller = the supplier).
+  const documentCtx: DocumentContext = {
+    ...chain,
+    ...(Object.keys(ruleOverrides.vatRateOverrides).length ? { vatRateOverrides: ruleOverrides.vatRateOverrides } : {}),
+    ...(relations ? { relations } : {}),
+    today,
+    setupComplete: profile?.setupCompletedAt !== undefined,
+    integrityAlertOpen: (await unacknowledgedFailure(ctx)) !== null,
+    numberRangeAvailable: (await listDefaultRanges(ctx)).some((r) => r.docTypes.includes(doc.type)),
+    company,
+    contact: contact?.context ?? null,
+    ...(bank?.iban
+      ? {
+          bankAccount: {
+            iban: bank.iban,
+            ...(bank.bic ? { bic: bank.bic } : {}),
+            accountHolder: bank.accountHolder,
+            ...(bank.name ? { bankName: bank.name } : {}),
+          },
+        }
+      : {}),
+    paymentMethod: { kind: method.kind, ...(method.text ? { text: method.text } : {}) },
+    unitCodes: new Set(units.map((u) => u.code)),
+    unitLabels: Object.fromEntries(units.map((u) => [u.code, u.label])),
+    ...(locked ? { lockedThrough: `${locked}-31` } : {}),
+    recentInvoices,
+    kuYearTurnoverCents,
+    ...(turnover ? { ossTurnover: turnover.oss } : {}),
+    // PRD-052: chart of the fiscal year for the per-line revenue account check at finalisation.
+    chart: chartAt(profile?.chartOfAccounts ?? [], profile?.fiscalYearStartMonth ?? 1, doc.documentDate ?? today),
+    costCenterNumbers: Object.fromEntries(
+      (await ctx.db.query("costCenters").collect()).map((c) => [c._id as string, c.number]),
+    ),
+    requiredDocumentFields: (await listCustomFieldDefs(ctx))
+      .filter((d) => d.entity === "document" && d.required && !d.archivedAt)
+      .map((d) => ({ key: d.key, label: d.label })),
+  };
   return {
-    ctx: {
-      ...chain,
-      ...(Object.keys(ruleOverrides.vatRateOverrides).length
-        ? { vatRateOverrides: ruleOverrides.vatRateOverrides }
-        : {}),
-      ...(relations ? { relations } : {}),
-      today,
-      setupComplete: profile?.setupCompletedAt !== undefined,
-      integrityAlertOpen: (await unacknowledgedFailure(ctx)) !== null,
-      numberRangeAvailable: (await listDefaultRanges(ctx)).some((r) => r.docTypes.includes(doc.type)),
-      company,
-      contact: contact?.context ?? null,
-      ...(bank?.iban
-        ? {
-            bankAccount: {
-              iban: bank.iban,
-              ...(bank.bic ? { bic: bank.bic } : {}),
-              accountHolder: bank.accountHolder,
-              ...(bank.name ? { bankName: bank.name } : {}),
-            },
-          }
-        : {}),
-      paymentMethod: { kind: method.kind, ...(method.text ? { text: method.text } : {}) },
-      unitCodes: new Set(units.map((u) => u.code)),
-      unitLabels: Object.fromEntries(units.map((u) => [u.code, u.label])),
-      ...(locked ? { lockedThrough: `${locked}-31` } : {}),
-      recentInvoices,
-      kuYearTurnoverCents,
-      ...(turnover ? { ossTurnover: turnover.oss } : {}),
-      // PRD-052: chart of the fiscal year for the per-line revenue account check at finalisation.
-      chart: chartAt(profile?.chartOfAccounts ?? [], profile?.fiscalYearStartMonth ?? 1, doc.documentDate ?? today),
-      costCenterNumbers: Object.fromEntries(
-        (await ctx.db.query("costCenters").collect()).map((c) => [c._id as string, c.number]),
-      ),
-      requiredDocumentFields: (await listCustomFieldDefs(ctx))
-        .filter((d) => d.entity === "document" && d.required && !d.archivedAt)
-        .map((d) => ({ key: d.key, label: d.label })),
-    },
+    ctx: selfBillingContext(doc.type, documentCtx),
     contact,
     printableDocumentFields: await printableDocumentFields(ctx, doc),
     ruleOverrides,
@@ -704,6 +708,13 @@ async function assertContactUsable(ctx: ReadCtx, contactId: string | undefined, 
   // existing open receivables stay possible (legal claims, Art. 18 Abs. 2 — the dunning UI warns).
   if (c.dsgvo?.restrictedAt !== undefined && type !== "reminder") {
     throw appError("invalid_input", DSGVO_MESSAGES.restricted, { reason: "CONTACT_RESTRICTED", field: "contactId" });
+  }
+  // F04 §4.9 / INV-16: a Gutschrift is issued to a supplier only.
+  if (type === "self_billing" && !c.roles.includes("supplier")) {
+    throw appError("invalid_input", "Eine Gutschrift kann nur für einen Lieferanten erstellt werden.", {
+      reason: "NOT_A_SUPPLIER",
+      field: "contactId",
+    });
   }
 }
 
@@ -1208,7 +1219,8 @@ export async function commitFinalization(
       ...(snapshot.dueDate ? { dueDate: snapshot.dueDate } : {}),
       ...(o.backdateReason?.trim() ? { backdateReason: o.backdateReason.trim() } : {}),
       taxCase: snapshot.taxCase,
-      contactName: snapshot.buyer.name,
+      // A Gutschrift is addressed to the supplier (the seller of the swapped snapshot, F04 §4.9).
+      contactName: snapshot.issuer ? snapshot.seller.name : snapshot.buyer.name,
       ...(loaded.contact?.billingAddressId ? { billingAddressId: loaded.contact.billingAddressId } : {}),
       einvoice: {
         format: snapshot.einvoice.format,
@@ -1245,6 +1257,8 @@ export async function commitFinalization(
   const event =
     journalEventFor(stored, snapshot) ?? (await chainJournalEvent(ctx, await getDocument(ctx, id), snapshot));
   if (event) await postJournalEntry(ctx, event);
+  // F04 §4.9 step 4 / INV-16: the Gutschrift is recorded as a purchase (voucher with input VAT and payable).
+  if (stored.type === "self_billing") await recordSelfBillingVoucher(ctx, await getDocument(ctx, id), snapshot);
   if (predecessor) {
     // QUO-06: finalising the new version replaces the previous one (T-QUO-004).
     await auditedPatch(
@@ -1361,6 +1375,8 @@ export async function recordArtifacts(
   if (opts.initial && doc.artifactStatus !== "ready") {
     await auditedPatch(ctx, "salesDocuments", id, { artifactStatus: "ready" }, { action, label: label(doc) });
   }
+  // F04 §4.9: the archived Gutschrift PDF becomes the original file of its purchase voucher (VOU-120).
+  if (opts.initial && doc.type === "self_billing") await attachSelfBillingPdf(ctx, doc, artifacts);
   return ids;
 }
 

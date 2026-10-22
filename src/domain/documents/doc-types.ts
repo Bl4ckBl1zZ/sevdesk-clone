@@ -25,8 +25,8 @@ export type InvoiceDraftType = (typeof INVOICE_DRAFT_TYPES)[number];
 export const isInvoiceDraftType = (type: string): type is InvoiceDraftType =>
   (INVOICE_DRAFT_TYPES as readonly string[]).includes(type);
 
-/** Types whose drafts the shared editor creates (F04 §4.1). */
-export const DRAFT_TYPES = [...INVOICE_DRAFT_TYPES, ...LETTER_TYPES] as const;
+/** Types whose drafts the shared editor creates (F04 §4.1); `self_billing` only from a supplier contact (§4.9). */
+export const DRAFT_TYPES = [...INVOICE_DRAFT_TYPES, ...LETTER_TYPES, "self_billing"] as const;
 export type DraftType = (typeof DRAFT_TYPES)[number];
 
 export const DOC_TYPE_LABEL_DE: Readonly<Record<SalesDocType, string>> = {

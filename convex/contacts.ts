@@ -391,6 +391,8 @@ export const setSelfBillingAgreement = mutation({
         validFrom: v.string(),
         validTo: v.optional(v.string()),
         file: v.optional(vFileRef),
+        supplierKleinunternehmer: v.optional(v.boolean()),
+        iban: v.optional(v.string()),
       }),
     ),
   },

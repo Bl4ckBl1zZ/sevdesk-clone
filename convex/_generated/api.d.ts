@@ -161,6 +161,7 @@ import type * as model_retention from "../model/retention.js";
 import type * as model_ruleOverrides from "../model/ruleOverrides.js";
 import type * as model_salesDocuments from "../model/salesDocuments.js";
 import type * as model_seeds from "../model/seeds.js";
+import type * as model_selfBilling from "../model/selfBilling.js";
 import type * as model_settlement from "../model/settlement.js";
 import type * as model_setup from "../model/setup.js";
 import type * as model_shareholderClearing from "../model/shareholderClearing.js";
@@ -368,6 +369,7 @@ declare const fullApi: ApiFromModules<{
   "model/ruleOverrides": typeof model_ruleOverrides;
   "model/salesDocuments": typeof model_salesDocuments;
   "model/seeds": typeof model_seeds;
+  "model/selfBilling": typeof model_selfBilling;
   "model/settlement": typeof model_settlement;
   "model/setup": typeof model_setup;
   "model/shareholderClearing": typeof model_shareholderClearing;
