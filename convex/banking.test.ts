@@ -10,6 +10,7 @@ import usdOct from "../test/fixtures/bank/revolut-statements/synthetic-2026-10/u
 import { api } from "./_generated/api";
 import type { Doc, Id } from "./_generated/dataModel";
 import { errorCode } from "./lib/errors";
+import { auditedInsert } from "./model/audit";
 import { patchCompanyProfile } from "./model/companyProfile";
 import { fileReferences } from "./model/files";
 import { makeT, type TestT } from "./test.setup";
@@ -196,6 +197,42 @@ describe("F07 statement import pipeline (BNK-030…036)", () => {
       });
       // The EUR account has no October statement at all (EC-156 to-do).
       expect(todos.find((t) => t.accountId === s.eur && t.month === "2026-10")?.kind).toBe("statement_missing");
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  test("EC-BNK-51 T07-053 EC-170 import into a locked month: rows imported, bookings land in the first open period", async () => {
+    vi.useFakeTimers({ toFake: ["Date"] });
+    vi.setSystemTime(new Date("2026-11-20T10:00:00Z"));
+    try {
+      const s = await setup();
+      await s.t.model({ actor: "user:test-owner", role: "owner", channel: "ui" }, (ctx) =>
+        auditedInsert(
+          ctx,
+          "periods",
+          { period: "2026-10", status: "locked", lockedAt: Date.now(), lockedBy: "user:test-owner", reason: "manual" },
+          { action: "period.lock" },
+        ),
+      );
+      const { preview, result } = await importFile(s, s.eur, camtOct, "eur-2026-10.camt053.xml");
+      const notice = "Umsätze aus festgeschriebenem Zeitraum 10/2026 werden im Zeitraum 11/2026 gebucht.";
+      expect(preview.lockedPeriods).toEqual([{ period: "2026-10", openPeriod: "2026-11", rows: 13, message: notice }]);
+      expect(result.warnings).toEqual([notice]);
+      const list = await rows(s.t, s.eur);
+      expect(list).toHaveLength(13);
+      // The bank data keeps its booking date; the posting of a mark goes to the first open period (ACC-006).
+      const priv = byRef(list, "09");
+      expect(priv.bookingDate).toBe("2026-10-15");
+      await s.owner.action(api.banking.mark, { transactionId: priv._id, as: "private" });
+      const entry = await s.t.run(async (ctx) =>
+        ctx.db
+          .query("journalEntries")
+          .withIndex("by_source", (q) => q.eq("source.kind", "bankTransaction").eq("source.id", priv._id))
+          .first(),
+      );
+      expect(entry?.date).toBe("2026-11-20");
+      expect(entry?.latePosting?.reason).toMatch(/^Der Zeitraum 10\/2026 ist festgeschrieben/);
     } finally {
       vi.useRealTimers();
     }

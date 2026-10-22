@@ -14,8 +14,8 @@ import {
   matchContext,
   rejectMatch,
   targetLabels,
+  unmatchTransaction,
 } from "./model/matching";
-import { reverseTransactionPayments } from "./model/payments";
 import type { ReadCtx } from "./model/types";
 import { paymentView } from "./payments";
 import { vDifferenceInput } from "./paymentValidators";
@@ -170,7 +170,7 @@ export const reject = mutation({
 export const unmatch = mutation({
   permission: "payments.reverse",
   args: { transactionId: v.id("bankTransactions"), reason: v.string(), confirmToken: vConfirmToken },
-  handler: async (ctx, args) => reverseTransactionPayments(ctx, args),
+  handler: async (ctx, args) => unmatchTransaction(ctx, args),
 });
 
 /** BNK-043 auto-apply for freshly imported rows (scheduled by the import commit; a failure leaves a suggestion). */

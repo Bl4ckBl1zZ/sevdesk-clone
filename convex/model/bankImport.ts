@@ -14,6 +14,7 @@ import {
   planImport,
   toCandidates,
 } from "../../src/domain/banking/dedupe";
+import { type LockedPeriodNotice, lockedPeriodNotices } from "../../src/domain/banking/locked-periods";
 import { normaliseIban } from "../../src/domain/banking/normalise";
 import { type ReconcileResult, reconcileStatement } from "../../src/domain/banking/reconcile";
 import { parseStatement, statementRetentionUntil } from "../../src/domain/banking/statement";
@@ -70,6 +71,8 @@ export interface ImportPreview {
   runningBalanceBreaks: { line: number; diffCents: number; message: string }[];
   alreadyImported?: { at: number; message: string };
   feeSemantics?: ParsedStatement["feeSemantics"];
+  /** EC-BNK-51: new rows in a locked period are imported; their bookings go to the first open period. */
+  lockedPeriods: LockedPeriodNotice[];
   rows: PreviewRow[];
 }
 
@@ -189,6 +192,14 @@ export async function planStatementImport(
       };
     }
   }
+  const closed = new Set(
+    (await ctx.db.query("periods").collect()).filter((p) => p.status !== "open").map((p) => p.period),
+  );
+  const lockedPeriods = lockedPeriodNotices(
+    plan.items.filter((it) => it.kind === "new").map((it) => it.tx.bookingDate),
+    closed,
+    berlinCalendarDate(Date.now()),
+  );
   const prev = await previousStatement(ctx, account._id, st.periodFrom);
   const continuity = checkContinuity(prev ?? undefined, st, account.currency);
   const detail = (it: PlanItem) =>
@@ -220,6 +231,7 @@ export async function planStatementImport(
     runningBalanceBreaks: checkRunningBalances(st.transactions, account.currency),
     ...(alreadyImported ? { alreadyImported } : {}),
     ...(st.feeSemantics ? { feeSemantics: st.feeSemantics } : {}),
+    lockedPeriods,
     rows: plan.items.map((it) => {
       const d = detail(it);
       return {
@@ -411,6 +423,7 @@ export interface CommitResult {
   counts: ImportPreview["counts"];
   reconciliation: ReconcileResult | null;
   continuity: ContinuityResult;
+  lockedPeriods: LockedPeriodNotice[];
 }
 
 export async function commitStatementImport(
@@ -548,7 +561,14 @@ export async function commitStatementImport(
     { statementId, rowIds: fileRowIds as Id<"bankTransactions">[] },
     { action: "bank.import", label: args.file.name },
   );
-  return { importId, statementId, counts: p.preview.counts, reconciliation, continuity: p.preview.continuity };
+  return {
+    importId,
+    statementId,
+    counts: p.preview.counts,
+    reconciliation,
+    continuity: p.preview.continuity,
+    lockedPeriods: p.preview.lockedPeriods,
+  };
 }
 
 /**

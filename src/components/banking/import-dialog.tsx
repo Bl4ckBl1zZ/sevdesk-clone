@@ -181,6 +181,8 @@ function PreviewView({ preview: p, currency }: { preview: Preview; currency: str
               : t("continuityUnverifiable"),
     },
     ...p.runningBalanceBreaks.map((b) => ({ ok: false, text: b.message })),
+    // EC-BNK-51: rows of a locked month are imported, their bookings go to the first open month.
+    ...(p.lockedPeriods ?? []).map((n) => ({ ok: false, text: n.message })),
   ];
   return (
     <div className="flex flex-col gap-4">

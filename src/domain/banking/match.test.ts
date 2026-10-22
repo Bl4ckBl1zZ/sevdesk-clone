@@ -117,6 +117,21 @@ describe("matching scorer (BNK-042, §4.4 golden M1–M8)", () => {
     expect(aliasToken({ counterpartyName: "MÜLLER GmbH & Co. KG" })).toBe("mueller");
   });
 
+  test("EC-BNK-22 BNK-114 incoming without payer IBAN and name: number + amount carry the match; a name in the text adds to it", () => {
+    // Nothing about the payer, only the reference: number + exact amount + date window (0.95, safe, not auto).
+    const [bare] = scoreTransaction(tx({ purpose: "RE-2026-01042" }), { documents: [doc()] });
+    expect(bare).toMatchObject({ score: 0.95, reasons: ["number_in_purpose", "exact_amount", "date_window"] });
+    expect(bare && [isSafe(bare), autoApplicable(bare)]).toEqual([true, false]);
+    // The payer's name parsed from the description is the only name source → name similarity (cap 1.00).
+    const [named] = scoreTransaction(tx({ purpose: "Müller GmbH RE-2026-01042" }), { documents: [doc()] });
+    expect(named?.reasons).toContain("name_similarity");
+    expect(named?.score).toBe(1);
+    // Without number and without any payer data there is no basis beyond the amount (never more than a weak hint).
+    const [weak] = scoreTransaction(tx({ purpose: "Überweisung" }), { documents: [doc()] });
+    expect(weak?.score).toBe(0.45);
+    expect(weak && isSafe(weak)).toBe(false);
+  });
+
   test("T07-061 RF reference (ISO 11649) → 1.00; an invalid RF is ignored", () => {
     const rf = rfFor("RE202601042");
     expect(isValidRf(rf)).toBe(true);

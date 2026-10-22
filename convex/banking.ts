@@ -356,6 +356,8 @@ export const commitImport = action({
     counts: ImportPreview["counts"];
     reconciled: boolean | null;
     message: string | null;
+    /** EC-BNK-51 notices („Umsätze aus festgeschriebenem Zeitraum … werden im Zeitraum … gebucht.“). */
+    warnings: string[];
   }> => {
     const file = await readStatementFile(ctx, args.storageId);
     if (args.pdfStorageId) await assertPdf(ctx, args.pdfStorageId);
@@ -371,6 +373,7 @@ export const commitImport = action({
       counts: r.counts,
       reconciled: r.reconciliation?.reconciled ?? null,
       message: r.reconciliation?.message ?? null,
+      warnings: r.lockedPeriods.map((n) => n.message),
     };
   },
 });
@@ -621,7 +624,8 @@ export const linkReversalTo = mutation({
   args: { counterId: v.id("bankTransactions"), originalId: v.id("bankTransactions"), confirmToken: vConfirmToken },
   handler: async (ctx, args) => {
     await requireTransaction(ctx, args.counterId);
-    await linkBankReversal(ctx, args);
-    return null;
+    // EC-BNK-78: the warning tells the owner that the reversal is dated today (original period locked).
+    const r = await linkBankReversal(ctx, args);
+    return { warnings: r.warnings };
   },
 });
