@@ -101,6 +101,42 @@ describe("PRJ-007 duration input", () => {
     expect(isGenericDescription("Konzeption Startseite")).toBe(false);
   });
 
+  test("E-PRJ-06 an entry dated in the future is blocked; today and the past are allowed", () => {
+    const today = d("2026-10-20");
+    const tomorrow = buildManualEntry({ date: d("2026-10-21"), duration: "1h", description: "Konzeption" }, today);
+    expect(tomorrow.ok ? [] : tomorrow.error.map((i) => [i.field, i.code, i.message])).toEqual([
+      ["date", "date_future", "Zeiten können nicht für die Zukunft erfasst werden."],
+    ]);
+    expect(buildManualEntry({ date: today, duration: "1h", description: "Konzeption" }, today).ok).toBe(true);
+    expect(buildManualEntry({ date: d("2025-12-31"), duration: "1h", description: "Konzeption" }, today).ok).toBe(true);
+  });
+
+  test("E-PRJ-08 an unparseable duration is a field error with the examples", () => {
+    const today = d("2026-10-20");
+    for (const input of ["abc", "1:75", "h", "", "1,5x", "zwei Stunden"]) {
+      const r = buildManualEntry({ date: today, duration: input, description: "Konzeption" }, today);
+      expect(r.ok ? [] : r.error.map((i) => [i.field, i.code, i.message])).toEqual([
+        ["duration", "duration_unparsed", "Dauer nicht erkannt. Beispiele: 1:30, 1,5, 90m, 2h 15m."],
+      ]);
+    }
+  });
+
+  test("E-PRJ-09 UST-07 generic descriptions save with a warning; specific ones without", () => {
+    const today = d("2026-10-20");
+    for (const text of ["Arbeit", "Diverses.", "  sonstiges ", "Leistungen", "Beratung!"]) {
+      const r = buildManualEntry({ date: today, duration: "1h", description: text }, today);
+      expect(r.ok).toBe(true);
+      expect(r.ok && r.value.warnings.map((w) => [w.code, w.message])).toEqual([
+        ["generic_description", "Die Beschreibung ist sehr allgemein und erscheint so auf der Rechnung."],
+      ]);
+    }
+    const specific = buildManualEntry(
+      { date: today, duration: "1h", description: "Beratung Datenschutzkonzept" },
+      today,
+    );
+    expect(specific.ok && specific.value.warnings).toEqual([]);
+  });
+
   test("PRJ-007 E-PRJ-07 overlapping entries are counted (warning only)", () => {
     const a = { startedAt: 0, endedAt: 3_600_000 };
     expect(
@@ -174,7 +210,7 @@ describe("PRJ-005 timer", () => {
 });
 
 describe("PRJ-012 entry locking", () => {
-  test("PRJ-012 E-PRJ-10/11 only open entries are editable", () => {
+  test("PRJ-012 E-PRJ-10 E-PRJ-11 only open entries are editable; in_draft and invoiced entries carry the lock texts", () => {
     expect(entryLock({ status: "open" })).toBeNull();
     expect(entryLock({ status: "in_draft" })?.message).toBe(
       "Dieser Eintrag ist in Rechnungsentwurf Entwurf enthalten. Entfernen Sie ihn dort zuerst.",
