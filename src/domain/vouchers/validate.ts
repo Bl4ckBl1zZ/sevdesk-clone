@@ -110,6 +110,8 @@ export const VOUCHER_MESSAGES = {
   privateCorporation: "Kapitalgesellschaften haben kein Privatkonto. Bitte Verrechnungskonto Gesellschafter verwenden.",
   privateNoInputVat: "Private Ausgaben werden ohne Vorsteuerabzug als Privatentnahme gebucht.",
   privateIncome: "Private Belege sind nur als Ausgabe möglich.",
+  passThroughRule: (account: string) =>
+    `Durchlaufende Posten (Konto ${account}) werden ohne Umsatzsteuer gebucht – bitte ‚Kein Vorsteuerabzug‘ bzw. ‚Nicht steuerbare Einnahme‘ wählen.`,
   ownSales: "Erlöse aus eigenen Leistungen bitte über eine Rechnung erfassen (fortlaufende Rechnungsnummer).",
   creditNoteLink: "Gutschrift/Korrektur des Lieferanten ohne Bezug zum Originalbeleg.",
   importVatReference: "Einfuhrumsatzsteuer nur mit Einfuhrabgabenbescheid abziehbar. Bitte Bescheid hochladen.",
@@ -253,6 +255,13 @@ export function validateVoucher(d: VoucherDraft, ctx: ValidationContext): Vouche
     if (d.kind !== "tax_payment" && d.kind !== "private") {
       const a = checkLineAccount(l.account, { direction: d.direction, taxRule: rule }, ctx.accounts);
       if (a) errors.push(a);
+      // VOU-011: Durchlaufende Posten (§ 10 Abs. 1 S. 6 UStG) are outside VAT — no input VAT, no output VAT.
+      const passThroughRule = d.direction === "expense" ? "no_input_vat" : "not_taxable";
+      if (ctx.accounts.accounts.find((x) => x.number === l.account)?.passThrough && rule !== passThroughRule) {
+        errors.push(
+          issue("pass_through_tax_rule", VOUCHER_MESSAGES.passThroughRule(l.account), { position, account: l.account }),
+        );
+      }
     }
     const r = checkVoucherRate(l.vatRateBp, rule, rateDate);
     if (r) errors.push(r);
