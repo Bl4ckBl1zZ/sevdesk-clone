@@ -16,6 +16,7 @@ import {
 } from "./model/accounting";
 import { resolveContextAt } from "./model/journal";
 import { createLedgerAccount, removeLedgerAccount } from "./model/ledgerAccounts";
+import { setupShareholderClearing, shareholderClearingStatus } from "./model/shareholderClearing";
 
 /**
  * Bookkeeping (F08 §6/§7, P1): read-only journal viewer, chart of accounts with „Rollen & Standardkonten“, role
@@ -171,4 +172,18 @@ export const removeAccount = mutation({
     const rctx = await resolveContextAt(ctx, calendarDate(berlinCalendarDate(ctx.now())));
     return removeLedgerAccount(ctx, { chart: rctx.chart, number, resolve: rctx });
   },
+});
+
+/** F01 SET-045a: is the „Verrechnungskonto Gesellschafter“ step shown (corporations only) and is the role mapped? */
+export const shareholderClearing = query({
+  permission: "settings.read",
+  args: {},
+  handler: async (ctx) => shareholderClearingStatus(ctx, ctx.now()),
+});
+
+/** F01 SET-045a: one custom account per shareholder, role `shareholder.clearing` mapped to the first (audited). */
+export const setupShareholderAccounts = mutation({
+  permission: "accounting.roles",
+  args: { shareholders: v.array(v.object({ name: v.string(), number: v.optional(v.string()) })) },
+  handler: async (ctx, args) => setupShareholderClearing(ctx, args),
 });

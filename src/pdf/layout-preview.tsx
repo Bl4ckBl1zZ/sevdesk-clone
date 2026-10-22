@@ -16,6 +16,7 @@ import { footerItems } from "@/domain/company/legal-forms";
 import { footerVisible, PREVIEW_SAMPLE_TYPES, type PreviewSampleType } from "@/domain/documents/layout";
 import { type SampleDocument, sampleDocument } from "@/domain/documents/sample";
 import { formatEuro, formatMicros, formatMilli } from "@/domain/money/format";
+import { applyLetterhead, type LetterheadFiles } from "./letterhead";
 
 export interface LayoutPreviewData {
   today: string;
@@ -258,8 +259,11 @@ export function LayoutPreviewDocument({
 export async function renderLayoutPreview(
   model: LayoutPreviewModel,
   logo?: { data: Buffer; format: "png" | "jpg" } | null,
+  letterhead?: LetterheadFiles | null,
 ): Promise<Buffer> {
-  return renderToBuffer(<LayoutPreviewDocument model={model} logo={logo ?? null} />);
+  const pdf = await renderToBuffer(<LayoutPreviewDocument model={model} logo={logo ?? null} />);
+  // SET-072: the uploaded letterhead is the background of the preview as well
+  return letterhead ? Buffer.from(await applyLetterhead(new Uint8Array(pdf), letterhead)) : pdf;
 }
 
 /** Query string of /einstellungen/layouts/vorschau: `?typ=invoice&kunde=b2b&ku=1&layout=<id>`; unknown values fall back. */

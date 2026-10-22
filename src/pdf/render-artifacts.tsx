@@ -24,6 +24,7 @@ import { artifactKindFor } from "@/domain/einvoice/format";
 import type { XmlAttachment } from "@/domain/einvoice/model";
 import { type SerializedEinvoice, serializeEinvoice } from "@/domain/einvoice/serialize";
 import { registerPdfFonts } from "./fonts";
+import { applyLetterhead, type LetterheadFiles } from "./letterhead";
 import { type PdfLogo, SalesDocument } from "./sales-document";
 
 export type ArtifactKind = "zugferd_pdf" | "xrechnung_xml" | "pdf";
@@ -34,6 +35,8 @@ export interface RenderArtifactsOptions {
   readonly createdAt?: Date;
   /** DOC-18: attachments embedded in the e-invoice XML as BG-24 (`embedInXml`). */
   readonly xmlAttachments?: readonly XmlAttachment[];
+  /** SET-072: the layout version's letterhead, drawn under every page (validated on upload). */
+  readonly letterhead?: LetterheadFiles | null;
 }
 
 export interface RenderedArtifacts {
@@ -72,7 +75,8 @@ export async function renderPdf(
   const buffer = await renderToBuffer(
     <SalesDocument model={model} logo={options.logo ?? null} createdAt={createdAt} />,
   );
-  return new Uint8Array(buffer);
+  const pdf = new Uint8Array(buffer);
+  return options.letterhead ? applyLetterhead(pdf, options.letterhead) : pdf;
 }
 
 /** Embeds the CII into the PDF/A-3b as Factur-X/ZUGFeRD (fx: XMP, AFRelationship Alternative). */

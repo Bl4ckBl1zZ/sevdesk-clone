@@ -650,6 +650,8 @@ export async function setSelfBillingAgreement(
         validFrom: agreement.validFrom,
         ...(agreement.validTo ? { validTo: agreement.validTo } : {}),
         ...(agreement.file ? { file: agreement.file } : {}),
+        ...(agreement.supplierKleinunternehmer ? { supplierKleinunternehmer: true } : {}),
+        ...(agreement.iban?.trim() ? { iban: agreement.iban.replace(/\s+/g, "").toUpperCase() } : {}),
       }
     : undefined;
   await auditedPatch(

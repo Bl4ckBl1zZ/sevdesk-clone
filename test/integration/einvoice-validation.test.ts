@@ -6,8 +6,11 @@
  */
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
+import { PDFDocument, rgb } from "@cantoo/pdf-lib";
 import { describe, expect, test } from "vitest";
-import { renderArtifacts } from "@/pdf/render-artifacts";
+import { DEFAULT_LAYOUT } from "@/domain/documents/render-model";
+import { validateLetterhead } from "@/pdf/letterhead";
+import { renderArtifacts, renderPdf } from "@/pdf/render-artifacts";
 import { CASES_DIR, ciiFormat, goldenSnapshot, loadGoldenCases, ublFormat } from "../golden/cases";
 
 const url = process.env.EINVOICE_TOOLS_URL;
@@ -75,4 +78,25 @@ describe.skipIf(!url)("einvoice-validate (KoSIT 1.6.3 / XRechnung 3.0.2, Mustang
       }
     });
   }
+
+  test("SET-072 ER-11 a ZUGFeRD PDF with a letterhead background (vector + embedded-font page) stays PDF/A-3b", {
+    timeout: 120_000,
+  }, async () => {
+    const c = cases.find((x) => goldenSnapshot(x).type === "invoice") ?? cases[0];
+    if (!c) throw new Error("no golden case");
+    const s = goldenSnapshot(c);
+    const vector = await PDFDocument.create();
+    vector.addPage([595.28, 841.89]).drawRectangle({ x: 0, y: 780, width: 595, height: 60, color: rgb(0.1, 0.4, 0.2) });
+    // page 2: a react-pdf page with embedded font subsets, as a "text" letterhead for the later pages
+    const text = await PDFDocument.load(await renderPdf(s, DEFAULT_LAYOUT, "original"));
+    const [copied] = await vector.copyPages(text, [0]);
+    if (copied) vector.addPage(copied);
+    const letterhead = await vector.save();
+    expect(await validateLetterhead(letterhead)).toEqual({ ok: true, pages: 2 });
+    const a = await renderArtifacts(s, c.layout, c.variant, { letterhead: { first: letterhead } });
+    const r = await mustang(a.pdf);
+    expect(r.pdfaValid, JSON.stringify(r.errors, null, 1)).toBe(true);
+    expect(r.pdfaFlavour).toBe("3b");
+    if (a.kind === "zugferd_pdf") expect(r.xmlValid, JSON.stringify(r.errors, null, 1)).toBe(true);
+  });
 });

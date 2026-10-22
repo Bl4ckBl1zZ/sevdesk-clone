@@ -587,6 +587,7 @@ export async function voucherContext(
       : {}),
     // F07 BNK-052: a rule „Kontoauszug genügt als Beleg“ — the bank statement of the linked transaction is the Beleg.
     ...(merged.statementIsBeleg && merged.bankTransactionId ? { statementIsBeleg: true } : {}),
+    ...(merged.selfBillingDocumentId ? { selfBillingDocument: true } : {}),
   };
   const vctx: ValidationContext = {
     today,

@@ -165,6 +165,10 @@ const L = {
     phone: "Telefon",
     email: "E-Mail",
     ourVatId: "Unsere USt-IdNr.",
+    supplierVatId: "USt-IdNr. des Leistenden",
+    supplierTaxNumber: "Steuernummer des Leistenden",
+    selfBillingPayout: "Den Gutschriftsbetrag überweisen wir auf Ihr Konto.",
+    selfBillingPayoutTo: (iban: string) => `Den Gutschriftsbetrag überweisen wir auf Ihr Konto ${iban}.`,
     yourVatId: "Ihre USt-IdNr.",
     pos: "Pos.",
     name: "Bezeichnung",
@@ -241,6 +245,10 @@ const L = {
     phone: "Phone",
     email: "E-mail",
     ourVatId: "Our VAT ID",
+    supplierVatId: "Supplier's VAT ID",
+    supplierTaxNumber: "Supplier's tax number",
+    selfBillingPayout: "We will transfer the credited amount to your account.",
+    selfBillingPayoutTo: (iban: string) => `We will transfer the credited amount to your account ${iban}.`,
     yourVatId: "Your VAT ID",
     pos: "Item",
     name: "Description",
@@ -436,9 +444,16 @@ export function buildRenderModel(
     info.push({ label: l.deliveryNotes, value: s.references.deliveryNoteNumbers.join(", ") });
   const original = s.references.precedingInvoices.find((p) => p.role === "original");
   if (original) info.push({ label: l.original, value: `${original.number} (${fd(original.date)})` });
-  if (s.seller.contact.name) info.push({ label: l.contactPerson, value: s.seller.contact.name });
-  if (s.seller.contact.phone) info.push({ label: l.phone, value: s.seller.contact.phone });
-  if (s.seller.contact.email) info.push({ label: l.email, value: s.seller.contact.email });
+  // F04 §4.9: a self-billing Gutschrift is our letter (issuer) to the supplier (seller); § 14 Abs. 4 Nr. 2 UStG needs
+  // the supplier's tax number or VAT ID on the document — our footer carries only ours.
+  const letterFrom = s.issuer ?? s.seller;
+  if (s.issuer) {
+    if (s.seller.vatId) info.push({ label: l.supplierVatId, value: s.seller.vatId });
+    else if (s.seller.taxNumber) info.push({ label: l.supplierTaxNumber, value: s.seller.taxNumber });
+  }
+  if (letterFrom.contact.name) info.push({ label: l.contactPerson, value: letterFrom.contact.name });
+  if (letterFrom.contact.phone) info.push({ label: l.phone, value: letterFrom.contact.phone });
+  if (letterFrom.contact.email) info.push({ label: l.email, value: letterFrom.contact.email });
   const euCase = s.taxCase === "eu_b2b_service" || s.taxCase === "intra_community_supply";
   if (euCase && s.seller.vatId) info.push({ label: l.ourVatId, value: s.seller.vatId });
   if ((euCase || s.taxCase === "reverse_charge_13b") && s.buyer.vatId)
@@ -555,6 +570,9 @@ export function buildRenderModel(
         ...(acc.bankName ? [{ label: l.bank, value: acc.bankName }] : []),
       ]
     : undefined;
+  if (s.type === "self_billing" && t.payableCents > 0) {
+    paymentLines.push(acc ? l.selfBillingPayoutTo(acc.iban.replace(/(.{4})/g, "$1 ").trim()) : l.selfBillingPayout);
+  }
   const epcPayload = layout.printOptions.epcQr ? girocodeFor(s) : null;
 
   // ── reminder (F05 DUN-005) ──
@@ -593,23 +611,28 @@ export function buildRenderModel(
   }
 
   // ── footer (zone Z) ──
-  const required = ["Firma", ...footerItems(s.seller.legalForm)];
+  const required = ["Firma", ...footerItems(letterFrom.legalForm)];
   const footer = !footerVisible({ footerInLetterhead: layout.printOptions.footerInLetterhead }, required)
     ? null
     : geschaeftsbriefFooter(
-        s.seller,
-        acc ? [{ iban: acc.iban, ...(acc.bic ? { bic: acc.bic } : {}), accountHolder: acc.accountHolder }] : [],
+        letterFrom,
+        // A Gutschrift's account is the supplier's payout account — never printed as ours in the footer.
+        acc && !s.issuer
+          ? [{ iban: acc.iban, ...(acc.bic ? { bic: acc.bic } : {}), accountHolder: acc.accountHolder }]
+          : [],
         { allInvoiceAccounts: layout.printOptions.allInvoiceAccountsInFooter },
       ).columns;
 
-  const seller = s.seller;
-  const recipient = [
-    s.buyer.name,
-    ...(s.buyer.tradeName ? [s.buyer.tradeName] : []),
-    ...(s.buyer.address?.name2 ? [s.buyer.address.name2] : []),
-    ...(s.buyer.contactPerson?.name ? [`${lang === "en" ? "Attn." : "z. Hd."} ${s.buyer.contactPerson.name}`] : []),
-    ...addressLines(s.buyer.address, lang),
-  ];
+  const seller = letterFrom;
+  const recipient = s.issuer
+    ? [s.seller.name, ...(s.seller.tradeName ? [s.seller.tradeName] : []), ...addressLines(s.seller.address, lang)]
+    : [
+        s.buyer.name,
+        ...(s.buyer.tradeName ? [s.buyer.tradeName] : []),
+        ...(s.buyer.address?.name2 ? [s.buyer.address.name2] : []),
+        ...(s.buyer.contactPerson?.name ? [`${lang === "en" ? "Attn." : "z. Hd."} ${s.buyer.contactPerson.name}`] : []),
+        ...addressLines(s.buyer.address, lang),
+      ];
   const docTitle = title(s);
   const stamp =
     variant === "copy" ? copyStamp(s) : variant === "reading" ? l.reading : variant === "draft" ? l.draft : undefined;
@@ -678,7 +701,7 @@ export function buildRenderModel(
     meta: {
       title: `${docTitle} ${s.number}`,
       author: seller.name,
-      subject: `${docTitle} ${s.number} – ${s.buyer.name}`,
+      subject: `${docTitle} ${s.number} – ${s.issuer ? s.seller.name : s.buyer.name}`,
       keywords: [
         docTitle,
         s.number,

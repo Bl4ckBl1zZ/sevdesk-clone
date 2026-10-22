@@ -1,0 +1,27 @@
+{
+  "id": "T-GLD-34",
+  "title": "Self-billing Gutschrift (commission) 5.000,00 + 950,00, TypeCode 389, title „Gutschrift“, seller = supplier",
+  "seller": "agency",
+  "issuer": "gmbh",
+  "input": {
+    "type": "self_billing",
+    "number": "GS-2026-0001",
+    "supplyDate": { "kind": "month", "month": "2026-09" },
+    "lines": [
+      {
+        "kind": "item",
+        "name": "Provision September 2026",
+        "description": "Vermittlungsprovision laut Gutschriftsvereinbarung vom 02.01.2026",
+        "quantityMilli": 1000,
+        "unitCode": "C62",
+        "unitPriceMicros": 50000000,
+        "vatCategory": "S",
+        "vatRateBp": 1900,
+        "vatRuleRowId": "standard@2021-01-01"
+      }
+    ]
+  },
+  "paymentPatch": {
+    "bankAccount": { "iban": "DE75512108001245126199", "accountHolder": "Agentur Nord GmbH" }
+  }
+}

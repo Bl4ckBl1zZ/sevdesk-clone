@@ -645,6 +645,10 @@ export default defineSchema({
         validFrom: v.string(),
         validTo: v.optional(v.string()),
         file: v.optional(vFileRef),
+        /** The supplier is a Kleinunternehmer: the Gutschrift carries no VAT (F04 §4.9 step 2). */
+        supplierKleinunternehmer: v.optional(v.boolean()),
+        /** The supplier's payout account (BG-17 of the Gutschrift). */
+        iban: v.optional(v.string()),
       }),
     ),
     einvoice: v.object({
@@ -1926,6 +1930,11 @@ export default defineSchema({
     cancellation: v.optional(
       v.object({ at: v.number(), reason: v.string(), byDocumentId: v.optional(v.id("salesDocuments")) }),
     ),
+    // ── self-billing Gutschrift (F04 §4.9, INV-16) ──
+    /** The purchase voucher the Gutschrift is recorded as (input VAT and payable, F06). */
+    selfBillingVoucherId: v.optional(v.id("vouchers")),
+    /** Widerspruch of the supplier: cancels the Gutschrift's effect (mirror cancellation, voucher reversed). */
+    objection: v.optional(v.object({ date: v.string(), text: v.string(), recordedAt: v.number() })),
     // ── recurring invoices (F04 §3.4, REC-05) ──────────────────────────────────────────────────────────────
     /** The template this invoice was generated from (detail page „Erzeugte Rechnungen“, REST filter). */
     recurringTemplateId: v.optional(v.id("recurringTemplates")),

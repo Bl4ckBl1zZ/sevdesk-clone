@@ -19,6 +19,9 @@ const GROUPS: Record<string, readonly string[] | "*"> = {
     "correct",
     // F04 §4.7/§4.8 (Storno, corrections, chains): effects on the original/related documents and the register.
     "cancelled",
+    // F04 §4.9 self-billing Gutschrift: linked purchase voucher, supplier's objection (Widerspruch).
+    "self_billing_voucher",
+    "objection",
     "create_correction",
     "create_chain_draft",
     "credited",

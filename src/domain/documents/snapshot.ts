@@ -22,7 +22,7 @@ import { daysInMonth } from "../time/calendar-date";
 
 export const SNAPSHOT_SCHEMA_VERSION = 1 as const;
 
-/** 03 §4 `SalesDocType`. `self_billing` is P3 and has no renderer yet. */
+/** 03 §4 `SalesDocType`. `self_billing` (P3) renders with swapped parties and our company as `issuer`. */
 export type SalesDocType =
   | "quote"
   | "order_confirmation"
@@ -93,6 +93,9 @@ export interface SnapshotSeller extends FooterCompany {
   /** Taxation method valid at the document date (UST-13). */
   readonly vatAccounting: "soll" | "ist";
 }
+
+/** The issuing company of a self-billing Gutschrift (the recipient of the supply, § 14 Abs. 2 Satz 2 UStG). */
+export type SnapshotIssuer = Omit<SnapshotSeller, "kleinunternehmer" | "vatAccounting">;
 
 /** Buyer block (BG-7) frozen from the contact in the commit transaction (DOC-22). */
 export interface SnapshotBuyer {
@@ -369,6 +372,11 @@ export interface DocumentSnapshot {
   };
   readonly seller: SnapshotSeller;
   readonly buyer: SnapshotBuyer;
+  /**
+   * Self-billing Gutschrift only (F04 §4.9): our company as the letter issuer (sender line, contact, Geschäftsbrief
+   * footer). `seller` is the supplier (BG-4) and `buyer` our company (BG-7); the letter goes to the supplier.
+   */
+  readonly issuer?: SnapshotIssuer;
   /** BG-13/BG-15 */
   readonly delivery?: { readonly address?: SnapshotAddress; readonly partyName?: string };
   readonly references: SnapshotReferences;

@@ -56,6 +56,7 @@ import {
   restoreLayoutVersion as restoreLayoutVersionModel,
   saveDefaultLayout,
   setLayoutDefaults as setLayoutDefaultsModel,
+  setLetterhead as setLetterheadModel,
 } from "./model/layouts";
 import { getNotificationSettings, saveNotificationAddress } from "./model/notificationSettings";
 import {
@@ -510,9 +511,30 @@ export const listLayoutsWithDefaults = query({
           version: version?.version ?? 0,
           template: version?.config.template ?? "classic",
           accentColor: version?.config.accentColor ?? "#16a34a",
+          // SET-072: letterhead files of the current version (page 1 / both pages, separate follow-page file)
+          letterhead: version?.config.letterheadStorageId !== undefined,
+          letterheadFollow: version?.config.letterheadPage2StorageId !== undefined,
         };
       }),
     ),
+});
+
+/** SET-072: called by `documentArtifacts.uploadLetterhead` after the PDF passed the checks (new layout version). */
+export const setLetterhead = actorMutation({
+  permission: "settings.write",
+  args: {
+    layoutId: v.id("layouts"),
+    slot: v.union(v.literal("first"), v.literal("follow")),
+    storageId: v.id("_storage"),
+  },
+  handler: async (ctx, a) => setLetterheadModel(ctx, a.layoutId, a.slot, a.storageId),
+});
+
+/** SET-072: removes the letterhead (or only the follow-page file) as a new layout version. */
+export const removeLetterhead = mutation({
+  permission: "settings.write",
+  args: { layoutId: v.id("layouts"), slot: v.union(v.literal("first"), v.literal("follow")) },
+  handler: async (ctx, a) => setLetterheadModel(ctx, a.layoutId, a.slot, null),
 });
 
 /** SET-070/074: a further layout (copy of the default layout's current version). */
@@ -616,6 +638,13 @@ export const layoutPreviewData = query({
         })),
       kleinunternehmer: ku?.isKU ?? false,
       logoUrl: profile?.logoStorageId ? await ctx.storage.getUrl(profile.logoStorageId) : null,
+      // SET-072: the letterhead files of the layout version shown in the preview
+      letterheadUrl: version?.config.letterheadStorageId
+        ? await ctx.storage.getUrl(version.config.letterheadStorageId)
+        : null,
+      letterheadFollowUrl: version?.config.letterheadPage2StorageId
+        ? await ctx.storage.getUrl(version.config.letterheadPage2StorageId)
+        : null,
     };
   },
 });

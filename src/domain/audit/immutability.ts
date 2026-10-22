@@ -216,6 +216,8 @@ export const IMMUTABILITY_MATRIX: Readonly<Record<string, TableRule>> = {
       received: "once",
       cancellation: "once",
       objection: "once",
+      // F04 §4.9: the purchase voucher of a self-billing Gutschrift is linked once, right after the commit.
+      selfBillingVoucherId: "once",
       datevBelegnummer: "once",
     },
   },

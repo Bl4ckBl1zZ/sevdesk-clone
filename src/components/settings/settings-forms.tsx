@@ -36,6 +36,7 @@ import type { NumberRangesValues } from "@/domain/schemas/settings";
 import { companyDefaults, taxDefaults } from "@/domain/schemas/settings";
 import { useAdapterErrorToast } from "@/hooks/use-adapter-error-toast";
 import { useAuthedQuery } from "@/hooks/use-authed-query";
+import { ShareholderClearingPanel } from "./shareholder-clearing";
 
 export const SETTINGS_FORM_ID = "einstellungen-formular";
 
@@ -158,6 +159,7 @@ function TaxSettingsInner() {
           })
         }
       />
+      <ShareholderClearingPanel />
     </Frame>
   );
 }

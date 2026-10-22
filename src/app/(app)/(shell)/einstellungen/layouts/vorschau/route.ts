@@ -24,6 +24,17 @@ async function loadLogo(url: string | null): Promise<{ data: Buffer; format: "pn
   }
 }
 
+/** SET-072: the letterhead PDF(s) of the previewed layout version (validated when uploaded). */
+async function loadPdf(url: string | null): Promise<Uint8Array | null> {
+  if (!url) return null;
+  try {
+    const res = await fetch(url, { cache: "no-store", signal: AbortSignal.timeout(10_000) });
+    return res.ok ? new Uint8Array(await res.arrayBuffer()) : null;
+  } catch {
+    return null;
+  }
+}
+
 /**
  * GET /einstellungen/layouts/vorschau — SET-073 layout preview as PDF (Rechnung, Angebot, Mahnung, Lieferschein;
  * B2B/B2C; KU). Read-only; Convex re-checks `settings.read` in `layoutPreviewData`.
@@ -38,9 +49,15 @@ export async function GET(request: Request): Promise<Response> {
   const opts = parsePreviewParams(new URL(request.url).searchParams);
   const data = (await fetchAuthQuery(api.settings.layoutPreviewData, {
     ...(opts.layoutId ? { layoutId: opts.layoutId as Id<"layouts"> } : {}),
-  })) as LayoutPreviewData & { logoUrl: string | null };
+  })) as LayoutPreviewData & {
+    logoUrl: string | null;
+    letterheadUrl: string | null;
+    letterheadFollowUrl: string | null;
+  };
   const model = buildLayoutPreview(data, opts);
-  const pdf = await renderLayoutPreview(model, await loadLogo(data.logoUrl));
+  const first = await loadPdf(data.letterheadUrl);
+  const follow = await loadPdf(data.letterheadFollowUrl);
+  const pdf = await renderLayoutPreview(model, await loadLogo(data.logoUrl), first ? { first, follow } : null);
   return new Response(new Uint8Array(pdf), {
     headers: {
       "Content-Type": "application/pdf",

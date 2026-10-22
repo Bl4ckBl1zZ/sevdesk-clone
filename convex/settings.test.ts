@@ -106,6 +106,7 @@ const ARGS: Record<string, Record<string, unknown>> = {
   "settings:setLayoutDefaults": { layoutId: "placeholder", docTypes: ["quote"] },
   "settings:layoutHistory": { layoutId: "placeholder" },
   "settings:restoreLayoutVersion": { layoutId: "placeholder", versionId: "placeholder" },
+  "settings:removeLetterhead": { layoutId: "placeholder", slot: "first" },
   "settings:addRuleOverride": {
     values: {
       ruleSet: "basiszinssatz",

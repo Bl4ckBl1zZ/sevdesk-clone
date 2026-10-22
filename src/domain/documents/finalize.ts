@@ -59,6 +59,7 @@ const TYPE_LABEL_DE: Partial<Record<SalesDocType, string>> = {
   order_confirmation: "Auftragsbestätigung",
   delivery_note: "Lieferschein",
   proforma: "Proforma-Rechnung",
+  self_billing: "Gutschrift",
 };
 
 /** Rich text (sanitised HTML) → plain text for the snapshot (PDF and BT-22 use plain text). */
@@ -311,6 +312,8 @@ export function buildSnapshotInput(
       vatAccounting: vatAccountingAt(ctx.company, documentDate),
     },
     buyer: contact.buyer,
+    // F04 §4.9: a Gutschrift is our letter although the supplier is the seller (selfBillingContext).
+    ...(ctx.selfBilling ? { issuer: ctx.selfBilling.issuer } : {}),
     ...(draft.deliveryAddress ? { delivery: { address: draft.deliveryAddress } } : {}),
     references: {
       ...(draft.buyerReference?.trim() ? { buyerReference: draft.buyerReference.trim() } : {}),
