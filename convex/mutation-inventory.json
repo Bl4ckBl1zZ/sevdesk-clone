@@ -1555,6 +1555,12 @@
     "wrapper": "systemAction",
     "job": "exports.run"
   },
+  "fullExport:archiveReminderCron": {
+    "kind": "mutation",
+    "visibility": "internal",
+    "wrapper": "systemMutation",
+    "job": "cron.exports.archiveReminder"
+  },
   "fullExport:done": {
     "kind": "mutation",
     "visibility": "internal",
@@ -1580,6 +1586,12 @@
     "job": "exports.run"
   },
   "fullExport:tablePage": {
+    "kind": "query",
+    "visibility": "internal",
+    "wrapper": "systemQuery",
+    "job": "exports.run"
+  },
+  "fullExport:writesSince": {
     "kind": "query",
     "visibility": "internal",
     "wrapper": "systemQuery",
@@ -2358,6 +2370,12 @@
     "visibility": "internal",
     "wrapper": "systemMutation",
     "job": "cron.jobs.expire"
+  },
+  "jobs:get": {
+    "kind": "query",
+    "visibility": "public",
+    "wrapper": "query",
+    "permission": "jobs.read"
   },
   "jobs:list": {
     "kind": "query",

@@ -206,6 +206,11 @@ export const PERMISSIONS = {
   "dsgvo.manage": { roles: ["owner"], scope: null, write: true },
   /** F12 PRV-011 executing an erasure (deletes data now, restricts the rest): owner, fresh session. */
   "dsgvo.erase": { roles: ["owner"], scope: null, write: true, fresh: true },
+  /**
+   * 05 §4.7 `GET /jobs/{id}`: status and result link of the caller's own background jobs („any scope of the job's
+   * kind“): `exports:run` for DATEV/GDPdU/full exports, any read scope for CSV list exports (EXP-021).
+   */
+  "jobs.read": { roles: ALL, scope: "exports:run", alsoScopes: READ_SCOPES, write: false },
   /** F09 EXP-023 Vollexport (all tables and files leave the system): owner only; API `POST /exports/full` (05 §4). */
   "exports.full": { roles: ["owner"], scope: "exports:run", write: false },
   /**

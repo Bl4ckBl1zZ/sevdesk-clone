@@ -64,6 +64,8 @@ export interface ImportProtocolInput {
       readonly next: number;
     }[];
     readonly missingPdfReason?: string;
+    /** IMP-022: the acknowledged open-item difference (imported vs. sevdesk total). */
+    readonly openItemDifference?: { readonly expectedCents: number; readonly importedCents: number };
   };
   /** The stored preview (IMP-009) the commit ran against; only these fields are read. */
   readonly preview?: {
@@ -263,6 +265,11 @@ export function buildImportProtocol(input: ImportProtocolInput): ImportProtocol 
     paragraphs: [
       ...(d.numberRanges?.length ? [] : ["Keine Nummernkreise fortgesetzt."]),
       ...(d.missingPdfReason ? [`Ohne Original-PDF übernommen, Begründung: ${d.missingPdfReason}`] : []),
+      ...(d.openItemDifference
+        ? [
+            `Abweichung der offenen Posten bestätigt (IMP-022): Import ${euro(d.openItemDifference.importedCents)}, laut sevdesk ${euro(d.openItemDifference.expectedCents)}.`,
+          ]
+        : []),
       ...(excluded.length ? [`Ausgeschlossene Zeilen (${excluded.length}): ${excluded.join(", ")}`] : []),
       ...(assigned.length
         ? [`Manuelle PDF-Zuordnungen (${assigned.length}): ${assigned.map(([k, f]) => `${k} → ${f}`).join(", ")}`]

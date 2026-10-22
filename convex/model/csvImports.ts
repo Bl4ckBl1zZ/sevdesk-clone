@@ -1,4 +1,5 @@
 import { normalizeContactNumber } from "../../src/domain/contacts/core";
+import type { ImportRowValues } from "../../src/domain/contacts/csv-io";
 import {
   checkGenericMapping,
   GENERIC_CSV_IMPORTER_VERSION,
@@ -7,16 +8,18 @@ import {
   type GenericLocalState,
   type GenericLookupKeys,
   type GenericTarget,
+  mergeImportedContact,
+  type OnExisting,
 } from "../../src/domain/import/generic/csv-import";
 import { applyPreset, autoMap, type ColumnMapping } from "../../src/domain/import/sevdesk/mapping";
 import { normalizeNumber } from "../../src/domain/numbering/format";
-import { contactCreateSchema } from "../../src/domain/schemas/contacts";
+import { contactCreateSchema, contactFormFromRecord, contactSchema } from "../../src/domain/schemas/contacts";
 import { productSchema } from "../../src/domain/schemas/products";
 import type { Id } from "../_generated/dataModel";
 import { appError } from "../lib/errors";
 import { parse } from "../lib/parse";
 import { auditedInsert } from "./audit";
-import { createContact } from "./contacts";
+import { createContact, getContact, updateContact } from "./contacts";
 import { assertEditable, type ImportRow, patchWorkspace, requireImport, requireRunning } from "./imports";
 import { createProduct, ensureCategoryPath } from "./products";
 import type { ModelCtx, ReadCtx } from "./types";
@@ -148,7 +151,7 @@ export async function setGenericTarget(ctx: ModelCtx, importId: Id<"imports">, t
 export async function setGenericMapping(
   ctx: ModelCtx,
   importId: Id<"imports">,
-  input: { columns: Record<string, string>; preset?: string; savePreset?: boolean },
+  input: { columns: Record<string, string>; preset?: string; savePreset?: boolean; onExisting?: OnExisting },
 ): Promise<void> {
   const row = await requireGenericImport(ctx, importId);
   assertEditable(row);
@@ -166,7 +169,16 @@ export async function setGenericMapping(
   await patchWorkspace(
     ctx,
     row,
-    { mapping: { [file.id]: { columns, ...(preset ? { preset } : {}) } } },
+    {
+      mapping: {
+        [file.id]: {
+          columns,
+          ...(preset ? { preset } : {}),
+          // E-IMP-17: only contacts can be updated; products always skip existing ones.
+          ...(input.onExisting === "update" && target === "contacts" ? { onExisting: "update" as const } : {}),
+        },
+      },
+    },
     "import.mapping",
     file.name,
   );
@@ -255,13 +267,21 @@ export async function genericLocalState(
       productsByNumber: await collect(keys.numbers, (n) => productIdByNumber(ctx, n)),
     };
   }
-  return {
-    imported,
-    contactsByNumber: await collect(keys.numbers, (n) => contactIdByNumber(ctx, n)),
-    contactsByEmail: await collect(keys.emails, (e) => contactIdByEmail(ctx, e)),
-    contactsByVatId: await collect(keys.vatIds, (v) => contactIdByVatId(ctx, v)),
-    productsByNumber: {},
-  };
+  const contactsByNumber = await collect(keys.numbers, (n) => contactIdByNumber(ctx, n));
+  const contactsByEmail = await collect(keys.emails, (e) => contactIdByEmail(ctx, e));
+  const contactsByVatId = await collect(keys.vatIds, (v) => contactIdByVatId(ctx, v));
+  // E-IMP-17: the existing contact's number for „Kontakt existiert bereits ({nr})“.
+  const contactNumbers: Record<string, string> = {};
+  for (const id of new Set([
+    ...Object.values(contactsByNumber),
+    ...Object.values(contactsByEmail),
+    ...Object.values(contactsByVatId),
+  ])) {
+    const cid = ctx.db.normalizeId("contacts", id);
+    const c = cid ? await ctx.db.get(cid) : null;
+    if (c) contactNumbers[id] = c.number;
+  }
+  return { imported, contactsByNumber, contactsByEmail, contactsByVatId, productsByNumber: {}, contactNumbers };
 }
 
 export interface GenericCommitRow {
@@ -273,6 +293,8 @@ export interface GenericCommitRow {
   vatId?: string;
   values: unknown;
   categoryPath?: string;
+  /** E-IMP-17: the existing contact this row updates (option „Vorhandene Kontakte aktualisieren“). */
+  updateId?: string;
 }
 
 /** IMP-014/IMP-008: imported audit entries name the source, the importer version, the import and the preset. */
@@ -286,13 +308,20 @@ export const genericAuditReason = (importId: Id<"imports">, preset: string): str
 export async function commitGenericRows(
   ctx: ModelCtx,
   importId: Id<"imports">,
-  input: { target: GenericTarget; preset: string; rows: readonly GenericCommitRow[] },
-): Promise<{ created: number; skipped: number }> {
+  input: {
+    target: GenericTarget;
+    preset: string;
+    rows: readonly GenericCommitRow[];
+    /** E-IMP-17: the mapped target fields (an update only writes these). */
+    mappedFields?: readonly string[];
+  },
+): Promise<{ created: number; skipped: number; updated: number }> {
   const row = await requireRunning(ctx, importId);
   if (row.source !== SOURCE) throw appError("invalid_input", "Dieser Import ist kein CSV-Import.");
   const externalType = GENERIC_EXTERNAL_TYPES[input.target];
   let created = 0;
   let skipped = 0;
+  let updated = 0;
   for (const r of input.rows) {
     const done = await ctx.db
       .query("importedRecords")
@@ -303,7 +332,25 @@ export async function commitGenericRows(
       continue;
     }
     let localId: string;
-    if (input.target === "contacts") {
+    if (input.target === "contacts" && r.updateId) {
+      // E-IMP-17: mapped, non-empty Stammdaten onto the existing contact (number/addresses/channels unchanged).
+      const id = ctx.db.normalizeId("contacts", r.updateId);
+      if (!id) throw appError("not_found");
+      const existing = await getContact(ctx, id);
+      parse(contactCreateSchema, r.values); // the row was valid in the preview; re-checked in the transaction
+      const merged = mergeImportedContact(
+        contactFormFromRecord(existing),
+        r.values as ImportRowValues,
+        input.mappedFields ?? [],
+      );
+      if (merged) {
+        await updateContact(ctx, id, existing.version, parse(contactSchema, merged), {
+          reason: genericAuditReason(importId, input.preset),
+        });
+        updated++;
+      } else skipped++;
+      localId = id;
+    } else if (input.target === "contacts") {
       const existing =
         (r.number ? await contactIdByNumber(ctx, r.number) : undefined) ??
         (r.vatId ? await contactIdByVatId(ctx, r.vatId) : undefined) ??
@@ -338,7 +385,7 @@ export async function commitGenericRows(
         reason: genericAuditReason(importId, input.preset),
       },
     );
-    created++;
+    if (!r.updateId) created++;
   }
-  return { created, skipped };
+  return { created, skipped, updated };
 }

@@ -1,10 +1,12 @@
 import "server-only";
 import { compileRoutes, type Resource } from "../endpoint";
+import { accountingReportsResource } from "./accounting-reports";
 import { bankFeedResource } from "./bank-feed";
 import { contactsResource } from "./contacts";
 import { correctionsResource } from "./corrections";
 import { documentsResource } from "./documents";
 import { dunningResource } from "./dunning";
+import { exportsResource } from "./exports";
 import { inboxResource } from "./inbox";
 import { metaResource } from "./meta";
 import { paymentsResource } from "./payments";
@@ -33,6 +35,8 @@ export const RESOURCES: readonly Resource[] = [
   inboxResource,
   bankFeedResource,
   reportsResource,
+  accountingReportsResource,
+  exportsResource,
 ];
 
 export const ROUTES = compileRoutes(RESOURCES);

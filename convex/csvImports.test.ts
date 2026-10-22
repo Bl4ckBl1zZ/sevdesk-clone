@@ -31,6 +31,7 @@ async function project(t: TestT, owner: Owner, bytes: Uint8Array, target: "conta
   const importId: Id<"imports"> = await owner.mutation(api.csvImports.create, {});
   const storageId = await t.run((ctx) => ctx.storage.store(new Blob([bytes as Uint8Array<ArrayBuffer>])));
   const r = await owner.action(api.csvImports.setFile, { importId, storageId, name, target });
+  if ("needsEncoding" in r) throw new Error(r.message);
   return { importId, ...r };
 }
 
@@ -149,5 +150,123 @@ describe("IMP-012 generic CSV import (imports.source = generic_csv)", () => {
     await owner.mutation(api.csvImports.setMapping, { importId: ok.importId, columns: { name: "Name" } });
     const blocked = await owner.action(api.csvImports.preview, { importId: ok.importId }).catch((x) => x);
     expect(reasonOf(blocked)).toBe("E_IMP_21");
+  });
+});
+
+describe("generic CSV import edge cases (F09 §5.3)", () => {
+  test("E-IMP-15 an unclear encoding is asked with samples in both encodings; the chosen one is stored and used by the preview", async () => {
+    const { t, owner } = await setup();
+    const enc = new TextEncoder();
+    const mixed = Uint8Array.from([
+      ...enc.encode("Kundennummer;Firma;Ort\nK-300;Müller Bau GmbH;Köln\nK-301;Maier"),
+      0xe4, // a stray Windows-1252 „ä“ in an otherwise UTF-8 file
+      ...enc.encode(" KG;Bonn\n"),
+    ]);
+    const importId: Id<"imports"> = await owner.mutation(api.csvImports.create, {});
+    const store = () => t.run((ctx) => ctx.storage.store(new Blob([mixed as Uint8Array<ArrayBuffer>])));
+    const first = await store();
+    const asked = await owner.action(api.csvImports.setFile, {
+      importId,
+      storageId: first,
+      name: "kontakte.csv",
+      target: "contacts",
+    });
+    expect(asked).toMatchObject({
+      needsEncoding: true,
+      message: "Zeichenkodierung unklar – bitte Windows-1252 oder UTF-8 wählen.",
+    });
+    if (!("needsEncoding" in asked)) throw new Error("expected the encoding question");
+    expect(asked.samples["utf-8"][0]).toEqual(["K-300", "Müller Bau GmbH", "Köln"]);
+    expect(asked.samples["windows-1252"][0]?.[1]).toBe("MÃ¼ller Bau GmbH");
+    expect(await t.run((ctx) => ctx.storage.get(first))).toBeNull();
+    expect((await owner.query(api.csvImports.get, { importId }))?.file).toBeNull();
+
+    const chosen = await owner.action(api.csvImports.setFile, {
+      importId,
+      storageId: await store(),
+      name: "kontakte.csv",
+      target: "contacts",
+      encoding: "utf-8",
+    });
+    expect(chosen).toEqual({ rows: 2, encoding: "utf-8" });
+    expect((await owner.query(api.csvImports.get, { importId }))?.file?.encoding).toBe("utf-8");
+    const p = await owner.action(api.csvImports.preview, { importId });
+    expect(p.preview.samples.map((s) => s.display)).toEqual(["Müller Bau GmbH", "Maier� KG"]);
+  });
+
+  test("E-IMP-17 E-IMP-18 an existing contact is skipped with „Kontakt existiert bereits (nr)“ or, with the option, updated (Stammdaten only); the preview carries the Art. 14 notice", async () => {
+    const { t, owner } = await setup();
+    const enc = new TextEncoder();
+    const first = await project(
+      t,
+      owner,
+      enc.encode("Kundennummer;Firma;Ort;Notiz\nK-400;Beispiel Werkstatt GmbH;Köln;Alte Notiz\n"),
+      "contacts",
+      "kontakte.csv",
+    );
+    const columns = { number: "Kundennummer", organizationName: "Firma", city: "Ort", notes: "Notiz" };
+    await owner.mutation(api.csvImports.setMapping, { importId: first.importId, columns });
+    const p1 = await owner.action(api.csvImports.preview, { importId: first.importId });
+    expect(p1.preview.notices[0]).toMatch(/Art\. 14 DSGVO/);
+    await owner.action(api.csvImports.commit, { importId: first.importId, previewHash: p1.previewHash });
+
+    const file2 = enc.encode("Kundennummer;Firma;Ort;Notiz\nK-400;Beispiel Werkstatt GmbH;;Neue Notiz\n");
+    const second = await project(t, owner, file2, "contacts", "kontakte-neu.csv");
+    await owner.mutation(api.csvImports.setMapping, { importId: second.importId, columns, preset: "Neu" });
+    const skip = await owner.action(api.csvImports.preview, { importId: second.importId });
+    expect(skip.preview.problems[0]).toMatchObject({
+      status: "existing",
+      message: "Zeile 2: Kontakt existiert bereits (K-400).",
+    });
+    await owner.mutation(api.csvImports.setMapping, {
+      importId: second.importId,
+      columns,
+      preset: "Neu",
+      onExisting: "update",
+    });
+    const upd = await owner.action(api.csvImports.preview, { importId: second.importId });
+    expect(upd.previewHash).not.toBe(skip.previewHash);
+    expect(upd.preview.counts).toMatchObject({ new: 0, updates: 1, existing: 0 });
+    const r = await owner.action(api.csvImports.commit, { importId: second.importId, previewHash: upd.previewHash });
+    expect(r).toMatchObject({ created: 0, updated: 1 });
+    const contact = await t.run((ctx) =>
+      ctx.db
+        .query("contacts")
+        .withIndex("by_number", (q) => q.eq("numberNormalized", "K-400"))
+        .first(),
+    );
+    // the number stays; the empty city cell (an address field) changes nothing
+    expect(contact).toMatchObject({
+      number: "K-400",
+      organizationName: "Beispiel Werkstatt GmbH",
+      notes: "Neue Notiz",
+    });
+    const audit = await t.run((ctx) =>
+      ctx.db
+        .query("auditLog")
+        .filter((q) => q.eq(q.field("action"), "contact.update"))
+        .collect(),
+    );
+    expect(audit.at(-1)?.reason).toMatch(/^CSV-Import, generic-csv-import@1, Import .+, Vorlage Neu$/);
+  });
+
+  test("IMP-013 the shipped lexoffice presets (ungeprüft) are offered next to the saved ones", async () => {
+    const { t, owner } = await setup();
+    const { importId } = await project(
+      t,
+      owner,
+      new TextEncoder().encode("Artikelnummer;Bezeichnung;Nettopreis;Steuersatz\nL-1;Wartung;80,00;19\n"),
+      "products",
+      "lexoffice-artikel.csv",
+    );
+    const view = await owner.query(api.csvImports.get, { importId });
+    expect(view?.presets).toContainEqual(
+      expect.objectContaining({
+        id: "shipped:lexoffice-products",
+        name: "lexoffice Artikel (ungeprüft)",
+        unsure: true,
+      }),
+    );
+    expect(view?.presets.some((p) => p.id === "shipped:lexoffice-contacts")).toBe(false);
   });
 });

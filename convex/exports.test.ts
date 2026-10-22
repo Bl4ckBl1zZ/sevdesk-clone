@@ -1,10 +1,13 @@
 import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
 import { sha256Hex } from "../src/domain/audit/chain";
+import { CSV_DIRECT_MAX_ROWS } from "../src/domain/csv/export";
 import { api, internal } from "./_generated/api";
 import type { Id } from "./_generated/dataModel";
-import { finalizedInvoice } from "./invoices.fixtures";
+import { finalizedInvoice, settle } from "./invoices.fixtures";
 import { errorCode } from "./lib/errors";
+import { auditedInsert } from "./model/audit";
 import { createJob } from "./model/jobs";
+import { bookedTransaction } from "./payments.fixtures";
 import { makeT, type TestT } from "./test.setup";
 
 /** F09 EXP-021/022/026: list CSV exports (both variants), the job path, cancel and the 30-day result. */
@@ -97,6 +100,42 @@ describe("export jobs (EXP-026)", () => {
     expect(await t.mutation(internal.jobs.expireCron, { force: true })).toBe(1);
     const owner = await t.asUser("owner");
     expect(errorCode(await catching(owner.query(api.jobs.resultUrl, { id: jobId })))).toBe("not_found");
+  });
+
+  test("E-EXP-36 EXP-021 a CSV export of more than 5,000 rows runs as a job and notifies; up to 5,000 rows it is returned directly", async () => {
+    const t = makeT();
+    const f = await finalizedInvoice(t);
+    const first = await bookedTransaction(t, f.bankAccount, {
+      bookingDate: "2026-10-01",
+      amountCents: 1000,
+      purpose: "Zahlung",
+    });
+    let seq = 0;
+    const clone = async (n: number) =>
+      t.model(OWNER, async (ctx) => {
+        const row = await ctx.db.get(first);
+        if (!row) throw new Error("missing fixture");
+        const { _id, _creationTime, ...rest } = row;
+        for (let i = 0; i < n; i++) {
+          const k = `clone-${seq++}`;
+          await auditedInsert(
+            ctx,
+            "bankTransactions",
+            { ...rest, amountCents: 1000 + seq, dedupeKey: `${rest.accountId}:er:${k}`, contentHash: k },
+            { action: "bank.import", label: k },
+          );
+        }
+      });
+    await clone(CSV_DIRECT_MAX_ROWS - 1);
+    const direct = await f.owner.mutation(api.exports.csv, { list: "bank_transactions", variant: "technical" });
+    expect(direct).toMatchObject({ kind: "file", rows: CSV_DIRECT_MAX_ROWS });
+    await clone(1);
+    const big = await f.owner.mutation(api.exports.csv, { list: "bank_transactions", variant: "technical" });
+    expect(big).toMatchObject({ kind: "job", rows: CSV_DIRECT_MAX_ROWS + 1 });
+    await settle(t);
+    const [job] = await f.owner.query(api.jobs.list, {});
+    expect(job).toMatchObject({ kind: "csv_export", status: "done", hasResult: true });
+    expect((await f.owner.query(api.notifications.list, { kind: "export.ready" })).length).toBe(1);
   });
 
   test("EXP-026 a job can be cancelled while queued; the worker then stops and keeps no file; others' jobs are protected", async () => {

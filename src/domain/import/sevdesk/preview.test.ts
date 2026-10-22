@@ -99,7 +99,7 @@ describe("F09 IMP-009 import preview over the synthetic export set (TST-IMP-16 d
     );
   });
 
-  test("TST-IMP-18 IMP-019 PDF matching in the preview: ambiguous rows blocked, orphan and missing PDFs listed", () => {
+  test("TST-IMP-18 IMP-019 E-IMP-23 PDF matching in the preview: ambiguous rows blocked, orphan and missing PDFs listed", () => {
     const { plan: p, files } = plan();
     const name = (id?: string) => files.find((f) => f.id === id)?.name;
     expect(name(docOf(p, "RE-1001")?.pdfFileId)).toBe("RE-1001.pdf");

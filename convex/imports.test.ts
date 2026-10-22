@@ -279,7 +279,7 @@ describe("F09 sevdesk export import — upload, preview, commit (Convex)", () =>
     });
   });
 
-  test("TST-IMP-05 EC-014 IMP-005 the confirmed range continues above the imported maximum", async () => {
+  test("TST-IMP-05 EC-014 IMP-005 E-IMP-12 the confirmed range continues above the imported maximum; a next number ≤ an imported one is refused", async () => {
     const { t, owner } = await setup();
     const { importId, second } = await prepared(t, owner);
     const invoice = second.preview.numberRanges.find((r) => r.rangeKey === "invoice");
@@ -367,6 +367,84 @@ describe("F09 sevdesk export import — upload, preview, commit (Convex)", () =>
     const r = await owner.action(api.imports.commit, { importId: again, previewHash: p.previewHash, numberRanges: [] });
     expect(r.counts).toMatchObject({ contactsCreated: 0, productsCreated: 0, documentsCreated: 0 });
     expect(await businessCounts(t)).toEqual(before);
+  });
+
+  test("E-IMP-19 a newer export lists an invoice as paid that is still open here: discrepancy warning, nothing changed", async () => {
+    const { t, owner } = await setup();
+    const { importId, second } = await prepared(t, owner, { assignAll: true });
+    await owner.action(api.imports.commit, {
+      importId,
+      previewHash: second.previewHash,
+      numberRanges: [],
+      missingPdfReason: "x",
+    });
+    const re1007 = (await importedDocs(t)).find((d) => d.number === "RE-1007");
+    expect(re1007?.openAmountCents).toBe(23_800);
+    // the newer export: RE-1007 was paid in sevdesk before the cutover
+    const newer = rechnungen.replace(";Offen;238,00;EUR;", ";Bezahlt;0,00;EUR;");
+    expect(newer).not.toBe(rechnungen);
+    const again = await owner.mutation(api.imports.create, {});
+    await upload(
+      t,
+      owner,
+      again,
+      FILES.map((f) => (f.name === "rechnungen.csv" ? { ...f, content: newer } : f)),
+    );
+    const p = await owner.action(api.imports.preview, { importId: again });
+    expect(p.preview.findings.filter((f) => f.code === "E-IMP-19")).toEqual([
+      expect.objectContaining({
+        severity: "warning",
+        key: "invoice:RE-1007",
+        message: "RE-1007 ist laut neuem sevdesk-Export bezahlt, hier noch offen.",
+      }),
+    ]);
+    expect(p.preview.blocking).toBe(0);
+    // the archived document is never updated by the import; the owner records the payment locally
+    expect((await t.run((ctx) => ctx.db.get(re1007?._id as Id<"salesDocuments">)))?.openAmountCents).toBe(23_800);
+  });
+
+  test("IMP-022 TST-IMP-25 an open-item total differing from the entered sevdesk total must be acknowledged before the commit", async () => {
+    const { t, owner } = await setup();
+    const { importId } = await prepared(t, owner);
+    const view = await owner.query(api.imports.get, { importId });
+    await owner.mutation(api.imports.setResolutions, {
+      importId,
+      resolutions: { ...(view?.resolutions ?? {}), expectedOpenTotalCents: 250_000 },
+    });
+    const p = await owner.action(api.imports.preview, { importId });
+    expect(p.preview.openItemDifference).toEqual({
+      expectedCents: 250_000,
+      importedCents: p.preview.openItems.totalCents,
+      differenceCents: p.preview.openItems.totalCents - 250_000,
+    });
+    expect(p.preview.findings.find((f) => f.code === "IMP-022")?.severity).toBe("warning");
+    const refused = await owner
+      .action(api.imports.commit, { importId, previewHash: p.previewHash, numberRanges: [], missingPdfReason: "x" })
+      .catch((x) => x);
+    expect(reasonOf(refused)).toBe("IMP_022");
+    expect((await importedDocs(t)).length).toBe(0);
+    await owner.action(api.imports.commit, {
+      importId,
+      previewHash: p.previewHash,
+      numberRanges: [],
+      missingPdfReason: "x",
+      openItemDifferenceAcknowledged: true,
+    });
+    const row = await t.run((ctx) => ctx.db.get(importId));
+    expect(row?.status).toBe("done");
+    expect(row?.decisions).toMatchObject({ openItemDifference: { expectedCents: 250_000 } });
+    // negative or fractional totals are refused
+    const other = await owner.mutation(api.imports.create, {});
+    expect(
+      errorCode(
+        await owner
+          .mutation(api.imports.setResolutions, {
+            importId: other,
+            resolutions: { expectedOpenTotalCents: -1 },
+          })
+          .catch((x) => x),
+      ),
+    ).toBe("invalid_input");
   });
 });
 

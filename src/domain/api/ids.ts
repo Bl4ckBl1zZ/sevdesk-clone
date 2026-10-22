@@ -48,6 +48,10 @@ export const ID_PREFIXES = {
   // F11 projects and time entries (05 §3 „IDs“: `prj_`, `tim_`).
   projects: "prj_",
   timeEntries: "tim_",
+  // F09 exports (05 §3 „IDs“: `job_`; `dvx_` DATEV export history and `gdx_` GDPdU packages had no prefix).
+  jobs: "job_",
+  datevExports: "dvx_",
+  gdpduExports: "gdx_",
 } as const;
 
 export type IdTable = keyof typeof ID_PREFIXES;

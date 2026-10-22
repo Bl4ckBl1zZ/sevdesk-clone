@@ -92,6 +92,7 @@ import type * as members from "../members.js";
 import type * as migrations from "../migrations.js";
 import type * as model_accounting from "../model/accounting.js";
 import type * as model_apiKeys from "../model/apiKeys.js";
+import type * as model_archiveReminder from "../model/archiveReminder.js";
 import type * as model_assets from "../model/assets.js";
 import type * as model_audit from "../model/audit.js";
 import type * as model_auditViewer from "../model/auditViewer.js";
@@ -301,6 +302,7 @@ declare const fullApi: ApiFromModules<{
   migrations: typeof migrations;
   "model/accounting": typeof model_accounting;
   "model/apiKeys": typeof model_apiKeys;
+  "model/archiveReminder": typeof model_archiveReminder;
   "model/assets": typeof model_assets;
   "model/audit": typeof model_audit;
   "model/auditViewer": typeof model_auditViewer;

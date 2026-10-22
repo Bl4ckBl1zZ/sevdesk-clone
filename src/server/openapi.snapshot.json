@@ -64,6 +64,9 @@
     },
     {
       "name": "Auswertungen"
+    },
+    {
+      "name": "Exporte"
     }
   ],
   "paths": {
@@ -26054,6 +26057,1955 @@
           }
         }
       }
+    },
+    "/api/v1/reports/euer": {
+      "get": {
+        "operationId": "getEuerReport",
+        "summary": "Anlage EÜR eines Jahres",
+        "description": "Zeilen der Anlage EÜR mit Kennzahlen, Summen, AVEÜR, Hinweisen, Blockern und Abgabestatus (F08 TAX-015) — Werte zum Übertragen in Mein ELSTER. Bilanzierende Unternehmen: 409.\n\nScope: `reports:read`.",
+        "tags": [
+          "Auswertungen"
+        ],
+        "parameters": [
+          {
+            "in": "query",
+            "name": "year",
+            "schema": {
+              "type": "integer",
+              "minimum": 2000,
+              "maximum": 2100,
+              "description": "Kalenderjahr",
+              "example": 2026
+            },
+            "required": true,
+            "description": "Kalenderjahr"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Die Anlage EÜR",
+            "headers": {
+              "RateLimit-Limit": {
+                "required": true,
+                "description": "Bucket-Größe",
+                "schema": {
+                  "type": "string",
+                  "description": "Bucket-Größe"
+                }
+              },
+              "RateLimit-Remaining": {
+                "required": true,
+                "description": "Verbleibende Anfragen",
+                "schema": {
+                  "type": "string",
+                  "description": "Verbleibende Anfragen"
+                }
+              },
+              "RateLimit-Reset": {
+                "required": true,
+                "description": "Sekunden bis zum vollen Bucket",
+                "schema": {
+                  "type": "string",
+                  "description": "Sekunden bis zum vollen Bucket"
+                }
+              },
+              "X-Request-Id": {
+                "required": true,
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EuerReport"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "`unauthorized` – API-Schlüssel fehlt, ist ungültig, abgelaufen oder widerrufen.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "`insufficient_scope` – Der API-Schlüssel hat nicht die nötige Berechtigung.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "`conflict` – Konflikt.; `setup_incomplete` – Die Einrichtung ist noch nicht abgeschlossen.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "`rate_limited` – Zu viele Anfragen – bitte später erneut versuchen.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "`internal_error` – Interner Fehler.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/reports/bwa": {
+      "get": {
+        "operationId": "getBwaReport",
+        "summary": "BWA (Kurzfristige Erfolgsrechnung)",
+        "description": "Monat, kumuliert und Vorjahr je BWA-Zeile (RPT-005), Variante `accrual` (Soll) oder `cash` (Ist), optional je Kostenstelle.\n\nScope: `reports:read`.",
+        "tags": [
+          "Auswertungen"
+        ],
+        "parameters": [
+          {
+            "in": "query",
+            "name": "month",
+            "schema": {
+              "type": "string",
+              "pattern": "^\\d{4}-(0[1-9]|1[0-2])$",
+              "description": "Monat (YYYY-MM)",
+              "example": "2026-09"
+            },
+            "required": true,
+            "description": "Monat (YYYY-MM)"
+          },
+          {
+            "in": "query",
+            "name": "variant",
+            "schema": {
+              "default": "accrual",
+              "description": "accrual (Soll) oder cash (Ist)",
+              "type": "string",
+              "enum": [
+                "accrual",
+                "cash"
+              ]
+            },
+            "description": "accrual (Soll) oder cash (Ist)"
+          },
+          {
+            "in": "query",
+            "name": "cost_center_id",
+            "schema": {
+              "description": "Kostenstelle (cc_…)",
+              "type": "string",
+              "maxLength": 100
+            },
+            "description": "Kostenstelle (cc_…)"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Die BWA",
+            "headers": {
+              "RateLimit-Limit": {
+                "required": true,
+                "description": "Bucket-Größe",
+                "schema": {
+                  "type": "string",
+                  "description": "Bucket-Größe"
+                }
+              },
+              "RateLimit-Remaining": {
+                "required": true,
+                "description": "Verbleibende Anfragen",
+                "schema": {
+                  "type": "string",
+                  "description": "Verbleibende Anfragen"
+                }
+              },
+              "RateLimit-Reset": {
+                "required": true,
+                "description": "Sekunden bis zum vollen Bucket",
+                "schema": {
+                  "type": "string",
+                  "description": "Sekunden bis zum vollen Bucket"
+                }
+              },
+              "X-Request-Id": {
+                "required": true,
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BwaReport"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "`unauthorized` – API-Schlüssel fehlt, ist ungültig, abgelaufen oder widerrufen.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "`insufficient_scope` – Der API-Schlüssel hat nicht die nötige Berechtigung.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "`rate_limited` – Zu viele Anfragen – bitte später erneut versuchen.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "`internal_error` – Interner Fehler.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/reports/susa": {
+      "get": {
+        "operationId": "getSusaReport",
+        "summary": "Summen- und Saldenliste",
+        "description": "EB-Wert, Verkehrszahlen des Zeitraums und kumuliert, Salden je Konto und Klasse (RPT-004).\n\nScope: `reports:read`.",
+        "tags": [
+          "Auswertungen"
+        ],
+        "parameters": [
+          {
+            "in": "query",
+            "name": "from",
+            "schema": {
+              "type": "string",
+              "pattern": "^\\d{4}-\\d{2}-\\d{2}$",
+              "description": "Datum (YYYY-MM-DD)",
+              "example": "2026-10-12"
+            },
+            "required": true,
+            "description": "Datum (YYYY-MM-DD)"
+          },
+          {
+            "in": "query",
+            "name": "to",
+            "schema": {
+              "type": "string",
+              "pattern": "^\\d{4}-\\d{2}-\\d{2}$",
+              "description": "Datum (YYYY-MM-DD)",
+              "example": "2026-10-12"
+            },
+            "required": true,
+            "description": "Datum (YYYY-MM-DD)"
+          },
+          {
+            "in": "query",
+            "name": "account_class",
+            "schema": {
+              "description": "Kontenklasse 0–9",
+              "type": "string",
+              "pattern": "^\\d$"
+            },
+            "description": "Kontenklasse 0–9"
+          },
+          {
+            "in": "query",
+            "name": "include_personal",
+            "schema": {
+              "description": "Personenkonten einzeln (Standard: false)",
+              "type": "string",
+              "enum": [
+                "true",
+                "false"
+              ]
+            },
+            "description": "Personenkonten einzeln (Standard: false)"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Die SuSa",
+            "headers": {
+              "RateLimit-Limit": {
+                "required": true,
+                "description": "Bucket-Größe",
+                "schema": {
+                  "type": "string",
+                  "description": "Bucket-Größe"
+                }
+              },
+              "RateLimit-Remaining": {
+                "required": true,
+                "description": "Verbleibende Anfragen",
+                "schema": {
+                  "type": "string",
+                  "description": "Verbleibende Anfragen"
+                }
+              },
+              "RateLimit-Reset": {
+                "required": true,
+                "description": "Sekunden bis zum vollen Bucket",
+                "schema": {
+                  "type": "string",
+                  "description": "Sekunden bis zum vollen Bucket"
+                }
+              },
+              "X-Request-Id": {
+                "required": true,
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SusaReport"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "`unauthorized` – API-Schlüssel fehlt, ist ungültig, abgelaufen oder widerrufen.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "`insufficient_scope` – Der API-Schlüssel hat nicht die nötige Berechtigung.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "`rate_limited` – Zu viele Anfragen – bitte später erneut versuchen.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "`internal_error` – Interner Fehler.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/reports/ledger": {
+      "get": {
+        "operationId": "getLedgerReport",
+        "summary": "Kontenblatt",
+        "description": "Buchungen eines Kontos mit Gegenkonto und laufendem Saldo (RPT-003).\n\nScope: `reports:read`.",
+        "tags": [
+          "Auswertungen"
+        ],
+        "parameters": [
+          {
+            "in": "query",
+            "name": "account",
+            "schema": {
+              "type": "string",
+              "pattern": "^\\d{4,9}$"
+            },
+            "required": true
+          },
+          {
+            "in": "query",
+            "name": "from",
+            "schema": {
+              "type": "string",
+              "pattern": "^\\d{4}-\\d{2}-\\d{2}$",
+              "description": "Datum (YYYY-MM-DD)",
+              "example": "2026-10-12"
+            },
+            "required": true,
+            "description": "Datum (YYYY-MM-DD)"
+          },
+          {
+            "in": "query",
+            "name": "to",
+            "schema": {
+              "type": "string",
+              "pattern": "^\\d{4}-\\d{2}-\\d{2}$",
+              "description": "Datum (YYYY-MM-DD)",
+              "example": "2026-10-12"
+            },
+            "required": true,
+            "description": "Datum (YYYY-MM-DD)"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Das Kontenblatt",
+            "headers": {
+              "RateLimit-Limit": {
+                "required": true,
+                "description": "Bucket-Größe",
+                "schema": {
+                  "type": "string",
+                  "description": "Bucket-Größe"
+                }
+              },
+              "RateLimit-Remaining": {
+                "required": true,
+                "description": "Verbleibende Anfragen",
+                "schema": {
+                  "type": "string",
+                  "description": "Verbleibende Anfragen"
+                }
+              },
+              "RateLimit-Reset": {
+                "required": true,
+                "description": "Sekunden bis zum vollen Bucket",
+                "schema": {
+                  "type": "string",
+                  "description": "Sekunden bis zum vollen Bucket"
+                }
+              },
+              "X-Request-Id": {
+                "required": true,
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LedgerReport"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "`unauthorized` – API-Schlüssel fehlt, ist ungültig, abgelaufen oder widerrufen.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "`insufficient_scope` – Der API-Schlüssel hat nicht die nötige Berechtigung.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "`rate_limited` – Zu viele Anfragen – bitte später erneut versuchen.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "`internal_error` – Interner Fehler.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/reports/open-items": {
+      "get": {
+        "operationId": "getOpenItemsReport",
+        "summary": "Offene Posten (OPOS) zum Stichtag",
+        "description": "Debitoren oder Kreditoren zum Stichtag mit Fälligkeitsrastern, Guthaben und Abstimmung mit dem Kontosaldo (RPT-006, E-RPT-06).\n\nScope: `reports:read`.",
+        "tags": [
+          "Auswertungen"
+        ],
+        "parameters": [
+          {
+            "in": "query",
+            "name": "side",
+            "schema": {
+              "default": "debtors",
+              "type": "string",
+              "enum": [
+                "debtors",
+                "creditors"
+              ]
+            }
+          },
+          {
+            "in": "query",
+            "name": "as_of",
+            "schema": {
+              "description": "Stichtag (Standard: heute)",
+              "type": "string",
+              "pattern": "^\\d{4}-\\d{2}-\\d{2}$",
+              "example": "2026-10-12"
+            },
+            "description": "Stichtag (Standard: heute)"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Die offenen Posten",
+            "headers": {
+              "RateLimit-Limit": {
+                "required": true,
+                "description": "Bucket-Größe",
+                "schema": {
+                  "type": "string",
+                  "description": "Bucket-Größe"
+                }
+              },
+              "RateLimit-Remaining": {
+                "required": true,
+                "description": "Verbleibende Anfragen",
+                "schema": {
+                  "type": "string",
+                  "description": "Verbleibende Anfragen"
+                }
+              },
+              "RateLimit-Reset": {
+                "required": true,
+                "description": "Sekunden bis zum vollen Bucket",
+                "schema": {
+                  "type": "string",
+                  "description": "Sekunden bis zum vollen Bucket"
+                }
+              },
+              "X-Request-Id": {
+                "required": true,
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OpenItemsReport"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "`unauthorized` – API-Schlüssel fehlt, ist ungültig, abgelaufen oder widerrufen.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "`insufficient_scope` – Der API-Schlüssel hat nicht die nötige Berechtigung.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "`rate_limited` – Zu viele Anfragen – bitte später erneut versuchen.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "`internal_error` – Interner Fehler.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/reports/{form}/{period}/sheet.csv": {
+      "get": {
+        "operationId": "getKennzahlenSheetCsv",
+        "summary": "Kennzahlen-Blatt als CSV",
+        "description": "UStVA/ZM eines Monats oder Quartals bzw. EÜR eines Jahres zum manuellen Übertragen in Mein ELSTER (F09 EXP-020) — Fußzeile mit Erzeugungszeit, Regelversionen, Festschreibungs- und Abgabestatus. JSON `{ file_name, content_type, sha256, content_base64 }`; der Download wird protokolliert.\n\nScope: `reports:read`.",
+        "tags": [
+          "Auswertungen"
+        ],
+        "parameters": [
+          {
+            "in": "path",
+            "name": "form",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "ustva",
+                "zm",
+                "euer"
+              ],
+              "description": "ustva, zm oder euer"
+            },
+            "required": true,
+            "description": "ustva, zm oder euer"
+          },
+          {
+            "in": "path",
+            "name": "period",
+            "schema": {
+              "type": "string",
+              "pattern": "^\\d{4}(-(0[1-9]|1[0-2]|Q[1-4]))?$",
+              "description": "UStVA/ZM: 2026-09 oder 2026-Q3; EÜR: 2026",
+              "example": "2026-09"
+            },
+            "required": true,
+            "description": "UStVA/ZM: 2026-09 oder 2026-Q3; EÜR: 2026"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Die Datei (Base64)",
+            "headers": {
+              "RateLimit-Limit": {
+                "required": true,
+                "description": "Bucket-Größe",
+                "schema": {
+                  "type": "string",
+                  "description": "Bucket-Größe"
+                }
+              },
+              "RateLimit-Remaining": {
+                "required": true,
+                "description": "Verbleibende Anfragen",
+                "schema": {
+                  "type": "string",
+                  "description": "Verbleibende Anfragen"
+                }
+              },
+              "RateLimit-Reset": {
+                "required": true,
+                "description": "Sekunden bis zum vollen Bucket",
+                "schema": {
+                  "type": "string",
+                  "description": "Sekunden bis zum vollen Bucket"
+                }
+              },
+              "X-Request-Id": {
+                "required": true,
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FileDownload"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "`unauthorized` – API-Schlüssel fehlt, ist ungültig, abgelaufen oder widerrufen.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "`insufficient_scope` – Der API-Schlüssel hat nicht die nötige Berechtigung.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "`rate_limited` – Zu viele Anfragen – bitte später erneut versuchen.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "`internal_error` – Interner Fehler.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/reports/{form}/{period}/sheet.pdf": {
+      "get": {
+        "operationId": "getKennzahlenSheetPdf",
+        "summary": "Kennzahlen-Blatt als PDF",
+        "description": "UStVA/ZM eines Monats oder Quartals bzw. EÜR eines Jahres zum manuellen Übertragen in Mein ELSTER (F09 EXP-020) — Fußzeile mit Erzeugungszeit, Regelversionen, Festschreibungs- und Abgabestatus. JSON `{ file_name, content_type, sha256, content_base64 }`; der Download wird protokolliert.\n\nScope: `reports:read`.",
+        "tags": [
+          "Auswertungen"
+        ],
+        "parameters": [
+          {
+            "in": "path",
+            "name": "form",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "ustva",
+                "zm",
+                "euer"
+              ],
+              "description": "ustva, zm oder euer"
+            },
+            "required": true,
+            "description": "ustva, zm oder euer"
+          },
+          {
+            "in": "path",
+            "name": "period",
+            "schema": {
+              "type": "string",
+              "pattern": "^\\d{4}(-(0[1-9]|1[0-2]|Q[1-4]))?$",
+              "description": "UStVA/ZM: 2026-09 oder 2026-Q3; EÜR: 2026",
+              "example": "2026-09"
+            },
+            "required": true,
+            "description": "UStVA/ZM: 2026-09 oder 2026-Q3; EÜR: 2026"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Die Datei (Base64)",
+            "headers": {
+              "RateLimit-Limit": {
+                "required": true,
+                "description": "Bucket-Größe",
+                "schema": {
+                  "type": "string",
+                  "description": "Bucket-Größe"
+                }
+              },
+              "RateLimit-Remaining": {
+                "required": true,
+                "description": "Verbleibende Anfragen",
+                "schema": {
+                  "type": "string",
+                  "description": "Verbleibende Anfragen"
+                }
+              },
+              "RateLimit-Reset": {
+                "required": true,
+                "description": "Sekunden bis zum vollen Bucket",
+                "schema": {
+                  "type": "string",
+                  "description": "Sekunden bis zum vollen Bucket"
+                }
+              },
+              "X-Request-Id": {
+                "required": true,
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FileDownload"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "`unauthorized` – API-Schlüssel fehlt, ist ungültig, abgelaufen oder widerrufen.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "`insufficient_scope` – Der API-Schlüssel hat nicht die nötige Berechtigung.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "`rate_limited` – Zu viele Anfragen – bitte später erneut versuchen.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "`internal_error` – Interner Fehler.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/exports/datev/validate": {
+      "post": {
+        "operationId": "validateDatevExport",
+        "summary": "DATEV-Export prüfen (Trockenlauf)",
+        "description": "Prüfbericht vor dem Export (EXP-007): blockierende Fehler, Warnungen und Hinweise mit den deutschen Meldungen, Dateien, Zeilen, Σ Umsatz und Festschreibung. Schreibt nichts.\n\nScope: `exports:run`.",
+        "tags": [
+          "Exporte"
+        ],
+        "parameters": [
+          {
+            "in": "header",
+            "name": "Idempotency-Key",
+            "schema": {
+              "description": "24 h je Schlüssel; gleicher Body → gleiche Antwort (Idempotent-Replayed: true)",
+              "type": "string"
+            },
+            "description": "24 h je Schlüssel; gleicher Body → gleiche Antwort (Idempotent-Replayed: true)"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "from": {
+                    "type": "string",
+                    "pattern": "^\\d{4}-\\d{2}-\\d{2}$",
+                    "description": "Beginn (Buchungsdatum)",
+                    "example": "2026-10-12"
+                  },
+                  "to": {
+                    "type": "string",
+                    "pattern": "^\\d{4}-\\d{2}-\\d{2}$",
+                    "description": "Ende (Buchungsdatum)",
+                    "example": "2026-10-12"
+                  },
+                  "include": {
+                    "description": "Umfang (EXP-008); Standard: alles",
+                    "minItems": 1,
+                    "type": "array",
+                    "items": {
+                      "type": "string",
+                      "enum": [
+                        "revenue",
+                        "vouchers",
+                        "payments",
+                        "assets",
+                        "manual",
+                        "master_data",
+                        "documents"
+                      ]
+                    }
+                  },
+                  "mode": {
+                    "default": "new",
+                    "description": "new = nur neue Buchungen (Standard), full = vollständig neu (EXP-010)",
+                    "type": "string",
+                    "enum": [
+                      "new",
+                      "full"
+                    ]
+                  },
+                  "lock_period": {
+                    "default": false,
+                    "description": "⚠ Zeitraum vor dem Export festschreiben (EXP-011, unumkehrbar)",
+                    "type": "boolean"
+                  },
+                  "festschreibung": {
+                    "description": "Festschreibungskennzeichen (Standard: automatisch)",
+                    "type": "boolean"
+                  },
+                  "confirm_replace": {
+                    "description": "E-EXP-05: Steuerberater löscht den vorherigen Stapel vor dem Import",
+                    "type": "boolean"
+                  }
+                },
+                "required": [
+                  "from",
+                  "to"
+                ],
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Der Prüfbericht",
+            "headers": {
+              "RateLimit-Limit": {
+                "required": true,
+                "description": "Bucket-Größe",
+                "schema": {
+                  "type": "string",
+                  "description": "Bucket-Größe"
+                }
+              },
+              "RateLimit-Remaining": {
+                "required": true,
+                "description": "Verbleibende Anfragen",
+                "schema": {
+                  "type": "string",
+                  "description": "Verbleibende Anfragen"
+                }
+              },
+              "RateLimit-Reset": {
+                "required": true,
+                "description": "Sekunden bis zum vollen Bucket",
+                "schema": {
+                  "type": "string",
+                  "description": "Sekunden bis zum vollen Bucket"
+                }
+              },
+              "X-Request-Id": {
+                "required": true,
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DatevValidationReport"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "`bad_request` – Ungültige Anfrage.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "`unauthorized` – API-Schlüssel fehlt, ist ungültig, abgelaufen oder widerrufen.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "`insufficient_scope` – Der API-Schlüssel hat nicht die nötige Berechtigung.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "415": {
+            "description": "`unsupported_media_type` – Bitte JSON senden (application/json).",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "`validation_failed` – Die Eingaben sind nicht gültig.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "`rate_limited` – Zu viele Anfragen – bitte später erneut versuchen.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "`internal_error` – Interner Fehler.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/exports/datev": {
+      "post": {
+        "operationId": "startDatevExport",
+        "summary": "DATEV-Export starten",
+        "description": "Prüft den Export (EXP-007) und startet bei fehlerfreiem Bericht den Auftrag `datev_export` → `job_…` (Status über GET /jobs/{id}). Blockierender Bericht: 422 mit `report`. `lock_period: true` schreibt die Monate vorher fest (EXP-011, unumkehrbar). Läuft bereits ein Export für einen überlappenden Zeitraum: 409 (E-EXP-20).\n\nScope: `exports:run`.",
+        "tags": [
+          "Exporte"
+        ],
+        "parameters": [
+          {
+            "in": "header",
+            "name": "Idempotency-Key",
+            "schema": {
+              "description": "24 h je Schlüssel; gleicher Body → gleiche Antwort (Idempotent-Replayed: true)",
+              "type": "string"
+            },
+            "description": "24 h je Schlüssel; gleicher Body → gleiche Antwort (Idempotent-Replayed: true)"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "from": {
+                    "type": "string",
+                    "pattern": "^\\d{4}-\\d{2}-\\d{2}$",
+                    "description": "Beginn (Buchungsdatum)",
+                    "example": "2026-10-12"
+                  },
+                  "to": {
+                    "type": "string",
+                    "pattern": "^\\d{4}-\\d{2}-\\d{2}$",
+                    "description": "Ende (Buchungsdatum)",
+                    "example": "2026-10-12"
+                  },
+                  "include": {
+                    "description": "Umfang (EXP-008); Standard: alles",
+                    "minItems": 1,
+                    "type": "array",
+                    "items": {
+                      "type": "string",
+                      "enum": [
+                        "revenue",
+                        "vouchers",
+                        "payments",
+                        "assets",
+                        "manual",
+                        "master_data",
+                        "documents"
+                      ]
+                    }
+                  },
+                  "mode": {
+                    "default": "new",
+                    "description": "new = nur neue Buchungen (Standard), full = vollständig neu (EXP-010)",
+                    "type": "string",
+                    "enum": [
+                      "new",
+                      "full"
+                    ]
+                  },
+                  "lock_period": {
+                    "default": false,
+                    "description": "⚠ Zeitraum vor dem Export festschreiben (EXP-011, unumkehrbar)",
+                    "type": "boolean"
+                  },
+                  "festschreibung": {
+                    "description": "Festschreibungskennzeichen (Standard: automatisch)",
+                    "type": "boolean"
+                  },
+                  "confirm_replace": {
+                    "description": "E-EXP-05: Steuerberater löscht den vorherigen Stapel vor dem Import",
+                    "type": "boolean"
+                  }
+                },
+                "required": [
+                  "from",
+                  "to"
+                ],
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        "responses": {
+          "202": {
+            "description": "Auftrag gestartet",
+            "headers": {
+              "RateLimit-Limit": {
+                "required": true,
+                "description": "Bucket-Größe",
+                "schema": {
+                  "type": "string",
+                  "description": "Bucket-Größe"
+                }
+              },
+              "RateLimit-Remaining": {
+                "required": true,
+                "description": "Verbleibende Anfragen",
+                "schema": {
+                  "type": "string",
+                  "description": "Verbleibende Anfragen"
+                }
+              },
+              "RateLimit-Reset": {
+                "required": true,
+                "description": "Sekunden bis zum vollen Bucket",
+                "schema": {
+                  "type": "string",
+                  "description": "Sekunden bis zum vollen Bucket"
+                }
+              },
+              "X-Request-Id": {
+                "required": true,
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/JobStarted"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "`bad_request` – Ungültige Anfrage.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "`unauthorized` – API-Schlüssel fehlt, ist ungültig, abgelaufen oder widerrufen.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "`insufficient_scope` – Der API-Schlüssel hat nicht die nötige Berechtigung.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "`conflict` – Konflikt.; `period_locked` – Der Zeitraum ist festgeschrieben.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "415": {
+            "description": "`unsupported_media_type` – Bitte JSON senden (application/json).",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "`validation_failed` – Die Eingaben sind nicht gültig.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "`rate_limited` – Zu viele Anfragen – bitte später erneut versuchen.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "`internal_error` – Interner Fehler.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      },
+      "get": {
+        "operationId": "listDatevExports",
+        "summary": "DATEV-Exporthistorie",
+        "description": "Alle DATEV-Exporte (neueste zuerst, höchstens 200): Zeitraum, Umfang, Modus, Festschreibung, Zeilen, Σ Umsatz, SHA-256 (EXP-009).\n\nScope: `exports:run`.",
+        "tags": [
+          "Exporte"
+        ],
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "Die Historie",
+            "headers": {
+              "RateLimit-Limit": {
+                "required": true,
+                "description": "Bucket-Größe",
+                "schema": {
+                  "type": "string",
+                  "description": "Bucket-Größe"
+                }
+              },
+              "RateLimit-Remaining": {
+                "required": true,
+                "description": "Verbleibende Anfragen",
+                "schema": {
+                  "type": "string",
+                  "description": "Verbleibende Anfragen"
+                }
+              },
+              "RateLimit-Reset": {
+                "required": true,
+                "description": "Sekunden bis zum vollen Bucket",
+                "schema": {
+                  "type": "string",
+                  "description": "Sekunden bis zum vollen Bucket"
+                }
+              },
+              "X-Request-Id": {
+                "required": true,
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DatevExportList"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "`unauthorized` – API-Schlüssel fehlt, ist ungültig, abgelaufen oder widerrufen.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "`insufficient_scope` – Der API-Schlüssel hat nicht die nötige Berechtigung.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "`rate_limited` – Zu viele Anfragen – bitte später erneut versuchen.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "`internal_error` – Interner Fehler.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/exports/datev/{id}/file": {
+      "get": {
+        "operationId": "getDatevExportFile",
+        "summary": "Gespeicherte DATEV-ZIP herunterladen",
+        "description": "Link auf die unverändert gespeicherte ZIP (nie neu erzeugt, EXP-009); protokolliert. Bis die Steuerberater-Abnahme erfasst ist, nur mit `test_confirmed=true` (EXP-016, E-EXP-18) — sonst 422 `datev_test_confirmation_required`.\n\nScope: `exports:run`.",
+        "tags": [
+          "Exporte"
+        ],
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "schema": {
+              "type": "string",
+              "pattern": "^dvx_[0-9a-zA-Z]{16,64}$",
+              "description": "ID (dvx_…)",
+              "example": "dvx_k57f3x2m9q8w1e4r6t"
+            },
+            "required": true,
+            "description": "ID (dvx_…)"
+          },
+          {
+            "in": "query",
+            "name": "test_confirmed",
+            "schema": {
+              "description": "„Testexport – mir ist bekannt, dass der DATEV-Import noch nicht geprüft wurde“ (EXP-016; nötig bis zur Steuerberater-Abnahme)",
+              "type": "string",
+              "enum": [
+                "true",
+                "false"
+              ]
+            },
+            "description": "„Testexport – mir ist bekannt, dass der DATEV-Import noch nicht geprüft wurde“ (EXP-016; nötig bis zur Steuerberater-Abnahme)"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Der Link",
+            "headers": {
+              "RateLimit-Limit": {
+                "required": true,
+                "description": "Bucket-Größe",
+                "schema": {
+                  "type": "string",
+                  "description": "Bucket-Größe"
+                }
+              },
+              "RateLimit-Remaining": {
+                "required": true,
+                "description": "Verbleibende Anfragen",
+                "schema": {
+                  "type": "string",
+                  "description": "Verbleibende Anfragen"
+                }
+              },
+              "RateLimit-Reset": {
+                "required": true,
+                "description": "Sekunden bis zum vollen Bucket",
+                "schema": {
+                  "type": "string",
+                  "description": "Sekunden bis zum vollen Bucket"
+                }
+              },
+              "X-Request-Id": {
+                "required": true,
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DownloadLink"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "`unauthorized` – API-Schlüssel fehlt, ist ungültig, abgelaufen oder widerrufen.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "`insufficient_scope` – Der API-Schlüssel hat nicht die nötige Berechtigung.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "`rate_limited` – Zu viele Anfragen – bitte später erneut versuchen.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "`internal_error` – Interner Fehler.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/exports/gdpdu": {
+      "post": {
+        "operationId": "startGdpduExport",
+        "summary": "GDPdU-/Z3-Export eines Wirtschaftsjahres starten",
+        "description": "Auftrag `gdpdu_export` (EXP-017/018): CSV-Tabellen, `index.xml` (gegen die DTD geprüft), optional Belegdateien, README. Ergebnis über GET /jobs/{id}.\n\nScope: `exports:run`.",
+        "tags": [
+          "Exporte"
+        ],
+        "parameters": [
+          {
+            "in": "header",
+            "name": "Idempotency-Key",
+            "schema": {
+              "description": "24 h je Schlüssel; gleicher Body → gleiche Antwort (Idempotent-Replayed: true)",
+              "type": "string"
+            },
+            "description": "24 h je Schlüssel; gleicher Body → gleiche Antwort (Idempotent-Replayed: true)"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "year": {
+                    "type": "integer",
+                    "minimum": 2000,
+                    "maximum": 2100
+                  },
+                  "include_files": {
+                    "default": true,
+                    "description": "Belegdateien im Ordner belege/ (Standard: ja)",
+                    "type": "boolean"
+                  },
+                  "encoding": {
+                    "default": "utf8",
+                    "description": "UTF-8 (Standard) oder ANSI",
+                    "type": "string",
+                    "enum": [
+                      "utf8",
+                      "ansi"
+                    ]
+                  }
+                },
+                "required": [
+                  "year"
+                ],
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        "responses": {
+          "202": {
+            "description": "Auftrag gestartet",
+            "headers": {
+              "RateLimit-Limit": {
+                "required": true,
+                "description": "Bucket-Größe",
+                "schema": {
+                  "type": "string",
+                  "description": "Bucket-Größe"
+                }
+              },
+              "RateLimit-Remaining": {
+                "required": true,
+                "description": "Verbleibende Anfragen",
+                "schema": {
+                  "type": "string",
+                  "description": "Verbleibende Anfragen"
+                }
+              },
+              "RateLimit-Reset": {
+                "required": true,
+                "description": "Sekunden bis zum vollen Bucket",
+                "schema": {
+                  "type": "string",
+                  "description": "Sekunden bis zum vollen Bucket"
+                }
+              },
+              "X-Request-Id": {
+                "required": true,
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/JobStarted"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "`bad_request` – Ungültige Anfrage.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "`unauthorized` – API-Schlüssel fehlt, ist ungültig, abgelaufen oder widerrufen.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "`insufficient_scope` – Der API-Schlüssel hat nicht die nötige Berechtigung.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "415": {
+            "description": "`unsupported_media_type` – Bitte JSON senden (application/json).",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "`validation_failed` – Die Eingaben sind nicht gültig.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "`rate_limited` – Zu viele Anfragen – bitte später erneut versuchen.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "`internal_error` – Interner Fehler.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/exports/full": {
+      "post": {
+        "operationId": "startFullExport",
+        "summary": "Vollexport starten",
+        "description": "Auftrag `full_export` (EXP-023): alle Tabellen (NDJSON), alle Dateien, Manifest mit Prüfketten-Kopf, README. Nur Inhaber-Schlüssel mit `exports:run`. Die Bücher müssen in der EU aufbewahrt werden (§ 146 Abs. 2 AO, E-EXP-42). Die Verschlüsselung mit einem age-Schlüssel ist noch nicht verfügbar (501).\n\nScope: `exports:run`.",
+        "tags": [
+          "Exporte"
+        ],
+        "parameters": [
+          {
+            "in": "header",
+            "name": "Idempotency-Key",
+            "schema": {
+              "description": "24 h je Schlüssel; gleicher Body → gleiche Antwort (Idempotent-Replayed: true)",
+              "type": "string"
+            },
+            "description": "24 h je Schlüssel; gleicher Body → gleiche Antwort (Idempotent-Replayed: true)"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "encrypt_to_age_recipient": {
+                    "description": "age-Empfängerschlüssel (noch nicht unterstützt → 501)",
+                    "type": "string",
+                    "maxLength": 200
+                  }
+                },
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        "responses": {
+          "202": {
+            "description": "Auftrag gestartet",
+            "headers": {
+              "RateLimit-Limit": {
+                "required": true,
+                "description": "Bucket-Größe",
+                "schema": {
+                  "type": "string",
+                  "description": "Bucket-Größe"
+                }
+              },
+              "RateLimit-Remaining": {
+                "required": true,
+                "description": "Verbleibende Anfragen",
+                "schema": {
+                  "type": "string",
+                  "description": "Verbleibende Anfragen"
+                }
+              },
+              "RateLimit-Reset": {
+                "required": true,
+                "description": "Sekunden bis zum vollen Bucket",
+                "schema": {
+                  "type": "string",
+                  "description": "Sekunden bis zum vollen Bucket"
+                }
+              },
+              "X-Request-Id": {
+                "required": true,
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/JobStarted"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "`bad_request` – Ungültige Anfrage.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "`unauthorized` – API-Schlüssel fehlt, ist ungültig, abgelaufen oder widerrufen.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "`insufficient_scope` – Der API-Schlüssel hat nicht die nötige Berechtigung.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "415": {
+            "description": "`unsupported_media_type` – Bitte JSON senden (application/json).",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "`validation_failed` – Die Eingaben sind nicht gültig.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "`rate_limited` – Zu viele Anfragen – bitte später erneut versuchen.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "`internal_error` – Interner Fehler.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "501": {
+            "description": "`not_implemented` – Diese Funktion ist in dieser Version noch nicht verfügbar.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/jobs/{id}": {
+      "get": {
+        "operationId": "getJob",
+        "summary": "Hintergrundauftrag",
+        "description": "Status, Fortschritt und — solange gespeichert (30 Tage, EXP-026) — der Download-Link eines eigenen Auftrags. Jeder Scope der Auftragsart genügt (`exports:run` oder ein Lese-Scope).\n\nJeder gültige Schlüssel.",
+        "tags": [
+          "Exporte"
+        ],
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "schema": {
+              "type": "string",
+              "pattern": "^job_[0-9a-zA-Z]{16,64}$",
+              "description": "ID (job_…)",
+              "example": "job_k57f3x2m9q8w1e4r6t"
+            },
+            "required": true,
+            "description": "ID (job_…)"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Der Auftrag",
+            "headers": {
+              "RateLimit-Limit": {
+                "required": true,
+                "description": "Bucket-Größe",
+                "schema": {
+                  "type": "string",
+                  "description": "Bucket-Größe"
+                }
+              },
+              "RateLimit-Remaining": {
+                "required": true,
+                "description": "Verbleibende Anfragen",
+                "schema": {
+                  "type": "string",
+                  "description": "Verbleibende Anfragen"
+                }
+              },
+              "RateLimit-Reset": {
+                "required": true,
+                "description": "Sekunden bis zum vollen Bucket",
+                "schema": {
+                  "type": "string",
+                  "description": "Sekunden bis zum vollen Bucket"
+                }
+              },
+              "X-Request-Id": {
+                "required": true,
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Job"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "`unauthorized` – API-Schlüssel fehlt, ist ungültig, abgelaufen oder widerrufen.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "`rate_limited` – Zu viele Anfragen – bitte später erneut versuchen.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "`internal_error` – Interner Fehler.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
     }
   },
   "components": {
@@ -36728,6 +38680,1553 @@
           "months_left",
           "assumptions",
           "inputs"
+        ],
+        "additionalProperties": false
+      },
+      "EuerReport": {
+        "type": "object",
+        "properties": {
+          "year": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          },
+          "currency": {
+            "type": "string",
+            "const": "EUR"
+          },
+          "kleinunternehmer": {
+            "type": "boolean"
+          },
+          "form_name": {
+            "type": "string"
+          },
+          "mapping_version": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "verified": {
+            "type": "boolean",
+            "description": "Zeilenzuordnung gegen den amtlichen Vordruck geprüft"
+          },
+          "lines": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "zeile": {
+                  "type": "integer",
+                  "minimum": -9007199254740991,
+                  "maximum": 9007199254740991
+                },
+                "kz": {
+                  "type": "string"
+                },
+                "label": {
+                  "type": "string"
+                },
+                "section": {
+                  "type": "string"
+                },
+                "column": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "value_cents": {
+                  "type": "integer",
+                  "minimum": -9007199254740991,
+                  "maximum": 9007199254740991
+                },
+                "drill_down": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "seq": {
+                        "type": "integer",
+                        "minimum": -9007199254740991,
+                        "maximum": 9007199254740991
+                      },
+                      "date": {
+                        "type": "string"
+                      },
+                      "cents": {
+                        "type": "integer",
+                        "minimum": -9007199254740991,
+                        "maximum": 9007199254740991
+                      },
+                      "text": {
+                        "type": "string"
+                      }
+                    },
+                    "required": [
+                      "seq",
+                      "date",
+                      "cents",
+                      "text"
+                    ],
+                    "additionalProperties": false
+                  }
+                }
+              },
+              "required": [
+                "zeile",
+                "kz",
+                "label",
+                "section",
+                "column",
+                "value_cents",
+                "drill_down"
+              ],
+              "additionalProperties": false
+            }
+          },
+          "sums": {
+            "type": "object",
+            "properties": {
+              "einnahmen_cents": {
+                "type": "integer",
+                "minimum": -9007199254740991,
+                "maximum": 9007199254740991
+              },
+              "ausgaben_cents": {
+                "type": "integer",
+                "minimum": -9007199254740991,
+                "maximum": 9007199254740991
+              },
+              "gewinn_cents": {
+                "type": "integer",
+                "minimum": -9007199254740991,
+                "maximum": 9007199254740991
+              },
+              "nicht_abziehbar_cents": {
+                "type": "integer",
+                "minimum": -9007199254740991,
+                "maximum": 9007199254740991
+              },
+              "entnahmen_cents": {
+                "type": "integer",
+                "minimum": -9007199254740991,
+                "maximum": 9007199254740991
+              },
+              "einlagen_cents": {
+                "type": "integer",
+                "minimum": -9007199254740991,
+                "maximum": 9007199254740991
+              }
+            },
+            "required": [
+              "einnahmen_cents",
+              "ausgaben_cents",
+              "gewinn_cents",
+              "nicht_abziehbar_cents",
+              "entnahmen_cents",
+              "einlagen_cents"
+            ],
+            "additionalProperties": false
+          },
+          "values": {
+            "type": "object",
+            "propertyNames": {
+              "type": "string"
+            },
+            "additionalProperties": {
+              "type": "integer",
+              "minimum": -9007199254740991,
+              "maximum": 9007199254740991
+            },
+            "description": "Kennzahl → Cent (Werte für Mein ELSTER)"
+          },
+          "unmapped": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "key": {
+                  "type": "string"
+                },
+                "cents": {
+                  "type": "integer",
+                  "minimum": -9007199254740991,
+                  "maximum": 9007199254740991
+                }
+              },
+              "required": [
+                "key",
+                "cents"
+              ],
+              "additionalProperties": false
+            }
+          },
+          "aveuer": {
+            "anyOf": [
+              {
+                "type": "object",
+                "properties": {
+                  "groups": {
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "properties": {
+                        "key": {
+                          "type": "string"
+                        },
+                        "title": {
+                          "type": "string"
+                        },
+                        "fields": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "properties": {
+                              "zeile": {
+                                "type": "integer",
+                                "minimum": -9007199254740991,
+                                "maximum": 9007199254740991
+                              },
+                              "kz": {
+                                "type": "string"
+                              },
+                              "label": {
+                                "type": "string"
+                              },
+                              "value_cents": {
+                                "type": "number"
+                              }
+                            },
+                            "required": [
+                              "zeile",
+                              "kz",
+                              "label",
+                              "value_cents"
+                            ],
+                            "additionalProperties": false
+                          }
+                        }
+                      },
+                      "required": [
+                        "key",
+                        "title",
+                        "fields"
+                      ],
+                      "additionalProperties": false
+                    }
+                  },
+                  "fields": {
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "properties": {
+                        "zeile": {
+                          "type": "integer",
+                          "minimum": -9007199254740991,
+                          "maximum": 9007199254740991
+                        },
+                        "kz": {
+                          "type": "string"
+                        },
+                        "label": {
+                          "type": "string"
+                        },
+                        "value_cents": {
+                          "type": "number"
+                        }
+                      },
+                      "required": [
+                        "zeile",
+                        "kz",
+                        "label",
+                        "value_cents"
+                      ],
+                      "additionalProperties": false
+                    }
+                  }
+                },
+                "required": [
+                  "groups",
+                  "fields"
+                ],
+                "additionalProperties": false
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "notices": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "blockers": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "filing": {
+            "anyOf": [
+              {
+                "type": "object",
+                "properties": {
+                  "submitted_on": {
+                    "type": [
+                      "string",
+                      "null"
+                    ]
+                  },
+                  "transmission_ticket": {
+                    "type": [
+                      "string",
+                      "null"
+                    ]
+                  },
+                  "submitted_values_differ": {
+                    "type": "boolean"
+                  }
+                },
+                "required": [
+                  "submitted_on",
+                  "transmission_ticket",
+                  "submitted_values_differ"
+                ],
+                "additionalProperties": false
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "status": {
+            "type": "object",
+            "properties": {
+              "locked_months": {
+                "type": "integer",
+                "minimum": -9007199254740991,
+                "maximum": 9007199254740991
+              },
+              "provisional": {
+                "type": "boolean"
+              }
+            },
+            "required": [
+              "locked_months",
+              "provisional"
+            ],
+            "additionalProperties": false
+          },
+          "rule_versions": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "generated_at": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "year",
+          "currency",
+          "kleinunternehmer",
+          "form_name",
+          "mapping_version",
+          "verified",
+          "lines",
+          "sums",
+          "values",
+          "unmapped",
+          "aveuer",
+          "notices",
+          "blockers",
+          "filing",
+          "status",
+          "rule_versions",
+          "generated_at"
+        ],
+        "additionalProperties": false
+      },
+      "BwaReport": {
+        "type": "object",
+        "properties": {
+          "meta": {
+            "$ref": "#/components/schemas/ReportMeta"
+          },
+          "currency": {
+            "type": "string",
+            "const": "EUR"
+          },
+          "month": {
+            "type": "string"
+          },
+          "variant": {
+            "type": "string",
+            "enum": [
+              "accrual",
+              "cash"
+            ]
+          },
+          "ytd_from": {
+            "type": "string"
+          },
+          "rows": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "key": {
+                  "type": "string"
+                },
+                "label": {
+                  "type": "string"
+                },
+                "sum": {
+                  "type": "boolean"
+                },
+                "month_cents": {
+                  "type": "integer",
+                  "minimum": -9007199254740991,
+                  "maximum": 9007199254740991
+                },
+                "ytd_cents": {
+                  "type": "integer",
+                  "minimum": -9007199254740991,
+                  "maximum": 9007199254740991
+                },
+                "prior_ytd_cents": {
+                  "type": "integer",
+                  "minimum": -9007199254740991,
+                  "maximum": 9007199254740991
+                },
+                "ytd_share_bp": {
+                  "anyOf": [
+                    {
+                      "type": "integer",
+                      "minimum": -9007199254740991,
+                      "maximum": 9007199254740991
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ],
+                  "description": "Anteil an der Gesamtleistung (Basispunkte)"
+                }
+              },
+              "required": [
+                "key",
+                "label",
+                "sum",
+                "month_cents",
+                "ytd_cents",
+                "prior_ytd_cents",
+                "ytd_share_bp"
+              ],
+              "additionalProperties": false
+            }
+          }
+        },
+        "required": [
+          "meta",
+          "currency",
+          "month",
+          "variant",
+          "ytd_from",
+          "rows"
+        ],
+        "additionalProperties": false
+      },
+      "ReportMeta": {
+        "type": "object",
+        "properties": {
+          "report": {
+            "type": "string"
+          },
+          "params": {
+            "type": "object",
+            "propertyNames": {
+              "type": "string"
+            },
+            "additionalProperties": {
+              "type": [
+                "string",
+                "number",
+                "boolean",
+                "null"
+              ]
+            }
+          },
+          "generated_at": {
+            "type": "string",
+            "description": "Erzeugt am (RFC 3339)"
+          },
+          "rule_versions": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "months": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "locked_months": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "provisional": {
+            "type": "boolean",
+            "description": "„vorläufig“: nicht alle Monate festgeschrieben"
+          },
+          "notice": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "report",
+          "params",
+          "generated_at",
+          "rule_versions",
+          "months",
+          "locked_months",
+          "provisional",
+          "notice"
+        ],
+        "additionalProperties": false
+      },
+      "SusaReport": {
+        "type": "object",
+        "properties": {
+          "meta": {
+            "$ref": "#/components/schemas/ReportMeta"
+          },
+          "currency": {
+            "type": "string",
+            "const": "EUR"
+          },
+          "from": {
+            "type": "string"
+          },
+          "to": {
+            "type": "string"
+          },
+          "fiscal_year_start": {
+            "type": "string"
+          },
+          "balanced": {
+            "type": "boolean",
+            "description": "Σ Soll = Σ Haben"
+          },
+          "rows": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "account": {
+                  "type": "string"
+                },
+                "name": {
+                  "type": "string"
+                },
+                "account_class": {
+                  "type": "string"
+                },
+                "opening_cents": {
+                  "type": "integer",
+                  "minimum": -9007199254740991,
+                  "maximum": 9007199254740991,
+                  "description": "EB-Wert"
+                },
+                "period_debit_cents": {
+                  "type": "integer",
+                  "minimum": -9007199254740991,
+                  "maximum": 9007199254740991,
+                  "description": "Soll im Zeitraum"
+                },
+                "period_credit_cents": {
+                  "type": "integer",
+                  "minimum": -9007199254740991,
+                  "maximum": 9007199254740991,
+                  "description": "Haben im Zeitraum"
+                },
+                "ytd_debit_cents": {
+                  "type": "integer",
+                  "minimum": -9007199254740991,
+                  "maximum": 9007199254740991,
+                  "description": "Soll kumuliert (Wirtschaftsjahr)"
+                },
+                "ytd_credit_cents": {
+                  "type": "integer",
+                  "minimum": -9007199254740991,
+                  "maximum": 9007199254740991,
+                  "description": "Haben kumuliert (Wirtschaftsjahr)"
+                },
+                "balance_cents": {
+                  "type": "integer",
+                  "minimum": -9007199254740991,
+                  "maximum": 9007199254740991,
+                  "description": "Saldo (positiv = Soll)"
+                }
+              },
+              "required": [
+                "account",
+                "name",
+                "account_class",
+                "opening_cents",
+                "period_debit_cents",
+                "period_credit_cents",
+                "ytd_debit_cents",
+                "ytd_credit_cents",
+                "balance_cents"
+              ],
+              "additionalProperties": false
+            }
+          },
+          "classes": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "account_class": {
+                  "type": "string"
+                },
+                "opening_cents": {
+                  "type": "integer",
+                  "minimum": -9007199254740991,
+                  "maximum": 9007199254740991,
+                  "description": "EB-Wert"
+                },
+                "period_debit_cents": {
+                  "type": "integer",
+                  "minimum": -9007199254740991,
+                  "maximum": 9007199254740991,
+                  "description": "Soll im Zeitraum"
+                },
+                "period_credit_cents": {
+                  "type": "integer",
+                  "minimum": -9007199254740991,
+                  "maximum": 9007199254740991,
+                  "description": "Haben im Zeitraum"
+                },
+                "ytd_debit_cents": {
+                  "type": "integer",
+                  "minimum": -9007199254740991,
+                  "maximum": 9007199254740991,
+                  "description": "Soll kumuliert (Wirtschaftsjahr)"
+                },
+                "ytd_credit_cents": {
+                  "type": "integer",
+                  "minimum": -9007199254740991,
+                  "maximum": 9007199254740991,
+                  "description": "Haben kumuliert (Wirtschaftsjahr)"
+                },
+                "balance_cents": {
+                  "type": "integer",
+                  "minimum": -9007199254740991,
+                  "maximum": 9007199254740991,
+                  "description": "Saldo (positiv = Soll)"
+                }
+              },
+              "required": [
+                "account_class",
+                "opening_cents",
+                "period_debit_cents",
+                "period_credit_cents",
+                "ytd_debit_cents",
+                "ytd_credit_cents",
+                "balance_cents"
+              ],
+              "additionalProperties": false
+            }
+          },
+          "totals": {
+            "type": "object",
+            "properties": {
+              "opening_cents": {
+                "type": "integer",
+                "minimum": -9007199254740991,
+                "maximum": 9007199254740991,
+                "description": "EB-Wert"
+              },
+              "period_debit_cents": {
+                "type": "integer",
+                "minimum": -9007199254740991,
+                "maximum": 9007199254740991,
+                "description": "Soll im Zeitraum"
+              },
+              "period_credit_cents": {
+                "type": "integer",
+                "minimum": -9007199254740991,
+                "maximum": 9007199254740991,
+                "description": "Haben im Zeitraum"
+              },
+              "ytd_debit_cents": {
+                "type": "integer",
+                "minimum": -9007199254740991,
+                "maximum": 9007199254740991,
+                "description": "Soll kumuliert (Wirtschaftsjahr)"
+              },
+              "ytd_credit_cents": {
+                "type": "integer",
+                "minimum": -9007199254740991,
+                "maximum": 9007199254740991,
+                "description": "Haben kumuliert (Wirtschaftsjahr)"
+              },
+              "balance_cents": {
+                "type": "integer",
+                "minimum": -9007199254740991,
+                "maximum": 9007199254740991,
+                "description": "Saldo (positiv = Soll)"
+              }
+            },
+            "required": [
+              "opening_cents",
+              "period_debit_cents",
+              "period_credit_cents",
+              "ytd_debit_cents",
+              "ytd_credit_cents",
+              "balance_cents"
+            ],
+            "additionalProperties": false
+          }
+        },
+        "required": [
+          "meta",
+          "currency",
+          "from",
+          "to",
+          "fiscal_year_start",
+          "balanced",
+          "rows",
+          "classes",
+          "totals"
+        ],
+        "additionalProperties": false
+      },
+      "LedgerReport": {
+        "type": "object",
+        "properties": {
+          "meta": {
+            "$ref": "#/components/schemas/ReportMeta"
+          },
+          "currency": {
+            "type": "string",
+            "const": "EUR"
+          },
+          "account": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "from": {
+            "type": "string"
+          },
+          "to": {
+            "type": "string"
+          },
+          "opening_cents": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991,
+            "description": "Anfangssaldo"
+          },
+          "debit_cents": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991,
+            "description": "Soll im Zeitraum"
+          },
+          "credit_cents": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991,
+            "description": "Haben im Zeitraum"
+          },
+          "closing_cents": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991,
+            "description": "Endsaldo"
+          },
+          "rows": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "seq": {
+                  "type": "integer",
+                  "minimum": -9007199254740991,
+                  "maximum": 9007199254740991
+                },
+                "date": {
+                  "type": "string"
+                },
+                "belegfeld1": {
+                  "type": "string"
+                },
+                "text": {
+                  "type": "string"
+                },
+                "contra": {
+                  "type": "string"
+                },
+                "debit_cents": {
+                  "type": "integer",
+                  "minimum": -9007199254740991,
+                  "maximum": 9007199254740991
+                },
+                "credit_cents": {
+                  "type": "integer",
+                  "minimum": -9007199254740991,
+                  "maximum": 9007199254740991
+                },
+                "balance_cents": {
+                  "type": "integer",
+                  "minimum": -9007199254740991,
+                  "maximum": 9007199254740991
+                },
+                "source_kind": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "seq",
+                "date",
+                "belegfeld1",
+                "text",
+                "contra",
+                "debit_cents",
+                "credit_cents",
+                "balance_cents",
+                "source_kind"
+              ],
+              "additionalProperties": false
+            }
+          }
+        },
+        "required": [
+          "meta",
+          "currency",
+          "account",
+          "name",
+          "from",
+          "to",
+          "opening_cents",
+          "debit_cents",
+          "credit_cents",
+          "closing_cents",
+          "rows"
+        ],
+        "additionalProperties": false
+      },
+      "OpenItemsReport": {
+        "type": "object",
+        "properties": {
+          "meta": {
+            "$ref": "#/components/schemas/ReportMeta"
+          },
+          "side": {
+            "type": "string",
+            "enum": [
+              "debtors",
+              "creditors"
+            ]
+          },
+          "as_of": {
+            "type": "string"
+          },
+          "items": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "id": {
+                  "type": "string",
+                  "description": "inv_ / cor_ / opi_ (Debitoren) oder vou_ (Kreditoren)"
+                },
+                "number": {
+                  "type": "string"
+                },
+                "contact_id": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "contact_name": {
+                  "type": "string"
+                },
+                "document_date": {
+                  "type": "string"
+                },
+                "due_date": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "currency": {
+                  "type": "string"
+                },
+                "payable_cents": {
+                  "type": "integer",
+                  "minimum": -9007199254740991,
+                  "maximum": 9007199254740991
+                },
+                "credited_cents": {
+                  "type": "integer",
+                  "minimum": -9007199254740991,
+                  "maximum": 9007199254740991
+                },
+                "paid_cents": {
+                  "type": "integer",
+                  "minimum": -9007199254740991,
+                  "maximum": 9007199254740991
+                },
+                "open_cents": {
+                  "type": "integer",
+                  "minimum": -9007199254740991,
+                  "maximum": 9007199254740991
+                },
+                "days_overdue": {
+                  "type": "integer",
+                  "minimum": -9007199254740991,
+                  "maximum": 9007199254740991
+                },
+                "overdue": {
+                  "type": "boolean"
+                },
+                "bucket": {
+                  "type": "string"
+                },
+                "dunning_level": {
+                  "anyOf": [
+                    {
+                      "type": "integer",
+                      "minimum": -9007199254740991,
+                      "maximum": 9007199254740991
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                }
+              },
+              "required": [
+                "id",
+                "number",
+                "contact_id",
+                "contact_name",
+                "document_date",
+                "due_date",
+                "currency",
+                "payable_cents",
+                "credited_cents",
+                "paid_cents",
+                "open_cents",
+                "days_overdue",
+                "overdue",
+                "bucket",
+                "dunning_level"
+              ],
+              "additionalProperties": false
+            }
+          },
+          "credits": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "contact_id": {
+                  "type": "string"
+                },
+                "contact_name": {
+                  "type": "string"
+                },
+                "balance_cents": {
+                  "type": "integer",
+                  "minimum": -9007199254740991,
+                  "maximum": 9007199254740991
+                }
+              },
+              "required": [
+                "contact_id",
+                "contact_name",
+                "balance_cents"
+              ],
+              "additionalProperties": false
+            }
+          },
+          "totals": {
+            "type": "object",
+            "properties": {
+              "open_cents": {
+                "type": "integer",
+                "minimum": -9007199254740991,
+                "maximum": 9007199254740991
+              },
+              "overdue_cents": {
+                "type": "integer",
+                "minimum": -9007199254740991,
+                "maximum": 9007199254740991
+              },
+              "due_within_7_cents": {
+                "type": "integer",
+                "minimum": -9007199254740991,
+                "maximum": 9007199254740991
+              },
+              "credit_cents": {
+                "type": "integer",
+                "minimum": -9007199254740991,
+                "maximum": 9007199254740991
+              },
+              "buckets": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "key": {
+                      "type": "string"
+                    },
+                    "label": {
+                      "type": "string"
+                    },
+                    "open_cents": {
+                      "type": "integer",
+                      "minimum": -9007199254740991,
+                      "maximum": 9007199254740991
+                    },
+                    "count": {
+                      "type": "integer",
+                      "minimum": -9007199254740991,
+                      "maximum": 9007199254740991
+                    }
+                  },
+                  "required": [
+                    "key",
+                    "label",
+                    "open_cents",
+                    "count"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            },
+            "required": [
+              "open_cents",
+              "overdue_cents",
+              "due_within_7_cents",
+              "credit_cents",
+              "buckets"
+            ],
+            "additionalProperties": false
+          },
+          "reconciliation": {
+            "type": "object",
+            "properties": {
+              "account_balance_cents": {
+                "type": "integer",
+                "minimum": -9007199254740991,
+                "maximum": 9007199254740991
+              },
+              "open_items_cents": {
+                "type": "integer",
+                "minimum": -9007199254740991,
+                "maximum": 9007199254740991
+              },
+              "difference_cents": {
+                "type": "integer",
+                "minimum": -9007199254740991,
+                "maximum": 9007199254740991
+              },
+              "message": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "causes": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "seq": {
+                      "type": "integer",
+                      "minimum": -9007199254740991,
+                      "maximum": 9007199254740991
+                    },
+                    "date": {
+                      "type": "string"
+                    },
+                    "text": {
+                      "type": "string"
+                    },
+                    "cents": {
+                      "type": "integer",
+                      "minimum": -9007199254740991,
+                      "maximum": 9007199254740991
+                    }
+                  },
+                  "required": [
+                    "seq",
+                    "date",
+                    "text",
+                    "cents"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            },
+            "required": [
+              "account_balance_cents",
+              "open_items_cents",
+              "difference_cents",
+              "message",
+              "causes"
+            ],
+            "additionalProperties": false
+          }
+        },
+        "required": [
+          "meta",
+          "side",
+          "as_of",
+          "items",
+          "credits",
+          "totals",
+          "reconciliation"
+        ],
+        "additionalProperties": false
+      },
+      "FileDownload": {
+        "type": "object",
+        "properties": {
+          "file_name": {
+            "type": "string"
+          },
+          "content_type": {
+            "type": "string"
+          },
+          "sha256": {
+            "type": "string"
+          },
+          "content_base64": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "file_name",
+          "content_type",
+          "sha256",
+          "content_base64"
+        ],
+        "additionalProperties": false
+      },
+      "DatevValidationReport": {
+        "type": "object",
+        "properties": {
+          "blocking": {
+            "type": "boolean",
+            "description": "Blockierende Fehler: es wird keine Datei erzeugt"
+          },
+          "nothing_to_export": {
+            "type": "boolean"
+          },
+          "needs_confirmation": {
+            "description": "E-EXP-05: Bestätigung mit confirm_replace",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "festschreibung": {
+            "anyOf": [
+              {
+                "type": "number",
+                "const": 0
+              },
+              {
+                "type": "number",
+                "const": 1
+              }
+            ]
+          },
+          "is_repeat": {
+            "type": "boolean"
+          },
+          "do_not_reimport": {
+            "type": "boolean"
+          },
+          "accepted": {
+            "type": "boolean",
+            "description": "Steuerberater-Abnahme erfasst (EXP-016)"
+          },
+          "files": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "name": {
+                  "type": "string"
+                },
+                "rows": {
+                  "type": "integer",
+                  "minimum": -9007199254740991,
+                  "maximum": 9007199254740991
+                }
+              },
+              "required": [
+                "name",
+                "rows"
+              ],
+              "additionalProperties": false
+            }
+          },
+          "row_count": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          },
+          "entry_count": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          },
+          "sum_umsatz_cents": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          },
+          "issues": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "level": {
+                  "type": "string",
+                  "enum": [
+                    "error",
+                    "warning",
+                    "info"
+                  ]
+                },
+                "code": {
+                  "type": "string"
+                },
+                "message": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "level",
+                "code",
+                "message"
+              ],
+              "additionalProperties": false
+            }
+          }
+        },
+        "required": [
+          "blocking",
+          "nothing_to_export",
+          "needs_confirmation",
+          "festschreibung",
+          "is_repeat",
+          "do_not_reimport",
+          "accepted",
+          "files",
+          "row_count",
+          "entry_count",
+          "sum_umsatz_cents",
+          "issues"
+        ],
+        "additionalProperties": false
+      },
+      "JobStarted": {
+        "type": "object",
+        "properties": {
+          "job_id": {
+            "type": "string",
+            "description": "job_…; Status über GET /jobs/{id}"
+          },
+          "status": {
+            "type": "string",
+            "const": "queued"
+          }
+        },
+        "required": [
+          "job_id",
+          "status"
+        ],
+        "additionalProperties": false
+      },
+      "DatevExportList": {
+        "type": "object",
+        "properties": {
+          "data": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/DatevExport"
+            }
+          },
+          "next_cursor": {
+            "type": "null"
+          }
+        },
+        "required": [
+          "data",
+          "next_cursor"
+        ],
+        "additionalProperties": false
+      },
+      "DatevExport": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "dvx_…"
+          },
+          "from": {
+            "type": "string"
+          },
+          "to": {
+            "type": "string"
+          },
+          "include": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "mode": {
+            "type": "string",
+            "enum": [
+              "new",
+              "full"
+            ]
+          },
+          "format_version": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          },
+          "festschreibung": {
+            "type": "boolean"
+          },
+          "is_repeat": {
+            "type": "boolean"
+          },
+          "do_not_reimport": {
+            "type": "boolean"
+          },
+          "row_count": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          },
+          "sum_umsatz_cents": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          },
+          "file_name": {
+            "type": "string"
+          },
+          "sha256": {
+            "type": "string"
+          },
+          "actor": {
+            "type": "string"
+          },
+          "created_at": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "from",
+          "to",
+          "include",
+          "mode",
+          "format_version",
+          "festschreibung",
+          "is_repeat",
+          "do_not_reimport",
+          "row_count",
+          "sum_umsatz_cents",
+          "file_name",
+          "sha256",
+          "actor",
+          "created_at"
+        ],
+        "additionalProperties": false
+      },
+      "DownloadLink": {
+        "type": "object",
+        "properties": {
+          "file_name": {
+            "type": "string"
+          },
+          "sha256": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "url": {
+            "description": "Kurzlebiger Download-Link (nur im Tailnet erreichbar)",
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "file_name",
+          "sha256",
+          "url"
+        ],
+        "additionalProperties": false
+      },
+      "Job": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "job_…"
+          },
+          "kind": {
+            "type": "string"
+          },
+          "label": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "queued",
+              "running",
+              "done",
+              "failed",
+              "cancelled"
+            ]
+          },
+          "progress": {
+            "type": "object",
+            "properties": {
+              "done": {
+                "type": "integer",
+                "minimum": -9007199254740991,
+                "maximum": 9007199254740991
+              },
+              "total": {
+                "type": "integer",
+                "minimum": -9007199254740991,
+                "maximum": 9007199254740991
+              }
+            },
+            "required": [
+              "done",
+              "total"
+            ],
+            "additionalProperties": false
+          },
+          "result": {
+            "anyOf": [
+              {
+                "type": "object",
+                "properties": {
+                  "file_name": {
+                    "type": "string"
+                  },
+                  "sha256": {
+                    "type": [
+                      "string",
+                      "null"
+                    ]
+                  },
+                  "bytes": {
+                    "anyOf": [
+                      {
+                        "type": "integer",
+                        "minimum": -9007199254740991,
+                        "maximum": 9007199254740991
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "url": {
+                    "description": "Download-Link (30 Tage, EXP-026)",
+                    "type": [
+                      "string",
+                      "null"
+                    ]
+                  }
+                },
+                "required": [
+                  "file_name",
+                  "sha256",
+                  "bytes",
+                  "url"
+                ],
+                "additionalProperties": false
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "error": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "actor": {
+            "type": "string"
+          },
+          "created_at": {
+            "type": "string"
+          },
+          "finished_at": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "expires_at": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "id",
+          "kind",
+          "label",
+          "status",
+          "progress",
+          "result",
+          "error",
+          "actor",
+          "created_at",
+          "finished_at",
+          "expires_at"
         ],
         "additionalProperties": false
       },

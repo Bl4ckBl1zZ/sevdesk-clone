@@ -171,11 +171,14 @@ Not exposed via MCP (owner-only legal acts in the UI; F08 §7): recording tax su
 | Tool | Type | Scope |
 |---|---|---|
 | `export_datev` | ⚠ | exports:run (it can lock the period; token from `preview_action`, which runs the DATEV validation; the job result is a download link) |
+| `export_job_status` | R | exports:run: status, progress and — when done — the download link of an own export job (`job_…`; same data as REST `GET /jobs/{id}`) |
 | `audit_log_search` | R | audit:read |
 | `project_upsert` (P4) | W | projects:write |
 | `time_entry_log` (P4) | W | time:write: "2h on project X: workshop" |
 | `time_unbilled_list` (P4) | R | projects:read |
 | `invoice_from_time_entries` (P4) | W | documents:write (draft) |
+
+**P3 implementation (2026-10-23, MCP-013):** `preview_action { action: "export_datev", params: { from, to, include?, mode = "new", lock_period = false, festschreibung?, confirm_replace? } }` runs the DATEV dry run (`datev.validate`, same as REST `POST /exports/datev/validate`); a blocking report (or nothing to export, or an export already running for the range) answers `validation_failed`/`conflict` with the report's messages and issues **no** token. The effect lists range, scope, mode, rows, Σ Umsatz, Festschreibung, notes and — with `lock_period` — the months that will be locked. The token binds the arguments of `datev.start` / `datev.startWithLock` incl. `lockPeriod`, so a token previewed without the lock never starts a locking export (and vice versa → `preview_outdated`). ⚠ `export_datev { …same params…, confirm_token }` starts the job and returns `{ job_id, status }`; `export_job_status { job_id }` returns the download link once the job is done. F09 E-EXP-19 words the token as required „if `lock_period` = true“; the stricter rule of §2 (every `export_datev` call needs a token) applies.
 
 ## 4. Resources and prompts
 
@@ -272,3 +275,4 @@ The settings page **Einstellungen › MCP** (owner only) shows these snippets wi
 | MCP-010 | Results carry `structuredContent` plus a JSON text block; errors are `isError` with the REST code, message, field errors and a German hint; server instructions ≤ 2,048 characters | MUST | P1 |
 | MCP-012 | `document_preview` (intent finalize) + ⚠ `document_finalize`, `document_export` (W) and ⚠ `document_mark_sent` (token from `preview_action`) for quotes, orders, delivery notes, invoices, corrections and reminders (finalising a `rem_` draft since 2026-10-18, with `acknowledge_warnings`), on the shared REST handlers; no send tool (EC-189) | MUST | P1 |
 | MCP-011 | Document W/R tools of §3.4 for quotes, order confirmations, delivery notes and invoices incl. proforma (search, get with chain, quote/invoice drafts, update, convert, quote accepted/rejected) on the shared REST wire schemas; nothing is finalised without `document_finalize` (⚠) | MUST | P1 |
+| MCP-013 | ⚠ `export_datev` with the token of `preview_action` (DATEV validation as effect, no token while blocking, the token binds the period lock) and `export_job_status` (R) for the download link | MUST | P3 |

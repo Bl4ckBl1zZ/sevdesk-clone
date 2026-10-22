@@ -34,6 +34,13 @@ describe("FullExportCard (EXP-023)", () => {
     expect(backend.calls).toEqual(["fullExport:start"]);
   });
 
+  test("E-EXP-42 AO-06 the card warns that the books (and so the full export) must be stored in the EU", () => {
+    renderWithIntl(<FullExportCard />);
+    expect(screen.getByRole("note")).toHaveTextContent(
+      "Die Bücher müssen in der EU aufbewahrt werden (§ 146 Abs. 2 AO).",
+    );
+  });
+
   test("EXP-023 other roles do not see the card", () => {
     backend.can = false;
     renderWithIntl(<FullExportCard />);

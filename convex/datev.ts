@@ -83,11 +83,12 @@ export const start = mutation({
 
 /**
  * ⚠ EXP-011 „Zeitraum beim Export festschreiben": locks the months of the range first (irreversible, reason
- * `datev_export`, fresh session) and starts the job in the same transaction.
+ * `datev_export`, fresh session) and starts the job in the same transaction. `lockPeriod: true` (optional, implied)
+ * lets an MCP confirm token bind the lock: a token previewed without the lock never unlocks this mutation (E-EXP-19).
  */
 export const startWithLock = mutation({
   permission: "exports.datev.lock",
-  args: { ...exportArgs, confirmToken: vConfirmToken },
+  args: { ...exportArgs, lockPeriod: v.optional(v.literal(true)), confirmToken: vConfirmToken },
   handler: async (ctx, args) => {
     const jobId = await startDatevExport(ctx, { ...(args as DatevStartArgs), lockPeriod: true });
     await ctx.scheduler.runAfter(0, internal.datevJob.run, { jobId });

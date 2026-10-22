@@ -108,7 +108,7 @@ describe("F09 IMP-020 document reconstruction from list rows", () => {
 });
 
 describe("F09 IMP-010 tax information → tax case (§4.3.2, conservative)", () => {
-  test("TST-IMP-10 OSS label, unknown label and 0 % without label → unknown_imported + E-IMP-09; 19 % without label → domestic", () => {
+  test("TST-IMP-10 E-IMP-09 OSS label, unknown label and 0 % without label → unknown_imported + E-IMP-09; 19 % without label → domestic", () => {
     const oss = parse({
       Netto: "100,00",
       Steuer: "19,00",

@@ -74,6 +74,13 @@ const vResolutions = v.object({
   openAmounts: v.optional(v.record(v.string(), v.number())),
   postBookedPeriod: v.optional(v.boolean()),
   correctedTotals: v.optional(v.record(v.string(), v.object({ grossCents: v.number(), reason: v.string() }))),
+  /** IMP-022: Σ open items as shown in sevdesk's open-items view (EUR cents). */
+  expectedOpenTotalCents: v.optional(v.number()),
+});
+const vOpenItemDifference = v.object({
+  expectedCents: v.number(),
+  importedCents: v.number(),
+  differenceCents: v.number(),
 });
 const vResetPolicy = v.union(v.literal("never"), v.literal("yearly"), v.literal("monthly"));
 const vRangeDecision = v.object({
@@ -458,6 +465,8 @@ export const beginCommitInternal = actorMutation({
       missingPdfReason: v.optional(v.string()),
       postBookedPeriod: v.optional(v.boolean()),
       correctedTotals: v.optional(v.record(v.string(), v.object({ grossCents: v.number(), reason: v.string() }))),
+      /** IMP-022: the acknowledged difference between the imported open items and the sevdesk total. */
+      openItemDifference: v.optional(vOpenItemDifference),
     }),
   },
   handler: async (ctx, { importId, ...input }) => beginImportCommit(ctx, importId, input),
@@ -690,6 +699,8 @@ export const commit = action({
     numberRanges: v.array(vRangeDecision),
     /** E-IMP-07 „ohne Original-PDF übernehmen“ for all listed rows (reason mandatory, audited with the decisions). */
     missingPdfReason: v.optional(v.string()),
+    /** IMP-022: the owner acknowledged the difference between the imported open items and the sevdesk total. */
+    openItemDifferenceAcknowledged: v.optional(v.boolean()),
   },
   handler: async (ctx, args): Promise<{ status: "done"; counts: Record<string, number>; protocol: boolean }> => {
     const { ws, plan, hash, today } = await computePlan(ctx, args.importId);
@@ -724,6 +735,13 @@ export const commit = action({
           { reason: "E_IMP_07" },
         );
       }
+      if (plan.openItemDifference && args.openItemDifferenceAcknowledged !== true) {
+        throw appError(
+          "invalid_input",
+          "Die Summe der offenen Posten weicht von der Summe laut sevdesk ab. Bitte die Abweichung prüfen und bestätigen.",
+          { reason: "IMP_022" },
+        );
+      }
     }
     await ctx.runMutation(internal.imports.beginCommitInternal, {
       actorContext: ctx.actorContext,
@@ -738,6 +756,7 @@ export const commit = action({
         ...(ws.resolutions.correctedTotals && Object.keys(ws.resolutions.correctedTotals).length > 0
           ? { correctedTotals: { ...ws.resolutions.correctedTotals } }
           : {}),
+        ...(plan.openItemDifference ? { openItemDifference: plan.openItemDifference } : {}),
       },
     });
     // IMP-014: the records carry channel `import`; the actor stays the committing user / API key.

@@ -20,6 +20,7 @@ import { finalizePreviewOf, requireFinalizeScopes, resolveDispatchDoc } from "..
 import { reminderFinalizePreviewOf } from "../../api/resources/dunning";
 import { defineTool, type ToolContext } from "../tool";
 import { markSentParams, markSentPlan, rejectDocumentOptions, rejectReminderOptions } from "./dispatch";
+import { exportDatevParams, exportDatevPlan } from "./exports";
 import { PAYMENT_PREVIEWS } from "./payment-previews";
 import { voucherFinalizeParams, voucherFinalizePlan } from "./vouchers";
 
@@ -56,6 +57,8 @@ export const ACTION_PREVIEWS: Partial<Record<ConfirmIntent, ActionPreview>> = {
     params: voucherFinalizeParams,
     plan: voucherFinalizePlan as ActionPreview["plan"],
   },
+  // F09 E-EXP-19: the DATEV export (can lock the period); the effect is the validation report.
+  export_datev: { scope: "exports:run", params: exportDatevParams, plan: exportDatevPlan as ActionPreview["plan"] },
   contact_merge: {
     scope: "contacts:write",
     params: contactMergeWire,

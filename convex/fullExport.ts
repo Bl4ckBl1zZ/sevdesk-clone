@@ -4,7 +4,8 @@ import { internal } from "./_generated/api";
 import type { TableNames } from "./_generated/dataModel";
 import { mutation, systemMutation, systemQuery } from "./functions";
 import { SCHEMA_VERSION } from "./integrity";
-import { env, instanceName } from "./lib/env";
+import { env, instanceName, isTest } from "./lib/env";
+import { notifyArchiveReminder } from "./model/archiveReminder";
 import { chainHead } from "./model/audit";
 import { createJob, finishJob } from "./model/jobs";
 import schema from "./schema";
@@ -56,6 +57,24 @@ export const meta = systemQuery({
   },
 });
 
+/**
+ * E-EXP-37: audit entries written after the manifest head while the tables were read, excluding the job's own
+ * progress entries — the README and manifest name them (the readable export is not a point-in-time snapshot).
+ */
+export const writesSince = systemQuery({
+  job: "exports.run",
+  args: { jobId: v.id("jobs"), afterSeq: v.number() },
+  handler: async (ctx, { jobId, afterSeq }) =>
+    (
+      await ctx.db
+        .query("auditLog")
+        .withIndex("by_seq", (q) => q.gt("seq", afterSeq))
+        .take(10_000)
+    )
+      .filter((e) => !(e.entity.table === "jobs" && e.entity.id === jobId))
+      .map((e) => e.seq),
+});
+
 export const tablePage = systemQuery({
   job: "exports.run",
   args: { table: v.string(), paginationOpts: paginationOptsValidator },
@@ -81,6 +100,16 @@ export const storagePage = systemQuery({
       isDone: page.isDone,
       continueCursor: page.continueCursor,
     };
+  },
+});
+
+/** F09 EXP-025: daily check, from 31.01. one reminder per closed year (see model/archiveReminder.ts). */
+export const archiveReminderCron = systemMutation({
+  job: "cron.exports.archiveReminder",
+  args: { force: v.optional(v.boolean()) },
+  handler: async (ctx, { force }) => {
+    if (isTest() && !force) return { created: 0 };
+    return { created: await notifyArchiveReminder(ctx) };
   },
 });
 

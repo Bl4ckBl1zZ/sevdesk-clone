@@ -8,6 +8,8 @@
  *   new        — will be created at commit
  *   skip       — already imported: the idempotency key SHA-256(preset, key column value) is in `importedRecords`
  *   existing   — the same contact/product already exists (number → USt-IdNr → e-mail; products: article number)
+ *   update     — contacts with the option „Vorhandene Kontakte aktualisieren“ (E-IMP-17): the mapped, non-empty
+ *                Stammdaten of the row are written onto the existing contact (number, addresses and channels stay)
  *   duplicate  — the same key appears earlier in the file
  *   error      — the row fails validation (listed, exported as error CSV, not imported)
  *
@@ -21,8 +23,9 @@ import { type ImportRowValues, rowToFormValues } from "../../contacts/csv-io";
 import { type CsvRecord, writeCsv } from "../../csv/csv";
 import { normalizeNumber } from "../../numbering/format";
 import { productImportForm, productRow } from "../../products/csv-io";
-import { contactCreateSchema, emptyContactForm } from "../../schemas/contacts";
+import { type ContactFormValues, contactCreateSchema, emptyContactForm } from "../../schemas/contacts";
 import { productSchema } from "../../schemas/products";
+import { importPrivacyNotice } from "../privacy-notice";
 import { type ColumnMapping, checkMapping, type MappingCheck, positionalMapping } from "../sevdesk/mapping";
 
 export const GENERIC_CSV_IMPORTER_VERSION = "generic-csv-import@1";
@@ -58,12 +61,13 @@ export function checkGenericMapping(
   return checkMapping(target, headers, mapping);
 }
 
-export type GenericRowStatus = "new" | "skip" | "existing" | "duplicate" | "error";
+export type GenericRowStatus = "new" | "skip" | "existing" | "update" | "duplicate" | "error";
 
 export const GENERIC_STATUS_LABELS: Readonly<Record<GenericRowStatus, string>> = {
   new: "Neu",
   skip: "Bereits importiert",
   existing: "Existiert bereits",
+  update: "Wird aktualisiert",
   duplicate: "Doppelt in der Datei",
   error: "Fehler",
 };
@@ -197,7 +201,12 @@ export interface GenericLocalState {
   readonly contactsByEmail: Readonly<Record<string, string>>;
   readonly contactsByVatId: Readonly<Record<string, string>>;
   readonly productsByNumber: Readonly<Record<string, string>>;
+  /** Contact number per local contact id (E-IMP-17 message „Kontakt existiert bereits ({nr})“). */
+  readonly contactNumbers?: Readonly<Record<string, string>>;
 }
+
+/** E-IMP-17: what happens to rows matching an existing contact (products are always skipped). */
+export type OnExisting = "skip" | "update";
 
 export interface PlannedGenericRow extends ParsedGenericRow {
   readonly status: GenericRowStatus;
@@ -213,6 +222,7 @@ export interface GenericPlan {
     rows: number;
     new: number;
     existing: number;
+    updates: number;
     skipped: number;
     duplicates: number;
     errors: number;
@@ -226,7 +236,9 @@ export function buildGenericPlan(
   target: GenericTarget,
   rows: readonly ParsedGenericRow[],
   local: GenericLocalState,
+  options: { onExisting?: OnExisting } = {},
 ): GenericPlan {
+  const update = target === "contacts" && options.onExisting === "update";
   const seen = new Map<string, number>();
   const planned = rows.map((r): PlannedGenericRow => {
     if (r.error) return { ...r, status: "error", message: r.error };
@@ -263,6 +275,14 @@ export function buildGenericPlan(
           ]
         : [[r.keys.number ? local.productsByNumber[r.keys.number] : undefined, `Artikelnummer ${r.keys.number}`]];
     const match = hit.find(([id]) => id !== undefined);
+    if (match?.[0] && target === "contacts") {
+      // E-IMP-17: „Zeile {n}: Kontakt existiert bereits ({nr}).“ — skipped or updated per option.
+      const nr = local.contactNumbers?.[match[0]] ?? match[1];
+      const message = `Zeile ${r.line}: Kontakt existiert bereits (${nr}).`;
+      return update
+        ? { ...r, status: "update", localId: match[0], message: `${message} Die Stammdaten werden aktualisiert.` }
+        : { ...r, status: "existing", localId: match[0], message };
+    }
     if (match?.[0]) {
       return {
         ...r,
@@ -281,6 +301,7 @@ export function buildGenericPlan(
       rows: planned.length,
       new: count("new"),
       existing: count("existing"),
+      updates: count("update"),
       skipped: count("skip"),
       duplicates: count("duplicate"),
       errors: count("error"),
@@ -310,6 +331,8 @@ export function summarizeGenericPlan(plan: GenericPlan, limit = 1000) {
       .map((r) => ({ line: r.line, display: r.display, key: r.keyValue })),
     problems: problems.slice(0, limit),
     problemsTotal: problems.length,
+    /** E-IMP-18 (DSGVO Art. 14): personal data from another system → note the source in the processing record. */
+    notices: plan.target === "contacts" ? [importPrivacyNotice("einem anderen System (CSV-Datei)")] : [],
   };
 }
 export type GenericPreviewSummary = ReturnType<typeof summarizeGenericPlan>;
@@ -321,12 +344,14 @@ export function genericPreviewHashInput(input: {
   columns: ColumnMapping;
   preset: string;
   plan: GenericPlan;
+  onExisting?: OnExisting;
 }): string {
   return canonicalize({
     file: input.fileSha256,
     target: input.target,
     columns: input.columns,
     preset: input.preset,
+    ...(input.onExisting === "update" ? { onExisting: "update" } : {}),
     rows: input.plan.rows.map((r) => [r.line, r.status, r.idempotencyKey ?? null, r.localId ?? null]),
   });
 }
@@ -337,4 +362,34 @@ export function genericErrorCsv(headers: readonly string[], problems: readonly G
     ["Zeile", "Status", "Meldung", ...headers],
     problems.map((p) => [p.line, GENERIC_STATUS_LABELS[p.status], p.message, ...p.cells]),
   );
+}
+
+/** Contact form keys an import column can update (Stammdaten only; the number is the identity and never changes). */
+const UPDATABLE_CONTACT_KEYS = new Set<string>(
+  Object.keys(emptyContactForm()).filter((k) => k !== "number" && k !== "status" && k !== "parentId"),
+);
+
+/**
+ * E-IMP-17 „Aktualisieren“: the existing contact's form with every mapped column of the row that carries a value
+ * (an empty cell never clears a field). Addresses and communication channels are not touched. `null` = no change.
+ */
+export function mergeImportedContact(
+  existing: ContactFormValues,
+  row: ImportRowValues,
+  mappedFields: readonly string[],
+): ContactFormValues | null {
+  const empty = emptyContactForm() as unknown as Record<string, unknown>;
+  const incoming = row.contact as unknown as Record<string, unknown>;
+  const next = { ...existing } as unknown as Record<string, unknown>;
+  let changed = false;
+  for (const key of mappedFields) {
+    if (!UPDATABLE_CONTACT_KEYS.has(key) || !(key in incoming)) continue;
+    const value = incoming[key];
+    if (JSON.stringify(value) === JSON.stringify(empty[key])) continue;
+    if (typeof value === "string" && value.trim() === "") continue;
+    if (JSON.stringify(value) === JSON.stringify(next[key])) continue;
+    next[key] = value;
+    changed = true;
+  }
+  return changed ? (next as unknown as ContactFormValues) : null;
 }

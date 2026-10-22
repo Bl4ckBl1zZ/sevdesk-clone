@@ -58,6 +58,7 @@ export const SYSTEM_JOBS = [
   "notifications.deliver", // F12 NTF-003/004: e-mail (Cloudflare Email Sending) and ntfy delivery of one notification
   "exports.run", // F09 EXP-026 / F04 SND-20: job workers (CSV, bulk export ZIP, bulk mark) — file storage only
   "cron.jobs.expire", // F09 EXP-026: job results older than 30 days are removed from storage
+  "cron.exports.archiveReminder", // F09 EXP-025: from 31.01. a reminder to archive the closed year (full + GDPdU)
   "cron.recurring.generate", // 02 §7 recurring.generate (F04 REC-05), daily 06:00 Europe/Berlin
   "cron.dunning.run", // 02 §7 dunning.run (F05 DUN-030): drafts or finalises reminders, never sends
   "cron.receivables.refreshOverdue", // 02 §7 receivables.refreshOverdue (F05 PAY-044, DUN-053 „Bald fällig“ to-dos)

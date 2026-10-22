@@ -2243,6 +2243,8 @@ export default defineSchema({
           dateFormat: v.optional(v.union(v.literal("dmy"), v.literal("mdy"))),
           /** F09 IMP-012: name of the saved preset the generic CSV mapping came from (part of the idempotency key). */
           preset: v.optional(v.string()),
+          /** F09 E-IMP-17: generic CSV contacts — „Vorhandene Kontakte aktualisieren“ (default: skip). */
+          onExisting: v.optional(v.literal("update")),
         }),
       ),
     ),
@@ -2255,6 +2257,8 @@ export default defineSchema({
         postBookedPeriod: v.optional(v.boolean()),
         /** EC-203 / E-IMP-37: gross from the PDF per document key, with the owner's reason. */
         correctedTotals: v.optional(v.record(v.string(), v.object({ grossCents: v.number(), reason: v.string() }))),
+        /** IMP-022: Σ open items as shown in sevdesk, entered by the owner (EUR cents). */
+        expectedOpenTotalCents: v.optional(v.number()),
       }),
     ),
     /** Owner decisions recorded at commit start (number ranges, missing-PDF reason, opening items). */

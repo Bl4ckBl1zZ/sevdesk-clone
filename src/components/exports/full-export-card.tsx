@@ -39,6 +39,13 @@ function Inner() {
       </CardHeader>
       <CardContent className="flex flex-col gap-3">
         <p className="text-muted-foreground text-sm">{t("snapshotNote")}</p>
+        {/* E-EXP-42 / AO-06: the owner picks the storage location — the EU duty is always shown. */}
+        <p
+          role="note"
+          className="rounded-md border border-amber-600/40 bg-amber-50 p-3 text-amber-950 text-sm dark:bg-amber-950/30 dark:text-amber-100"
+        >
+          {t("euStorage")}
+        </p>
         <div>
           <Button
             className="h-11 md:h-9"
