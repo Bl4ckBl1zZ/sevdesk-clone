@@ -109,3 +109,30 @@ describe("image quality (VOU-124, GOBD-08)", () => {
     expect((await voucher(t, pdf)).originalFiles[0]?.image).toBeUndefined();
   });
 });
+
+describe("„Mit Banking-App bezahlen“ (VOU-135, MISC-01)", () => {
+  test("VOU-135 the detail of an open voucher carries the GiroCode (open amount, supplier IBAN, document number); none once paid", async () => {
+    const t = makeT();
+    await setupCompany(t);
+    const owner = await t.asUser("owner");
+    const id = await draft(t, owner, { supplierIban: "DE02120300000000202051", documentNumber: "RE-77" });
+    expect((await owner.query(api.vouchers.get, { id }))?.girocode).toBeNull(); // draft
+    await owner.mutation(api.vouchers.finalize, { id });
+    const code = (await owner.query(api.vouchers.get, { id }))?.girocode;
+    expect(code?.split("\n")).toEqual([
+      "BCD",
+      "002",
+      "1",
+      "SCT",
+      "",
+      "Büro Schmidt GmbH",
+      "DE02120300000000202051",
+      "EUR119.00",
+      "",
+      "",
+      "RE-77",
+    ]);
+    await owner.mutation(api.vouchers.recordPayment, { id, method: "private" });
+    expect((await owner.query(api.vouchers.get, { id }))?.girocode).toBeNull();
+  });
+});

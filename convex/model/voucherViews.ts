@@ -1,6 +1,7 @@
 import { berlinCalendarDate } from "../../src/domain/time/berlin";
 import type { CalendarDate } from "../../src/domain/time/calendar-date";
 import { activeOriginals } from "../../src/domain/vouchers/capture";
+import { voucherGirocode } from "../../src/domain/vouchers/girocode";
 import { IMAGE_QUALITY_MESSAGE } from "../../src/domain/vouchers/image-quality";
 import { VOUCHER_STATUS_DE } from "../../src/domain/vouchers/lifecycle";
 import {
@@ -156,6 +157,18 @@ export async function voucherDetail(ctx: ReadCtx, id: Id<"vouchers">, now: numbe
       })),
     ),
     renditions: v.renditions.map((r) => ({ kind: r.kind, ofFileIndex: r.ofFileIndex, mime: r.mime })),
+    // VOU-135 „Mit Banking-App bezahlen“: EPC payload for the open amount (null when not payable by transfer).
+    girocode: voucherGirocode({
+      direction: v.direction,
+      status: v.status,
+      currency: v.currency,
+      openAmountCents: v.openAmountCents,
+      ...(v.supplierName ? { supplierName: v.supplierName } : {}),
+      ...(v.supplierIban ? { supplierIban: v.supplierIban } : {}),
+      ...(v.documentNumber ? { documentNumber: v.documentNumber } : {}),
+      ...(v.internalNumber ? { internalNumber: v.internalNumber } : {}),
+      ...(v.payee ? { payee: v.payee } : {}),
+    }),
     eigenbelegFile: v.eigenbeleg?.file
       ? {
           name: v.eigenbeleg.file.name,

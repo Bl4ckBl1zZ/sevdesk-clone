@@ -19,6 +19,7 @@ import { cn } from "@/lib/utils";
 import { type VoucherDetailData, VoucherEditor } from "./voucher-editor";
 import { VoucherFiles, type VoucherFileView } from "./voucher-files";
 import type { Direction } from "./voucher-form";
+import { VoucherGirocode } from "./voucher-girocode";
 import { BankSuggestionsPanel, LaterPaymentDialog, ReasonField } from "./voucher-payment";
 import { money, VoucherStatusBadge } from "./voucher-shared";
 
@@ -188,6 +189,12 @@ function BookedVoucher({ data, crumbs }: { data: VoucherDetailData; crumbs: { la
             <WalletIcon aria-hidden="true" />
             {t("recordPayment")}
           </Button>
+        )}
+        {data.girocode && (
+          <VoucherGirocode
+            payload={data.girocode}
+            label={t("girocodeAlt", { amount: money(v.openAmountCents), name: v.payee?.name ?? v.supplierName ?? "" })}
+          />
         )}
         {!cancelled && <BankSuggestionsPanel id={id} />}
         <Journal data={data} />
