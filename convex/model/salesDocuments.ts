@@ -1,3 +1,4 @@
+import { groupCostCenter } from "../../src/domain/accounting/cost-centers";
 import type { InvoiceFinalisedEvent } from "../../src/domain/accounting/events";
 import { chartAt } from "../../src/domain/accounting/period";
 import { validateCompanyForDocuments } from "../../src/domain/company/validate";
@@ -29,6 +30,7 @@ import { type DuplicateSource, duplicateValues } from "../../src/domain/document
 import { buildSnapshotInput, retentionClassFor, retentionUntil } from "../../src/domain/documents/finalize";
 import { transition } from "../../src/domain/documents/lifecycle";
 import {
+  billableItems,
   canonicalSnapshotJson,
   type DocumentSnapshot,
   PREVIEW_NUMBER,
@@ -1096,7 +1098,11 @@ export type CommitResult =
   | { status: "invalid"; findings: Finding[] };
 
 /** INV-31: the journal event of a finalised invoice-family document (plain invoices in this slice). */
-function journalEventFor(doc: SalesDocumentDoc, s: DocumentSnapshot): InvoiceFinalisedEvent | null {
+function journalEventFor(
+  doc: SalesDocumentDoc,
+  s: DocumentSnapshot,
+  costCenterIds: Readonly<Record<string, string>> = {},
+): InvoiceFinalisedEvent | null {
   if (doc.type !== "invoice" || !s.supplyDate) return null;
   return {
     kind: "invoice_finalised",
@@ -1108,12 +1114,17 @@ function journalEventFor(doc: SalesDocumentDoc, s: DocumentSnapshot): InvoiceFin
     taxCase: s.taxCase,
     ...(doc.contactId ? { contactId: doc.contactId } : { contactId: "" }),
     counterpartyName: s.buyer.name,
-    vatGroups: s.totals.byGroup.map((g) => ({
-      category: g.category,
-      rateBp: g.rateBp,
-      netCents: g.baseCents,
-      vatCents: g.vatCents,
-    })),
+    vatGroups: s.totals.byGroup.map((g) => {
+      // ACC-019: the revenue line's cost centre (DATEV KOST1) when all item lines of the group share one.
+      const costCenterId = groupCostCenter(billableItems(s), costCenterIds, g.category, g.rateBp);
+      return {
+        category: g.category,
+        rateBp: g.rateBp,
+        netCents: g.baseCents,
+        vatCents: g.vatCents,
+        ...(costCenterId ? { costCenterId } : {}),
+      };
+    }),
   };
 }
 
@@ -1243,7 +1254,11 @@ export async function commitFinalization(
   await lockInvoicedEntries(ctx, await getDocument(ctx, id)); // F11 PRJ-012/019
   await applyDeliveryNote(ctx, await getDocument(ctx, id)); // F03 PRD-091
   const event =
-    journalEventFor(stored, snapshot) ?? (await chainJournalEvent(ctx, await getDocument(ctx, id), snapshot));
+    journalEventFor(
+      stored,
+      snapshot,
+      Object.fromEntries((await ctx.db.query("costCenters").collect()).map((c) => [c.number, c._id as string])),
+    ) ?? (await chainJournalEvent(ctx, await getDocument(ctx, id), snapshot));
   if (event) await postJournalEntry(ctx, event);
   if (predecessor) {
     // QUO-06: finalising the new version replaces the previous one (T-QUO-004).

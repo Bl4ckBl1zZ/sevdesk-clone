@@ -221,7 +221,7 @@ export const explanationText = (key: string): string => EXPLANATIONS[key] ?? key
 // ── line helpers ────────────────────────────────────────────────────────────────────────────────────────
 
 type LineTarget = { role: AccountRole } | { account: string };
-type LineExtra = Pick<RoleLine, "contactId" | "taxKey" | "taxPointDate">;
+type LineExtra = Pick<RoleLine, "contactId" | "taxKey" | "taxPointDate" | "costCenterId">;
 
 /** Signed amount on the debit side (negative → credit). Zero → no line. */
 function debit(target: LineTarget, cents: number, extra: LineExtra = {}): RoleLine[] {
@@ -237,6 +237,7 @@ function clean(extra: LineExtra): LineExtra {
   if (extra.contactId !== undefined) out.contactId = extra.contactId;
   if (extra.taxKey !== undefined) out.taxKey = extra.taxKey;
   if (extra.taxPointDate !== undefined) out.taxPointDate = extra.taxPointDate;
+  if (extra.costCenterId !== undefined) out.costCenterId = extra.costCenterId;
   return out;
 }
 
@@ -371,7 +372,13 @@ function salesLines(
     const r = roles.value;
     const tp = taxPointFor(r);
     const target: LineTarget = g.revenueAccount ? { account: g.revenueAccount } : R(r.revenue);
-    lines.push(...credit(target, g.netCents, { taxKey: r.taxKey, ...(tp ? { taxPointDate: tp } : {}) }));
+    lines.push(
+      ...credit(target, g.netCents, {
+        taxKey: r.taxKey,
+        ...(tp ? { taxPointDate: tp } : {}),
+        ...(g.costCenterId ? { costCenterId: g.costCenterId } : {}),
+      }),
+    );
     if (r.suffix && g.vatCents !== 0) {
       vatByRate.set(r.suffix, (vatByRate.get(r.suffix) ?? 0) + g.vatCents);
       if (method === "soll")

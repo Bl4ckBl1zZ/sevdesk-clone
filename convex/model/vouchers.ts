@@ -683,6 +683,7 @@ export function bookedEvent(
         : {}),
       ...(l.nonDeductibleShareBp !== undefined ? { nonDeductibleShareBp: l.nonDeductibleShareBp } : {}),
       ...(l.assetDecision ? { assetDecision: l.assetDecision } : {}),
+      ...(l.costCenterId ? { costCenterId: l.costCenterId as string } : {}),
     };
   });
   return {

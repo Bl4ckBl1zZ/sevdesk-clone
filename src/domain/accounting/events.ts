@@ -43,6 +43,8 @@ export interface VatGroup {
   vatCents: number;
   /** Optional revenue account of the group (product/line account, F03); default = the role for the category. */
   revenueAccount?: string;
+  /** ACC-019: cost centre of the revenue line when all item lines of the group share one (`groupCostCenter`). */
+  costCenterId?: string;
 }
 
 /** VAT of one rate (Skonto / write-off corrections, opening items, Ist bases). */
@@ -326,6 +328,8 @@ export interface VoucherPostingLine {
   selfAssessedVatCents?: number;
   /** Bewirtung 30 % or a private share (VOU-027). */
   nonDeductibleShareBp?: number;
+  /** ACC-019: cost centre of the line, carried onto the expense/revenue journal line (DATEV KOST1). */
+  costCenterId?: string;
   /** VOU-065: GWG/Sammelposten post to the asset roles; `asset` keeps the chosen fixed-asset account. */
   assetDecision?: "gwg" | "pool" | "asset" | "none";
 }
