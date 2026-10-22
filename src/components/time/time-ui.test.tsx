@@ -361,6 +361,11 @@ describe("Header timer pill (PRJ-005, F11 §6)", () => {
     expect(within(popover).getByRole("button", { name: "Stoppen" })).toBeInTheDocument();
     expect(within(popover).getByRole("button", { name: "Verwerfen" })).toBeInTheDocument();
     expect(within(popover).getByLabelText("Tätigkeit")).toHaveValue("Workshop");
+    // the discard confirmation opened from the popover stays usable
+    await user.click(within(popover).getByRole("button", { name: "Verwerfen" }));
+    const confirm = await screen.findByRole("dialog", { name: "Timer verwerfen?" });
+    await user.click(within(confirm).getByRole("button", { name: "Verwerfen" }));
+    expect(backend.calls.map((c) => c.name)).toContain("timeEntries:discard");
   });
 
   test("PRJ-005 idle: „Zeit starten“ for writers, nothing for read-only roles", async () => {

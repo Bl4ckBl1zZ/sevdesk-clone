@@ -35,7 +35,15 @@ function TimerPillInner() {
   const project = timer ? (timer.projectName ?? timer.description ?? t("noProject")) : "";
   const elapsed = timer ? formatElapsed(now - timer.startedAt) : "";
   return (
-    <Popover open={open} onOpenChange={setOpen}>
+    <Popover
+      open={open}
+      onOpenChange={(next) => {
+        // A confirmation opened from the popover (E-PRJ-01 „Stoppen und neu starten“, „Timer verwerfen?“) lives in a
+        // portal; a press inside it must not close the popover and unmount the dialog with it.
+        if (!next && document.querySelector("[data-slot=dialog-content]")) return;
+        setOpen(next);
+      }}
+    >
       <PopoverTrigger
         render={
           <Button

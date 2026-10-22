@@ -193,3 +193,41 @@ test("PRJ-010 PRJ-012 „Zeiten abrechnen“ creates an invoice draft and locks 
   await expect(page.getByRole("button", { name: "Bearbeiten" })).toHaveCount(0);
   await expectNoAxeViolations();
 });
+
+test("PRJ-017 TST-PRJ-23 week view, time report and (desktop) the header timer pill", async ({
+  page,
+  expectNoAxeViolations,
+}, testInfo) => {
+  await page.goto("/zeiten");
+  await page.getByRole("link", { name: "Woche" }).filter({ visible: true }).first().click();
+  await expect(page).toHaveURL(/view=week/);
+  const week = page.getByTestId("week-view");
+  await expect(week).toBeVisible();
+  await expect(page.getByTestId("week-label")).toHaveText(/^KW \d+\/\d{4} · /);
+  await expect(week.getByText(projectName(testInfo.project.name)).filter({ visible: true }).first()).toBeVisible();
+  await expectNoAxeViolations();
+  await week.getByRole("button", { name: "Vorherige Woche" }).click();
+  await expect(page).toHaveURL(/week=\d{4}-\d{2}-\d{2}/);
+  await week.getByRole("button", { name: "Diese Woche" }).click();
+
+  await page.getByRole("link", { name: "Auswertung" }).filter({ visible: true }).first().click();
+  const report = page.getByTestId("time-report");
+  await expect(report.getByTestId("time-report-table")).toContainText(projectName(testInfo.project.name));
+  await expect(report.getByRole("button", { name: /Export/ })).toBeVisible();
+  await expectNoAxeViolations();
+
+  if (testInfo.project.name === "desktop") {
+    const pill = page.getByTestId("timer-pill");
+    await expect(pill).toHaveAttribute("data-running", "false");
+    await pill.click();
+    const popover = page.getByTestId("timer-popover");
+    await popover.getByLabel("Tätigkeit").fill("Pill-Test");
+    await popover.getByRole("button", { name: "Zeit starten" }).click();
+    await expect(pill).toHaveAttribute("data-running", "true");
+    await expect(page.getByTestId("timer-pill-elapsed")).toHaveText(/^0:00:\d{2}$/);
+    await expectNoAxeViolations();
+    await popover.getByRole("button", { name: "Verwerfen" }).click();
+    await page.getByRole("dialog", { name: "Timer verwerfen?" }).getByRole("button", { name: "Verwerfen" }).click();
+    await expect(pill).toHaveAttribute("data-running", "false");
+  }
+});
