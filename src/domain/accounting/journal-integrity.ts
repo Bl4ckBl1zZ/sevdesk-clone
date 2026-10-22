@@ -80,3 +80,25 @@ export function verifyJournalPage(
   }
   return { cursor: { nextSeq: next }, findings };
 }
+
+/**
+ * E-ACC-27 (GOBD-22): postings continue while the server clock deviates (journal `recordedAt` stays server time);
+ * every clock reading > 2 s off in the checked window becomes one `warning` finding (the 60 s block is F12 EC-027).
+ */
+export function clockSkewFindings(
+  readings: readonly { id: string; at: number; offsetMs: number | null; status: string; detail: string }[],
+): IntegrityFinding[] {
+  const off = readings.filter((r) => r.status === "warning" || r.status === "error");
+  if (off.length === 0) return [];
+  const worst = off.reduce((a, b) => (Math.abs(b.offsetMs ?? 0) > Math.abs(a.offsetMs ?? 0) ? b : a));
+  return [
+    {
+      kind: "clock_skew",
+      severity: "warning",
+      detail: `Serverzeit weicht ab: ${off.length} Messung(en) über 2 s, größte Abweichung ${Math.round(
+        Math.abs(worst.offsetMs ?? 0) / 1000,
+      )} s (${worst.detail}). Buchungen wurden mit der Serverzeit erfasst.`,
+      entity: { table: "clockReadings", id: worst.id },
+    },
+  ];
+}

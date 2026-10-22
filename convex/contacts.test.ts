@@ -453,7 +453,7 @@ describe("CON-130…135 duplicates and merge", () => {
 });
 
 describe("CON-100 CON-101 DATEV personal accounts", () => {
-  test("CON-101 the next free debtor account is max used + 1; accounts are unique (CON-102)", async () => {
+  test("CON-101 E-ACC-08 the next free debtor account is max used + 1; a personal account number already in use is refused (CON-102)", async () => {
     const t = makeT();
     const owner = await setupCatalog(t);
     const a = await createOrg(owner, "Alpha GmbH");
@@ -466,14 +466,17 @@ describe("CON-100 CON-101 DATEV personal accounts", () => {
     );
     expect(Number(second)).toBe(Number(first) + 1);
     const c = await createOrg(owner, "Gamma GmbH");
-    const taken = await owner
+    const takenError = await owner
       .mutation(api.contacts.update, {
         id: c.id,
         version: 1,
         values: orgForm("Gamma GmbH", { debtorAccount: first as string }),
       })
-      .catch(reasonOf);
-    expect(taken).toBe("DATEV_ACCOUNT_TAKEN");
+      .catch((e: unknown) => e);
+    expect(reasonOf(takenError)).toBe("DATEV_ACCOUNT_TAKEN");
+    expect((takenError as { data: { message: string } }).data.message).toBe(
+      `Das Personenkonto ${first} ist bereits Alpha GmbH zugeordnet.`,
+    );
   });
 });
 
