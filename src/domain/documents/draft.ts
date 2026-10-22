@@ -194,6 +194,8 @@ export interface ContactContext {
   readonly archived?: boolean | undefined;
   /** Self-billing agreement of a supplier contact (F04 §4.9, INV-16). */
   readonly selfBillingAgreement?: SelfBillingAgreement | undefined;
+  /** Phone of the contact (BT-42 seller contact of a self-billing Gutschrift, F04 §4.9). */
+  readonly phone?: string | undefined;
 }
 
 export interface DocumentContext {
@@ -247,6 +249,11 @@ export interface DocumentContext {
   readonly costCenterNumbers?: Readonly<Record<string, string>> | undefined;
   /** DOC-53: required document custom fields (checked at finalisation; drafts always save). */
   readonly requiredDocumentFields?: readonly { readonly key: string; readonly label: string }[] | undefined;
+  /**
+   * F04 §4.9 self-billing: set by `selfBillingContext()` after the party swap — our company as the letter issuer
+   * (sender line, footer) and the supplier's name for `self_billing_agreement_missing`.
+   */
+  readonly selfBilling?: { readonly issuer: CompanyContext["seller"]; readonly supplierName: string } | undefined;
 }
 
 // ── helpers ────────────────────────────────────────────────────────────────────────────────────────────────────

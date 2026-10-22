@@ -54,6 +54,19 @@ export const SELLERS = {
     kleinunternehmer: true,
     vatAccounting: "ist",
   },
+  /** Supplier of a self-billing Gutschrift (commission agent, F04 §4.9) — a contact, so no legal form of its own. */
+  agency: {
+    legalForm: "other",
+    name: "Agentur Nord GmbH",
+    address: { street: "Speicherstadt 4", postalCode: "20457", city: "Hamburg", countryCode: "DE" },
+    contact: { name: "Nina Nord", phone: "+49 40 123456", email: "abrechnung@agentur-nord.de" },
+    representatives: [],
+    taxNumber: "2275000100",
+    vatId: "DE136695976",
+    electronicAddress: { scheme: "EM", value: "abrechnung@agentur-nord.de" },
+    kleinunternehmer: false,
+    vatAccounting: "soll",
+  },
 } as const satisfies Record<string, SnapshotSeller>;
 
 export const BUYERS = {

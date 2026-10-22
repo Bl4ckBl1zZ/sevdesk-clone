@@ -34,6 +34,7 @@ import {
   type SnapshotBuyer,
   type SnapshotDeduction,
   type SnapshotFx,
+  type SnapshotIssuer,
   type SnapshotItemLine,
   type SnapshotLine,
   type SnapshotNote,
@@ -101,6 +102,8 @@ export interface SnapshotInput {
   readonly flags?: DocumentSnapshot["flags"];
   readonly seller: SnapshotSeller;
   readonly buyer: SnapshotBuyer;
+  /** Self-billing Gutschrift: our company as the letter issuer (F04 §4.9). */
+  readonly issuer?: SnapshotIssuer;
   readonly delivery?: { readonly address?: SnapshotAddress; readonly partyName?: string };
   readonly references?: {
     readonly buyerReference?: string;
@@ -535,6 +538,7 @@ export function buildSnapshot(input: SnapshotInput): Result<DocumentSnapshot, Bu
     flags: input.flags ?? {},
     seller: input.seller,
     buyer: input.buyer,
+    ...(input.issuer ? { issuer: input.issuer } : {}),
     ...(input.delivery ? { delivery: input.delivery } : {}),
     references,
     texts: input.texts ?? {},

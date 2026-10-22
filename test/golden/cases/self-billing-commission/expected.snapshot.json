@@ -1,0 +1,173 @@
+{
+  "buyer": {
+    "address": {
+      "city": "Berlin",
+      "countryCode": "DE",
+      "postalCode": "10115",
+      "street": "Hauptstraße 1"
+    },
+    "contactPerson": {
+      "email": "rechnung@muster-design.de",
+      "name": "Erika Musterfrau",
+      "phone": "+49 30 1234567"
+    },
+    "electronicAddress": {
+      "scheme": "EM",
+      "value": "rechnung@muster-design.de"
+    },
+    "invoiceEmail": "rechnung@muster-design.de",
+    "isConsumer": false,
+    "isPublicAuthority": false,
+    "name": "Muster Design GmbH",
+    "registerNumber": "HRB 123456 B",
+    "taxNumber": "1121081508150",
+    "vatId": "DE123456788"
+  },
+  "currency": "EUR",
+  "documentDate": "2026-10-12",
+  "einvoice": {
+    "decision": "PDF_NEEDS_CONSENT",
+    "format": "zugferd_en16931"
+  },
+  "flags": {},
+  "issuer": {
+    "address": {
+      "city": "Berlin",
+      "countryCode": "DE",
+      "postalCode": "10115",
+      "street": "Hauptstraße 1"
+    },
+    "contact": {
+      "email": "rechnung@muster-design.de",
+      "name": "Erika Musterfrau",
+      "phone": "+49 30 1234567",
+      "website": "www.muster-design.de"
+    },
+    "electronicAddress": {
+      "scheme": "EM",
+      "value": "rechnung@muster-design.de"
+    },
+    "legalForm": "gmbh",
+    "name": "Muster Design GmbH",
+    "register": {
+      "court": "Amtsgericht Charlottenburg",
+      "number": "123456 B",
+      "type": "HRB"
+    },
+    "representatives": [
+      {
+        "name": "Max Mustermann"
+      },
+      {
+        "name": "Erika Musterfrau"
+      }
+    ],
+    "seat": "Berlin",
+    "shareCapital": {
+      "amountCents": 2500000
+    },
+    "taxNumber": "1121081508150",
+    "taxNumberState": "BE",
+    "vatId": "DE123456788"
+  },
+  "language": "de",
+  "layoutVersionId": "layout-v1",
+  "lines": [
+    {
+      "description": "Vermittlungsprovision laut Gutschriftsvereinbarung vom 02.01.2026",
+      "kind": "item",
+      "name": "Provision September 2026",
+      "netCents": 500000,
+      "position": 1,
+      "quantityMilli": 1000,
+      "unitCode": "C62",
+      "unitPriceMicros": 50000000,
+      "vatCategory": "S",
+      "vatRateBp": 1900,
+      "vatRuleRowId": "standard@2021-01-01"
+    }
+  ],
+  "notes": [
+    {
+      "de": "Gutschrift (Abrechnung durch den Leistungsempfänger, § 14 Abs. 2 Satz 2 UStG).",
+      "en": "Self-billing invoice (Gutschrift) issued by the recipient (Section 14 (2) German VAT Act).",
+      "id": "sb_info",
+      "ruleRowId": "sb_info@2007-01-01",
+      "xmlSubjectCode": "AAI",
+      "zone": "title"
+    }
+  ],
+  "number": "GS-2026-0001",
+  "payment": {
+    "bankAccount": {
+      "accountHolder": "Agentur Nord GmbH",
+      "iban": "DE75512108001245126199"
+    },
+    "dueDays": 30,
+    "method": "transfer",
+    "paymentReference": "GS-2026-0001",
+    "showEpcQr": false
+  },
+  "priceMode": "net",
+  "references": {
+    "precedingInvoices": []
+  },
+  "ruleVersions": {
+    "note:sb_info": "sb_info@2007-01-01",
+    "vat:standard": "standard@2021-01-01"
+  },
+  "schemaVersion": 1,
+  "seller": {
+    "address": {
+      "city": "Hamburg",
+      "countryCode": "DE",
+      "postalCode": "20457",
+      "street": "Speicherstadt 4"
+    },
+    "contact": {
+      "email": "abrechnung@agentur-nord.de",
+      "name": "Nina Nord",
+      "phone": "+49 40 123456"
+    },
+    "electronicAddress": {
+      "scheme": "EM",
+      "value": "abrechnung@agentur-nord.de"
+    },
+    "kleinunternehmer": false,
+    "legalForm": "other",
+    "name": "Agentur Nord GmbH",
+    "representatives": [],
+    "taxNumber": "2275000100",
+    "vatAccounting": "soll",
+    "vatId": "DE136695976"
+  },
+  "supplyDate": {
+    "kind": "month",
+    "month": "2026-09"
+  },
+  "taxCase": "domestic",
+  "texts": {},
+  "totals": {
+    "advancesDeductedGrossCents": 0,
+    "allowanceTotalCents": 0,
+    "byGroup": [
+      {
+        "allowanceCents": 0,
+        "baseCents": 500000,
+        "category": "S",
+        "chargeCents": 0,
+        "lineNetSumCents": 500000,
+        "rateBp": 1900,
+        "vatCents": 95000
+      }
+    ],
+    "chargeTotalCents": 0,
+    "grossCents": 595000,
+    "lineNetSumCents": 500000,
+    "netCents": 500000,
+    "payableCents": 595000,
+    "roundingCents": 0,
+    "vatCents": 95000
+  },
+  "type": "self_billing"
+}

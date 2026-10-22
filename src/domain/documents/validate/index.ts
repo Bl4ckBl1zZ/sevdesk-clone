@@ -1364,8 +1364,22 @@ export function validateDocument(
     ...selfBillingFindings({
       type: draft.type,
       documentDate: docDate,
-      supplierName: c?.buyer.name ?? "",
+      // After the party swap (selfBillingContext) the supplier is the seller; without it the contact is the supplier.
+      supplierName: ctx.selfBilling?.supplierName ?? c?.buyer.name ?? "",
       agreement: c?.selfBillingAgreement,
+      ...(ctx.selfBilling
+        ? {
+            supplier: {
+              address: ctx.company.seller.address,
+              taxNumber: ctx.company.seller.taxNumber,
+              vatId: ctx.company.seller.vatId,
+              phone: ctx.company.seller.contact.phone,
+              email: ctx.company.seller.contact.email,
+            },
+            einvoice: einvoice.format !== "none",
+            xrechnung: einvoice.format.includes("xrechnung"),
+          }
+        : {}),
     }),
   );
   return { findings: dedupe(out), resolved, einvoice, ...(overriddenVatCheck ? { overriddenVatCheck } : {}) };

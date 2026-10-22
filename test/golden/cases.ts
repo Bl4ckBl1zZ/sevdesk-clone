@@ -7,10 +7,12 @@ import { readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { buildSnapshot, type SnapshotInput } from "@/domain/documents/build-snapshot";
 import { DEFAULT_LAYOUT, type RenderLayout, type RenderVariant } from "@/domain/documents/render-model";
+import { companyAsBuyer } from "@/domain/documents/self-billing";
 import {
   type DocumentSnapshot,
   isInvoiceType,
   type SnapshotBuyer,
+  type SnapshotIssuer,
   type SnapshotSeller,
 } from "@/domain/documents/snapshot";
 import type { XmlFormat } from "@/domain/einvoice/serialize";
@@ -33,6 +35,11 @@ export interface GoldenCaseFile {
   readonly layout?: Partial<Omit<RenderLayout, "printOptions">> & {
     readonly printOptions?: Partial<RenderLayout["printOptions"]>;
   };
+  /**
+   * Self-billing Gutschrift (F04 §4.9): our company preset as the letter issuer and the BG-7 buyer; `seller` is then
+   * the supplier. Like the pipeline, the document carries no bank account of ours and no EPC QR.
+   */
+  readonly issuer?: SellerPreset;
   /** The snapshot must be rejected with this issue code (no outputs). */
   readonly expectError?: string;
 }
@@ -45,6 +52,9 @@ export interface GoldenCase {
   readonly variant: RenderVariant;
 }
 
+const withoutTaxFlags = ({ kleinunternehmer: _ku, vatAccounting: _va, ...rest }: SnapshotSeller): SnapshotIssuer =>
+  rest;
+
 export function loadGoldenCases(): GoldenCase[] {
   return readdirSync(CASES_DIR, { withFileTypes: true })
     .filter((d) => d.isDirectory())
@@ -53,10 +63,16 @@ export function loadGoldenCases(): GoldenCase[] {
     .map((dir) => {
       const file = JSON.parse(readFileSync(join(CASES_DIR, dir, "input.json"), "utf8")) as GoldenCaseFile;
       const seller = { ...SELLERS[file.seller ?? "gmbh"], ...file.sellerPatch } as SnapshotSeller;
-      const buyer = { ...BUYERS[file.buyer ?? "b2b"], ...file.buyerPatch } as SnapshotBuyer;
-      const base = makeSnapshotInput({ seller, buyer, ...file.input });
+      const issuer = file.issuer ? withoutTaxFlags(SELLERS[file.issuer]) : undefined;
+      const buyer = {
+        ...(issuer ? companyAsBuyer(issuer) : BUYERS[file.buyer ?? "b2b"]),
+        ...file.buyerPatch,
+      } as SnapshotBuyer;
+      const base = makeSnapshotInput({ seller, buyer, ...(issuer ? { issuer } : {}), ...file.input });
+      const { bankAccount: _ours, ...noBank } = base.payment;
+      const payment = issuer ? { ...noBank, showEpcQr: false } : base.payment;
       // `null` in input.json removes a base field (e.g. the supply date of a quote).
-      const merged: Record<string, unknown> = { ...base, payment: { ...base.payment, ...file.paymentPatch } };
+      const merged: Record<string, unknown> = { ...base, payment: { ...payment, ...file.paymentPatch } };
       for (const [key, value] of Object.entries(file.input ?? {})) if (value === null) delete merged[key];
       const input = merged as unknown as SnapshotInput;
       const layout: RenderLayout = {

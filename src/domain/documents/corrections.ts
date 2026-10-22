@@ -195,6 +195,8 @@ export function cancellationSnapshotInput(
     },
     seller: original.seller,
     buyer: original.buyer,
+    // F04 §4.2.8: the mirror of a self-billing Gutschrift keeps the swapped parties and our company as issuer.
+    ...(original.issuer ? { issuer: original.issuer } : {}),
     ...(original.delivery ? { delivery: original.delivery } : {}),
     references: {
       ...(r.buyerReference ? { buyerReference: r.buyerReference } : {}),
