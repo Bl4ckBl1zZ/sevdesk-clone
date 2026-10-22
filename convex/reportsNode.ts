@@ -30,6 +30,7 @@ const REVENUE_TITLE = {
   product: "Umsatz nach Produkt",
   month: "Umsatz nach Monat",
   cost_center: "Umsatz nach Kostenstelle",
+  project: "Umsatz nach Projekt",
 } as const;
 
 const yearsOf = (p: Record<string, unknown>): number[] =>

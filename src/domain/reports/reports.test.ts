@@ -305,6 +305,48 @@ describe("Revenue reports (RPT-007)", () => {
     });
     expect(c.groups).toEqual([expect.objectContaining({ label: "Beta", netCents: 25000, grossCents: 29750 })]);
   });
+  test("RPT-007 PRJ-002 by project: line projects win over the document project; Storno netted; unassigned revenue", () => {
+    const byProject: RevenueDocument[] = [
+      { ...(docs[0] as RevenueDocument), projectId: "prj1" },
+      { ...(docs[1] as RevenueDocument), projectId: "prj1" },
+      {
+        ...(docs[2] as RevenueDocument),
+        lines: [
+          { productId: "p1", productName: "Beratung", netCents: 30000, projectId: "prj2" },
+          { productId: "p1", productName: "Beratung", netCents: 20000 },
+        ],
+      },
+      {
+        id: "c",
+        number: "RE-3",
+        type: "invoice",
+        documentDate: "2026-03-20",
+        contactId: "c1",
+        contactName: "Alpha",
+        projectId: "prj1",
+        netCents: 10000,
+        grossCents: 11900,
+        lines: [{ productName: "Hosting", netCents: 10000, projectId: "prj2" }],
+      },
+    ];
+    const r = computeRevenue({
+      documents: byProject,
+      groupBy: "project",
+      basis: "document_date",
+      from: "2026-03-01",
+      to: "2026-03-31",
+      projects: new Map([
+        ["prj1", "PRJ-00001 Website"],
+        ["prj2", "PRJ-00002 Shop"],
+      ]),
+    });
+    expect(r.groups.map((g) => [g.label, g.netCents, g.grossCents, g.documents])).toEqual([
+      ["PRJ-00002 Shop", 40000, 47600, 2],
+      ["ohne Projekt", 20000, 23800, 1],
+      ["PRJ-00001 Website", 0, 0, 2],
+    ]);
+    expect(r.totals).toEqual({ netCents: 60000, grossCents: 71400 });
+  });
 });
 
 describe("report header facts (RPT-001, E-RPT-01)", () => {

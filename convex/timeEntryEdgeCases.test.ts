@@ -456,3 +456,29 @@ describe("PRJ-017 time reports", () => {
     expect(weekly.rows.map((x) => [x.label, x.minutes])).toEqual([["KW 41/2026", 360]]);
   });
 });
+
+describe("RPT-007 revenue by project", () => {
+  test("RPT-007 PRJ-002 the revenue report groups finalised invoices by project (number and name)", async () => {
+    const t = makeT();
+    const { owner, personId } = await setup(t);
+    const p = await project(owner, personId);
+    const ids = [await logEntry(owner, p, "2026-10-01", "2h")];
+    const r = await owner.mutation(api.timeEntries.createInvoice, { values: { entryIds: ids, grouping: "summary" } });
+    await owner.action(api.invoices.finalize, { id: r.id, version: (await doc(t, r.id)).version });
+    await settle(t);
+    const plain = await owner.mutation(api.invoices.createDraft, { values: invoiceValues(personId) });
+    await owner.action(api.invoices.finalize, { id: plain.id, version: 1 });
+    await settle(t);
+    const report = await owner.query(api.reports.revenue, {
+      groupBy: "project",
+      basis: "document_date",
+      from: "2026-01-01",
+      to: "2026-12-31",
+    });
+    expect(report.groups.map((g) => [g.label, g.netCents, g.documents])).toEqual([
+      ["ohne Projekt", 100_000, 1],
+      ["PRJ-00001 Website-Relaunch", 18_000, 1],
+    ]);
+    expect(report.totals.netCents).toBe(118_000);
+  });
+});

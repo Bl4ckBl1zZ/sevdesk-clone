@@ -6320,7 +6320,8 @@
         "customer": "Kunde",
         "product": "Produkt",
         "month": "Monat",
-        "cost_center": "Kostenstelle"
+        "cost_center": "Kostenstelle",
+        "project": "Projekt"
       },
       "bases": {
         "document_date": "Rechnungsdatum",
