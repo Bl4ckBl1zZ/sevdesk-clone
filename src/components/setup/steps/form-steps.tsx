@@ -1,6 +1,7 @@
 "use client";
 
 import { useTranslations } from "next-intl";
+import { ShareholderClearingPanel } from "@/components/settings/shareholder-clearing";
 import { companyDefaults, taxDefaults } from "@/domain/schemas/settings";
 import { saveBankAccount, saveCompanyProfile, saveLayout, saveNumberRanges, saveTaxSettings } from "../actions";
 import { BankForm } from "../forms/bank-form";
@@ -33,12 +34,16 @@ export function TaxStep() {
   const submit = useStepSubmit();
   const legalForm = drafts.company?.legalForm ?? state?.company?.legalForm ?? "einzelunternehmen";
   return (
-    <TaxForm
-      id={formId}
-      currentYear={new Date().getFullYear()}
-      defaultValues={{ ...taxDefaults(legalForm), ...state?.tax, legalForm }}
-      onValid={(values) => submit(() => saveTaxSettings(values, state?.version))}
-    />
+    <>
+      <TaxForm
+        id={formId}
+        currentYear={new Date().getFullYear()}
+        defaultValues={{ ...taxDefaults(legalForm), ...state?.tax, legalForm }}
+        onValid={(values) => submit(() => saveTaxSettings(values, state?.version))}
+      />
+      {/* SET-045a: corporations only (the panel renders nothing for sole proprietors and partnerships). */}
+      <ShareholderClearingPanel />
+    </>
   );
 }
 

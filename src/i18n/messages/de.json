@@ -6320,5 +6320,19 @@
       "delay": "Zahlt im Mittel {expected} Tage nach Fälligkeit (vorsichtig {cautious} Tage)",
       "tableLabel": "Positionen der Liquiditätsvorschau"
     }
+  },
+  "shareholderClearing": {
+    "title": "Verrechnungskonto Gesellschafter",
+    "description": "Kapitalgesellschaften haben kein Privatkonto. Für jeden Gesellschafter wird ein eigenes Verrechnungskonto angelegt; Auslagen „privat bezahlt“, private Entnahmen und Einlagen werden dort gebucht.",
+    "unmapped": "Noch kein Verrechnungskonto eingerichtet – Buchungen „privat bezahlt“ sind bis dahin gesperrt.",
+    "mapped": "Die Kontenrolle „Verrechnungskonto Gesellschafter“ bucht auf Konto {account}.",
+    "shareholder": "Gesellschafter {n}",
+    "number": "Kontonummer (optional)",
+    "numberPlaceholder": "Vorschlag",
+    "numberHint": "Ohne Kontonummer wird eine freie Nummer im Bereich der Verbindlichkeiten vorgeschlagen (SKR03 ab 0755, SKR04 ab 3510). Bitte mit Ihrer Buchhaltung abstimmen.",
+    "add": "Gesellschafter hinzufügen",
+    "remove": "Gesellschafter {n} entfernen",
+    "create": "Verrechnungskonten anlegen",
+    "created": "Verrechnungskonten angelegt."
   }
 }

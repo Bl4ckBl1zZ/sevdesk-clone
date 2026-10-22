@@ -70,6 +70,18 @@
     "wrapper": "mutation",
     "permission": "accounting.roles"
   },
+  "accounting:setupShareholderAccounts": {
+    "kind": "mutation",
+    "visibility": "public",
+    "wrapper": "mutation",
+    "permission": "accounting.roles"
+  },
+  "accounting:shareholderClearing": {
+    "kind": "query",
+    "visibility": "public",
+    "wrapper": "query",
+    "permission": "settings.read"
+  },
   "apiKeys:authorize": {
     "kind": "mutation",
     "visibility": "public",

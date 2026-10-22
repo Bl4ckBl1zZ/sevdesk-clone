@@ -421,7 +421,9 @@ export async function setRoleOverride(
     throw appError("invalid_input", "Bitte eine Begründung bzw. Quelle angeben (mindestens 5 Zeichen).");
   }
   const chart = chartAt(profile.chartOfAccounts, profile.fiscalYearStartMonth, input.validFrom);
-  if (!seededAccount(chart, calendarDate(input.validFrom), input.account)) {
+  // ACC-009 / SET-045a: an owner-created (not archived) Sachkonto can carry a role too (e.g. shareholder.clearing).
+  const custom = (await ledgerAccountsOf(ctx, chart)).custom.some((a) => a.number === input.account && !a.archived);
+  if (!custom && !seededAccount(chart, calendarDate(input.validFrom), input.account)) {
     throw appError("account_unknown", `Konto ${input.account} ist im Kontenrahmen ${chart} nicht vorhanden.`);
   }
   const count = (await ctx.db.query("accountRoleMappings").collect()).filter((r) => r.source === "override").length;
