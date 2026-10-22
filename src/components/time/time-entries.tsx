@@ -32,7 +32,7 @@ import { useAuthedQuery } from "@/hooks/use-authed-query";
 import { cn } from "@/lib/utils";
 import { TimeEntryDialog } from "./entry-dialog";
 import { InvoiceEntriesDialog } from "./invoice-dialog";
-import { EntryStatusBadge, type TimeEntryRow, useProjectOptions } from "./time-shared";
+import { EntryStatusBadge, type TimeEntryRow, useClearFixedPageActions, useProjectOptions } from "./time-shared";
 import { TimerCard } from "./timer";
 
 const STATUSES = ["all", "open", "in_draft", "invoiced"] as const;
@@ -229,6 +229,8 @@ export function TimeEntryList({
       return next;
     });
   const allChosen = open.length > 0 && chosen.length === open.length;
+  // Phone: on pages with header actions (project page) the fixed action bar would cover the bulk bar.
+  const bulkBottom = useClearFixedPageActions(canWrite && chosen.length > 0);
 
   const newButton = canWrite && (
     <Button className="h-11 md:ml-auto md:h-9" onClick={() => setEditing("new")}>
@@ -310,6 +312,7 @@ export function TimeEntryList({
         role="toolbar"
         aria-label={t("bulk.label")}
         data-testid="time-bulk-bar"
+        style={bulkBottom !== null ? { bottom: bulkBottom } : undefined}
         className="sticky bottom-[calc(4.5rem+env(safe-area-inset-bottom))] z-10 flex flex-wrap items-center gap-2 rounded-lg border bg-background p-2 shadow-sm md:bottom-2"
       >
         <span className="px-1 text-sm">{t("selected", { count: chosen.length })}</span>

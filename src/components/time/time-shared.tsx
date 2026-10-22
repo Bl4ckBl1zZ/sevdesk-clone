@@ -3,7 +3,7 @@
 import { api } from "@convex/_generated/api";
 import type { FunctionReturnType } from "convex/server";
 import { LockIcon } from "lucide-react";
-import { useDeferredValue, useId, useState } from "react";
+import { useDeferredValue, useEffect, useId, useState } from "react";
 import type { FieldValues, Path, UseFormReturn } from "react-hook-form";
 import { SelectField } from "@/components/forms/fields";
 import { Badge } from "@/components/ui/badge";
@@ -17,6 +17,36 @@ import { cn } from "@/lib/utils";
 /** Shared pieces of the project and time screens (F11 §6). Business rules stay in src/domain and Convex. */
 
 export type TimeEntryRow = FunctionReturnType<typeof api.timeEntries.list>[number];
+
+/**
+ * Phone layout: a page with header actions renders them as a fixed bar above the tab bar (PageHeader
+ * `data-slot="page-actions"`, wraps to several rows). A sticky bar of the page (the bulk-selection toolbar) must sit
+ * above it, not under it: returns the CSS `bottom` in px that clears the fixed action bar plus a gap, or null when
+ * there is none or it is static (desktop).
+ */
+export function useClearFixedPageActions(active: boolean, gapPx = 8): number | null {
+  const [bottom, setBottom] = useState<number | null>(null);
+  useEffect(() => {
+    if (!active) return;
+    const el = document.querySelector<HTMLElement>("[data-slot=page-actions]");
+    const measure = () => {
+      if (!el?.isConnected || getComputedStyle(el).position !== "fixed") {
+        setBottom(null);
+        return;
+      }
+      setBottom(Math.max(0, Math.ceil(window.innerHeight - el.getBoundingClientRect().top + gapPx)));
+    };
+    measure();
+    const ro = typeof ResizeObserver === "undefined" || !el ? null : new ResizeObserver(measure);
+    if (el) ro?.observe(el);
+    window.addEventListener("resize", measure);
+    return () => {
+      ro?.disconnect();
+      window.removeEventListener("resize", measure);
+    };
+  }, [active, gapPx]);
+  return active ? bottom : null;
+}
 
 /** „Offen / Im Entwurf / Abgerechnet 🔒“ (F11 §6 `/zeiten`). */
 export function EntryStatusBadge({ status }: { status: TimeEntryStatus }) {
