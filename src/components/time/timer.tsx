@@ -13,6 +13,7 @@ import { Input } from "@/components/ui/input";
 import { formatElapsed } from "@/domain/projects/time-entries";
 import { berlinClockTime } from "@/domain/time/berlin";
 import { useAuthedQuery } from "@/hooks/use-authed-query";
+import { cn } from "@/lib/utils";
 import { useProjectOptions } from "./time-shared";
 
 const errorOf = (e: unknown) => (e as { data?: { reason?: string; message?: string } }).data;
@@ -22,15 +23,16 @@ const errorOf = (e: unknown) => (e as { data?: { reason?: string; message?: stri
  * Start while another device runs a timer → confirmation (E-PRJ-01); stop saves the entry (incomplete if fields
  * are missing, E-PRJ-02).
  */
-export function TimerCard({ projectId }: { projectId?: string }) {
+export function TimerCard({ projectId, embedded }: { projectId?: string; embedded?: boolean }) {
   return (
     <ConvexGuard fallback={null}>
-      <TimerInner projectId={projectId} />
+      <TimerInner projectId={projectId} embedded={embedded === true} />
     </ConvexGuard>
   );
 }
 
-function useNow(active: boolean) {
+/** Ticks every second while `active` (running timer display). */
+export function useNow(active: boolean) {
   const [now, setNow] = useState(() => Date.now());
   useEffect(() => {
     if (!active) return;
@@ -41,7 +43,7 @@ function useNow(active: boolean) {
   return now;
 }
 
-function TimerInner({ projectId }: { projectId?: string }) {
+function TimerInner({ projectId, embedded }: { projectId?: string; embedded: boolean }) {
   const t = useTranslations("time.timer");
   const timer = useAuthedQuery(api.timeEntries.timer, {});
   const canWrite = useCan("time.write");
@@ -102,9 +104,9 @@ function TimerInner({ projectId }: { projectId?: string }) {
   return (
     <section
       aria-labelledby={ids.heading}
-      data-testid="timer"
+      data-testid={embedded ? "timer-popover" : "timer"}
       data-running={timer ? "true" : "false"}
-      className="@container/timer flex flex-col gap-3 rounded-xl border p-4"
+      className={cn("@container/timer flex flex-col gap-3 p-4", !embedded && "rounded-xl border")}
     >
       <div className="flex flex-wrap items-baseline justify-between gap-2">
         <h2 id={ids.heading} className="font-semibold text-base">

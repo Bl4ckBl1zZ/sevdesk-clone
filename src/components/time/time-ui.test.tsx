@@ -2,11 +2,17 @@ import { screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { getFunctionName } from "convex/server";
 import { beforeEach, describe, expect, test, vi } from "vitest";
+import { todayBerlin } from "@/components/catalog/shared";
+import { timeReport } from "@/domain/projects/time-report";
+import { addDays, type CalendarDate } from "@/domain/time/calendar-date";
+import { weekStart } from "@/domain/time/week";
 import { renderWithIntl } from "@/i18n/test-utils";
 import { InvoiceEntriesDialog, invoiceValues } from "./invoice-dialog";
 import { ReopenBanners, TimeEntryList } from "./time-entries";
 import type { TimeEntryRow } from "./time-shared";
+import { TimeReportView, WeekView } from "./time-views";
 import { TimerCard } from "./timer";
+import { TimerPill } from "./timer-pill";
 import { UnbilledTimeWidget } from "./unbilled-widget";
 
 const backend = vi.hoisted(() => ({
@@ -273,6 +279,133 @@ describe("Timer (PRJ-005)", () => {
       name: "timeEntries:stop",
       args: { description: "Support", splitAtMidnight: true },
     });
+  });
+});
+
+describe("Header timer pill (PRJ-005, F11 §6)", () => {
+  test("PRJ-005 a running timer shows project and elapsed time in the header; a click opens stop/discard", async () => {
+    backend.data["timeEntries:timer"] = {
+      _id: "t1",
+      startedAt: Date.now() - 3_725_000,
+      description: "Workshop",
+      projectId: "p1",
+      projectName: "Website-Relaunch",
+      startedVia: "ui",
+    };
+    renderWithIntl(<TimerPill />);
+    const pill = screen.getByTestId("timer-pill");
+    expect(pill).toHaveAttribute("data-running", "true");
+    expect(pill).toHaveTextContent("Website-Relaunch");
+    expect(screen.getByTestId("timer-pill-elapsed").textContent).toMatch(/^1:02:0[5-9]$/);
+    expect(pill.getAttribute("aria-label")).toMatch(/^Timer läuft: Website-Relaunch, 1:02:0\d$/);
+    const user = userEvent.setup();
+    await user.click(pill);
+    const popover = await screen.findByTestId("timer-popover");
+    expect(within(popover).getByRole("button", { name: "Stoppen" })).toBeInTheDocument();
+    expect(within(popover).getByRole("button", { name: "Verwerfen" })).toBeInTheDocument();
+    expect(within(popover).getByLabelText("Tätigkeit")).toHaveValue("Workshop");
+  });
+
+  test("PRJ-005 idle: „Zeit starten“ for writers, nothing for read-only roles", async () => {
+    backend.data["timeEntries:timer"] = null;
+    const { unmount } = renderWithIntl(<TimerPill />);
+    const pill = screen.getByRole("button", { name: "Zeit starten" });
+    expect(pill).toHaveAttribute("data-running", "false");
+    await userEvent.setup().click(pill);
+    const popover = await screen.findByTestId("timer-popover");
+    expect(within(popover).getByRole("button", { name: "Zeit starten" })).toBeInTheDocument();
+    unmount();
+    backend.data["members:me"] = { role: "viewer" };
+    renderWithIntl(<TimerPill />);
+    expect(screen.queryByTestId("timer-pill")).toBeNull();
+  });
+});
+
+describe("Week view and time reports (F11 §6, PRJ-017)", () => {
+  test("PRJ-017 the week view shows Mon–Sun columns with totals per day and project", () => {
+    const monday = weekStart(todayBerlin() as CalendarDate);
+    backend.data["timeEntries:list"] = [
+      entry({
+        _id: "e1" as never,
+        date: monday,
+        durationMinutes: 90,
+        projectId: "p1" as never,
+        projectName: "Relaunch",
+      }),
+      entry({
+        _id: "e2" as never,
+        date: addDays(monday, 2),
+        durationMinutes: 60,
+        projectId: "p1" as never,
+        projectName: "Relaunch",
+      }),
+      entry({
+        _id: "e3" as never,
+        date: addDays(monday, 2),
+        durationMinutes: 30,
+        projectId: "p2" as never,
+        projectName: "Shop",
+      }),
+    ];
+    renderWithIntl(<WeekView />);
+    expect(screen.getByTestId("week-label").textContent).toMatch(/^KW \d+\/\d{4} · /);
+    const table = screen.getByTestId("week-table");
+    const headers = within(table)
+      .getAllByRole("columnheader")
+      .map((h) => h.textContent);
+    expect(headers[0]).toBe("Projekt / Kunde");
+    expect(headers.slice(1, 8).map((h) => h?.slice(0, 2))).toEqual(["Mo", "Di", "Mi", "Do", "Fr", "Sa", "So"]);
+    expect(headers[8]).toBe("Summe");
+    const relaunch = within(table).getByRole("row", { name: /Relaunch/ });
+    expect(
+      within(relaunch)
+        .getAllByRole("cell")
+        .map((c) => c.textContent),
+    ).toEqual(["Relaunch", "1:30 h", "—", "1:00 h", "—", "—", "—", "—", "2:30 h"]);
+    expect(screen.getByTestId("week-total")).toHaveTextContent("3:00 h");
+    expect(screen.getByRole("button", { name: "Vorherige Woche" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Nächste Woche" })).toBeInTheDocument();
+  });
+
+  test("PRJ-017 the report shows hours per group, billable vs non-billable, unbilled value and weekly utilisation", () => {
+    const today = todayBerlin() as CalendarDate;
+    const from = `${today.slice(0, 7)}-01` as CalendarDate;
+    backend.data["timeEntries:report"] = timeReport(
+      [
+        {
+          date: from,
+          durationMinutes: 120,
+          billable: true,
+          status: "open",
+          hourlyRateMicros: 900_000,
+          projectId: "p1",
+          projectName: "Relaunch",
+        },
+        {
+          date: from,
+          durationMinutes: 60,
+          billable: false,
+          status: "open",
+          hourlyRateMicros: 900_000,
+          projectId: "p1",
+          projectName: "Relaunch",
+        },
+      ],
+      { groupBy: "project", from, to: today },
+    );
+    renderWithIntl(<TimeReportView />);
+    const totals = screen.getByTestId("time-report-totals");
+    expect(totals).toHaveTextContent("Stunden gesamt3:00 h");
+    expect(totals).toHaveTextContent("Nicht abgerechnet180,00 €");
+    const row = within(screen.getByTestId("time-report-table")).getByRole("row", { name: /Relaunch/ });
+    expect(
+      within(row)
+        .getAllByRole("cell")
+        .map((c) => c.textContent?.replace(/\s/g, " ")),
+    ).toEqual(["Relaunch", "3:00 h", "2:00 h", "1:00 h", "180,00 €", "0,00 €"]);
+    expect(within(screen.getByTestId("time-report-weeks")).getAllByRole("row")[1]).toHaveTextContent("66,66 %");
+    expect(screen.getByRole("button", { name: /Export/ })).toBeInTheDocument();
+    expect(screen.getByLabelText("Gruppieren nach")).toHaveValue("project");
   });
 });
 

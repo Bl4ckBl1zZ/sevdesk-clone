@@ -6,11 +6,12 @@ import {
   TIMER_WARN_AFTER_MS,
   type TimeEntrySource,
 } from "../src/domain/projects/time-entries";
+import { timeReport } from "../src/domain/projects/time-report";
 import { invoiceFromEntriesSchema, rateOverrideMicros, timeEntryFormSchema } from "../src/domain/schemas/projects";
 import { berlinCalendarDate } from "../src/domain/time/berlin";
-import type { CalendarDate } from "../src/domain/time/calendar-date";
+import { type CalendarDate, isCalendarDate } from "../src/domain/time/calendar-date";
 import { internal } from "./_generated/api";
-import type { Doc } from "./_generated/dataModel";
+import type { Doc, Id } from "./_generated/dataModel";
 import { mutation, query, systemMutation } from "./functions";
 import { appError } from "./lib/errors";
 import { parse } from "./lib/parse";
@@ -301,6 +302,65 @@ export const unbilled = query({
   permission: "projects.read",
   args: {},
   handler: async (ctx) => unbilledSummary(ctx, berlinCalendarDate(ctx.now())),
+});
+
+// ── time reports (PRJ-017) ──────────────────────────────────────────────────────────────────────────────────
+
+/** Hours per project/customer/product/month/week, billable vs non-billable, unbilled value, utilisation per week. */
+export const report = query({
+  permission: "projects.read",
+  args: {
+    from: v.string(),
+    to: v.string(),
+    groupBy: v.union(
+      v.literal("project"),
+      v.literal("customer"),
+      v.literal("product"),
+      v.literal("month"),
+      v.literal("week"),
+    ),
+    projectId: v.optional(v.id("projects")),
+  },
+  handler: async (ctx, a) => {
+    const from = a.from as CalendarDate;
+    const to = a.to as CalendarDate;
+    if (!isCalendarDate(from) || !isCalendarDate(to) || from > to) {
+      throw appError("invalid_input", "Bitte einen gültigen Zeitraum wählen.", { field: "from" });
+    }
+    const projectId = a.projectId;
+    const rows = projectId
+      ? await ctx.db
+          .query("timeEntries")
+          .withIndex("by_project", (q) => q.eq("projectId", projectId).gte("date", from).lte("date", to))
+          .collect()
+      : await ctx.db
+          .query("timeEntries")
+          .withIndex("by_date", (q) => q.gte("date", from).lte("date", to))
+          .collect();
+    const names = new Map<string, string | null>();
+    const nameOf = async (id: Id<"projects"> | Id<"contacts"> | Id<"products"> | undefined) => {
+      if (!id) return undefined;
+      if (!names.has(id)) {
+        const doc = await ctx.db.get(id);
+        names.set(id, doc ? ("displayName" in doc ? doc.displayName : doc.name) : null);
+      }
+      return names.get(id) ?? null;
+    };
+    const entries = [];
+    for (const e of rows) {
+      entries.push({
+        date: e.date as CalendarDate,
+        durationMinutes: e.durationMinutes,
+        billable: e.billable,
+        status: e.status,
+        hourlyRateMicros: e.hourlyRateMicros,
+        ...(e.projectId ? { projectId: e.projectId, projectName: await nameOf(e.projectId) } : {}),
+        ...(e.contactId ? { contactId: e.contactId, contactName: await nameOf(e.contactId) } : {}),
+        ...(e.productId ? { productId: e.productId, productName: await nameOf(e.productId) } : {}),
+      });
+    }
+    return timeReport(entries, { groupBy: a.groupBy, from, to });
+  },
 });
 
 export type TimeEntryRow = Awaited<ReturnType<typeof label>>;

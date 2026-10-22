@@ -409,3 +409,50 @@ describe("PRJ-021 attribution", () => {
     for (const a of audit) expect(a.actor).toMatch(/^(user|api-key|mcp|system):[^:]/);
   });
 });
+
+describe("PRJ-017 time reports", () => {
+  test("PRJ-017 the report query groups the period's entries by project with unbilled value and weekly utilisation", async () => {
+    const t = makeT();
+    const { owner, personId, orgId } = await setup(t);
+    const web = await project(owner, personId);
+    const shop = await project(owner, orgId, { name: "Shop", hourlyRate: "100,00" });
+    await logEntry(owner, web, "2026-10-05", "2h");
+    await owner.mutation(api.timeEntries.create, {
+      values: { ...entryForm(web, "2026-10-06", "1h", "Interne Abstimmung"), billable: false },
+    });
+    const billed = await logEntry(owner, shop, "2026-10-07", "3h");
+    await owner.mutation(api.timeEntries.createInvoice, { values: { entryIds: [billed], grouping: "summary" } });
+    await logEntry(owner, shop, "2026-09-30", "5h"); // before the period
+    const r = await owner.query(api.timeEntries.report, { from: "2026-10-01", to: "2026-10-31", groupBy: "project" });
+    expect(
+      r.rows.map((x) => [
+        x.label,
+        x.minutes,
+        x.billableMinutes,
+        x.nonBillableMinutes,
+        x.unbilledValueCents,
+        x.billedValueCents,
+      ]),
+    ).toEqual([
+      ["Shop", 180, 180, 0, 0, 30_000], // same hours → alphabetical
+      ["Website-Relaunch", 180, 120, 60, 18_000, 0],
+    ]);
+    expect(r.weeks).toEqual([
+      { weekStart: "2026-10-05", label: "KW 41/2026", minutes: 360, billableMinutes: 300, utilisationBp: 8333 },
+    ]);
+    const byCustomer = await owner.query(api.timeEntries.report, {
+      from: "2026-09-01",
+      to: "2026-10-31",
+      groupBy: "customer",
+      projectId: shop,
+    });
+    expect(byCustomer.rows.map((x) => [x.key, x.minutes])).toEqual([[orgId, 480]]);
+    const viewer = await t.asUser("viewer");
+    const weekly = await viewer.query(api.timeEntries.report, {
+      from: "2026-10-01",
+      to: "2026-10-31",
+      groupBy: "week",
+    });
+    expect(weekly.rows.map((x) => [x.label, x.minutes])).toEqual([["KW 41/2026", 360]]);
+  });
+});

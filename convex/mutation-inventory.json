@@ -4015,6 +4015,12 @@
     "wrapper": "query",
     "permission": "projects.read"
   },
+  "timeEntries:report": {
+    "kind": "query",
+    "visibility": "public",
+    "wrapper": "query",
+    "permission": "projects.read"
+  },
   "timeEntries:setBillableFlag": {
     "kind": "mutation",
     "visibility": "public",
