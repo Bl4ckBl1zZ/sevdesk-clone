@@ -54,6 +54,15 @@ export interface TimeInvoiceOptions {
   readonly vatRowOf?:
     | ((vatRateKey: string, date: CalendarDate) => { readonly rowId: string; readonly validFrom: CalendarDate } | null)
     | undefined;
+  /**
+   * The Kleinunternehmer status row (date-effective company setting) valid on `date` (E-PRJ-16, EC-025): entries on
+   * both sides of a KU status change are split into separate lines like a VAT rate change.
+   */
+  /** E-PRJ-32: entries of a fixed-price project — warning only, the time is tracked for profitability. */
+  readonly fixedPrice?: boolean | undefined;
+  readonly kuRowOf?:
+    | ((date: CalendarDate) => { readonly rowId: string; readonly validFrom: CalendarDate } | null)
+    | undefined;
 }
 
 export interface TimeInvoiceLine {
@@ -202,29 +211,49 @@ export function inexactHoursNotice(minutes: number, quantityMilli: number, diffC
   return `${minutes} Minuten ergeben ${formatMilli(quantityMilli)} Stunden (gerundet). Abweichung: ${formatCents(Math.abs(diffCents))} €. Einheit „Minute“ verwenden?`;
 }
 
-/** Splits entries (date-sorted) into runs with the same VAT rule row (EC-024, E-PRJ-15). */
-function splitByVatRow(
+type RuleChange = { readonly date: CalendarDate; readonly kind: "vat" | "ku" };
+
+/**
+ * Splits entries (date-sorted) into runs with the same VAT rule row and the same Kleinunternehmer status row
+ * (EC-024/E-PRJ-15, EC-025/E-PRJ-16).
+ */
+function splitByRuleRows(
   es: readonly BillableEntry[],
   vatRowOf: TimeInvoiceOptions["vatRowOf"],
-): { parts: BillableEntry[][]; changes: CalendarDate[] } {
+  kuRowOf: TimeInvoiceOptions["kuRowOf"],
+): { parts: BillableEntry[][]; changes: RuleChange[] } {
   const sorted = [...es].sort((a, b) => (a.date < b.date ? -1 : a.date > b.date ? 1 : a.id < b.id ? -1 : 1));
-  if (!vatRowOf) return { parts: [sorted], changes: [] };
+  if (!vatRowOf && !kuRowOf) return { parts: [sorted], changes: [] };
   const parts: BillableEntry[][] = [];
-  const changes: CalendarDate[] = [];
+  const changes: RuleChange[] = [];
   let current: BillableEntry[] = [];
-  let row: string | null | undefined;
+  let vatRow: string | null | undefined;
+  let kuRow: string | null | undefined;
   for (const e of sorted) {
-    const r = vatRowOf(e.vatRateKey, e.date);
-    if (current.length > 0 && (r?.rowId ?? null) !== row) {
-      parts.push(current);
-      changes.push(r?.validFrom ?? e.date);
-      current = [];
+    const vat = vatRowOf ? vatRowOf(e.vatRateKey, e.date) : null;
+    const ku = kuRowOf ? kuRowOf(e.date) : null;
+    if (current.length > 0) {
+      const vatChanged = (vat?.rowId ?? null) !== vatRow;
+      const kuChanged = (ku?.rowId ?? null) !== kuRow;
+      if (vatChanged || kuChanged) {
+        parts.push(current);
+        if (vatChanged) changes.push({ date: vat?.validFrom ?? e.date, kind: "vat" });
+        if (kuChanged) changes.push({ date: ku?.validFrom ?? e.date, kind: "ku" });
+        current = [];
+      }
     }
-    row = r?.rowId ?? null;
+    vatRow = vat?.rowId ?? null;
+    kuRow = ku?.rowId ?? null;
     current.push(e);
   }
   if (current.length > 0) parts.push(current);
   return { parts, changes };
+}
+
+/** E-PRJ-15 / E-PRJ-16 info texts. */
+export function ruleChangeNotice(change: RuleChange): string {
+  const what = change.kind === "vat" ? "Steuersatzänderung" : "Änderung der Kleinunternehmerregelung";
+  return `Wegen ${what} am ${formatGermanDate(change.date)} wurden die Zeiten auf zwei Positionen aufgeteilt.`;
 }
 
 /** Builds the lines, supply period and notices for the selected entries (no validation — see `checkSelection`). */
@@ -245,10 +274,11 @@ export function planTimeInvoice(
   const lines: TimeInvoiceLine[] = [];
   const roundedByEntry: Record<string, number> = {};
   const notices: string[] = [];
-  const changeDates = new Set<CalendarDate>();
+  const changes = new Map<string, RuleChange>();
   for (const group of groups.values()) {
-    const { parts, changes } = splitByVatRow(group, o.vatRowOf);
-    for (const c of changes) changeDates.add(c);
+    const split = splitByRuleRows(group, o.vatRowOf, o.kuRowOf);
+    for (const c of split.changes) changes.set(`${c.kind}|${c.date}`, c);
+    const parts = split.parts;
     for (const part of parts) {
       const first = part[0] as BillableEntry;
       const raw = part.reduce((s, e) => s + e.durationMinutes, 0);
@@ -290,11 +320,11 @@ export function planTimeInvoice(
       });
     }
   }
-  for (const d of [...changeDates].sort()) {
-    notices.unshift(
-      `Wegen Steuersatzänderung am ${formatGermanDate(d)} wurden die Zeiten auf zwei Positionen aufgeteilt.`,
-    );
-  }
+  const sortedChanges = [...changes.values()].sort((a, b) =>
+    a.date < b.date ? -1 : a.date > b.date ? 1 : a.kind < b.kind ? 1 : -1,
+  );
+  notices.unshift(...sortedChanges.map(ruleChangeNotice));
+  if (o.fixedPrice) notices.unshift(TIME_INVOICE_MESSAGES.fixedPrice);
   const all = entries.map((e) => e.date);
   const from = minDate(all);
   const to = maxDate(all);

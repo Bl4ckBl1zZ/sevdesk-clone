@@ -1,24 +1,33 @@
 import { v } from "convex/values";
 import { exactTimeNetCents, selectableForInvoicing } from "../src/domain/projects/invoicing";
+import { resolveProjectRef } from "../src/domain/projects/lookup";
+import { OFFLINE_CONFLICT_MESSAGE, type OfflineOp, planOfflineSync } from "../src/domain/projects/offline";
 import {
   buildManualEntry,
   TIMER_AUTO_STOP_MS,
   TIMER_WARN_AFTER_MS,
   type TimeEntrySource,
 } from "../src/domain/projects/time-entries";
+import { timeReport } from "../src/domain/projects/time-report";
 import { invoiceFromEntriesSchema, rateOverrideMicros, timeEntryFormSchema } from "../src/domain/schemas/projects";
 import { berlinCalendarDate } from "../src/domain/time/berlin";
-import type { CalendarDate } from "../src/domain/time/calendar-date";
+import { type CalendarDate, isCalendarDate } from "../src/domain/time/calendar-date";
 import { internal } from "./_generated/api";
-import type { Doc } from "./_generated/dataModel";
-import { mutation, query, systemMutation } from "./functions";
+import type { Doc, Id } from "./_generated/dataModel";
+import { mutation, query, systemMutation, systemQuery } from "./functions";
 import { appError } from "./lib/errors";
 import { parse } from "./lib/parse";
+import { getCompanyProfile } from "./model/companyProfile";
+import { projectBudget } from "./model/projects";
 import {
   checkRunningTimer,
   createEntry,
+  createOfflineRunEntry,
   deleteEntry,
   discardTimer,
+  notifyOfflineConflict,
+  processedOfflineOps,
+  recordTimesheet,
   reopenCandidates,
   reopenEntries,
   runningTimer,
@@ -157,6 +166,75 @@ export const create = mutation({
     createEntry(ctx, { ...manualFrom(values, berlinCalendarDate(ctx.now())), source: sourceOf(ctx) }),
 });
 
+/**
+ * `time_entry_log` (F11 §7, MCP; REST can reuse it): „2h auf Projekt X: Workshop“. The project is given by ID,
+ * number or name (E-PRJ-22: ambiguous / unknown → structured error with up to five candidates; E-PRJ-21: archived →
+ * blocked); the date defaults to today (Europe/Berlin). Returns the entry and the project's budget status (PRJ-003).
+ */
+export const log = mutation({
+  permission: "time.write",
+  args: {
+    project: v.string(),
+    duration: v.string(),
+    description: v.string(),
+    date: v.optional(v.string()),
+    billable: v.optional(v.boolean()),
+    productId: v.optional(v.string()),
+  },
+  handler: async (ctx, a) => {
+    const projects = await ctx.db.query("projects").collect();
+    const ref = resolveProjectRef(
+      a.project,
+      projects.map((p) => ({ id: p._id as string, number: p.number, name: p.name, status: p.status })),
+    );
+    if (!ref.ok) {
+      throw appError("invalid_input", ref.error.message, {
+        reason: ref.error.code,
+        field: "project",
+        candidates: ref.error.candidates.map((c) => ({ ...c })),
+      });
+    }
+    const project = projects.find((p) => p._id === ref.value.id);
+    const today = berlinCalendarDate(ctx.now());
+    const values = manualFrom(
+      {
+        date: a.date ?? today,
+        mode: "duration",
+        duration: a.duration,
+        startTime: "",
+        endTime: "",
+        description: a.description,
+        projectId: ref.value.id,
+        contactId: "",
+        productId: a.productId ?? "",
+        billable: a.billable ?? project?.billingMode !== "non_billable",
+        rate: "",
+      },
+      today,
+    );
+    const r = await createEntry(ctx, { ...values, source: sourceOf(ctx) });
+    const entry = await ctx.db.get(r.id);
+    const fresh = project ? await ctx.db.get(project._id) : null;
+    return {
+      id: r.id,
+      warnings: r.warnings,
+      entry: entry
+        ? {
+            date: entry.date,
+            durationMinutes: entry.durationMinutes,
+            description: entry.description,
+            billable: entry.billable,
+            hourlyRateMicros: entry.hourlyRateMicros,
+            status: entry.status,
+            source: entry.source,
+          }
+        : null,
+      project: { id: ref.value.id, number: ref.value.number, name: ref.value.name },
+      budget: fresh ? await projectBudget(ctx, fresh) : null,
+    };
+  },
+});
+
 export const update = mutation({
   permission: "time.write",
   args: { id: v.id("timeEntries"), values: v.any() },
@@ -258,7 +336,12 @@ export const previewInvoice = query({
   args: { values: v.any() },
   handler: async (ctx, { values }) => {
     const r = await planFromEntries(ctx, parse(invoiceFromEntriesSchema, values));
-    return r.plan.ok ? { ok: true as const, plan: r.plan.value } : { ok: false as const, error: r.plan.error };
+    // PRJ-014: the dialog's „Leistungsnachweis anhängen“ defaults to the project's setting.
+    const project = r.projectId ? await ctx.db.get(r.projectId) : null;
+    const timesheetDefault = project?.attachTimesheetDefault === true;
+    return r.plan.ok
+      ? { ok: true as const, plan: r.plan.value, timesheetDefault }
+      : { ok: false as const, error: r.plan.error };
   },
 });
 
@@ -301,6 +384,220 @@ export const unbilled = query({
   permission: "projects.read",
   args: {},
   handler: async (ctx) => unbilledSummary(ctx, berlinCalendarDate(ctx.now())),
+});
+
+// ── timesheet / Leistungsnachweis (PRJ-014) ──────────────────────────────────────────────────────────────────
+
+/** Render input of `timesheetsNode.render`: the finalised invoice and its frozen (invoiced) entries. */
+export const timesheetInput = systemQuery({
+  job: "documents.pipeline",
+  args: { documentId: v.id("salesDocuments") },
+  handler: async (ctx, { documentId }) => {
+    const doc = await ctx.db.get(documentId);
+    if (!doc || doc.status === "draft" || !doc.number || !doc.attachTimesheet) return null;
+    const entries = (
+      await ctx.db
+        .query("timeEntries")
+        .withIndex("by_invoice", (q) => q.eq("invoicedDocumentId", documentId))
+        .collect()
+    ).filter((e) => e.status === "invoiced");
+    if (entries.length === 0) return null;
+    const profile = await getCompanyProfile(ctx);
+    const project = doc.projectId ? await ctx.db.get(doc.projectId) : null;
+    return {
+      /** The F04 pipeline renders the invoice first (it skips documents that already have artifacts). */
+      artifactsReady: doc.artifactStatus === "ready",
+      invoiceNumber: doc.number,
+      documentDate: (doc.documentDate ?? berlinCalendarDate(doc.finalizedAt ?? ctx.now())) as CalendarDate,
+      sellerName: profile?.name ?? "",
+      customerName: doc.billingAddress?.name ?? doc.contactName ?? "",
+      ...(project ? { projectLabel: `${project.number} ${project.name}` } : {}),
+      createdAt: doc.finalizedAt ?? ctx.now(),
+      entries: entries.map((e) => ({
+        date: e.date as CalendarDate,
+        description: e.description,
+        durationMinutes: e.durationMinutes,
+        ...(e.roundedMinutes !== undefined ? { roundedMinutes: e.roundedMinutes } : {}),
+        hourlyRateMicros: e.hourlyRateMicros,
+      })),
+    };
+  },
+});
+
+export const storeTimesheet = systemMutation({
+  job: "documents.pipeline",
+  args: {
+    documentId: v.id("salesDocuments"),
+    storageId: v.id("_storage"),
+    sha256: v.string(),
+    bytes: v.number(),
+    name: v.string(),
+  },
+  handler: async (ctx, { documentId, ...file }) => recordTimesheet(ctx, documentId, file),
+});
+
+// ── offline queue (PRJ-018, E-PRJ-29) ─────────────────────────────────────────────────────────────────────────
+
+const vOfflineFields = v.object(vTimerFields);
+
+/**
+ * Replays the offline queue of one device (manual entries, timer start/stop) in one transaction; the server assigns
+ * the IDs. Two devices with a timer → the later start wins, the earlier run is saved flagged „Konflikt“ (E-PRJ-29).
+ * Already applied operations (a replay after a lost response) are skipped.
+ */
+export const syncOffline = mutation({
+  permission: "time.write",
+  args: {
+    deviceId: v.string(),
+    ops: v.array(
+      v.union(
+        v.object({ id: v.string(), kind: v.literal("manual"), at: v.number(), values: v.any() }),
+        v.object({ id: v.string(), kind: v.literal("timer_start"), at: v.number(), fields: vOfflineFields }),
+        v.object({
+          id: v.string(),
+          kind: v.literal("timer_stop"),
+          at: v.number(),
+          fields: v.optional(vOfflineFields),
+        }),
+      ),
+    ),
+  },
+  handler: async (ctx, { deviceId, ops }) => {
+    if (ops.length > 500) throw appError("invalid_input", "Zu viele Offline-Einträge in einem Abgleich.");
+    const done = await processedOfflineOps(
+      ctx,
+      ops.map((o) => ({
+        id: o.id,
+        at: o.at,
+        ...(o.kind === "manual" && typeof o.values?.date === "string" ? { date: o.values.date } : {}),
+      })),
+    );
+    const fresh = ops.filter((o) => !done.has(o.id)) as OfflineOp[];
+    const t = await runningTimer(ctx);
+    const plan = planOfflineSync(
+      t ? { startedAt: t.startedAt, ...(t.deviceId ? { deviceId: t.deviceId } : {}) } : null,
+      deviceId,
+      fresh,
+      ctx.now(),
+    );
+    const today = berlinCalendarDate(ctx.now());
+    const entryIds: Id<"timeEntries">[] = [];
+    const conflictIds: Id<"timeEntries">[] = [];
+    const warnings: string[] = [];
+    for (const a of plan.actions) {
+      if (a.type === "manual") {
+        const r = await createEntry(ctx, { ...manualFrom(a.values, today), source: "offline", offlineOpIds: [a.opId] });
+        entryIds.push(r.id);
+        warnings.push(...r.warnings);
+      } else if (a.type === "start_timer") {
+        await startTimer(ctx, { ...a.fields, deviceId, startedAt: a.startedAt, offlineOpId: a.opId });
+        const started = await runningTimer(ctx);
+        if (started) {
+          // E-PRJ-03 measured from the offline start instant (the daily deadlines job is the fallback)
+          const elapsed = ctx.now() - started.startedAt;
+          for (const after of [TIMER_WARN_AFTER_MS, TIMER_AUTO_STOP_MS]) {
+            await ctx.scheduler.runAfter(Math.max(0, after - elapsed), internal.timeEntries.checkTimer, {
+              timerId: started._id,
+            });
+          }
+        }
+      } else if (a.type === "stop_timer") {
+        const r = await stopTimer(ctx, {
+          ...(a.fields ?? {}),
+          endedAt: a.endedAt,
+          conflict: a.conflict,
+          source: a.conflict ? "timer" : "offline",
+          offlineOpIds: [a.opId],
+        });
+        entryIds.push(...r.entryIds);
+        if (a.conflict) conflictIds.push(...r.entryIds);
+        warnings.push(...r.warnings);
+      } else if (a.type === "entry") {
+        const r = await createOfflineRunEntry(ctx, {
+          ...a.fields,
+          startedAt: a.startedAt,
+          endedAt: a.endedAt,
+          conflict: a.conflict,
+          opId: a.opId,
+        });
+        if (r) {
+          entryIds.push(r.id);
+          if (a.conflict) conflictIds.push(r.id);
+          warnings.push(...r.warnings);
+        }
+      }
+    }
+    if (plan.conflict) {
+      await notifyOfflineConflict(ctx, conflictIds);
+      warnings.push(OFFLINE_CONFLICT_MESSAGE);
+    }
+    return {
+      applied: fresh.map((o) => o.id),
+      skipped: ops.filter((o) => done.has(o.id)).map((o) => o.id),
+      entryIds,
+      conflict: plan.conflict,
+      warnings: [...new Set(warnings)],
+    };
+  },
+});
+
+// ── time reports (PRJ-017) ──────────────────────────────────────────────────────────────────────────────────
+
+/** Hours per project/customer/product/month/week, billable vs non-billable, unbilled value, utilisation per week. */
+export const report = query({
+  permission: "projects.read",
+  args: {
+    from: v.string(),
+    to: v.string(),
+    groupBy: v.union(
+      v.literal("project"),
+      v.literal("customer"),
+      v.literal("product"),
+      v.literal("month"),
+      v.literal("week"),
+    ),
+    projectId: v.optional(v.id("projects")),
+  },
+  handler: async (ctx, a) => {
+    const from = a.from as CalendarDate;
+    const to = a.to as CalendarDate;
+    if (!isCalendarDate(from) || !isCalendarDate(to) || from > to) {
+      throw appError("invalid_input", "Bitte einen gültigen Zeitraum wählen.", { field: "from" });
+    }
+    const projectId = a.projectId;
+    const rows = projectId
+      ? await ctx.db
+          .query("timeEntries")
+          .withIndex("by_project", (q) => q.eq("projectId", projectId).gte("date", from).lte("date", to))
+          .collect()
+      : await ctx.db
+          .query("timeEntries")
+          .withIndex("by_date", (q) => q.gte("date", from).lte("date", to))
+          .collect();
+    const names = new Map<string, string | null>();
+    const nameOf = async (id: Id<"projects"> | Id<"contacts"> | Id<"products"> | undefined) => {
+      if (!id) return undefined;
+      if (!names.has(id)) {
+        const doc = await ctx.db.get(id);
+        names.set(id, doc ? ("displayName" in doc ? doc.displayName : doc.name) : null);
+      }
+      return names.get(id) ?? null;
+    };
+    const entries = [];
+    for (const e of rows) {
+      entries.push({
+        date: e.date as CalendarDate,
+        durationMinutes: e.durationMinutes,
+        billable: e.billable,
+        status: e.status,
+        hourlyRateMicros: e.hourlyRateMicros,
+        ...(e.projectId ? { projectId: e.projectId, projectName: await nameOf(e.projectId) } : {}),
+        ...(e.contactId ? { contactId: e.contactId, contactName: await nameOf(e.contactId) } : {}),
+        ...(e.productId ? { productId: e.productId, productName: await nameOf(e.productId) } : {}),
+      });
+    }
+    return timeReport(entries, { groupBy: a.groupBy, from, to });
+  },
 });
 
 export type TimeEntryRow = Awaited<ReturnType<typeof label>>;

@@ -45,6 +45,9 @@ export const ID_PREFIXES = {
   recurringVouchers: "rvo_",
   // F07 BNK-050 matching rules (`/matching-rules`; 05 §3 had no prefix).
   matchingRules: "mrl_",
+  // F11 projects and time entries (05 §3 „IDs“: `prj_`, `tim_`).
+  projects: "prj_",
+  timeEntries: "tim_",
 } as const;
 
 export type IdTable = keyof typeof ID_PREFIXES;

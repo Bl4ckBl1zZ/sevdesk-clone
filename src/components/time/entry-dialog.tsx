@@ -17,6 +17,7 @@ import {
 } from "@/domain/schemas/projects";
 import { useAuthedQuery } from "@/hooks/use-authed-query";
 import { ContactSelectField, type TimeEntryRow, useProjectOptions } from "./time-shared";
+import { useOfflineTime } from "./use-offline-time";
 
 type Form = UseFormReturn<TimeEntryFormValues>;
 
@@ -35,6 +36,7 @@ export function TimeEntryDialog({
   const run = useRun();
   const create = useMutation(api.timeEntries.create);
   const update = useMutation(api.timeEntries.update);
+  const offline = useOfflineTime();
   const formId = useId();
   const projects = useProjectOptions();
   const products = useAuthedQuery(api.products.options, {}) ?? [];
@@ -47,6 +49,13 @@ export function TimeEntryDialog({
 
   const submit = form.handleSubmit(async () => {
     const values = form.getValues();
+    if (!entry && !offline.online) {
+      // PRJ-018: queued in IndexedDB, replayed (and validated by the server) when the device is back online
+      await offline.enqueue({ kind: "manual", at: Date.now(), values: { ...values } });
+      toast.info(t("offlineQueued"));
+      onClose();
+      return;
+    }
     const r = entry ? await run(() => update({ id: entry._id, values })) : await run(() => create({ values }));
     if (!r.ok) return;
     toast.success(entry ? t("saved") : t("created"));

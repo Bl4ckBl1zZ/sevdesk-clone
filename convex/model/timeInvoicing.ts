@@ -87,8 +87,21 @@ export async function planFromEntries(ctx: ReadCtx, v: InvoiceFromEntriesValues)
   const profile = await getCompanyProfile(ctx);
   const unit = v.unit ?? profile?.defaults.time?.unitCode ?? "HUR";
   const overrides = await loadRuleOverrides(ctx);
+  // E-PRJ-16 / EC-025: the date-effective KU status rows of the company split the lines like a VAT rate change.
+  const kuRows = [...(profile?.kleinunternehmer ?? [])].sort((a, b) => (a.validFrom < b.validFrom ? -1 : 1));
+  const kuRowOf = (date: CalendarDate) => {
+    const row = kuRows.filter((r) => r.validFrom <= date).at(-1);
+    return row ? { rowId: `ku:${row.isKU}`, validFrom: row.validFrom as CalendarDate } : null;
+  };
+  // E-PRJ-32: entries of a fixed-price project are invoiced only with the warning.
+  let fixedPrice = false;
+  for (const pid of new Set(docs.map((d) => d.projectId))) {
+    if (pid && (await ctx.db.get(pid))?.billingMode === "fixed") fixedPrice = true;
+  }
   const plan = planTimeInvoice(entries, {
     grouping: v.grouping,
+    fixedPrice,
+    kuRowOf,
     rounding,
     perGroup: v.perGroup === true,
     unit,
@@ -195,6 +208,19 @@ export async function invoiceFromEntries(
       lines: await linesFor(p, priceMode, undefined, overrides),
     };
     id = await createDraft(ctx, values, {}, { reason: "Aus Zeiteinträgen erstellt" });
+  }
+  // PRJ-014: „Leistungsnachweis anhängen“ per invoice, default from the project.
+  const project = projectId ? await ctx.db.get(projectId) : null;
+  const attach = v.attachTimesheet ?? project?.attachTimesheetDefault === true;
+  const target = await getDocument(ctx, id);
+  if (attach !== (target.attachTimesheet === true) && (attach || v.attachTimesheet === false)) {
+    await auditedPatch(
+      ctx,
+      "salesDocuments",
+      id,
+      { attachTimesheet: attach },
+      { action: "document.update_draft", label: "Entwurf", reason: "Leistungsnachweis anhängen (PRJ-014)" },
+    );
   }
   // PRJ-009: rounded minutes per entry are stored at invoicing (raw durations never change).
   for (const e of docs) {

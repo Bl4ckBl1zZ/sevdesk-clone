@@ -186,6 +186,35 @@ describe("PRJ-010/PRJ-011 invoice lines from time entries", () => {
     expect(planTimeInvoice([], { grouping: "summary" }).ok).toBe(false);
   });
 
+  test("E-PRJ-13 entries with different currencies are blocked, also against the target draft's currency", () => {
+    const usd = entry("b", "2026-09-01", 60, { currency: "USD" });
+    const mixed = checkSelection([entry("a", "2026-09-01", 60), usd]);
+    expect(mixed).toMatchObject({
+      code: "time_entries_currency",
+      message: "Die ausgewählten Zeiten haben unterschiedliche Währungen.",
+    });
+    expect(checkSelection([entry("a", "2026-09-01", 60)], { contactId: "c1", currency: "USD" })?.code).toBe(
+      "time_entries_currency",
+    );
+    expect(checkSelection([usd], { contactId: "c1", currency: "USD" })).toBeNull();
+    const plan = planTimeInvoice([entry("a", "2026-09-01", 60), usd], { grouping: "summary" });
+    expect(plan.ok ? null : plan.error.code).toBe("time_entries_currency");
+  });
+
+  test("E-PRJ-23 billable entries without a rate block invoicing with their count", () => {
+    const es = [
+      entry("a", "2026-09-01", 60, { hourlyRateMicros: 0 }),
+      entry("b", "2026-09-02", 60, { hourlyRateMicros: 0 }),
+      entry("c", "2026-09-03", 60),
+    ];
+    const plan = planTimeInvoice(es, { grouping: "per_entry" });
+    expect(plan.ok ? null : plan.error).toMatchObject({
+      code: "time_entries_rate_missing",
+      message: "Für 2 Einträge ist kein Stundensatz hinterlegt.",
+    });
+    expect(planTimeInvoice([entry("c", "2026-09-03", 60)], { grouping: "per_entry" }).ok).toBe(true);
+  });
+
   test("PRJ-016 non-billable entries are excluded from the selection by default, included on request", () => {
     const es = [
       entry("a", "2026-09-01", 60),
@@ -194,6 +223,37 @@ describe("PRJ-010/PRJ-011 invoice lines from time entries", () => {
     ];
     expect(selectableForInvoicing(es).map((e) => e.id)).toEqual(["a"]);
     expect(selectableForInvoicing(es, { includeNonBillable: true }).map((e) => e.id)).toEqual(["a", "b"]);
+  });
+});
+
+describe("F11 §5 notices", () => {
+  test("E-PRJ-16 EC-025 entries spanning a Kleinunternehmer status change are split into lines by sub-period", () => {
+    const kuRows = [
+      { rowId: "ku-2020", validFrom: d("2020-01-01"), isKU: true },
+      { rowId: "ku-2026-11", validFrom: d("2026-11-01"), isKU: false },
+    ];
+    const kuRowOf = (date: CalendarDate) => [...kuRows].reverse().find((r) => r.validFrom <= date) ?? null;
+    const es = [entry("a", "2026-10-29", 60), entry("b", "2026-10-31", 30), entry("c", "2026-11-02", 90)];
+    const plan = planTimeInvoice(es, { grouping: "summary", kuRowOf });
+    expect(plan.ok).toBe(true);
+    if (!plan.ok) return;
+    expect(plan.value.lines.map((l) => [l.linePeriod, l.roundedMinutes, l.timeEntryIds])).toEqual([
+      [{ from: "2026-10-29", to: "2026-10-31" }, 90, ["a", "b"]],
+      [{ from: "2026-11-02", to: "2026-11-02" }, 90, ["c"]],
+    ]);
+    expect(plan.value.notices).toEqual([
+      "Wegen Änderung der Kleinunternehmerregelung am 01.11.2026 wurden die Zeiten auf zwei Positionen aufgeteilt.",
+    ]);
+    // no change inside the period → one line, no notice
+    const same = planTimeInvoice(es.slice(0, 2), { grouping: "summary", kuRowOf });
+    expect(same.ok && [same.value.lines.length, same.value.notices]).toEqual([1, []]);
+  });
+
+  test("E-PRJ-32 invoicing entries of a fixed-price project is allowed with the warning", () => {
+    const plan = planTimeInvoice([entry("a", "2026-09-01", 60)], { grouping: "summary", fixedPrice: true });
+    expect(plan.ok && plan.value.notices).toEqual(["Festpreisprojekt – Zeiten werden nicht einzeln abgerechnet."]);
+    const hourly = planTimeInvoice([entry("a", "2026-09-01", 60)], { grouping: "summary" });
+    expect(hourly.ok && hourly.value.notices).toEqual([]);
   });
 });
 
@@ -217,7 +277,7 @@ describe("PRJ-013 supply period of an invoice from entries", () => {
     expect(checkSupplyCoversEntries(undefined, [])).toBeNull();
   });
 
-  test("PRJ-013 EC-024 UST-15 TST-PRJ-13 entries spanning a (simulated) rate change on 2027-07-01 split into two lines", () => {
+  test("PRJ-013 E-PRJ-15 EC-024 UST-15 TST-PRJ-13 entries spanning a (simulated) rate change on 2027-07-01 split into two lines", () => {
     const overrides: RuleOverride<VatRateValue>[] = [
       { id: "sim", validFrom: d("2027-07-01"), value: { category: "S", rateBp: 2100 }, source: "Simulation" },
     ];

@@ -104,6 +104,7 @@ function fieldsOf(input: ProjectInput) {
     ...(input.startDate ? { startDate: input.startDate } : {}),
     ...(input.endDate ? { endDate: input.endDate } : {}),
     ...(input.rounding ? { rounding: input.rounding } : {}),
+    ...(input.attachTimesheetDefault ? { attachTimesheetDefault: true } : {}),
   };
 }
 
@@ -117,6 +118,7 @@ const CLEARABLE = [
   "endDate",
   "defaultProductId",
   "rounding",
+  "attachTimesheetDefault",
 ] as const;
 
 /** PRJ-001: creates a project with its own number. */

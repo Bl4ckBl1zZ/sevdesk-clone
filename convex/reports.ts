@@ -23,7 +23,13 @@ const bwaArgs = {
 const oposArgs = { side: v.union(v.literal("debtors"), v.literal("creditors")), asOf: v.string() };
 const revenueArgs = {
   ...range,
-  groupBy: v.union(v.literal("customer"), v.literal("product"), v.literal("month"), v.literal("cost_center")),
+  groupBy: v.union(
+    v.literal("customer"),
+    v.literal("product"),
+    v.literal("month"),
+    v.literal("cost_center"),
+    v.literal("project"),
+  ),
   basis: v.union(v.literal("document_date"), v.literal("supply_date"), v.literal("cash")),
 };
 const susaArgs = { ...range, accountClass: v.optional(v.string()), includePersonal: v.optional(v.boolean()) };
@@ -57,7 +63,7 @@ export const openItems = query({
   handler: async (ctx, a) => oposView(ctx, a, ctx.now()),
 });
 
-/** RPT-007 revenue by customer / product / month / cost centre. */
+/** RPT-007 revenue by customer / product / month / cost centre / project. */
 export const revenue = query({
   permission: "reports.read",
   args: revenueArgs,

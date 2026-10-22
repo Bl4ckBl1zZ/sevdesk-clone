@@ -631,7 +631,7 @@ function RevenueReport({ p }: { p: P }) {
   const t = useTranslations("reports.revenue");
   const from = p.get("von", yearStart());
   const to = p.get("bis", today());
-  const groupBy = p.get("gruppe", "customer") as "customer" | "product" | "month" | "cost_center";
+  const groupBy = p.get("gruppe", "customer") as "customer" | "product" | "month" | "cost_center" | "project";
   const basis = p.get("basis", "document_date") as "document_date" | "supply_date" | "cash";
   const data = useAuthedQuery(api.reports.revenue, { from, to, groupBy, basis });
   return (
@@ -642,7 +642,7 @@ function RevenueReport({ p }: { p: P }) {
         <Choice
           label={t("groupBy")}
           value={groupBy}
-          options={(["customer", "product", "month", "cost_center"] as const).map((g) => ({
+          options={(["customer", "product", "month", "cost_center", "project"] as const).map((g) => ({
             value: g,
             label: t(`groups.${g}`),
           }))}

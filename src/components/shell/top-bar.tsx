@@ -5,6 +5,7 @@ import { usePathname } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { NotificationBell } from "@/components/notifications/notification-center";
 import { ThemeToggle } from "@/components/theme-toggle";
+import { TimerPill } from "@/components/time/timer-pill";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { SidebarTrigger, useSidebar } from "@/components/ui/sidebar";
 import { cn } from "@/lib/utils";
@@ -44,6 +45,9 @@ export function TopBar() {
         >
           <SearchIcon aria-hidden="true" />
         </Button>
+        <div className="hidden md:block">
+          <TimerPill />
+        </div>
         <div className="hidden md:block">
           <CreateDropdown />
         </div>

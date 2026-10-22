@@ -97,6 +97,56 @@ test("PRJ-007 PRJ-003 a manual entry „1:30“ is recorded on the project and c
   await expect(page.getByTestId("project-budget")).toBeVisible();
 });
 
+test("PRJ-010 on the project „Zeiten“ tab the bulk-selection bar stays above the fixed action bar (phone)", async ({
+  page,
+  expectNoAxeViolations,
+}, testInfo) => {
+  await page.goto("/projekte");
+  await page
+    .getByRole("link", { name: projectName(testInfo.project.name) })
+    .filter({ visible: true })
+    .first()
+    .click();
+  await expect(h1(page, projectName(testInfo.project.name))).toBeVisible();
+  await page.getByRole("tab", { name: "Zeiten" }).click();
+  const checkbox = page
+    .getByRole("checkbox", { name: "Konzeptworkshop mit dem Kunden auswählen" })
+    .filter({ visible: true })
+    .first();
+  await checkbox.check();
+  const bulk = page.getByTestId("time-bulk-bar");
+  await expect(bulk).toBeVisible();
+  await expect(bulk).toContainText("1 ausgewählt");
+  const actions = page.locator("[data-slot=page-actions]");
+  const fixed = await actions.evaluate((el) => getComputedStyle(el).position === "fixed");
+  if (testInfo.project.name !== "desktop") expect(fixed).toBe(true);
+  if (fixed) {
+    // the bar must clear the fixed action bar (it used to sit underneath it on the Pixel)
+    await expect
+      .poll(async () => {
+        const b = await bulk.boundingBox();
+        const a = await actions.boundingBox();
+        return b && a ? Math.round(b.y + b.height - a.y) : Number.POSITIVE_INFINITY;
+      })
+      .toBeLessThanOrEqual(0);
+  }
+  // every bulk action is hit-testable (not covered by the action bar or the tab bar)
+  for (const name of ["Abrechnen", "Als nicht abrechenbar markieren", "Löschen"]) {
+    const button = bulk.getByRole("button", { name, exact: true });
+    await expect(button).toBeVisible();
+    const box = await button.boundingBox();
+    if (!box) throw new Error(`no box for ${name}`);
+    const hit = await page.evaluate(
+      ({ x, y }) => document.elementFromPoint(x, y)?.closest("[data-testid=time-bulk-bar]") !== null,
+      { x: box.x + box.width / 2, y: box.y + box.height / 2 },
+    );
+    expect(hit, `${name} is covered`).toBe(true);
+  }
+  await expectNoAxeViolations();
+  await checkbox.uncheck();
+  await expect(bulk).toBeHidden();
+});
+
 test("PRJ-005 the timer runs live and can be discarded without an entry", async ({ page, expectNoAxeViolations }) => {
   await page.goto("/zeiten");
   await expect(h1(page, "Zeiten")).toBeVisible();
@@ -142,4 +192,42 @@ test("PRJ-010 PRJ-012 „Zeiten abrechnen“ creates an invoice draft and locks 
   await expect(visible(page, "Im Entwurf")).toBeVisible();
   await expect(page.getByRole("button", { name: "Bearbeiten" })).toHaveCount(0);
   await expectNoAxeViolations();
+});
+
+test("PRJ-017 TST-PRJ-23 week view, time report and (desktop) the header timer pill", async ({
+  page,
+  expectNoAxeViolations,
+}, testInfo) => {
+  await page.goto("/zeiten");
+  await page.getByRole("link", { name: "Woche" }).filter({ visible: true }).first().click();
+  await expect(page).toHaveURL(/view=week/);
+  const week = page.getByTestId("week-view");
+  await expect(week).toBeVisible();
+  await expect(page.getByTestId("week-label")).toHaveText(/^KW \d+\/\d{4} · /);
+  await expect(week.getByText(projectName(testInfo.project.name)).filter({ visible: true }).first()).toBeVisible();
+  await expectNoAxeViolations();
+  await week.getByRole("button", { name: "Vorherige Woche" }).click();
+  await expect(page).toHaveURL(/week=\d{4}-\d{2}-\d{2}/);
+  await week.getByRole("button", { name: "Diese Woche" }).click();
+
+  await page.getByRole("link", { name: "Auswertung" }).filter({ visible: true }).first().click();
+  const report = page.getByTestId("time-report");
+  await expect(report.getByTestId("time-report-table")).toContainText(projectName(testInfo.project.name));
+  await expect(report.getByRole("button", { name: /Export/ })).toBeVisible();
+  await expectNoAxeViolations();
+
+  if (testInfo.project.name === "desktop") {
+    const pill = page.getByTestId("timer-pill");
+    await expect(pill).toHaveAttribute("data-running", "false");
+    await pill.click();
+    const popover = page.getByTestId("timer-popover");
+    await popover.getByLabel("Tätigkeit").fill("Pill-Test");
+    await popover.getByRole("button", { name: "Zeit starten" }).click();
+    await expect(pill).toHaveAttribute("data-running", "true");
+    await expect(page.getByTestId("timer-pill-elapsed")).toHaveText(/^0:00:\d{2}$/);
+    await expectNoAxeViolations();
+    await popover.getByRole("button", { name: "Verwerfen" }).click();
+    await page.getByRole("dialog", { name: "Timer verwerfen?" }).getByRole("button", { name: "Verwerfen" }).click();
+    await expect(pill).toHaveAttribute("data-running", "false");
+  }
 });

@@ -20,7 +20,7 @@ import {
 } from "@/components/catalog/shared";
 import { ConvexGuard } from "@/components/convex/convex-provider";
 import { EmptyState } from "@/components/layout/empty-state";
-import { ListLayout, StatusFilter } from "@/components/layout/list-layout";
+import { ListLayout, PageBody, StatusFilter } from "@/components/layout/list-layout";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -32,13 +32,19 @@ import { useAuthedQuery } from "@/hooks/use-authed-query";
 import { cn } from "@/lib/utils";
 import { TimeEntryDialog } from "./entry-dialog";
 import { InvoiceEntriesDialog } from "./invoice-dialog";
-import { EntryStatusBadge, type TimeEntryRow, useProjectOptions } from "./time-shared";
+import { EntryStatusBadge, type TimeEntryRow, useClearFixedPageActions, useProjectOptions } from "./time-shared";
+import { TimeReportView, WeekView } from "./time-views";
 import { TimerCard } from "./timer";
 
 const STATUSES = ["all", "open", "in_draft", "invoiced"] as const;
 type StatusFilterValue = (typeof STATUSES)[number];
+const VIEWS = ["list", "week", "report"] as const;
+type TimeView = (typeof VIEWS)[number];
 
-/** `/zeiten` (F11 §6): timer, Storno offers, filters in the URL and the entry list with bulk actions. */
+/**
+ * `/zeiten` (F11 §6): timer, Storno offers and three views in the URL (`?view=`): the entry list with filters and
+ * bulk actions, the week view (Mon–Sun) and the time reports (PRJ-017).
+ */
 export function TimePage() {
   return (
     <ConvexGuard fallback={<div className="h-96" aria-busy="true" />}>
@@ -47,7 +53,39 @@ export function TimePage() {
   );
 }
 
+function ViewSwitch({ current }: { current: TimeView }) {
+  const t = useTranslations("time.views");
+  const url = useUrlState();
+  return (
+    <StatusFilter
+      label={t("label")}
+      current={current}
+      options={VIEWS.map((v) => ({
+        value: v,
+        label: t(v),
+        href: url.hrefWith({ view: v === "list" ? "" : v }),
+      }))}
+    />
+  );
+}
+
 function TimePageInner() {
+  const url = useUrlState();
+  const view: TimeView = (VIEWS as readonly string[]).includes(url.get("view"))
+    ? (url.get("view") as TimeView)
+    : "list";
+  if (view === "list") return <TimeListView />;
+  return (
+    <PageBody>
+      <TimerCard />
+      <ReopenBanners />
+      <ViewSwitch current={view} />
+      {view === "week" ? <WeekView /> : <TimeReportView />}
+    </PageBody>
+  );
+}
+
+function TimeListView() {
   const t = useTranslations("time.list");
   const url = useUrlState();
   const status: StatusFilterValue = (STATUSES as readonly string[]).includes(url.get("status"))
@@ -75,6 +113,7 @@ function TimePageInner() {
     <>
       <TimerCard />
       <ReopenBanners />
+      <ViewSwitch current="list" />
       <StatusFilter
         label={t("statusLabel")}
         current={status}
@@ -229,6 +268,8 @@ export function TimeEntryList({
       return next;
     });
   const allChosen = open.length > 0 && chosen.length === open.length;
+  // Phone: on pages with header actions (project page) the fixed action bar would cover the bulk bar.
+  const bulkBottom = useClearFixedPageActions(canWrite && chosen.length > 0);
 
   const newButton = canWrite && (
     <Button className="h-11 md:ml-auto md:h-9" onClick={() => setEditing("new")}>
@@ -310,6 +351,7 @@ export function TimeEntryList({
         role="toolbar"
         aria-label={t("bulk.label")}
         data-testid="time-bulk-bar"
+        style={bulkBottom !== null ? { bottom: bulkBottom } : undefined}
         className="sticky bottom-[calc(4.5rem+env(safe-area-inset-bottom))] z-10 flex flex-wrap items-center gap-2 rounded-lg border bg-background p-2 shadow-sm md:bottom-2"
       >
         <span className="px-1 text-sm">{t("selected", { count: chosen.length })}</span>

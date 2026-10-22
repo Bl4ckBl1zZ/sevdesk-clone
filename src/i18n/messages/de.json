@@ -5926,6 +5926,7 @@
       },
       "roundingMinimum": "Mindestdauer je Eintrag (Minuten)",
       "roundingHint": "Gerundet wird erst beim Abrechnen; die erfasste Zeit bleibt unverändert.",
+      "attachTimesheetDefault": "Rechnungen standardmäßig mit Leistungsnachweis (PDF der abgerechneten Zeiten)",
       "saved": "Projekt gespeichert.",
       "rateChanged": "{count, plural, one {# offener Eintrag hat} other {# offene Einträge haben}} noch den alten Stundensatz.",
       "applyRate": "Neuen Satz übernehmen",
@@ -6056,6 +6057,7 @@
       "lockedHint": "Gesperrt: Teil einer fertiggestellten Rechnung"
     },
     "entry": {
+      "offlineQueued": "Offline gespeichert – wird übertragen, sobald die Verbindung zurück ist.",
       "newTitle": "Zeit erfassen",
       "editTitle": "Zeiteintrag bearbeiten",
       "date": "Datum",
@@ -6100,9 +6102,60 @@
       "discardTitle": "Timer verwerfen?",
       "discardDescription": "Die laufende Zeit wird nicht gespeichert.",
       "confirmTitle": "Es läuft bereits ein Timer",
-      "confirmStop": "Stoppen und neu starten"
+      "confirmStop": "Stoppen und neu starten",
+      "pillRunning": "Timer läuft: {project}",
+      "pillIdle": "Zeit starten",
+      "offlineQueued": "Offline gespeichert – wird übertragen, sobald die Verbindung zurück ist.",
+      "offlineBadge": "Offline",
+      "offlinePending": "{count, plural, one {# Eintrag wartet} other {# Einträge warten}} auf Übertragung"
+    },
+    "offline": {
+      "synced": "{count, plural, one {# Offline-Eintrag} other {# Offline-Einträge}} übertragen.",
+      "rejected": "Offline-Eintrag abgelehnt: {message}"
+    },
+    "views": {
+      "label": "Ansicht",
+      "list": "Liste",
+      "week": "Woche",
+      "report": "Auswertung"
+    },
+    "week": {
+      "label": "Wochenansicht",
+      "previous": "Vorherige Woche",
+      "next": "Nächste Woche",
+      "current": "Diese Woche",
+      "add": "Zeit erfassen",
+      "project": "Projekt / Kunde",
+      "total": "Summe",
+      "empty": "Keine Zeiten in dieser Woche."
+    },
+    "report": {
+      "label": "Zeitauswertung",
+      "from": "Von",
+      "to": "Bis",
+      "groupBy": "Gruppieren nach",
+      "groups": {
+        "project": "Projekt",
+        "customer": "Kunde",
+        "product": "Leistung",
+        "month": "Monat",
+        "week": "Kalenderwoche"
+      },
+      "columns": {
+        "total": "Stunden gesamt",
+        "billable": "Abrechenbar",
+        "nonBillable": "Nicht abrechenbar",
+        "unbilledValue": "Nicht abgerechnet",
+        "billedValue": "Abgerechnet",
+        "utilisation": "Auslastung"
+      },
+      "utilisation": "Auslastung je Woche",
+      "utilisationHint": "Anteil der abrechenbaren an den erfassten Stunden.",
+      "empty": "Keine Zeiten im gewählten Zeitraum.",
+      "invalidPeriod": "Das Ende des Zeitraums liegt vor dem Beginn."
     },
     "invoice": {
+      "attachTimesheet": "Leistungsnachweis anhängen (PDF mit den abgerechneten Zeiten)",
       "title": "Zeiten abrechnen",
       "description": "{count, plural, one {# Eintrag} other {# Einträge}} ausgewählt",
       "grouping": "Positionen",
@@ -6277,7 +6330,8 @@
         "customer": "Kunde",
         "product": "Produkt",
         "month": "Monat",
-        "cost_center": "Kostenstelle"
+        "cost_center": "Kostenstelle",
+        "project": "Projekt"
       },
       "bases": {
         "document_date": "Rechnungsdatum",

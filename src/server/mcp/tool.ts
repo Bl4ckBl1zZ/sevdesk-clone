@@ -133,6 +133,8 @@ export function toolError(e: unknown, fieldMapper?: FieldMapper) {
         message: mapped.detail ?? data.message ?? PROBLEMS[mapped.code].de,
         ...(mapped.errors.length > 0 ? { errors: mapped.errors } : {}),
         ...mapped.extra,
+        // F11 E-PRJ-22: structured candidates of an ambiguous reference (max 5) so Claude can ask the user.
+        ...(Array.isArray(data.candidates) ? { candidates: data.candidates } : {}),
       };
     } else {
       console.error("MCP: unexpected tool error", e);

@@ -1,16 +1,17 @@
 /**
- * Revenue reports (F08 RPT-007): by customer, product, month or cost centre; net and gross; based on finalised
- * documents (accrual — by document date or supply date) or on payments (cash, pro rata of the document). Storno and
- * Rechnungskorrekturen are netted (negative documents of the chain). Pure.
+ * Revenue reports (F08 RPT-007): by customer, product, month, cost centre or project; net and gross; based on
+ * finalised documents (accrual — by document date or supply date) or on payments (cash, pro rata of the document).
+ * Storno and Rechnungskorrekturen are netted (negative documents of the chain). Pure.
  *
- * „by project“ is not offered: sales documents carry no project reference yet (F11, P4).
+ * By project (F11 PRJ-002): a line's project wins over the document's project; lines without either count as
+ * „ohne Projekt“.
  */
 import { allocateExact, roundHalfAway } from "../money";
 
 const scale = (cents: number, num: number, den: number) =>
   den === 0 ? 0 : num === den ? cents : Number(roundHalfAway(BigInt(cents) * BigInt(num), BigInt(den)));
 
-export type RevenueGroupBy = "customer" | "product" | "month" | "cost_center";
+export type RevenueGroupBy = "customer" | "product" | "month" | "cost_center" | "project";
 export type RevenueBasis = "document_date" | "supply_date" | "cash";
 
 export interface RevenueDocument {
@@ -23,10 +24,11 @@ export interface RevenueDocument {
   contactId?: string;
   contactName: string;
   costCenterId?: string;
+  projectId?: string;
   netCents: number;
   grossCents: number;
-  /** Item lines (net) for the product grouping; Σ = netCents. */
-  lines: { productId?: string; productName: string; netCents: number; costCenterId?: string }[];
+  /** Item lines (net) for the product, cost centre and project groupings; Σ = netCents. */
+  lines: { productId?: string; productName: string; netCents: number; costCenterId?: string; projectId?: string }[];
 }
 
 export interface RevenuePayment {
@@ -60,15 +62,38 @@ function keysOf(
   doc: RevenueDocument,
   groupBy: RevenueGroupBy,
   date: string,
-  names: { costCenters?: ReadonlyMap<string, string> },
+  names: { costCenters?: ReadonlyMap<string, string>; projects?: ReadonlyMap<string, string> },
 ): { key: string; label: string; netCents: number }[] {
   if (groupBy === "customer")
     return [{ key: doc.contactId ?? "-", label: doc.contactName || "ohne Kontakt", netCents: doc.netCents }];
   if (groupBy === "month") return [{ key: date.slice(0, 7), label: monthLabel(date), netCents: doc.netCents }];
-  const parts =
+  const parts: {
+    productId?: string;
+    productName: string;
+    netCents: number;
+    costCenterId?: string;
+    projectId?: string;
+  }[] =
     doc.lines.length > 0
       ? doc.lines
-      : [{ productName: "ohne Produkt", netCents: doc.netCents, costCenterId: doc.costCenterId }];
+      : [
+          {
+            productName: "ohne Produkt",
+            netCents: doc.netCents,
+            ...(doc.costCenterId ? { costCenterId: doc.costCenterId } : {}),
+            ...(doc.projectId ? { projectId: doc.projectId } : {}),
+          },
+        ];
+  if (groupBy === "project") {
+    return parts.map((l) => {
+      const p = l.projectId ?? doc.projectId;
+      return {
+        key: p ?? "-",
+        label: p ? (names.projects?.get(p) ?? p) : "ohne Projekt",
+        netCents: l.netCents,
+      };
+    });
+  }
   if (groupBy === "product") {
     return parts.map((l) => ({
       key: ("productId" in l && l.productId) || `name:${l.productName}`,
@@ -95,10 +120,11 @@ export function computeRevenue(input: {
   to: string;
   top?: number;
   costCenters?: ReadonlyMap<string, string>;
+  projects?: ReadonlyMap<string, string>;
 }): RevenueReport {
   const groups = new Map<string, RevenueGroup & { docs: Set<string> }>();
   const add = (doc: RevenueDocument, date: string, factor: { num: number; den: number }) => {
-    const keys = keysOf(doc, input.groupBy, date, { costCenters: input.costCenters });
+    const keys = keysOf(doc, input.groupBy, date, { costCenters: input.costCenters, projects: input.projects });
     // net per key scaled by the factor; gross split pro rata of the net (largest remainder, exact totals)
     const scaledNet = scale(doc.netCents, factor.num, factor.den);
     const scaledGross = scale(doc.grossCents, factor.num, factor.den);

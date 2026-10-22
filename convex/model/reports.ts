@@ -375,7 +375,7 @@ export async function revenueView(
   for (const d of docs) {
     // a Rechnungsberichtigung without amount changes (kind rectification, totals 0) adds nothing
     const lines =
-      a.groupBy === "product" || a.groupBy === "cost_center"
+      a.groupBy === "product" || a.groupBy === "cost_center" || a.groupBy === "project"
         ? (
             await ctx.db
               .query("documentLines")
@@ -388,6 +388,7 @@ export async function revenueView(
               productName: l.name ?? "",
               netCents: (l.lineNetCents ?? 0) * (d.totals.netCents < 0 && (l.lineNetCents ?? 0) > 0 ? -1 : 1),
               ...(l.costCenterId ? { costCenterId: l.costCenterId as string } : {}),
+              ...(l.projectId ? { projectId: l.projectId as string } : {}),
             }))
         : [];
     const supply = supplyEnd(d.supplyDate);
@@ -400,6 +401,7 @@ export async function revenueView(
       ...(d.contactId ? { contactId: d.contactId } : {}),
       contactName: d.contactName ?? "",
       ...(d.costCenterId ? { costCenterId: d.costCenterId } : {}),
+      ...(d.projectId ? { projectId: d.projectId } : {}),
       netCents: d.totals.netCents,
       grossCents: d.totals.grossCents,
       lines,
@@ -414,7 +416,20 @@ export async function revenueView(
   const costCenters = new Map(
     (await ctx.db.query("costCenters").collect()).map((c) => [c._id as string, (c as { name?: string }).name ?? c._id]),
   );
-  const report = computeRevenue({ documents, payments, groupBy: a.groupBy, basis: a.basis, from, to, costCenters });
+  const projects =
+    a.groupBy === "project"
+      ? new Map((await ctx.db.query("projects").collect()).map((p) => [p._id as string, `${p.number} ${p.name}`]))
+      : undefined;
+  const report = computeRevenue({
+    documents,
+    payments,
+    groupBy: a.groupBy,
+    basis: a.basis,
+    from,
+    to,
+    costCenters,
+    ...(projects ? { projects } : {}),
+  });
   const meta = await metaFor(
     ctx,
     "revenue",
