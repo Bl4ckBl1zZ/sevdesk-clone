@@ -11,7 +11,7 @@ import { money } from "@/components/invoices/invoice-shared";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { formatCents } from "@/domain/money/format";
-import { parseCents } from "@/domain/money/parse";
+import { parsePaymentAmount } from "@/domain/payments/amount";
 import { useAuthedQuery } from "@/hooks/use-authed-query";
 
 type PaymentsData = FunctionReturnType<typeof api.payments.forDocument>;
@@ -64,8 +64,17 @@ export function RefundDialog({
     note: useId(),
   };
 
-  const parsed = parseCents(amountText);
-  const amountCents = parsed.ok ? Number(parsed.value) : null;
+  // EC-PAY-38 / 04 §8: „1.234“ = 1.234,00 € (shown back), > 2 decimals rejected
+  const parsed = parsePaymentAmount(amountText);
+  const amountCents = parsed.ok ? parsed.value.cents : null;
+  const amountHint =
+    amountText.trim() === ""
+      ? null
+      : parsed.ok
+        ? parsed.value.interpretation
+          ? `= ${parsed.value.interpretation}`
+          : null
+        : parsed.error.message;
   const outgoing = (unmatched ?? []).filter((x) => x.direction === "out" && x.currency === "EUR");
   const tx = means === "bank" ? outgoing.find((x) => x.id === txId) : undefined;
   const effectiveDate = tx ? tx.bookingDate : date;
@@ -194,10 +203,20 @@ export function RefundDialog({
               id={ids.amount}
               inputMode="decimal"
               value={amountText}
-              aria-invalid={!parsed.ok}
+              aria-invalid={amountText.trim() !== "" && !parsed.ok}
+              aria-describedby={amountHint ? `${ids.amount}-hint` : undefined}
               onChange={(e) => setAmountText(e.target.value)}
               className="h-11 text-right tabular-nums md:h-9"
             />
+            {amountHint && (
+              <p
+                id={`${ids.amount}-hint`}
+                className={parsed.ok ? "text-muted-foreground text-xs" : "text-destructive text-xs"}
+                data-testid="amount-hint"
+              >
+                {amountHint}
+              </p>
+            )}
           </div>
         </div>
         {means === "cash" && cashBack > 10 && (
