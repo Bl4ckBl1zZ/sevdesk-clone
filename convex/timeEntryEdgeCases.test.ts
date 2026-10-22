@@ -457,6 +457,64 @@ describe("PRJ-017 time reports", () => {
   });
 });
 
+describe("time_entry_log (MCP)", () => {
+  test("PRJ-021 E-PRJ-22 TST-PRJ-18 an ambiguous project name returns candidates; with the ID the entry is logged as mcp:<keyId> with the budget status", async () => {
+    const t = makeT();
+    const { owner, personId } = await setup(t);
+    const relaunch = await project(owner, personId, {
+      name: "Website Relaunch",
+      budgetKind: "hours",
+      budgetValue: "10",
+    });
+    const care = await project(owner, personId, { name: "Website Wartung" });
+    const mcp = await t.asMcp(["time:write"]);
+    const e = await fail(
+      mcp.mutation(api.timeEntries.log, { project: "Website", duration: "2h", description: "Workshop" }),
+    );
+    expect(reasonOf(e)).toBe("project_ambiguous");
+    expect(messageOf(e)).toBe(
+      "Projekt „Website“ ist nicht eindeutig: PRJ-00001 Website Relaunch, PRJ-00002 Website Wartung. Bitte project_id angeben.",
+    );
+    expect((e as { data: { candidates: unknown } }).data.candidates).toEqual([
+      { id: relaunch, number: "PRJ-00001", name: "Website Relaunch" },
+      { id: care, number: "PRJ-00002", name: "Website Wartung" },
+    ]);
+    expect(await t.run((ctx) => ctx.db.query("timeEntries").collect())).toHaveLength(0);
+
+    const r = await mcp.mutation(api.timeEntries.log, { project: relaunch, duration: "2h", description: "Workshop" });
+    expect(r.project).toEqual({ id: relaunch, number: "PRJ-00001", name: "Website Relaunch" });
+    expect(r.entry).toMatchObject({ date: "2026-10-12", durationMinutes: 120, billable: true, source: "mcp" });
+    expect(r.budget).toMatchObject({ kind: "hours", consumed: 120, ratioBp: 2000, label: "2:00 h von 10:00 h" });
+    expect(await entry(t, r.id)).toMatchObject({ actor: mcp.actor, source: "mcp", projectId: relaunch });
+    expect(mcp.actor).toMatch(/^mcp:/);
+    // by number, with an explicit date
+    const byNumber = await mcp.mutation(api.timeEntries.log, {
+      project: "prj-00002",
+      duration: "1:30",
+      description: "Updates einspielen",
+      date: "2026-10-09",
+    });
+    expect(byNumber.entry).toMatchObject({ date: "2026-10-09", durationMinutes: 90 });
+    const unknown = await fail(
+      mcp.mutation(api.timeEntries.log, { project: "Buchhaltung", duration: "1h", description: "Belege" }),
+    );
+    expect(reasonOf(unknown)).toBe("project_not_found");
+  });
+
+  test("E-PRJ-21 time_entry_log to an archived project is blocked", async () => {
+    const t = makeT();
+    const { owner, personId } = await setup(t);
+    const p = await project(owner, personId, { name: "Altkunde Shop" });
+    await owner.mutation(api.projects.setStatus, { id: p, status: "archived" });
+    const mcp = await t.asMcp(["time:write"]);
+    const e = await fail(
+      mcp.mutation(api.timeEntries.log, { project: "Altkunde", duration: "1h", description: "Support" }),
+    );
+    expect(messageOf(e)).toBe("Projekt Altkunde Shop ist archiviert.");
+    expect(reasonOf(e)).toBe("PROJECT_ARCHIVED");
+  });
+});
+
 describe("RPT-007 revenue by project", () => {
   test("RPT-007 PRJ-002 the revenue report groups finalised invoices by project (number and name)", async () => {
     const t = makeT();

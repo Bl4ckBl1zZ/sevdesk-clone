@@ -1,5 +1,6 @@
 import { v } from "convex/values";
 import { exactTimeNetCents, selectableForInvoicing } from "../src/domain/projects/invoicing";
+import { resolveProjectRef } from "../src/domain/projects/lookup";
 import {
   buildManualEntry,
   TIMER_AUTO_STOP_MS,
@@ -15,6 +16,7 @@ import type { Doc, Id } from "./_generated/dataModel";
 import { mutation, query, systemMutation } from "./functions";
 import { appError } from "./lib/errors";
 import { parse } from "./lib/parse";
+import { projectBudget } from "./model/projects";
 import {
   checkRunningTimer,
   createEntry,
@@ -156,6 +158,75 @@ export const create = mutation({
   args: { values: v.any() },
   handler: async (ctx, { values }) =>
     createEntry(ctx, { ...manualFrom(values, berlinCalendarDate(ctx.now())), source: sourceOf(ctx) }),
+});
+
+/**
+ * `time_entry_log` (F11 §7, MCP; REST can reuse it): „2h auf Projekt X: Workshop“. The project is given by ID,
+ * number or name (E-PRJ-22: ambiguous / unknown → structured error with up to five candidates; E-PRJ-21: archived →
+ * blocked); the date defaults to today (Europe/Berlin). Returns the entry and the project's budget status (PRJ-003).
+ */
+export const log = mutation({
+  permission: "time.write",
+  args: {
+    project: v.string(),
+    duration: v.string(),
+    description: v.string(),
+    date: v.optional(v.string()),
+    billable: v.optional(v.boolean()),
+    productId: v.optional(v.string()),
+  },
+  handler: async (ctx, a) => {
+    const projects = await ctx.db.query("projects").collect();
+    const ref = resolveProjectRef(
+      a.project,
+      projects.map((p) => ({ id: p._id as string, number: p.number, name: p.name, status: p.status })),
+    );
+    if (!ref.ok) {
+      throw appError("invalid_input", ref.error.message, {
+        reason: ref.error.code,
+        field: "project",
+        candidates: ref.error.candidates.map((c) => ({ ...c })),
+      });
+    }
+    const project = projects.find((p) => p._id === ref.value.id);
+    const today = berlinCalendarDate(ctx.now());
+    const values = manualFrom(
+      {
+        date: a.date ?? today,
+        mode: "duration",
+        duration: a.duration,
+        startTime: "",
+        endTime: "",
+        description: a.description,
+        projectId: ref.value.id,
+        contactId: "",
+        productId: a.productId ?? "",
+        billable: a.billable ?? project?.billingMode !== "non_billable",
+        rate: "",
+      },
+      today,
+    );
+    const r = await createEntry(ctx, { ...values, source: sourceOf(ctx) });
+    const entry = await ctx.db.get(r.id);
+    const fresh = project ? await ctx.db.get(project._id) : null;
+    return {
+      id: r.id,
+      warnings: r.warnings,
+      entry: entry
+        ? {
+            date: entry.date,
+            durationMinutes: entry.durationMinutes,
+            description: entry.description,
+            billable: entry.billable,
+            hourlyRateMicros: entry.hourlyRateMicros,
+            status: entry.status,
+            source: entry.source,
+          }
+        : null,
+      project: { id: ref.value.id, number: ref.value.number, name: ref.value.name },
+      budget: fresh ? await projectBudget(ctx, fresh) : null,
+    };
+  },
 });
 
 export const update = mutation({
