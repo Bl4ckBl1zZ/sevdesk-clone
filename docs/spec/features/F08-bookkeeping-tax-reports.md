@@ -171,7 +171,7 @@
 | RPT-012 | **Cash-flow forecast** (90 days, daily points, weekly aggregation in the chart): opening = current bank-reported balances of all bank accounts/currency pockets (EUR equivalent; latest statement import or feed) + the `cash` account balance; inflows = open receivables at expected payment date (due date + customer's payment delay, §4.8), recurring invoices (next runs), planned manual items; outflows = open payables by due date, recurring vouchers, tax payments (UStVA estimates at deadlines, Sondervorauszahlung, ESt/GewSt Vorauszahlungen), subscription fees; scenarios "erwartet" (median delay) and "vorsichtig" (P80 delay, inflows −10 %); warning threshold (user-set minimum balance) | MUST | P3 | — |
 | RPT-013 | Forecast items list with source, expected date, amount, confidence; manual planned items (one-off or recurring) can be added/edited (not bookkeeping data; stored in `plannedCashItems`) | SHOULD | P3 | — |
 | RPT-014 | All reports exportable as CSV (UTF-8 with BOM, `;`, decimal comma) and PDF; CSV columns are documented and stable (Z2 evaluations, GOBD-11) | MUST | P3 | GOBD-11 |
-| RPT-015 | Reports are computed by pure domain functions over a read model; heavy reports (SuSa year, EÜR) are cached per (report, params, journal head `seq`) and invalidated when `seq` advances | SHOULD | P3 | — |
+| RPT-015 | Reports are computed by pure domain functions over a read model; heavy reports (SuSa year, EÜR) are cached per (report, params, journal head `seq`) and invalidated when `seq` advances. *Status 2026-10-23: not built as a separate cache table — Convex queries cannot write, and the Convex query cache already keys results by (function, args) and invalidates them when the journal rows they read change; revisit only if report latency becomes a problem.* | SHOULD | P3 | — |
 
 ## 4. Workflows and state machines
 
@@ -494,6 +494,18 @@ Per customer: delays (payment date − due date, days) of the last 10 fully paid
 Each account has a BWA group key (`UMSATZ`, `WAREN`, `PERSONAL`, `RAUM`, `STEUERN_VERS`, `KFZ`, `WERBE_REISE`, `AFA`, `REPARATUR`, `SONSTIGE`, `NEUTRAL_AUFWAND`, `NEUTRAL_ERTRAG`, `ZINS`, `NONE`), defined in the seed and overridable for custom accounts.
 
 ## 5. Validation rules and edge cases (exhaustive; exact German error/warning messages)
+
+> **Cross-feature rows (note 2026-10-23).** Several rows here restate a rule that is implemented and owned by another
+> feature: E-ACC-08 (F02 contacts), E-TAX-10/E-RPT-11 (F04 KU guard), E-TAX-13/E-TAX-14 (F05 write-off / Skonto),
+> E-TAX-18 (F06 vouchers), E-TAX-20 (F01 settings), E-RPT-12 (F01/F04 thresholds). Their tests assert the behaviour
+> through the owning implementation; where the owning feature's German text differs in wording, **the owning
+> feature's message is authoritative** and the text in this table is descriptive. E-TAX-17 is the exception: the
+> igE block below wins over F06 EC-VOU-13 (now a warning only for `reverse_charge_eu`).
+> **Not implemented (2026-10-23):** E-ACC-12 — the app is EÜR-only (E-TAX-21 refuses Bilanzierer), so opening
+> balances are one-sided against 9000 and Σ 9000/9008/9009 is not expected to be zero; the check becomes relevant
+> only with a full opening balance sheet. E-ACC-23/25/26/31/32 need the general bank-transaction posting and FX lot
+> valuation (BNK-028), E-ACC-24 the F07 return-of-a-booked-payment reversal flow, E-TAX-08 an Ist→Soll catch-up in
+> the F05 allocation, E-TAX-19 the 2028 Ist-supplier flag.
 
 ### 5.1 Journal and accounts
 
