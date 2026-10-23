@@ -56,6 +56,7 @@ export const RECORD_RETENTION: Readonly<Record<string, RetentionClass>> = {
   cashClosings: "vouchers8",
   payments: "vouchers8",
   sendLog: "letters6",
+  receivableLetters: "letters6", // F05 account statements, payment confirmations, interest claims, Mahnbescheid sheets
   sepaMandates: "letters6",
   notifications: "none",
   devMailbox: "none",

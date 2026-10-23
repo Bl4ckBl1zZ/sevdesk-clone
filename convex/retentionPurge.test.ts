@@ -1,7 +1,9 @@
 import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
 import { ABLAUFHEMMUNG_ITEMS, PURGE_PHRASE } from "../src/domain/privacy/purge";
+import { clearInvariantTarget } from "../test/invariants";
 import { api, internal } from "./_generated/api";
 import type { Id } from "./_generated/dataModel";
+import { enc, ingest } from "./inbox.fixtures";
 import { finalizedInvoice, settle } from "./invoices.fixtures";
 import { memoryCheckpointObjects } from "./lib/checkpointStore";
 import { loadCheckpointKey, verifyCheckpoint } from "./lib/jws";
@@ -186,6 +188,73 @@ describe("purge job (PRV-002, PRV-005, PRV-006, PRV-007, GOBD-21)", { timeout: 6
     expect(dataOf(await catching(mcp.mutation(api.retention.startPurge, args))).code).toBe("forbidden_scope");
     const bk = await t.asUser("bookkeeper");
     expect(dataOf(await catching(bk.mutation(api.retention.startPurge, args))).code).toBe("forbidden_role");
+  });
+
+  test("PRV-002 PRV-005 receivable letters and supplier correction letters are letters6: purged with their PDF 6 years after the letter year, the invoice stays", async () => {
+    const t = makeT();
+    const f = await finalizedInvoice(t);
+    const contactId = f.personId as Id<"contacts">;
+    await f.owner.mutation(api.payments.recordForInvoice, {
+      documentId: f.id as Id<"salesDocuments">,
+      source: { kind: "cash" },
+      date: "2026-10-12",
+      amountCents: 50_000,
+    });
+    const { letterId } = await f.owner.action(api.payments.letter, {
+      request: { kind: "account_statement", contactId, from: "2026-10-01", to: "2026-10-12" },
+    });
+    const letter = await t.run((ctx) => ctx.db.get(letterId));
+    if (!letter) throw new Error("no letter");
+    const ingested = (await ingest(t, f.owner, [{ bytes: enc("%PDF-1.4 Rechnung"), name: "rechnung.pdf" }])) as {
+      ids?: string[];
+      id?: string;
+    };
+    const itemId = (ingested.ids?.[0] ?? ingested.id) as Id<"inboxItems">;
+    // the archived „Bitte um Rechnungskorrektur“ (INB-046 writes it the same way; the e-invoice flow is tested in F06)
+    const correction = await t.run(async (ctx) => {
+      const storageId = await ctx.storage.store(new Blob(["%PDF-1.4 Korrektur"], { type: "application/pdf" }));
+      return ctx.db.insert("documentArtifacts", {
+        inboxItemId: itemId,
+        kind: "supplier_correction_letter",
+        storageId,
+        sha256: "0".repeat(64),
+        bytes: 18,
+        mime: "application/pdf",
+        name: "Korrekturanforderung-1.pdf",
+        createdAt: Date.now(),
+        retentionUntil: "2032-12-31",
+      });
+    });
+    clearInvariantTarget(); // the correction artifact is seeded directly
+
+    expect((await f.owner.query(api.retention.preview, { classes: ["letters6"], years: [] })).total).toBe(0);
+    const owner = await ownerLater(t, f.owner.userId, "2033-01-02T10:00:00Z");
+    const preview = await owner.query(api.retention.preview, { classes: ["letters6"], years: [2032] });
+    expect(preview.counts).toMatchObject({ receivableLetters: 1, documentArtifacts: 1 });
+
+    const { batchId } = await owner.mutation(api.retention.startPurge, {
+      classes: ["letters6"],
+      years: [2032],
+      checklist: CHECKLIST,
+      phrase: PURGE_PHRASE,
+    });
+    await settle(t);
+    expect(await t.run((ctx) => ctx.db.get(letterId))).toBeNull();
+    expect(await t.run((ctx) => ctx.storage.get(letter.file.storageId))).toBeNull();
+    expect(await t.run((ctx) => ctx.db.get(correction))).toBeNull();
+    expect(await t.run((ctx) => ctx.db.get(f.id as Id<"salesDocuments">))).not.toBeNull();
+    // the invoice's own artifacts follow the invoice (vouchers8), never the letters class
+    const left = await t.run((ctx) => ctx.db.query("documentArtifacts").collect());
+    expect(left.length).toBeGreaterThan(0);
+    expect(left.every((a) => a.documentId === f.id)).toBe(true);
+    const tombstones = await t.run((ctx) =>
+      ctx.db
+        .query("purgeTombstones")
+        .withIndex("by_batch", (q) => q.eq("batchId", batchId))
+        .collect(),
+    );
+    expect(tombstones.map((x) => x.table)).toEqual(expect.arrayContaining(["documentArtifacts", "receivableLetters"]));
+    expect(tombstones.every((x) => x.retentionUntil === "2032-12-31")).toBe(true);
   });
 
   test("PRV-003 the monthly scan lists eligible records and notifies, but purges nothing", async () => {

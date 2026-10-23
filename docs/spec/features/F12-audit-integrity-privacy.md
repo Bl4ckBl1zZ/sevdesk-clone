@@ -183,7 +183,7 @@ scheduled purge date reached → appears in the purge worklist (still manual, PR
 |---|---|---|---|
 | Journal, ledger accounts, periods, opening balances, assets/AfA, tax filings, Verfahrensdokumentation versions, audit log, integrity checkpoints, VAT-ID check evidence (MISC-04) | books10 | 10 | entry date / filing period / version superseded / entry `at` |
 | Invoices of all types, corrections, Storno, self-billing, vouchers + files, bank transactions + statements, cash entries/closings, payments, provider statements, timesheets of billed time, acceptance PDFs attached to invoices | vouchers8 | 8 | document/booking date |
-| Quotes, order confirmations, reminders, business correspondence (send log `.eml`), SEPA mandates (after last use), portal acceptance evidence for quotes | letters6 | 6 | document date / last use |
+| Quotes, order confirmations, reminders, business correspondence (send log `.eml`), SEPA mandates (after last use), portal acceptance evidence for quotes, F05 receivable letters (`receivableLetters`: Kontoauszug, Zahlungsbestätigung, Zinsforderung, Mahnbescheid-Datenblatt), the F06 „Bitte um Rechnungskorrektur“ letter (`documentArtifacts` kind `supplier_correction_letter`) | letters6 | 6 | document date / last use |
 | Delivery notes that are not Buchungsbelege ⚠ | letters6 (default) | 6 | document date |
 | OSS records (P4) | books10 | 10 | period |
 | Drafts, notifications, technical logs, portal view logs, unbilled time entries | none | — | deletable (drafts: audited) |
