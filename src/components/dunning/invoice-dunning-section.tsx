@@ -12,6 +12,7 @@ import { useId, useState } from "react";
 import { ConfirmDialog, formatDate, todayBerlin, useCan } from "@/components/catalog/shared";
 import { money } from "@/components/invoices/invoice-shared";
 import { FactList } from "@/components/layout/list-layout";
+import { LetterButton } from "@/components/receivables/letters";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -44,6 +45,7 @@ type CaseAction = CaseActionValues["action"];
 export function InvoiceDunningSection({ invoiceId, type }: { invoiceId: string; type: SalesDocType }) {
   const t = useTranslations("dunning.invoice");
   const tPreview = useTranslations("dunning.preview");
+  const tl = useTranslations("receivables.letters");
   const router = useRouter();
   const data = useAuthedQuery(
     api.dunning.forInvoice,
@@ -93,6 +95,14 @@ export function InvoiceDunningSection({ invoiceId, type }: { invoiceId: string; 
                 <SirenIcon aria-hidden="true" />
                 {active.length > 0 ? t("nextLevel") : t("create")}
               </Button>
+            )}
+            {/* DUN-044: data sheet for the online Mahnantrag once the debtor is in default */}
+            {data.defaultStart && (
+              <LetterButton
+                label={tl("mahnbescheid")}
+                testId="mahnbescheid-sheet"
+                request={{ kind: "mahnbescheid_sheet", invoiceId: invoiceId as Id<"salesDocuments"> }}
+              />
             )}
             {caseActions.length > 0 && (
               <DropdownMenu>

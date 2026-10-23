@@ -3422,6 +3422,30 @@
       "truncated": "Es werden die letzten 200 Zahlungen angezeigt."
     }
   },
+  "receivables": {
+    "letters": {
+      "ready": "PDF erstellt und archiviert. Die App versendet nichts – bitte selbst versenden und als versendet markieren.",
+      "createPdf": "PDF erstellen",
+      "statement": "Kontoauszug erstellen",
+      "statementTitle": "Kontoauszug erstellen",
+      "statementHint": "Alle Rechnungen, Gutschriften und Zahlungen des Kunden im Zeitraum mit Anfangs- und Endsaldo.",
+      "from": "Von",
+      "to": "Bis",
+      "confirmationRequest": "Als Saldenbestätigung (Kunde bestätigt den Saldo)",
+      "paymentConfirmation": "Zahlungsbestätigung",
+      "interestClaim": "Zinsforderung stellen",
+      "mahnbescheid": "Mahnbescheid-Datenblatt",
+      "archived": "Archivierte Schreiben",
+      "markSent": "Als versendet markieren",
+      "markSentTitle": "Schreiben als versendet markieren",
+      "markSentHint": "Die App versendet nichts. Bitte angeben, wann und wie Sie das Schreiben übermittelt haben.",
+      "markedSent": "Als versendet markiert.",
+      "sentOn": "Versanddatum",
+      "channel": "Versandweg",
+      "note": "Notiz (bei „Sonstiges“ erforderlich)",
+      "sentBadge": "versendet am {date} ({channel})"
+    }
+  },
   "recurring": {
     "list": {
       "tabsLabel": "Status der Vorlagen",

@@ -9,6 +9,7 @@ import { formatDate } from "@/components/catalog/shared";
 import { ContactDunningCard } from "@/components/dunning/contact-dunning-card";
 import { money } from "@/components/invoices/invoice-shared";
 import { FactList } from "@/components/layout/list-layout";
+import { ArchivedLetters, StatementButton } from "@/components/receivables/letters";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -59,6 +60,13 @@ export function ContactReceivables({ contactId }: { contactId: string }) {
                 : []),
             ]}
           />
+          {/* PAY-005 Kontoauszug / Saldenbestätigung as PDF; archived letters with the manual sent mark */}
+          <div className="mt-3 flex flex-col gap-3">
+            <div>
+              <StatementButton contactId={contactId} />
+            </div>
+            <ArchivedLetters contactId={contactId} />
+          </div>
         </CardContent>
       </Card>
       <Card>

@@ -8,6 +8,10 @@ const backend = vi.hoisted(() => ({ data: {} as Record<string, unknown> }));
 vi.mock("@/hooks/use-authed-query", () => ({
   useAuthedQuery: (ref: unknown) => backend.data[getFunctionName(ref as never)],
 }));
+vi.mock("@/components/receivables/letters", () => ({
+  StatementButton: () => <button type="button">Kontoauszug erstellen</button>,
+  ArchivedLetters: () => null,
+}));
 vi.mock("@/components/dunning/contact-dunning-card", () => ({
   ContactDunningCard: ({ contactId }: { contactId: string }) => <div data-testid="dunning-card">{contactId}</div>,
 }));

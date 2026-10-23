@@ -10,6 +10,7 @@ import { useTranslations } from "next-intl";
 import { useId, useState } from "react";
 import { ConfirmDialog, formatDate, useCan, useRun } from "@/components/catalog/shared";
 import { money } from "@/components/invoices/invoice-shared";
+import { ArchivedLetters, LetterButton } from "@/components/receivables/letters";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
@@ -56,6 +57,7 @@ export function useReceipt() {
  */
 export function PaymentsSection({ documentId, number }: { documentId: Id<"salesDocuments">; number: string }) {
   const t = useTranslations("payments");
+  const tl = useTranslations("receivables.letters");
   const data = useAuthedQuery(api.payments.forDocument, { documentId });
   const canWrite = useCan("payments.write");
   const canReverse = useCan("payments.reverse");
@@ -144,6 +146,19 @@ export function PaymentsSection({ documentId, number }: { documentId: Id<"salesD
                       {p.receipt ? t("printReceiptCopy") : t("printReceipt")}
                     </Button>
                   )}
+                  {/* PAY-048 Zahlungsbestätigung for a received payment on an invoice */}
+                  {!reversed &&
+                    !p.reversalOfId &&
+                    p.amountCents > 0 &&
+                    p.target.kind === "salesDocument" &&
+                    p.source !== "adjustment" &&
+                    p.source !== "credit" && (
+                      <LetterButton
+                        variant="ghost"
+                        label={tl("paymentConfirmation")}
+                        request={{ kind: "payment_confirmation", paymentId: p.id }}
+                      />
+                    )}
                   {canReverse && !reversed && !p.reversalOfId && (
                     <Button variant="ghost" className="h-11 md:h-9" onClick={() => setReverse(p.id)}>
                       <Undo2Icon aria-hidden="true" />
@@ -178,6 +193,17 @@ export function PaymentsSection({ documentId, number }: { documentId: Id<"salesD
       {data.creditBalanceCents > 0 && (
         <p className="text-sm">{t("creditBalance", { amount: money(data.creditBalanceCents) })}</p>
       )}
+      {/* DUN-028: after a late full payment, interest and costs of the default can be claimed by letter */}
+      {s.openAmountCents === 0 && s.payableCents > 0 && s.receivedCents > 0 && (
+        <div>
+          <LetterButton
+            label={tl("interestClaim")}
+            testId="interest-claim"
+            request={{ kind: "interest_claim", invoiceId: documentId }}
+          />
+        </div>
+      )}
+      <ArchivedLetters documentId={documentId} />
       {dialog && (
         <PaymentDialog
           documentId={documentId}
