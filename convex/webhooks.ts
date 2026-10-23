@@ -14,7 +14,9 @@ import {
   type AttemptResult,
   claimDelivery,
   deleteEndpoint,
+  deliveryIdOf,
   dueDeliveries,
+  endpointIdOf,
   endpointView,
   getEndpoint,
   insertEndpoint,
@@ -43,17 +45,19 @@ export const list = query({
 
 export const get = query({
   permission: "webhooks.read",
-  args: { endpointId: v.id("webhookEndpoints") },
-  handler: async (ctx, { endpointId }) => endpointView(await getEndpoint(ctx, endpointId), ctx.now()),
+  args: { endpointId: v.string() },
+  handler: async (ctx, { endpointId }) =>
+    endpointView(await getEndpoint(ctx, endpointIdOf(ctx, endpointId)), ctx.now()),
 });
 
 /** Delivery log of one endpoint (last 30 days, request/response snippets). */
 export const deliveries = query({
   permission: "webhooks.read",
-  args: { endpointId: v.id("webhookEndpoints"), limit: v.optional(v.number()) },
+  args: { endpointId: v.string(), limit: v.optional(v.number()) },
   handler: async (ctx, { endpointId, limit }) => {
-    await getEndpoint(ctx, endpointId);
-    return listDeliveries(ctx, endpointId, ctx.now(), limit ?? 100);
+    const id = endpointIdOf(ctx, endpointId);
+    await getEndpoint(ctx, id);
+    return listDeliveries(ctx, id, ctx.now(), limit ?? 100);
   },
 });
 
@@ -102,24 +106,25 @@ export const insert = actorMutation({
 
 export const update = mutation({
   permission: "webhooks.manage",
-  args: { endpointId: v.id("webhookEndpoints"), values: v.any() },
+  args: { endpointId: v.string(), values: v.any() },
   handler: async (ctx, { endpointId, values }) => {
     const input = parse(webhookEndpointUpdateSchema, values);
-    await updateEndpoint(ctx, endpointId, input);
-    return endpointView(await getEndpoint(ctx, endpointId), ctx.now());
+    const id = endpointIdOf(ctx, endpointId);
+    await updateEndpoint(ctx, id, input);
+    return endpointView(await getEndpoint(ctx, id), ctx.now());
   },
 });
 
 export const remove = mutation({
   permission: "webhooks.manage",
-  args: { endpointId: v.id("webhookEndpoints") },
-  handler: async (ctx, { endpointId }) => deleteEndpoint(ctx, endpointId),
+  args: { endpointId: v.string() },
+  handler: async (ctx, { endpointId }) => deleteEndpoint(ctx, endpointIdOf(ctx, endpointId)),
 });
 
 /** „Secret erneuern": the new secret is returned once; the old one stays valid (and signed with) for 24 h. */
 export const rollSecret = action({
   permission: "webhooks.manage",
-  args: { endpointId: v.id("webhookEndpoints") },
+  args: { endpointId: v.string() },
   handler: async (ctx, { endpointId }): Promise<{ secret: string; previousValidUntil: number }> => {
     const s = await newSecret();
     const r: { previousValidUntil: number } = await ctx.runMutation(internal.webhooks.storeRolledSecret, {
@@ -134,22 +139,28 @@ export const rollSecret = action({
 
 export const storeRolledSecret = actorMutation({
   permission: "webhooks.manage",
-  args: { endpointId: v.id("webhookEndpoints"), encryptedSecret: v.string(), secretHint: v.string() },
-  handler: async (ctx, { endpointId, ...next }) => rollEndpointSecret(ctx, endpointId, next),
+  args: { endpointId: v.string(), encryptedSecret: v.string(), secretHint: v.string() },
+  handler: async (ctx, { endpointId, ...next }) => rollEndpointSecret(ctx, endpointIdOf(ctx, endpointId), next),
 });
 
 /** „Test senden": `test.ping` to this endpoint. */
 export const sendTest = mutation({
   permission: "webhooks.manage",
-  args: { endpointId: v.id("webhookEndpoints") },
-  handler: async (ctx, { endpointId }) => ({ deliveryId: await sendTestPing(ctx, endpointId) }),
+  args: { endpointId: v.string() },
+  handler: async (ctx, { endpointId }) => ({ deliveryId: await sendTestPing(ctx, endpointIdOf(ctx, endpointId)) }),
 });
 
 /** „Erneut senden": replays one delivery (same event, same `webhook-id`). */
 export const replay = mutation({
   permission: "webhooks.manage",
-  args: { deliveryId: v.id("webhookDeliveries") },
-  handler: async (ctx, { deliveryId }) => ({ deliveryId: await replayDelivery(ctx, deliveryId) }),
+  args: { deliveryId: v.string(), endpointId: v.optional(v.string()) },
+  handler: async (ctx, { deliveryId, endpointId }) => ({
+    deliveryId: await replayDelivery(
+      ctx,
+      deliveryIdOf(ctx, deliveryId),
+      endpointId === undefined ? undefined : endpointIdOf(ctx, endpointId),
+    ),
+  }),
 });
 
 // ── delivery worker (webhooksNode.deliver) ───────────────────────────────────────────────────────────

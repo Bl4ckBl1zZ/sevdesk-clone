@@ -535,6 +535,19 @@ export async function listEndpoints(ctx: ReadCtx, now: number): Promise<Endpoint
   return rows.map((r) => endpointView(r, now));
 }
 
+/** A raw ID from the UI or REST (`whe_` already stripped); anything that is not an endpoint answers not_found. */
+export function endpointIdOf(ctx: ReadCtx, raw: string): Id<"webhookEndpoints"> {
+  const id = ctx.db.normalizeId("webhookEndpoints", raw);
+  if (!id) throw appError("not_found", WEBHOOK_MESSAGES.notFound);
+  return id;
+}
+
+export function deliveryIdOf(ctx: ReadCtx, raw: string): Id<"webhookDeliveries"> {
+  const id = ctx.db.normalizeId("webhookDeliveries", raw);
+  if (!id) throw appError("not_found", WEBHOOK_MESSAGES.deliveryNotFound);
+  return id;
+}
+
 export async function getEndpoint(ctx: ReadCtx, id: Id<"webhookEndpoints">): Promise<WebhookEndpointDoc> {
   const ep = await ctx.db.get(id);
   if (!ep) throw appError("not_found", WEBHOOK_MESSAGES.notFound);
@@ -654,9 +667,13 @@ export async function sendTestPing(ctx: ModelCtx, id: Id<"webhookEndpoints">): P
 export async function replayDelivery(
   ctx: ModelCtx,
   deliveryId: Id<"webhookDeliveries">,
+  endpointId?: Id<"webhookEndpoints">,
 ): Promise<Id<"webhookDeliveries">> {
   const d = await ctx.db.get(deliveryId);
-  if (!d) throw appError("not_found", WEBHOOK_MESSAGES.deliveryNotFound);
+  // REST addresses a delivery below its endpoint: another endpoint's delivery is not found
+  if (!d || (endpointId !== undefined && d.endpointId !== endpointId)) {
+    throw appError("not_found", WEBHOOK_MESSAGES.deliveryNotFound);
+  }
   const ep = await getEndpoint(ctx, d.endpointId);
   if (!(await ctx.db.get(d.eventId))) throw appError("not_found", WEBHOOK_MESSAGES.deliveryNotFound);
   const id = await newDelivery(ctx, {
