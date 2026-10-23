@@ -3,7 +3,12 @@ import { afterEach, beforeEach, expect, test, vi } from "vitest";
 import { SCOPES } from "@/domain/schemas/scopes";
 
 const fake = vi.hoisted(() => ({
-  clients: [] as { url: string; options: unknown; auth?: string; calls: { op: string; name: string; args: unknown }[] }[],
+  clients: [] as {
+    url: string;
+    options: unknown;
+    auth?: string;
+    calls: { op: string; name: string; args: unknown }[];
+  }[],
   mints: [] as Record<string, unknown>[],
 }));
 vi.mock("convex/browser", () => ({

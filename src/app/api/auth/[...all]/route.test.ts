@@ -15,7 +15,12 @@ vi.mock("@convex-dev/better-auth/nextjs", () => ({
   },
 }));
 
-const ENV = ["CONVEX_URL_INTERNAL", "NEXT_PUBLIC_CONVEX_URL", "CONVEX_SITE_URL_INTERNAL", "NEXT_PUBLIC_CONVEX_SITE_URL"];
+const ENV = [
+  "CONVEX_URL_INTERNAL",
+  "NEXT_PUBLIC_CONVEX_URL",
+  "CONVEX_SITE_URL_INTERNAL",
+  "NEXT_PUBLIC_CONVEX_SITE_URL",
+];
 const saved: Record<string, string | undefined> = {};
 
 beforeEach(() => {

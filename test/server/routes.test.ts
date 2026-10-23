@@ -24,8 +24,15 @@ describe("/api/v1/[...path] route module", () => {
     expect(v1Route.dynamic).toBe("force-dynamic");
     // /contacts allows GET and POST (auth is checked → 401); the other verbs reach the registry's 405 branch.
     const expected = { GET: 401, POST: 401, PATCH: 405, PUT: 405, DELETE: 405 } as const;
+    const handlers = {
+      GET: v1Route.GET,
+      POST: v1Route.POST,
+      PATCH: v1Route.PATCH,
+      PUT: v1Route.PUT,
+      DELETE: v1Route.DELETE,
+    };
     for (const verb of Object.keys(expected) as (keyof typeof expected)[]) {
-      const res = await v1Route[verb](new Request(`${API_BASE}/contacts`, { method: verb }));
+      const res = await handlers[verb](new Request(`${API_BASE}/contacts`, { method: verb }));
       expect(res.status, verb).toBe(expected[verb]);
       expect(res.headers.get("content-type")).toContain("application/problem+json");
     }

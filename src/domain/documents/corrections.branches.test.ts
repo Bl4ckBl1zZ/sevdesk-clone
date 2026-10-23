@@ -40,7 +40,10 @@ const expectInverseGroups = (original: DocumentSnapshot, s: DocumentSnapshot) =>
 const richOverrides: Partial<SnapshotInput> = {
   supplyDate: { kind: "period", from: "2026-09-01", to: "2026-09-30" },
   flags: { constructionWork: true, propertyRelated: true },
-  delivery: { partyName: "Baustelle Nord", address: { street: "Am Hafen 3", postalCode: "20457", city: "Hamburg", countryCode: "DE" } },
+  delivery: {
+    partyName: "Baustelle Nord",
+    address: { street: "Am Hafen 3", postalCode: "20457", city: "Hamburg", countryCode: "DE" },
+  },
   references: {
     buyerReference: "04011000-12345-67",
     contractReference: "V-2026-7",
@@ -169,7 +172,9 @@ describe("Storno mirror of a full-featured original (INV-10, RI-06)", () => {
   });
 
   test("RI-06 a percentage allowance is mirrored as the same percentage on the negated lines", () => {
-    const original = makeSnapshot({ adjustment: { type: "allowance", percentBp: 500, reason: "Treuerabatt", reasonCode: "95" } });
+    const original = makeSnapshot({
+      adjustment: { type: "allowance", percentBp: 500, reason: "Treuerabatt", reasonCode: "95" },
+    });
     expect(original.totals.allowanceTotalCents).toBe(5_000); // 5 % of 1.000,00 €
     const { input, snapshot } = storno(original);
     expect(input.adjustment).toEqual({ type: "allowance", reason: "Treuerabatt", reasonCode: "95", percentBp: 500 });
@@ -208,7 +213,13 @@ describe("Storno and correction guards without number / Storno reference (INV-10
   });
 
   test("INV-10 a self-billing Gutschrift is cancelled only on the supplier's objection (F04 §4.2.8)", () => {
-    const sb = { type: "self_billing" as const, status: "finalized", number: "GS-2026-0001", payableCents: 5_000, hasPayments: false };
+    const sb = {
+      type: "self_billing" as const,
+      status: "finalized",
+      number: "GS-2026-0001",
+      payableCents: 5_000,
+      hasPayments: false,
+    };
     expect(cancellationGuard(sb)?.code).toBe("illegal_transition");
     expect(cancellationGuard(sb, { selfBillingObjection: true })).toBeNull();
   });
@@ -257,7 +268,10 @@ describe("Credit cap per VAT group (UST-30, RI-07)", () => {
     const next = [{ category: "S" as const, rateBp: 700, netCents: -1_000, vatCents: -70 }];
     const f = creditCapFindings(original, [], next);
     expect(f.map((x) => [x.code, x.message])).toEqual([
-      ["correction_exceeds_original", "Die Korrekturen übersteigen den Rechnungsbetrag (7 %: noch 0,00 € korrigierbar)."],
+      [
+        "correction_exceeds_original",
+        "Die Korrekturen übersteigen den Rechnungsbetrag (7 %: noch 0,00 € korrigierbar).",
+      ],
     ]);
     expect(f[0]?.params).toEqual({ group: "7 %", remaining: 0 });
   });

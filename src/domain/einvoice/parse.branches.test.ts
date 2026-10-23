@@ -198,7 +198,9 @@ describe("UBL variants (INB-021, ER-02)", () => {
 
   test("ER-02 BT-6 equal to BT-5 carries no separate BT-111", () => {
     const { invoice } = parsed(
-      minimalUbl(`<cbc:TaxCurrencyCode>EUR</cbc:TaxCurrencyCode><cac:TaxTotal><cbc:TaxAmount currencyID="EUR">19.00</cbc:TaxAmount></cac:TaxTotal>`),
+      minimalUbl(
+        `<cbc:TaxCurrencyCode>EUR</cbc:TaxCurrencyCode><cac:TaxTotal><cbc:TaxAmount currencyID="EUR">19.00</cbc:TaxAmount></cac:TaxTotal>`,
+      ),
     );
     expect(invoice.vatCurrency).toBe("EUR");
     expect(invoice.taxTotalVatCurrencyCents).toBeUndefined();
@@ -247,11 +249,18 @@ describe("UBL variants (INB-021, ER-02)", () => {
   test("EC-INB-04 UBL without TaxInclusiveAmount (BT-112) or without seller name is incomplete", () => {
     expect(codeOf(minimalUbl("", "<cbc:PayableAmount>119.00</cbc:PayableAmount>"))).toBe("xml_incomplete");
     expect(codeOf(minimalUbl("").replace("<cbc:Name>Kleiner Laden</cbc:Name>", ""))).toBe("xml_incomplete");
-    expect(codeOf(minimalUbl("").replace("<cbc:IssueDate>2026-10-01</cbc:IssueDate>", "<cbc:IssueDate>01.10.2026</cbc:IssueDate>"))).toBe(
+    expect(
+      codeOf(
+        minimalUbl("").replace(
+          "<cbc:IssueDate>2026-10-01</cbc:IssueDate>",
+          "<cbc:IssueDate>01.10.2026</cbc:IssueDate>",
+        ),
+      ),
+    ).toBe("xml_incomplete");
+    // a non-numeric amount is not a number → BT-112 missing
+    expect(codeOf(minimalUbl("", "<cbc:TaxInclusiveAmount>119,00 EUR</cbc:TaxInclusiveAmount>"))).toBe(
       "xml_incomplete",
     );
-    // a non-numeric amount is not a number → BT-112 missing
-    expect(codeOf(minimalUbl("", "<cbc:TaxInclusiveAmount>119,00 EUR</cbc:TaxInclusiveAmount>"))).toBe("xml_incomplete");
   });
 
   test("EC-INB-04 SEC-06 an internal ENTITY declaration without DOCTYPE keyword is refused, too", () => {

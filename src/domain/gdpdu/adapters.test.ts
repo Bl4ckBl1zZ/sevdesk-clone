@@ -44,9 +44,8 @@ describe("gdpdu-v1 adapters, optional fields present and absent (EXP-019, E-EXP-
       actor: "user:u1",
       lines: [],
     };
-    const reversal = buchungRow(
-      { ...base, reversalOfId: "j1", originalDate: "2026-03-01", lockedAt: T },
-      (id) => (id === "j1" ? 3 : undefined),
+    const reversal = buchungRow({ ...base, reversalOfId: "j1", originalDate: "2026-03-01", lockedAt: T }, (id) =>
+      id === "j1" ? 3 : undefined,
     );
     expect(reversal).toMatchObject({
       storno_von: 3,
@@ -306,9 +305,12 @@ describe("gdpdu-v1 adapters, optional fields present and absent (EXP-019, E-EXP-
   });
 
   test("EXP-019 nummernregister: reserved numbers without document/period/counter", () => {
-    expect(
-      nummerRow({ number: "RE-2026-0002", docType: "invoice", assignedAt: T, status: "void" }),
-    ).toMatchObject({ beleg_id: null, periode: null, zaehler: null, vergeben_am: "2026-03-15T09:30:00.000Z" });
+    expect(nummerRow({ number: "RE-2026-0002", docType: "invoice", assignedAt: T, status: "void" })).toMatchObject({
+      beleg_id: null,
+      periode: null,
+      zaehler: null,
+      vergeben_am: "2026-03-15T09:30:00.000Z",
+    });
     expect(
       nummerRow({
         number: "RE-2026-0001",
@@ -426,7 +428,9 @@ describe("gdpdu-v1 adapters, optional fields present and absent (EXP-019, E-EXP-
       kleinunternehmer: "nein",
     });
     // Before any effective row / a sparse v1 profile: nothing derivable.
-    expect(firmaRow({ version: 1, validFrom: "2023-01-01", supersededOn: "2024-01-01", profile: {} }, 2023, "2023-01-01")).toEqual({
+    expect(
+      firmaRow({ version: 1, validFrom: "2023-01-01", supersededOn: "2024-01-01", profile: {} }, 2023, "2023-01-01"),
+    ).toEqual({
       version: 1,
       gueltig_ab: "2023-01-01",
       gueltig_bis: "2024-01-01",
@@ -441,17 +445,26 @@ describe("gdpdu-v1 adapters, optional fields present and absent (EXP-019, E-EXP-
       kleinunternehmer: null,
       wirtschaftsjahr_beginn: null,
     });
-    expect(firmaRow(v, 2023, "2023-01-01")).toMatchObject({ kontenrahmen: null, gewinnermittlung: null, kleinunternehmer: null });
+    expect(firmaRow(v, 2023, "2023-01-01")).toMatchObject({
+      kontenrahmen: null,
+      gewinnermittlung: null,
+      kleinunternehmer: null,
+    });
   });
 
   test("EXP-019 konto: automatic VAT accounts and EÜR line mapping", () => {
-    expect(kontoRow({ number: "8400", name: "Erlöse 19 % USt", type: "revenue", euerKey: "112", automaticVatAccount: true })).toEqual({
+    expect(
+      kontoRow({ number: "8400", name: "Erlöse 19 % USt", type: "revenue", euerKey: "112", automaticVatAccount: true }),
+    ).toEqual({
       kontonummer: "8400",
       bezeichnung: "Erlöse 19 % USt",
       kontoart: "revenue",
       euer_zeile: "112",
       automatikkonto: "ja",
     });
-    expect(kontoRow({ number: "1200", name: "Bank", type: "asset" })).toMatchObject({ euer_zeile: null, automatikkonto: "nein" });
+    expect(kontoRow({ number: "1200", name: "Bank", type: "asset" })).toMatchObject({
+      euer_zeile: null,
+      automatikkonto: "nein",
+    });
   });
 });
