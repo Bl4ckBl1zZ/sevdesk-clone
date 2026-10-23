@@ -2911,6 +2911,12 @@
     "wrapper": "systemAction",
     "job": "migration"
   },
+  "migrations:start": {
+    "kind": "query",
+    "visibility": "internal",
+    "wrapper": "systemQuery",
+    "job": "migration"
+  },
   "notifications:deliver": {
     "kind": "action",
     "visibility": "internal",

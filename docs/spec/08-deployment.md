@@ -402,7 +402,9 @@ push to main → CI green (07-testing §7) →
   2. join the tailnet: tailscale/github-action (OAuth client, tag:ci; grant tcp:443 on the Caddy Service)
   3. npx convex deploy          (CONVEX_SELF_HOSTED_URL=https://convex.<BASE_DOMAIN>, admin key from CI secrets)
      then, for each new entry of MIGRATIONS (convex/model/migrations.ts): npx convex run migrations:run '{"name":"…"}'
-     (F12 AUD-028: RI-01/04/14 and protected content checked before/after, E-AUD-17 rolls back, `system.migration` audit entry)
+     (F12 AUD-028: RI-01/04/14 and protected content checked before/after, E-AUD-17 rolls back, `system.migration` audit entry;
+     the pre-check pages over the whole database, the after-check covers what changed since the pre-check's chain head, so it
+     stays within the Convex transaction limits at any data volume)
   4. dokploy compose save-environment (new *_TAG values) + dokploy compose deploy  (custom CLI, §0 of bootstrap)
   5. Smoke (over the tailnet): GET https://app.<BASE_DOMAIN>/api/health == ok; GET https://api.<BASE_DOMAIN>/api/health;
      GET https://app.<BASE_DOMAIN>/api/auth/ok (Better Auth reachable through the proxy)
