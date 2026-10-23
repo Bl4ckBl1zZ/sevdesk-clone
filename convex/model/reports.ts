@@ -373,13 +373,19 @@ export async function revenueView(
   );
   const documents: RevenueDocument[] = [];
   for (const d of docs) {
+    // A Storno has no lines of its own (it mirrors the cancelled document's snapshot): it is attributed through the
+    // cancelled document's lines (negated below) and inherits its cost centre and project.
+    const origin = d.type === "cancellation" && d.correctsId ? await ctx.db.get(d.correctsId) : null;
+    const lineSource = origin?._id ?? d._id;
+    const costCenterId = d.costCenterId ?? origin?.costCenterId;
+    const projectId = d.projectId ?? origin?.projectId;
     // a Rechnungsberichtigung without amount changes (kind rectification, totals 0) adds nothing
     const lines =
       a.groupBy === "product" || a.groupBy === "cost_center" || a.groupBy === "project"
         ? (
             await ctx.db
               .query("documentLines")
-              .withIndex("by_document", (q) => q.eq("documentId", d._id))
+              .withIndex("by_document", (q) => q.eq("documentId", lineSource))
               .collect()
           )
             .filter((l) => l.kind === "item" && l.lineNetCents !== undefined)
@@ -400,8 +406,8 @@ export async function revenueView(
       ...(supply ? { supplyDate: supply } : {}),
       ...(d.contactId ? { contactId: d.contactId } : {}),
       contactName: d.contactName ?? "",
-      ...(d.costCenterId ? { costCenterId: d.costCenterId } : {}),
-      ...(d.projectId ? { projectId: d.projectId } : {}),
+      ...(costCenterId ? { costCenterId } : {}),
+      ...(projectId ? { projectId } : {}),
       netCents: d.totals.netCents,
       grossCents: d.totals.grossCents,
       lines,
