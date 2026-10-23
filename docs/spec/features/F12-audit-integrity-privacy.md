@@ -325,7 +325,7 @@ Mobile: audit viewer as cards with expandable diffs; settings pages as stacked l
 
 MCP: `audit_log_search` (readOnlyHint, scope `audit:read`): `{ actor_type?, actor?, since?, until?, entity?, action?, preset?: "claude_today" }` → concise list with diffs summarised; `workspace_overview` includes integrity/backup status flags. No MCP tools for purges, DSGVO execution, members/auditors or settings in this file (EC-188/189: MCP cannot weaken controls).
 
-Webhooks: `integrity.check_failed` (05-api §5.3); proposed `api_key.revoked`, `dsgvo.request_overdue`, `backup.stale`.
+Webhooks (05-api §5.3, built 2026-10-23): `integrity.check_failed` (each failing run, `first_broken_seq`), `api_key.revoked`, `member.invited`, `member.removed`, `dsgvo.request_overdue`, `backup.stale`. An endpoint disabled by the delivery worker raises the ALARM notification `webhook.disabled` (§4.8).
 
 ## 8. Acceptance tests
 

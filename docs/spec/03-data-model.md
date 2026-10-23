@@ -1124,11 +1124,17 @@ verfahrensdokuVersions: 🔒 { version: number; validFrom: string; releasedAt: n
   sourceJson: string; pdf: FileRef; supersededAt?: number; retentionUntil?: string /* end of year superseded + 10 y */;
   watchSnapshot: Record<string, string> }   // AUD-025
 
-webhookEndpoints: { url: string; description?: string; events: string[]; encryptedSecret: string;
-  enabled: boolean; disabledReason?: string; createdAt: number }
-webhookEvents: { type: string; payload: string; createdAt: number }
-webhookDeliveries: { endpointId; eventId; attempt: number; status: "pending" | "success" | "failed" | "gave_up";
-  httpStatus?: number; responseSnippet?: string; nextAttemptAt?: number; durationMs?: number; at: number }
+webhookEndpoints: { url: string; description?: string; events: string[]; encryptedSecret: string; secretHint: string;
+  encryptedPreviousSecret?: string; previousSecretExpiresAt?: number /* 24 h roll overlap */;
+  enabled: boolean; disabledReason?: "manual" | "gone" | "failing"; disabledAt?: number;
+  failingSince?: number; lastSuccessAt?: number; lastFailureAt?: number; createdAt: number; createdBy: Actor }
+webhookEvents: { type: string; object: any /* reference object, no personal values */; previous?: any; createdAt: number }
+webhookDeliveries: { endpointId; eventId; type: string; status: "pending" | "success" | "failed" | "gave_up" | "cancelled";
+  attempts: number; nextAttemptAt?: number; claimedUntil?: number; lastAttemptAt?: number; httpStatus?: number; error?: string;
+  requestSnippet?: string; responseSnippet?: string; durationMs?: number; replayOf?: Id<"webhookDeliveries">; createdAt: number }
+  // built 2026-10-23 (05 §5, API-028…031): tables in convex/webhookValidators.ts; webhookEvents/webhookDeliveries are
+  // technical tables (no audit per row, purged after 30 days by webhooks.sweep); endpoint changes are audited.
+  // No reference to contacts: payloads carry prefixed IDs only, so DSGVO erasure has nothing to scrub here.
 
 jobs: { kind: "bulk_export" | "bulk_mark_sent" | "bulk_remind" | "pdf_zip" | "datev_export" | "gdpdu_export" | "full_export" | "import_sevdesk_export"
             | "csv_export" | "import_csv" | "zm_export" | "dsgvo_export" | "purge" | "verfahrensdoku_pdf";
@@ -1358,7 +1364,7 @@ Still referencing removed shapes (owned by the parallel feature pass, to align):
 | `payments` (new table, §5) | As specified plus `contactId`, `number` (display cache), `bankTransactionId` (index for unmatch/reversal), `match` (score, reasons, auto); target kind `opening_item` | Per-customer views and credit balance (PAY-004/031) without joins; BNK-047/EC-PAY-24 look up the payments of a transaction; the Zuordnungen page shows why a match was made |
 | §11 `payments` | `journalEntryIds` append-only | The journal entry references the payment row, so the id is appended after posting in the same transaction (like `cashTransfers`) |
 | `allocations` (cash-basis view) | **Not created in this slice** | The Ist basis of a payment is derived from the invoice journal lines (role `vat.output.notdue.*`) at posting time; the table follows with the EÜR/Ist-UStVA reports (F08 §4.4) |
-| Webhook outbox | Not written; `onSettlementChanged(ctx, change)` in `convex/model/payments.ts` is the in-transaction extension point (dunning case, webhooks) | No webhook feature yet (F10); the dunning slice hooks in here |
+| Webhook outbox | Written since 2026-10-23: `onSettlementChanged(ctx, change)` emits `invoice.paid`/`invoice.partially_paid`, the payment paths emit `payment.*` and `contact.credit_changed` (05 §5.3, PAY-060) | Outbound webhooks built (05 §5, API-030) |
 | `matchRejections` (new) | As specified, index `by_transaction` | BNK-046 „Ablehnen“ |
 | `contactAliases` (new) | `iban` added, index `by_contact` | BNK-048 learns name token and IBAN on a confirmed match |
 | Match suggestions | Computed on read (`matching.review`, `matching.suggestions`), no stored suggestion rows | Suggestions depend on open amounts that change with every payment; storing them would go stale |
@@ -1455,5 +1461,5 @@ Implemented in `convex/voucherValidators.ts`, `convex/inbox.ts` (public + intern
 | `imports.mapping.preset` | Optional preset name for the generic CSV import (`kind = "generic_csv"`, contacts/products) | IMP-012 |
 | Delivery-note deadlines | No new table: day-150 warning / day-180 escalation notifications with dedupe keys `ust01_warning:<id>` / `ust01_escalation:<id>`, rule `INVOICING_DEADLINE` (date-effective) | UST-01, QUO-14 |
 
-**API deltas (05/06, same date):** REST `/inbox-items` (POST JSON `content_base64` ≤ 10 MB or `multipart/form-data` `file` parts ≤ 20 MB — one item per file; GET list with `status` = the UI filter chips, `source`, `classification`, `limit`; GET by id; `POST /inbox-items/{id}/reject`), prefix `inb_`. Not yet: `split`/`merge` (INB-009, SHOULD), `correction-request` (INB-046, SHOULD), the webhook events `inbox_item.*`. MCP: `inbox_list` (R) and `voucher_create_from_file` (W; `file_base64` + `filename` or `inbox_item_id`, waits up to 60 s, document-derived strings only in `untrusted_text`).
+**API deltas (05/06, same date):** REST `/inbox-items` (POST JSON `content_base64` ≤ 10 MB or `multipart/form-data` `file` parts ≤ 20 MB — one item per file; GET list with `status` = the UI filter chips, `source`, `classification`, `limit`; GET by id; `POST /inbox-items/{id}/reject`), prefix `inb_`. Not yet: `split`/`merge` (INB-009, SHOULD), `correction-request` (INB-046, SHOULD); the webhook events `inbox_item.*` exist since 2026-10-23 (05 §5.3). MCP: `inbox_list` (R) and `voucher_create_from_file` (W; `file_base64` + `filename` or `inbox_item_id`, waits up to 60 s, document-derived strings only in `untrusted_text`).
 
