@@ -39,6 +39,7 @@ export const WARM_UP_ROUTES = [
   "/einstellungen/nummernkreise",
   "/einstellungen/mitglieder",
   "/einstellungen/api",
+  "/einstellungen/webhooks",
   "/einstellungen/mcp",
   "/konto",
 ];

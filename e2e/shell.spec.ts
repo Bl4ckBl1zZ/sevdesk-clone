@@ -92,6 +92,7 @@ test.describe("desktop shell", () => {
       "/einstellungen/steuern",
       "/einstellungen/nummernkreise",
       "/einstellungen/api",
+      "/einstellungen/webhooks",
       "/einstellungen/mcp",
       "/konto",
     ]) {
