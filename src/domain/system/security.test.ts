@@ -1,5 +1,11 @@
 import { describe, expect, test } from "vitest";
-import { evaluateSecurity, type SecurityInput } from "./security";
+import {
+  apiExposureChecks,
+  certificateCheck,
+  evaluateSecurity,
+  type SecurityInput,
+  startupSecretProblems,
+} from "./security";
 
 const NOW = Date.UTC(2026, 9, 12, 10);
 const GOOD: SecurityInput = {
@@ -89,8 +95,70 @@ describe("AUD-020 GOBD-09 security status page", () => {
     expect(statusOf(checks, "stale-invites")).toBe("warning");
     expect(checks.find((c) => c.id === "secret-age")).toMatchObject({
       status: "warning",
-      detail: "Zuletzt rotiert vor 406 Tagen.",
+      detail: "Die Anmelde-Schlüssel sind älter als 12 Monate. Bitte erneuern (alle Sitzungen werden beendet).",
     });
+  });
+
+  test("E-AUD-23 BETTER_AUTH_SECRET/JWKS older than 12 months warn; exactly 12 months is still fine", () => {
+    const at = (d: string) =>
+      evaluateSecurity({ ...GOOD, secretsRotatedOn: d }, NOW).find((c) => c.id === "secret-age");
+    expect(at("2025-10-12")).toMatchObject({ status: "ok", detail: "Zuletzt rotiert vor 365 Tagen." });
+    expect(at("2025-10-11")).toMatchObject({
+      status: "warning",
+      detail: "Die Anmelde-Schlüssel sind älter als 12 Monate. Bitte erneuern (alle Sitzungen werden beendet).",
+      remedy: "Geheimnisse jährlich rotieren (Runbook „Schlüssel rotieren“).",
+    });
+  });
+
+  test("E-AUD-20 production start without a required web secret is refused with the SEC-01 log line", () => {
+    expect(startupSecretProblems({ JWT_PRIVATE_KEY_PEM: "pem", APP_ENCRYPTION_KEY: "key" })).toEqual([]);
+    expect(startupSecretProblems({ JWT_PRIVATE_KEY_PEM: " ", APP_ENCRYPTION_KEY: undefined })).toEqual([
+      "JWT_PRIVATE_KEY_PEM fehlt – Start im Produktivmodus verweigert (SEC-01).",
+      "APP_ENCRYPTION_KEY fehlt – Start im Produktivmodus verweigert (SEC-01).",
+    ]);
+  });
+
+  test("E-AUD-22 api. serving an admin path or port 8443 serving more than /api/v1 is a critical finding", () => {
+    expect(apiExposureChecks({ apiHost: "api.buero.example.de", adminStatus: 404, port8443AdminStatus: 404 })).toEqual([
+      {
+        id: "api-ui",
+        label: "api.buero.example.de liefert keine Seiten der Oberfläche",
+        status: "ok",
+        detail: "HTTPS 404",
+      },
+    ]);
+    const open = apiExposureChecks({ apiHost: "api.buero.example.de", adminStatus: 200, port8443AdminStatus: 404 });
+    expect(open).toEqual([
+      {
+        id: "api-ui",
+        label: "api.buero.example.de liefert keine Seiten der Oberfläche",
+        status: "error",
+        detail: "Admin-Seiten sind über api.buero.example.de erreichbar. Sofort Proxy-Konfiguration prüfen.",
+        remedy: "Caddy-Konfiguration des api.-Hosts prüfen: nur /api/v1, /api/mcp, Dokumentation und Health (08 §4).",
+      },
+    ]);
+    expect(apiExposureChecks({ apiHost: "api.x.de", adminStatus: 404, port8443AdminStatus: 302 })[0]).toMatchObject({
+      status: "error",
+      detail: "Admin-Seiten sind über api.x.de:8443 erreichbar. Sofort Proxy-Konfiguration prüfen.",
+    });
+    // unreachable is not a finding of this check (the host check reports it)
+    expect(apiExposureChecks({ apiHost: "api.x.de", adminStatus: null })).toEqual([]);
+  });
+
+  test("E-AUD-30b the wildcard certificate expiring in < 14 days is an error with the expiry date", () => {
+    const day = 86_400_000;
+    expect(certificateCheck({ baseDomain: "buero.example.de", validTo: NOW + 30 * day }, NOW)).toMatchObject({
+      id: "certificate",
+      status: "ok",
+    });
+    expect(certificateCheck({ baseDomain: "buero.example.de", validTo: NOW + 13 * day }, NOW)).toEqual({
+      id: "certificate",
+      label: "Zertifikat *.buero.example.de",
+      status: "error",
+      detail: "Das Zertifikat für *.buero.example.de läuft am 25.10.2026 ab.",
+      remedy: "Caddy-Zertifikatserneuerung (DNS-01) prüfen; Runbook „Zertifikat“.",
+    });
+    expect(certificateCheck({ baseDomain: "x.de", validTo: null }, NOW)).toMatchObject({ status: "unknown" });
   });
 
   test("AUD-020 AO-06 DSGVO-04 non-EU location and services without AVV are errors; pins are checked", () => {

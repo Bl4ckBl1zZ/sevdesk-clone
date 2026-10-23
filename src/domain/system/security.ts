@@ -128,7 +128,8 @@ export function evaluateSecurity(i: SecurityInput, now: number): SecurityCheck[]
             "secret-age",
             "Alter der Geheimnisse",
             "warning",
-            `Zuletzt rotiert vor ${age} Tagen.`,
+            // F12 E-AUD-23
+            "Die Anmelde-Schlüssel sind älter als 12 Monate. Bitte erneuern (alle Sitzungen werden beendet).",
             "Geheimnisse jährlich rotieren (Runbook „Schlüssel rotieren“).",
           )
         : ok("secret-age", "Alter der Geheimnisse", `Zuletzt rotiert vor ${age} Tagen.`),
@@ -307,4 +308,66 @@ export function evaluateSecurity(i: SecurityInput, now: number): SecurityCheck[]
     });
   }
   return out;
+}
+
+/** F12 E-AUD-20 / AUD-021: the web container refuses to start in production without these (log line per variable). */
+export function startupSecretProblems(env: Readonly<Record<string, string | undefined>>): string[] {
+  return WEB_SECRET_ENV.filter((n) => !env[n]?.trim()).map(
+    (n) => `${n} fehlt – Start im Produktivmodus verweigert (SEC-01).`,
+  );
+}
+
+/**
+ * F12 E-AUD-22 (AUD-020 api. self-test): `/einstellungen` on `api.` (and on its port 8443 listener) must answer 404;
+ * anything else means admin pages are exposed. `null` = not reachable (reported by the host check instead).
+ */
+export function apiExposureChecks(p: {
+  apiHost: string;
+  adminStatus: number | null;
+  port8443AdminStatus?: number | null | undefined;
+}): SecurityCheck[] {
+  if (p.adminStatus === null) return [];
+  const label = `${p.apiHost} liefert keine Seiten der Oberfläche`;
+  const exposedAt =
+    p.adminStatus !== 404
+      ? p.apiHost
+      : p.port8443AdminStatus !== undefined && p.port8443AdminStatus !== null && p.port8443AdminStatus !== 404
+        ? `${p.apiHost}:8443`
+        : null;
+  if (exposedAt === null) return [ok("api-ui", label, "HTTPS 404")];
+  return [
+    bad(
+      "api-ui",
+      label,
+      "error",
+      `Admin-Seiten sind über ${exposedAt} erreichbar. Sofort Proxy-Konfiguration prüfen.`,
+      "Caddy-Konfiguration des api.-Hosts prüfen: nur /api/v1, /api/mcp, Dokumentation und Health (08 §4).",
+    ),
+  ];
+}
+
+export const CERT_WARN_DAYS = 14;
+
+/** F12 E-AUD-30b: the wildcard certificate of `BASE_DOMAIN` must be valid for more than 14 days. */
+export function certificateCheck(p: { baseDomain: string; validTo: number | null }, now: number): SecurityCheck {
+  const label = `Zertifikat *.${p.baseDomain}`;
+  if (p.validTo === null) {
+    return { id: "certificate", label, status: "unknown", detail: "Ablaufdatum nicht lesbar (nur auf dem Server)." };
+  }
+  const date = new Intl.DateTimeFormat("de-DE", {
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric",
+    timeZone: "Europe/Berlin",
+  }).format(p.validTo);
+  if (p.validTo - now < CERT_WARN_DAYS * DAY_MS) {
+    return bad(
+      "certificate",
+      label,
+      "error",
+      `Das Zertifikat für *.${p.baseDomain} läuft am ${date} ab.`,
+      "Caddy-Zertifikatserneuerung (DNS-01) prüfen; Runbook „Zertifikat“.",
+    );
+  }
+  return ok("certificate", label, `Gültig bis ${date}.`);
 }

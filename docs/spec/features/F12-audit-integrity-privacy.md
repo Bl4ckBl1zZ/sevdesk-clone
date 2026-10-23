@@ -193,10 +193,14 @@ scheduled purge date reached → appears in the purge worklist (still manual, PR
 | Kind | Severity | Channels |
 |---|---|---|
 | `integrity.failed`, `checkpoint.upload_failed` (2×), `access.misconfigured`, `clock.skew_critical` | critical | in-app, e-mail, ntfy |
-| `backup.stale`, `restore_drill.overdue`, `einvoice_tools.down`, `artifact.blocked`, `auth_mail.failed`, `bank.reauth_required` | error | in-app, e-mail, ntfy |
-| `deadline.ustva`, `deadline.zm`, `deadline.14a`, `deadline.vorauszahlung`, `dsgvo.deadline`, `uninvoiced.150d` | warning | in-app, digest, ntfy (due − 1 day) |
-| `threshold.ku`, `threshold.800k`, `threshold.oss`, `project.budget`, `rules.stale`, `api_key.expiring`, `bank.consent_expiring`, `member.expiring`, `cert.expiring`, `verfahrensdoku.outdated`, `retention.purge_eligible`, `period.unlocked_old` | warning | in-app, digest |
-| `quote.accepted`, `quote.declined`, `invoice.paid`, `payment.received`, `inbox.new`, `inbox.needs_review`, `export.ready`, `import.finished`, `auditor.first_access`, `member.joined` | info | in-app (+ ntfy for accepted/paid optional) |
+| `backup.stale`, `restore_drill.overdue`, `restore_drill.failed` (E-AUD-15), `einvoice_tools.down`, `artifact.blocked`, `auth_mail.failed`, `bank.reauth_required`, `dsgvo.overdue` (E-PRV-12) | error | in-app, e-mail, ntfy |
+| `deadline.ustva`, `deadline.zm`, `deadline.14a`, `deadline.vorauszahlung`, `deadline.annual_return` (F08 TAX-019), `deadline.period_lock` (F08 ACC-018), `dsgvo.deadline`, `uninvoiced.150d` | warning | in-app, digest, ntfy (due − 1 day) |
+| `threshold.ku`, `threshold.800k`, `threshold.oss`, `project.budget`, `stock.low` (F03 PRD-096), `rules.stale`, `api_key.expiring`, `bank.consent_expiring`, `member.expiring`, `cert.expiring`, `verfahrensdoku.outdated`, `retention.purge_eligible`, `period.unlocked_old`, `ntfy.failed` (E-NTF-01), `dunning_reset` (F05 EC-DUE-10: a retracted sent mark reset the default start) | warning | in-app, digest |
+| `timer.long` (F11 PRJ-005) | warning | in-app |
+| `quote.accepted`, `quote.declined`, `invoice.paid`, `payment.received`, `inbox.new`, `inbox.needs_review`, `export.ready`, `import.finished`, `auditor.first_access`, `member.joined`, `reminder_withdraw_suggested` (F05 EC-DUN-23: paid while a sent reminder is open; resolved by „Mahnung zurückziehen“) | info | in-app (+ ntfy for accepted/paid optional) |
+| In-app to-dos and workflow hints of the feature slices (`IN_APP_TODO_KINDS` in `src/domain/notifications/catalog.ts`: F04 `export_and_send`, `exported_not_marked`, `quote_expiring`, `quote_expired`, `recurring_*`, `self_billing_voucher_review`, `ust01_warning`/`ust01_escalation`; F05 `due_soon`, `reminder_mark_sent`, `reminder_drafts_review`, `reminder_draft_obsolete`; F06 `inbox_stale`, `inbox_unreachable`, `review_recurring_draft`; F07 `bank.*` feed/statement hints; F09 `archive_export_due`; F11 `time_ust01_*`, `time_offline_conflict`, `time_reopen_offer`; F02 `vat_check_followup`) | as raised | in-app only (outside the channel matrix) |
+
+*(2026-10-23, W10: the table lists every kind the code writes; `test/model/notification-kinds.test.ts` fails for a kind that is neither in the catalog nor an in-app to-do. Open for the lead: `ust01_*` and `uninvoiced.150d` describe the same UST-01 event, and the F07 `bank.feed_reauth`/`bank.feed_lost` to-dos overlap `bank.reauth_required` — alias or merge them in their slices.)*
 
 ## 5. Validation rules and edge cases (exhaustive; exact German error/warning messages)
 

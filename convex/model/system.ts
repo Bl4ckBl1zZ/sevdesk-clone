@@ -11,6 +11,7 @@ import { RATE_LIMIT_CONFIG } from "../lib/rateLimits";
 import { auditedInsert } from "./audit";
 import { getCompanyProfile, patchCompanyProfile } from "./companyProfile";
 import { latestCheckpoint, latestRun } from "./integrity";
+import { notifyKind, resolveEntityNotifications } from "./notifications";
 import type { ModelCtx, ReadCtx } from "./types";
 
 /**
@@ -130,11 +131,26 @@ export async function recordRestoreDrill(ctx: ModelCtx, input: RestoreDrillInput
     },
     { action: input.kind === "drill" ? "system.restore_drill" : "system.restore", label: input.date },
   );
+  // F12 E-AUD-15: a drill with a failed integrity run or a head ≠ production checkpoint is a failed drill — error
+  // notification; it does not reset the monthly reminder. A later successful drill resolves the notification.
+  const failed = !input.integrityOk || !input.headMatchesCheckpoint;
+  if (input.kind === "drill" && failed) {
+    await notifyKind(ctx, "restore_drill.failed", {
+      title: "Wiederherstellungstest fehlgeschlagen: Prüfkette stimmt nicht überein.",
+      body: `Sicherung ${input.backupObject.trim()} am ${input.date.split("-").reverse().join(".")}`,
+      link: "/einstellungen/system/backups",
+      entity: DRILL_ENTITY,
+    });
+    return;
+  }
+  if (input.kind === "drill") await resolveEntityNotifications(ctx, DRILL_ENTITY, "restore_drill.failed");
   const profile = await getCompanyProfile(ctx);
   if (input.kind === "drill" && (profile?.lastRestoreDrillOn ?? "") < input.date) {
     await patchCompanyProfile(ctx, { lastRestoreDrillOn: input.date }, { action: "settings.restore_drill.update" });
   }
 }
+
+const DRILL_ENTITY = { table: "system", id: "restore_drill" } as const;
 
 export async function latestRestoreDrills(ctx: ReadCtx, n: number): Promise<Doc<"restoreDrills">[]> {
   return ctx.db.query("restoreDrills").withIndex("by_date").order("desc").take(n);

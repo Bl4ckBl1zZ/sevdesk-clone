@@ -71,6 +71,13 @@ export const NOTIFICATION_KINDS = {
     "Wiederherstellungstest überfällig",
     "Wiederherstellungstest überfällig",
   ),
+  // F12 E-AUD-15: a restore drill whose chain head ≠ the production checkpoint (or whose integrity run failed)
+  "restore_drill.failed": def(
+    "error",
+    ALARM,
+    "Wiederherstellungstest fehlgeschlagen",
+    "Wiederherstellungstest fehlgeschlagen – Details in der App",
+  ),
   "einvoice_tools.down": def(
     "error",
     ALARM,
@@ -139,6 +146,13 @@ export const NOTIFICATION_KINDS = {
     "Aufbewahrungsfrist abgelaufen",
     "Datensätze können gelöscht werden",
   ),
+  // F05 EC-DUE-10: a retracted sent mark removed the default start date of a receivable (dunning restarts)
+  dunning_reset: def(
+    "warning",
+    WATCH,
+    "Verzugsbeginn zurückgesetzt",
+    "Verzugsbeginn einer Rechnung zurückgesetzt – Details in der App",
+  ),
   "period.unlocked_old": def(
     "warning",
     WATCH,
@@ -160,11 +174,61 @@ export const NOTIFICATION_KINDS = {
   "inbox.needs_review": def("info", INFO, "Beleg prüfen", "Ein Beleg muss geprüft werden"),
   "export.ready": def("info", INFO, "Export bereit", "Export bereit – Details in der App"),
   "import.finished": def("info", INFO, "Import abgeschlossen", "Import abgeschlossen"),
+  // F05 EC-DUN-23: the invoice was paid while a sent reminder is open → „Mahnung zurückziehen“ suggested
+  reminder_withdraw_suggested: def(
+    "info",
+    INFO,
+    "Mahnung zurückziehen?",
+    "Zahlung nach Mahnung eingegangen – Details in der App",
+  ),
   "auditor.first_access": def("info", INFO, "Erster Prüferzugriff", "Ein Prüfer hat sich erstmals angemeldet"),
   "member.joined": def("info", INFO, "Neues Mitglied", "Ein neues Mitglied ist beigetreten"),
 } as const satisfies Record<string, NotificationKindDef>;
 
 export type NotificationKind = keyof typeof NOTIFICATION_KINDS;
+
+/**
+ * In-app to-dos and workflow hints outside the channel matrix (F12 §4.8 last row): always in-app only, no e-mail,
+ * no ntfy, not editable in /einstellungen/benachrichtigungen. Every notification kind written anywhere in convex/
+ * is either a catalog kind or listed here (test/model/notification-kinds.test.ts).
+ */
+export const IN_APP_TODO_KINDS = [
+  "archive_export_due", // F09 EXP-025
+  "bank.account_closed", // F07
+  "bank.balance_mismatch",
+  "bank.feed_account_missing",
+  "bank.feed_lost",
+  "bank.feed_rate_limited",
+  "bank.feed_reauth",
+  "bank.identical_rows",
+  "bank.invoice_account_missing",
+  "bank.rule_receipt_missing",
+  "bank.statement_gap",
+  "due_soon", // F05 DUN-053
+  "export_and_send", // F04 SND-21
+  "exported_not_marked",
+  "inbox_stale", // F06
+  "inbox_unreachable",
+  "quote_expired", // F04 quotes
+  "quote_expiring",
+  "recurring_blocked", // F04 REC
+  "recurring_catch_up",
+  "recurring_finalize_failed",
+  "recurring_review_split",
+  "recurring_run_failed",
+  "reminder_draft_obsolete", // F05 dunning
+  "reminder_drafts_review",
+  "reminder_mark_sent",
+  "review_recurring_draft", // F06 VOU-064
+  "self_billing_voucher_review", // F04 self-billing
+  "time_offline_conflict", // F11
+  "time_reopen_offer",
+  "vat_check_followup", // F02 CON-058
+  "ust01_warning", // F04 UST-01 delivery notes not invoiced (day 150 / 180)
+  "ust01_escalation",
+  "time_ust01_warning", // F11 unbilled time entries (day 150 / 180)
+  "time_ust01_escalation",
+] as const;
 
 /** Existing to-do kinds (F04/F05) that are the same event as a catalog kind. */
 const ALIASES: Readonly<Record<string, NotificationKind>> = { artifacts_blocked: "artifact.blocked" };

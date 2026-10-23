@@ -4578,7 +4578,7 @@
   "backups": {
     "title": "Datensicherungen",
     "description": "Neueste Sicherung je Quelle im R2-Backup-Bucket (nur lesender Zugriff). Grenzen: Datenbank und Convex-Export über 26 Stunden Warnung, über 50 Stunden Fehler; Convex-Volume über 8 Tage Warnung.",
-    "notConfigured": "Nicht eingerichtet: Für die Anzeige werden R2_BACKUP_BUCKET und ein nur lesender Zugang (R2_BACKUP_READONLY_ACCESS_KEY_ID, R2_BACKUP_READONLY_SECRET_ACCESS_KEY) in der Convex-Umgebung benötigt.",
+    "notConfigured": "Sicherungsstatus kann nicht geprüft werden (R2-Lesezugang fehlt). Für die Anzeige werden R2_BACKUP_BUCKET und ein nur lesender Zugang (R2_BACKUP_READONLY_ACCESS_KEY_ID, R2_BACKUP_READONLY_SECRET_ACCESS_KEY) in der Convex-Umgebung benötigt.",
     "sources": "Sicherungen",
     "status": {
       "ok": "Aktuell",
@@ -4590,7 +4590,7 @@
     "checkpointNone": "Im Prüfpunkt-Bucket liegt noch kein Prüfpunkt.",
     "bucketLock": {
       "present": "Bucket-Sperre (Aufbewahrungsregel) ist aktiv.",
-      "absent": "Keine Bucket-Sperre eingerichtet (empfohlen, nicht erforderlich).",
+      "absent": "Für den Prüfpunkt-Bucket ist keine Aufbewahrungssperre eingerichtet (empfohlen).",
       "unknown": "Ob eine Bucket-Sperre besteht, ist mit diesem Zugang nicht lesbar."
     },
     "refresh": "Neu prüfen"

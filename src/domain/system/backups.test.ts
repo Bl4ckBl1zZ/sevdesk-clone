@@ -16,7 +16,7 @@ describe("backup status (AUD-026)", () => {
     expect(evaluateBackup(pg, at(27), NOW).status).toBe("warning");
     expect(evaluateBackup(exp, at(51), NOW)).toMatchObject({
       status: "error",
-      detail: "Letzte Sicherung vor 2 Tagen – zu alt.",
+      detail: "Letzte Datenbanksicherung vor 51 Stunden.",
     });
     expect(evaluateBackup(vol, at(7 * 24), NOW).status).toBe("ok");
     expect(evaluateBackup(vol, at(9 * 24), NOW).status).toBe("warning");
@@ -24,6 +24,23 @@ describe("backup status (AUD-026)", () => {
     expect(evaluateBackup(pg, null, NOW)).toMatchObject({ status: "error", ageHours: null });
     expect(worstStatus(["ok", "warning", "unknown"])).toBe("warning");
     expect(worstStatus([])).toBe("ok");
+  });
+
+  test("E-AUD-43 a backup older than the threshold is a warning/error naming its age in hours", () => {
+    const at = (hours: number) => ({ key: "k", at: NOW - hours * H, bytes: 10 });
+    expect(evaluateBackup(pg, at(30.5), NOW)).toMatchObject({
+      status: "warning",
+      detail: "Letzte Datenbanksicherung vor 30 Stunden.",
+    });
+    expect(evaluateBackup(pg, at(55), NOW)).toMatchObject({
+      status: "error",
+      detail: "Letzte Datenbanksicherung vor 55 Stunden.",
+    });
+    expect(evaluateBackup(vol, at(200), NOW)).toMatchObject({
+      status: "warning",
+      detail: "Letzte Datenbanksicherung vor 200 Stunden.",
+    });
+    expect(evaluateBackup(pg, at(4), NOW)).toMatchObject({ status: "ok", detail: "Letzte Sicherung vor 4 Stunden." });
   });
 
   test("AUD-026 parses S3 ListObjectsV2 pages and picks the newest object", () => {
