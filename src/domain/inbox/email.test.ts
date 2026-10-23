@@ -1,5 +1,5 @@
 import { describe, expect, test } from "vitest";
-import { INBOX_MAIL_MESSAGES, parseInboundEmail } from "./email";
+import { htmlToText, INBOX_MAIL_MESSAGES, parseInboundEmail } from "./email";
 
 const enc = new TextEncoder();
 const b64 = (bytes: Uint8Array) => {
@@ -215,5 +215,65 @@ describe("INB-050 e-mail-in message processing", () => {
     expect(INBOX_MAIL_MESSAGES.unreachable("HTTP 403")).toBe(
       "E-Mail-Posteingang nicht erreichbar: HTTP 403. Bitte R2-Zugang prüfen (Einstellungen › Posteingang).",
     );
+  });
+});
+
+describe("INB-050 e-mail-in edge cases", () => {
+  test("INB-030 HTML → text decodes numeric and named entities, keeps unknown or invalid ones, drops scripts", () => {
+    expect(htmlToText("<script>alert(1)</script><p>M&#252;ller &amp; S&#xF6;hne</p>Preis 5&#x20AC;&nbsp;netto")).toBe(
+      "Müller & Söhne\nPreis 5€ netto",
+    );
+    expect(htmlToText("&#0; &#x110000; &unbekannt; &LT;b&GT;")).toBe("&#0; &#x110000; &unbekannt; <b>");
+  });
+
+  test("INB-050 an unreadable attached message is listed as unsupported; a message inside it stays in the .eml", async () => {
+    const broken = await parse(
+      mail({ text: "x", parts: [{ type: "message/rfc822", name: "kaputt.eml", body: "\u0000\u0001", raw: true }] }),
+    );
+    expect(broken.attachments).toEqual([expect.objectContaining({ filename: "kaputt.eml", decision: "unsupported" })]);
+    const deepest = mail({ boundary: "=_deep_1", text: "tief", parts: [] });
+    const middle = mail({
+      boundary: "=_mid_1",
+      text: "mitte",
+      parts: [{ type: "message/rfc822", name: "tief.eml", body: deepest, raw: true }],
+    });
+    const m = await parse(
+      mail({ text: "x", parts: [{ type: "message/rfc822", name: "mitte.eml", body: middle, raw: true }] }),
+    );
+    expect(m.attachments).toEqual([
+      expect.objectContaining({ filename: "tief.eml", mime: "message/rfc822", decision: "unsupported", nested: true }),
+    ]);
+  });
+
+  test("INB-050 attachments without file name get „anhang-<n>“; an image with Content-ID but no disposition is inline", async () => {
+    const m = await parse(
+      mail({
+        text: "x",
+        parts: [
+          { type: "application/pdf", body: pdf("ohne-name") },
+          { type: "image/png", cid: "logo@x", body: png(4 * 1024) },
+        ],
+      }),
+    );
+    expect(m.attachments.map((a) => [a.filename, a.decision])).toEqual([
+      ["anhang-1", "classify"],
+      ["anhang-2", "skip_inline_logo"],
+    ]);
+  });
+
+  test("INB-050 a mail without sender address, subject, Message-ID or valid date carries none of them", async () => {
+    const raw = [
+      "From: undisclosed-recipients:;",
+      "To: belege@in.example.de",
+      "Subject:  ",
+      "Date: kein Datum",
+      "MIME-Version: 1.0",
+      "Content-Type: text/plain; charset=utf-8",
+      "",
+      "Hallo",
+    ].join("\r\n");
+    const m = await parse(raw);
+    for (const k of ["from", "fromName", "subject", "messageId", "date"]) expect(m).not.toHaveProperty(k);
+    expect(m).toMatchObject({ to: "belege@in.example.de", text: "Hallo", hasHtml: false });
   });
 });
