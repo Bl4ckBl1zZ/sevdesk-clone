@@ -615,7 +615,8 @@ export const messageText = query({
   args: { id: v.id("salesDocuments") },
   handler: async (ctx, { id }) => {
     const doc = await ctx.db.get(id);
-    if (!doc || doc.status === "draft") return null;
+    // A self-billing Gutschrift swaps the parties (buyer = our company): no customer e-mail text (F04 §4.9).
+    if (!doc || doc.status === "draft" || doc.type === "self_billing") return null;
     const snapshot = await snapshotOf(ctx, doc);
     if (!snapshot) return null;
     const templates = (await ctx.db.query("textTemplates").collect()).filter((t) => t.kind === "message_text");

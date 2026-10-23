@@ -297,8 +297,12 @@ function FinalActions({ data }: { data: Detail }) {
             </>
           )}
           <DropdownMenuSeparator />
-          <DropdownMenuItem onClick={() => setMailOpen(true)}>{t("mailText")}</DropdownMenuItem>
-          <DropdownMenuSeparator />
+          {data.doc.type !== "self_billing" && (
+            <>
+              <DropdownMenuItem onClick={() => setMailOpen(true)}>{t("mailText")}</DropdownMenuItem>
+              <DropdownMenuSeparator />
+            </>
+          )}
           <p className="px-2 py-1.5 text-muted-foreground text-xs" data-testid="postal-hint">
             {POSTAL_HINT}
           </p>

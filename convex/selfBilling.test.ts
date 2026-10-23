@@ -169,6 +169,13 @@ describe("self-billing Gutschrift end to end (F04 §4.9, INV-16; UST-11, UST-33)
     expect(own).toHaveLength(0);
   });
 
+  test("INV-16 SND-19 a Gutschrift offers no customer e-mail text (the parties are swapped)", async () => {
+    const t = makeT();
+    const { owner, supplierId } = await setup(t);
+    const { id } = await finalizedGutschrift(t, owner, supplierId);
+    expect(await owner.query(api.invoices.messageText, { id })).toBeNull();
+  });
+
   test("INV-16 a Kleinunternehmer owner records the 19 % Gutschrift gross as expense (no input VAT)", async () => {
     const t = makeT();
     const { owner, supplierId } = await setup(t, { seller: "ku" });
