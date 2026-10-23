@@ -5,6 +5,7 @@ import { invoiceRecipients, primaryOf } from "../src/domain/contacts/channels";
 import { currentCertificate } from "../src/domain/contacts/consent";
 import { normalizeContactNumber, normalizeSearchQuery } from "../src/domain/contacts/core";
 import { CONTACT_EXPORT_HEADERS, classifyRow, contactExportRow } from "../src/domain/contacts/csv-io";
+import { contactRanking, type RankedDocument, sortRanking } from "../src/domain/contacts/ranking";
 import { computeContactStats, type StatsDocType, type StatsDocument } from "../src/domain/contacts/stats";
 import { effectiveElectronicAddress } from "../src/domain/contacts/tax";
 import { deriveTaxProfile } from "../src/domain/contacts/tax-profile";
@@ -163,7 +164,7 @@ async function matches(ctx: QueryCtx, c: Doc<"contacts">, f: ListFilter): Promis
   return true;
 }
 
-async function listRow(ctx: QueryCtx, c: Doc<"contacts">) {
+async function listRow(ctx: QueryCtx, c: Doc<"contacts">, figures?: { openCents: number; revenueYearCents: number }) {
   const addresses = await contactAddresses(ctx, c._id);
   const channels = await contactChannels(ctx, c._id);
   const billing = defaultAddressOf(addresses, "billing");
@@ -187,7 +188,34 @@ async function listRow(ctx: QueryCtx, c: Doc<"contacts">) {
     isConsumer: c.isConsumer,
     isPublicAuthority: c.isPublicAuthority,
     tags: tags.map((t) => ({ _id: t._id, name: t.name, color: t.color ?? null })),
+    ...(figures ?? (await figuresOf(ctx, c._id))),
   };
+}
+
+/** CON-153 columns „Offen“ / „Umsatz (Jahr)“ of one contact (CON-150 definitions). */
+async function figuresOf(ctx: QueryCtx, id: Id<"contacts">) {
+  const s = await contactStats(ctx, id, berlinCalendarDate(ctx.now()));
+  return { openCents: s.openCents, revenueYearCents: s.revenueThisYearCents };
+}
+
+/** CON-153: figures of every contact (persons fold into their organisation, merged contacts into the winner). */
+async function rankingFigures(ctx: QueryCtx, today: CalendarDate) {
+  const contacts = new Map((await ctx.db.query("contacts").collect()).map((c) => [c._id as string, c]));
+  const rootOf = (id: string) => {
+    let c = contacts.get(id);
+    for (let i = 0; c && i < 10; i++) {
+      const next = c.mergedIntoId ?? (c.kind === "person" ? c.parentId : undefined);
+      if (!next) break;
+      c = contacts.get(next);
+    }
+    return (c?._id as string | undefined) ?? id;
+  };
+  const docs: RankedDocument[] = [];
+  for (const d of await ctx.db.query("salesDocuments").collect()) {
+    if (d.status === "draft" || !d.documentDate || !d.contactId) continue;
+    docs.push({ contactId: d.contactId, ...statsDocument(d) });
+  }
+  return contactRanking(docs, rootOf, today);
 }
 
 /** CON-172/173 list with search and filters (filters in the URL, 04 §4.1). */
@@ -197,6 +225,40 @@ export const list = query({
   handler: async (ctx, { paginationOpts, ...f }) => {
     const page = await filter(baseQuery(ctx, f), (c) => matches(ctx, c, f)).paginate(paginationOpts);
     return { ...page, page: await Promise.all(page.page.map((c) => listRow(ctx, c))) };
+  },
+});
+
+/**
+ * CON-153: the list sorted by „Offen“ or „Umsatz (Jahr)“ over all contacts matching the list filters (top `limit`,
+ * default 200). The top-customers view uses the same query (`sortBy: "revenueYear"`, small `limit`).
+ */
+export const ranking = query({
+  permission: "contacts.read",
+  args: {
+    ...listArgs,
+    sortBy: v.union(v.literal("open"), v.literal("revenueYear")),
+    dir: v.union(v.literal("asc"), v.literal("desc")),
+    limit: v.optional(v.number()),
+  },
+  handler: async (ctx, { sortBy, dir, limit, ...f }) => {
+    const figures = await rankingFigures(ctx, berlinCalendarDate(ctx.now()));
+    const contacts = await filter(baseQuery(ctx, f), (c) => matches(ctx, c, f)).collect();
+    const byId = new Map(contacts.map((c) => [c._id as string, c]));
+    const rows = contacts.map((c) => ({
+      contactId: c._id as string,
+      displayName: c.displayName,
+      openCents: figures.get(c._id)?.openCents ?? 0,
+      revenueYearCents: figures.get(c._id)?.revenueYearCents ?? 0,
+    }));
+    const top = sortRanking(rows, sortBy, dir, Math.max(1, Math.min(limit ?? 200, 500)));
+    return Promise.all(
+      top.map((r) =>
+        listRow(ctx, byId.get(r.contactId) as Doc<"contacts">, {
+          openCents: r.openCents,
+          revenueYearCents: r.revenueYearCents,
+        }),
+      ),
+    );
   },
 });
 
@@ -734,18 +796,22 @@ async function contactStats(ctx: QueryCtx, id: Id<"contacts">, today: CalendarDa
       .withIndex("by_contact", (q) => q.eq("contactId", cid))
       .collect()) {
       if (d.status === "draft" || !d.documentDate) continue;
-      docs.push({
-        docType: d.type as StatsDocType,
-        documentDate: d.documentDate as CalendarDate,
-        ...(d.dueDate ? { dueDate: d.dueDate as CalendarDate } : {}),
-        netCents: d.totals.netCents,
-        grossCents: d.totals.grossCents,
-        ...(d.openAmountCents !== undefined ? { openAmountCents: d.openAmountCents } : {}),
-        ...(d.paymentStatus ? { paymentStatus: d.paymentStatus } : {}),
-        currency: d.currency,
-        ...(d.fxRateToEur ? { fxRateToEur: d.fxRateToEur.rate } : {}),
-      });
+      docs.push(statsDocument(d));
     }
   }
   return computeContactStats(docs, today);
+}
+
+function statsDocument(d: Doc<"salesDocuments">): StatsDocument {
+  return {
+    docType: d.type as StatsDocType,
+    documentDate: d.documentDate as CalendarDate,
+    ...(d.dueDate ? { dueDate: d.dueDate as CalendarDate } : {}),
+    netCents: d.totals.netCents,
+    grossCents: d.totals.grossCents,
+    ...(d.openAmountCents !== undefined ? { openAmountCents: d.openAmountCents } : {}),
+    ...(d.paymentStatus ? { paymentStatus: d.paymentStatus } : {}),
+    currency: d.currency,
+    ...(d.fxRateToEur ? { fxRateToEur: d.fxRateToEur.rate } : {}),
+  };
 }

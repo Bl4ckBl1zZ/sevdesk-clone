@@ -853,6 +853,12 @@
     "wrapper": "query",
     "permission": "contacts.read"
   },
+  "contacts:ranking": {
+    "kind": "query",
+    "visibility": "public",
+    "wrapper": "query",
+    "permission": "contacts.read"
+  },
   "contacts:remove": {
     "kind": "mutation",
     "visibility": "public",

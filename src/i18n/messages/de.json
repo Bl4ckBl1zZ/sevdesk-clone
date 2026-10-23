@@ -1736,7 +1736,9 @@
         "email": "E-Mail",
         "phone": "Telefon",
         "vat": "USt-IdNr",
-        "tags": "Tags"
+        "tags": "Tags",
+        "open": "Offen",
+        "revenueYear": "Umsatz (Jahr)"
       },
       "selectAll": "Alle auf dieser Seite auswählen",
       "selectRow": "{name} auswählen",
