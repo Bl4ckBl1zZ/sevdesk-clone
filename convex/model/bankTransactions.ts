@@ -30,6 +30,7 @@ import { type FileRefValue, insertCandidate } from "./bankImport";
 import { getCompanyProfile } from "./companyProfile";
 import { postJournalEntry, resolveContextAt } from "./journal";
 import type { ModelCtx, ReadCtx } from "./types";
+import { emitBankTransactionEvent, emitCashMovementEvent } from "./webhooks";
 
 /**
  * Booked bank transactions after the import (F07 BNK-060/061/063, BNK-121, BNK-122, CSH-025): marking, unmarking,
@@ -368,6 +369,7 @@ export async function markTransaction(ctx: ModelCtx, args: MarkArgs): Promise<{ 
       },
       { action: "cash.transfer", label: `Bargeldabhebung ${tx.bookingDate}` },
     );
+    await emitCashMovementEvent(ctx, transferId); // BNK-080
     const r = await postJournalEntry(
       ctx,
       {
@@ -591,6 +593,7 @@ export async function linkReversal(
     { reversalOfId: original._id },
     { action: "bank.reversal_link", label: txLabel(counter) },
   );
+  await emitBankTransactionEvent(ctx, "bank_transaction.reversal_linked", counter._id); // BNK-080
   if (
     counter.status === "open" &&
     original.status === "open" &&
@@ -756,6 +759,13 @@ export async function applyAllocation(
     { allocatedCents: allocated, status },
     { action: args.deltaCents >= 0 ? "bank.match" : "bank.unmatch", label: args.label ?? txLabel(tx) },
   );
+  if (args.deltaCents > 0) {
+    // BNK-080: a payment/voucher allocation was confirmed on the transaction
+    await emitBankTransactionEvent(ctx, "bank_transaction.matched", tx._id, {
+      status: tx.status,
+      allocated_cents: tx.allocatedCents,
+    });
+  }
   return status;
 }
 

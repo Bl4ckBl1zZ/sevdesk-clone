@@ -31,6 +31,8 @@ const EXPECTED: Record<Permission, readonly MemberRole[]> = {
   "apiKeys.read": ["owner"],
   "apiKeys.manage": ["owner"],
   "apiKeys.revoke": ["owner"],
+  "webhooks.read": ["owner"],
+  "webhooks.manage": ["owner"],
   "apiKeys.self": [],
   "system.security": ["owner"],
   "accounting.read": ["owner", "bookkeeper", "viewer", "auditor"],
@@ -144,6 +146,14 @@ describe("permission matrix (02 §4.3)", () => {
       expect(scopeFor(action)).toBeNull();
       expect(canKeyDo(["settings:write", "audit:read"], action)).toBe(false);
     }
+  });
+
+  test("API-028 SEC-02 webhook endpoints are owner-only and granted to keys by `webhooks:manage` alone", () => {
+    expect(scopeFor("webhooks.read")).toBe("webhooks:manage");
+    expect(scopeFor("webhooks.manage")).toBe("webhooks:manage");
+    expect(canKeyDo(["webhooks:manage"], "webhooks.manage")).toBe(true);
+    expect(canKeyDo(["settings:write", "settings:read"], "webhooks.read")).toBe(false);
+    expect(canDo("bookkeeper", "webhooks.read")).toBe(false);
   });
 
   test("SEC-02 keys need the matching scope", () => {

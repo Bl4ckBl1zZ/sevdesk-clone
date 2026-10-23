@@ -22,6 +22,7 @@ import type { Doc, Id } from "../_generated/dataModel";
 import { appError } from "../lib/errors";
 import { auditedDelete, auditedInsert, auditedPatch } from "./audit";
 import type { ModelCtx, ReadCtx } from "./types";
+import { emitSettingsEvent } from "./webhooks";
 
 /**
  * Number ranges (03 §1, F01 SET-006, SET-055…064, §4.3). Formats, reset policy and next values; the register of
@@ -163,6 +164,10 @@ export async function saveRanges(ctx: ModelCtx, input: NumberRangesValues, today
       { action: "settings.number_range.update", label: range.name },
     );
   }
+  // F01 §7.1 (one event per save; the keys of the saved ranges)
+  await emitSettingsEvent(ctx, "settings.number_range.updated", ["format", "resetPolicy", "next"], {
+    ranges: input.ranges.map((r) => r.key),
+  });
 }
 
 /**
@@ -252,6 +257,9 @@ export async function continueRangeAfterImport(
     { format: input.format, resetPolicy: input.resetPolicy },
     { action: "settings.number_range.update", label: range.name, reason },
   );
+  await emitSettingsEvent(ctx, "settings.number_range.updated", ["format", "resetPolicy", "next"], {
+    ranges: [input.rangeKey],
+  });
 }
 
 /** SET-055: an additional (non-default) range for one or more document types. */
@@ -263,6 +271,7 @@ export async function createRange(
   const format = validateFormat(input.format, input.resetPolicy);
   if (!format.ok) throw appError("invalid_input", format.error.message, { field: "format" });
   await assertNoCollision(ctx, { ...input, next: input.startValue }, today);
+  await emitSettingsEvent(ctx, "settings.number_range.updated", ["created"], { doc_types: [...input.docTypes] });
   return auditedInsert(
     ctx,
     "numberRanges",
@@ -299,6 +308,7 @@ export async function deactivateRange(ctx: ModelCtx, rangeId: Id<"numberRanges">
     { active: false, isDefault: false },
     { action: "settings.number_range.deactivate", label: range.name },
   );
+  await emitSettingsEvent(ctx, "settings.number_range.updated", ["active", "isDefault"], { doc_types: range.docTypes });
 }
 
 /** SET-062: delete only an unused range (`RANGE_IN_USE` otherwise). */
@@ -308,6 +318,7 @@ export async function deleteRange(ctx: ModelCtx, rangeId: Id<"numberRanges">): P
   const e = checkDeleteRange(ref(range), await issuedCount(ctx, rangeId), (await listRanges(ctx)).map(ref));
   if (e) throw appError("invalid_input", e.message, { reason: codeOf(e.code) });
   await auditedDelete(ctx, "numberRanges", rangeId, { action: "settings.number_range.delete", label: range.name });
+  await emitSettingsEvent(ctx, "settings.number_range.updated", ["deleted"], { doc_types: range.docTypes });
 }
 
 /**

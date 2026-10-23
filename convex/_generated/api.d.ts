@@ -84,6 +84,7 @@ import type * as lib_rateLimits from "../lib/rateLimits.js";
 import type * as lib_secrets from "../lib/secrets.js";
 import type * as lib_time from "../lib/time.js";
 import type * as lib_vatProviders from "../lib/vatProviders.js";
+import type * as lib_webhookDns from "../lib/webhookDns.js";
 import type * as lookups from "../lookups.js";
 import type * as manualEntries from "../manualEntries.js";
 import type * as matching from "../matching.js";
@@ -185,6 +186,7 @@ import type * as model_voucherPayments from "../model/voucherPayments.js";
 import type * as model_voucherStatus from "../model/voucherStatus.js";
 import type * as model_voucherViews from "../model/voucherViews.js";
 import type * as model_vouchers from "../model/vouchers.js";
+import type * as model_webhooks from "../model/webhooks.js";
 import type * as notifications from "../notifications.js";
 import type * as paymentValidators from "../paymentValidators.js";
 import type * as payments from "../payments.js";
@@ -214,6 +216,9 @@ import type * as verfahrensdoku from "../verfahrensdoku.js";
 import type * as voucherIntegrity from "../voucherIntegrity.js";
 import type * as voucherValidators from "../voucherValidators.js";
 import type * as vouchers from "../vouchers.js";
+import type * as webhookValidators from "../webhookValidators.js";
+import type * as webhooks from "../webhooks.js";
+import type * as webhooksNode from "../webhooksNode.js";
 
 import type {
   ApiFromModules,
@@ -298,6 +303,7 @@ declare const fullApi: ApiFromModules<{
   "lib/secrets": typeof lib_secrets;
   "lib/time": typeof lib_time;
   "lib/vatProviders": typeof lib_vatProviders;
+  "lib/webhookDns": typeof lib_webhookDns;
   lookups: typeof lookups;
   manualEntries: typeof manualEntries;
   matching: typeof matching;
@@ -399,6 +405,7 @@ declare const fullApi: ApiFromModules<{
   "model/voucherStatus": typeof model_voucherStatus;
   "model/voucherViews": typeof model_voucherViews;
   "model/vouchers": typeof model_vouchers;
+  "model/webhooks": typeof model_webhooks;
   notifications: typeof notifications;
   paymentValidators: typeof paymentValidators;
   payments: typeof payments;
@@ -428,6 +435,9 @@ declare const fullApi: ApiFromModules<{
   voucherIntegrity: typeof voucherIntegrity;
   voucherValidators: typeof voucherValidators;
   vouchers: typeof vouchers;
+  webhookValidators: typeof webhookValidators;
+  webhooks: typeof webhooks;
+  webhooksNode: typeof webhooksNode;
 }>;
 
 /**

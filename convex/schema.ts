@@ -44,6 +44,7 @@ import {
   vVatCheckStatus,
 } from "./validators";
 import { voucherTables } from "./voucherValidators";
+import { webhookTables } from "./webhookValidators";
 
 /**
  * Convex schema — P0 tables from docs/spec/03-data-model.md (the single source of truth; field names are
@@ -2375,4 +2376,6 @@ export default defineSchema({
   // ── F06 purchases (Belege) and inbox (03 §6) — defined in voucherValidators.ts ──────────────────────
   ...voucherTables,
   ...projectTables,
+  // ── outbound webhooks (05 §5) — defined in webhookValidators.ts ─────────────────────────────────────
+  ...webhookTables,
 });

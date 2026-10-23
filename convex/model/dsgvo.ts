@@ -1,3 +1,4 @@
+import { encodeId } from "../../src/domain/api/ids";
 import { formatCents } from "../../src/domain/money/format";
 import {
   canTransitionRequest,
@@ -26,6 +27,7 @@ import { createJob } from "./jobs";
 import { notifyKind } from "./notifications";
 import { contactReferences, correctionLettersOfContact, deleteHashed, receivableLettersOfContact } from "./retention";
 import type { ModelCtx, ReadCtx } from "./types";
+import { emitEvent } from "./webhooks";
 
 /**
  * DSGVO request register and the erasure/restriction/access flows (F12 PRV-010…PRV-014, F02 CON-162…CON-165,
@@ -199,6 +201,13 @@ export async function notifyDeadlines(ctx: ModelCtx): Promise<number> {
         title: `DSGVO-Anfrage von ${who} ist seit ${due} überfällig.`,
         link: "/einstellungen/datenschutz?tab=anfragen",
         entity: { table: "dsgvoRequests", id: r._id },
+      });
+      // F12 §7 dsgvo.request_overdue (once per request: remindedStage) — no subject data
+      await emitEvent(ctx, "dsgvo.request_overdue", {
+        id: encodeId("dsgvoRequests", r._id),
+        object: "dsgvo_request",
+        due_at: r.dueAt,
+        updated_at: new Date(ctx.now()).toISOString(),
       });
     } else {
       await notifyKind(ctx, "dsgvo.deadline", {

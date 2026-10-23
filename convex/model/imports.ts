@@ -1,3 +1,4 @@
+import { encodeId } from "../../src/domain/api/ids";
 import { foldSearch, normalizeContactNumber } from "../../src/domain/contacts/core";
 import { retentionUntil } from "../../src/domain/documents/finalize";
 import { IMPORT_TOTAL_MAX_BYTES } from "../../src/domain/import/sevdesk/files";
@@ -35,6 +36,7 @@ import { postJournalEntry } from "./journal";
 import { continueRangeAfterImport, listDefaultRanges, nextValue } from "./numberRanges";
 import { createProduct, ensureCategoryPath } from "./products";
 import type { ModelCtx, ReadCtx } from "./types";
+import { emitEvent } from "./webhooks";
 
 /**
  * sevdesk export import projects (F09 IMP-003…024, §4.3.4). The project row is a mutable workspace until the commit
@@ -365,6 +367,13 @@ export async function saveImportPreview(
     { status: "previewed", previewHash: input.previewHash, preview: input.preview },
     { action: "import.preview", label: input.previewHash.slice(0, 12) },
   );
+  await emitEvent(ctx, "import.previewed", {
+    id: encodeId("imports", importId),
+    object: "import",
+    status: "previewed",
+    preview_hash: input.previewHash,
+    updated_at: new Date(ctx.now()).toISOString(),
+  }); // F09 §7
 }
 
 /** IMP-023 discard (E-IMP-28 after the commit started): files and preview are removed; no business data exists. */
@@ -1270,6 +1279,13 @@ export async function finishImport(
           : `${input.stats.created} Datensätze`,
     },
   );
+  await emitEvent(ctx, "import.completed", {
+    id: encodeId("imports", importId),
+    object: "import",
+    status: "done",
+    stats: input.stats,
+    updated_at: new Date(ctx.now()).toISOString(),
+  }); // F09 §7
 }
 
 /**

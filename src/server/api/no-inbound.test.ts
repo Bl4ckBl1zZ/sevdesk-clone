@@ -30,8 +30,13 @@ describe("no inbound webhooks (BNK-108, SEC-06, 05 §5.1)", () => {
     const http = readFileSync(join(ROOT, "convex/http.ts"), "utf8");
     expect(http).toContain("authComponent.registerRoutes(http, createAuth)");
     expect(http).not.toMatch(/http\.route\(/);
-    // REST: no webhook receiver; every endpoint except /health needs an API key.
+    // REST: no webhook receiver; every endpoint except /health needs an API key. `/webhook-endpoints` (05 §5.1) only
+    // manages where the server SENDS events (outbound), owner keys with `webhooks:manage` — it receives nothing.
     for (const { endpoint } of ROUTES) {
+      if (/^\/webhook-endpoints(\/|$)/.test(endpoint.path)) {
+        expect(endpoint.scope, endpoint.path).toBe("webhooks:manage");
+        continue;
+      }
       expect(endpoint.path, endpoint.path).not.toMatch(/webhook|callback|notify|psd2|enable-?banking/i);
       if (endpoint.scope === "public") expect(endpoint.path).toBe("/health");
     }

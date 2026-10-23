@@ -6789,5 +6789,123 @@
     "removed": "Briefpapier entfernt (neue Layout-Version).",
     "followNeedsFirst": "Zuerst das Briefpapier für die erste Seite hochladen.",
     "badge": "Briefpapier"
+  },
+  "webhooks": {
+    "title": "Webhook-Endpunkte",
+    "description": "Der Server meldet Ereignisse (z. B. „Rechnung bezahlt“) per HTTPS an Ihre Systeme – Website, n8n, Skripte. Nur ausgehend; die Nutzlast enthält IDs und Status, keine personenbezogenen Werte.",
+    "create": "Endpunkt hinzufügen",
+    "empty": "Noch keine Webhook-Endpunkte.",
+    "columns": {
+      "endpoint": "Endpunkt",
+      "events": "Ereignisse",
+      "status": "Status",
+      "lastDelivery": "Letzte Zustellung",
+      "secret": "Secret",
+      "actions": "Aktionen"
+    },
+    "status": {
+      "active": "Aktiv",
+      "manual": "Deaktiviert",
+      "gone": "Deaktiviert (410 Gone)",
+      "failing": "Deaktiviert (3 Tage Fehler)",
+      "failingSince": "Fehler seit {at}"
+    },
+    "allEvents": "Alle Ereignisse",
+    "eventsCount": "{count, plural, one {# Ereignis} other {# Ereignisse}}",
+    "never": "Noch nie",
+    "lastSuccess": "Erfolgreich: {at}",
+    "lastFailure": "Fehlgeschlagen: {at}",
+    "rollingUntil": "Altes Secret gültig bis {at}",
+    "actions": {
+      "edit": "Bearbeiten",
+      "test": "Test senden",
+      "roll": "Secret erneuern",
+      "log": "Zustellprotokoll",
+      "delete": "Löschen"
+    },
+    "form": {
+      "createTitle": "Webhook-Endpunkt hinzufügen",
+      "editTitle": "Webhook-Endpunkt bearbeiten",
+      "formDescription": "Die Adresse muss in der Produktion HTTPS verwenden. Interne Adressen (localhost, private Netze, Metadaten-Dienst) sind nicht erlaubt; Tailnet-Adressen schon.",
+      "url": "URL",
+      "urlHint": "Zum Beispiel https://www.example.de/api/rechnung-webhook",
+      "descriptionField": "Beschreibung",
+      "events": "Ereignisse",
+      "eventsHint": "„Alle Ereignisse“ schließt künftige Ereignisse ein. Portal-Ereignisse sind reserviert und werden nicht gesendet.",
+      "enabled": "Aktiv (Ereignisse zustellen)",
+      "submitCreate": "Anlegen",
+      "submitEdit": "Speichern",
+      "urlRequired": "Bitte eine URL angeben.",
+      "eventsRequired": "Bitte mindestens ein Ereignis oder „Alle Ereignisse“ wählen."
+    },
+    "groups": {
+      "contacts": "Kontakte",
+      "products": "Produkte",
+      "sales": "Angebote, Aufträge und Rechnungen",
+      "receivables": "Mahnwesen und Zahlungen",
+      "vouchers": "Belege und Posteingang",
+      "banking": "Bank und Kasse",
+      "tax": "Steuern und Abschluss",
+      "settings": "Einstellungen",
+      "projects": "Projekte und Zeiten",
+      "jobs": "Import und Export",
+      "security": "Sicherheit und System"
+    },
+    "secret": {
+      "createdTitle": "Endpunkt angelegt",
+      "rolledTitle": "Neues Secret",
+      "createdDescription": "Tragen Sie das Secret beim Empfänger ein (z. B. als RECHNUNG_WEBHOOK_SECRET) und prüfen Sie damit die Signatur.",
+      "rolledDescription": "Das alte Secret bleibt bis {at} gültig; bis dahin werden beide Signaturen gesendet.",
+      "onceWarning": "Das Secret wird nur jetzt angezeigt. Später sehen Sie nur noch {hint}.",
+      "label": "Secret",
+      "copy": "Secret kopieren",
+      "done": "Fertig"
+    },
+    "toast": {
+      "created": "Webhook-Endpunkt angelegt.",
+      "saved": "Webhook-Endpunkt gespeichert.",
+      "deleted": "Webhook-Endpunkt gelöscht.",
+      "testQueued": "Test-Ereignis wird gesendet.",
+      "replayQueued": "Zustellung wird wiederholt.",
+      "rolled": "Secret erneuert."
+    },
+    "rollTitle": "Secret erneuern?",
+    "rollDescription": "Es wird ein neues Secret erzeugt. Das alte bleibt 24 Stunden gültig, damit Sie den Empfänger umstellen können.",
+    "rollConfirm": "Neues Secret erzeugen",
+    "deleteTitle": "Endpunkt {host} löschen?",
+    "deleteDescription": "Offene Zustellungen werden abgebrochen. Das Zustellprotokoll bleibt bis zu 30 Tage erhalten.",
+    "deleteConfirm": "Endpunkt löschen",
+    "log": {
+      "title": "Zustellprotokoll: {host}",
+      "description": "Die letzten 30 Tage, neueste zuerst. Fehlgeschlagene Zustellungen werden automatisch wiederholt (bis 24 h Abstand).",
+      "empty": "Noch keine Zustellungen.",
+      "at": "Zeitpunkt",
+      "event": "Ereignis",
+      "status": "Status",
+      "attempts": "Versuche",
+      "response": "Antwort",
+      "next": "Nächster Versuch: {at}",
+      "request": "Anfrage",
+      "responseBody": "Antwort des Empfängers",
+      "details": "Details",
+      "replay": "Erneut senden",
+      "replayOf": "Wiederholung",
+      "durationMs": "{ms} ms",
+      "statuses": {
+        "pending": "Ausstehend",
+        "success": "Zugestellt",
+        "failed": "Fehlgeschlagen",
+        "gave_up": "Aufgegeben",
+        "cancelled": "Abgebrochen"
+      }
+    },
+    "info": {
+      "title": "So prüfen Sie Webhooks",
+      "standard": "Zustellung nach Standard Webhooks: Header webhook-id (eindeutig je Ereignis, als Idempotenzschlüssel nutzen), webhook-timestamp und webhook-signature.",
+      "verify": "Signatur prüfen, z. B. mit der Bibliothek „standardwebhooks“ und dem Secret whsec_….",
+      "success": "Antworten Sie innerhalb von 15 Sekunden mit einem 2xx-Status. Weiterleitungen werden nicht verfolgt.",
+      "retries": "Wiederholungen: sofort, 5 s, 5 min, 30 min, 2 h, 5 h, 10 h, 14 h, 20 h, 24 h. „Retry-After“ wird beachtet. Antwortet der Empfänger mit 410 oder scheitert 3 Tage lang, wird der Endpunkt deaktiviert und Sie werden benachrichtigt.",
+      "order": "Die Reihenfolge ist nicht garantiert – nutzen Sie updated_at oder rufen Sie den Datensatz per API ab."
+    }
   }
 }

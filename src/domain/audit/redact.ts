@@ -23,6 +23,7 @@ export const REDACTED_KEYS: ReadonlySet<string> = new Set([
   "hash", // apiKeys.hash (SHA-256 of the key) — AUD-003 "API key hashes"
   "encryptedSecret",
   "encryptedSecrets",
+  "encryptedPreviousSecret", // 05 §5.1 rolled webhook secret (24 h overlap)
   "encryptedToken",
   "wrappedKey",
   // F07 BNK-013 Enable Banking secrets

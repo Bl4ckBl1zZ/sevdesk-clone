@@ -54,6 +54,7 @@ import { notify } from "./notifications";
 import { checklistFor, lockMonths, periodRows } from "./periodLock";
 import type { ModelCtx, ReadCtx } from "./types";
 import { kuOn } from "./vouchers";
+import { emitEvent } from "./webhooks";
 
 /**
  * UStVA, ZM and Sondervorauszahlung read models and submission records (F08 TAX-002…TAX-011, TAX-020, TAX-021).
@@ -772,6 +773,19 @@ export async function recordSubmission(ctx: ModelCtx, input: SubmissionInput) {
       },
     );
   }
+  // F08 §7 tax_filing.submitted; „abweichend übermittelt“ opens the correction worklist → correction_required
+  const filingObject = {
+    id: `txf_${id}`,
+    object: "tax_filing",
+    kind: kind,
+    period: input.period,
+    status: "submitted_manually",
+    submitted_on: input.submittedOn,
+    submitted_values_differ: differs,
+    updated_at: new Date(now).toISOString(),
+  };
+  await emitEvent(ctx, "tax_filing.submitted", filingObject);
+  if (differs) await emitEvent(ctx, "tax_filing.correction_required", filingObject);
   const locked = lock && lockPlan.length > 0 ? await lockMonths(ctx, lockPlan, lock) : { months: [], lockedRecords: 0 };
   return { id, kind, lockedMonths: locked.months, submittedValuesDiffer: differs };
 }

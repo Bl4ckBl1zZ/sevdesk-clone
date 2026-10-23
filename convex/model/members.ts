@@ -12,12 +12,14 @@ import {
   normalizeEmail,
   validateInviteInput,
 } from "../../src/domain/access/signup";
+import { encodeId } from "../../src/domain/api/ids";
 import { components } from "../_generated/api";
 import type { Doc, Id } from "../_generated/dataModel";
 import { env } from "../lib/env";
 import { appError } from "../lib/errors";
 import { appendAudit, auditedInsert, auditedPatch } from "./audit";
 import type { ModelCtx, ReadCtx } from "./types";
+import { emitEvent } from "./webhooks";
 
 /**
  * Members and invites (03 §10, 02 §4.3). Written only here; every change is audited.
@@ -150,7 +152,7 @@ export async function createInvite(ctx: ModelCtx, input: InviteInput): Promise<I
       );
     }
   }
-  return auditedInsert(
+  const inviteId = await auditedInsert(
     ctx,
     "invites",
     {
@@ -164,6 +166,15 @@ export async function createInvite(ctx: ModelCtx, input: InviteInput): Promise<I
     },
     { action: "invite.create", label: email },
   );
+  // F12 §7 member.invited: role and expiry only — no e-mail address
+  await emitEvent(ctx, "member.invited", {
+    id: encodeId("invites", inviteId),
+    object: "invite",
+    role: input.role,
+    expires_at: new Date(now + INVITE_VALIDITY_DAYS * DAY_MS).toISOString(),
+    updated_at: new Date(now).toISOString(),
+  });
+  return inviteId;
 }
 
 export async function revokeInvite(ctx: ModelCtx, inviteId: Id<"invites">): Promise<void> {
@@ -221,6 +232,18 @@ export async function disableMember(ctx: ModelCtx, memberId: Id<"members">, reas
     { action: "member.disable", label: member.email, reason },
   );
   await revokeSessions(ctx, member.authUserId);
+  await emitMemberRemoved(ctx, member, "disabled");
+}
+
+/** F12 §7 member.removed (deactivated or expired): ID and role only. */
+async function emitMemberRemoved(ctx: ModelCtx, member: Doc<"members">, reason: "disabled" | "expired") {
+  await emitEvent(ctx, "member.removed", {
+    id: encodeId("members", member._id),
+    object: "member",
+    role: member.role,
+    reason,
+    updated_at: new Date(ctx.now()).toISOString(),
+  });
 }
 
 /** `members.expire` cron (02 §7): members past `expiresAt` lose access and their sessions. */
@@ -237,6 +260,7 @@ export async function expireMembers(ctx: ModelCtx): Promise<number> {
       { action: "member.expired", label: member.email },
     );
     await revokeSessions(ctx, member.authUserId);
+    await emitMemberRemoved(ctx, member, "expired");
     n++;
   }
   return n;

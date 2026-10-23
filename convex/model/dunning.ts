@@ -57,6 +57,7 @@ import {
 } from "./salesDocuments";
 import { activeCredits } from "./settlement";
 import type { ModelCtx, ReadCtx } from "./types";
+import { emitDocumentEvent, emitDunningCaseEvent } from "./webhooks";
 
 /**
  * Dunning (F05 §3.7–§3.10, §4.4–§4.6) — the only writer of `dunningPolicies`, `dunningCases`, `dunningRuns` and of
@@ -1090,6 +1091,7 @@ export async function finalizeReminder(
     entity: { table: "salesDocuments", id },
     dedupeKey: `reminder_mark_sent:${id}`,
   });
+  await emitDocumentEvent(ctx, id, "finalized", { status: "draft" }); // PAY-060 reminder.finalized
   return { number: assigned.number };
 }
 
@@ -1245,6 +1247,7 @@ export async function onSettlementChanged(ctx: ModelCtx, change: SettlementChang
         { status: "paused", pausedUntil: addDays(today, days), pausedReason: "Teilzahlung" },
         { action: "dunning.case.pause", label: inv.number ?? "Rechnung", reason: "Teilzahlung (DUN-034)" },
       );
+      await emitDunningCaseEvent(ctx, "dunning_case.paused", c._id, { status: c.status }); // PAY-060
     }
   }
 }
@@ -1391,6 +1394,7 @@ export async function caseAction(
             reason,
           },
         );
+        await emitDunningCaseEvent(ctx, "dunning_case.paused", c._id, { status: c.status }); // PAY-060
       }
       return;
     }
@@ -1411,6 +1415,7 @@ export async function caseAction(
           ...(reason ? { reason } : {}),
         },
       );
+      await emitDunningCaseEvent(ctx, "dunning_case.paused", c._id, { status: c.status }); // PAY-060
       return;
     }
     case "resume": {
@@ -1460,6 +1465,7 @@ export async function caseAction(
           reason: partner,
         },
       );
+      await emitDunningCaseEvent(ctx, "dunning_case.handed_over", c._id, { status: c.status }); // PAY-060
       return;
     }
   }
@@ -1728,8 +1734,8 @@ export async function dueSoon(ctx: ReadCtx, today: CalendarDate) {
 }
 
 /**
- * `receivables.refreshOverdue` (02 §7, 00:15): records `overdueNotifiedAt` once per overdue document (the webhook
- * `invoice.overdue` attaches here once the outbox exists, F10) and, with `dueSoonTodo`, one „Bald fällig“ to-do per
+ * `receivables.refreshOverdue` (02 §7, 00:15): records `overdueNotifiedAt` once per overdue document and emits the
+ * webhook `invoice.overdue` once (05 §5.3, PAY-060) and, with `dueSoonTodo`, one „Bald fällig“ to-do per
  * invoice (DUN-053). Writes no status: overdue is derived.
  */
 export async function refreshOverdue(ctx: ModelCtx): Promise<{ overdue: number; dueSoon: number }> {
@@ -1747,6 +1753,7 @@ export async function refreshOverdue(ctx: ModelCtx): Promise<{ overdue: number; 
           label: d.number ?? "Rechnung",
         },
       );
+      await emitDocumentEvent(ctx, d._id, "overdue"); // PAY-060: once per document (overdueNotifiedAt)
       overdue++;
     }
   }

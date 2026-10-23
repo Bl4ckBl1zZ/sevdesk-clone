@@ -17,6 +17,7 @@ import type { FileRefValue } from "./bankImport";
 import { getCompanyProfile } from "./companyProfile";
 import { assertCashOutflowAllowed, cashLines, postJournalEntry, resolveContextAt } from "./journal";
 import type { ModelCtx, ReadCtx } from "./types";
+import { emitCashMovementEvent } from "./webhooks";
 
 /**
  * The one cash account (F07 CSH-020…030): „Bargeld eingezahlt / entnommen“ (CSH-024), reversals (CSH-027) and the
@@ -164,6 +165,7 @@ export async function recordCashTransfer(
   if (r.status === "posted") {
     await auditedPatch(ctx, "cashTransfers", id, { journalEntryIds: r.entryIds }, { action: "cash.transfer" });
   }
+  await emitCashMovementEvent(ctx, id); // BNK-080
   return { id, ...(warning ? { warning } : {}) };
 }
 
@@ -233,6 +235,7 @@ export async function reverseCashTransfer(
   if (r.status === "posted") {
     await auditedPatch(ctx, "cashTransfers", id, { journalEntryIds: r.entryIds }, { action: "cash.transfer_reverse" });
   }
+  await emitCashMovementEvent(ctx, id); // BNK-080
   return id;
 }
 

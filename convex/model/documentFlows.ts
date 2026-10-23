@@ -40,6 +40,7 @@ import {
 } from "./salesDocuments";
 import { reverseDeliveryNote } from "./stock";
 import type { ModelCtx, ReadCtx } from "./types";
+import { emitDocumentEvent } from "./webhooks";
 
 /**
  * Quotes, order confirmations, delivery notes and proforma after finalisation (F04 §4.2.1–4.2.4, §4.3): acceptance,
@@ -127,6 +128,7 @@ export async function acceptQuote(ctx: ModelCtx, id: Id<"salesDocuments">, value
   await closeQuoteTodos(ctx, id);
   const after = await getDocument(ctx, id);
   if (await inChain(ctx, after)) await recomputeChainOf(ctx, after, "document.progress");
+  if (status !== doc.status) await emitDocumentEvent(ctx, id, "accepted", { status: doc.status }); // 05 §5.3
 }
 
 /** „Als abgelehnt markieren“ (date, reason). `rejection` is set once; a repeated rejection is audited only. */
@@ -154,6 +156,7 @@ export async function rejectQuote(ctx: ModelCtx, id: Id<"salesDocuments">, value
     { action: "document.reject", label: label(doc), ...(reason ? { reason } : {}) },
   );
   await closeQuoteTodos(ctx, id);
+  if (status !== doc.status) await emitDocumentEvent(ctx, id, "rejected", { status: doc.status }); // 05 §5.3
 }
 
 /** „Wieder öffnen“ of a rejected quote (§4.2.1: `rejected → sent`, reason). */
@@ -495,6 +498,7 @@ export async function runQuoteDeadlines(ctx: ModelCtx): Promise<{ expired: numbe
       { status: nextOf(q, "expire") },
       { action: "document.expire", label: label(q) },
     );
+    await emitDocumentEvent(ctx, q._id, "expired", { status: q.status }); // 05 §5.3 quote.expired
     await resolveNotifications(ctx, q._id, "quote_expiring");
     await resolveNotifications(ctx, q._id, "quote_follow_up");
     await upsertNotification(ctx, {

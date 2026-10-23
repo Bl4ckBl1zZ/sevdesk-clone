@@ -6,6 +6,10 @@ import { generateApplicationKey } from "./lib/bankKeys";
 import { errorCode } from "./lib/errors";
 import { patchCompanyProfile } from "./model/companyProfile";
 import { makeT, SYSTEM_AUTH, type TestT } from "./test.setup";
+import { objectOf, outboxOf, outboxTypes, stubHookFetch, subscribeHook } from "./webhooks.fixtures";
+
+// BNK-080 tests subscribe a webhook endpoint: the SSRF guard must never resolve DNS for real.
+vi.mock("./lib/webhookDns", () => ({ resolveHost: async () => ["93.184.216.34"] }));
 
 /**
  * F07 P2 Enable Banking feed against the fake Enable Banking server (07 §3.3): setup, consent, callback backfill,
@@ -634,6 +638,39 @@ describe("polling (BNK-106, BNK-107, BNK-111)", () => {
 });
 
 describe("consent lifecycle (BNK-105)", () => {
+  test("BNK-080 bank_consent.expiring at T−14 / T−3 / T−0 and bank_consent.expired once", async () => {
+    const s = await setup();
+    fake.accounts = [eurAccount()];
+    await configure(s);
+    await connect(s);
+    stubHookFetch(fake.fetch);
+    await subscribeHook(s.owner, ["bank_consent.expiring", "bank_consent.expired"]);
+    const validUntil = (await connectionRow(s.t)).validUntil as number;
+    const remind = () => s.t.mutation(internal.bankFeed.consentExpiryReminderCron, { force: true });
+    for (const days of [14, 3]) {
+      vi.setSystemTime(new Date(validUntil - days * 86_400_000 - 3_600_000));
+      await remind();
+      await remind();
+    }
+    vi.setSystemTime(new Date(validUntil - 3_600_000));
+    await remind();
+    vi.setSystemTime(new Date(validUntil + 1000));
+    await remind();
+    await remind();
+    expect(await outboxTypes(s.t)).toEqual([
+      "bank_consent.expiring",
+      "bank_consent.expiring",
+      "bank_consent.expiring",
+      "bank_consent.expired",
+    ]);
+    const expiring = await outboxOf(s.t, "bank_consent.expiring");
+    expect(expiring.map((e) => objectOf(e).days_before)).toEqual([14, 3, 0]);
+    expect(objectOf(expiring[0])).toMatchObject({
+      object: "bank_consent",
+      valid_until: new Date(validUntil).toISOString(),
+    });
+  });
+
   test("EC-BNK-83 EC-158 BNK-105 reminders at T−14, T−3 and T−0, once each", async () => {
     const s = await setup();
     fake.accounts = [eurAccount()];

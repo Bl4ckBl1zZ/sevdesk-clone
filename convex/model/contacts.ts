@@ -51,6 +51,7 @@ import { auditedDelete, auditedInsert, auditedPatch } from "./audit";
 import { getCompanyProfile } from "./companyProfile";
 import { assignCounterNumber } from "./numberRanges";
 import type { ModelCtx, ReadCtx } from "./types";
+import { emitContactEvent } from "./webhooks";
 
 /**
  * Contacts (F02, 03 §2). The only writer of `contacts`, `contactAddresses`, `contactChannels`, `contactActivities`,
@@ -465,6 +466,7 @@ export async function createContact(
   };
   const searchText = await computeSearchText(ctx, base);
   const id = await auditedInsert(ctx, "contacts", { ...base, searchText }, { action: "contact.create", label: number });
+  await emitContactEvent(ctx, "contact.created", id); // F02 §7 (ID only)
   if (values.billingAddress) {
     const a = validateAddress(values.billingAddress);
     if (a.errors[0]) fail({ ...a.errors[0], field: `billingAddress.${a.errors[0].field ?? ""}` });
@@ -602,13 +604,20 @@ export async function updateContact(
     version: existing.version + 1,
   };
   const searchText = await computeSearchText(ctx, { ...existing, ...next } as ContactDoc, id);
-  await auditedPatch(ctx, "contacts", id, { ...next, searchText } as Partial<ContactDoc>, {
+  const entry = await auditedPatch(ctx, "contacts", id, { ...next, searchText } as Partial<ContactDoc>, {
     action: "contact.update",
     label: number,
     ...(opts.reason ? { reason: opts.reason } : {}),
   });
+  const changed = Object.keys((entry?.diff as { after?: object } | undefined)?.after ?? {}).filter(
+    (k) => !CONTACT_TECHNICAL_FIELDS.has(k),
+  );
+  if (changed.length > 0) await emitContactEvent(ctx, "contact.updated", id, changed); // F02 §7: field names only
   return { warnings: v.warnings, vatIdChanged };
 }
+
+/** Derived/bookkeeping fields that are not a change a webhook receiver cares about. */
+const CONTACT_TECHNICAL_FIELDS = new Set(["searchText", "version", "numberNormalized", "updatedAt"]);
 
 // ── archive / delete (CON-170/171) ──────────────────────────────────────────────────────────────────────
 export async function setArchived(ctx: ModelCtx, id: Id<"contacts">, archived: boolean): Promise<void> {
@@ -627,6 +636,7 @@ export async function setArchived(ctx: ModelCtx, id: Id<"contacts">, archived: b
     { status, version: c.version + 1 },
     { action: archived ? "contact.archive" : "contact.unarchive", label: c.number },
   );
+  await emitContactEvent(ctx, archived ? "contact.archived" : "contact.unarchived", id, ["status"]);
 }
 
 /**
@@ -736,6 +746,7 @@ export async function deleteContact(ctx: ModelCtx, id: Id<"contacts">): Promise<
     }
   }
   await auditedDelete(ctx, "contacts", id, { action: "contact.delete", label: c.number });
+  await emitContactEvent(ctx, "contact.deleted", id);
 }
 
 // ── addresses (CON-020…024) ─────────────────────────────────────────────────────────────────────────────
@@ -784,6 +795,7 @@ export async function saveAddress(
     );
   }
   await refreshSearchText(ctx, contactId, "contact.address.update");
+  await emitContactEvent(ctx, "contact.updated", contactId, ["addresses"]);
   return id;
 }
 
@@ -842,6 +854,7 @@ export async function removeAddress(ctx: ModelCtx, addressId: Id<"contactAddress
   }
   if (row.isDefault) await promoteDefault(ctx, c, row.type, addressId);
   await refreshSearchText(ctx, c._id, "contact.address.delete");
+  await emitContactEvent(ctx, "contact.updated", c._id, ["addresses"]);
 }
 
 // ── channels (CON-030…032) ──────────────────────────────────────────────────────────────────────────────
@@ -886,6 +899,7 @@ export async function saveChannel(
     id = await auditedInsert(ctx, "contactChannels", doc, { action: "contact.channel.create", label: c.number });
   }
   await refreshSearchText(ctx, contactId, "contact.channel.update");
+  await emitContactEvent(ctx, "contact.updated", contactId, ["channels"]);
   return id;
 }
 
@@ -907,6 +921,7 @@ export async function removeChannel(ctx: ModelCtx, channelId: Id<"contactChannel
     }
   }
   await refreshSearchText(ctx, c._id, "contact.channel.delete");
+  await emitContactEvent(ctx, "contact.updated", c._id, ["channels"]);
 }
 
 // ── activities (CON-120…123) ────────────────────────────────────────────────────────────────────────────
@@ -1369,6 +1384,9 @@ export async function mergeContacts(
     label: winner.number,
   });
   await refreshSearchText(ctx, winner._id, "contact.merge");
+  // F02 §7: the winner with the merged (archived) contact IDs
+  await emitContactEvent(ctx, "contact.merged", winner._id, Object.keys(patch));
+  for (const loser of losers) await emitContactEvent(ctx, "contact.archived", loser._id, ["status", "mergedIntoId"]);
   return ids;
 }
 

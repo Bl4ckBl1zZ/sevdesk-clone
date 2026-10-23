@@ -20,6 +20,7 @@ import { auditedInsert, auditedPatch } from "./audit";
 import { getCompanyProfile, patchCompanyProfile } from "./companyProfile";
 import { notify } from "./notifications";
 import type { ModelCtx, ReadCtx } from "./types";
+import { emitProductEvent } from "./webhooks";
 
 /**
  * Stock (F03 §3.10 PRD-090…097, §4.4). The only writer of `stockMovements` (append-only, GOBD-06) and of
@@ -125,6 +126,11 @@ async function syncReorderState(
   if (below && s.belowReorderSince === undefined) {
     await auditedPatch(ctx, "products", productId, { stock: { ...s, belowReorderSince: ctx.now() } }, audit);
     if (opts.notify === false) return;
+    await emitProductEvent(ctx, "product.stock_low", productId, {
+      number: p.number,
+      stock_quantity_milli: s.quantityMilli,
+      reorder_level_milli: level ?? 0,
+    });
     await notify(ctx, {
       kind: STOCK_LOW_KIND,
       severity: "warning",

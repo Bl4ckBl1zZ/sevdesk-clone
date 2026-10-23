@@ -1,3 +1,4 @@
+import { encodeId } from "../../src/domain/api/ids";
 import type { DeadlineCustomer } from "../../src/domain/documents/uninvoiced-supplies";
 import { applicableCustomerPrice, basePriceOn, convertPriceMode, resolveRate } from "../../src/domain/products/pricing";
 import { checkSupplyCoversEntries, exactTimeNetCents } from "../../src/domain/projects/invoicing";
@@ -34,6 +35,7 @@ import { notify, notifyKind } from "./notifications";
 import { checkBudget, getProject, PROJECT_MESSAGES } from "./projects";
 import { recordArtifacts } from "./salesDocuments";
 import type { ModelCtx, ReadCtx } from "./types";
+import { emitEvent } from "./webhooks";
 
 /**
  * Time entries and the timer (F11 PRJ-005…009, PRJ-012, PRJ-015, PRJ-019; 03 §9). The only writer of `timeEntries`
@@ -233,6 +235,17 @@ export async function createEntry(
     },
     { action: "time_entry.create", label: description || "Zeiteintrag" },
   );
+  // F11 time_entry.created: IDs, date, minutes, billable — no description
+  await emitEvent(ctx, "time_entry.created", {
+    id: encodeId("timeEntries", id),
+    object: "time_entry",
+    project_id: refs.project ? encodeId("projects", refs.project._id) : null,
+    date: input.date,
+    duration_minutes: input.durationMinutes,
+    billable,
+    status: "open",
+    updated_at: new Date(ctx.now()).toISOString(),
+  });
   if (incomplete) warnings.push(TIME_MESSAGES.incomplete);
   await afterChange(ctx, [refs.project?._id]);
   return { id, warnings };

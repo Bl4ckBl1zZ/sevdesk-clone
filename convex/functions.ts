@@ -85,6 +85,8 @@ export const SYSTEM_JOBS = [
   "retention.purge", // F12 PRV-006/008 purge worker reads (writes run as the owner via actorMutations)
   "retention.replay", // F12 PRV-009 ops: re-applies the off-host purge log after a restore
   "dsgvo.export", // F12 PRV-013 access/portability export worker reads (Node action)
+  "webhooks.deliver", // 05 §5.2 outbound webhook worker: claim, HTTP attempt, record (retry, disable, notify)
+  "cron.webhooks.sweep", // 05 §5.2 every 5 min: re-schedules due outbox deliveries, purges the 30-day delivery log
 ] as const;
 export type SystemJob = (typeof SYSTEM_JOBS)[number];
 

@@ -108,4 +108,8 @@ crons.cron("dsgvo.deadlines", "30 7 * * *", internal.dsgvo.deadlinesCron, {});
 // rules.freshness — weekly, Mondays 06:20 UTC (F01 SET-124, 02 §7): stale rule tables, duplicate/contradicted overrides.
 crons.cron("rules.freshness", "20 6 * * 1", internal.settings.rulesFreshnessCron, {});
 
+// webhooks.sweep — every 5 min (05 §5.2, 02 §7 webhooks.deliver): re-schedules due outbox deliveries whose scheduled
+// call was lost and purges the 30-day delivery log. Deliveries themselves are event-driven (scheduled in the commit).
+crons.interval("webhooks.sweep", { minutes: 5 }, internal.webhooks.sweep, {});
+
 export default crons;

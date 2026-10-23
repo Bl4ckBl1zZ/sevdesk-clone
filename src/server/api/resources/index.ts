@@ -16,6 +16,7 @@ import { recurringResource } from "./recurring";
 import { reportsResource } from "./reports";
 import { settingsResource } from "./settings";
 import { recurringVouchersResource, vouchersResource } from "./vouchers";
+import { webhooksResource } from "./webhooks";
 
 /**
  * Every REST resource of /api/v1 (05 §4). A later slice adds one module with `defineResource(…)` and one line here;
@@ -40,6 +41,7 @@ export const RESOURCES: readonly Resource[] = [
   reportsResource,
   accountingReportsResource,
   exportsResource,
+  webhooksResource,
 ];
 
 export const ROUTES = compileRoutes(RESOURCES);
