@@ -1492,7 +1492,6 @@
       "runNowHint": "Vollständige Prüfung der Hash-Kette; höchstens einmal in 10 Minuten.",
       "runNowOk": "Integritätsprüfung abgeschlossen: in Ordnung.",
       "runNowFailed": "Integritätsprüfung abgeschlossen: {count, plural, one {# Befund} other {# Befunde}}."
-
     },
     "verify": {
       "title": "Prüfpunkt verifizieren",
