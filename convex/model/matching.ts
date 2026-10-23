@@ -1,3 +1,4 @@
+import { resolveRole } from "../../src/domain/accounting/resolve";
 import {
   aliasToken,
   autoApplicable,
@@ -14,13 +15,16 @@ import {
 } from "../../src/domain/banking/match";
 import type { MatchAllocation, MatchCandidate, UnmatchedTransaction } from "../../src/domain/banking/match-types";
 import { MATCH_MESSAGES } from "../../src/domain/banking/matching-messages";
+import { voucherFxDifference } from "../../src/domain/banking/voucher-fx";
 import type { DocumentSnapshot } from "../../src/domain/documents/snapshot";
 import { isArchiveOnlyImport } from "../../src/domain/import/sevdesk/types";
 import type { DifferenceInput } from "../../src/domain/payments/plan";
+import { calendarDate } from "../../src/domain/time/calendar-date";
 import type { Doc, Id } from "../_generated/dataModel";
 import { appError } from "../lib/errors";
 import { auditedInsert } from "./audit";
 import { linkReversal, requireTransaction, unmatchedTransactions } from "./bankTransactions";
+import { resolveContextAt } from "./journal";
 import { notify } from "./notifications";
 import {
   creditBalance,
@@ -328,6 +332,35 @@ function voucherDifferences(diffs: DifferenceInput[] | undefined) {
   return out.length ? { differences: out } : {};
 }
 
+/**
+ * EC-BNK-76: a foreign card payment that settles a foreign-currency voucher in full carries the realised exchange
+ * difference (PAY-018 mirrored) — computed here from stored data, never trusted from the client.
+ */
+async function withVoucherFx(
+  ctx: ReadCtx,
+  tx: Doc<"bankTransactions">,
+  a: { target: { id: string }; amountCents: number; differences?: DifferenceInput[] },
+) {
+  const base = voucherDifferences(a.differences);
+  const v = await ctx.db.get(a.target.id as Id<"vouchers">);
+  if (!v || v.currency === "EUR") return base;
+  const own = base.differences ?? [];
+  const fx = voucherFxDifference({
+    voucherCurrency: v.currency,
+    billGrossMinor: Math.abs(v.totals.grossCents),
+    openEurCents: v.openAmountCents,
+    unpaid: v.totalsEur ? v.openAmountCents === v.totalsEur.grossCents : true,
+    paidEurCents: a.amountCents + own.reduce((sum, d) => sum + d.amountCents, 0),
+    ...(tx.source.instructedAmount ? { instructed: tx.source.instructedAmount } : {}),
+  });
+  if (!fx) return base;
+  const role = resolveRole(fx.role, await resolveContextAt(ctx, calendarDate(tx.bookingDate)));
+  if (!role.ok || !role.value.account) return base;
+  return {
+    differences: [...own, { reason: "other" as const, amountCents: fx.amountCents, account: role.value.account }],
+  };
+}
+
 export async function confirmMatch(
   ctx: ModelCtx,
   args: ConfirmArgs,
@@ -358,7 +391,7 @@ export async function confirmMatch(
       method: "bank",
       transactionId: tx._id,
       amountCents: first.amountCents,
-      ...voucherDifferences(first.differences),
+      ...(await withVoucherFx(ctx, tx, first)),
       ...(args.acknowledgeWarnings ? { acknowledgeWarnings: args.acknowledgeWarnings } : {}),
       ...(args.provenance ? { match: args.provenance } : {}),
     });

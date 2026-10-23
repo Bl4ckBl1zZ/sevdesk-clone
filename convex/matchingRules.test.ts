@@ -5,7 +5,7 @@ import { errorCode } from "./lib/errors";
 import { auditedInsert, auditedPatch } from "./model/audit";
 import { bookedTransaction } from "./payments.fixtures";
 import { makeT, type TestT } from "./test.setup";
-import { line, OWNER, setupCompany, TODAY, upload } from "./vouchers.fixtures";
+import { header, line, OWNER, setupCompany, TODAY, upload } from "./vouchers.fixtures";
 
 /**
  * F07 BNK-049…054, BNK-065: matching rules (conditions, preview, rule vouchers, API/MCP suggest-only), vouchers from
@@ -306,6 +306,66 @@ describe("matching vouchers (BNK-049)", () => {
     });
     expect((await txOf(s.t, tx)).status).toBe("matched");
     expect((await s.t.run((ctx) => ctx.db.get(voucherId)))?.status).toBe("paid");
+  });
+
+  test("EC-BNK-76 T07-073 a USD card payment from the EUR account settles the USD voucher; the FX difference is booked", async () => {
+    const s = await setup();
+    const { voucherId } = await upload(s.t, s.owner);
+    await s.owner.mutation(api.vouchers.updateDraft, {
+      id: voucherId,
+      input: header({
+        supplierContactId: s.supplier,
+        supplierName: "Acme Corp.",
+        currency: "USD",
+        fxRateToEur: { rate: "1.19", source: "ecb_daily", date: TODAY },
+        lines: [line({ amountCents: 11_900, vatRateBp: 0 })],
+      }),
+    });
+    await s.owner.mutation(api.vouchers.finalize, { id: voucherId });
+    const tx = await s.t.model(OWNER, (ctx) =>
+      auditedInsert(
+        ctx,
+        "bankTransactions",
+        {
+          accountId: s.bank,
+          bookingDate: TODAY,
+          amountCents: -10_250,
+          currency: "EUR",
+          counterpartyName: "Acme Corp.",
+          counterpartySource: "statement" as const,
+          purpose: "Card payment Acme Corp.",
+          source: {
+            kind: "camt053",
+            entryReference: "ER-FX-1",
+            rawSha256: "fx-1",
+            merchantName: "Acme Corp.",
+            instructedAmount: { amountMinor: 11_900, currency: "USD" },
+          },
+          sources: [],
+          dedupeKey: `${s.bank}:er:ER-FX-1`,
+          contentHash: "fx-1",
+          status: "open",
+          allocatedCents: 0,
+          recordedAt: Date.now(),
+        },
+        { action: "bank.import", label: `${TODAY} -10250 EUR` },
+      ),
+    );
+    const sug = await s.owner.query(api.matching.suggestions, { transactionId: tx });
+    expect(sug.candidates[0]?.allocations[0]).toMatchObject({
+      target: { kind: "voucher", id: voucherId },
+      amountCents: 10_250,
+    });
+    expect(sug.candidates[0]?.reasons).toContain("bill_amount");
+    await s.owner.mutation(api.matching.confirm, {
+      transactionId: tx,
+      allocations: [{ target: { kind: "voucher", id: voucherId }, amountCents: 10_250 }],
+    });
+    expect((await txOf(s.t, tx)).status).toBe("matched");
+    expect((await s.t.run((ctx) => ctx.db.get(voucherId)))?.status).toBe("paid");
+    const lines = await s.t.run((ctx) => ctx.db.query("journalLines").collect());
+    // SKR04 6880 Aufwendungen aus Kursdifferenzen: 102,50 € paid for a 100,00 € (119,00 USD @ 1.19) claim.
+    expect(lines.filter((l) => l.account === "6880").map((l) => l.debitCents - l.creditCents)).toEqual([250]);
   });
 
   test("EC-BNK-25 T07-024 a fee field: principal pays the voucher, the fee is its own bank-fee line without VAT", async () => {
