@@ -635,9 +635,10 @@ export const failInternal = actorMutation({
   handler: async (ctx, { importId, message }) => failImport(ctx, importId, message),
 });
 
-const CONTACT_BATCH = 50;
-const PRODUCT_BATCH = 50;
-const DOCUMENT_BATCH = 25;
+/** F12 E-AUD-18: records per commit mutation (≤ 100 to keep audit-chain contention low). */
+export const CONTACT_BATCH = 50;
+export const PRODUCT_BATCH = 50;
+export const DOCUMENT_BATCH = 25;
 
 function chunks<T>(list: readonly T[], size: number): T[][] {
   const out: T[][] = [];

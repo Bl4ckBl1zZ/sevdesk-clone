@@ -400,7 +400,8 @@ export const commitRowsInternal = actorMutation({
   handler: async (ctx, { importId, ...input }) => commitGenericRows(ctx, importId, input),
 });
 
-const BATCH = 50;
+/** F12 E-AUD-18: records per commit mutation (≤ 100 to keep audit-chain contention low). */
+export const BATCH = 50;
 
 /**
  * IMP-023 commit: only from `previewed` with the current preview hash (stale → E-IMP-27); invalid, duplicate and
