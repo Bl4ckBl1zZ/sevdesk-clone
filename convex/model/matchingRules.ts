@@ -1,4 +1,5 @@
 import { formatMoneyDe } from "../../src/domain/banking/amount";
+import { type ClassifiedTx, type RuleSuggestion, suggestRules } from "../../src/domain/banking/rule-suggestions";
 import {
   categorizeOutcome,
   firstMatchingRule,
@@ -210,6 +211,47 @@ export async function rulesWithHits(ctx: ReadCtx, now: number) {
     ...r,
     hits90: previewRule({ when: r.when }, txs, today).count,
   }));
+}
+
+/** BNK-053 window: classifications of the last 180 days count towards a rule suggestion. */
+const SUGGESTION_WINDOW_DAYS = 180;
+
+/**
+ * BNK-053: manual classifications the rules can reproduce — a finalised voucher from the transaction that no rule
+ * created (one account for all lines) or a „privat“ mark — grouped by counterparty token; read-only.
+ */
+export async function ruleSuggestionsFor(ctx: ReadCtx, now: number): Promise<RuleSuggestion[]> {
+  const from = addDays(berlinCalendarDate(now), -SUGGESTION_WINDOW_DAYS);
+  const items: ClassifiedTx[] = [];
+  for (const a of await ctx.db.query("bankAccounts").collect()) {
+    const rows = await ctx.db
+      .query("bankTransactions")
+      .withIndex("by_account_bookingDate", (q) => q.eq("accountId", a._id).gte("bookingDate", from))
+      .collect();
+    for (const t of rows) {
+      if (t.status === "private") {
+        items.push({ tx: ruleTx(t), classification: { action: "private" } });
+        continue;
+      }
+      if (t.status !== "matched" && t.status !== "partially_matched") continue;
+      const voucher = (
+        await ctx.db
+          .query("vouchers")
+          .withIndex("by_bankTransaction", (q) => q.eq("bankTransactionId", t._id))
+          .collect()
+      ).find((v) => v.status !== "draft" && v.status !== "cancelled" && !v.ruleId);
+      if (!voucher) continue;
+      const lines = await ctx.db
+        .query("voucherLines")
+        .withIndex("by_voucher", (q) => q.eq("voucherId", voucher._id))
+        .collect();
+      const accounts = new Set(lines.map((l) => l.account));
+      const [account] = [...accounts];
+      if (accounts.size !== 1 || !account) continue;
+      items.push({ tx: ruleTx(t), classification: { action: "categorize", account, taxRule: voucher.taxRule } });
+    }
+  }
+  return suggestRules(items, (await listRules(ctx)).map(toDomainRule));
 }
 
 /** The rule that applies to a booked transaction (first match by priority), or null. */

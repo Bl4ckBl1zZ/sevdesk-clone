@@ -48,6 +48,7 @@ beforeEach(() => {
   backend.calls = {};
   backend.data = {
     "matchingRules:list": [rule],
+    "matchingRules:suggestions": [],
     "banking:accounts": [],
     "contacts:options": [],
     "matchingRules:preview": (args: { when: Record<string, unknown> }) => ({
@@ -95,5 +96,32 @@ describe("Einstellungen › Bank › Regeln (BNK-050, BNK-051)", () => {
       ruleId: "r1",
       transactionIds: ["t1"],
     });
+  });
+
+  test("BNK-053 a proposed rule opens the editor prefilled; saving creates it", async () => {
+    backend.data["matchingRules:suggestions"] = [
+      {
+        key: "iban:DE02120300000000202051|private",
+        name: "Max Muster",
+        count: 3,
+        transactionIds: ["t1", "t2", "t3"],
+        when: { ibanEquals: "DE02120300000000202051", direction: "out" },
+        apply: { action: "private" },
+        message: "3 Umsätze von „Max Muster“ wurden gleich zugeordnet – Regel anlegen?",
+      },
+    ];
+    const user = userEvent.setup();
+    renderWithIntl(<MatchingRules />);
+    expect(screen.getByText("3 Umsätze von „Max Muster“ wurden gleich zugeordnet – Regel anlegen?")).toBeVisible();
+    await user.click(screen.getByRole("button", { name: "Regel für „Max Muster“ anlegen" }));
+    expect(screen.getByLabelText("Name")).toHaveValue("Max Muster");
+    await user.click(screen.getByRole("button", { name: "Speichern" }));
+    expect(backend.calls["matchingRules:create"]).toHaveBeenCalledWith(
+      expect.objectContaining({
+        name: "Max Muster",
+        when: { ibanEquals: "DE02120300000000202051", direction: "out" },
+        apply: { action: "private" },
+      }),
+    );
   });
 });

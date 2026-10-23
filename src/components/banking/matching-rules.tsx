@@ -39,6 +39,8 @@ type RuleRow = FunctionReturnType<typeof api.matchingRules.list>[number];
 type When = FunctionArgs<typeof api.matchingRules.preview>["when"];
 type Apply = FunctionArgs<typeof api.matchingRules.create>["apply"];
 type Action = Apply["action"];
+type Suggestion = FunctionReturnType<typeof api.matchingRules.suggestions>[number];
+type Draft = { name: string; when: When; apply: Apply };
 
 const ACTIONS: readonly Action[] = ["categorize", "private", "transfer", "link_contact", "ignore"];
 
@@ -53,8 +55,9 @@ export function MatchingRules() {
 function MatchingRulesInner() {
   const t = useTranslations("bankRules");
   const rules = useAuthedQuery(api.matchingRules.list, {});
+  const suggestions = useAuthedQuery(api.matchingRules.suggestions, {});
   const canWrite = useCan("bankRules.write");
-  const [editing, setEditing] = useState<RuleRow | "new" | null>(null);
+  const [editing, setEditing] = useState<RuleRow | "new" | Draft | null>(null);
   const [deleting, setDeleting] = useState<RuleRow | null>(null);
   const run = useRun();
   const remove = useMutation(api.matchingRules.remove);
@@ -70,6 +73,29 @@ function MatchingRulesInner() {
           </Button>
         )}
       </div>
+      {canWrite && suggestions && suggestions.length > 0 && (
+        <section aria-labelledby="rule-suggestions" className="flex flex-col gap-2 rounded-md border border-dashed p-3">
+          <h2 id="rule-suggestions" className="font-medium">
+            {t("suggestionsTitle")}
+          </h2>
+          <ul className="flex flex-col gap-2">
+            {suggestions.map((s: Suggestion) => (
+              <li key={s.key} className="flex flex-col gap-2 @xl:flex-row @xl:items-center @xl:justify-between">
+                <span className="text-sm">{s.message}</span>
+                <Button
+                  variant="outline"
+                  className="h-11 md:h-9"
+                  aria-label={t("suggestionCreate", { name: s.name })}
+                  onClick={() => setEditing({ name: s.name, when: s.when as When, apply: s.apply as Apply })}
+                >
+                  <PlusIcon className="size-4" aria-hidden="true" />
+                  {t("new")}
+                </Button>
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
       {rules.length === 0 ? (
         <p className="rounded-md border p-4 text-sm text-muted-foreground">{t("empty")}</p>
       ) : (
@@ -114,7 +140,13 @@ function MatchingRulesInner() {
           ))}
         </ol>
       )}
-      {editing && <RuleEditor rule={editing === "new" ? null : editing} onClose={() => setEditing(null)} />}
+      {editing && (
+        <RuleEditor
+          rule={editing === "new" || !("_id" in editing) ? null : editing}
+          {...(editing !== "new" && !("_id" in editing) ? { draft: editing } : {})}
+          onClose={() => setEditing(null)}
+        />
+      )}
       {deleting && (
         <ConfirmDialog
           title={t("deleteTitle")}
@@ -134,7 +166,7 @@ function MatchingRulesInner() {
 
 const centsText = (c: number | undefined) => (c === undefined ? "" : formatCents(c));
 
-function RuleEditor({ rule, onClose }: { rule: RuleRow | null; onClose: () => void }) {
+function RuleEditor({ rule, draft, onClose }: { rule: RuleRow | null; draft?: Draft; onClose: () => void }) {
   const t = useTranslations("bankRules");
   const run = useRun();
   const create = useMutation(api.matchingRules.create);
@@ -142,16 +174,16 @@ function RuleEditor({ rule, onClose }: { rule: RuleRow | null; onClose: () => vo
   const applyExisting = useAction(api.matchingRules.applyToExisting);
   const accounts = useAuthedQuery(api.banking.accounts, {});
   const contacts = useAuthedQuery(api.contacts.options, {});
-  const [name, setName] = useState(rule?.name ?? "");
+  const [name, setName] = useState(rule?.name ?? draft?.name ?? "");
   const [priority, setPriority] = useState(String(rule?.priority ?? 100));
   const [enabled, setEnabled] = useState(rule?.enabled ?? true);
   const [mode, setMode] = useState<"suggest" | "auto">(rule?.mode ?? "suggest");
-  const [when, setWhen] = useState<When>(rule?.when ?? { direction: "out" });
+  const [when, setWhen] = useState<When>(rule?.when ?? draft?.when ?? { direction: "out" });
   const [minText, setMinText] = useState(centsText(rule?.when.amountMinCents));
   const [maxText, setMaxText] = useState(centsText(rule?.when.amountMaxCents));
   const [mccText, setMccText] = useState((rule?.when.mccIn ?? []).join(", "));
   const [apply, setApply] = useState<Apply>(
-    rule?.apply ?? { action: "categorize", account: "", statementSufficesAsVoucher: false },
+    rule?.apply ?? draft?.apply ?? { action: "categorize", account: "", statementSufficesAsVoucher: false },
   );
   const ids = { name: useId(), prio: useId(), mode: useId(), action: useId(), enabled: useId() };
 

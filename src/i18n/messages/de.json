@@ -5403,6 +5403,8 @@
     "new": "Neue Regel",
     "empty": "Noch keine Regeln.",
     "disabled": "deaktiviert",
+    "suggestionsTitle": "Vorgeschlagene Regeln",
+    "suggestionCreate": "Regel für „{name}“ anlegen",
     "mode": {
       "suggest": "Vorschlag",
       "auto": "Automatik"

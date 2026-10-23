@@ -507,3 +507,47 @@ describe("matching vouchers (BNK-049)", () => {
     expect((await s.t.run((ctx) => ctx.db.get(voucherId)))?.openAmountCents).toBe(11_900);
   });
 });
+
+describe("rule suggestions (BNK-053)", () => {
+  test("BNK-053 T07-086 after 3 identical manual classifications of one counterparty a rule is proposed; a saved rule ends it", async () => {
+    const s = await setup();
+    const classify = async (n: number) => {
+      const tx = await bookedTransaction(s.t, s.bank, {
+        bookingDate: TODAY,
+        amountCents: -2_990 - n * 100,
+        purpose: `Rechnung 2026-90${n}`,
+        counterpartyName: "Büro Schmidt GmbH",
+        counterpartyIban: "DE02120300000000202051",
+      });
+      const id = await s.owner.mutation(api.matchingRules.createVoucherFromTransaction, {
+        transactionId: tx,
+        account: "6815",
+      });
+      await upload(s.t, s.owner, { voucherId: id });
+      await s.owner.mutation(api.vouchers.finalize, { id });
+      return tx;
+    };
+    await classify(1);
+    await classify(2);
+    expect(await s.owner.query(api.matchingRules.suggestions, {})).toEqual([]);
+    await classify(3);
+    const [sug, ...rest] = await s.owner.query(api.matchingRules.suggestions, {});
+    expect(rest).toEqual([]);
+    expect(sug).toMatchObject({
+      count: 3,
+      when: { ibanEquals: "DE02120300000000202051", direction: "out" },
+      apply: { action: "categorize", account: "6815" },
+      message: "3 Umsätze von „Büro Schmidt GmbH“ wurden gleich zugeordnet – Regel anlegen?",
+    });
+    // Read-only: nothing is created until the owner saves the proposed rule.
+    expect(await s.t.run((ctx) => ctx.db.query("matchingRules").collect())).toEqual([]);
+    await s.owner.mutation(api.matchingRules.create, {
+      name: sug?.name ?? "",
+      priority: 10,
+      enabled: true,
+      when: sug?.when ?? {},
+      apply: { action: "categorize", account: "6815" },
+    });
+    expect(await s.owner.query(api.matchingRules.suggestions, {})).toEqual([]);
+  });
+});

@@ -16,6 +16,7 @@ import {
   deleteRule,
   previewRuleHits,
   ruleFor,
+  ruleSuggestionsFor,
   rulesWithHits,
   updateRule,
   voucherFromTransaction,
@@ -53,6 +54,13 @@ export const preview = query({
   permission: "banking.read",
   args: { when: vRuleWhen },
   handler: async (ctx, { when }) => previewRuleHits(ctx, when, ctx.now()),
+});
+
+/** BNK-053: rules proposed after 3 identical manual classifications per counterparty (the owner saves them). */
+export const suggestions = query({
+  permission: "banking.read",
+  args: {},
+  handler: async (ctx) => ruleSuggestionsFor(ctx, ctx.now()),
 });
 
 /** The rule that applies to a transaction (Zuordnungen chip „Regel: …“, suggest-mode rules). */
