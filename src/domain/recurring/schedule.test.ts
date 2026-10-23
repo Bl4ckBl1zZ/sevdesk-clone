@@ -26,7 +26,7 @@ const monthly = (over: Partial<ScheduleState> = {}): ScheduleState => ({
 });
 
 describe("REC-02 intervals and the anchor rule", () => {
-  test("REC-02 EC-096 T-REC-002 monthly from 31.01. keeps the anchor day: 28.02. → 31.03. → 30.04. …", () => {
+  test("REC-02 EC-096 EC-DOC-96 T-EC-096 T-REC-002 monthly from 31.01. keeps the anchor day: 28.02. → 31.03. → 30.04. …", () => {
     const first = d("2026-01-31");
     const dates = Array.from({ length: 24 }, (_, i) => occurrenceAt(first, "P1M", i));
     expect(dates.slice(0, 6)).toEqual([
@@ -96,7 +96,7 @@ describe("REC-04 billing periods", () => {
     expect(periodFor(d("2026-12-01"), "P1M", 1, "in_arrears")).toEqual({ from: "2026-12-01", to: "2026-12-31" });
   });
 
-  test("REC-04 EC-096 periods of a 31st anchor are contiguous: 31.01.–27.02., 28.02.–30.03., 31.03.–29.04.", () => {
+  test("REC-04 EC-096 EC-DOC-96 periods of a 31st anchor are contiguous: 31.01.–27.02., 28.02.–30.03., 31.03.–29.04.", () => {
     const first = d("2026-01-31");
     expect([0, 1, 2].map((i) => periodFor(first, "P1M", i, "in_advance"))).toEqual([
       { from: "2026-01-31", to: "2026-02-27" },

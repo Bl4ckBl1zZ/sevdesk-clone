@@ -90,6 +90,8 @@ export interface CancelOptions {
   selfBillingObjection?: boolean | undefined;
   /** Default: today (Europe/Berlin). Not before the original, not in the future. */
   documentDate?: string | undefined;
+  /** EC-DOC-110: Storno without XML — only for an unsent original whose artifacts are blocked. */
+  einvoiceFallback?: boolean | undefined;
 }
 
 export interface CancelPreview {
@@ -99,6 +101,10 @@ export interface CancelPreview {
   documentDate: string;
   /** EC-DOC-116 dispatch notice of the preview dialog. */
   notice: string;
+  /** EC-DOC-116: the customer may hold the invoice (exported or marked) → the success step offers „Exportieren“. */
+  exportSuggested: boolean;
+  /** EC-DOC-110: unsent original with blocked files → „Ohne E-Rechnung stornieren“ may be offered. */
+  artifactsBlocked: boolean;
 }
 
 function stornoDate(original: SalesDoc, o: CancelOptions, today: string): string {
@@ -121,21 +127,43 @@ function dispatchNotice(d: SalesDoc): string {
     return "Die Rechnung wurde als versendet markiert. Bitte die Stornorechnung ebenfalls versenden und als versendet markieren.";
   }
   if (d.firstExportedAt !== undefined) {
-    return "Die Rechnung wurde exportiert, aber nicht als versendet markiert. Falls sie dem Kunden vorliegt, bitte auch die Stornorechnung versenden.";
+    return "Die Rechnung wurde exportiert, aber nicht als versendet markiert. Der Kunde könnte sie bereits erhalten haben – bitte die Stornorechnung ebenfalls übermitteln, sonst bleibt die ausgewiesene Steuer nach § 14c UStG geschuldet.";
   }
   return "Die Rechnung wurde nicht versendet; die Stornorechnung muss nicht versendet werden.";
 }
 
-function mirrorOf(original: DocumentSnapshot, number: string, documentDate: string, reason?: string) {
+function mirrorOf(
+  original: DocumentSnapshot,
+  number: string,
+  documentDate: string,
+  reason?: string,
+  einvoiceFallback = false,
+) {
   return buildSnapshot(
     cancellationSnapshotInput(original, {
       number,
       documentDate,
       layoutVersionId: original.layoutVersionId,
       ...(reason?.trim() ? { reason: reason.trim() } : {}),
+      ...(einvoiceFallback ? { einvoiceFallback: true } : {}),
     }),
   );
 }
+
+/** EC-DOC-110 / EC-006: the XML fallback is only for an unsent original whose files could never be produced. */
+function assertFallbackAllowed(doc: SalesDoc, o: CancelOptions): void {
+  if (!o.einvoiceFallback) return;
+  if (doc.artifactStatus !== "blocked" || doc.sentAt !== undefined) {
+    throw appError(
+      "conflict",
+      "Eine Stornorechnung ohne E-Rechnung ist nur möglich, wenn die Dateien der Rechnung nicht erzeugt werden konnten und sie nicht versendet wurde.",
+      { reason: "einvoice_fallback_not_allowed" },
+    );
+  }
+}
+
+export const EINVOICE_FALLBACK_NOTE =
+  "Storno ohne E-Rechnung: Die Dateien der Rechnung waren blockiert und die XML der Stornorechnung ist ungültig (EC-006).";
 
 /** The Storno preview (mirror with PREVIEW-0000, guard result); writes nothing. */
 export async function cancelPreview(
@@ -149,13 +177,16 @@ export async function cancelPreview(
   const today = berlinCalendarDate(now);
   const documentDate = o.documentDate ?? today;
   const snap = await storedSnapshot(ctx, doc);
-  const built = !guard && snap ? mirrorOf(snap, PREVIEW_NUMBER, documentDate, o.reason) : null;
+  const built =
+    !guard && snap ? mirrorOf(snap, PREVIEW_NUMBER, documentDate, o.reason, o.einvoiceFallback === true) : null;
   return {
     guard: guard ?? (built && !built.ok ? { code: built.error.code, message: built.error.message } : null),
     snapshot: built?.ok ? built.value : null,
     original: { id: doc._id, number: doc.number ?? "", documentDate: doc.documentDate ?? "", type: doc.type },
     documentDate,
     notice: dispatchNotice(doc),
+    exportSuggested: doc.sentAt !== undefined || doc.firstExportedAt !== undefined,
+    artifactsBlocked: doc.artifactStatus === "blocked" && doc.sentAt === undefined,
   };
 }
 
@@ -171,6 +202,7 @@ export async function cancelDocument(
     selfBillingObjection: o.selfBillingObjection === true,
   });
   if (guard) throw appError("conflict", guard.message, { reason: guard.code });
+  assertFallbackAllowed(original, o);
   const snap = await storedSnapshot(ctx, original);
   if (!snap) throw appError("conflict", "Die Rechnung hat keinen festgeschriebenen Stand.");
   const now = ctx.now();
@@ -215,7 +247,7 @@ export async function cancelDocument(
     documentId: stornoId,
     action: "document.cancel",
   });
-  const built = mirrorOf(snap, assigned.number, documentDate, reason);
+  const built = mirrorOf(snap, assigned.number, documentDate, reason, o.einvoiceFallback === true);
   if (!built.ok) throw appError("validation_failed", built.error.message, { reason: built.error.code });
   const mirror = built.value;
   const snapshotId = await auditedInsert(
@@ -269,7 +301,13 @@ export async function cancelDocument(
       finalizedFromVersion: 1,
       retentionUntil: retentionUntil("cancellation", documentDate),
     },
-    { action: "document.cancel", label: assigned.number, ...(reason ? { reason } : {}) },
+    {
+      action: "document.cancel",
+      label: assigned.number,
+      ...(reason || o.einvoiceFallback
+        ? { reason: [reason, o.einvoiceFallback ? EINVOICE_FALLBACK_NOTE : ""].filter(Boolean).join(" · ") }
+        : {}),
+    },
   );
 
   // The original: cancelled, receivable closed, register row, chain effects (RI-06, EC-077).

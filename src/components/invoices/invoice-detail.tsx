@@ -50,7 +50,7 @@ import { formatMicros, formatMilli } from "@/domain/money/format";
 import type { DraftValues } from "@/domain/schemas/documents";
 import { useAuthedQuery } from "@/hooks/use-authed-query";
 import { AttachmentsSection } from "./attachments-section";
-import { CorrectionActions, DraftBanner, docTypeKey, RelationsPanel } from "./corrections";
+import { CorrectionActions, DraftBanner, docTypeKey, RelationsPanel, StornoDialog } from "./corrections";
 import { ChainCard, DocumentFlowActions } from "./document-actions";
 import { DuplicateButton } from "./duplicate-button";
 import { InvoiceEditor } from "./invoice-editor";
@@ -204,10 +204,18 @@ function InvoiceDetailInner({ id }: { id: Id<"salesDocuments"> }) {
 function ArtifactState({ data }: { data: Detail }) {
   const t = useTranslations("invoices.detail");
   const run = useRun();
+  const tStorno = useTranslations("invoiceCorrections.storno");
   const retry = useMutation(api.invoices.retryArtifacts);
   const canFinalize = useCan("invoices.finalize");
+  const canWrite = useCan("documents.write");
+  const [recreate, setRecreate] = useState(false);
   if (data.doc.artifactStatus === "ready") return null;
   if (data.doc.artifactStatus === "blocked") {
+    // EC-DOC-110: unsent invoice whose files cannot be produced → Storno (optionally without XML) and a fresh copy.
+    const canRecreate =
+      canWrite &&
+      data.doc.sentAt === undefined &&
+      ["invoice", "advance_invoice", "partial_invoice", "final_invoice"].includes(data.doc.type);
     return (
       <div
         role="alert"
@@ -227,6 +235,12 @@ function ArtifactState({ data }: { data: Detail }) {
             {t("retry")}
           </Button>
         )}
+        {canRecreate && (
+          <Button variant="outline" className="h-11 md:h-9" onClick={() => setRecreate(true)}>
+            {tStorno("recreate")}
+          </Button>
+        )}
+        {recreate && <StornoDialog id={data.doc._id} recreate onClose={() => setRecreate(false)} />}
       </div>
     );
   }

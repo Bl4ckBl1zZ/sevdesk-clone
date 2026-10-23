@@ -5,6 +5,7 @@ import type { CalendarDate } from "../src/domain/time/calendar-date";
 import { api, internal } from "./_generated/api";
 import type { Id } from "./_generated/dataModel";
 import { BERLIN, createValues, orgForm, personForm } from "./catalog.fixtures";
+import { dunningSetup, markSent as markReminderSent } from "./dunning.fixtures";
 import { b2bBuyer, finalizedInvoice, INVOICE_RANGE, invoiceValues, settle, setupInvoicing } from "./invoices.fixtures";
 import { errorCode } from "./lib/errors";
 import { auditedInsert, auditedPatch } from "./model/audit";
@@ -405,5 +406,150 @@ describe("dispatch (EC-DOC-112)", () => {
     const row = (await owner.query(api.invoices.list, { paginationOpts: { numItems: 10, cursor: null } })).page[0];
     expect(row?.displayStatus.label).toBe("Nicht versendet");
     expect(row?.exported).toBe(true);
+  });
+
+  test("EC-DOC-116 T-EC-116 the Storno preview of an exported, unmarked invoice warns (§ 14c) and suggests exporting the Storno", async () => {
+    const t = makeT();
+    const { owner, id } = await finalizedInvoice(t);
+    const unsent = await owner.query(api.corrections.cancelPreview, { id });
+    expect(unsent.exportSuggested).toBe(false);
+    expect(unsent.notice).toContain("muss nicht versendet werden");
+    await owner.action(api.documentArtifacts.exportFiles, { id, request: { entry: "default" } });
+    const exported = await owner.query(api.corrections.cancelPreview, { id });
+    expect(exported.exportSuggested).toBe(true);
+    expect(exported.artifactsBlocked).toBe(false);
+    expect(exported.notice).toContain("exportiert, aber nicht als versendet markiert");
+    expect(exported.notice).toContain("§ 14c UStG");
+  });
+});
+
+describe("copies after a layout change (EC-DOC-98)", () => {
+  test("EC-DOC-98 T-EC-098 a copy re-renders with the original layout version and the logo valid at finalisation", async () => {
+    const t = makeT();
+    const { owner } = await setupInvoicing(t);
+    const as = OWNER_ACTOR(owner.actor);
+    const png = (label: string) =>
+      t.run((ctx) =>
+        ctx.storage.store(new Blob([new Uint8Array([137, 80, 78, 71, 13, 10, 26, 10]), label], { type: "image/png" })),
+      );
+    const oldLogo = await png("alt");
+    await t.model(as, (ctx) =>
+      patchCompanyProfile(ctx, { logoStorageId: oldLogo }, { action: "settings.logo.update" }),
+    );
+    await owner.mutation(api.settings.saveLayout, { values: { template: "classic", accentColor: "#1F6FEB" } });
+    const { personId } = await b2bBuyer(owner);
+    const { id } = await owner.mutation(api.invoices.createDraft, { values: invoiceValues(personId) });
+    vi.setSystemTime(new Date("2026-10-12T10:00:05Z"));
+    await owner.action(api.invoices.finalize, { id, version: 1 });
+    await settle(t);
+    const before = await t.query(internal.invoices.renderInput, { id });
+    // later: new logo and a new layout version
+    vi.setSystemTime(new Date("2026-10-13T09:00:00Z"));
+    const newLogo = await png("neu");
+    await t.model(as, (ctx) =>
+      patchCompanyProfile(ctx, { logoStorageId: newLogo }, { action: "settings.logo.update" }),
+    );
+    const later = await t.asUser("owner", { existingUserId: owner.userId });
+    await later.mutation(api.settings.saveLayout, { values: { template: "classic", accentColor: "#B42318" } });
+    const after = await t.query(internal.invoices.renderInput, { id });
+    expect(after.logoStorageId).toBe(oldLogo);
+    expect(after.layoutConfig).toEqual(before.layoutConfig);
+    expect((after.layoutConfig as { accentColor?: string } | null)?.accentColor).toBe("#1F6FEB");
+  });
+});
+
+describe("blocked artifacts (EC-DOC-110)", () => {
+  test("EC-DOC-110 T-EC-110 an unsent invoice with blocked artifacts is cancelled; the Storno may fall back to no XML (audited)", async () => {
+    const t = makeT();
+    const { owner } = await setupInvoicing(t);
+    const { personId } = await b2bBuyer(owner);
+    const { id } = await owner.mutation(api.invoices.createDraft, { values: invoiceValues(personId) });
+    // KoSIT accepts the preview XML, Mustang is down → the render after the commit fails until blocked (DOC-28)
+    let xmlAcceptable = true;
+    vi.stubEnv("EINVOICE_TOOLS_URL", "http://einvoice-tools.test");
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (url: string) =>
+        String(url).endsWith("/validate/xml")
+          ? new Response(
+              JSON.stringify(
+                xmlAcceptable
+                  ? { acceptable: true, validatorVersion: "1.6.3", configVersion: "3.0.2" }
+                  : { acceptable: false, errors: [{ code: "BR-CO-15", text: "Summe falsch" }] },
+              ),
+              { status: xmlAcceptable ? 200 : 422 },
+            )
+          : new Response("down", { status: 503 }),
+      ),
+    );
+    await owner.action(api.invoices.finalize, { id, version: 1 });
+    await settle(t);
+    // while the files are still being retried the fallback is refused
+    const notBlocked = await owner
+      .mutation(api.corrections.cancel, { id, einvoiceFallback: true })
+      .catch((x: unknown) => x);
+    expect(dataOf(notBlocked).reason).toBe("einvoice_fallback_not_allowed");
+    for (let i = 0; i < 5; i++) await t.mutation(internal.invoices.artifactFailure, { id, error: "Mustang down" });
+    expect((await doc(t, id)).artifactStatus).toBe("blocked");
+    xmlAcceptable = false;
+    expect((await owner.action(api.corrections.validateCancel, { id })).status).toBe("failed");
+    expect(await owner.action(api.corrections.validateCancel, { id, einvoiceFallback: true })).toEqual({
+      status: "not_required",
+      message: null,
+    });
+    const r = await owner.mutation(api.corrections.cancel, { id, reason: "Neu erstellen", einvoiceFallback: true });
+    const storno = await doc(t, r.id);
+    expect(storno.einvoice.format).toBe("none");
+    const audit = await t.run(async (ctx) =>
+      (
+        await ctx.db
+          .query("auditLog")
+          .withIndex("by_entity", (q) => q.eq("entity.table", "salesDocuments").eq("entity.id", r.id))
+          .collect()
+      ).filter((e) => e.action === "document.cancel"),
+    );
+    expect(audit.some((e) => (e.reason ?? "").includes("Storno ohne E-Rechnung"))).toBe(true);
+    expect((await doc(t, id)).status).toBe("cancelled");
+    await settle(t);
+  });
+});
+
+describe("Storno edges (EC-DOC-68, EC-DOC-69)", () => {
+  test("EC-DOC-68 T-EC-068 the Storno of an invoice dated in a locked period is allowed, dated today and booked in the current period", async () => {
+    const t = makeT();
+    const { owner, id } = await finalizedInvoice(t);
+    vi.setSystemTime(new Date("2026-11-20T10:00:00Z"));
+    const later = await t.asUser("owner", { existingUserId: owner.userId });
+    await later.mutation(api.periods.lock, { period: "2026-10" });
+    const r = await later.mutation(api.corrections.cancel, { id, reason: "Doppelt erstellt" });
+    const storno = await doc(t, r.id);
+    expect(storno).toMatchObject({ type: "cancellation", status: "finalized", documentDate: "2026-11-20" });
+    const entries = await t.run((ctx) => ctx.db.query("journalEntries").collect());
+    expect(entries.map((e) => e.period).sort()).toEqual(["2026-10", "2026-11"]);
+    await settle(t);
+  });
+
+  test("EC-DOC-69 T-EC-069 a Storno after dunning started closes the case; the sent reminder stays archived", async () => {
+    const t = makeT();
+    const s = await dunningSetup(t);
+    vi.setSystemTime(new Date("2026-10-19T08:00:00Z"));
+    const owner = await t.asUser("owner", { existingUserId: s.owner.userId });
+    const { id } = await owner.mutation(api.dunning.createReminder, { invoiceId: s.invoiceId, values: {} });
+    const reminderId = id as Id<"salesDocuments">;
+    await owner.mutation(api.dunning.finalize, { id: reminderId });
+    await settle(t);
+    await markReminderSent(owner, reminderId, "2026-10-19", "post");
+    await owner.mutation(api.corrections.cancel, { id: s.invoiceId, reason: "Leistung nicht erbracht" });
+    const dunningCase = await t.run((ctx) =>
+      ctx.db
+        .query("dunningCases")
+        .withIndex("by_invoice", (q) => q.eq("invoiceId", s.invoiceId))
+        .first(),
+    );
+    expect(dunningCase?.status).toBe("closed");
+    const reminder = await doc(t, reminderId);
+    expect(reminder).toMatchObject({ type: "reminder", status: "sent" });
+    expect(reminder.snapshotId).toBeDefined();
+    await settle(t);
   });
 });

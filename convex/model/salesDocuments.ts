@@ -549,6 +549,16 @@ export async function loadDocumentContext(
 const supplyEndOf = (s: NonNullable<SalesDocumentDoc["supplyDate"]>): string =>
   s.kind === "date" ? s.date : s.kind === "period" ? s.to : `${s.month}-31`;
 
+/** EC-DOC-98: the logo of the company profile version valid at `at` (copies re-render with the original logo). */
+export async function logoAt(ctx: ReadCtx, at: number): Promise<Id<"_storage"> | undefined> {
+  for (const v of await ctx.db.query("companyProfileVersions").withIndex("by_version").order("desc").collect()) {
+    if (v.validFrom > at) continue;
+    const logo = (JSON.parse(v.profile) as { logoStorageId?: string }).logoStorageId;
+    return logo ? (logo as Id<"_storage">) : undefined;
+  }
+  return undefined;
+}
+
 /**
  * EC-DOC-86 (ER-03): without a confirmed prior-year turnover the decision uses the running total of the finalised
  * documents, flagged `provisional` (warning `turnover_provisional`). Nothing recorded in the app for that year → no

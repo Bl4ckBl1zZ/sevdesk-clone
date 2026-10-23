@@ -3222,7 +3222,16 @@
       "gross": "Brutto",
       "reason": "Grund (wird auf der Stornorechnung gedruckt, optional)",
       "done": "Stornorechnung {number} erstellt.",
-      "xmlInvalid": "Die E-Rechnung der Stornorechnung ist ungültig."
+      "xmlInvalid": "Die E-Rechnung der Stornorechnung ist ungültig.",
+      "fallback": "Ohne E-Rechnung stornieren",
+      "fallbackHint": "Die Dateien der Rechnung konnten nicht erzeugt werden und die E-Rechnung der Stornorechnung ist ebenfalls ungültig. Die Stornorechnung kann ohne XML erstellt werden (wird protokolliert).",
+      "recreateTitle": "Rechnung {number} stornieren und neu erstellen?",
+      "recreated": "Neuer Entwurf als Kopie von {number} angelegt.",
+      "successTitle": "Stornorechnung {number} erstellt",
+      "successExport": "Der Kunde könnte die Rechnung bereits erhalten haben. Bitte die Stornorechnung jetzt exportieren und ebenfalls übermitteln.",
+      "export": "Exportieren",
+      "toStorno": "Zur Stornorechnung",
+      "recreate": "Stornieren und neu erstellen"
     },
     "paidStorno": {
       "correction": "Rechnungskorrektur erstellen",

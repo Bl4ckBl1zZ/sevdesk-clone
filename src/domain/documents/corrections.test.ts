@@ -95,6 +95,16 @@ describe("Storno mirror (INV-10, RI-06, golden G-17)", () => {
     expect(input.texts?.headText).toBe("Grund der Stornierung: Doppelt erstellt");
   });
 
+  test("EC-DOC-110 T-EC-110 the Storno falls back to no XML only when asked (blocked original artifacts)", () => {
+    const original = makeSnapshot({ einvoice: { ...makeSnapshot().einvoice, format: "zugferd_en16931", decision: "PDF_NEEDS_CONSENT" } });
+    const p = { number: "RE-2026-0047", documentDate: "2026-10-20", layoutVersionId: "layout-v1" };
+    expect(cancellationSnapshotInput(original, p).einvoice).toEqual({ format: "zugferd_en16931", decision: "MUST_E" });
+    expect(cancellationSnapshotInput(original, { ...p, einvoiceFallback: true }).einvoice).toEqual({
+      format: "none",
+      decision: "PDF_NEEDS_CONSENT",
+    });
+  });
+
   test("UST-41 EC-DOC-60 the Storno of a final invoice mirrors its deductions", () => {
     const original = makeSnapshot({
       type: "final_invoice",

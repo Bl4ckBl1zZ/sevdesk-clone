@@ -48,6 +48,7 @@ import {
   getDocument,
   lastExportArtifactIds,
   loadDocumentContext,
+  logoAt,
   markSent as markSentModel,
   notifyExportedNotMarked,
   openTodos,
@@ -889,7 +890,11 @@ export const renderInput = systemQuery({
       finalizedAt: doc.finalizedAt ?? null,
       snapshotJson: snap?.json ?? null,
       layoutConfig: layoutVersion?.config ?? null,
-      logoStorageId: profile?.logoStorageId ?? null,
+      // EC-DOC-98: copies re-render with the logo of the profile version valid at the finalisation.
+      logoStorageId:
+        (doc.finalizedAt !== undefined ? await logoAt(ctx, doc.finalizedAt) : undefined) ??
+        profile?.logoStorageId ??
+        null,
       hasArtifacts: (await documentArtifacts(ctx, id)).some((a) => (a.variant ?? "original") !== "copy"),
       // DOC-18: attachments embedded as BG-24 in the XML (frozen with the snapshot hashes)
       xmlAttachments: (doc.attachments ?? [])
