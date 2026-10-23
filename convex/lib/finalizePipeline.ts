@@ -9,6 +9,7 @@ import type { ActorContext } from "../model/types";
 import { clockOffsetMs } from "./clock";
 import { validateXml } from "./einvoiceTools";
 import { appError } from "./errors";
+import { withOccRetry } from "./occRetry";
 
 export interface PipelineOptions {
   documentDate?: string;
@@ -79,16 +80,19 @@ export async function runFinalizePipeline(
     }
     validation = outcome.kind === "passed" ? "passed" : "skipped";
   }
-  const r: CommitOut = await ctx.runMutation(internal.invoices.commit, {
-    actorContext,
-    id: a.id,
-    version: a.version,
-    validation,
-    ...(p.expected ? { expected: p.expected } : {}),
-    ...opts,
-    // ⚠ MCP (06 §3.4): the commit consumes the document_preview token in its transaction.
-    ...(a.confirmToken ? { confirmToken: a.confirmToken } : {}),
-  });
+  // EC-001: concurrent commits conflict on the audit-chain head; retry the (atomic, idempotent) commit.
+  const r: CommitOut = await withOccRetry(() =>
+    ctx.runMutation(internal.invoices.commit, {
+      actorContext,
+      id: a.id,
+      version: a.version,
+      validation,
+      ...(p.expected ? { expected: p.expected } : {}),
+      ...opts,
+      // ⚠ MCP (06 §3.4): the commit consumes the document_preview token in its transaction.
+      ...(a.confirmToken ? { confirmToken: a.confirmToken } : {}),
+    }),
+  );
   if (r.status !== "finalized") {
     const first = (r.findings ?? [])[0];
     throw appError("revalidation_failed", first?.message, { findings: (r.findings ?? []) as unknown as Value[] });

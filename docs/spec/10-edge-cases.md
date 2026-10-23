@@ -66,7 +66,7 @@ Format: **ID · Scenario → Required behaviour** (Enforcement · Test type · R
 
 | ID | Scenario | Required behaviour | Enf. | Test | Rules |
 |---|---|---|---|---|---|
-| EC-001 | Two finalisations of different drafts at the same millisecond | Distinct consecutive numbers; OCC retry; never duplicates | convex | integration (1,000 parallel) | UST-06 |
+| EC-001 | Two finalisations of different drafts at the same millisecond | Distinct consecutive numbers; OCC retry (Convex's own retries, then the finalise action retries the atomic commit with backoff, `convex/lib/occRetry.ts`); never duplicates | convex | integration (200 parallel in CI, `FINALIZE_RACE_COUNT=1000` for the full run; all audited writes serialise on the audit-chain head) | UST-06 |
 | EC-002 | The same draft is finalised twice (double click, API retry, MCP retry) | The second call returns the **same** result (idempotent by draft ID + version); no second number | convex | C, API contract | UST-06 |
 | EC-003 | The draft is edited (UI) while MCP calls finalise with an old `confirm_token` | Finalise fails `preview_outdated`; nothing committed | convex | C | GOBD-06 |
 | EC-004 | Preview validation passes, but the company profile changes before commit | Commit re-validates against the current data inside the transaction; on a mismatch the user is asked to re-preview | convex | C | MAIL-03 |

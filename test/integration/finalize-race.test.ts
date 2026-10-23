@@ -18,7 +18,7 @@ import { type InvariantTarget, useInvariantTarget } from "../invariants";
  * retried by Convex, so every document gets a distinct number and no number is issued twice (UST-06). The invariant
  * hook checks the register afterwards (RI-02/RI-03). The serialised variant runs in convex/edgeCases.finalisation.test.ts.
  *
- * Spec: 1,000 parallel finalisations (`FINALIZE_RACE_COUNT`, default 1000; `FINALIZE_RACE_IN_FLIGHT` at once, default one per client). Prerequisites as in refund-race.test.ts
+ * Spec: parallel finalisations (`FINALIZE_RACE_COUNT`: default 200 for CI, 1000 for the full run (~12 min); `FINALIZE_RACE_IN_FLIGHT` at once, default one per client). Prerequisites as in refund-race.test.ts
  * (scripts/convex-local-backend.sh + `pnpm test:backend`); skipped otherwise.
  */
 const url = process.env.CONVEX_SELF_HOSTED_URL;
@@ -26,7 +26,7 @@ const adminKey = process.env.CONVEX_SELF_HOSTED_ADMIN_KEY;
 const enabled = Boolean(
   url && adminKey && process.env.JWT_PRIVATE_KEY_PEM && process.env.API_ORIGIN && process.env.CONVEX_URL_INTERNAL,
 );
-const COUNT = Number(process.env.FINALIZE_RACE_COUNT ?? 1000);
+const COUNT = Number(process.env.FINALIZE_RACE_COUNT ?? 200);
 const CLIENTS = 10;
 /** Finalisations in flight at once. Each request mints its own 60 s server JWT when it is dispatched, like a REST
  * request does; with all 1,000 queued at once a slow box processes the last ones after their token expired. */
@@ -117,7 +117,7 @@ describe.skipIf(!enabled)("EC-001 parallel finalisations on the self-hosted back
   });
 
   test(`EC-001 ${COUNT} drafts finalised at the same time get distinct numbers; none is issued twice`, {
-    timeout: 900_000,
+    timeout: 1_800_000,
   }, async (ctx) => {
     // biome-ignore lint/suspicious/noExplicitAny: internal function via the admin key
     if ((await adminClient().mutation(internal.testFixtures.ensureInvoicingSetup as any, {})) === null) ctx.skip();
@@ -137,7 +137,9 @@ describe.skipIf(!enabled)("EC-001 parallel finalisations on the self-hosted back
       ids.push((await setupKey().mutation(api.invoices.createDraft, { values: draft(contact.id, today) })).id);
     }
     // CLIENTS API keys; every finalisation is its own request with a JWT minted at dispatch (server JWTs live 60 s).
-    const principals = await Promise.all(Array.from({ length: CLIENTS }, () => apiKeyPrincipal()));
+    // Keys one after another: their audited inserts would race on the chain head before the race starts.
+    const principals: (() => Caller)[] = [];
+    for (let i = 0; i < CLIENTS; i++) principals.push(await apiKeyPrincipal());
     const results = await settledPool(
       ids.map(
         (id, i) => () =>
