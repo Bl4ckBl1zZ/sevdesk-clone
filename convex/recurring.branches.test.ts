@@ -92,7 +92,6 @@ describe("template writes (REC-01, REC-11, REC-14)", () => {
     });
     const row = await owner.query(api.recurring.get, { id });
     expect(row).toMatchObject({ contactId: null, contactName: null, contractReference: "V-17" });
-    // without customer no amount can be resolved for the list column? (the totals still compute)
     const ghost = await t.run(async (ctx) => {
       const c = await ctx.db.get(personId);
       if (!c) throw new Error("x");

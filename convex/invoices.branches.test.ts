@@ -318,7 +318,7 @@ describe("pipeline reads and sent-mark preview (DOC-42, SND-07, §5.1.8)", () =>
     expect(c.check?.totals).not.toBeNull();
   });
 
-  test("02 §6 pipelinePreview of a draft without customer: no expected derivation", async () => {
+  test("DOC-24 the pipeline preview of a draft without customer has no expected derivation", async () => {
     const t = makeT();
     const { owner } = await setupInvoicing(t);
     const { contactId: _c, ...noContact } = invoiceValues("");
@@ -378,7 +378,7 @@ describe("pipeline reads and sent-mark preview (DOC-42, SND-07, §5.1.8)", () =>
 });
 
 describe("guards via the public functions", () => {
-  test("DOC-24 a viewer cannot create drafts (forbidden_role)", async () => {
+  test("DOC-03 a viewer cannot create drafts (forbidden_role)", async () => {
     const t = makeT();
     const { owner } = await setupInvoicing(t);
     const { personId } = await b2bBuyer(owner);
