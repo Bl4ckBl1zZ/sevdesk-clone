@@ -22,6 +22,7 @@ import {
   taxFormFromProfile,
   taxPatchFromForm,
 } from "../src/domain/settings/profile";
+import { thresholdMonitor as thresholdMonitorOf } from "../src/domain/settings/threshold-monitor";
 import { taxScope as taxScopeOf } from "../src/domain/tax/scope";
 import { berlinCalendarDate } from "../src/domain/time/berlin";
 import { internal } from "./_generated/api";
@@ -77,6 +78,7 @@ import {
 } from "./model/ruleOverrides";
 import { seedSettingsDefaults } from "./model/seeds";
 import { setupChecklist, setupFacts } from "./model/setup";
+import { thresholdMonitorInput } from "./model/turnover";
 
 /**
  * Setup wizard and company settings (F01 §3.1–3.7, SET-140…143). Public functions via the wrappers: every write
@@ -217,6 +219,13 @@ export const taxScope = query({
       .at(-1)?.method;
     return taxScopeOf({ legalForm: profile?.legalForm, profitMethod: method });
   },
+});
+
+/** SET-040: threshold monitor (800 000 € turnover / 80 000 € profit, § 141 AO) — a warning, never blocking. */
+export const thresholdMonitor = query({
+  permission: "settings.read",
+  args: {},
+  handler: async (ctx) => thresholdMonitorOf(await thresholdMonitorInput(ctx, berlinCalendarDate(ctx.now()))),
 });
 
 /** SET-001: whether the setup is complete (any signed-in member; drives the redirect to /einrichtung). */

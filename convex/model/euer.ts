@@ -385,6 +385,22 @@ export async function euerView(ctx: ReadCtx, year: number, now: number) {
   };
 }
 
+/**
+ * F01 SET-040: the EÜR profit (Gewinn/Verlust) of a year for the threshold monitor; null for Bilanz years or while no
+ * journal entry exists in that year (the figure would be meaningless).
+ */
+export async function euerProfitCents(ctx: ReadCtx, profile: Profile, year: number): Promise<number | null> {
+  if (isBilanz(profile, year)) return null;
+  const { context, entries, manualOpenItemEntries, openingWithoutSplit } = await euerContext(ctx, profile, year);
+  if (!entries.some((e) => e.date.startsWith(String(year)))) return null;
+  const sheet = computeEuer(year, cashBasisItems(entries, context), euerMappingFor(year), {
+    ku: kuOn(profile, `${year}-12-31`),
+    manualOpenItemEntries,
+    openingItemsWithoutSplit: openingWithoutSplit,
+  });
+  return sheet.sums.gewinnCents;
+}
+
 // ── submission record (TAX-021/TAX-022) ─────────────────────────────────────────────────────────────────
 
 export interface EuerSubmissionInput {

@@ -9,6 +9,8 @@ import {
 } from "../../src/domain/tax/turnover";
 import type { CalendarDate } from "../../src/domain/time/calendar-date";
 import type { Doc, Id } from "../_generated/dataModel";
+import { getCompanyProfile } from "./companyProfile";
+import { euerProfitCents } from "./euer";
 import type { ReadCtx } from "./types";
 
 /**
@@ -113,5 +115,27 @@ export async function turnoverTotals(
       currentYearCents: gesamtumsatzOfYear(rows, year),
     },
     oss: { priorYearEurCents: oss(year - 1), currentYearEurCents: oss(year) },
+  };
+}
+
+/**
+ * F01 SET-040: input of the threshold monitor (settings page and dashboard). Turnover = Gesamtumsatz from the
+ * finalised documents; for the prior year the stored manual figure (SET-043) counts as well — the larger of both, so a
+ * year the app holds only partly never hides a crossing. Profit = EÜR profit of the prior year (null until known).
+ */
+export async function thresholdMonitorInput(ctx: ReadCtx, today: CalendarDate) {
+  const profile = await getCompanyProfile(ctx);
+  const year = Number(today.slice(0, 4));
+  const rows = await turnoverRows(ctx, undefined, { withOss: false });
+  const manualPrior = profile?.priorYearTotalTurnoverCents.find((t) => t.year === year - 1)?.amountCents;
+  const method = [...(profile?.taxationMethod ?? [])].sort((a, b) => a.validFrom.localeCompare(b.validFrom)).at(-1);
+  const profit = profile ? await euerProfitCents(ctx, profile, year - 1) : null;
+  return {
+    today,
+    priorYearCents: Math.max(gesamtumsatzOfYear(rows, year - 1), manualPrior ?? 0),
+    currentYearCents: gesamtumsatzOfYear(rows, year),
+    ...(profit !== null ? { priorYearProfitCents: profit } : {}),
+    taxationMethod: method?.method ?? ("soll" as const),
+    bookkeepingDuty: (profile?.profitMethod ?? []).some((p) => p.method === "bilanz"),
   };
 }

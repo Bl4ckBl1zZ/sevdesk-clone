@@ -577,6 +577,16 @@
     "bankConnection": "Bankanbindung",
     "bankConnectionHint": "Umsätze automatisch über Enable Banking (PSD2, Revolut Business) abrufen – viermal täglich, Zustimmung für 180 Tage. Kontoauszug-Importe bleiben jederzeit möglich.",
     "sectionsLabel": "Abschnitte",
+    "thresholds": {
+      "title": "Buchführungsgrenzen (§ 141 AO)",
+      "intro": "Nur ein Hinweis, keine Sperre: Liegen Umsatz oder Gewinn über den Grenzen, kann das Finanzamt zur Buchführung (Bilanz) auffordern.",
+      "turnover_prior_year": "Gesamtumsatz {year}",
+      "turnover_current_year": "Gesamtumsatz {year} (laufend)",
+      "profit_prior_year": "Gewinn {year} (EÜR)",
+      "barLabel": "{label}: {percent} % der Grenze von {limit}",
+      "unknown": "Noch nicht bekannt – folgt aus der EÜR {year}.",
+      "of": "{amount} von {limit}"
+    },
     "comingSoon": "Diese Einstellungen folgen in einer späteren Phase.",
     "tabs": {
       "allgemein": "Allgemein",
