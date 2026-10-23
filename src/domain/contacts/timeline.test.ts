@@ -12,6 +12,13 @@ const entries: TimelineEntryLike[] = [
 ];
 
 describe("CON-124 timeline filter", () => {
+  test("CON-124 entries timed by a Convex _creationTime (fractional ms) are filtered by period without throwing", () => {
+    const at = Date.UTC(2026, 9, 22, 10) + 0.7583;
+    const entries = [{ key: "n1", at, kind: "note" as const, text: "Erstgespräch" }];
+    expect(filterTimeline(entries, { from: "2026-10-22", to: "2026-10-22" })).toHaveLength(1);
+    expect(filterTimeline(entries, { from: "2026-10-23" })).toHaveLength(0);
+  });
+
   test("CON-124 filters by kind (manual kinds or automatic events)", () => {
     expect(filterTimeline(entries, { kind: "note" }).map((e) => e.key)).toEqual(["n1", "n2"]);
     expect(filterTimeline(entries, { kind: "derived" }).map((e) => e.key)).toEqual(["d1"]);

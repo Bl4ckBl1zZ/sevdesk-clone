@@ -210,7 +210,8 @@ test("PRJ-017 TST-PRJ-23 week view, time report and (desktop) the header timer p
   await expect(page).toHaveURL(/week=\d{4}-\d{2}-\d{2}/);
   await week.getByRole("button", { name: "Diese Woche" }).click();
 
-  await page.getByRole("link", { name: "Auswertung" }).filter({ visible: true }).first().click();
+  // exact: the sidebar link „Auswertungen“ would match the substring too.
+  await page.getByRole("link", { name: "Auswertung", exact: true }).filter({ visible: true }).first().click();
   const report = page.getByTestId("time-report");
   await expect(report.getByTestId("time-report-table")).toContainText(projectName(testInfo.project.name));
   await expect(report.getByRole("button", { name: /Export/ })).toBeVisible();

@@ -18,7 +18,7 @@ import { type InvariantTarget, useInvariantTarget } from "../invariants";
  * retried by Convex, so every document gets a distinct number and no number is issued twice (UST-06). The invariant
  * hook checks the register afterwards (RI-02/RI-03). The serialised variant runs in convex/edgeCases.finalisation.test.ts.
  *
- * Spec: 1,000 parallel finalisations (`FINALIZE_RACE_COUNT`, default 1000). Prerequisites as in refund-race.test.ts
+ * Spec: 1,000 parallel finalisations (`FINALIZE_RACE_COUNT`, default 1000; `FINALIZE_RACE_IN_FLIGHT` at once, default one per client). Prerequisites as in refund-race.test.ts
  * (scripts/convex-local-backend.sh + `pnpm test:backend`); skipped otherwise.
  */
 const url = process.env.CONVEX_SELF_HOSTED_URL;
@@ -28,6 +28,9 @@ const enabled = Boolean(
 );
 const COUNT = Number(process.env.FINALIZE_RACE_COUNT ?? 1000);
 const CLIENTS = 10;
+/** Finalisations in flight at once. Each request mints its own 60 s server JWT when it is dispatched, like a REST
+ * request does; with all 1,000 queued at once a slow box processes the last ones after their token expired. */
+const IN_FLIGHT = Number(process.env.FINALIZE_RACE_IN_FLIGHT ?? CLIENTS);
 const SCOPES: readonly Scope[] = [
   "contacts:read",
   "contacts:write",
@@ -43,6 +46,11 @@ function adminClient(): ConvexHttpClient {
 }
 
 async function keyCaller(): Promise<Caller> {
+  return (await apiKeyPrincipal())();
+}
+
+/** Inserts an API key and returns a factory: every call is a fresh caller (fresh JWT), as one REST request is. */
+async function apiKeyPrincipal(): Promise<() => Caller> {
   const key = apiKeyFromBytes(crypto.getRandomValues(new Uint8Array(32)));
   const parsed = parseApiKey(key);
   if (!parsed) throw new Error("generated key does not parse");
@@ -57,7 +65,26 @@ async function keyCaller(): Promise<Caller> {
     last4: parsed.last4,
     hash,
   });
-  return httpBackend({ kind: "api-key", publicId: parsed.publicId, keyHash: hash, requestId: crypto.randomUUID() });
+  return () =>
+    httpBackend({ kind: "api-key", publicId: parsed.publicId, keyHash: hash, requestId: crypto.randomUUID() });
+}
+
+/** Runs `tasks` with at most `limit` in flight; results keep the input order (like Promise.allSettled). */
+async function settledPool<T>(tasks: (() => Promise<T>)[], limit: number): Promise<PromiseSettledResult<T>[]> {
+  const results: PromiseSettledResult<T>[] = new Array(tasks.length);
+  let next = 0;
+  const worker = async () => {
+    while (next < tasks.length) {
+      const i = next++;
+      try {
+        results[i] = { status: "fulfilled", value: await (tasks[i] as () => Promise<T>)() };
+      } catch (reason) {
+        results[i] = { status: "rejected", reason };
+      }
+    }
+  };
+  await Promise.all(Array.from({ length: Math.min(limit, tasks.length) }, worker));
+  return results;
 }
 
 function draft(contactId: string, today: string): DraftValues {
@@ -98,7 +125,8 @@ describe.skipIf(!enabled)("EC-001 parallel finalisations on the self-hosted back
   }, async (ctx) => {
     // biome-ignore lint/suspicious/noExplicitAny: internal function via the admin key
     if ((await adminClient().mutation(internal.testFixtures.ensureInvoicingSetup as any, {})) === null) ctx.skip();
-    const setup = await keyCaller();
+    const setupKey = await apiKeyPrincipal();
+    const setup = setupKey();
     const today = berlinCalendarDate(Date.now());
     const label = crypto.randomUUID().slice(0, 8);
     // A consumer-free B2B buyer; format `none` keeps the sidecar out of the race (EC-007 exception).
@@ -110,12 +138,18 @@ describe.skipIf(!enabled)("EC-001 parallel finalisations on the self-hosted back
     });
     const ids: Id<"salesDocuments">[] = [];
     for (let i = 0; i < COUNT; i++) {
-      ids.push((await setup.mutation(api.invoices.createDraft, { values: draft(contact.id, today) })).id);
+      ids.push((await setupKey().mutation(api.invoices.createDraft, { values: draft(contact.id, today) })).id);
     }
-    // Fresh callers right before the race (their server JWT lives 60 s).
-    const callers = await Promise.all(Array.from({ length: CLIENTS }, () => keyCaller()));
-    const results = await Promise.allSettled(
-      ids.map((id, i) => (callers[i % CLIENTS] as Caller).action(api.invoices.finalize, { id, version: 1 })),
+    // CLIENTS API keys; every finalisation is its own request with a JWT minted at dispatch (server JWTs live 60 s).
+    const principals = await Promise.all(Array.from({ length: CLIENTS }, () => apiKeyPrincipal()));
+    const results = await settledPool(
+      ids.map(
+        (id, i) => () =>
+          (principals[i % CLIENTS] as () => Caller)().action(api.invoices.finalize, { id, version: 1 }) as Promise<{
+            number: string;
+          }>,
+      ),
+      IN_FLIGHT,
     );
     const rejected = results.filter((r) => r.status === "rejected");
     expect(rejected.map((r) => String((r as PromiseRejectedResult).reason)).slice(0, 3)).toEqual([]);
@@ -126,7 +160,7 @@ describe.skipIf(!enabled)("EC-001 parallel finalisations on the self-hosted back
     const counters = numbers.map((n) => Number(/(\d+)$/.exec(n)?.[1])).sort((a, b) => a - b);
     expect((counters.at(-1) ?? 0) - (counters[0] ?? 0)).toBeGreaterThanOrEqual(COUNT - 1);
     for (const id of ids.slice(0, 20)) {
-      const head = await setup.query(api.documentsApi.head, { id });
+      const head = await setupKey().query(api.documentsApi.head, { id });
       expect(head?.number && numbers.includes(head.number)).toBe(true);
     }
   });

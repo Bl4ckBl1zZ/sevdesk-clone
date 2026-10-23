@@ -25,7 +25,8 @@ export function filterTimeline<E extends TimelineEntryLike>(entries: readonly E[
   const q = (f.query ?? "").trim().toLocaleLowerCase("de-DE");
   return entries.filter((e) => {
     if (f.kind && f.kind !== "all" && e.kind !== f.kind) return false;
-    const day = berlinCalendarDate(e.at);
+    // Convex `_creationTime` carries fractional milliseconds; the Berlin day needs an integer instant.
+    const day = berlinCalendarDate(Math.floor(e.at));
     if (f.from && day < f.from) return false;
     if (f.to && day > f.to) return false;
     return q === "" || (e.text ?? "").toLocaleLowerCase("de-DE").includes(q);
