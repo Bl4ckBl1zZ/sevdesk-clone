@@ -223,7 +223,8 @@ export type PaymentErrorCode =
   | "credit_insufficient"
   | "credit_other_contact"
   | "credit_pair_unbalanced"
-  | "adjustment_invalid";
+  | "adjustment_invalid"
+  | "cash_without_invoice";
 
 export type PaymentIssue = Issue<PaymentErrorCode>;
 
@@ -246,6 +247,12 @@ export function planPayment(input: PaymentInput, ctx: PlanContext): Result<Payme
     return fail("cash_without_invoice", PAY_MESSAGES.cashWithoutInvoice);
   }
   if (input.allocations.length === 0) return fail("no_allocations", PAY_MESSAGES.noAllocations);
+  // F07 CSH-029 / EC-CSH-10 (AO-04, no POS): cash comes in only for an invoice (or an opening receivable); cash
+  // straight to a credit balance would be cash income without an invoice. An excess over an invoice may still go to
+  // the credit (PAY-030) because the invoice is part of the same payment.
+  if (src.kind === "cash" && input.allocations.every((a) => a.target.kind === "contactCredit")) {
+    return fail("cash_without_invoice", PAY_MESSAGES.cashWithoutInvoice);
+  }
   const seen = new Set<string>();
   for (const a of input.allocations) {
     const k = targetKey(a.target);

@@ -30,6 +30,117 @@ function brief(r: ReturnType<typeof postEvent>) {
   };
 }
 
+describe("foreign-currency pocket side of a Geldtransit (F08 R1/R2, F07 BNK-028)", () => {
+  const rate = { rate: "0.92", source: "transaction" as const, date: "2026-10-01" };
+  const fxLines = (r: ReturnType<typeof postEvent>) => {
+    if (!r.ok || r.value.kind !== "entry") throw new Error("no entry");
+    return r.value.posting.lines.map((l: RoleLine) => [
+      l.role ?? l.account,
+      l.debitCents > 0 ? "S" : "H",
+      l.debitCents || l.creditCents,
+      l.currency ?? null,
+      l.amountFx ?? null,
+    ]);
+  };
+
+  test("EC-BNK-26 T07-032 R1 USD side of EUR→USD: S bank.usd 920,00 € (memo 1.000,00 USD) · H transit 920,00", () => {
+    const r = postEvent(
+      mark({
+        mark: "transfer",
+        bankAccountId: "usd",
+        amountCents: 100_000,
+        fx: { currency: "USD", eurCents: 92_000, costCents: 92_000, rate },
+      }),
+      SOLE,
+    );
+    expect(r.ok && r.value.kind === "entry" && r.value.posting.explanation).toBe("R1");
+    expect(fxLines(r)).toEqual([
+      ["bank.usd", "S", 92_000, "USD", 100_000],
+      ["transit", "H", 92_000, null, null],
+    ]);
+  });
+
+  test("EC-BNK-26 T07-032 R2 USD side of USD→EUR: S transit 465,00 · H bank.usd 460,00 (500 USD) · H fx gain 5,00", () => {
+    const r = postEvent(
+      mark({
+        mark: "transfer",
+        bankAccountId: "usd",
+        amountCents: -50_000,
+        fx: { currency: "USD", eurCents: 46_500, costCents: 46_000, rate },
+      }),
+      SOLE,
+    );
+    expect(fxLines(r)).toEqual([
+      ["transit", "S", 46_500, null, null],
+      ["bank.usd", "H", 46_000, "USD", 50_000],
+      ["income.fx_gain", "H", 500, null, null],
+    ]);
+    const loss = postEvent(
+      mark({
+        mark: "transfer",
+        bankAccountId: "usd",
+        amountCents: -50_000,
+        fx: { currency: "USD", eurCents: 45_000, costCents: 46_000, rate },
+      }),
+      SOLE,
+    );
+    expect(fxLines(loss)).toEqual([
+      ["transit", "S", 45_000, null, null],
+      ["expense.fx_loss", "S", 1_000, null, null],
+      ["bank.usd", "H", 46_000, "USD", 50_000],
+    ]);
+  });
+});
+
+describe("Darlehen (F07 BNK-062)", () => {
+  const loan = (over: Partial<BankTransactionMarkedEvent> = {}) =>
+    mark({
+      mark: "loan",
+      amountCents: -55_100,
+      feeCents: 100,
+      loan: { principalCents: 50_000, interestCents: 5_000, loanAccount: "0630", interestAccount: "2100" },
+      ...over,
+    });
+
+  test("BNK-062 repayment: S loan principal · S interest · S bank fee · H bank; disbursement: S bank · H loan", () => {
+    expect(brief(postEvent(loan(), SOLE))).toEqual({
+      explanation: "L2",
+      dating: "external",
+      source: { kind: "bankTransaction", id: "tx1" },
+      lines: [
+        ["0630", "S", 50_000],
+        ["2100", "S", 5_000],
+        ["expense.bank_fees", "S", 100],
+        ["bank.acc1", "H", 55_100],
+      ],
+    });
+    const disb = brief(
+      postEvent(
+        loan({
+          amountCents: 1_000_000,
+          feeCents: 0,
+          loan: { principalCents: 1_000_000, interestCents: 0, loanAccount: "0630", interestAccount: "2100" },
+        }),
+        SOLE,
+      ),
+    );
+    expect(disb.explanation).toBe("L1");
+    expect(disb.lines).toEqual([
+      ["bank.acc1", "S", 1_000_000],
+      ["0630", "H", 1_000_000],
+    ]);
+  });
+
+  test("EC-BNK-75 BNK-062 a split that does not add up to the payment is refused by the posting too", () => {
+    const r = postEvent(
+      loan({ loan: { principalCents: 56_000, interestCents: 0, loanAccount: "0630", interestAccount: "2100" } }),
+      SOLE,
+    );
+    expect(r.ok).toBe(false);
+    expect(postEvent(loan({ loan: undefined }), SOLE).ok).toBe(false);
+  });
+});
+
 describe("marked bank transactions (F08 T1/T2/T4, F07 BNK-060/061)", () => {
   test("T07-090 BNK-060 T1 private withdrawal from the bank: S private.withdrawal · H bank, dated the booking date", () => {
     expect(brief(postEvent(mark(), SOLE))).toEqual({

@@ -21,6 +21,8 @@ export interface LinkRow {
   endToEndId?: string;
   counterpartyIban?: string;
   instructedAmount?: { amountMinor: number; currency: string };
+  /** Card payments: the merchant (EC-BNK-27 card refunds carry no reference to the original). */
+  merchantName?: string;
   reversal?: boolean;
   reversalOfId?: string;
   status: string;
@@ -31,7 +33,7 @@ export const REVERSAL_WINDOW_DAYS = 60;
 export interface ReversalCandidate {
   originalId: string;
   label: string;
-  reasons: ("end_to_end_id" | "reference" | "purpose" | "reversal_flag")[];
+  reasons: ("end_to_end_id" | "reference" | "purpose" | "merchant" | "reversal_flag")[];
 }
 
 /** Originals that `counter` may reverse, best first. */
@@ -49,11 +51,15 @@ export function findReversalCandidates(counter: LinkRow, rows: readonly LinkRow[
     if (counter.reference && counter.reference === o.reference) reasons.push("reference");
     if (normaliseText(o.purpose) && normaliseText(counter.purpose).includes(normaliseText(o.purpose)))
       reasons.push("purpose");
+    // EC-BNK-27: a card refund without a link to the original — same merchant and the inverse amount (suggestion only).
+    const merchant = (m: string | undefined) => normaliseText(m).replace(/ /g, "");
+    const cardRefund = !!counter.merchantName && merchant(counter.merchantName) === merchant(o.merchantName);
+    if (cardRefund) reasons.push("merchant");
     if (reasons.length === 0) continue;
     if (counter.reversal) reasons.push("reversal_flag");
     out.push({
       originalId: o.id,
-      label: `Rückbuchung von ${formatGermanDate(o.bookingDate as CalendarDate)} ${formatMoneyDe(o.amountCents, o.currency)}`,
+      label: `${cardRefund && counter.amountCents > 0 ? "Kartenerstattung" : "Rückbuchung"} von ${formatGermanDate(o.bookingDate as CalendarDate)} ${formatMoneyDe(o.amountCents, o.currency)}`,
       reasons,
       score: reasons.length,
       date: o.bookingDate,

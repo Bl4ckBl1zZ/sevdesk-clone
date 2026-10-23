@@ -72,6 +72,8 @@ export interface UnmatchedTransaction {
   mandateRef?: string;
   merchantName?: string;
   instructedAmount?: { amountMinor: number; currency: string };
+  /** BNK-023/EC-BNK-25: the part of the movement that the source reports as a fee (booked as its own bank-fee line). */
+  feeCents?: number;
   typeDefault?: TypeDefault;
 }
 

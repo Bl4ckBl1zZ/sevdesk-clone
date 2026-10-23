@@ -353,3 +353,161 @@ describe("PAY-047 PAY-033 manual payments and refunds", () => {
     expect((await txOf(t, out)).status).toBe("matched");
   });
 });
+
+const lockPeriod = (t: TestT, period: string) =>
+  t.model(OWNER, (ctx) =>
+    auditedInsert(
+      ctx,
+      "periods",
+      { period, status: "locked", lockedAt: Date.now(), lockedBy: "user:test-owner", reason: "manual" },
+      { action: "period.lock" },
+    ),
+  );
+
+describe("F07 §5.3 matching edge cases (EC-BNK-62/66/74/78, E-ACC-24)", () => {
+  test("EC-BNK-66 GOBD-06 a wrong auto-applied match is undone by „Rückgängig“ = reversal; the payment and its entry stay", async () => {
+    const { t, owner, bankAccount, number, id, name } = await setup();
+    const tx = await bookedTransaction(t, bankAccount, {
+      bookingDate: "2026-10-12",
+      amountCents: 119_000,
+      purpose: `${number}`,
+      counterpartyName: name,
+    });
+    expect(await t.model(OWNER, (ctx) => autoApplyMatches(ctx, [tx]))).toEqual([tx]);
+    const [auto] = (await owner.query(api.matching.review, {})).autoApplied;
+    expect(auto?.bankTransactionId).toBe(tx);
+    expect(auto?.reversedById).toBeFalsy();
+    const r = await owner.mutation(api.matching.unmatch, { transactionId: tx, reason: "Automatik lag daneben" });
+    expect(r.reversalIds).toHaveLength(1);
+    const pays = await t.run((ctx) => ctx.db.query("payments").collect());
+    // No delete: the auto-applied payment stays, a reversal row negates it (PAY-040).
+    expect(pays.map((p) => p.amountCents).sort((a, b) => a - b)).toEqual([-119_000, 119_000]);
+    expect(pays.find((p) => p.amountCents > 0)?.match?.auto).toBe(true);
+    expect(pays.find((p) => p.amountCents > 0)?.reversedById).toBe(r.reversalIds[0]);
+    const entries = await t.run((ctx) => ctx.db.query("journalEntries").collect());
+    expect(entries.filter((e) => e.source.kind === "payment")).toHaveLength(2);
+    expect((await docOf(t, id)).paymentStatus).toBe("open");
+    expect((await txOf(t, tx)).status).toBe("open");
+    // The tab keeps the entry, shown as „rückgängig gemacht“ (no further „Rückgängig“).
+    const [after] = (await owner.query(api.matching.review, {})).autoApplied;
+    expect(after?.reversedById).toBe(r.reversalIds[0]);
+  });
+
+  test("EC-BNK-74 BNK-047 unmatch with the payment period locked → reversal dated today with the F07 warning", async () => {
+    let { t, owner, bankAccount, number, id } = await setup();
+    const tx = await bookedTransaction(t, bankAccount, {
+      bookingDate: "2026-10-12",
+      amountCents: 119_000,
+      purpose: number,
+    });
+    await owner.mutation(api.matching.confirm, {
+      transactionId: tx,
+      allocations: [{ target: { kind: "salesDocument", id }, amountCents: 119_000 }],
+    });
+    await lockPeriod(t, "2026-10");
+    owner = await jump(t, "2026-11-04T10:00:00Z");
+    const r = await owner.mutation(api.matching.unmatch, { transactionId: tx, reason: "falscher Kunde" });
+    expect(r.warnings.map((w) => w.message)).toEqual([
+      "Zeitraum festgeschrieben – Rückbuchung erfolgt mit heutigem Datum.",
+    ]);
+    const reversal = await t.run((ctx) => ctx.db.get(r.reversalIds[0] as Id<"payments">));
+    expect(reversal?.date).toBe("2026-11-04");
+  });
+
+  test("EC-BNK-78 T07-153 BNK-121 a counter-entry for an original in a locked period: link allowed, reversal dated today", async () => {
+    let { t, owner, bankAccount, number, id } = await setup();
+    const tx = await bookedTransaction(t, bankAccount, {
+      bookingDate: "2026-10-12",
+      amountCents: 119_000,
+      purpose: number,
+      endToEndId: "E2E-78",
+    });
+    await owner.mutation(api.matching.confirm, {
+      transactionId: tx,
+      allocations: [{ target: { kind: "salesDocument", id }, amountCents: 119_000 }],
+    });
+    await lockPeriod(t, "2026-10");
+    owner = await jump(t, "2026-11-05T10:00:00Z");
+    // The counter-entry is booked on 30.10. (also locked) → today.
+    const counter = await bookedTransaction(t, bankAccount, {
+      bookingDate: "2026-10-30",
+      amountCents: -119_000,
+      purpose: `Rückbuchung ${number}`,
+      endToEndId: "E2E-78",
+      reversal: true,
+    });
+    const r = await owner.mutation(api.banking.linkReversalTo, { counterId: counter, originalId: tx });
+    expect(r.warnings).toEqual([
+      "Zeitraum der ursprünglichen Buchung festgeschrieben – Rückbuchung mit heutigem Datum.",
+    ]);
+    expect((await txOf(t, counter)).reversalOfId).toBe(tx);
+    const pays = await owner.query(api.payments.forDocument, { documentId: id });
+    expect(pays.payments.find((p) => p.reversalOfId)?.date).toBe("2026-11-05");
+    expect((await docOf(t, id)).paymentStatus).toBe("open");
+  });
+
+  test("E-ACC-24 EC-BNK-14 EC-141 a returned payment: reversal on the counter-entry's date, invoice open again, notification", async () => {
+    let { t, owner, bankAccount, number, id } = await setup();
+    const tx = await bookedTransaction(t, bankAccount, {
+      bookingDate: "2026-10-12",
+      amountCents: 119_000,
+      purpose: number,
+      endToEndId: "E2E-24",
+    });
+    await owner.mutation(api.matching.confirm, {
+      transactionId: tx,
+      allocations: [{ target: { kind: "salesDocument", id }, amountCents: 119_000 }],
+    });
+    owner = await jump(t, "2026-10-20T10:00:00Z");
+    const counter = await bookedTransaction(t, bankAccount, {
+      bookingDate: "2026-10-19",
+      amountCents: -119_000,
+      purpose: `Rücküberweisung ${number}`,
+      endToEndId: "E2E-24",
+      reversal: true,
+    });
+    // The counter-entry is offered as reversal of the original (EC-BNK-14) before anything happens.
+    const detail = await owner.query(api.banking.transaction, { id: counter });
+    expect(detail?.reversalCandidates[0]?.originalId).toBe(tx);
+    expect((await docOf(t, id)).paymentStatus).toBe("paid");
+    const r = await owner.mutation(api.banking.linkReversalTo, { counterId: counter, originalId: tx });
+    expect(r.warnings).toEqual([]);
+    const reversal = (await owner.query(api.payments.forDocument, { documentId: id })).payments.find(
+      (p) => p.reversalOfId,
+    );
+    expect(reversal?.date).toBe("2026-10-19");
+    const entry = await t.run(async (ctx) =>
+      ctx.db
+        .query("journalEntries")
+        .withIndex("by_source", (q) => q.eq("source.kind", "payment").eq("source.id", reversal?.id as string))
+        .first(),
+    );
+    expect(entry?.date).toBe("2026-10-19");
+    expect((await docOf(t, id)).paymentStatus).toBe("open");
+    const notes = await t.run((ctx) => ctx.db.query("notifications").collect());
+    expect(notes.map((n) => n.title)).toContain(
+      `Zahlung vom 12.10.2026 wurde von der Bank zurückgebucht – Zahlung storniert, Rechnung ${number} wieder offen.`,
+    );
+  });
+
+  test("EC-BNK-62 GOBD-02 a second confirmation of a transaction that was just matched elsewhere is rejected", async () => {
+    const { t, owner, bankAccount, number, id } = await setup();
+    const tx = await bookedTransaction(t, bankAccount, {
+      bookingDate: "2026-10-12",
+      amountCents: 119_000,
+      purpose: number,
+    });
+    const confirm = () =>
+      owner.mutation(api.matching.confirm, {
+        transactionId: tx,
+        allocations: [{ target: { kind: "salesDocument", id }, amountCents: 119_000 }],
+      });
+    await confirm();
+    const e = await confirm().catch((x) => x);
+    expect(errorCode(e)).toBe("conflict");
+    expect((e as { data: { message: string } }).data.message).toBe(
+      "Dieser Umsatz wurde soeben anderweitig zugeordnet.",
+    );
+    expect(await t.run((ctx) => ctx.db.query("payments").collect())).toHaveLength(1);
+  });
+});

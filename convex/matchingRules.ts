@@ -16,11 +16,13 @@ import {
   deleteRule,
   previewRuleHits,
   ruleFor,
+  ruleSuggestionsFor,
   rulesWithHits,
   updateRule,
   voucherFromTransaction,
 } from "./model/matchingRules";
 import type { ActorContext } from "./model/types";
+import { vTaxPayment } from "./voucherValidators";
 
 /**
  * F07 BNK-050…054 matching rules (Einstellungen › Bank › Regeln) and BNK-065 „+ Neuer Beleg“ from a transaction.
@@ -53,6 +55,13 @@ export const preview = query({
   permission: "banking.read",
   args: { when: vRuleWhen },
   handler: async (ctx, { when }) => previewRuleHits(ctx, when, ctx.now()),
+});
+
+/** BNK-053: rules proposed after 3 identical manual classifications per counterparty (the owner saves them). */
+export const suggestions = query({
+  permission: "banking.read",
+  args: {},
+  handler: async (ctx) => ruleSuggestionsFor(ctx, ctx.now()),
 });
 
 /** The rule that applies to a transaction (Zuordnungen chip „Regel: …“, suggest-mode rules). */
@@ -94,7 +103,11 @@ export const remove = mutation({
 /** BNK-065 „+ Neuer Beleg“: a prefilled voucher draft linked to the transaction (allocated on finalisation). */
 export const createVoucherFromTransaction = mutation({
   permission: "vouchers.write",
-  args: { transactionId: v.id("bankTransactions"), account: v.optional(v.string()) },
+  args: {
+    transactionId: v.id("bankTransactions"),
+    account: v.optional(v.string()),
+    taxPayment: v.optional(vTaxPayment),
+  },
   handler: async (ctx, args) => voucherFromTransaction(ctx, args),
 });
 

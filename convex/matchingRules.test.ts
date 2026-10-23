@@ -5,7 +5,7 @@ import { errorCode } from "./lib/errors";
 import { auditedInsert, auditedPatch } from "./model/audit";
 import { bookedTransaction } from "./payments.fixtures";
 import { makeT, type TestT } from "./test.setup";
-import { line, OWNER, setupCompany, TODAY, upload } from "./vouchers.fixtures";
+import { header, line, OWNER, setupCompany, TODAY, upload } from "./vouchers.fixtures";
 
 /**
  * F07 BNK-049…054, BNK-065: matching rules (conditions, preview, rule vouchers, API/MCP suggest-only), vouchers from
@@ -28,6 +28,41 @@ const vouchersOf = (t: TestT, txId: Id<"bankTransactions">) =>
       .withIndex("by_bankTransaction", (q) => q.eq("bankTransactionId", txId))
       .collect(),
   );
+
+/** A booked card row as the CAMT/Revolut mapper writes it (merchant, instructed amount, fee field). */
+let cardN = 0;
+const cardTx = (
+  s: { t: TestT; bank: Id<"bankAccounts"> },
+  tx: { bookingDate: string; amountCents: number; purpose: string; merchantName: string } & Partial<
+    Pick<Doc<"bankTransactions">["source"], "feeCents" | "instructedAmount">
+  >,
+) => {
+  const ref = `ER-CARD-${++cardN}`;
+  const { bookingDate, amountCents, purpose, merchantName, ...extra } = tx;
+  return s.t.model(OWNER, (ctx) =>
+    auditedInsert(
+      ctx,
+      "bankTransactions",
+      {
+        accountId: s.bank,
+        bookingDate,
+        amountCents,
+        currency: "EUR",
+        counterpartyName: merchantName,
+        counterpartySource: "statement" as const,
+        purpose,
+        source: { kind: "camt053", entryReference: ref, rawSha256: ref, merchantName, ...extra },
+        sources: [],
+        dedupeKey: `${s.bank}:er:${ref}`,
+        contentHash: ref,
+        status: "open",
+        allocatedCents: 0,
+        recordedAt: Date.now(),
+      },
+      { action: "bank.import", label: `${bookingDate} ${amountCents} EUR` },
+    ),
+  );
+};
 
 async function setup(opts: { ku?: boolean } = {}) {
   const t = makeT();
@@ -306,5 +341,271 @@ describe("matching vouchers (BNK-049)", () => {
     });
     expect((await txOf(s.t, tx)).status).toBe("matched");
     expect((await s.t.run((ctx) => ctx.db.get(voucherId)))?.status).toBe("paid");
+  });
+
+  test("EC-BNK-76 T07-073 a USD card payment from the EUR account settles the USD voucher; the FX difference is booked", async () => {
+    const s = await setup();
+    const { voucherId } = await upload(s.t, s.owner);
+    await s.owner.mutation(api.vouchers.updateDraft, {
+      id: voucherId,
+      input: header({
+        supplierContactId: s.supplier,
+        supplierName: "Acme Corp.",
+        currency: "USD",
+        fxRateToEur: { rate: "1.19", source: "ecb_daily", date: TODAY },
+        lines: [line({ amountCents: 11_900, vatRateBp: 0 })],
+      }),
+    });
+    await s.owner.mutation(api.vouchers.finalize, { id: voucherId });
+    const tx = await s.t.model(OWNER, (ctx) =>
+      auditedInsert(
+        ctx,
+        "bankTransactions",
+        {
+          accountId: s.bank,
+          bookingDate: TODAY,
+          amountCents: -10_250,
+          currency: "EUR",
+          counterpartyName: "Acme Corp.",
+          counterpartySource: "statement" as const,
+          purpose: "Card payment Acme Corp.",
+          source: {
+            kind: "camt053",
+            entryReference: "ER-FX-1",
+            rawSha256: "fx-1",
+            merchantName: "Acme Corp.",
+            instructedAmount: { amountMinor: 11_900, currency: "USD" },
+          },
+          sources: [],
+          dedupeKey: `${s.bank}:er:ER-FX-1`,
+          contentHash: "fx-1",
+          status: "open",
+          allocatedCents: 0,
+          recordedAt: Date.now(),
+        },
+        { action: "bank.import", label: `${TODAY} -10250 EUR` },
+      ),
+    );
+    const sug = await s.owner.query(api.matching.suggestions, { transactionId: tx });
+    expect(sug.candidates[0]?.allocations[0]).toMatchObject({
+      target: { kind: "voucher", id: voucherId },
+      amountCents: 10_250,
+    });
+    expect(sug.candidates[0]?.reasons).toContain("bill_amount");
+    await s.owner.mutation(api.matching.confirm, {
+      transactionId: tx,
+      allocations: [{ target: { kind: "voucher", id: voucherId }, amountCents: 10_250 }],
+    });
+    expect((await txOf(s.t, tx)).status).toBe("matched");
+    expect((await s.t.run((ctx) => ctx.db.get(voucherId)))?.status).toBe("paid");
+    const lines = await s.t.run((ctx) => ctx.db.query("journalLines").collect());
+    // SKR04 6880 Aufwendungen aus Kursdifferenzen: 102,50 € paid for a 100,00 € (119,00 USD @ 1.19) claim.
+    expect(lines.filter((l) => l.account === "6880").map((l) => l.debitCents - l.creditCents)).toEqual([250]);
+  });
+
+  test("EC-BNK-25 T07-024 a fee field: principal pays the voucher, the fee is its own bank-fee line without VAT", async () => {
+    const s = await setup();
+    const draft = await s.owner.mutation(api.vouchers.create, {
+      input: {
+        direction: "expense",
+        supplierContactId: s.supplier,
+        supplierName: "Büro Schmidt GmbH",
+        documentNumber: "RS-99813",
+        documentDate: TODAY,
+        lines: [line({ vatRateBp: 0 })],
+      },
+    });
+    const voucherId = (typeof draft === "string" ? draft : (draft as { id: Id<"vouchers"> }).id) as Id<"vouchers">;
+    await upload(s.t, s.owner, { voucherId });
+    await s.owner.mutation(api.vouchers.finalize, { id: voucherId });
+    // CAMT card payment: the entry amount includes the charge (BNK-023, mapper keeps the fee as a field).
+    const tx = await s.t.model(OWNER, (ctx) =>
+      auditedInsert(
+        ctx,
+        "bankTransactions",
+        {
+          accountId: s.bank,
+          bookingDate: TODAY,
+          amountCents: -12_050,
+          currency: "EUR",
+          counterpartyName: "Buero Schmidt GmbH",
+          counterpartySource: "statement" as const,
+          purpose: "RS-99813 Büromaterial",
+          source: { kind: "camt053", entryReference: "ER-FEE-1", rawSha256: "fee-1", feeCents: 150 },
+          sources: [],
+          dedupeKey: `${s.bank}:er:ER-FEE-1`,
+          contentHash: "fee-1",
+          status: "open",
+          allocatedCents: 0,
+          recordedAt: Date.now(),
+        },
+        { action: "bank.import", label: `${TODAY} -12050 EUR` },
+      ),
+    );
+    const sug = await s.owner.query(api.matching.suggestions, { transactionId: tx });
+    const [best] = sug.candidates;
+    expect(best?.allocations[0]).toMatchObject({
+      target: { kind: "voucher", id: voucherId },
+      amountCents: 12_050,
+      differences: [{ reason: "bank_fees", amountCents: -150 }],
+    });
+    await s.owner.mutation(api.matching.confirm, {
+      transactionId: tx,
+      allocations: [
+        {
+          target: { kind: "voucher", id: voucherId },
+          amountCents: 12_050,
+          differences: [{ reason: "bank_fees", amountCents: -150 }],
+        },
+      ],
+    });
+    expect((await txOf(s.t, tx)).status).toBe("matched");
+    expect((await s.t.run((ctx) => ctx.db.get(voucherId)))?.status).toBe("paid");
+    const lines = await s.t.run((ctx) => ctx.db.query("journalLines").collect());
+    const fee = lines.filter((l) => l.account === "6855");
+    expect(fee.map((l) => l.debitCents - l.creditCents)).toEqual([150]);
+  });
+  test("EC-BNK-27 a card refund without a link is suggested for the original by merchant + amount; linking reopens the voucher", async () => {
+    const s = await setup();
+    const draft = await s.owner.mutation(api.vouchers.create, {
+      input: {
+        direction: "expense",
+        supplierContactId: s.supplier,
+        supplierName: "Büro Schmidt GmbH",
+        documentNumber: "RS-99814",
+        documentDate: TODAY,
+        lines: [line({ vatRateBp: 0 })],
+      },
+    });
+    const voucherId = (typeof draft === "string" ? draft : (draft as { id: Id<"vouchers"> }).id) as Id<"vouchers">;
+    await upload(s.t, s.owner, { voucherId });
+    await s.owner.mutation(api.vouchers.finalize, { id: voucherId });
+    const pay = await cardTx(s, {
+      bookingDate: TODAY,
+      amountCents: -11_900,
+      purpose: "Card payment",
+      merchantName: "BUERO SCHMIDT",
+    });
+    await s.owner.mutation(api.matching.confirm, {
+      transactionId: pay,
+      allocations: [{ target: { kind: "voucher", id: voucherId }, amountCents: 11_900 }],
+    });
+    const refund = await cardTx(s, {
+      bookingDate: TODAY,
+      amountCents: 11_900,
+      purpose: "Refund",
+      merchantName: "Buero Schmidt",
+    });
+    const d = await s.owner.query(api.banking.transaction, { id: refund });
+    expect(d?.reversalCandidates).toEqual([expect.objectContaining({ originalId: pay, reasons: ["merchant"] })]);
+    expect(d?.reversalCandidates[0]?.label).toMatch(/^Kartenerstattung von /);
+    // Suggestion only: nothing is linked or booked until the owner confirms.
+    expect((await txOf(s.t, refund)).reversalOfId).toBeUndefined();
+    expect((await s.t.run((ctx) => ctx.db.get(voucherId)))?.status).toBe("paid");
+    await s.owner.mutation(api.banking.linkReversalTo, { counterId: refund, originalId: pay });
+    expect((await txOf(s.t, refund)).reversalOfId).toBe(pay);
+    expect((await s.t.run((ctx) => ctx.db.get(voucherId)))?.openAmountCents).toBe(11_900);
+  });
+});
+
+describe("rule suggestions (BNK-053)", () => {
+  test("BNK-053 T07-086 after 3 identical manual classifications of one counterparty a rule is proposed; a saved rule ends it", async () => {
+    const s = await setup();
+    const classify = async (n: number) => {
+      const tx = await bookedTransaction(s.t, s.bank, {
+        bookingDate: TODAY,
+        amountCents: -2_990 - n * 100,
+        purpose: `Rechnung 2026-90${n}`,
+        counterpartyName: "Büro Schmidt GmbH",
+        counterpartyIban: "DE02120300000000202051",
+      });
+      const id = await s.owner.mutation(api.matchingRules.createVoucherFromTransaction, {
+        transactionId: tx,
+        account: "6815",
+      });
+      await upload(s.t, s.owner, { voucherId: id });
+      await s.owner.mutation(api.vouchers.finalize, { id });
+      return tx;
+    };
+    await classify(1);
+    await classify(2);
+    expect(await s.owner.query(api.matchingRules.suggestions, {})).toEqual([]);
+    await classify(3);
+    const [sug, ...rest] = await s.owner.query(api.matchingRules.suggestions, {});
+    expect(rest).toEqual([]);
+    expect(sug).toMatchObject({
+      count: 3,
+      when: { ibanEquals: "DE02120300000000202051", direction: "out" },
+      apply: { action: "categorize", account: "6815" },
+      message: "3 Umsätze von „Büro Schmidt GmbH“ wurden gleich zugeordnet – Regel anlegen?",
+    });
+    // Read-only: nothing is created until the owner saves the proposed rule.
+    expect(await s.t.run((ctx) => ctx.db.query("matchingRules").collect())).toEqual([]);
+    await s.owner.mutation(api.matchingRules.create, {
+      name: sug?.name ?? "",
+      priority: 10,
+      enabled: true,
+      when: sug?.when ?? {},
+      apply: { action: "categorize", account: "6815" },
+    });
+    expect(await s.owner.query(api.matchingRules.suggestions, {})).toEqual([]);
+  });
+});
+
+describe("tax payments (BNK-064)", () => {
+  test("BNK-064 TAX-018 a transfer to the Finanzamt becomes a tax_payment voucher with subtype and period; finalising posts X1", async () => {
+    const s = await setup({ ku: false });
+    const tx = await bookedTransaction(s.t, s.bank, {
+      bookingDate: TODAY,
+      amountCents: -50_000,
+      purpose: "StNr 12/345/67890 USt 09/26",
+      counterpartyName: "Finanzamt Berlin-Mitte",
+    });
+    const d = await s.owner.query(api.banking.transaction, { id: tx });
+    expect(d?.taxPayment).toEqual({
+      subtype: "ust_prepayment",
+      period: "2026-09",
+      hint: "Steuerzahlung: USt-Vorauszahlung 2026-09",
+    });
+    const id = await s.owner.mutation(api.matchingRules.createVoucherFromTransaction, { transactionId: tx });
+    const v = await s.t.run(async (ctx) => (await ctx.db.get(id)) as Doc<"vouchers">);
+    expect(v).toMatchObject({
+      kind: "tax_payment",
+      status: "draft",
+      taxRule: "no_input_vat",
+      taxPayment: { subtype: "ust_prepayment", period: "2026-09" },
+      supplierName: "Finanzamt Berlin-Mitte",
+      bankTransactionId: tx,
+    });
+    await upload(s.t, s.owner, { voucherId: id });
+    await s.owner.mutation(api.vouchers.finalize, { id });
+    expect((await txOf(s.t, tx)).status).toBe("matched");
+    const entry = await s.t.run(async (ctx) =>
+      (await ctx.db.query("journalEntries").collect()).find((e) => e.source.kind === "voucher"),
+    );
+    expect(entry?.explanation).toBe("X1");
+  });
+
+  test("BNK-064 the period can be chosen when creating the voucher; a refund from the Finanzamt is offered too", async () => {
+    const s = await setup({ ku: false });
+    const tx = await bookedTransaction(s.t, s.bank, {
+      bookingDate: TODAY,
+      amountCents: 12_000,
+      purpose: "Erstattung",
+      counterpartyName: "Finanzamt Berlin-Mitte",
+    });
+    expect((await s.owner.query(api.banking.transaction, { id: tx }))?.taxPayment).toEqual({
+      hint: "Steuerzahlung – Art und Zeitraum bitte auswählen",
+    });
+    const id = await s.owner.mutation(api.matchingRules.createVoucherFromTransaction, {
+      transactionId: tx,
+      taxPayment: { subtype: "ust_annual", period: "2025" },
+    });
+    const v = await s.t.run(async (ctx) => (await ctx.db.get(id)) as Doc<"vouchers">);
+    expect(v).toMatchObject({
+      kind: "tax_payment",
+      direction: "income",
+      taxPayment: { subtype: "ust_annual", period: "2025" },
+    });
   });
 });

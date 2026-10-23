@@ -438,9 +438,17 @@ function scoreVoucher(tx: UnmatchedTransaction, v: OpenVoucher, text: string): S
   let kind: MatchCandidate["kind"] = "single";
   const sameCurrency = v.currency === tx.currency;
   const instructed = tx.instructedAmount;
+  // EC-BNK-25: a fee reported as a field is not part of the supplier's claim — the principal is matched, the fee is a
+  // bank-fee difference (own line on expense.bank_fees without VAT).
+  const fee = tx.feeCents ?? 0;
+  let differences: { reason: "bank_fees"; amountCents: number }[] = [];
   if (sameCurrency && amount === v.openCents) {
     bp += WEIGHTS_BP.exact_amount;
     reasons.push("exact_amount");
+  } else if (sameCurrency && fee > 0 && amount - fee === v.openCents) {
+    bp += WEIGHTS_BP.exact_amount;
+    reasons.push("exact_amount");
+    differences = [{ reason: "bank_fees", amountCents: -fee }];
   } else if (
     instructed &&
     instructed.currency === v.currency &&
@@ -476,7 +484,13 @@ function scoreVoucher(tx: UnmatchedTransaction, v: OpenVoucher, text: string): S
   } else if (!card && !v.recurring) bp += dateSignal(tx.bookingDate, v);
   return {
     bp,
-    candidate: { kind, reasons, allocations: [{ target: { kind: "voucher", id: v.id }, amountCents: amount }] },
+    candidate: {
+      kind,
+      reasons,
+      allocations: [
+        { target: { kind: "voucher", id: v.id }, amountCents: amount, ...(differences.length ? { differences } : {}) },
+      ],
+    },
   };
 }
 

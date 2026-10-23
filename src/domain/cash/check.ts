@@ -32,6 +32,12 @@ export function firstNegativeBalance(movements: readonly CashMovement[]): CashDi
   return null;
 }
 
+/** EC-CSH-08: the till changed between the check and the posting (a concurrent movement won, EC-151). */
+export const CASH_CHANGED = "Der Kassenbestand hat sich geändert. Bitte erneut versuchen.";
+
+/** EC-CSH-09 (GOBD-07): every cash movement references an invoice, a voucher or an Eigenbeleg. */
+export const CASH_BELEG_REQUIRED = "Jede Kassenbewegung braucht einen Beleg (Rechnung, Beleg oder Eigenbeleg).";
+
 export const de = (d: string) => `${d.slice(8, 10)}.${d.slice(5, 7)}.${d.slice(0, 4)}`;
 export const money = (cents: number) => formatEuro(cents).replace("-", "−");
 

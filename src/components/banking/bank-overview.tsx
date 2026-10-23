@@ -103,7 +103,7 @@ function BankOverviewInner() {
           <ul className="flex flex-col gap-2">
             {todos.map((todo) => (
               <li
-                key={`${todo.accountId}-${todo.month}-${todo.kind}`}
+                key={`${todo.accountId}-${todo.month}-${todo.kind}-${todo.id ?? ""}`}
                 className={
                   todo.severity === "warning"
                     ? "flex items-start gap-2 rounded-md border border-warning/40 bg-warning/10 p-3 text-sm"

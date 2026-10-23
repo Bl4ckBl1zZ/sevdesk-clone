@@ -3,6 +3,7 @@ import { v } from "convex/values";
 import { filter } from "convex-helpers/server/filter";
 import { eigenbelegContent } from "../src/domain/banking/eigenbeleg";
 import { decodeStatement } from "../src/domain/banking/statement";
+import { taxPaymentFromTransaction } from "../src/domain/banking/tax-payment";
 import { statementAccountSchema } from "../src/domain/schemas/banking";
 import { renderEigenbeleg } from "../src/pdf/eigenbeleg";
 import { api, internal } from "./_generated/api";
@@ -47,6 +48,7 @@ const vMarkKind = v.union(
   v.literal("transfer"),
   v.literal("cash_withdrawal"),
   v.literal("ignored"),
+  v.literal("loan"),
 );
 const vIgnoreReason = v.union(
   v.literal("duplicate_of_file_import"),
@@ -234,6 +236,17 @@ export const transaction = query({
           }
         : null,
       reversalCandidates: t.amountCents !== 0 && !t.reversalOfId ? await reversalCandidates(ctx, id) : [],
+      // BNK-064: Finanzamt rows become a tax-payment voucher („+ Neuer Beleg“), subtype/period suggested.
+      taxPayment:
+        t.status === "open"
+          ? taxPaymentFromTransaction({
+              amountCents: t.amountCents,
+              purpose: t.purpose,
+              ...(t.reference ? { reference: t.reference } : {}),
+              ...(t.counterpartyName ? { counterpartyName: t.counterpartyName } : {}),
+              ...(t.source.proprietaryCode ? { proprietaryCode: t.source.proprietaryCode } : {}),
+            })
+          : null,
     };
   },
 });
@@ -356,6 +369,8 @@ export const commitImport = action({
     counts: ImportPreview["counts"];
     reconciled: boolean | null;
     message: string | null;
+    /** EC-BNK-51 notices („Umsätze aus festgeschriebenem Zeitraum … werden im Zeitraum … gebucht.“). */
+    warnings: string[];
   }> => {
     const file = await readStatementFile(ctx, args.storageId);
     if (args.pdfStorageId) await assertPdf(ctx, args.pdfStorageId);
@@ -371,6 +386,7 @@ export const commitImport = action({
       counts: r.counts,
       reconciled: r.reconciliation?.reconciled ?? null,
       message: r.reconciliation?.message ?? null,
+      warnings: r.lockedPeriods.map((n) => n.message),
     };
   },
 });
@@ -551,6 +567,15 @@ const markArgs = {
   reason: v.optional(vIgnoreReason),
   linkId: v.optional(v.id("bankTransactions")),
   shareholder: v.optional(vShareholder),
+  cashTransferId: v.optional(v.id("cashTransfers")),
+  loan: v.optional(
+    v.object({
+      principalCents: v.optional(v.number()),
+      interestCents: v.optional(v.number()),
+      loanAccount: v.optional(v.string()),
+      interestAccount: v.optional(v.string()),
+    }),
+  ),
 };
 
 /** Validates the mark and returns the Eigenbeleg data (null for „Ignorieren“). */
@@ -621,7 +646,8 @@ export const linkReversalTo = mutation({
   args: { counterId: v.id("bankTransactions"), originalId: v.id("bankTransactions"), confirmToken: vConfirmToken },
   handler: async (ctx, args) => {
     await requireTransaction(ctx, args.counterId);
-    await linkBankReversal(ctx, args);
-    return null;
+    // EC-BNK-78: the warning tells the owner that the reversal is dated today (original period locked).
+    const r = await linkBankReversal(ctx, args);
+    return { warnings: r.warnings };
   },
 });

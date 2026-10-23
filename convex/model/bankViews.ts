@@ -1,8 +1,10 @@
 import type { ReconcileResult } from "../../src/domain/banking/reconcile";
 import { type StatementTodo, statementTodos } from "../../src/domain/banking/todos";
+import { type TransitWarning, transitWarnings } from "../../src/domain/banking/transit";
 import { berlinCalendarDate } from "../../src/domain/time/berlin";
 import type { Doc, Id } from "../_generated/dataModel";
 import { reconcileFor } from "./bankImport";
+import { transitBankRows, transitDeposits } from "./bankTransactions";
 import type { ReadCtx } from "./types";
 
 /** Read models of the Bank pages (04 §4.6): account cards, statement archive, reconciliation, to-dos, findings. */
@@ -83,10 +85,12 @@ export async function liveReconciliation(ctx: ReadCtx, statement: Doc<"bankState
   return reconcileFor(ctx, statement, account?.currency ?? "EUR", [...fileRowIds], missing);
 }
 
-export async function statementTodosFor(
-  ctx: ReadCtx,
-  now: number,
-): Promise<(StatementTodo & { accountName: string })[]> {
+/** One line of the bank to-do list: a statement to-do or an open Geldtransit (with the row/transfer id). */
+export type BankTodo =
+  | (StatementTodo & { accountName: string; id?: undefined })
+  | (Omit<TransitWarning, "kind"> & { kind: TransitWarning["kind"]; month: string; accountName: string });
+
+export async function statementTodosFor(ctx: ReadCtx, now: number): Promise<BankTodo[]> {
   const accounts = await ctx.db.query("bankAccounts").collect();
   const statements = await ctx.db.query("bankStatements").collect();
   const firstStatement = new Map<string, string>();
@@ -116,7 +120,17 @@ export async function statementTodosFor(
     berlinCalendarDate(now),
   );
   const names = new Map(accounts.map((a) => [a._id as string, a.name]));
-  return todos.map((t) => ({ ...t, accountName: names.get(t.accountId) ?? "" }));
+  // BNK-061 / CSH-024: open Geldtransit (E-ACC-23, EC-BNK-68, EC-BNK-20, EC-CSH-15), derived the same way.
+  const transit = transitWarnings(
+    await transitBankRows(ctx),
+    await transitDeposits(ctx),
+    accounts.filter((a) => a.archivedAt === undefined).map((a) => ({ id: a._id, name: a.name, currency: a.currency })),
+    berlinCalendarDate(now),
+  );
+  return [
+    ...todos.map((t) => ({ ...t, accountName: names.get(t.accountId) ?? "" })),
+    ...transit.map((w) => ({ ...w, month: w.date.slice(0, 7), accountName: names.get(w.accountId) ?? "" })),
+  ];
 }
 
 /** BNK-113 / EC-BNK-15: a booked row re-delivered with different content — never applied, shown as a finding. */

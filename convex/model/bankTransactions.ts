@@ -1,6 +1,9 @@
 import { isCorporation } from "../../src/domain/accounting/roles";
+import { currencyExponent } from "../../src/domain/banking/amount";
 import { type EigenbelegInput, markEigenbelegKind } from "../../src/domain/banking/eigenbeleg";
-import { findReversalCandidates, type LinkRow } from "../../src/domain/banking/links";
+import { outflowCost, type PocketLine, pocketBasis } from "../../src/domain/banking/fx-lots";
+import { findReversalCandidates, findTransferCandidates, type LinkRow } from "../../src/domain/banking/links";
+import { type LoanSplit, splitLoanPayment } from "../../src/domain/banking/loan";
 import {
   cashWithdrawalAmount,
   checkMark,
@@ -10,7 +13,14 @@ import {
   statusForMark,
 } from "../../src/domain/banking/marking";
 import { allocationStatus, openAmountCents, type UnmatchedTransaction } from "../../src/domain/banking/match-types";
+import {
+  autoDepositPair,
+  checkDepositPair,
+  type TransitBankRow,
+  type TransitCashDeposit,
+} from "../../src/domain/banking/transit";
 import { suggestTypeDefault } from "../../src/domain/banking/type-defaults";
+import { LOAN_ACCOUNT_DEFAULTS } from "../../src/domain/rules/accounting/loan-accounts";
 import { berlinCalendarDate } from "../../src/domain/time/berlin";
 import { addDays, type CalendarDate } from "../../src/domain/time/calendar-date";
 import type { Doc, Id } from "../_generated/dataModel";
@@ -18,7 +28,7 @@ import { appError } from "../lib/errors";
 import { auditedInsert, auditedPatch } from "./audit";
 import { type FileRefValue, insertCandidate } from "./bankImport";
 import { getCompanyProfile } from "./companyProfile";
-import { postJournalEntry } from "./journal";
+import { postJournalEntry, resolveContextAt } from "./journal";
 import type { ModelCtx, ReadCtx } from "./types";
 
 /**
@@ -44,6 +54,7 @@ const txLabel = (tx: Doc<"bankTransactions">) => `${tx.bookingDate} ${tx.amountC
 export const accountLabel = (a: Doc<"bankAccounts">) => (a.iban ? `${a.name} (${a.iban})` : a.name);
 
 /** FX pockets need the EUR value (BNK-028, P2) before a journal entry can be posted. */
+// LEGAL-OPEN: BNK-028 ECB reference-rate source for foreign rows without a paired EUR side (F07 §12).
 const FX_POSTING_DEFERRED =
   "Umsätze in Fremdwährung können erst mit der EUR-Bewertung (Kurs der EZB) gebucht werden. Bitte vorerst offen lassen.";
 
@@ -53,7 +64,89 @@ export interface MarkArgs {
   reason?: IgnoreReason;
   linkId?: Id<"bankTransactions">;
   shareholder?: { name: string; note: string };
+  /** `transfer` of a bank credit: the cash deposit (CSH-024) it is the bank side of (E-ACC-31: exact amount). */
+  cashTransferId?: Id<"cashTransfers">;
+  /** `loan` (BNK-062): the principal or the interest part of a repayment; other chart accounts optional. */
+  loan?: { principalCents?: number; interestCents?: number; loanAccount?: string; interestAccount?: string };
   eigenbeleg?: FileRefValue;
+}
+
+// ── open Geldtransit (BNK-061, CSH-024, E-ACC-23/31) ───────────────────────────────────────────────────
+
+/** „Bargeld eingezahlt“ transfers (not reversed) and whether a bank credit is already their bank side. */
+export async function transitDeposits(ctx: ReadCtx): Promise<TransitCashDeposit[]> {
+  const transfers = await ctx.db.query("cashTransfers").collect();
+  const reversed = new Set(transfers.flatMap((t) => (t.reversalOfId ? [t.reversalOfId as string] : [])));
+  const credits = await ctx.db
+    .query("bankTransactions")
+    .withIndex("by_status", (q) => q.eq("status", "transfer"))
+    .collect();
+  const paired = new Set(credits.flatMap((t) => (t.transferCashId ? [t.transferCashId as string] : [])));
+  return transfers.flatMap((t) =>
+    t.kind === "deposit_to_bank" && !t.reversalOfId && !reversed.has(t._id) && t.bankAccountId
+      ? [
+          {
+            id: t._id,
+            date: t.date,
+            amountCents: t.amountCents,
+            bankAccountId: t.bankAccountId,
+            paired: paired.has(t._id) || t.bankTransactionId !== undefined,
+          },
+        ]
+      : [],
+  );
+}
+
+/** Bank rows marked „Geldtransit“ (ATM withdrawals into the till post both legs themselves and are excluded). */
+export async function transitBankRows(ctx: ReadCtx): Promise<TransitBankRow[]> {
+  const rows = await ctx.db
+    .query("bankTransactions")
+    .withIndex("by_status", (q) => q.eq("status", "transfer"))
+    .collect();
+  const atm = new Set(
+    (await ctx.db.query("cashTransfers").collect()).flatMap((c) =>
+      c.bankTransactionId ? [c.bankTransactionId as string] : [],
+    ),
+  );
+  return rows
+    .filter((r) => !atm.has(r._id))
+    .map((r) => ({
+      id: r._id,
+      accountId: r.accountId,
+      bookingDate: r.bookingDate,
+      amountCents: r.amountCents,
+      currency: r.currency,
+      ...(r.source.instructedAmount && r.source.instructedAmount.currency !== r.currency
+        ? { instructedCurrency: r.source.instructedAmount.currency }
+        : {}),
+      paired: r.transferPeerId !== undefined || r.transferCashId !== undefined,
+    }));
+}
+
+const depositCredit = (tx: Doc<"bankTransactions">) => ({
+  accountId: tx.accountId,
+  bookingDate: tx.bookingDate,
+  amountCents: tx.amountCents,
+  currency: tx.currency,
+});
+
+/** The other leg of a Geldtransit pair (BNK-061): the unique unpaired `transfer` row that fits. */
+async function transferPeer(ctx: ReadCtx, tx: Doc<"bankTransactions">): Promise<Doc<"bankTransactions"> | null> {
+  const marked = (
+    await ctx.db
+      .query("bankTransactions")
+      .withIndex("by_status", (q) => q.eq("status", "transfer").eq("bookingDate", tx.bookingDate))
+      .collect()
+  ).filter((r) => r.transferPeerId === undefined && r.transferCashId === undefined);
+  if (marked.length === 0) return null;
+  const accounts = (await ctx.db.query("bankAccounts").collect()).map((a) => ({
+    id: a._id as string,
+    currency: a.currency,
+    ...(a.iban ? { iban: a.iban } : {}),
+  }));
+  const hits = findTransferCandidates(linkRow(tx), marked.map(linkRow), accounts);
+  if (hits.length !== 1) return null;
+  return marked.find((r) => r._id === hits[0]?.peerId) ?? null;
 }
 
 /** Validation shared by the action (before rendering the Eigenbeleg) and the mutation. */
@@ -81,13 +174,110 @@ export async function checkMarkFor(ctx: ReadCtx, args: Omit<MarkArgs, "eigenbele
     profile.legalForm,
   );
   if (problem) throw appError("invalid_input", problem.message, { reason: "MARK_REJECTED" });
+  let fx: FxValuation | undefined;
   if (args.as !== "ignored" && tx.currency !== "EUR") {
-    throw appError("invalid_input", FX_POSTING_DEFERRED, { reason: "FX_POSTING_DEFERRED" });
+    // BNK-028: only the Geldtransit side of an exchange can be valued today — at the paired EUR side (R1) or at
+    // the pocket's moving-average cost (R2). Everything else needs an ECB rate source (LEGAL-OPEN BNK-028).
+    if (args.as !== "transfer" || tx.source.feeCents) {
+      throw appError("invalid_input", FX_POSTING_DEFERRED, { reason: "FX_POSTING_DEFERRED" });
+    }
+    fx = await fxTransferValuation(ctx, tx, account);
   }
   if (args.as === "ignored" && link && link._id === tx._id) {
     throw appError("invalid_input", MARK_MESSAGES.ignoreRestricted, { reason: "MARK_REJECTED" });
   }
-  return { tx, account, profile, link };
+  let deposit: TransitCashDeposit | undefined;
+  if (args.cashTransferId) {
+    deposit = (await transitDeposits(ctx)).find((d) => d.id === args.cashTransferId);
+    const problem =
+      args.as !== "transfer" || !deposit
+        ? "Diese Bareinzahlung ist bereits zugeordnet oder gehört zu einem anderen Konto."
+        : checkDepositPair(depositCredit(tx), deposit);
+    if (problem) throw appError("invalid_input", problem, { reason: "DEPOSIT_PAIR_REJECTED" });
+  }
+  let loan: (LoanSplit & { loanAccount: string; interestAccount: string }) | undefined;
+  if (args.as === "loan") {
+    const split = splitLoanPayment({
+      amountCents: tx.amountCents,
+      ...(tx.source.feeCents ? { feeCents: tx.source.feeCents } : {}),
+      ...(args.loan?.principalCents !== undefined ? { principalCents: args.loan.principalCents } : {}),
+      ...(args.loan?.interestCents !== undefined ? { interestCents: args.loan.interestCents } : {}),
+    });
+    if (!split.ok) throw appError("invalid_input", split.error.message, { reason: "LOAN_SPLIT_INVALID" });
+    const { chart } = await resolveContextAt(ctx, tx.bookingDate as CalendarDate);
+    const defaults = LOAN_ACCOUNT_DEFAULTS[chart];
+    loan = {
+      ...split.value,
+      loanAccount: args.loan?.loanAccount?.trim() || defaults.loan,
+      interestAccount: args.loan?.interestAccount?.trim() || defaults.interest,
+    };
+  }
+  return { tx, account, profile, link, deposit, loan, fx };
+}
+
+interface FxValuation {
+  peerId: Id<"bankTransactions">;
+  currency: string;
+  eurCents: number;
+  costCents: number;
+  rate: { rate: string; source: "transaction"; date: string };
+}
+
+const FX_PEER_REQUIRED =
+  "Umsätze in Fremdwährung werden über die EUR-Seite bewertet: bitte zuerst die EUR-Seite des Umtauschs als Geldtransit markieren.";
+
+/** EUR principal of a marked EUR row (what reached/left the transit account, the fee is booked separately). */
+const eurPrincipal = (t: Doc<"bankTransactions">) =>
+  t.amountCents < 0 ? -t.amountCents - (t.source.feeCents ?? 0) : t.amountCents + (t.source.feeCents ?? 0);
+
+/** The pocket's EUR basis from its ledger lines up to `date` (moving average, BNK-028). */
+async function pocketLines(ctx: ReadCtx, ledgerAccount: string, currency: string, date: string): Promise<PocketLine[]> {
+  const lines = await ctx.db
+    .query("journalLines")
+    .withIndex("by_account_date_seq", (q) => q.eq("account", ledgerAccount).lte("date", date))
+    .collect();
+  const entries = new Map<string, Doc<"journalEntries"> | null>();
+  const out: PocketLine[] = [];
+  for (const l of lines) {
+    if (!entries.has(l.entryId)) entries.set(l.entryId, await ctx.db.get(l.entryId));
+    const src = entries.get(l.entryId)?.lines[l.lineIndex];
+    const eurCents = l.debitCents - l.creditCents;
+    const fxMinor =
+      src?.currency === currency && src.amountFx !== undefined ? (l.debitCents > 0 ? 1 : -1) * src.amountFx : undefined;
+    out.push({ eurCents, ...(fxMinor !== undefined ? { fxMinor } : {}) });
+  }
+  return out;
+}
+
+/** BNK-028 / F08 R1–R2 valuation of the foreign-currency side of a Geldtransit pair (EC-BNK-26, EC-BNK-69). */
+async function fxTransferValuation(
+  ctx: ReadCtx,
+  tx: Doc<"bankTransactions">,
+  account: Doc<"bankAccounts">,
+): Promise<FxValuation> {
+  const peer = await transferPeer(ctx, tx);
+  const eurPeer = peer?.currency === "EUR" ? peer : null;
+  if (!eurPeer) throw appError("invalid_input", FX_PEER_REQUIRED, { reason: "FX_PEER_REQUIRED" });
+  const eurCents = eurPrincipal(eurPeer);
+  let costCents = eurCents;
+  if (tx.amountCents < 0) {
+    const basis = pocketBasis(await pocketLines(ctx, account.ledgerAccount, tx.currency, tx.bookingDate));
+    const cost = outflowCost(basis, -tx.amountCents);
+    if (!cost.ok) throw appError("invalid_input", cost.error.message, { reason: "FX_BASIS" });
+    costCents = cost.value;
+  }
+  // Implicit rate of the exchange (EUR per unit), a memo on the journal line (ACC-023); 6 decimals, half-up.
+  const fxUnits = BigInt(Math.abs(tx.amountCents)) * 100n;
+  const scaled =
+    (BigInt(eurCents) * 10n ** BigInt(currencyExponent(tx.currency)) * 1_000_000n + fxUnits / 2n) / fxUnits;
+  const rate = `${scaled / 1_000_000n}.${String(scaled % 1_000_000n).padStart(6, "0")}`;
+  return {
+    peerId: eurPeer._id,
+    currency: tx.currency,
+    eurCents,
+    costCents,
+    rate: { rate, source: "transaction", date: tx.bookingDate },
+  };
 }
 
 /** Data for the Eigenbeleg of a mark (BNK-060/061, CSH-025). */
@@ -98,7 +288,7 @@ export async function markEigenbelegInput(
   now: number,
 ): Promise<EigenbelegInput | null> {
   if (args.as === "ignored") return null;
-  const { tx, account, profile } = await checkMarkFor(ctx, args);
+  const { tx, account, profile, loan } = await checkMarkFor(ctx, args);
   const a = profile.address;
   return {
     kind: markEigenbelegKind(args.as, tx.amountCents, isCorporation(profile.legalForm)),
@@ -115,16 +305,25 @@ export async function markEigenbelegInput(
     ...(tx.purpose ? { purpose: tx.purpose } : {}),
     reference: tx.source.entryReference ?? tx.source.providerTransactionId ?? tx._id,
     ...(args.shareholder && args.as === "private" ? { shareholder: args.shareholder } : {}),
+    ...(loan ? { loan: { principalCents: loan.principalCents, interestCents: loan.interestCents } } : {}),
     createdOn: berlinCalendarDate(now),
     createdBy,
   };
 }
 
 export async function markTransaction(ctx: ModelCtx, args: MarkArgs): Promise<{ status: string }> {
-  const { tx, account, link } = await checkMarkFor(ctx, args);
+  const { tx, account, link, deposit, loan, fx } = await checkMarkFor(ctx, args);
   const status = statusForMark(args.as);
   const attachments = args.eigenbeleg ? [args.eigenbeleg] : [];
-  if (args.as === "private" || args.as === "transfer") {
+  // BNK-061 / CSH-024: find the other side before this row is marked (it must not pair with itself).
+  let cashId: Id<"cashTransfers"> | undefined = deposit ? (deposit.id as Id<"cashTransfers">) : undefined;
+  let peer: Doc<"bankTransactions"> | null = null;
+  if (args.as === "transfer" && !cashId) {
+    const auto = tx.amountCents > 0 ? autoDepositPair(depositCredit(tx), await transitDeposits(ctx)) : null;
+    if (auto) cashId = auto as Id<"cashTransfers">;
+    else peer = await transferPeer(ctx, tx);
+  }
+  if (args.as === "private" || args.as === "transfer" || args.as === "loan") {
     const fee = feeOf(tx);
     await postJournalEntry(
       ctx,
@@ -137,6 +336,17 @@ export async function markTransaction(ctx: ModelCtx, args: MarkArgs): Promise<{ 
         ...(fee ? { feeCents: fee } : {}),
         bankAccountId: account._id,
         ...(args.as === "private" && args.shareholder ? { shareholder: args.shareholder } : {}),
+        ...(loan
+          ? {
+              loan: {
+                principalCents: loan.principalCents,
+                interestCents: loan.interestCents,
+                loanAccount: loan.loanAccount,
+                interestAccount: loan.interestAccount,
+              },
+            }
+          : {}),
+        ...(fx ? { fx: { currency: fx.currency, eurCents: fx.eurCents, costCents: fx.costCents, rate: fx.rate } } : {}),
       },
       { attachments },
     );
@@ -186,7 +396,18 @@ export async function markTransaction(ctx: ModelCtx, args: MarkArgs): Promise<{ 
     patch.ignoredReason = args.reason;
     if (link) patch.ignoredLinkId = link._id;
   }
+  if (cashId) patch.transferCashId = cashId;
+  if (peer) patch.transferPeerId = peer._id;
   await auditedPatch(ctx, "bankTransactions", tx._id, patch, { action: "bank.mark", label: txLabel(tx) });
+  if (peer) {
+    await auditedPatch(
+      ctx,
+      "bankTransactions",
+      peer._id,
+      { transferPeerId: tx._id },
+      { action: "bank.mark", label: `Geldtransit-Paar ${txLabel(peer)}` },
+    );
+  }
   // A neutralised pair (BNK-063) ignores both halves, linked to each other.
   if (args.as === "ignored" && args.reason === "neutralised_pair" && link) {
     await auditedPatch(
@@ -209,7 +430,7 @@ export async function unmarkTransaction(
   const reason = args.reason.trim();
   if (reason.length < 5) throw appError("invalid_input", "Bitte einen Grund angeben (mindestens 5 Zeichen).");
   const today = berlinCalendarDate(ctx.now());
-  if (tx.status === "private" || tx.status === "transfer") {
+  if (tx.status === "private" || tx.status === "transfer" || tx.status === "booked") {
     const cash = (
       await ctx.db
         .query("cashTransfers")
@@ -284,11 +505,30 @@ export async function unmarkTransaction(
   } else {
     throw appError("invalid_input", "Der Umsatz ist nicht markiert.");
   }
+  // The Geldtransit pair (BNK-061) comes apart: the other side stays marked and is open transit again.
+  if (tx.transferPeerId) {
+    const peer = await ctx.db.get(tx.transferPeerId);
+    if (peer?.transferPeerId === tx._id) {
+      await auditedPatch(
+        ctx,
+        "bankTransactions",
+        peer._id,
+        { transferPeerId: undefined },
+        { action: "bank.unmark", label: `Geldtransit-Paar ${txLabel(peer)}`, reason },
+      );
+    }
+  }
   await auditedPatch(
     ctx,
     "bankTransactions",
     tx._id,
-    { status: "open", ignoredReason: undefined, ignoredLinkId: undefined },
+    {
+      status: "open",
+      ignoredReason: undefined,
+      ignoredLinkId: undefined,
+      transferPeerId: undefined,
+      transferCashId: undefined,
+    },
     { action: "bank.unmark", label: txLabel(tx), reason },
   );
 }
@@ -306,6 +546,7 @@ export const linkRow = (t: Doc<"bankTransactions">): LinkRow => ({
   ...(t.endToEndId ? { endToEndId: t.endToEndId } : {}),
   ...(t.counterpartyIban ? { counterpartyIban: t.counterpartyIban } : {}),
   ...(t.source.instructedAmount ? { instructedAmount: t.source.instructedAmount } : {}),
+  ...(t.source.merchantName ? { merchantName: t.source.merchantName } : {}),
   ...(t.reversal ? { reversal: true } : {}),
   ...(t.reversalOfId ? { reversalOfId: t.reversalOfId } : {}),
   status: t.status,
@@ -575,6 +816,7 @@ export async function unmatchedTransactions(
         ...(t.mandateRef ? { mandateRef: t.mandateRef } : {}),
         ...(t.source.merchantName ? { merchantName: t.source.merchantName } : {}),
         ...(t.source.instructedAmount ? { instructedAmount: t.source.instructedAmount } : {}),
+        ...(t.source.feeCents ? { feeCents: t.source.feeCents } : {}),
         ...(typeDefault ? { typeDefault } : {}),
       });
     }

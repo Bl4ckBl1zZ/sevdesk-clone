@@ -1,4 +1,6 @@
+import { resolveRole } from "../../src/domain/accounting/resolve";
 import { formatMoneyDe } from "../../src/domain/banking/amount";
+import { type ClassifiedTx, type RuleSuggestion, suggestRules } from "../../src/domain/banking/rule-suggestions";
 import {
   categorizeOutcome,
   firstMatchingRule,
@@ -9,14 +11,18 @@ import {
   type RuleTx,
   validateRule,
 } from "../../src/domain/banking/rules";
+import { taxPaymentFromTransaction } from "../../src/domain/banking/tax-payment";
 import type { Channel } from "../../src/domain/schemas/actor";
 import { berlinCalendarDate } from "../../src/domain/time/berlin";
-import { addDays, type CalendarDate, formatGermanDate } from "../../src/domain/time/calendar-date";
+import { addDays, type CalendarDate, calendarDate, formatGermanDate } from "../../src/domain/time/calendar-date";
 import { supplierKeys } from "../../src/domain/vouchers/supplier-key";
+import { TAX_PAYMENT_ROLE } from "../../src/domain/vouchers/tax-payment";
+import type { TaxPaymentSubtype } from "../../src/domain/vouchers/types";
 import type { Doc, Id } from "../_generated/dataModel";
 import { appError } from "../lib/errors";
 import { auditedDelete, auditedInsert, auditedPatch } from "./audit";
 import { requireTransaction } from "./bankTransactions";
+import { resolveContextAt } from "./journal";
 import { upsertNotification } from "./salesDocuments";
 import type { ModelCtx, ReadCtx } from "./types";
 import { createVoucher, type DraftInput, finalizeVoucher, previewVoucher } from "./vouchers";
@@ -212,6 +218,47 @@ export async function rulesWithHits(ctx: ReadCtx, now: number) {
   }));
 }
 
+/** BNK-053 window: classifications of the last 180 days count towards a rule suggestion. */
+const SUGGESTION_WINDOW_DAYS = 180;
+
+/**
+ * BNK-053: manual classifications the rules can reproduce — a finalised voucher from the transaction that no rule
+ * created (one account for all lines) or a „privat“ mark — grouped by counterparty token; read-only.
+ */
+export async function ruleSuggestionsFor(ctx: ReadCtx, now: number): Promise<RuleSuggestion[]> {
+  const from = addDays(berlinCalendarDate(now), -SUGGESTION_WINDOW_DAYS);
+  const items: ClassifiedTx[] = [];
+  for (const a of await ctx.db.query("bankAccounts").collect()) {
+    const rows = await ctx.db
+      .query("bankTransactions")
+      .withIndex("by_account_bookingDate", (q) => q.eq("accountId", a._id).gte("bookingDate", from))
+      .collect();
+    for (const t of rows) {
+      if (t.status === "private") {
+        items.push({ tx: ruleTx(t), classification: { action: "private" } });
+        continue;
+      }
+      if (t.status !== "matched" && t.status !== "partially_matched") continue;
+      const voucher = (
+        await ctx.db
+          .query("vouchers")
+          .withIndex("by_bankTransaction", (q) => q.eq("bankTransactionId", t._id))
+          .collect()
+      ).find((v) => v.status !== "draft" && v.status !== "cancelled" && !v.ruleId);
+      if (!voucher) continue;
+      const lines = await ctx.db
+        .query("voucherLines")
+        .withIndex("by_voucher", (q) => q.eq("voucherId", voucher._id))
+        .collect();
+      const accounts = new Set(lines.map((l) => l.account));
+      const [account] = [...accounts];
+      if (accounts.size !== 1 || !account) continue;
+      items.push({ tx: ruleTx(t), classification: { action: "categorize", account, taxRule: voucher.taxRule } });
+    }
+  }
+  return suggestRules(items, (await listRules(ctx)).map(toDomainRule));
+}
+
 /** The rule that applies to a booked transaction (first match by priority), or null. */
 export async function ruleFor(ctx: ReadCtx, txId: Id<"bankTransactions">) {
   const tx = await ctx.db.get(txId);
@@ -247,6 +294,37 @@ async function supplierSuggestion(ctx: ReadCtx, tx: Doc<"bankTransactions">) {
  * currency / original amount, account suggestion from the supplier profile), linked to the transaction so that the
  * finalisation allocates it (`finalizeVoucher` → F06 bank payment).
  */
+/**
+ * BNK-064: a transfer to/from the tax authority -> draft of kind `tax_payment` (TAX-018) with the suggested subtype and
+ * period; the subtype's role decides the account. Without a recognisable reference the owner selects kind and period
+ * on the voucher (finalising requires them, VOU validation).
+ */
+async function taxPaymentDraft(
+  ctx: ReadCtx,
+  tx: Doc<"bankTransactions">,
+  chosen: { subtype: TaxPaymentSubtype; period?: string } | undefined,
+) {
+  const hint = taxPaymentFromTransaction({
+    amountCents: tx.amountCents,
+    purpose: tx.purpose,
+    ...(tx.reference ? { reference: tx.reference } : {}),
+    ...(tx.counterpartyName ? { counterpartyName: tx.counterpartyName } : {}),
+    ...(tx.source.proprietaryCode ? { proprietaryCode: tx.source.proprietaryCode } : {}),
+  });
+  if (!hint && !chosen) return null;
+  const subtype = chosen?.subtype ?? hint?.subtype;
+  const period = chosen ? chosen.period : hint?.period;
+  const role = subtype
+    ? resolveRole(TAX_PAYMENT_ROLE[subtype], await resolveContextAt(ctx, calendarDate(tx.bookingDate)))
+    : null;
+  return {
+    kind: "tax_payment" as const,
+    taxRule: "no_input_vat" as const,
+    ...(subtype ? { taxPayment: { subtype, ...(period ? { period } : {}) } } : {}),
+    ...(role?.ok && role.value.account ? { account: role.value.account } : {}),
+  };
+}
+
 export async function voucherFromTransaction(
   ctx: ModelCtx,
   args: {
@@ -257,6 +335,8 @@ export async function voucherFromTransaction(
     flags?: { statementIsBeleg?: true; receiptMissing?: true };
     /** Supplier when the row names no counterparty (bank fees/interest: the account's bank). */
     supplierFallback?: string;
+    /** BNK-064: subtype/period chosen for a tax payment (else suggested from the Finanzamt reference). */
+    taxPayment?: { subtype: TaxPaymentSubtype; period?: string };
   },
 ): Promise<Id<"vouchers">> {
   const tx = await requireTransaction(ctx, args.transactionId);
@@ -270,6 +350,35 @@ export async function voucherFromTransaction(
   ).find((v) => v.status !== "cancelled");
   if (existing) return existing._id;
   const open = Math.abs(tx.amountCents) - tx.allocatedCents;
+  const tax = args.account ? null : await taxPaymentDraft(ctx, tx, args.taxPayment);
+  if (tax) {
+    const { account: taxAccount, ...head } = tax;
+    return createVoucher(ctx, {
+      input: {
+        ...head,
+        direction: tx.amountCents < 0 ? "expense" : "income",
+        documentDate: tx.bookingDate,
+        currency: tx.currency,
+        priceMode: "gross",
+        ...(tx.counterpartyName ? { supplierName: tx.counterpartyName } : {}),
+        ...(tx.counterpartyIban ? { supplierIban: tx.counterpartyIban } : {}),
+        ...(taxAccount
+          ? {
+              lines: [
+                {
+                  account: taxAccount,
+                  description: [tx.reference, tx.purpose].filter(Boolean).join(" ").slice(0, 200) || "Steuerzahlung",
+                  amountCents: open,
+                  vatRateBp: 0,
+                },
+              ],
+            }
+          : {}),
+        internalNote: `Aus Bankumsatz ${labelOf(tx)}`,
+      } as DraftInput,
+      extra: { bankTransactionId: tx._id, ...(args.ruleId ? { ruleId: args.ruleId } : {}) } as never,
+    });
+  }
   const suggestion = args.account ? null : await supplierSuggestion(ctx, tx);
   const account = args.account ?? suggestion?.account;
   const instructed = tx.source.instructedAmount;

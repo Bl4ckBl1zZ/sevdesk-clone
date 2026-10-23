@@ -1,3 +1,4 @@
+import { resolveRole } from "../../src/domain/accounting/resolve";
 import {
   aliasToken,
   autoApplicable,
@@ -13,13 +14,18 @@ import {
   scoreTransaction,
 } from "../../src/domain/banking/match";
 import type { MatchAllocation, MatchCandidate, UnmatchedTransaction } from "../../src/domain/banking/match-types";
+import { MATCH_MESSAGES } from "../../src/domain/banking/matching-messages";
+import { voucherFxDifference } from "../../src/domain/banking/voucher-fx";
 import type { DocumentSnapshot } from "../../src/domain/documents/snapshot";
 import { isArchiveOnlyImport } from "../../src/domain/import/sevdesk/types";
 import type { DifferenceInput } from "../../src/domain/payments/plan";
+import { calendarDate } from "../../src/domain/time/calendar-date";
 import type { Doc, Id } from "../_generated/dataModel";
 import { appError } from "../lib/errors";
 import { auditedInsert } from "./audit";
 import { linkReversal, requireTransaction, unmatchedTransactions } from "./bankTransactions";
+import { resolveContextAt } from "./journal";
+import { notify } from "./notifications";
 import {
   creditBalance,
   type RecordResult,
@@ -314,12 +320,59 @@ export interface ConfirmArgs {
  * BNK-046 ✓ Bestätigen: runs F05 `recordPayment` (incoming), `refundCredit` (outgoing to a credit balance) or the
  * PAY-047 reconciliation of an existing manual payment, then learns the counterparty alias (BNK-048).
  */
+/** EC-BNK-25: only bank-fee/other differences carry over to a voucher payment (no write-offs on purchase vouchers). */
+function voucherDifferences(diffs: DifferenceInput[] | undefined) {
+  const out = (diffs ?? []).map((d) => {
+    if (d.reason !== "bank_fees" && d.reason !== "skonto" && d.reason !== "other")
+      throw appError("invalid_input", "Diese Differenz ist bei Belegen nicht möglich.", {
+        reason: "DIFFERENCE_REASON",
+      });
+    return { reason: d.reason, amountCents: d.amountCents, ...(d.account ? { account: d.account } : {}) };
+  });
+  return out.length ? { differences: out } : {};
+}
+
+/**
+ * EC-BNK-76: a foreign card payment that settles a foreign-currency voucher in full carries the realised exchange
+ * difference (PAY-018 mirrored) — computed here from stored data, never trusted from the client.
+ */
+async function withVoucherFx(
+  ctx: ReadCtx,
+  tx: Doc<"bankTransactions">,
+  a: { target: { id: string }; amountCents: number; differences?: DifferenceInput[] },
+) {
+  const base = voucherDifferences(a.differences);
+  const v = await ctx.db.get(a.target.id as Id<"vouchers">);
+  if (!v || v.currency === "EUR") return base;
+  const own = base.differences ?? [];
+  const fx = voucherFxDifference({
+    voucherCurrency: v.currency,
+    billGrossMinor: Math.abs(v.totals.grossCents),
+    openEurCents: v.openAmountCents,
+    unpaid: v.totalsEur ? v.openAmountCents === v.totalsEur.grossCents : true,
+    paidEurCents: a.amountCents + own.reduce((sum, d) => sum + d.amountCents, 0),
+    ...(tx.source.instructedAmount ? { instructed: tx.source.instructedAmount } : {}),
+  });
+  if (!fx) return base;
+  const role = resolveRole(fx.role, await resolveContextAt(ctx, calendarDate(tx.bookingDate)));
+  if (!role.ok || !role.value.account) return base;
+  return {
+    differences: [...own, { reason: "other" as const, amountCents: fx.amountCents, account: role.value.account }],
+  };
+}
+
 export async function confirmMatch(
   ctx: ModelCtx,
   args: ConfirmArgs,
 ): Promise<RecordResult | { reconciled: true } | { refunded: Id<"payments"> }> {
   const tx = await requireTransaction(ctx, args.transactionId);
   if (args.allocations.length === 0) throw appError("invalid_input", "Bitte mindestens eine Zuordnung angeben.");
+  // EC-BNK-62: another confirmation (other tab, auto-apply, MCP) allocated this transaction in the meantime. Convex
+  // mutations are serialisable, so the later one sees the allocation and is refused before anything is written.
+  const requested = args.allocations.reduce((s, a) => s + a.amountCents, 0);
+  if (tx.allocatedCents > 0 && requested > Math.abs(tx.amountCents) - tx.allocatedCents) {
+    throw appError("conflict", MATCH_MESSAGES.concurrent, { reason: "TX_ALREADY_ALLOCATED" });
+  }
   const [first] = args.allocations;
   if (first && first.target.kind === "payment") {
     if (args.allocations.length !== 1)
@@ -338,6 +391,7 @@ export async function confirmMatch(
       method: "bank",
       transactionId: tx._id,
       amountCents: first.amountCents,
+      ...(await withVoucherFx(ctx, tx, first)),
       ...(args.acknowledgeWarnings ? { acknowledgeWarnings: args.acknowledgeWarnings } : {}),
       ...(args.provenance ? { match: args.provenance } : {}),
     });
@@ -517,11 +571,56 @@ export async function linkBankReversal(
   const original = await requireTransaction(ctx, args.originalId);
   const counter = await requireTransaction(ctx, args.counterId);
   await linkReversal(ctx, args);
-  if (original.allocatedCents <= 0) return { reversalIds: [] as Id<"payments">[], warnings: [] };
-  return reverseTransactionPayments(ctx, {
+  if (original.allocatedCents <= 0) return { reversalIds: [] as Id<"payments">[], warnings: [] as string[] };
+  const r = await reverseTransactionPayments(ctx, {
     transactionId: original._id,
     reason: "Rückbuchung durch die Bank",
     preferredDate: counter.bookingDate,
     counterTransactionId: counter._id,
   });
+  // F08 E-ACC-24 / EC-BNK-14: the owner learns which document is open again.
+  for (const reversalId of r.reversalIds) {
+    const reversal = await ctx.db.get(reversalId);
+    const originalPayment = reversal?.reversalOfId ? await ctx.db.get(reversal.reversalOfId) : null;
+    if (!reversal || !originalPayment) continue;
+    const doc =
+      reversal.target.kind === "salesDocument"
+        ? await ctx.db.get(reversal.target.id as Id<"salesDocuments">)
+        : reversal.target.kind === "voucher"
+          ? await ctx.db.get(reversal.target.id as Id<"vouchers">)
+          : null;
+    const number = doc && "number" in doc ? doc.number : doc && "internalNumber" in doc ? doc.internalNumber : null;
+    const label =
+      reversal.target.kind === "salesDocument"
+        ? `Rechnung ${number ?? ""}`.trim()
+        : reversal.target.kind === "voucher"
+          ? `Beleg ${number ?? ""}`.trim()
+          : "Guthaben";
+    await notify(ctx, {
+      kind: "bank.reversal",
+      severity: "warning",
+      title: MATCH_MESSAGES.bankReturned(originalPayment.date, label),
+      link: "/bank/zuordnungen",
+      entity: { table: "payments", id: reversalId },
+      dedupeKey: `bank.reversal|${reversalId}`,
+    });
+  }
+  return {
+    reversalIds: r.reversalIds,
+    warnings: r.warnings.map((w) => (w.code === "reversal_period_locked" ? MATCH_MESSAGES.reversalLocked : w.message)),
+  };
+}
+
+/** BNK-047 „Zuordnung aufheben“ / „Rückgängig“: F05 reversal with the F07 wording for a locked period (EC-BNK-74). */
+export async function unmatchTransaction(
+  ctx: ModelCtx,
+  args: { transactionId: Id<"bankTransactions">; reason: string },
+): Promise<Awaited<ReturnType<typeof reverseTransactionPayments>>> {
+  const r = await reverseTransactionPayments(ctx, args);
+  return {
+    ...r,
+    warnings: r.warnings.map((w) =>
+      w.code === "reversal_period_locked" ? { ...w, message: MATCH_MESSAGES.unmatchLocked } : w,
+    ),
+  };
 }

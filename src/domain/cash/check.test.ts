@@ -4,7 +4,7 @@ import { cashNegativeIssue, firstNegativeBalance } from "./check";
 const m = (date: string, seq: number, amountCents: number) => ({ date, seq, amountCents });
 
 describe("CSH-026 cash never negative (AO-05, RI-11)", () => {
-  test("CSH-026 golden C1: opening 100,00 then an outflow of 150,00 is blocked (shortfall 50,00)", () => {
+  test("EC-CSH-01 CSH-026 golden C1: opening 100,00 then an outflow of 150,00 is blocked (shortfall 50,00)", () => {
     const dip = firstNegativeBalance([m("2026-10-01", 1, 10000), m("2026-10-01", 2, -15000)]);
     expect(dip).toEqual({ date: "2026-10-01", seq: 2, balanceCents: -5000 });
     expect(dip && cashNegativeIssue(dip, "2026-10-01", false).message).toBe(
@@ -12,7 +12,7 @@ describe("CSH-026 cash never negative (AO-05, RI-11)", () => {
     );
   });
 
-  test("EC-149 golden C2/C3: a backdated outflow that dips a later date is blocked even if a later inflow cures it", () => {
+  test("EC-CSH-02 EC-CSH-03 EC-149 golden C2/C3: a backdated outflow that dips a later date is blocked even if a later inflow cures it", () => {
     const moves = [
       m("2026-10-01", 1, 10000),
       m("2026-10-05", 2, -8000),
@@ -30,6 +30,26 @@ describe("CSH-026 cash never negative (AO-05, RI-11)", () => {
     expect(
       firstNegativeBalance([m("2026-10-01", 1, 1500), m("2026-10-02", 2, 2000), m("2026-10-02", 3, -3000)]),
     ).toBeNull();
+  });
+
+  test("EC-CSH-02 golden C2 alone: the backdated outflow on 03.10. names the first negative later date (05.10.)", () => {
+    const dip = firstNegativeBalance([m("2026-10-01", 1, 10000), m("2026-10-05", 2, -8000), m("2026-10-03", 3, -5000)]);
+    expect(dip).toEqual({ date: "2026-10-05", seq: 2, balanceCents: -3000 });
+    // The posting date itself (03.10.) is still fine: 100 − 50 = 50.
+    expect(dip?.date).not.toBe("2026-10-03");
+  });
+
+  test("EC-CSH-04 CSH-027 golden C5: reversing a cash receipt of 100,00 on 12.10. with 20,00 in the till is blocked", () => {
+    const moves = [
+      m("2026-10-01", 1, 10000), // cash receipt 100,00
+      m("2026-10-05", 2, -8000), // outflow 80,00 → 20,00 on hand
+      m("2026-10-12", 3, -10000), // reversal of the receipt, dated today
+    ];
+    const dip = firstNegativeBalance(moves);
+    expect(dip).toEqual({ date: "2026-10-12", seq: 3, balanceCents: -8000 });
+    expect(dip && cashNegativeIssue(dip, "2026-10-12", true).message).toBe(
+      "Storno nicht möglich: Der Kassenbestand würde am 12.10.2026 negativ werden.",
+    );
   });
 
   test("CSH-027 a reversal that dips the balance gets the Storno message (EC-CSH-04)", () => {

@@ -266,13 +266,29 @@ export interface CashTransferReversedEvent {
 export interface BankTransactionMarkedEvent {
   kind: "bank_transaction_marked";
   transactionId: string;
-  mark: "private" | "transfer";
+  mark: "private" | "transfer" | "loan";
   date: string;
   amountCents: number;
   feeCents?: number;
   bankAccountId: string;
   /** Corporations (ACC-028): private marks go to `shareholder.clearing` with shareholder + note. */
   shareholder?: { name: string; note: string };
+  /**
+   * F07 BNK-062 Darlehen (L1 disbursement / L2 repayment): principal to the loan account, interest to the interest
+   * expense account (chart accounts, defaults in `rules/accounting/loan-accounts.ts`).
+   */
+  loan?: { principalCents: number; interestCents: number; loanAccount: string; interestAccount: string };
+  /**
+   * F07 BNK-028 / F08 R1–R2: the foreign-currency pocket side of a Geldtransit (`amountCents` in `fx.currency`).
+   * `eurCents` = EUR value of the paired EUR side (transit amount); `costCents` = moving-average EUR cost of an
+   * outflow (inflow: = eurCents). The difference of an outflow is the realised FX result.
+   */
+  fx?: {
+    currency: string;
+    eurCents: number;
+    costCents: number;
+    rate: { rate: string; source: "bmf_monthly" | "ecb_daily" | "manual" | "transaction"; date: string };
+  };
 }
 
 /** „Markierung aufheben“: mirrors the entries of the mark (Generalumkehr, ACC-004). */

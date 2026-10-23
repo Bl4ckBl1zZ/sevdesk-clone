@@ -182,6 +182,23 @@ export async function reverseCashTransfer(
       { reason: "CASH_TRANSFER_FROM_BANK" },
     );
   }
+  if (original.kind === "deposit_to_bank") {
+    // The bank credit is already the deposit's bank side (BNK-061): reversing only the cash leg would leave the
+    // credit on transit. Unmark the credit first, then reverse the deposit (E-ACC-31: reversal + new transfer).
+    const credit = (
+      await ctx.db
+        .query("bankTransactions")
+        .withIndex("by_status", (q) => q.eq("status", "transfer"))
+        .collect()
+    ).find((t) => t.transferCashId === original._id);
+    if (credit) {
+      throw appError(
+        "invalid_input",
+        "Die Bareinzahlung ist einer Gutschrift auf dem Bankkonto zugeordnet. Bitte zuerst die Markierung der Gutschrift aufheben.",
+        { reason: "CASH_DEPOSIT_PAIRED" },
+      );
+    }
+  }
   const reason = args.reason.trim();
   if (reason.length < 5) throw appError("invalid_input", "Bitte einen Grund angeben (mindestens 5 Zeichen).");
   const already = await ctx.db

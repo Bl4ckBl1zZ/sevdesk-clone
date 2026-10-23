@@ -2583,6 +2583,7 @@
       "markPrivate": "Privat",
       "markTransfer": "Geldtransit",
       "markCash": "Bargeld in die Kasse",
+      "markLoan": "Darlehen",
       "markIgnored": "Ignorieren",
       "unmark": "Markierung aufheben",
       "linked": "Rückbuchung verknüpft.",
@@ -2613,6 +2614,14 @@
         "title": "Bargeld in die Kasse",
         "description": "Die Abhebung wird am Buchungstag der Bank als Zugang in der Kasse gebucht (über Geldtransit); eine Automatengebühr wird als Bankgebühr gebucht.",
         "confirm": "In die Kasse buchen"
+      },
+      "loan": {
+        "title": "Als Darlehen buchen",
+        "description": "{direction, select, out {Rückzahlung: Tilgung auf das Darlehenskonto, Zinsen als Zinsaufwand – bitte einen der beiden Anteile angeben.} other {Darlehensauszahlung auf das Darlehenskonto.}} Bitte den Darlehensvertrag bzw. Darlehenskontoauszug als Beleg ablegen.",
+        "confirm": "Darlehen buchen",
+        "split": "Aufteilung der Rate",
+        "principal": "Tilgung (€)",
+        "interest": "Zinsen (€)"
       },
       "ignored": {
         "title": "Umsatz ignorieren",
@@ -5533,6 +5542,8 @@
     "new": "Neue Regel",
     "empty": "Noch keine Regeln.",
     "disabled": "deaktiviert",
+    "suggestionsTitle": "Vorgeschlagene Regeln",
+    "suggestionCreate": "Regel für „{name}“ anlegen",
     "mode": {
       "suggest": "Vorschlag",
       "auto": "Automatik"

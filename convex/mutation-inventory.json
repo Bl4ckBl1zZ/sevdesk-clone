@@ -2773,6 +2773,12 @@
     "wrapper": "mutation",
     "permission": "bankRules.write"
   },
+  "matchingRules:suggestions": {
+    "kind": "query",
+    "visibility": "public",
+    "wrapper": "query",
+    "permission": "banking.read"
+  },
   "matchingRules:update": {
     "kind": "mutation",
     "visibility": "public",

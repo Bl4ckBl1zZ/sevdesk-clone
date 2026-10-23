@@ -591,6 +591,39 @@ describe("polling (BNK-106, BNK-107, BNK-111)", () => {
     );
   });
 
+  test("BNK-012 a sandbox application is selectable for testing; its data never reaches the books; production after a disconnect", async () => {
+    const s = await setup();
+    fake.accounts = [eurAccount()];
+    const r = await s.owner.action(api.bankFeedNode.saveSetup, {
+      applicationId: "app-feed-1",
+      generateKey: true,
+      environment: "sandbox",
+    });
+    fake.publicKeyPem = r.publicKeyPem;
+    expect((await connectionRow(s.t)).environment).toBe("sandbox");
+    await connect(s);
+    await poll(s.t);
+    // Separate from production: no booked rows, no revisions, no journal entries (so nothing in any report).
+    expect(await rows(s.t, s.eur)).toEqual([]);
+    expect(await s.t.run((ctx) => ctx.db.query("bankTransactionRevisions").collect())).toEqual([]);
+    expect(await s.t.run((ctx) => ctx.db.query("journalEntries").collect())).toEqual([]);
+    expect((await s.owner.query(api.bankFeed.connection, {}))?.sandboxNotice).toBe(
+      "Sandbox-Daten – nicht in der Buchhaltung berücksichtigt.",
+    );
+    // After „Trennen“ the production application can be set up; then the feed books normally.
+    await s.owner.action(api.bankFeedNode.disconnect, { deleteKey: true });
+    const prod = await s.owner.action(api.bankFeedNode.saveSetup, {
+      applicationId: "app-feed-1",
+      generateKey: true,
+      environment: "production",
+    });
+    fake.publicKeyPem = prod.publicKeyPem;
+    await connect(s);
+    expect((await connectionRow(s.t)).environment).toBe("production");
+    expect((await s.owner.query(api.bankFeed.connection, {}))?.sandboxNotice).toBeNull();
+    expect((await rows(s.t, s.eur)).length).toBeGreaterThan(0);
+  });
+
   test("EC-BNK-18 RI-27 BNK-106 the daily balance differs from the booked balance → warning", async () => {
     const s = await connected();
     (fake.accounts[0] as FakeBankAccount).balance = { amount: "1000.00", currency: "EUR" };
