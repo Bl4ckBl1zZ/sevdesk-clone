@@ -833,6 +833,32 @@ function postBankMark(e: BankTransactionMarkedEvent, ctx: PostingContext): Resul
   // Principal = what left/reached the counter account; the fee is always borne by the business (R5).
   const principal = out ? -e.amountCents - fee : e.amountCents + fee;
   const feeLines = debit(R("expense.bank_fees"), fee);
+  if (e.mark === "loan") {
+    // F07 BNK-062: L1 Kreditaufnahme (S bank · H loan), L2 Rückzahlung (S loan principal · S interest · H bank).
+    const l = e.loan;
+    if (!l || !isInt(l.principalCents) || !isInt(l.interestCents) || l.principalCents < 0 || l.interestCents < 0) {
+      return err(invalid("Bitte Tilgung und Zinsen angeben."));
+    }
+    if (l.principalCents + l.interestCents !== principal || (!out && l.interestCents !== 0)) {
+      return err(invalid("Tilgung und Zinsen ergeben nicht den Zahlbetrag."));
+    }
+    const loanAcc = { account: l.loanAccount };
+    const lines = out
+      ? [
+          ...debit(loanAcc, l.principalCents),
+          ...debit({ account: l.interestAccount }, l.interestCents),
+          ...feeLines,
+          ...credit(bank, -e.amountCents),
+        ]
+      : [...debit(bank, e.amountCents), ...feeLines, ...credit(loanAcc, principal)];
+    return entry(e, ctx, {
+      date: e.date,
+      text: out ? "Darlehensrückzahlung laut Kontoauszug" : "Darlehensauszahlung laut Kontoauszug",
+      explanation: out ? "L2" : "L1",
+      lines,
+      dating: "external",
+    });
+  }
   let counter: AccountRole;
   let explanation: string;
   let text: string;

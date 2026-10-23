@@ -13,11 +13,12 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { Textarea } from "@/components/ui/textarea";
+import { parseCents } from "@/domain/money/parse";
 import { IGNORE_REASON_LABEL_DE, IGNORE_REASON_VALUES } from "@/domain/schemas/banking";
 import { useAuthedQuery } from "@/hooks/use-authed-query";
 import { Amount, money, SOURCE_LABEL, StatusBadge } from "./shared";
 
-type Mark = "private" | "transfer" | "cash_withdrawal" | "ignored";
+type Mark = "private" | "transfer" | "cash_withdrawal" | "ignored" | "loan";
 
 /**
  * Transaction detail (F07 §6): booked data (immutable, BNK-122), sources and revisions (BNK-110/113), postings and
@@ -144,12 +145,17 @@ export function TransactionSheet({
                           {t("markCash")}
                         </Button>
                       )}
+                      {tx.currency === "EUR" && (
+                        <Button variant="outline" className="h-11 md:h-9" onClick={() => setDialog("loan")}>
+                          {t("markLoan")}
+                        </Button>
+                      )}
                       <Button variant="outline" className="h-11 md:h-9" onClick={() => setDialog("ignored")}>
                         {t("markIgnored")}
                       </Button>
                     </div>
                   ) : (
-                    ["private", "transfer", "ignored"].includes(tx.status) &&
+                    ["private", "transfer", "ignored", "booked"].includes(tx.status) &&
                     tx.ignoredReason !== "import_rolled_back" &&
                     canMark && (
                       <Button variant="outline" className="h-11 self-start md:h-9" onClick={() => setDialog("unmark")}>
@@ -290,6 +296,18 @@ function MarkDialog({
   const [link, setLink] = useState("");
   const [shareholderName, setShareholderName] = useState("");
   const [shareholderNote, setShareholderNote] = useState("");
+  const principalId = useId();
+  const interestId = useId();
+  const [principal, setPrincipal] = useState("");
+  const [interest, setInterest] = useState("");
+  const cents = (v: string) => {
+    const r = parseCents(v);
+    return v.trim() && r.ok ? r.value : undefined;
+  };
+  const loanSplit = {
+    ...(cents(principal) !== undefined ? { principalCents: cents(principal) } : {}),
+    ...(cents(interest) !== undefined ? { interestCents: cents(interest) } : {}),
+  };
   const details = useAuthedQuery(api.banking.transaction, { id: transactionId });
   const candidates = details?.reversalCandidates ?? [];
   return (
@@ -309,6 +327,7 @@ function MarkDialog({
               ...(kind === "private" && shareholderName
                 ? { shareholder: { name: shareholderName, note: shareholderNote } }
                 : {}),
+              ...(kind === "loan" ? { loan: loanSplit } : {}),
             }),
           t("done"),
         );
@@ -331,6 +350,27 @@ function MarkDialog({
             className="h-11 md:h-9"
             value={shareholderNote}
             onChange={(e) => setShareholderNote(e.target.value)}
+          />
+        </fieldset>
+      )}
+      {kind === "loan" && amountCents < 0 && (
+        <fieldset className="flex flex-col gap-2 text-sm">
+          <legend className="mb-1 text-muted-foreground">{t("loan.split")}</legend>
+          <label htmlFor={principalId}>{t("loan.principal")}</label>
+          <Input
+            id={principalId}
+            inputMode="decimal"
+            className="h-11 md:h-9"
+            value={principal}
+            onChange={(e) => setPrincipal(e.target.value)}
+          />
+          <label htmlFor={interestId}>{t("loan.interest")}</label>
+          <Input
+            id={interestId}
+            inputMode="decimal"
+            className="h-11 md:h-9"
+            value={interest}
+            onChange={(e) => setInterest(e.target.value)}
           />
         </fieldset>
       )}

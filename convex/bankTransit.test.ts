@@ -237,3 +237,62 @@ describe("Geldtransit between own accounts (BNK-061, E-ACC-23, EC-BNK-68, EC-BNK
     ]);
   });
 });
+
+describe("Darlehen (BNK-062)", () => {
+  const entryLines = (t: TestT, id: Id<"bankTransactions">) =>
+    t.run(async (ctx) => {
+      const entries = await ctx.db
+        .query("journalEntries")
+        .withIndex("by_source", (q) => q.eq("source.kind", "bankTransaction").eq("source.id", id))
+        .collect();
+      return entries.map((e) => ({
+        explanation: e.explanation,
+        lines: e.lines.map((l) => [l.account, l.debitCents, l.creditCents]),
+      }));
+    });
+
+  test("BNK-062 T07-092 disbursement to 0630; repayment split into principal (0630) and interest (2100) with an Eigenbeleg", async () => {
+    const { t, owner, eur } = await setup();
+    const disb = await booked(t, eur, { bookingDate: "2026-10-01", amountCents: 1_000_000, purpose: "Darlehen 4711" });
+    await owner.action(api.banking.mark, { transactionId: disb, as: "loan" });
+    expect(await entryLines(t, disb)).toEqual([
+      {
+        explanation: "L1",
+        lines: [
+          ["1200", 1_000_000, 0],
+          ["0630", 0, 1_000_000],
+        ],
+      },
+    ]);
+    const rate = await booked(t, eur, { bookingDate: "2026-10-10", amountCents: -55_000, purpose: "Rate 4711" });
+    await owner.action(api.banking.mark, { transactionId: rate, as: "loan", loan: { interestCents: 5_000 } });
+    expect(await entryLines(t, rate)).toEqual([
+      {
+        explanation: "L2",
+        lines: [
+          ["0630", 50_000, 0],
+          ["2100", 5_000, 0],
+          ["1200", 0, 55_000],
+        ],
+      },
+    ]);
+    const d = await owner.query(api.banking.transaction, { id: rate });
+    expect(d?.status).toBe("booked");
+    expect(d?.eigenbelege[0]?.sha256).toMatch(/^[0-9a-f]{64}$/);
+    // „Markierung aufheben“ reverses the entry (Generalumkehr) and reopens the row.
+    await owner.mutation(api.banking.unmark, { transactionId: rate, reason: "Rate falsch aufgeteilt" });
+    expect((await txOf(t, rate)).status).toBe("open");
+    expect(await entryLines(t, rate)).toHaveLength(2);
+  });
+
+  test("EC-BNK-75 a principal above the payment is blocked; nothing is posted", async () => {
+    const { t, owner, eur } = await setup();
+    const rate = await booked(t, eur, { bookingDate: "2026-10-10", amountCents: -55_000, purpose: "Rate 4711" });
+    const e = await owner
+      .action(api.banking.mark, { transactionId: rate, as: "loan", loan: { principalCents: 60_000 } })
+      .catch((x) => x);
+    expect(messageOf(e)).toBe("Der Tilgungsanteil übersteigt den Zahlbetrag.");
+    expect((await txOf(t, rate)).status).toBe("open");
+    expect(await entryLines(t, rate)).toEqual([]);
+  });
+});

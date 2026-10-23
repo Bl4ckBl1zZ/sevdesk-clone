@@ -30,6 +30,55 @@ function brief(r: ReturnType<typeof postEvent>) {
   };
 }
 
+describe("Darlehen (F07 BNK-062)", () => {
+  const loan = (over: Partial<BankTransactionMarkedEvent> = {}) =>
+    mark({
+      mark: "loan",
+      amountCents: -55_100,
+      feeCents: 100,
+      loan: { principalCents: 50_000, interestCents: 5_000, loanAccount: "0630", interestAccount: "2100" },
+      ...over,
+    });
+
+  test("BNK-062 repayment: S loan principal · S interest · S bank fee · H bank; disbursement: S bank · H loan", () => {
+    expect(brief(postEvent(loan(), SOLE))).toEqual({
+      explanation: "L2",
+      dating: "external",
+      source: { kind: "bankTransaction", id: "tx1" },
+      lines: [
+        ["0630", "S", 50_000],
+        ["2100", "S", 5_000],
+        ["expense.bank_fees", "S", 100],
+        ["bank.acc1", "H", 55_100],
+      ],
+    });
+    const disb = brief(
+      postEvent(
+        loan({
+          amountCents: 1_000_000,
+          feeCents: 0,
+          loan: { principalCents: 1_000_000, interestCents: 0, loanAccount: "0630", interestAccount: "2100" },
+        }),
+        SOLE,
+      ),
+    );
+    expect(disb.explanation).toBe("L1");
+    expect(disb.lines).toEqual([
+      ["bank.acc1", "S", 1_000_000],
+      ["0630", "H", 1_000_000],
+    ]);
+  });
+
+  test("EC-BNK-75 BNK-062 a split that does not add up to the payment is refused by the posting too", () => {
+    const r = postEvent(
+      loan({ loan: { principalCents: 56_000, interestCents: 0, loanAccount: "0630", interestAccount: "2100" } }),
+      SOLE,
+    );
+    expect(r.ok).toBe(false);
+    expect(postEvent(loan({ loan: undefined }), SOLE).ok).toBe(false);
+  });
+});
+
 describe("marked bank transactions (F08 T1/T2/T4, F07 BNK-060/061)", () => {
   test("T07-090 BNK-060 T1 private withdrawal from the bank: S private.withdrawal · H bank, dated the booking date", () => {
     expect(brief(postEvent(mark(), SOLE))).toEqual({

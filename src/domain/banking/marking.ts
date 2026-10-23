@@ -8,7 +8,7 @@ import { isCorporation } from "../accounting/roles";
 import type { LegalForm } from "../company/legal-forms";
 import { type Issue, issue } from "../result";
 
-export type MarkKind = "private" | "transfer" | "cash_withdrawal" | "ignored";
+export type MarkKind = "private" | "transfer" | "cash_withdrawal" | "ignored" | "loan";
 export type IgnoreReason = "duplicate_of_file_import" | "neutralised_pair" | "test_or_zero";
 export const IGNORE_REASONS: readonly IgnoreReason[] = ["duplicate_of_file_import", "neutralised_pair", "test_or_zero"];
 
@@ -17,6 +17,7 @@ export const MARK_LABEL_DE: Readonly<Record<MarkKind, string>> = {
   transfer: "Geldtransit",
   cash_withdrawal: "Bargeld in die Kasse",
   ignored: "Ignoriert",
+  loan: "Darlehen",
 };
 
 export interface MarkableTx {
@@ -55,6 +56,7 @@ export function checkMark(tx: MarkableTx, input: MarkInput, legalForm: LegalForm
       }
       return tx.amountCents === 0 ? fail(MARK_MESSAGES.ignoreRestricted) : null;
     case "transfer":
+    case "loan":
       return tx.amountCents === 0 ? fail(MARK_MESSAGES.ignoreRestricted) : null;
     case "cash_withdrawal":
       if (tx.amountCents >= 0) return fail(MARK_MESSAGES.cashOnlyDebits);
@@ -81,9 +83,10 @@ export function checkMark(tx: MarkableTx, input: MarkInput, legalForm: LegalForm
   }
 }
 
-export function statusForMark(kind: MarkKind): "private" | "transfer" | "ignored" {
+export function statusForMark(kind: MarkKind): "private" | "transfer" | "ignored" | "booked" {
   if (kind === "private") return "private";
   if (kind === "ignored") return "ignored";
+  if (kind === "loan") return "booked";
   return "transfer";
 }
 

@@ -16,7 +16,9 @@ export type EigenbelegKind =
   | "atm_to_cash"
   | "cash_deposit_to_bank"
   | "cash_private_withdrawal"
-  | "cash_shareholder_withdrawal";
+  | "cash_shareholder_withdrawal"
+  | "loan_disbursement"
+  | "loan_repayment";
 
 export const EIGENBELEG_TITLE: Readonly<Record<EigenbelegKind, string>> = {
   private_withdrawal: "Privatentnahme laut Kontoauszug",
@@ -28,6 +30,8 @@ export const EIGENBELEG_TITLE: Readonly<Record<EigenbelegKind, string>> = {
   cash_deposit_to_bank: "Bareinzahlung auf das Bankkonto",
   cash_private_withdrawal: "Privatentnahme aus der Kasse",
   cash_shareholder_withdrawal: "Barauszahlung an Gesellschafter",
+  loan_disbursement: "Darlehensauszahlung laut Kontoauszug",
+  loan_repayment: "Darlehensrückzahlung laut Kontoauszug",
 };
 
 export interface EigenbelegInput {
@@ -45,6 +49,8 @@ export interface EigenbelegInput {
   /** Bank reference / transaction ID or the cash-transfer ID — ties the voucher to the booking. */
   reference: string;
   shareholder?: { name: string; note: string };
+  /** BNK-062: the principal/interest split of a loan mark. */
+  loan?: { principalCents: number; interestCents: number };
   note?: string;
   backdateReason?: string;
   /** Date the voucher is created (Europe/Berlin, passed in). */
@@ -73,6 +79,12 @@ export function eigenbelegContent(input: EigenbelegInput): EigenbelegContent {
     rows.push(["Gesellschafter", input.shareholder.name]);
     rows.push(["Vermerk", input.shareholder.note]);
   }
+  if (input.loan) {
+    rows.push(["Tilgung", formatMoneyDe(input.loan.principalCents, input.currency)]);
+    if (input.loan.interestCents) rows.push(["Zinsen", formatMoneyDe(input.loan.interestCents, input.currency)]);
+    // BNK-062: the loan contract / loan account statement is the real voucher — the owner files it.
+    rows.push(["Hinweis", "Darlehensvertrag bzw. Darlehenskontoauszug bitte als Beleg ablegen."]);
+  }
   if (input.note) rows.push(["Notiz", input.note]);
   if (input.backdateReason) rows.push(["Grund der späten Erfassung", input.backdateReason]);
   rows.push(["Referenz", input.reference]);
@@ -88,10 +100,11 @@ export function eigenbelegContent(input: EigenbelegInput): EigenbelegContent {
 
 /** Eigenbeleg kind of a bank mark (BNK-060/061, CSH-025). */
 export function markEigenbelegKind(
-  mark: "private" | "transfer" | "cash_withdrawal",
+  mark: "private" | "transfer" | "cash_withdrawal" | "loan",
   amountCents: number,
   corporation: boolean,
 ): EigenbelegKind {
+  if (mark === "loan") return amountCents < 0 ? "loan_repayment" : "loan_disbursement";
   if (mark === "transfer") return "transfer";
   if (mark === "cash_withdrawal") return "atm_to_cash";
   if (corporation) return amountCents < 0 ? "shareholder_withdrawal" : "shareholder_deposit";

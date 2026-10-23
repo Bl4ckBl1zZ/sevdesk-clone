@@ -47,6 +47,7 @@ const vMarkKind = v.union(
   v.literal("transfer"),
   v.literal("cash_withdrawal"),
   v.literal("ignored"),
+  v.literal("loan"),
 );
 const vIgnoreReason = v.union(
   v.literal("duplicate_of_file_import"),
@@ -555,6 +556,14 @@ const markArgs = {
   linkId: v.optional(v.id("bankTransactions")),
   shareholder: v.optional(vShareholder),
   cashTransferId: v.optional(v.id("cashTransfers")),
+  loan: v.optional(
+    v.object({
+      principalCents: v.optional(v.number()),
+      interestCents: v.optional(v.number()),
+      loanAccount: v.optional(v.string()),
+      interestAccount: v.optional(v.string()),
+    }),
+  ),
 };
 
 /** Validates the mark and returns the Eigenbeleg data (null for „Ignorieren“). */
