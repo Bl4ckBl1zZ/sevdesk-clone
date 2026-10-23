@@ -11,14 +11,16 @@ import type { TableNames } from "../_generated/dataModel";
 import { appError, errorCode } from "../lib/errors";
 import schema from "../schema";
 import { appendAudit } from "./audit";
-import { checkInvariants } from "./invariants";
+import { checkInvariants, type InvariantViolation } from "./invariants";
 import type { ModelCtx, ReadCtx } from "./types";
 
 /**
  * Migration runner (F12 AUD-028, GOBD-23, EC-184). Every data migration is a registered `Migration` run inside
  * one transaction as `system:migration.<name>`:
  *
- *  1. RI-01/04/14 must hold before (otherwise the migration does not start — fix the data first);
+ *  1. RI-01/04/14 must hold before (otherwise the migration does not start — fix the data first); `migrations:run`
+ *     does this pre-check with the paged action `invariants.run` (any data volume) and then calls `migrations:apply`
+ *     with `prechecked`, other callers check in this transaction;
  *  2. a snapshot of every protected table (immutability matrix) is taken;
  *  3. the migration runs on the guarded db (writes to frozen records already fail with `immutable_record`);
  *  4. existing protected rows must be unchanged and RI-01/04/14 must still hold — otherwise E-AUD-17 and the
@@ -49,22 +51,34 @@ async function protectedSnapshot(ctx: ReadCtx): Promise<ProtectedSnapshot> {
   return snapshotProtected(rows);
 }
 
-async function assertInvariantsFor(ctx: ReadCtx, name: string, phase: "vorher" | "nachher") {
-  const blocking = blockingViolations(await checkInvariants(ctx));
+/** Step 1: the migration does not start while RI-01/04/14 are violated (E-AUD-17 precondition). */
+export function assertMigrationPrecondition(name: string, violations: readonly InvariantViolation[]): void {
+  const blocking = blockingViolations(violations);
   if (blocking.length === 0) return;
-  if (phase === "nachher") {
-    throw appError("immutable_record", migrationAbortMessage(name), {
-      reason: "MIGRATION_PROTECTED_CONTENT",
-      violations: blocking.map((v) => `${v.id}: ${v.message}`),
-    });
-  }
   throw appError("conflict", `Migration ${name} nicht gestartet: Prüfregeln vorher verletzt.`, {
     reason: "MIGRATION_PRECONDITION",
     violations: blocking.map((v) => `${v.id}: ${v.message}`),
   });
 }
 
-export async function runMigration(ctx: ModelCtx, migration: Migration): Promise<MigrationCounts> {
+async function assertInvariantsFor(ctx: ReadCtx, name: string, phase: "vorher" | "nachher") {
+  const violations = await checkInvariants(ctx);
+  if (phase === "vorher") return assertMigrationPrecondition(name, violations);
+  const blocking = blockingViolations(violations);
+  if (blocking.length > 0) {
+    throw appError("immutable_record", migrationAbortMessage(name), {
+      reason: "MIGRATION_PROTECTED_CONTENT",
+      violations: blocking.map((v) => `${v.id}: ${v.message}`),
+    });
+  }
+}
+
+export async function runMigration(
+  ctx: ModelCtx,
+  migration: Migration,
+  /** `prechecked`: step 1 already ran (paged) in the calling action, see `migrations:run`. */
+  opts: { prechecked?: boolean } = {},
+): Promise<MigrationCounts> {
   const { name } = migration;
   if (!validateMigrationName(name)) {
     throw appError("invalid_input", `Ungültiger Migrationsname: ${name}`, { reason: "MIGRATION_NAME" });
@@ -72,7 +86,7 @@ export async function runMigration(ctx: ModelCtx, migration: Migration): Promise
   const actor = `system:migration.${name}` as const;
   const mctx: ModelCtx = { ...ctx, actor, role: undefined, actorContext: { actor, channel: "system" } };
 
-  await assertInvariantsFor(mctx, name, "vorher");
+  if (!opts.prechecked) await assertInvariantsFor(mctx, name, "vorher");
   const before = await protectedSnapshot(mctx);
   let counts: MigrationCounts;
   try {

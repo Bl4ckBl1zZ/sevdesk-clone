@@ -127,7 +127,7 @@ describe("migration runner (F12 AUD-028, GOBD-23, EC-184)", () => {
   test("AUD-028 migrations run only through the registered entry point; unknown names are rejected", async () => {
     const t = await seeded();
     expect(MIGRATIONS.every((m) => /^[a-z0-9][a-z0-9-]{2,63}$/.test(m.name))).toBe(true);
-    const f = await failure(t.mutation(internal.migrations.run, { name: "does-not-exist" }));
+    const f = await failure(t.action(internal.migrations.run, { name: "does-not-exist" }));
     expect(f.code).toBe("not_found");
     const bad = await failure(migrate(t, { ...addUnit, name: "Drop Table" }));
     expect(bad.data.reason).toBe("MIGRATION_NAME");

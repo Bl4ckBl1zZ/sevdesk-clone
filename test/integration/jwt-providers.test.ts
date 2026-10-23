@@ -59,7 +59,7 @@ describe.skipIf(!enabled)("JWT providers on the self-hosted backend (02 §4.4)",
   beforeEach(() => {
     const admin = adminClient();
     // biome-ignore lint/suspicious/noExplicitAny: internal function via the admin key
-    useInvariantTarget({ query: (ref, args) => admin.query(ref as any, args as any) } as InvariantTarget);
+    useInvariantTarget({ action: (ref, args) => admin.action(ref as any, args as any) } as InvariantTarget);
   });
 
   test("SEC-02 a valid server JWT is verified by Convex and reaches the key check (unknown key → key_revoked)", async () => {
@@ -93,7 +93,8 @@ describe.skipIf(!enabled)("session revocation on the self-hosted backend (02 §4
   const internalMutation = (ref: unknown, args: Record<string, unknown>) => admin.mutation(ref as any, args as any);
 
   beforeEach(async () => {
-    useInvariantTarget({ query: (ref, args) => internalQuery(ref, args) } as InvariantTarget);
+    // biome-ignore lint/suspicious/noExplicitAny: internal function via the admin key
+    useInvariantTarget({ action: (ref, args) => admin.action(ref as any, args as any) } as InvariantTarget);
     await internalMutation(internal.signup.resetOtpQuota, { email: owner });
   });
 

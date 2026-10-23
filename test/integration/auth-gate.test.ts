@@ -46,7 +46,8 @@ describe.skipIf(!enabled)("sign-up gate on the self-hosted backend (SEC-01)", ()
   const internalMutation = (ref: unknown, args: Record<string, unknown>) => admin.mutation(ref as any, args as any);
 
   beforeEach(async () => {
-    useInvariantTarget({ query: (ref, args) => internalQuery(ref, args) } as InvariantTarget);
+    // biome-ignore lint/suspicious/noExplicitAny: internal function via the admin key
+    useInvariantTarget({ action: (ref, args) => admin.action(ref as any, args as any) } as InvariantTarget);
     await internalMutation(internal.signup.resetOtpQuota, { email: owner });
   });
 
