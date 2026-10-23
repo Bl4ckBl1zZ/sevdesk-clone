@@ -27,6 +27,7 @@ import { telHref } from "@/domain/contacts/channels";
 import { ROLE_LABELS } from "@/domain/contacts/core";
 import { DUPLICATE_REASON_LABELS } from "@/domain/contacts/duplicates";
 import { filterTimeline, type TimelineFilter } from "@/domain/contacts/timeline";
+import { formatEuro } from "@/domain/money";
 import { ACTIVITY_KIND_LABELS, ACTIVITY_KINDS, activitySchema } from "@/domain/schemas/contacts";
 import { TAX_CASE_LABELS } from "@/domain/tax/tax-case";
 import { useAuthedQuery } from "@/hooks/use-authed-query";
@@ -362,6 +363,19 @@ function Facts({ data }: { data: ContactBundle }) {
         <h2 className="mb-2 font-semibold text-base">{t("stats")}</h2>
         <p className="text-muted-foreground">{t("statsHint")}</p>
       </section>
+      {data.supplierStats && (
+        <section className="rounded-xl border p-4 text-sm" data-testid="supplier-stats">
+          <h2 className="mb-2 font-semibold text-base">{t("supplierStats")}</h2>
+          <dl className="grid grid-cols-[1fr_auto] gap-x-3 gap-y-1">
+            <dt className="text-muted-foreground">{t("spendThisYear")}</dt>
+            <dd className="text-right tabular-nums">{formatEuro(data.supplierStats.spendThisYearCents)}</dd>
+            <dt className="text-muted-foreground">{t("spendAllTime")}</dt>
+            <dd className="text-right tabular-nums">{formatEuro(data.supplierStats.spendAllTimeCents)}</dd>
+            <dt className="text-muted-foreground">{t("openPayables")}</dt>
+            <dd className="text-right tabular-nums">{formatEuro(data.supplierStats.openPayablesCents)}</dd>
+          </dl>
+        </section>
+      )}
     </aside>
   );
 }

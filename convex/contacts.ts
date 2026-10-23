@@ -7,6 +7,7 @@ import { normalizeContactNumber, normalizeSearchQuery } from "../src/domain/cont
 import { CONTACT_EXPORT_HEADERS, classifyRow, contactExportRow } from "../src/domain/contacts/csv-io";
 import { contactRanking, type RankedDocument, sortRanking } from "../src/domain/contacts/ranking";
 import { computeContactStats, type StatsDocType, type StatsDocument } from "../src/domain/contacts/stats";
+import { type SupplierVoucher, supplierStats } from "../src/domain/contacts/supplier-stats";
 import { effectiveElectronicAddress } from "../src/domain/contacts/tax";
 import { deriveTaxProfile } from "../src/domain/contacts/tax-profile";
 import { vatBadge } from "../src/domain/contacts/vat-check";
@@ -393,6 +394,8 @@ export const get = query({
       duplicateHints: hints,
       // CON-150: statistics over the finalised documents of the contact, its persons and merged aliases.
       stats: await contactStats(ctx, id, cc.today),
+      // CON-152: supplier view from the expense vouchers (role supplier)
+      supplierStats: c.roles.includes("supplier") ? await supplierStatsOf(ctx, id, cc.today) : null,
       deleteBlockedBy: await blockingReferences(ctx, id),
       today: cc.today,
     };
@@ -778,6 +781,38 @@ export const exportRows = query({
     return rows;
   },
 });
+
+/** CON-152: the supplier's vouchers (incl. contacts merged into it) in EUR. */
+async function supplierStatsOf(ctx: QueryCtx, id: Id<"contacts">, today: CalendarDate) {
+  const ids = new Set<Id<"contacts">>([id]);
+  for (const m of await ctx.db
+    .query("contactMerges")
+    .withIndex("by_winner", (q) => q.eq("winnerId", id))
+    .collect()) {
+    if (m.undoneAt === undefined) ids.add(m.loserId);
+  }
+  const rows: SupplierVoucher[] = [];
+  for (const cid of ids) {
+    for (const v of await ctx.db
+      .query("vouchers")
+      .withIndex("by_supplier_documentNumber", (q) => q.eq("supplierContactId", cid))
+      .collect()) {
+      const eur = v.totalsEur ?? v.totals;
+      const openEur =
+        v.totalsEur && v.totals.grossCents !== 0
+          ? Math.round((v.openAmountCents * v.totalsEur.grossCents) / v.totals.grossCents)
+          : v.openAmountCents;
+      rows.push({
+        direction: v.direction,
+        status: v.status,
+        ...(v.documentDate ? { documentDate: v.documentDate } : {}),
+        netEurCents: eur.netCents,
+        openEurCents: openEur,
+      });
+    }
+  }
+  return supplierStats(rows, today);
+}
 
 /** CON-150: finalised sales documents of the contact, its persons and the contacts merged into it (CON-133). */
 async function contactStats(ctx: QueryCtx, id: Id<"contacts">, today: CalendarDate) {

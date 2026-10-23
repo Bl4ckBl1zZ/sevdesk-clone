@@ -4,6 +4,7 @@ import type { Id } from "./_generated/dataModel";
 import { BERLIN, createValues, orgForm } from "./catalog.fixtures";
 import { invoiceValues, setupInvoicing } from "./invoices.fixtures";
 import { makeT } from "./test.setup";
+import { header, line, setupCompany, upload } from "./vouchers.fixtures";
 
 /** F02 contacts — gap rows (CON-094, CON-124, CON-152, CON-153, CON-085, CON-103, CON-144). */
 
@@ -107,5 +108,32 @@ describe("CON-153 sortable Offen / Umsatz (Jahr)", () => {
     // the paginated list shows the same figures
     const page = await owner.query(api.contacts.list, { paginationOpts: { numItems: 10, cursor: null } });
     expect(page.page.find((r) => r._id === b)).toMatchObject({ openCents: 357_000, revenueYearCents: 300_000 });
+  });
+});
+
+describe("CON-152 supplier view", () => {
+  test("CON-152 contacts.get returns spend this year/all time and open payables from the supplier's booked vouchers", async () => {
+    vi.useRealTimers(); // voucher fixtures date the vouchers today
+    const t = makeT();
+    const { supplier } = await setupCompany(t);
+    const owner = await t.asUser("owner");
+    const draftFor = async (amountCents: number) => {
+      const { voucherId } = await upload(t, owner);
+      await owner.mutation(api.vouchers.updateDraft, {
+        id: voucherId,
+        input: header({ supplierContactId: supplier, lines: [line({ amountCents })] }),
+      });
+      return voucherId;
+    };
+    await owner.mutation(api.vouchers.finalize, { id: await draftFor(11_900) }); // 100,00 net
+    await owner.mutation(api.vouchers.finalize, { id: await draftFor(23_800) }); // 200,00 net
+    await draftFor(99_900); // a draft counts for nothing
+    const bundle = await owner.query(api.contacts.get, { id: supplier });
+    expect(bundle?.supplierStats).toEqual({
+      spendThisYearCents: 30_000,
+      spendAllTimeCents: 30_000,
+      openPayablesCents: 35_700,
+      voucherCount: 2,
+    });
   });
 });
