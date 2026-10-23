@@ -14,7 +14,7 @@ import { FEED_MESSAGES } from "../src/domain/banking/feed/messages";
 import { isPollSlot, MAX_TRANSIENT_RETRIES, olderGap, unattendedAllowed } from "../src/domain/banking/feed/polling";
 import { redactForLog, redactText } from "../src/domain/banking/feed/redact";
 import type { EbAccount, EbTransaction } from "../src/domain/banking/sources/enable-banking";
-import { berlinCalendarDate } from "../src/domain/time/berlin";
+import { berlinCalendarDate, berlinClockTime } from "../src/domain/time/berlin";
 import { addDays, type CalendarDate } from "../src/domain/time/calendar-date";
 import { internal } from "./_generated/api";
 import type { Id } from "./_generated/dataModel";
@@ -530,11 +530,9 @@ export const syncCron = systemAction({
   job: "cron.bank.sync",
   args: { force: v.optional(v.boolean()) },
   handler: async (ctx, { force }) => {
-    const now = new Date(ctx.now());
-    const hour = Number(
-      new Intl.DateTimeFormat("de-DE", { hour: "2-digit", hour12: false, timeZone: "Europe/Berlin" }).format(now),
-    );
-    if (!force && (isTest() || !isPollSlot({ hour, minute: now.getUTCMinutes() }))) return null;
+    // Berlin wall clock via the IANA offset („HH:MM“); Intl de-DE formats the hour as „09 Uhr“ (NaN).
+    const [hour, minute] = berlinClockTime(ctx.now()).split(":").map(Number) as [number, number];
+    if (!force && (isTest() || !isPollSlot({ hour, minute }))) return null;
     const secrets = await ctx.runQuery(internal.bankFeed.secretsInternal, {});
     if (!secrets) return null;
     return poll(ctx, {});
