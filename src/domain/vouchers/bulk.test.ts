@@ -7,7 +7,9 @@ describe("bulk actions on drafts (VOU-101)", () => {
       { account: "6815", amountCents: 1000, vatRateBp: 1900, costCenterId: "k1" },
       { account: "6805", amountCents: 500, vatRateBp: 700 },
     ];
-    expect(applyBulkPatch({ lines, tags: ["t1"] }, { account: "6830", costCenterId: "k2", addTagIds: ["t1", "t2"] })).toEqual({
+    expect(
+      applyBulkPatch({ lines, tags: ["t1"] }, { account: "6830", costCenterId: "k2", addTagIds: ["t1", "t2"] }),
+    ).toEqual({
       lines: [
         { account: "6830", amountCents: 1000, vatRateBp: 1900, costCenterId: "k2" },
         { account: "6830", amountCents: 500, vatRateBp: 700, costCenterId: "k2" },
@@ -22,7 +24,9 @@ describe("bulk actions on drafts (VOU-101)", () => {
   });
 
   test("VOU-101 T06-131 bulk finalise skips drafts with blocking errors or unacknowledged ⚑ warnings, with the reason", () => {
-    expect(bulkFinalizeSkipReason({ errors: [], warnings: [{ code: "x", message: "Info", acknowledge: false }] })).toBeNull();
+    expect(
+      bulkFinalizeSkipReason({ errors: [], warnings: [{ code: "x", message: "Info", acknowledge: false }] }),
+    ).toBeNull();
     expect(
       bulkFinalizeSkipReason({
         errors: [{ code: "voucher_file_missing", message: "Jede Buchung braucht einen Beleg." }],
@@ -39,7 +43,10 @@ describe("bulk actions on drafts (VOU-101)", () => {
 
   test("VOU-101 the selection must be 1 … BULK_VOUCHER_MAX distinct drafts", () => {
     expect(checkBulkSelection(["a", "a", "b"])).toEqual({ ok: true, value: ["a", "b"] });
-    expect(checkBulkSelection([])).toMatchObject({ ok: false, error: { message: "Bitte mindestens einen Beleg auswählen." } });
+    expect(checkBulkSelection([])).toMatchObject({
+      ok: false,
+      error: { message: "Bitte mindestens einen Beleg auswählen." },
+    });
     expect(checkBulkSelection(Array.from({ length: BULK_VOUCHER_MAX + 1 }, (_, i) => `v${i}`)).ok).toBe(false);
   });
 });

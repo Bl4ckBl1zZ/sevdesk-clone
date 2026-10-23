@@ -36,22 +36,22 @@ import { auditedInsert } from "./model/audit";
 import type { FileRefValue } from "./model/bankImport";
 import { getCompanyProfile } from "./model/companyProfile";
 import { createJob } from "./model/jobs";
-import type { ActorContext } from "./model/types";
 import { cashLines, cashOutflowDip, previewJournal, resolveContextAt } from "./model/journal";
 import {
   createRecurringVoucher,
   generateDueRecurringVouchers,
   updateRecurringVoucher,
 } from "./model/recurringVouchers";
+import type { ActorContext } from "./model/types";
 import { rebookVoucherPayment, recordVoucherPayment, voucherBankSuggestions } from "./model/voucherPayments";
 import {
   accountContextAt,
   addVoucherFile,
+  approveBewirtung,
+  approveEigenbeleg,
   bulkDeleteDrafts,
   bulkFinalizeOne,
   bulkUpdateDrafts,
-  approveBewirtung,
-  approveEigenbeleg,
   cancelVoucher,
   checkBewirtungFor,
   checkEigenbelegFor,
@@ -590,7 +590,11 @@ export const bulkFinalizeJob = systemAction({
           if (r.skipped) skipped.push({ id, label: job.labels[id] ?? id, reason: r.skipped });
         } catch (e) {
           const data = (e as { data?: { message?: string } }).data;
-          skipped.push({ id, label: job.labels[id] ?? id, reason: data?.message ?? (e instanceof Error ? e.message : String(e)) });
+          skipped.push({
+            id,
+            label: job.labels[id] ?? id,
+            reason: data?.message ?? (e instanceof Error ? e.message : String(e)),
+          });
         }
       }
       return await ctx.runMutation(internal.bulk.jobDone, { jobId, skipped });

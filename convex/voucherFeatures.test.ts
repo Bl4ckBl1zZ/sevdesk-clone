@@ -124,7 +124,9 @@ describe("bulk actions on drafts (VOU-101)", () => {
       patch: { account: "6815", taxRule: "no_input_vat", costCenterId: "kst-1" },
     });
     expect(r.updated).toEqual([a, b]);
-    expect(r.skipped).toEqual([{ id: booked, label: expect.any(String), reason: expect.stringContaining("Nur Entwürfe") }]);
+    expect(r.skipped).toEqual([
+      { id: booked, label: expect.any(String), reason: expect.stringContaining("Nur Entwürfe") },
+    ]);
     for (const id of [a, b]) {
       const v = await voucher(t, id);
       expect(v.taxRule).toBe("no_input_vat");

@@ -32,7 +32,7 @@ export function InboxCorrection({ id, canWrite }: { id: string; canWrite: boolea
   const [open, setOpen] = useState(false);
   const [marking, setMarking] = useState(false);
   const [retracting, setRetracting] = useState<string | null>(null);
-  const [sentOn, setSentOn] = useState(() => berlinCalendarDate(Date.now()));
+  const [sentOn, setSentOn] = useState<string>(() => berlinCalendarDate(Date.now()));
   const [channel, setChannel] = useState<SendChannel>("email_manual");
   const [note, setNote] = useState("");
   const [reason, setReason] = useState("");

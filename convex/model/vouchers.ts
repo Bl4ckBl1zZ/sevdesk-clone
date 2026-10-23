@@ -1217,7 +1217,12 @@ export async function bulkUpdateDrafts(
   ctx: ModelCtx,
   args: {
     ids: readonly Id<"vouchers">[];
-    patch: { account?: string; taxRule?: VoucherDoc["taxRule"]; costCenterId?: string | null; addTagIds?: Id<"tags">[] };
+    patch: {
+      account?: string;
+      taxRule?: VoucherDoc["taxRule"];
+      costCenterId?: string | null;
+      addTagIds?: Id<"tags">[];
+    };
   },
 ): Promise<{ updated: Id<"vouchers">[]; skipped: BulkSkip[] }> {
   const sel = checkBulkSelection(args.ids);
@@ -1290,7 +1295,10 @@ export async function bulkFinalizeOne(
   if (!v) return { skipped: VOUCHER_ERRORS.notFound };
   if (v.status !== "draft") return { skipped: "Der Beleg ist bereits gebucht." };
   const p = await previewVoucher(ctx, { id }, ctx.now());
-  const reason = bulkFinalizeSkipReason({ errors: p.check.errors, warnings: [...p.check.warnings, ...p.payment.warnings] });
+  const reason = bulkFinalizeSkipReason({
+    errors: p.check.errors,
+    warnings: [...p.check.warnings, ...p.payment.warnings],
+  });
   if (reason) return { skipped: reason };
   const r = await finalizeVoucher(ctx, { id });
   return { number: r.number };
