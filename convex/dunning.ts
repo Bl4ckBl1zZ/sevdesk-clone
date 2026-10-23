@@ -16,7 +16,7 @@ import {
   reminderWithdrawSchema,
   zugangOverrideSchema,
 } from "../src/domain/schemas/dunning";
-import { berlinCalendarDate } from "../src/domain/time/berlin";
+import { berlinCalendarDate, berlinClockTime } from "../src/domain/time/berlin";
 import { type CalendarDate, isCalendarDate } from "../src/domain/time/calendar-date";
 import { internal } from "./_generated/api";
 import type { Doc, Id } from "./_generated/dataModel";
@@ -611,11 +611,8 @@ export const runCron = systemMutation({
   handler: async (ctx, { force }) => {
     if (isTest() && !force) return null;
     const today = berlinCalendarDate(ctx.now());
-    const hour = Number(
-      new Intl.DateTimeFormat("de-DE", { hour: "2-digit", hour12: false, timeZone: "Europe/Berlin" }).format(
-        new Date(ctx.now()),
-      ),
-    );
+    // „HH:MM“ from the IANA offset; Intl de-DE formats the hour alone as „07 Uhr“ (Number → NaN, the job never ran).
+    const hour = Number(berlinClockTime(ctx.now()).slice(0, 2));
     if (!force && hour !== 7) return null;
     const done = await ctx.db
       .query("dunningRuns")
