@@ -45,6 +45,28 @@ describe("bank reversals (BNK-121)", () => {
     const linked = row({ id: "rv0", amountCents: -59_500, reversalOfId: "orig" });
     expect(findReversalCandidates({ ...counter, bookingDate: "2026-10-20" }, [original, linked])).toEqual([]);
   });
+
+  test("EC-BNK-27 a card refund without a reference is suggested by merchant + inverse amount (never linked by itself)", () => {
+    const original = row({
+      id: "orig",
+      amountCents: -4_990,
+      purpose: "Card payment",
+      merchantName: "AMAZON EU S.A R.L.",
+    });
+    const refund = row({
+      id: "rf",
+      bookingDate: "2026-10-28",
+      amountCents: 4_990,
+      purpose: "Refund",
+      merchantName: "Amazon EU S.à r.l.",
+    });
+    expect(findReversalCandidates(refund, [original, refund])).toEqual([
+      { originalId: "orig", label: "Kartenerstattung von 16.10.2026 −49,90 €", reasons: ["merchant"] },
+    ]);
+    // another merchant or another amount → no suggestion
+    expect(findReversalCandidates({ ...refund, merchantName: "Zalando SE" }, [original])).toEqual([]);
+    expect(findReversalCandidates({ ...refund, amountCents: 2_000 }, [original])).toEqual([]);
+  });
 });
 
 describe("Geldtransit pairs (BNK-061)", () => {

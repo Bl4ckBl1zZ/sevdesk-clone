@@ -545,6 +545,7 @@ export const linkRow = (t: Doc<"bankTransactions">): LinkRow => ({
   ...(t.endToEndId ? { endToEndId: t.endToEndId } : {}),
   ...(t.counterpartyIban ? { counterpartyIban: t.counterpartyIban } : {}),
   ...(t.source.instructedAmount ? { instructedAmount: t.source.instructedAmount } : {}),
+  ...(t.source.merchantName ? { merchantName: t.source.merchantName } : {}),
   ...(t.reversal ? { reversal: true } : {}),
   ...(t.reversalOfId ? { reversalOfId: t.reversalOfId } : {}),
   status: t.status,

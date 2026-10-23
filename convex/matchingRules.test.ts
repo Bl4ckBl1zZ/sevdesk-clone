@@ -29,6 +29,41 @@ const vouchersOf = (t: TestT, txId: Id<"bankTransactions">) =>
       .collect(),
   );
 
+/** A booked card row as the CAMT/Revolut mapper writes it (merchant, instructed amount, fee field). */
+let cardN = 0;
+const cardTx = (
+  s: { t: TestT; bank: Id<"bankAccounts"> },
+  tx: { bookingDate: string; amountCents: number; purpose: string; merchantName: string } & Partial<
+    Pick<Doc<"bankTransactions">["source"], "feeCents" | "instructedAmount">
+  >,
+) => {
+  const ref = `ER-CARD-${++cardN}`;
+  const { bookingDate, amountCents, purpose, merchantName, ...extra } = tx;
+  return s.t.model(OWNER, (ctx) =>
+    auditedInsert(
+      ctx,
+      "bankTransactions",
+      {
+        accountId: s.bank,
+        bookingDate,
+        amountCents,
+        currency: "EUR",
+        counterpartyName: merchantName,
+        counterpartySource: "statement" as const,
+        purpose,
+        source: { kind: "camt053", entryReference: ref, rawSha256: ref, merchantName, ...extra },
+        sources: [],
+        dedupeKey: `${s.bank}:er:${ref}`,
+        contentHash: ref,
+        status: "open",
+        allocatedCents: 0,
+        recordedAt: Date.now(),
+      },
+      { action: "bank.import", label: `${bookingDate} ${amountCents} EUR` },
+    ),
+  );
+};
+
 async function setup(opts: { ku?: boolean } = {}) {
   const t = makeT();
   const s = await setupCompany(t, { ku: opts.ku ?? true });
@@ -429,5 +464,46 @@ describe("matching vouchers (BNK-049)", () => {
     const lines = await s.t.run((ctx) => ctx.db.query("journalLines").collect());
     const fee = lines.filter((l) => l.account === "6855");
     expect(fee.map((l) => l.debitCents - l.creditCents)).toEqual([150]);
+  });
+  test("EC-BNK-27 a card refund without a link is suggested for the original by merchant + amount; linking reopens the voucher", async () => {
+    const s = await setup();
+    const draft = await s.owner.mutation(api.vouchers.create, {
+      input: {
+        direction: "expense",
+        supplierContactId: s.supplier,
+        supplierName: "Büro Schmidt GmbH",
+        documentNumber: "RS-99814",
+        documentDate: TODAY,
+        lines: [line({ vatRateBp: 0 })],
+      },
+    });
+    const voucherId = (typeof draft === "string" ? draft : (draft as { id: Id<"vouchers"> }).id) as Id<"vouchers">;
+    await upload(s.t, s.owner, { voucherId });
+    await s.owner.mutation(api.vouchers.finalize, { id: voucherId });
+    const pay = await cardTx(s, {
+      bookingDate: TODAY,
+      amountCents: -11_900,
+      purpose: "Card payment",
+      merchantName: "BUERO SCHMIDT",
+    });
+    await s.owner.mutation(api.matching.confirm, {
+      transactionId: pay,
+      allocations: [{ target: { kind: "voucher", id: voucherId }, amountCents: 11_900 }],
+    });
+    const refund = await cardTx(s, {
+      bookingDate: TODAY,
+      amountCents: 11_900,
+      purpose: "Refund",
+      merchantName: "Buero Schmidt",
+    });
+    const d = await s.owner.query(api.banking.transaction, { id: refund });
+    expect(d?.reversalCandidates).toEqual([expect.objectContaining({ originalId: pay, reasons: ["merchant"] })]);
+    expect(d?.reversalCandidates[0]?.label).toMatch(/^Kartenerstattung von /);
+    // Suggestion only: nothing is linked or booked until the owner confirms.
+    expect((await txOf(s.t, refund)).reversalOfId).toBeUndefined();
+    expect((await s.t.run((ctx) => ctx.db.get(voucherId)))?.status).toBe("paid");
+    await s.owner.mutation(api.banking.linkReversalTo, { counterId: refund, originalId: pay });
+    expect((await txOf(s.t, refund)).reversalOfId).toBe(pay);
+    expect((await s.t.run((ctx) => ctx.db.get(voucherId)))?.openAmountCents).toBe(11_900);
   });
 });
