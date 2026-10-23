@@ -40,10 +40,7 @@ async function ownerWithContact(t: TestT, over: Parameters<typeof personForm>[2]
   return { owner, contactId: created.id as Id<"contacts"> };
 }
 
-const request = (
-  owner: Awaited<ReturnType<TestT["asUser"]>>,
-  args: Partial<Parameters<typeof api.dsgvo.create._args>> & Record<string, unknown> = {},
-) =>
+const request = (owner: Awaited<ReturnType<TestT["asUser"]>>, args: Record<string, unknown> = {}) =>
   owner.mutation(api.dsgvo.create, {
     subject: { name: "Erika Muster" },
     kind: "access",
