@@ -2027,7 +2027,14 @@
       "due": "fällig am {date}",
       "doneAt": "erledigt",
       "edited": "bearbeitet",
-      "derived": "automatisch"
+      "derived": "automatisch",
+      "filterLabel": "Verlauf filtern",
+      "kindAll": "Alle",
+      "kindDerived": "Automatische Ereignisse",
+      "from": "Von",
+      "to": "Bis",
+      "search": "In Notizen suchen",
+      "noMatch": "Keine Einträge für diese Filter."
     },
     "duplicates": {
       "reasons": "Gründe",

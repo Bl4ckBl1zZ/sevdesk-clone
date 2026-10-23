@@ -26,6 +26,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { telHref } from "@/domain/contacts/channels";
 import { ROLE_LABELS } from "@/domain/contacts/core";
 import { DUPLICATE_REASON_LABELS } from "@/domain/contacts/duplicates";
+import { filterTimeline, type TimelineFilter } from "@/domain/contacts/timeline";
 import { ACTIVITY_KIND_LABELS, ACTIVITY_KINDS, activitySchema } from "@/domain/schemas/contacts";
 import { TAX_CASE_LABELS } from "@/domain/tax/tax-case";
 import { useAuthedQuery } from "@/hooks/use-authed-query";
@@ -37,6 +38,7 @@ import { VatBadge } from "./contacts-list";
 import { MergeDialog } from "./duplicates-panel";
 
 import { SelfBillingAgreementCard } from "./self-billing-agreement";
+import { TimelineFilterBar } from "./timeline-filter";
 
 export type ContactBundle = NonNullable<FunctionReturnType<typeof api.contacts.get>>;
 
@@ -474,15 +476,30 @@ function Timeline({ data, canWrite }: { data: ContactBundle; canWrite: boolean }
   type Entry =
     | { key: string; at: number; manual: (typeof data.activities)[number] }
     | { key: string; at: number; derived: (typeof data.derived)[number] };
-  const entries: Entry[] = [
+  const [filter, setFilter] = useState<TimelineFilter>({ kind: "all" });
+  const all: Entry[] = [
     ...data.activities.map((a) => ({ key: a._id as string, at: a._creationTime, manual: a })),
     ...data.derived.map((d, i) => ({ key: `d-${i}-${d.at}`, at: d.at, derived: d })),
   ].sort((a, b) => b.at - a.at);
+  // CON-124: kind, period and note search
+  const entries = filterTimeline(
+    all.map((e) => ({
+      ...e,
+      kind: "manual" in e ? e.manual.kind : ("derived" as const),
+      text: "manual" in e ? e.manual.text : e.derived.text,
+    })),
+    filter,
+  );
   return (
     <div className="flex flex-col gap-4">
       {canWrite && <Composer contactId={data.contact._id} />}
-      {entries.length === 0 ? (
+      {all.length > 0 && <TimelineFilterBar value={filter} onChange={setFilter} />}
+      {all.length === 0 ? (
         <p className="text-muted-foreground text-sm">{t("empty")}</p>
+      ) : entries.length === 0 ? (
+        <p className="text-muted-foreground text-sm" role="status">
+          {t("noMatch")}
+        </p>
       ) : (
         <ol className="flex flex-col gap-2" aria-label={t("composer")}>
           {entries.map((e) =>
