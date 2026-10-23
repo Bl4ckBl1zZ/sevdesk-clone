@@ -551,3 +551,61 @@ describe("rule suggestions (BNK-053)", () => {
     expect(await s.owner.query(api.matchingRules.suggestions, {})).toEqual([]);
   });
 });
+
+describe("tax payments (BNK-064)", () => {
+  test("BNK-064 TAX-018 a transfer to the Finanzamt becomes a tax_payment voucher with subtype and period; finalising posts X1", async () => {
+    const s = await setup({ ku: false });
+    const tx = await bookedTransaction(s.t, s.bank, {
+      bookingDate: TODAY,
+      amountCents: -50_000,
+      purpose: "StNr 12/345/67890 USt 09/26",
+      counterpartyName: "Finanzamt Berlin-Mitte",
+    });
+    const d = await s.owner.query(api.banking.transaction, { id: tx });
+    expect(d?.taxPayment).toEqual({
+      subtype: "ust_prepayment",
+      period: "2026-09",
+      hint: "Steuerzahlung: USt-Vorauszahlung 2026-09",
+    });
+    const id = await s.owner.mutation(api.matchingRules.createVoucherFromTransaction, { transactionId: tx });
+    const v = await s.t.run(async (ctx) => (await ctx.db.get(id)) as Doc<"vouchers">);
+    expect(v).toMatchObject({
+      kind: "tax_payment",
+      status: "draft",
+      taxRule: "no_input_vat",
+      taxPayment: { subtype: "ust_prepayment", period: "2026-09" },
+      supplierName: "Finanzamt Berlin-Mitte",
+      bankTransactionId: tx,
+    });
+    await upload(s.t, s.owner, { voucherId: id });
+    await s.owner.mutation(api.vouchers.finalize, { id });
+    expect((await txOf(s.t, tx)).status).toBe("matched");
+    const entry = await s.t.run(async (ctx) =>
+      (await ctx.db.query("journalEntries").collect()).find((e) => e.source.kind === "voucher"),
+    );
+    expect(entry?.explanation).toBe("X1");
+  });
+
+  test("BNK-064 the period can be chosen when creating the voucher; a refund from the Finanzamt is offered too", async () => {
+    const s = await setup({ ku: false });
+    const tx = await bookedTransaction(s.t, s.bank, {
+      bookingDate: TODAY,
+      amountCents: 12_000,
+      purpose: "Erstattung",
+      counterpartyName: "Finanzamt Berlin-Mitte",
+    });
+    expect((await s.owner.query(api.banking.transaction, { id: tx }))?.taxPayment).toEqual({
+      hint: "Steuerzahlung – Art und Zeitraum bitte auswählen",
+    });
+    const id = await s.owner.mutation(api.matchingRules.createVoucherFromTransaction, {
+      transactionId: tx,
+      taxPayment: { subtype: "ust_annual", period: "2025" },
+    });
+    const v = await s.t.run(async (ctx) => (await ctx.db.get(id)) as Doc<"vouchers">);
+    expect(v).toMatchObject({
+      kind: "tax_payment",
+      direction: "income",
+      taxPayment: { subtype: "ust_annual", period: "2025" },
+    });
+  });
+});

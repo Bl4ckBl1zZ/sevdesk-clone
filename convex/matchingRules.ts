@@ -22,6 +22,7 @@ import {
   voucherFromTransaction,
 } from "./model/matchingRules";
 import type { ActorContext } from "./model/types";
+import { vTaxPayment } from "./voucherValidators";
 
 /**
  * F07 BNK-050…054 matching rules (Einstellungen › Bank › Regeln) and BNK-065 „+ Neuer Beleg“ from a transaction.
@@ -102,7 +103,11 @@ export const remove = mutation({
 /** BNK-065 „+ Neuer Beleg“: a prefilled voucher draft linked to the transaction (allocated on finalisation). */
 export const createVoucherFromTransaction = mutation({
   permission: "vouchers.write",
-  args: { transactionId: v.id("bankTransactions"), account: v.optional(v.string()) },
+  args: {
+    transactionId: v.id("bankTransactions"),
+    account: v.optional(v.string()),
+    taxPayment: v.optional(vTaxPayment),
+  },
   handler: async (ctx, args) => voucherFromTransaction(ctx, args),
 });
 

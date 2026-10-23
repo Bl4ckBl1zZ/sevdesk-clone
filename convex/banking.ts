@@ -3,6 +3,7 @@ import { v } from "convex/values";
 import { filter } from "convex-helpers/server/filter";
 import { eigenbelegContent } from "../src/domain/banking/eigenbeleg";
 import { decodeStatement } from "../src/domain/banking/statement";
+import { taxPaymentFromTransaction } from "../src/domain/banking/tax-payment";
 import { statementAccountSchema } from "../src/domain/schemas/banking";
 import { renderEigenbeleg } from "../src/pdf/eigenbeleg";
 import { api, internal } from "./_generated/api";
@@ -235,6 +236,17 @@ export const transaction = query({
           }
         : null,
       reversalCandidates: t.amountCents !== 0 && !t.reversalOfId ? await reversalCandidates(ctx, id) : [],
+      // BNK-064: Finanzamt rows become a tax-payment voucher („+ Neuer Beleg“), subtype/period suggested.
+      taxPayment:
+        t.status === "open"
+          ? taxPaymentFromTransaction({
+              amountCents: t.amountCents,
+              purpose: t.purpose,
+              ...(t.reference ? { reference: t.reference } : {}),
+              ...(t.counterpartyName ? { counterpartyName: t.counterpartyName } : {}),
+              ...(t.source.proprietaryCode ? { proprietaryCode: t.source.proprietaryCode } : {}),
+            })
+          : null,
     };
   },
 });

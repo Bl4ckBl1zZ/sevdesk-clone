@@ -116,17 +116,23 @@ export function TransactionSheet({
                 )}
               </dl>
 
-              {canVoucher && tx.status === "open" && tx.allocatedCents === 0 && tx.amountCents < 0 && (
-                <Button
-                  className="h-11 self-start md:h-9"
-                  onClick={async () => {
-                    const r = await run(() => newVoucher({ transactionId: tx._id }), tFeed("newVoucherDone"));
-                    if (r.ok) router.push(`/belege/${r.value}` as Route);
-                  }}
-                >
-                  {tFeed("newVoucher")}
-                </Button>
-              )}
+              {canVoucher &&
+                tx.status === "open" &&
+                tx.allocatedCents === 0 &&
+                (tx.amountCents < 0 || tx.taxPayment) && (
+                  <div className="flex flex-col gap-1">
+                    {tx.taxPayment && <p className="text-muted-foreground">{tx.taxPayment.hint}</p>}
+                    <Button
+                      className="h-11 self-start md:h-9"
+                      onClick={async () => {
+                        const r = await run(() => newVoucher({ transactionId: tx._id }), tFeed("newVoucherDone"));
+                        if (r.ok) router.push(`/belege/${r.value}` as Route);
+                      }}
+                    >
+                      {tFeed("newVoucher")}
+                    </Button>
+                  </div>
+                )}
               {(canMark || canWrite) && (
                 <section aria-labelledby={`actions-${tx._id}`} className="flex flex-col gap-2">
                   <h3 id={`actions-${tx._id}`} className="font-medium">
