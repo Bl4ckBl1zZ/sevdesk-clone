@@ -406,6 +406,11 @@ describe("matching vouchers (BNK-049)", () => {
       (await ctx.db.query("payments").collect()).find((p) => p.bankTransactionId === tx),
     );
     expect(payment?.differences).toEqual([{ reason: "fx_difference", amountCents: -250 }]);
+    // Unmatching reverses the Kursdifferenz with the payment; the voucher is open again.
+    await s.owner.mutation(api.matching.unmatch, { transactionId: tx, reason: "Falsche Zuordnung" });
+    const after = await s.t.run((ctx) => ctx.db.query("journalLines").collect());
+    expect(after.filter((l) => l.account === "6880").reduce((sum, l) => sum + l.debitCents - l.creditCents, 0)).toBe(0);
+    expect((await s.t.run((ctx) => ctx.db.get(voucherId)))?.status).toBe("open");
   });
 
   test("EC-BNK-25 T07-024 a fee field: principal pays the voucher, the fee is its own bank-fee line without VAT", async () => {
