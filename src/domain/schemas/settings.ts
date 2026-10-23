@@ -14,6 +14,7 @@ import { parseBasisPoints, parseCents } from "../money/parse";
 import { MAX_START_VALUE, MIN_START_VALUE, RESET_POLICIES, SEEDED_RANGES, validateFormat } from "../numbering/format";
 import { isEuEeaCountry } from "../rules/eu-eea";
 import { OVERRIDE_RULE_SETS } from "../rules/overrides";
+import { CREDITOR_ID_INVALID_MESSAGE, normalizeCreditorId, validateCreditorId } from "../settings/creditor-id";
 import { checkKuStart } from "../tax/kleinunternehmer";
 import { isBundesland, normalizeTaxNumber } from "../tax/tax-number";
 import { validateVatId } from "../tax/vat-id";
@@ -196,6 +197,11 @@ export const taxSchema = z
     datevConsultantNumber: trimmed().regex(/^\d*$/, "Beraternummer: 1001 bis 9999999.").default(""),
     datevClientNumber: trimmed().regex(/^\d*$/, "Mandantennummer: 1 bis 99999.").default(""),
     datevAccountLength: z.coerce.number("Sachkontenlänge: 4 bis 9 Stellen.").default(4),
+    /** SET-045: SEPA Gläubiger-ID (empty = none; used once SEPA direct debit ships). */
+    creditorId: trimmed()
+      .transform(normalizeCreditorId)
+      .refine((v) => v === "" || validateCreditorId(v).ok, CREDITOR_ID_INVALID_MESSAGE)
+      .default(""),
     /** SET-034: reason for a retroactive Kleinunternehmer entry that touches finalised documents. */
     kuReason: optionalText(500).optional(),
   })
@@ -319,6 +325,7 @@ export const taxDefaults = (legalForm: CompanyValues["legalForm"]): TaxFormValue
   datevConsultantNumber: "",
   datevClientNumber: "",
   datevAccountLength: 4,
+  creditorId: "",
 });
 
 /** SET-044: the DATEV keys of the tax form as numbers. */

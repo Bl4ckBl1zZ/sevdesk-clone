@@ -1292,7 +1292,10 @@
       "datevConsultantNumber": "Beraternummer",
       "datevClientNumber": "Mandantennummer",
       "datevAccountLength": "Sachkontenlänge",
-      "datevRanges": "Personenkonten: Debitoren {debFrom}–{debTo}, Kreditoren {credFrom}–{credTo}"
+      "datevRanges": "Personenkonten: Debitoren {debFrom}–{debTo}, Kreditoren {credFrom}–{credTo}",
+      "sepaTitle": "SEPA-Lastschrift",
+      "creditorId": "Gläubiger-Identifikationsnummer",
+      "creditorIdHint": "Optional, z. B. DE98ZZZ09999999999. Wird erst für SEPA-Lastschriften benötigt."
     },
     "bank": {
       "iban": "IBAN",

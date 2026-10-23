@@ -60,6 +60,8 @@ export interface TaxSettingsData {
   taxNumber?: string;
   taxNumberState?: string;
   vatId?: string;
+  /** SET-045 */
+  creditorId?: string;
   kleinunternehmer: { validFrom: string; isKU: boolean; waiverDate?: string }[];
   taxationMethod: {
     validFrom: string;
@@ -401,6 +403,7 @@ export function taxPatchFromForm(
     patch: {
       ...(taxNumber ? { taxNumber, taxNumberState } : {}),
       ...(v.vatId ? { vatId: v.vatId } : {}),
+      ...(v.creditorId ? { creditorId: v.creditorId } : {}),
       kleinunternehmer,
       taxationMethod,
       ustvaPeriod,
@@ -461,6 +464,7 @@ export function taxFormFromProfile(
     datevConsultantNumber: p.datev?.consultantNumber !== undefined ? String(p.datev.consultantNumber) : "",
     datevClientNumber: p.datev?.clientNumber !== undefined ? String(p.datev.clientNumber) : "",
     datevAccountLength: p.datev?.accountLength ?? 4,
+    creditorId: p.creditorId ?? "",
   };
 }
 
