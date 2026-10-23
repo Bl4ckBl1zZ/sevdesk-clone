@@ -30,6 +30,7 @@ const FINALIZE_FAMILIES = [
   "invoice",
   "correction",
   "reminder",
+  "self_billing",
 ] as const;
 
 /** Reminders are always dated today (DUN-004): the finalisation options of other documents are refused. */

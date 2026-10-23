@@ -12,6 +12,7 @@ import { documentTools } from "./tools/documents";
 import { dunningTools } from "./tools/dunning";
 import { exportTools } from "./tools/exports";
 import { inboxTools } from "./tools/inbox";
+import { letterTools } from "./tools/letters";
 import { paymentTools } from "./tools/payments";
 import { previewTools } from "./tools/previews";
 import { productTools } from "./tools/products";
@@ -34,6 +35,7 @@ export const TOOLS: readonly RegisteredToolDef[] = [
   ...dispatchTools,
   ...correctionTools,
   ...paymentTools,
+  ...letterTools,
   ...recurringTools,
   ...dunningTools,
   ...voucherTools,

@@ -19,7 +19,7 @@ import { decimalString, decimalToScaled, isoDate, listEnvelope, listQuery, scale
 // ── resources ────────────────────────────────────────────────────────────────────────────────────────
 export interface DocumentResourceDef {
   /** URL segment below /api/v1. */
-  readonly path: "quotes" | "order-confirmations" | "delivery-notes" | "invoices";
+  readonly path: "quotes" | "order-confirmations" | "delivery-notes" | "invoices" | "self-billing";
   /** Draft types this resource serves (invoices: standard and proforma in this slice). */
   readonly types: readonly DraftType[];
   readonly idType: DocumentIdType;
@@ -65,6 +65,16 @@ export const DOCUMENT_RESOURCES: readonly DocumentResourceDef[] = [
     singular: "Rechnung",
     plural: "Rechnungen",
     schemaPrefix: "Invoice",
+  },
+  {
+    // F04 §4.9 / 05 §4.3 self-billing Gutschrift (P3): own resource, prefix `sbc_`.
+    path: "self-billing",
+    types: ["self_billing"],
+    idType: "self_billing",
+    tag: "Gutschriften",
+    singular: "Gutschrift",
+    plural: "Gutschriften",
+    schemaPrefix: "SelfBilling",
   },
 ];
 

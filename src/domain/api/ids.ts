@@ -24,6 +24,8 @@ export const ID_PREFIXES = {
   // Sales documents (05 §4.3): one table, a prefix per REST resource.
   invoices: "inv_",
   corrections: "cor_",
+  // F04 §4.9 self-billing Gutschrift (05 §3 „IDs“: `sbc_`).
+  selfBilling: "sbc_",
   // F05/F07 (05 §3 „IDs“): payments, bank transactions, cash transfers, opening items of the opening balance.
   payments: "pay_",
   bankTransactions: "btx_",
@@ -38,6 +40,8 @@ export const ID_PREFIXES = {
   dunningRuns: "drn_",
   documentArtifacts: "art_",
   sendLog: "snd_",
+  // F05 receivables letters (Kontoauszug, Zahlungsbestätigung, Zinsforderung, Mahnbescheid-Datenblatt; 05 §4.4).
+  receivableLetters: "rlt_",
   // F06 purchase vouchers (05 §3 „IDs“: `vou_`) and receipt-inbox items (`inb_`).
   vouchers: "vou_",
   inboxItems: "inb_",

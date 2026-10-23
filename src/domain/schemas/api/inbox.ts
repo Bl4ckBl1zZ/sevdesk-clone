@@ -189,3 +189,132 @@ export function serializeInboxItem(d: InboxDetailRecord) {
     files: d.files.map((f) => ({ name: f.name, mime: f.mime, bytes: f.bytes, sha256: f.sha256, role: f.role })),
   };
 }
+
+// ── INB-009 split / merge, INB-046 supplier correction request (05 §4.5, F06 §7.1) ─────────────────────────────────
+
+export const inboxSplitWire = z
+  .object({
+    groups: z
+      .array(z.array(z.number().int().min(0)).min(1))
+      .min(2)
+      .max(100)
+      .meta({ description: "Dateien je neuem Eintrag (Indizes ab 0), z. B. [[0],[1,2]]; jede Datei genau einmal" }),
+  })
+  .strict()
+  .meta({ id: "InboxSplitRequest" });
+
+export const inboxMergeWire = z
+  .object({
+    ids: z
+      .array(z.string().max(80))
+      .min(1)
+      .max(20)
+      .meta({ description: "Zusammenzuführende Einträge (inb_…, mindestens zwei) in der Reihenfolge der Dateien" }),
+  })
+  .strict()
+  .meta({ id: "InboxMergeRequest" });
+
+export const correctionRequestOut = z
+  .object({
+    available: z.boolean().meta({ description: "false = kein Prüfbefund, kein Brief möglich" }),
+    subject: z.string().nullable(),
+    text: z.string().nullable().meta({ description: "Brieftext „Bitte um Rechnungskorrektur“" }),
+    artifact: z
+      .object({
+        id: z.string(),
+        name: z.string(),
+        sha256: z.string(),
+        url: z.string().nullable(),
+        created_at: z.string(),
+      })
+      .nullable(),
+    effective_mark_id: z.string().nullable(),
+    marks: z.array(
+      z.object({
+        id: z.string(),
+        kind: z.string(),
+        sent_on: z.string().nullable(),
+        channel: z.string().nullable(),
+        note: z.string().nullable(),
+        at: z.string(),
+        actor: z.string(),
+        retracts_id: z.string().nullable(),
+        retracted: z.boolean(),
+      }),
+    ),
+  })
+  .meta({ id: "InboxCorrectionRequest" });
+
+export interface CorrectionRequestRecord {
+  available: boolean;
+  subject: string | null;
+  text: string | null;
+  artifact: { id: string; name: string; sha256: string; url: string | null; createdAt: number } | null;
+  effectiveMarkId: string | null;
+  marks: {
+    id: string;
+    kind: string;
+    sentOn?: string | null;
+    channel?: string | null;
+    note: string | null;
+    at: number;
+    actor: string;
+    retractsId: string | null;
+    retracted: boolean;
+  }[];
+}
+
+export function serializeCorrectionRequest(v: CorrectionRequestRecord) {
+  return {
+    available: v.available,
+    subject: v.subject,
+    text: v.text,
+    artifact: v.artifact
+      ? {
+          id: encodeId("documentArtifacts", v.artifact.id),
+          name: v.artifact.name,
+          sha256: v.artifact.sha256,
+          url: v.artifact.url,
+          created_at: toInstant(v.artifact.createdAt),
+        }
+      : null,
+    effective_mark_id: encodeOptionalId("sendLog", v.effectiveMarkId),
+    marks: v.marks.map((m) => ({
+      id: encodeId("sendLog", m.id),
+      kind: m.kind,
+      sent_on: m.sentOn ?? null,
+      channel: m.channel ?? null,
+      note: m.note,
+      at: toInstant(m.at),
+      actor: m.actor,
+      retracts_id: encodeOptionalId("sendLog", m.retractsId),
+      retracted: m.retracted,
+    })),
+  };
+}
+
+export const correctionLetterOut = z
+  .object({
+    text: z.string(),
+    artifact_id: z.string().meta({ description: "Archivierter Brief (art_…)" }),
+    sha256: z.string(),
+    url: z.string().nullable().meta({ description: "Kurzlebiger Download-Link (nur im Tailnet)" }),
+  })
+  .meta({ id: "InboxCorrectionLetter" });
+
+export const correctionMarkSentWire = z
+  .object({
+    sent_on: z
+      .string()
+      .regex(/^\d{4}-\d{2}-\d{2}$/)
+      .meta({ description: "Versanddatum (≤ heute)" }),
+    channel: z.enum(["email_manual", "post", "hand", "upload_portal", "other"]),
+    note: z.string().max(2000).optional().meta({ description: "Pflicht bei channel other" }),
+  })
+  .strict()
+  .meta({ id: "InboxCorrectionMarkSentRequest" });
+
+export const correctionRetractWire = z
+  .object({ reason: z.string().min(1).max(2000).meta({ description: "Grund (mind. 10 Zeichen)" }) })
+  .strict()
+  .meta({ id: "InboxCorrectionRetractRequest" });

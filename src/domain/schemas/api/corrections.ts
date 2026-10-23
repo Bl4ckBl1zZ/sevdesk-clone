@@ -40,6 +40,23 @@ export function cancelArgs(id: string, w: z.infer<typeof cancelWire>) {
   };
 }
 
+/**
+ * F04 §4.9 / 05 §4.3 the supplier's objection (Widerspruch) to a self-billing Gutschrift: `POST /self-billing/{id}/cancel`
+ * and the MCP tool `invoice_cancel` with an `sbc_…` id (⚠, token from `document_preview` intent cancel).
+ */
+export const objectionWire = z
+  .object({
+    reason: z.string().min(1).max(1000).meta({ description: "Inhalt des Widerspruchs (wird auf dem Storno gedruckt)" }),
+    objection_date: isoDate.meta({ description: "Datum des Widerspruchs (≥ Gutschriftsdatum, ≤ heute)" }),
+  })
+  .strict()
+  .meta({ id: "SelfBillingObjectionRequest" });
+
+/** Arguments of the guarded Convex mutation `corrections.recordObjection` (without `confirmToken`). */
+export function objectionArgs(id: string, w: z.infer<typeof objectionWire>) {
+  return { id, date: w.objection_date, text: w.reason };
+}
+
 export const creditChangeWire = z.object({
   position: z.number().int().min(1).meta({ description: "Position (1 = erste Artikelposition der Rechnung)" }),
   quantity: decimalString(3, "Neue Menge (statt der berechneten)", "8").optional(),

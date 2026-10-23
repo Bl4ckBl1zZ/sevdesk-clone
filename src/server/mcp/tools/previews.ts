@@ -7,7 +7,7 @@ import {
   type ConfirmIntent,
   documentPreviewIntent,
 } from "@/domain/api/confirm";
-import { encodeId } from "@/domain/api/ids";
+import { DOCUMENT_ID_PREFIXES, encodeId } from "@/domain/api/ids";
 import { sha256Hex } from "@/domain/audit/chain";
 import { contactMergeArgs, contactMergeWire } from "@/domain/schemas/api/contacts";
 import { cancelArgs, cancelWire, rawDocumentId } from "@/domain/schemas/api/corrections";
@@ -19,6 +19,7 @@ import { cancelPreviewWire } from "../../api/resources/corrections";
 import { finalizePreviewOf, requireFinalizeScopes, resolveDispatchDoc } from "../../api/resources/dispatch";
 import { reminderFinalizePreviewOf } from "../../api/resources/dunning";
 import { defineTool, type ToolContext } from "../tool";
+import { objectionPreviewOf } from "./corrections";
 import { markSentParams, markSentPlan, rejectDocumentOptions, rejectReminderOptions } from "./dispatch";
 import { exportDatevParams, exportDatevPlan } from "./exports";
 import { PAYMENT_PREVIEWS } from "./payment-previews";
@@ -170,6 +171,7 @@ export const previewTools = [
           "invoice",
           "correction",
           "reminder",
+          "self_billing",
         ]);
         requireFinalizeScopes(ctx.key, doc.type);
         if (doc.idType === "reminder") {
@@ -209,6 +211,13 @@ export const previewTools = [
       rejectReminderOptions(acknowledge_warnings);
       if (!ctx.key.scopes.includes("invoices:cancel")) {
         throw new ApiProblem("insufficient_scope", { extra: { required_scope: "invoices:cancel" } });
+      }
+      if (id.startsWith(DOCUMENT_ID_PREFIXES.self_billing)) {
+        // F04 §4.9 INV-16: the cancel intent of a Gutschrift is the supplier's objection (⚠ invoice_cancel with the sbc_ id).
+        const o = await objectionPreviewOf(ctx, id, { reason, objection_date: document_date });
+        if (!o.wire.allowed) return { intent, ...o.wire };
+        const plan: PreviewPlan = { args: o.args, entities: [{ table: "salesDocuments", id: o.raw }], effect: o.wire };
+        return { intent, ...o.wire, ...(await issueToken(documentPreviewIntent("cancel"), plan, ctx)) };
       }
       const raw = rawDocumentId(id);
       if (!raw) throw new ApiProblem("not_found");

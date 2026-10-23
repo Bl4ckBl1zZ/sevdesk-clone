@@ -22,6 +22,7 @@ export const DISPATCH_ID_TYPES = [
   "invoice",
   "correction",
   "reminder",
+  "self_billing",
 ] as const satisfies readonly DocumentIdType[];
 export type DispatchIdType = (typeof DISPATCH_ID_TYPES)[number];
 
@@ -37,7 +38,7 @@ export function decodeDispatchId(value: string): { id: string; idType: DispatchI
 export const dispatchDocId = z
   .string()
   .max(100)
-  .meta({ description: "Beleg-ID (quo_…, ord_…, dln_…, inv_…, cor_…, rem_…)" });
+  .meta({ description: "Beleg-ID (quo_…, ord_…, dln_…, inv_…, cor_…, rem_…, sbc_…)" });
 
 // ── finalise ─────────────────────────────────────────────────────────────────────────────────────────────────────
 

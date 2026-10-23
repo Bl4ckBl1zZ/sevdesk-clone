@@ -99,11 +99,12 @@ Legend: **R** = read-only (`readOnlyHint: true`), **W** = writes drafts or maste
 | `document_export` | W (writes only the `document.export` audit entry; not ⚠, transmits nothing) | documents:read | 5-minute links (tailnet only) to the files for sending, for the owner to download (F04 SND-16/24) |
 | `document_mark_sent` | ⚠ | invoices:send | „Als versendet markieren" after the owner confirms how and when they sent it (channel `email_manual`/`post`/`hand`/`upload_portal`/`other`, F04 SND-07/17). Requires `confirm_token` from `preview_action { action: "document_mark_sent", params }`. The app never sends documents; there is **no send tool** (`document_send` withdrawn, EC-189) |
 | `document_get_pdf_link` | R | documents:read | Short-lived signed download link (the archived original or a "Kopie") |
-| `invoice_cancel` | ⚠ | invoices:cancel (+ invoices:finalize) | Storno with reason. Requires a `confirm_token` from `document_preview` with `intent: "cancel"` |
+| `invoice_cancel` | ⚠ | invoices:cancel (+ invoices:finalize) | Storno with reason. Requires a `confirm_token` from `document_preview` with `intent: "cancel"`. With an `sbc_…` id (P3, F04 §4.9) it records the supplier's **objection** (Widerspruch): `reason` = objection text (required), `document_date` = objection date (default today); the preview shows the Gutschrift, the objection check (`objectionIssue`) and the effect (mirror cancellation, purchase voucher reversed) and issues no token while the objection is not possible (one ⚠ tool per intent, MCP-005) |
 | `invoice_create_correction` | W | documents:write | Correction draft (finalising it goes through `document_finalize`) |
 | `quote_mark_accepted` / `quote_mark_rejected` | W | documents:write | |
 | `recurring_invoice_upsert` | W | documents:write | Create/update a template (auto-finalising needs `invoices:finalize` on the **key that created it** + a UI confirmation on first activation; templates never send, F04 REC-16) |
 | `recurring_invoice_list` | R | documents:read | |
+| `self_billing_create_draft` | W | documents:write | Gutschrift draft (P3, F04 §4.9) for a supplier contact with a self-billing agreement; finalised with `document_preview` → `document_finalize` (`sbc_…`) |
 
 **P1 implementation (2026-10-13, MCP-011):** `document_search` (one `type` per call: quote, order_confirmation, delivery_note, invoice, proforma; `status`, `contact_id`, `q`), `document_get` (incl. the chain with invoicing progress), `quote_create_draft` (contact by ID; inline upsert via `contact_upsert` first), `invoice_create_draft` (`invoice_type: standard | proforma` in this slice), `document_update_draft`, `document_convert` (incl. `delivery_note_ids` for the collective invoice) and `quote_mark_accepted` / `quote_mark_rejected` share the REST wire schemas and handlers (05 §4.3, API-021). (Superseded 2026-10-18, see the next note.)
 
@@ -122,6 +123,11 @@ Legend: **R** = read-only (`readOnlyHint: true`), **W** = writes drafts or maste
 | `dunning_preview` | R | payments:read (returns `confirm_token`) |
 | `dunning_run` | ⚠ | dunning:write (+ invoices:finalize for `mode: "finalize"`). `{ confirm_token, invoice_ids?, mode: "drafts" \| "finalize" }`: creates reminder drafts or finalises reminders as planned by `dunning_preview`; **never sends** — finalised reminders are exported with `document_export` and marked with `document_mark_sent` after the owner sent them (F05 §7.2) |
 | `reminder_create` | W | dunning:write (draft) |
+| `receivable_letter_preview` | R | payments:read: content of a Kontoauszug, Zahlungsbestätigung, Zinsforderung or Mahnbescheid-Datenblatt (same body as REST `POST /receivable-letters/preview`) |
+| `receivable_letter_create` | W | payments:read: renders and archives the letter (SHA-256) and returns a short-lived link; transmits nothing (like `document_export`) |
+| `receivable_letter_list` | R | payments:read: archived letters of a contact or invoice with the sent mark |
+
+**Receivables letters (2026-10-23, MCP-015):** „Als versendet markieren“ of a letter is **not** an MCP tool — `payments.markLetterSent` carries no confirm intent, so it stays UI/REST only (CLAUDE.md rule 8; an MCP tool needs a Convex-enforced token first).
 
 **P1 implementation (2026-10-16, F05 dunning slice):** `dunning_preview { mode = "drafts", invoice_ids? }` evaluates today and returns the plan plus a token bound to `mode`, the sorted invoice ids and the plan digest; with `mode: "finalize"` it answers `insufficient_scope` unless the key holds `invoices:finalize`. `dunning_run` re-evaluates and fails with `preview_outdated` when the plan or the parameters changed. `reminder_create` creates a draft only; a single draft is finalised with `document_preview` → ⚠ `document_finalize` (`rem_` id, §3.4 note „Single reminders“). `document_export`/`document_mark_sent` accept `rem_` ids since 2026-10-18 (§3.4 note); REST `/reminders/{id}/export`, `/mark-sent` remain. The `/mahnlauf` prompt is registered.
 
@@ -133,6 +139,7 @@ Legend: **R** = read-only (`readOnlyHint: true`), **W** = writes drafts or maste
 | `voucher_create_from_file` | W | vouchers:write | `file_base64` + `filename` (≤ 10 MB) or `inbox_item_id`. Runs classification (XML → ZUGFeRD → OCR) and returns the extracted draft |
 | `voucher_search` / `voucher_get` | R | vouchers:read | |
 | `voucher_update_draft` | W | vouchers:write | |
+| `inbox_correction_request_text` | R | vouchers:read | Text of the supplier correction request (INB-046) for an inbox item; subject and text inside `untrusted_text`; archiving the letter and „Als versendet markieren“ are UI/REST only |
 | `voucher_finalize` | ⚠ | vouchers:write | Books the voucher and assigns the Belegnummer; optional `payment { method: bank \| card_pending \| cash \| private, date?, amount_cents?, backdate_reason? }` (F06 VOU-136…138). Token from `preview_action`; the preview shows the payment and the resulting cash balance, and the token binds method, date and amount |
 
 ### 3.7 Banking and cash (F07)
@@ -275,4 +282,7 @@ The settings page **Einstellungen › MCP** (owner only) shows these snippets wi
 | MCP-010 | Results carry `structuredContent` plus a JSON text block; errors are `isError` with the REST code, message, field errors and a German hint; server instructions ≤ 2,048 characters | MUST | P1 |
 | MCP-012 | `document_preview` (intent finalize) + ⚠ `document_finalize`, `document_export` (W) and ⚠ `document_mark_sent` (token from `preview_action`) for quotes, orders, delivery notes, invoices, corrections and reminders (finalising a `rem_` draft since 2026-10-18, with `acknowledge_warnings`), on the shared REST handlers; no send tool (EC-189) | MUST | P1 |
 | MCP-011 | Document W/R tools of §3.4 for quotes, order confirmations, delivery notes and invoices incl. proforma (search, get with chain, quote/invoice drafts, update, convert, quote accepted/rejected) on the shared REST wire schemas; nothing is finalised without `document_finalize` (⚠) | MUST | P1 |
+| MCP-014 | Self-billing tools (P3): `self_billing_create_draft` (W), `document_search`/`document_get`/`document_preview`/⚠ `document_finalize`/`document_export`/⚠ `document_mark_sent` accept `sbc_…`, and the objection via ⚠ `invoice_cancel` with the `sbc_…` id (token from `document_preview` intent cancel) | SHOULD | P3 |
+| MCP-015 | Receivables letters: `receivable_letter_preview` (R), `receivable_letter_create` (W, archive only), `receivable_letter_list` (R); no MCP tool marks a letter sent | SHOULD | P2 |
+| MCP-016 | `inbox_correction_request_text` (R) with supplier values in `untrusted_text`; no MCP tool archives or marks the correction letter | SHOULD | P2 |
 | MCP-013 | ⚠ `export_datev` with the token of `preview_action` (DATEV validation as effect, no token while blocking, the token binds the period lock) and `export_job_status` (R) for the download link | MUST | P3 |

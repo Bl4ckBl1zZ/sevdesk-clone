@@ -32,7 +32,7 @@ import { defineTool } from "../tool";
  * `document_preview`) follows with the preview slice.
  */
 
-const docId = z.string().max(100).meta({ description: "Beleg-ID (quo_…, ord_…, dln_…, inv_…)" });
+const docId = z.string().max(100).meta({ description: "Beleg-ID (quo_…, ord_…, dln_…, inv_…, sbc_…)" });
 
 const res = (path: DocumentResourceDef["path"]) =>
   DOCUMENT_RESOURCES.find((r) => r.path === path) as DocumentResourceDef;
@@ -48,14 +48,14 @@ function resolveId(value: string): { id: string; res: DocumentResourceDef } {
   });
 }
 
-const SEARCH_TYPES = ["quote", "order_confirmation", "delivery_note", "invoice", "proforma"] as const;
+const SEARCH_TYPES = ["quote", "order_confirmation", "delivery_note", "invoice", "proforma", "self_billing"] as const;
 
 export const documentTools = [
   defineTool({
     name: "document_search",
     title: "Belege suchen",
     description:
-      "Sucht Angebote, Auftragsbestätigungen, Lieferscheine, Rechnungen oder Proforma eines Typs (Standard: invoice). " +
+      "Sucht Angebote, Auftragsbestätigungen, Lieferscheine, Rechnungen, Proforma oder Gutschriften (self_billing) eines Typs (Standard: invoice). " +
       "Filter: status (draft, finalized, sent, accepted, rejected, expired, invoiced, paid …), contact_id, q (Kundenname).",
     kind: "read",
     scopes: ["documents:read"],
@@ -140,6 +140,19 @@ export const documentTools = [
     input: documentCreateWire.omit({ valid_until: true, show_prices: true, delivery_terms: true }),
     fieldMapper: documentFieldMapper,
     handler: async (a, { convex }) => createDocumentDraft(convex, res("invoices"), a),
+  }),
+  defineTool({
+    name: "self_billing_create_draft",
+    title: "Gutschrift als Entwurf anlegen",
+    description:
+      "Neuer Entwurf einer Gutschrift im Gutschriftsverfahren (§ 14 Abs. 2 UStG, z. B. Provisionsabrechnung): " +
+      "contact_id eines Lieferanten mit hinterlegter Gutschriftsvereinbarung, supply_date und Positionen. Titel immer " +
+      "„Gutschrift“; fertigstellen mit document_preview + document_finalize. Ohne Vereinbarung ist keine Fertigstellung möglich.",
+    kind: "write",
+    scopes: ["documents:write"],
+    input: documentCreateWire.omit({ invoice_type: true, valid_until: true, show_prices: true, delivery_terms: true }),
+    fieldMapper: documentFieldMapper,
+    handler: async (a, { convex }) => createDocumentDraft(convex, res("self-billing"), a),
   }),
   defineTool({
     name: "document_update_draft",

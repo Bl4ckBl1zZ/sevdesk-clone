@@ -64,7 +64,7 @@
 | Base URL | `https://api.<BASE_DOMAIN>/api/v1` — **tailnet only**. Owner devices and tools use port 443; the website's server (`tag:website`) uses `https://api.<BASE_DOMAIN>:8443/api/v1`, a Caddy listener that serves only `/api/v1/**` (§6.1, 02 §4.1) |
 | Auth | `Authorization: Bearer sk_live_…` (alternatively `X-API-Key`). Keys in query strings are rejected (400) |
 | Content type | `application/json; charset=utf-8`. Uploads: `multipart/form-data` or a JSON body with `content_base64` (≤ 10 MB) |
-| IDs | Prefixed opaque strings: `con_`, `adr_`, `chn_`, `act_`, `vck_`, `prd_`, `cpr_`, `pcat_`, `stm_`, `quo_`, `ord_`, `dln_`, `inv_` (all invoice types incl. **proforma**), `cor_`, `rem_`, `sbc_` (self-billing Gutschrift, P3), `rec_`, `rvo_` (recurring voucher template, F06), `pay_`, `opi_` (opening-balance open item, ACC-013), `vou_`, `inb_`, `bac_`, `btx_`, `csh_`, `jrn_`, `ast_`, `prj_`, `tim_`, `whe_`, `evt_`, `job_`, `dvx_` (DATEV export history, F09 EXP-009), `gdx_` (GDPdU package), settings objects `nrg_`, `lay_`, `lyv_`, `tpl_`, `pmt_`, `tag_`, `cfd_`, `cc_` (F01 §7.1). Encoded from Convex IDs; stable |
+| IDs | Prefixed opaque strings: `con_`, `adr_`, `chn_`, `act_`, `vck_`, `prd_`, `cpr_`, `pcat_`, `stm_`, `quo_`, `ord_`, `dln_`, `inv_` (all invoice types incl. **proforma**), `cor_`, `rem_`, `sbc_` (self-billing Gutschrift, P3), `rlt_` (archived receivables letter, F05), `rec_`, `rvo_` (recurring voucher template, F06), `pay_`, `opi_` (opening-balance open item, ACC-013), `vou_`, `inb_`, `bac_`, `btx_`, `csh_`, `jrn_`, `ast_`, `prj_`, `tim_`, `whe_`, `evt_`, `job_`, `dvx_` (DATEV export history, F09 EXP-009), `gdx_` (GDPdU package), settings objects `nrg_`, `lay_`, `lyv_`, `tpl_`, `pmt_`, `tag_`, `cfd_`, `cc_` (F01 §7.1). Encoded from Convex IDs; stable |
 | Pagination | Cursor: `?limit=1..100 (default 25)&cursor=…`. Response: `{ "data": [...], "next_cursor": "…" \| null }` |
 | Filtering | Explicit query params per resource (e.g. `status`, `contact_id`, `date_from`, `date_to`, `updated_since`, `q`). `updated_since` is supported everywhere for sync |
 | Sorting | `?sort=field` / `-field`, from a whitelist per resource |
@@ -186,6 +186,8 @@ Each of `/quotes`, `/order-confirmations`, `/delivery-notes`, `/invoices` (incl.
 
 **Self-billing Gutschrift** (P3, F04 §4.2.8, §4.9, INV-16, §9.6): own resource `/self-billing` with prefix `sbc_`, the same shape as the other sales documents (draft CRUD, `preview`, `finalize` with `invoices:finalize`, `send`, artifacts). Finalisation requires a stored self-billing agreement with the supplier contact (`self_billing_agreement_missing` otherwise); TypeCode 389, title always „Gutschrift" (UST-11/33). The supplier's objection (Widerspruch) is `POST /self-billing/{id}/cancel` (`invoices:cancel`, body `{ reason, objection_date }`), which creates the mirror document.
 
+**P3 implementation (2026-10-23, API-025):** `/self-billing` serves list, create, get, patch, delete, `preview`, `finalize` (`invoices:finalize` only — a Gutschrift is an invoice replacement, no `documents:write`), `export`, `mark-sent` (+ `…/retract`) and `POST /self-billing/{id}/cancel` (`invoices:cancel` + `invoices:finalize`, `Idempotency-Key` required; body `{ reason, objection_date }`; returns `{ cancellation_id, number, self_billing }`). No `convert`, `withdraw` or `chain` routes (a Gutschrift has no conversions; its only Storno is the objection). There is no `send` route (B2: export + mark-sent like every document).
+
 ### 4.4 Payments, dunning (F05)
 
 F05 §7.1 is normative; summary:
@@ -214,6 +216,10 @@ F05 §7.1 is normative; summary:
 | GET | `/dunning/interest`; POST `/dunning/collections-export` | payments:read; dunning:write |
 | GET | `/dunning-policies` | payments:read |
 | POST/PATCH | `/dunning-policies[/{id}]` | dunning:manage |
+| POST | `/receivable-letters/preview` | payments:read: content of a Kontoauszug (PAY-005), Zahlungsbestätigung (PAY-048), Zinsforderung (DUN-028) or Mahnbescheid-Datenblatt (DUN-044); body `{ kind, contact_id+from+to \| payment_id \| invoice_id, … }`; writes nothing |
+| POST | `/receivable-letters` | payments:read (like the Quittung, PAY-063): renders and archives the PDF (SHA-256, immutable) and returns `{ id: rlt_…, file_name, sha256, content_type, content_base64, data }` (`data` = DUN-044 JSON) |
+| GET | `/receivable-letters?contact_id=\|invoice_id=` | payments:read (one filter required) |
+| POST | `/receivable-letters/{id}/mark-sent` | dunning:write (`{ sent_on, channel, note? }`, once; `Idempotency-Key` required; never via MCP) |
 
 **P1 implementation (2026-10-16, F05 dunning slice):** all rows above except `POST /dunning/collections-export` (DUN-042, SHOULD — not built yet). `/reminders` returns a dedicated reminder shape (`rem_…`, `status`, `level`, `invoice_id`, the claim `open_amount_cents`/`fee_cents`/`interest_cents`/`flat_fee_40_cents`/`total_cents`, `new_due_date`, `default_start_date`, `sent_on`, `zugang`, `version`) instead of the full §4.3 document shape; list filters `status`, `invoice_id`, `contact_id`; no `expand`, `preview`, `duplicate`, `send-log` or `artifacts` routes yet. The `confirm_token` of `GET /dunning/preview` is the plan digest (null when `date` is not today, because the run always evaluates today); `POST /dunning/run` requires it unless `dry_run`, and a changed plan answers `409 preview_outdated`. `POST /reminders/{id}/finalize` requires `Idempotency-Key` like the document finalisation. Export/mark-sent use the §4.3 bodies with `art_…` artifact ids and return `snd_…` send-log ids. `void_notice` on withdraw is accepted but no notice letter is generated yet (DUN-009 notice is SHOULD). `GET /dunning-policies` lists the §4.6 defaults with `id: null, seeded: true` until the first `POST` stores them.
 
@@ -225,6 +231,9 @@ F06 §7.1 is normative; summary:
 |---|---|---|
 | POST | `/inbox-items` (multipart file(s) or JSON base64, optional `note`) | vouchers:write: the main "upload a receipt" endpoint |
 | GET | `/inbox-items` / `{id}` | vouchers:read |
+| POST | `/inbox-items/{id}/split` (`{ groups: [[0],[1,2]] }`) → 201 the new items; `/inbox-items/merge` (`{ ids: [inb_…, …] }`) → 201 the merged item (INB-009) | vouchers:write |
+| GET | `/inbox-items/{id}/correction-request` (letter text, archived letter, marks; INB-046) | vouchers:read |
+| POST | `/inbox-items/{id}/correction-request` (archive the letter PDF once → `{ text, artifact_id, sha256, url }`), `…/correction-request/mark-sent` (`{ sent_on, channel, note? }` → `{ send_log_id }`), `…/correction-request/mark-sent/{sendLogId}/retract` (`{ reason }`); mark-sent and retract need `Idempotency-Key` | vouchers:write |
 | GET/POST | `/vouchers`, GET/PATCH/DELETE `/vouchers/{id}` (PATCH/DELETE on drafts; a finalised unlocked voucher only with `correction_reason`) | vouchers:read/write |
 | POST | `/vouchers/{id}/finalize` | vouchers:write: `{ acknowledge_warnings?, payment?: { method: "bank" \| "card_pending" \| "cash" \| "private", date?, amount_cents?, backdate_reason?, note? } }` (F06 VOU-136…138; default `bank` = paid later via bank matching). `cash`/`private` write voucher, journal and payment in one transaction; a failed cash check books nothing. For corporations `private` posts to `shareholder.clearing` |
 | POST | `/vouchers/{id}/payments` | vouchers:write + payments:write: later „Bar/Privat bezahlt" on an open voucher (same body as `payment`) |
@@ -441,4 +450,7 @@ The API has no public host. The website's **server** joins the owner's tailnet (
 | API-022 | Finalise preview, export, mark-sent (`?dry_run`) and retraction for every sales document incl. corrections and Storno; `/corrections/{id}/finalize`; nothing transmits a document | MUST | P1 |
 | API-021 | Sales documents (§4.3): quotes, order confirmations, delivery notes and invoices incl. proforma — draft CRUD, finalisation with required `Idempotency-Key` (letters additionally need `documents:write`), acceptance/rejection/reopen/revise, „Erhalten“, withdrawal, conversions incl. the collective invoice, and the chain | MUST | P1 |
 | API-023 | Read-only reports over REST (§4.7): EÜR, BWA, SuSa, Kontenblatt and OPOS with the F08 values and `meta`; Kennzahlen sheets (UStVA/ZM/EÜR) as PDF/CSV, audited | MUST | P3 |
+| API-025 | Self-billing Gutschrift over REST (§4.3, P3): `/self-billing` (`sbc_`) draft CRUD, preview, finalisation (`invoices:finalize`, `Idempotency-Key`, agreement required), export, mark-sent/retract and the objection `POST /self-billing/{id}/cancel` (`invoices:cancel` + `invoices:finalize`); no conversions or withdrawal | SHOULD | P3 |
+| API-026 | Receivables letters over REST (§4.4, F05 PAY-005/PAY-048/DUN-028/DUN-044): preview, generate + archive (PDF with SHA-256, DUN-044 JSON), list per contact or invoice, one-time mark-sent (`dunning:write`, `Idempotency-Key`); nothing is sent | SHOULD | P2 |
+| API-027 | Inbox split/merge (INB-009) and the supplier correction request (INB-046) over REST (§4.5): text, archived letter PDF, mark-sent and retraction with `Idempotency-Key`; nothing is sent | SHOULD | P2 |
 | API-024 | Exports over REST (§4.7): DATEV dry run, export job (blocking report → 422, overlap → 409, `lock_period`), history and stored ZIP with the „Testexport“ confirmation; GDPdU and full export jobs; `GET /jobs/{id}` for the key's own jobs | MUST | P3 |

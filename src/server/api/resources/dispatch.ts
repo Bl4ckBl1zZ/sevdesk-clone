@@ -47,6 +47,7 @@ export const TYPES_BY_ID: Readonly<Record<DispatchIdType, readonly SalesDocType[
   invoice: ["invoice", "proforma", "advance_invoice", "partial_invoice", "final_invoice", "cancellation"],
   correction: ["correction"],
   reminder: ["reminder"],
+  self_billing: ["self_billing"],
 };
 
 const LABEL: Readonly<Record<DispatchIdType, string>> = {
@@ -56,6 +57,7 @@ const LABEL: Readonly<Record<DispatchIdType, string>> = {
   invoice: "Rechnung",
   correction: "Rechnungskorrektur",
   reminder: "Mahnung",
+  self_billing: "Gutschrift",
 };
 
 export interface ResolvedDoc {
