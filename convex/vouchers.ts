@@ -7,6 +7,7 @@ import { berlinCalendarDate } from "../src/domain/time/berlin";
 import type { CalendarDate } from "../src/domain/time/calendar-date";
 import { allowedAccounts } from "../src/domain/vouchers/accounts";
 import { bewirtungEigenbelegContent } from "../src/domain/vouchers/bewirtung";
+import { checkBulkSelection } from "../src/domain/vouchers/bulk";
 import { checkUpload, pageCount } from "../src/domain/vouchers/capture";
 import { voucherEigenbelegContent } from "../src/domain/vouchers/eigenbeleg";
 import { withImageQuality } from "../src/domain/vouchers/image-quality";
@@ -34,6 +35,8 @@ import { appError } from "./lib/errors";
 import { auditedInsert } from "./model/audit";
 import type { FileRefValue } from "./model/bankImport";
 import { getCompanyProfile } from "./model/companyProfile";
+import { createJob } from "./model/jobs";
+import type { ActorContext } from "./model/types";
 import { cashLines, cashOutflowDip, previewJournal, resolveContextAt } from "./model/journal";
 import {
   createRecurringVoucher,
@@ -44,6 +47,9 @@ import { rebookVoucherPayment, recordVoucherPayment, voucherBankSuggestions } fr
 import {
   accountContextAt,
   addVoucherFile,
+  bulkDeleteDrafts,
+  bulkFinalizeOne,
+  bulkUpdateDrafts,
   approveBewirtung,
   approveEigenbeleg,
   cancelVoucher,
@@ -79,6 +85,7 @@ import {
   vRecurringTemplate,
   vVoucherDraftInput,
   vVoucherPaymentInput,
+  vVoucherTaxRule,
 } from "./voucherValidators";
 
 /**
@@ -499,6 +506,99 @@ export const correct = mutation({
     acknowledgeWarnings: v.optional(v.array(v.string())),
   },
   handler: async (ctx, args) => correctVoucher(ctx, args),
+});
+
+// ── bulk actions on drafts (VOU-101) ────────────────────────────────────────────────────────────────────
+
+export const bulkUpdate = mutation({
+  permission: "vouchers.write",
+  args: {
+    ids: v.array(v.id("vouchers")),
+    patch: v.object({
+      account: v.optional(v.string()),
+      taxRule: v.optional(vVoucherTaxRule),
+      costCenterId: v.optional(v.union(v.string(), v.null())),
+      addTagIds: v.optional(v.array(v.id("tags"))),
+    }),
+  },
+  handler: async (ctx, args) => bulkUpdateDrafts(ctx, args),
+});
+
+export const bulkDelete = mutation({
+  permission: "vouchers.write",
+  args: { ids: v.array(v.id("vouchers")) },
+  handler: async (ctx, { ids }) => bulkDeleteDrafts(ctx, ids),
+});
+
+/** ⚠ „Sammelbuchung“: a job books every selected draft without blocking errors or ⚑ warnings (VOU-101). */
+export const startBulkFinalize = mutation({
+  permission: "vouchers.finalize",
+  args: { ids: v.array(v.id("vouchers")), confirmToken: vConfirmToken },
+  handler: async (ctx, { ids }) => {
+    const sel = checkBulkSelection(ids);
+    if (!sel.ok) throw appError("invalid_input", sel.error.message);
+    const labels: Record<string, string> = {};
+    for (const id of sel.value as Id<"vouchers">[]) {
+      const d = await ctx.db.get(id);
+      labels[id] = d?.supplierName ?? d?.documentNumber ?? "Entwurf";
+    }
+    const jobId = await createJob(ctx, {
+      kind: "voucher_bulk_finalize",
+      label: `Sammelbuchung (${sel.value.length} Belege)`,
+      params: { ids: sel.value, labels },
+      total: sel.value.length,
+    });
+    await ctx.scheduler.runAfter(0, internal.vouchers.bulkFinalizeJob, { jobId });
+    return { jobId };
+  },
+});
+
+export const bulkFinalizeInput = systemQuery({
+  job: "exports.run",
+  args: { jobId: v.id("jobs") },
+  handler: async (ctx, { jobId }) => {
+    const j = await ctx.db.get(jobId);
+    if (!j || j.kind !== "voucher_bulk_finalize" || (j.status !== "queued" && j.status !== "running")) return null;
+    const p = j.params as { ids: Id<"vouchers">[]; labels: Record<string, string> };
+    return { ids: p.ids, labels: p.labels, by: j.by };
+  },
+});
+
+export const bulkFinalizeOneInternal = actorMutation({
+  permission: "vouchers.finalize",
+  args: { id: v.id("vouchers"), confirmToken: vConfirmToken },
+  handler: async (ctx, { id }) => bulkFinalizeOne(ctx, id),
+});
+
+export const bulkFinalizeJob = systemAction({
+  job: "exports.run",
+  args: { jobId: v.id("jobs") },
+  handler: async (ctx, { jobId }): Promise<boolean> => {
+    try {
+      const job = await ctx.runQuery(internal.vouchers.bulkFinalizeInput, { jobId });
+      if (!job) return false;
+      const skipped: { id: string; label: string; reason: string }[] = [];
+      let done = 0;
+      for (const id of job.ids) {
+        if (!(await ctx.runMutation(internal.bulk.jobStep, { jobId, done }))) return false;
+        done++;
+        try {
+          const r = await ctx.runMutation(internal.vouchers.bulkFinalizeOneInternal, {
+            actorContext: job.by as ActorContext,
+            id,
+          });
+          if (r.skipped) skipped.push({ id, label: job.labels[id] ?? id, reason: r.skipped });
+        } catch (e) {
+          const data = (e as { data?: { message?: string } }).data;
+          skipped.push({ id, label: job.labels[id] ?? id, reason: data?.message ?? (e instanceof Error ? e.message : String(e)) });
+        }
+      }
+      return await ctx.runMutation(internal.bulk.jobDone, { jobId, skipped });
+    } catch (e) {
+      await ctx.runMutation(internal.bulk.jobFailed, { jobId, error: e instanceof Error ? e.message : String(e) });
+      return false;
+    }
+  },
 });
 
 export const cancel = mutation({

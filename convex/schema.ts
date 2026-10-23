@@ -2084,6 +2084,7 @@ export default defineSchema({
       v.literal("verfahrensdoku_pdf"),
       v.literal("purge"),
       v.literal("dsgvo_export"),
+      v.literal("voucher_bulk_finalize"), // F06 VOU-101 „Sammelbuchung“
     ),
     status: v.union(
       v.literal("queued"),

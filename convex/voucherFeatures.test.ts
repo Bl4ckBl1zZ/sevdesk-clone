@@ -110,6 +110,88 @@ describe("image quality (VOU-124, GOBD-08)", () => {
   });
 });
 
+describe("bulk actions on drafts (VOU-101)", () => {
+  test("VOU-101 bulk set account / tax rule / cost centre on drafts; booked vouchers and disallowed accounts are skipped", async () => {
+    const t = makeT();
+    await setupCompany(t);
+    const owner = await t.asUser("owner");
+    const a = await draft(t, owner);
+    const b = await draft(t, owner, { supplierName: "Telekom Deutschland GmbH", supplierVatId: "DE811907980" });
+    const booked = await draft(t, owner, { supplierName: "Shell Deutschland", supplierVatId: "DE111111125" });
+    await owner.mutation(api.vouchers.finalize, { id: booked });
+    const r = await owner.mutation(api.vouchers.bulkUpdate, {
+      ids: [a, b, booked],
+      patch: { account: "6815", taxRule: "no_input_vat", costCenterId: "kst-1" },
+    });
+    expect(r.updated).toEqual([a, b]);
+    expect(r.skipped).toEqual([{ id: booked, label: expect.any(String), reason: expect.stringContaining("Nur Entwürfe") }]);
+    for (const id of [a, b]) {
+      const v = await voucher(t, id);
+      expect(v.taxRule).toBe("no_input_vat");
+      expect(v.version).toBeGreaterThan(1);
+      const lines = await t.run((ctx) =>
+        ctx.db
+          .query("voucherLines")
+          .withIndex("by_voucher", (q) => q.eq("voucherId", id))
+          .collect(),
+      );
+      expect(lines.map((l) => [l.account, l.costCenterId, l.grossCents])).toEqual([["6815", "kst-1", 11_900]]);
+    }
+    // A revenue account is not allowed on expense drafts (EC-VOU-37): nothing changes.
+    const bad = await owner.mutation(api.vouchers.bulkUpdate, { ids: [a], patch: { account: "4400" } });
+    expect(bad.updated).toEqual([]);
+    expect(bad.skipped[0]?.reason).toContain("Das Konto 4400 ist für Ausgaben");
+  });
+
+  test("VOU-101 T06-131 „Sammelbuchung“ runs as a job: books drafts without blocking errors, skips and lists the others", async () => {
+    const t = makeT();
+    await setupCompany(t);
+    const owner = await t.asUser("owner");
+    const ok = await draft(t, owner);
+    const noFile = await owner.mutation(api.vouchers.create, {
+      input: { ...header({ supplierName: "Ohne Datei GmbH", supplierVatId: "DE811907980" }) },
+    });
+    const flagged = await draft(t, owner, {
+      supplierName: "Groß GmbH",
+      supplierVatId: undefined,
+      lines: [{ account: "6805", description: "Server", amountCents: 59_500, vatRateBp: 1900 }],
+    });
+    const { jobId } = await owner.mutation(api.vouchers.startBulkFinalize, { ids: [ok, noFile, flagged] });
+    await t.finishAllScheduledFunctions(() => {});
+    const job = await t.run((ctx) => ctx.db.get(jobId));
+    expect(job).toMatchObject({ kind: "voucher_bulk_finalize", status: "done", progress: { done: 3, total: 3 } });
+    expect(job?.skipped?.map((s) => s.id)).toEqual([noFile, flagged]);
+    expect(job?.skipped?.[0]?.reason).toContain("Jede Buchung braucht einen Beleg");
+    expect(job?.skipped?.[1]?.reason).toMatch(/^Bitte einzeln prüfen und bestätigen: Vorsteuerabzug gefährdet/);
+    expect((await voucher(t, ok)).status).toBe("open");
+    expect((await voucher(t, noFile)).status).toBe("draft");
+    expect((await voucher(t, flagged)).status).toBe("draft");
+    // The booking is attributed to the member who started the job.
+    const audit = await t.run((ctx) =>
+      ctx.db
+        .query("auditLog")
+        .filter((q) => q.eq(q.field("action"), "voucher.finalize"))
+        .collect(),
+    );
+    expect(audit.length).toBeGreaterThan(0);
+    expect(audit.every((x) => x.actor.startsWith("user:"))).toBe(true);
+  });
+
+  test("VOU-101 bulk delete removes drafts only", async () => {
+    const t = makeT();
+    await setupCompany(t);
+    const owner = await t.asUser("owner");
+    const d1 = await draft(t, owner);
+    const booked = await draft(t, owner, { supplierName: "Telekom Deutschland GmbH", supplierVatId: "DE811907980" });
+    await owner.mutation(api.vouchers.finalize, { id: booked });
+    const r = await owner.mutation(api.vouchers.bulkDelete, { ids: [d1, booked] });
+    expect(r.deleted).toEqual([d1]);
+    expect(r.skipped[0]?.reason).toBe("Gebuchte Belege können nicht gelöscht werden.");
+    expect(await t.run((ctx) => ctx.db.get(d1))).toBeNull();
+    expect((await voucher(t, booked)).status).toBe("open");
+  });
+});
+
 describe("private vouchers (VOU-066)", () => {
   test("VOU-066 a private voucher books S Privatentnahmen · H Verbindlichkeiten (no expense, no input VAT); GmbH blocked", async () => {
     const t = makeT();

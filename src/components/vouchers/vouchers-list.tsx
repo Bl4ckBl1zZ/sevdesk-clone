@@ -34,6 +34,7 @@ import { Table, TableBody, TableCell, TableFooter, TableHead, TableHeader, Table
 import { useAuthedQuery } from "@/hooks/use-authed-query";
 import { cn } from "@/lib/utils";
 import { queueHref } from "./queue-model";
+import { VoucherBulkBar } from "./voucher-bulk-bar";
 import { money, useVoucherUpload, VoucherStatusBadge } from "./voucher-shared";
 
 /**
@@ -147,6 +148,7 @@ function VouchersListInner() {
           {t("queue", { count: selected.length })}
         </Link>
       )}
+      <VoucherBulkBar ids={selected} onDone={() => setSelected([])} />
       {canWrite && (
         <div className="flex flex-wrap gap-2 md:ml-auto">
           <Button variant="outline" className="h-11 md:h-9" onClick={() => void manual()} disabled={busy}>

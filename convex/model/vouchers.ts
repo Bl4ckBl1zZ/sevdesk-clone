@@ -4,8 +4,9 @@ import { chartAt, supplyEnd } from "../../src/domain/accounting/period";
 import { isCorporation } from "../../src/domain/accounting/roles";
 import { berlinCalendarDate } from "../../src/domain/time/berlin";
 import { type CalendarDate, isCalendarDate } from "../../src/domain/time/calendar-date";
-import { type AccountContext, accountContextFor } from "../../src/domain/vouchers/accounts";
+import { type AccountContext, accountContextFor, checkLineAccount } from "../../src/domain/vouchers/accounts";
 import { BEWIRTUNG_MESSAGES, checkBewirtungApproval } from "../../src/domain/vouchers/bewirtung";
+import { applyBulkPatch, bulkFinalizeSkipReason, checkBulkSelection } from "../../src/domain/vouchers/bulk";
 import { activeOriginals, checkReplacement, replaceOriginal } from "../../src/domain/vouchers/capture";
 import { type DuplicateCandidate, findDuplicates } from "../../src/domain/vouchers/duplicates";
 import { checkEigenbelegApproval } from "../../src/domain/vouchers/eigenbeleg";
@@ -1197,6 +1198,102 @@ export async function duplicateVoucher(ctx: ModelCtx, id: Id<"vouchers">): Promi
     { action: "voucher.duplicate", label: label(v) },
   );
   return copy;
+}
+
+// ── bulk actions on drafts (VOU-101) ────────────────────────────────────────────────────────────────────
+
+export interface BulkSkip {
+  id: string;
+  label: string;
+  reason: string;
+}
+
+/**
+ * VOU-101: account / tax rule / cost centre / tags on many drafts. Every draft is changed through the same path as
+ * the editor (`applyInput`, version + 1, audited); booked vouchers and unknown/disallowed accounts are skipped with
+ * the reason (nothing is half-applied to one voucher).
+ */
+export async function bulkUpdateDrafts(
+  ctx: ModelCtx,
+  args: {
+    ids: readonly Id<"vouchers">[];
+    patch: { account?: string; taxRule?: VoucherDoc["taxRule"]; costCenterId?: string | null; addTagIds?: Id<"tags">[] };
+  },
+): Promise<{ updated: Id<"vouchers">[]; skipped: BulkSkip[] }> {
+  const sel = checkBulkSelection(args.ids);
+  if (!sel.ok) throw appError("invalid_input", sel.error.message);
+  const updated: Id<"vouchers">[] = [];
+  const skipped: BulkSkip[] = [];
+  const today = berlinCalendarDate(ctx.now());
+  for (const id of sel.value as Id<"vouchers">[]) {
+    const v = await ctx.db.get(id);
+    if (!v || v.status !== "draft") {
+      skipped.push({ id, label: v ? label(v) : id, reason: VOUCHER_ERRORS.notDraft });
+      continue;
+    }
+    const taxRule = args.patch.taxRule ?? v.taxRule;
+    if (args.patch.account) {
+      const acc = await accountContextAt(ctx, governingDate(v, today));
+      const bad = checkLineAccount(args.patch.account.trim(), { direction: v.direction, taxRule }, acc);
+      if (bad) {
+        skipped.push({ id, label: label(v), reason: bad.message });
+        continue;
+      }
+    }
+    const next = applyBulkPatch(
+      { lines: (await linesOf(ctx, id)).map((l) => lineInputOf(l, v.priceMode)), tags: v.tags },
+      {
+        ...(args.patch.account ? { account: args.patch.account.trim() } : {}),
+        ...(args.patch.costCenterId !== undefined ? { costCenterId: args.patch.costCenterId } : {}),
+        ...(args.patch.addTagIds ? { addTagIds: args.patch.addTagIds } : {}),
+      },
+    );
+    await applyInput(ctx, v, { lines: next.lines, ...(args.patch.taxRule ? { taxRule } : {}) }, "voucher.bulk_update");
+    if (next.tags.length !== v.tags.length) {
+      await auditedPatch(ctx, "vouchers", id, { tags: next.tags }, { action: "voucher.bulk_update", label: label(v) });
+    }
+    updated.push(id);
+  }
+  return { updated, skipped };
+}
+
+/** VOU-101 „Entwürfe löschen“: like the single delete (audited with content); booked vouchers are skipped. */
+export async function bulkDeleteDrafts(
+  ctx: ModelCtx,
+  ids: readonly Id<"vouchers">[],
+): Promise<{ deleted: Id<"vouchers">[]; skipped: BulkSkip[] }> {
+  const sel = checkBulkSelection(ids);
+  if (!sel.ok) throw appError("invalid_input", sel.error.message);
+  const deleted: Id<"vouchers">[] = [];
+  const skipped: BulkSkip[] = [];
+  for (const id of sel.value as Id<"vouchers">[]) {
+    const v = await ctx.db.get(id);
+    if (!v || v.status !== "draft") {
+      skipped.push({ id, label: v ? label(v) : id, reason: VOUCHER_ERRORS.bookedDelete });
+      continue;
+    }
+    await deleteVoucherDraft(ctx, id);
+    deleted.push(id);
+  }
+  return { deleted, skipped };
+}
+
+/**
+ * One step of the VOU-101 „Sammelbuchung“ job: books the draft with the default payment („Offen – Zahlung per Bank
+ * folgt“) unless it has blocking errors or ⚑ warnings (never acknowledged in bulk) — then the reason is returned.
+ */
+export async function bulkFinalizeOne(
+  ctx: ModelCtx,
+  id: Id<"vouchers">,
+): Promise<{ number?: string; skipped?: string }> {
+  const v = await ctx.db.get(id);
+  if (!v) return { skipped: VOUCHER_ERRORS.notFound };
+  if (v.status !== "draft") return { skipped: "Der Beleg ist bereits gebucht." };
+  const p = await previewVoucher(ctx, { id }, ctx.now());
+  const reason = bulkFinalizeSkipReason({ errors: p.check.errors, warnings: [...p.check.warnings, ...p.payment.warnings] });
+  if (reason) return { skipped: reason };
+  const r = await finalizeVoucher(ctx, { id });
+  return { number: r.number };
 }
 
 // ── duplicates (VOU-052/053) ────────────────────────────────────────────────────────────────────────────
