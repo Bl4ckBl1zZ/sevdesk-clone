@@ -451,6 +451,17 @@ async function deleteItem(ctx: ModelCtx, item: ErasureItem, label: string) {
       }
     }
   }
+  if (item.kind === "recurringVouchers") {
+    // the supplier's reference invoice kept with the template
+    const r = await ctx.db.get(item.id as Id<"recurringVouchers">);
+    if (r?.referenceFile) {
+      try {
+        await ctx.storage.delete(r.referenceFile.storageId);
+      } catch {
+        // gone
+      }
+    }
+  }
   await deleteHashed(ctx, item.kind as "contactActivities", item.id, "dsgvo.erase", label);
 }
 

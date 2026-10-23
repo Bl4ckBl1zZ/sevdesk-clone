@@ -36,15 +36,15 @@ const COVERAGE: Readonly<Record<string, { handling: Handling; why: string }>> = 
   vouchers: { handling: "retained", why: "vouchers8" },
   timeEntries: {
     handling: "retained",
-    why: "invoiced entries vouchers8; open entries are the business's own work records and keep the link to the anonymised contact",
+    why: "invoiced entries vouchers8; open entries are the business's own work records and keep their contactId (anonymised contact, or dangling after a full delete)",
   },
   inboxItems: {
     handling: "exempt",
-    why: "incoming supplier documents (voucher originals, retained with their voucher); the match link points at the anonymised contact; e-mail search via E-PRV-16",
+    why: "incoming supplier documents (voucher originals, retained with their voucher); supplierMatch keeps its contactId (dangling after a full delete); e-mail search via E-PRV-16",
   },
   projects: {
     handling: "exempt",
-    why: "project master data of the business; the link points at the anonymised contact (free-text names are reviewed by the owner)",
+    why: "project master data of the business; keeps its contactId (dangling after a full delete); free-text names are reviewed by the owner",
   },
   dsgvoRequests: { handling: "exempt", why: "the request register itself is the Art. 5 Abs. 2 accountability record" },
 };

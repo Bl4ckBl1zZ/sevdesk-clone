@@ -190,10 +190,13 @@ describe("receivable letters and learned bank aliases in the DSGVO flows (PRV-01
     expect(await t.run((ctx) => ctx.db.get(letterId))).not.toBeNull();
   });
 
-  test("PRV-011 learned supplier defaults, dismissed duplicate hints and a running timer are erased; a manual entry naming the contact is retained (books10)", async () => {
+  test("PRV-011 learned supplier defaults, duplicate hints, merge undo data, a recurring supplier voucher (with its reference file) and a running timer are erased; a manual entry naming the contact is retained (books10)", async () => {
     const t = makeT();
     const f = await finalizedInvoice(t);
     const contactId = f.personId as Id<"contacts">;
+    const referenceId = await t.run((ctx) =>
+      ctx.storage.store(new Blob(["%PDF-1.4 Mietvertrag"], { type: "application/pdf" })),
+    );
     const seeded = await t.run(async (ctx) => ({
       profile: await ctx.db.insert("supplierProfiles", {
         key: "erika muster",
@@ -210,6 +213,42 @@ describe("receivable letters and learned bank aliases in the DSGVO flows (PRV-01
         actor: f.owner.actor,
       }),
       timer: await ctx.db.insert("runningTimer", { startedAt: Date.now(), contactId, startedVia: "ui" }),
+      merge: await ctx.db.insert("contactMerges", {
+        winnerId: contactId,
+        loserId: f.orgId as Id<"contacts">,
+        moved: [],
+        fieldChoices: {},
+        restore: { winner: { notes: "alte Notiz zu Erika" }, loserStatus: "archived" },
+        at: Date.now(),
+        actor: f.owner.actor,
+      }),
+      recurring: await ctx.db.insert("recurringVouchers", {
+        name: "Miete Muster",
+        template: {
+          direction: "expense",
+          kind: "standard",
+          supplierContactId: contactId,
+          currency: "EUR",
+          priceMode: "gross",
+          taxRule: "no_input_vat",
+          lines: [{ account: "4210", amountCents: 50_000, vatRateBp: 0 }],
+        },
+        interval: "P1M",
+        firstDate: "2026-11-01",
+        nextDate: "2026-11-01",
+        active: true,
+        createAs: "draft",
+        referenceFile: {
+          storageId: referenceId,
+          sha256: "0".repeat(64),
+          bytes: 22,
+          mime: "application/pdf",
+          name: "mietvertrag.pdf",
+        },
+        lastGeneratedIds: [],
+        actor: f.owner.actor,
+        version: 1,
+      }),
       manual: await ctx.db.insert("manualEntries", {
         date: "2026-10-12",
         text: "Ausbuchung Kleinbetrag",
@@ -226,7 +265,13 @@ describe("receivable letters and learned bank aliases in the DSGVO flows (PRV-01
 
     const p = await f.owner.query(api.dsgvo.preview, { contactId });
     expect(p.deleteNow.map((i) => i.kind)).toEqual(
-      expect.arrayContaining(["supplierProfiles", "dismissedDuplicates", "runningTimer"]),
+      expect.arrayContaining([
+        "supplierProfiles",
+        "dismissedDuplicates",
+        "runningTimer",
+        "contactMerges",
+        "recurringVouchers",
+      ]),
     );
     expect(p.restrict).toContainEqual(
       expect.objectContaining({
@@ -244,9 +289,10 @@ describe("receivable letters and learned bank aliases in the DSGVO flows (PRV-01
     });
     await f.owner.mutation(api.dsgvo.verify, { id, method: "Rückruf unter bekannter Nummer" });
     await f.owner.mutation(api.dsgvo.execute, { id });
-    for (const gone of [seeded.profile, seeded.dismissed, seeded.timer]) {
+    for (const gone of [seeded.profile, seeded.dismissed, seeded.timer, seeded.merge, seeded.recurring]) {
       expect(await t.run((ctx) => ctx.db.get(gone))).toBeNull();
     }
+    expect(await t.run((ctx) => ctx.storage.get(referenceId))).toBeNull();
     expect(await t.run((ctx) => ctx.db.get(seeded.manual))).not.toBeNull();
   });
 });
