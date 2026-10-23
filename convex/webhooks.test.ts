@@ -102,7 +102,9 @@ describe("webhook endpoints (05 §5.1)", () => {
     expect(row?.encryptedSecret).not.toContain(secret.slice(6));
     const audit = await t.run((ctx) => ctx.db.query("auditLog").collect());
     const entry = audit.find((a) => a.action === "webhook.endpoint.create");
-    expect((entry?.diff as { after: { encryptedSecret: string } }).after.encryptedSecret).toBe("[redacted]");
+    expect((entry?.diff as { after?: { encryptedSecret?: string } } | undefined)?.after?.encryptedSecret).toBe(
+      "[redacted]",
+    );
     expect(JSON.stringify(audit)).not.toContain(secret);
   });
 
@@ -116,7 +118,9 @@ describe("webhook endpoints (05 §5.1)", () => {
     expect(
       messageOf(
         await catching(
-          owner.action(api.webhooks.create, { values: { url: "https://shop.example.com/x", events: ["quote.viewed"] } }),
+          owner.action(api.webhooks.create, {
+            values: { url: "https://shop.example.com/x", events: ["quote.viewed"] },
+          }),
         ),
       ),
     ).toBe("Das Ereignis quote.viewed ist für das Kundenportal reserviert und wird nicht gesendet.");
@@ -134,7 +138,12 @@ describe("webhook endpoints (05 §5.1)", () => {
   test("API-031 an endpoint URL naming a private, loopback or metadata address is refused at save time", async () => {
     const t = makeT();
     const owner = await t.asUser("owner");
-    for (const url of ["https://169.254.169.254/latest/meta-data", "https://127.0.0.1/x", "https://10.0.0.5/x", "https://localhost/x"]) {
+    for (const url of [
+      "https://169.254.169.254/latest/meta-data",
+      "https://127.0.0.1/x",
+      "https://10.0.0.5/x",
+      "https://localhost/x",
+    ]) {
       const err = await catching(owner.action(api.webhooks.create, { values: { url, events: ["*"] } }));
       expect(messageOf(err), url).toContain("Interne Adressen");
     }
@@ -273,7 +282,12 @@ describe("delivery (05 §5.2, Standard Webhooks)", () => {
     await emitPaid(t);
     await once(t);
     const [d] = await deliveries(t);
-    expect(d).toMatchObject({ status: "pending", attempts: 1, httpStatus: 429, nextAttemptAt: NOW.getTime() + 120 * S });
+    expect(d).toMatchObject({
+      status: "pending",
+      attempts: 1,
+      httpStatus: 429,
+      nextAttemptAt: NOW.getTime() + 120 * S,
+    });
   });
 
   test("API-029 410 Gone disables the endpoint at once, without retries, and notifies the owner", async () => {
@@ -283,7 +297,10 @@ describe("delivery (05 §5.2, Standard Webhooks)", () => {
     await emitPaid(t);
     await run(t);
     expect(calls).toHaveLength(1);
-    expect(await owner.query(api.webhooks.get, { endpointId })).toMatchObject({ enabled: false, disabledReason: "gone" });
+    expect(await owner.query(api.webhooks.get, { endpointId })).toMatchObject({
+      enabled: false,
+      disabledReason: "gone",
+    });
     expect((await deliveries(t))[0]).toMatchObject({ status: "failed", httpStatus: 410 });
     const notes = await t.run((ctx) => ctx.db.query("notifications").collect());
     expect(notes.filter((n) => n.kind === "webhook.disabled")).toHaveLength(1);
@@ -298,7 +315,12 @@ describe("delivery (05 §5.2, Standard Webhooks)", () => {
     expect(calls).toHaveLength(1);
     expect(calls[0]?.init.redirect).toBe("manual");
     const [d] = await deliveries(t);
-    expect(d).toMatchObject({ status: "pending", attempts: 1, httpStatus: 302, error: "Weiterleitung (302) wird nicht verfolgt." });
+    expect(d).toMatchObject({
+      status: "pending",
+      attempts: 1,
+      httpStatus: 302,
+      error: "Weiterleitung (302) wird nicht verfolgt.",
+    });
   });
 
   test("API-029 a timeout (15 s) is a failed attempt", async () => {
@@ -309,7 +331,11 @@ describe("delivery (05 §5.2, Standard Webhooks)", () => {
     };
     await emitPaid(t);
     await once(t);
-    expect((await deliveries(t))[0]).toMatchObject({ status: "pending", attempts: 1, error: "Zeitüberschreitung (15 s)." });
+    expect((await deliveries(t))[0]).toMatchObject({
+      status: "pending",
+      attempts: 1,
+      error: "Zeitüberschreitung (15 s).",
+    });
   });
 
   test("API-031 a host resolving to a private or metadata address is refused after DNS resolution — no request is sent", async () => {
@@ -348,7 +374,7 @@ describe("secret roll, test ping, replay, log retention (05 §5.1)", () => {
     await emitPaid(t);
     await run(t);
     const first = calls[0] as Call;
-    expect(first.init.headers["webhook-signature"].split(" ")).toHaveLength(2);
+    expect(String(first.init.headers["webhook-signature"]).split(" ")).toHaveLength(2);
     expect(new Webhook(rolled.secret).verify(String(first.init.body), first.init.headers)).toBeTruthy();
     expect(new Webhook(oldSecret).verify(String(first.init.body), first.init.headers)).toBeTruthy();
 
@@ -356,7 +382,7 @@ describe("secret roll, test ping, replay, log retention (05 §5.1)", () => {
     await emitPaid(t);
     await run(t);
     const second = calls[1] as Call;
-    expect(second.init.headers["webhook-signature"].split(" ")).toHaveLength(1);
+    expect(String(second.init.headers["webhook-signature"]).split(" ")).toHaveLength(1);
     expect(() => new Webhook(oldSecret).verify(String(second.init.body), second.init.headers)).toThrow();
     expect(new Webhook(rolled.secret).verify(String(second.init.body), second.init.headers)).toBeTruthy();
   });
@@ -402,7 +428,10 @@ describe("secret roll, test ping, replay, log retention (05 §5.1)", () => {
     await once(t);
     await owner.mutation(api.webhooks.update, { endpointId, values: { enabled: false } });
     expect((await deliveries(t))[0]).toMatchObject({ status: "cancelled", error: "Endpunkt deaktiviert" });
-    expect(await owner.query(api.webhooks.get, { endpointId })).toMatchObject({ enabled: false, disabledReason: "manual" });
+    expect(await owner.query(api.webhooks.get, { endpointId })).toMatchObject({
+      enabled: false,
+      disabledReason: "manual",
+    });
     await owner.mutation(api.webhooks.remove, { endpointId });
     expect(await owner.query(api.webhooks.list, {})).toHaveLength(0);
   });

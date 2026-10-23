@@ -9,7 +9,13 @@ export type WebhookObject = Record<string, unknown> & { id: string; object: stri
 
 const iso = (ms: number) => new Date(ms).toISOString();
 
-export function refObject(table: IdTable, id: string, object: string, at: number, extra: Record<string, unknown> = {}): WebhookObject {
+export function refObject(
+  table: IdTable,
+  id: string,
+  object: string,
+  at: number,
+  extra: Record<string, unknown> = {},
+): WebhookObject {
   return { id: encodeId(table, id), object, ...extra, updated_at: iso(at) };
 }
 
@@ -55,7 +61,13 @@ export function documentObject(d: DocumentLike, at: number): WebhookObject {
 
 /** Contacts: the ID only — consumers fetch the contact (F02 §7). */
 export function contactObject(contactId: string, at: number, extra: { archived?: boolean } = {}): WebhookObject {
-  return refObject("contacts", contactId, "contact", at, extra.archived === undefined ? {} : { archived: extra.archived });
+  return refObject(
+    "contacts",
+    contactId,
+    "contact",
+    at,
+    extra.archived === undefined ? {} : { archived: extra.archived },
+  );
 }
 
 /** `data.previous` for personal resources: the changed field NAMES, never their values. */

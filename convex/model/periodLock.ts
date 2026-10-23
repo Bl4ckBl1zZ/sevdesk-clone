@@ -18,6 +18,7 @@ import { getCompanyProfile } from "./companyProfile";
 import { resolveContextAt } from "./journal";
 import { notify } from "./notifications";
 import type { ModelCtx, ReadCtx } from "./types";
+import { emitEvent } from "./webhooks";
 
 /**
  * Period lock / Festschreibung (F08 ACC-015…ACC-017, §4.7; GOBD-06). The only writer of `periods` besides nothing
@@ -314,6 +315,15 @@ export async function lockMonths(ctx: ModelCtx, months: readonly string[], reaso
       { status: "locked", lockedAt: now, lockedBy: ctx.actor, reason },
       { action: "period.lock", label: todo[i] as string, reason },
     );
+    // F08 §7 period.locked (one per month)
+    await emitEvent(ctx, "period.locked", {
+      id: `period_${todo[i]}`,
+      object: "period",
+      period: todo[i],
+      status: "locked",
+      reason,
+      updated_at: new Date(now).toISOString(),
+    });
   }
   return { months: todo, lockedRecords };
 }

@@ -4,6 +4,7 @@ import type { Doc, Id } from "../_generated/dataModel";
 import { appError } from "../lib/errors";
 import { auditedInsert, auditedPatch } from "./audit";
 import type { ModelCtx, ReadCtx } from "./types";
+import { emitEvent } from "./webhooks";
 
 /**
  * API keys (05 §2.1, 03 §10). The only writer of `apiKeys` and `apiRequestLog`. Keys are never deleted (revocation
@@ -107,6 +108,14 @@ export async function revokeApiKey(ctx: ModelCtx, id: Id<"apiKeys">, reason?: st
     { revokedAt: ctx.now() },
     { action: "api_key.revoke", label: k.name, ...(reason ? { reason } : {}) },
   );
+  // EC-186 / 05 §5.3: security-relevant, sent to every `*` endpoint
+  await emitEvent(ctx, "api_key.revoked", {
+    id: k.prefix,
+    object: "api_key",
+    name: k.name,
+    revoked_at: new Date(ctx.now()).toISOString(),
+    updated_at: new Date(ctx.now()).toISOString(),
+  });
 }
 
 /** 05 §2.1 „Every request updates lastUsedAt (debounced: at most once a minute)". Technical, not audited. */

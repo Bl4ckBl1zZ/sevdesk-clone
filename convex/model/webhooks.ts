@@ -1,3 +1,4 @@
+import { encodeDocumentId, encodeId } from "../../src/domain/api/ids";
 import {
   classifyAttempt,
   DELIVERY_LOG_RETENTION_MS,
@@ -14,7 +15,6 @@ import {
   normaliseSubscriptions,
   type WebhookEventType,
 } from "../../src/domain/webhooks/events";
-import { encodeDocumentId } from "../../src/domain/api/ids";
 import { contactObject, type DocumentLike, documentObject, refObject } from "../../src/domain/webhooks/objects";
 import { checkEndpointUrl, isProductionSite } from "../../src/domain/webhooks/url";
 import { internal } from "../_generated/api";
@@ -97,7 +97,117 @@ export async function emitContactEvent(
   changedFields?: Iterable<string>,
 ): Promise<Id<"webhookEvents"> | null> {
   const fields = changedFields ? [...new Set(changedFields)].filter((f) => !f.startsWith("_")).sort() : [];
-  return emitEvent(ctx, type, contactObject(contactId, ctx.now()), fields.length ? { changed_fields: fields } : undefined);
+  return emitEvent(
+    ctx,
+    type,
+    contactObject(contactId, ctx.now()),
+    fields.length ? { changed_fields: fields } : undefined,
+  );
+}
+
+/** Product events (F03 §7): ID, number, active flag; `previous.changed_fields` for updates. */
+export async function emitProductEvent(
+  ctx: ModelCtx,
+  type: Extract<WebhookEventType, `product.${string}`>,
+  productId: Id<"products">,
+  extra: { number?: string; active?: boolean; changedFields?: Iterable<string>; [k: string]: unknown } = {},
+): Promise<Id<"webhookEvents"> | null> {
+  const { changedFields, ...fields } = extra;
+  const changed = changedFields ? [...new Set(changedFields)].sort() : [];
+  return emitEvent(
+    ctx,
+    type,
+    refObject("products", productId, "product", ctx.now(), fields),
+    changed.length ? { changed_fields: changed } : undefined,
+  );
+}
+
+/** Voucher events (F06): ID, status, internal number, direction, dates and EUR gross — no supplier name. */
+export async function emitVoucherEvent(
+  ctx: ModelCtx,
+  type: "voucher.created" | "voucher.finalized",
+  voucherId: Id<"vouchers">,
+  previous?: Record<string, unknown>,
+): Promise<Id<"webhookEvents"> | null> {
+  const v = await ctx.db.get(voucherId);
+  if (!v) return null;
+  return emitEvent(
+    ctx,
+    type,
+    refObject("vouchers", voucherId, "voucher", ctx.now(), {
+      status: v.status,
+      internal_number: v.internalNumber ?? null,
+      direction: v.direction,
+      document_date: v.documentDate ?? null,
+      currency: v.currency,
+      gross_cents: v.totals.grossCents,
+    }),
+    previous,
+  );
+}
+
+/** F07 BNK-080 bank transaction events: ID, account, amount, dates, status — no counterparty name, IBAN or purpose. */
+export async function emitBankTransactionEvent(
+  ctx: ModelCtx,
+  type: "bank_transaction.imported" | "bank_transaction.matched" | "bank_transaction.reversal_linked",
+  txId: Id<"bankTransactions">,
+  previous?: Record<string, unknown>,
+): Promise<Id<"webhookEvents"> | null> {
+  const tx = await ctx.db.get(txId);
+  if (!tx) return null;
+  return emitEvent(
+    ctx,
+    type,
+    refObject("bankTransactions", txId, "bank_transaction", ctx.now(), {
+      bank_account_id: encodeId("bankAccounts", tx.accountId),
+      booking_date: tx.bookingDate,
+      value_date: tx.valueDate ?? null,
+      amount_cents: tx.amountCents,
+      currency: tx.currency,
+      status: tx.status,
+      allocated_cents: tx.allocatedCents,
+      reversal_of: tx.reversalOfId ? encodeId("bankTransactions", tx.reversalOfId) : null,
+    }),
+    previous,
+  );
+}
+
+/** F07 BNK-080 `cash_movement.recorded`: a cash transfer (withdrawal, deposit, private) or its reversal. */
+export async function emitCashMovementEvent(
+  ctx: ModelCtx,
+  transferId: Id<"cashTransfers">,
+): Promise<Id<"webhookEvents"> | null> {
+  const c = await ctx.db.get(transferId);
+  if (!c) return null;
+  return emitEvent(
+    ctx,
+    "cash_movement.recorded",
+    refObject("cashTransfers", transferId, "cash_movement", ctx.now(), {
+      kind: c.kind,
+      date: c.date,
+      amount_cents: c.amountCents,
+      bank_account_id: c.bankAccountId ? encodeId("bankAccounts", c.bankAccountId) : null,
+      bank_transaction_id: c.bankTransactionId ? encodeId("bankTransactions", c.bankTransactionId) : null,
+      reversal_of: c.reversalOfId ? encodeId("cashTransfers", c.reversalOfId) : null,
+    }),
+  );
+}
+
+/** F01 §7.1 settings events: the section and the changed field names (receivers fetch `/settings/*`). */
+export async function emitSettingsEvent(
+  ctx: ModelCtx,
+  type: "settings.company.updated" | "settings.tax.updated" | "settings.number_range.updated",
+  changedFields: Iterable<string>,
+  extra: Record<string, unknown> = {},
+): Promise<Id<"webhookEvents"> | null> {
+  const fields = [...new Set(changedFields)].filter((f) => f !== "version").sort();
+  const section = type.split(".")[1] as string;
+  return emitEvent(
+    ctx,
+    type,
+    { id: `settings_${section}`, object: "settings", section, ...extra, updated_at: new Date(ctx.now()).toISOString() },
+    fields.length ? { changed_fields: fields } : undefined,
+  );
 }
 
 /** F05 PAY-060 `dunning_case.paused` / `dunning_case.handed_over`: case and invoice IDs, status, level. */
@@ -142,7 +252,12 @@ async function enqueue(
 
 async function newDelivery(
   ctx: ModelCtx,
-  d: { eventId: Id<"webhookEvents">; endpointId: Id<"webhookEndpoints">; type: string; replayOf?: Id<"webhookDeliveries"> },
+  d: {
+    eventId: Id<"webhookEvents">;
+    endpointId: Id<"webhookEndpoints">;
+    type: string;
+    replayOf?: Id<"webhookDeliveries">;
+  },
 ): Promise<Id<"webhookDeliveries">> {
   const now = ctx.now();
   const id = await ctx.db.insert("webhookDeliveries", {
@@ -181,7 +296,7 @@ export async function claimDelivery(
 ): Promise<ClaimedDelivery | null> {
   const now = ctx.now();
   const d = await ctx.db.get(deliveryId);
-  if (!d || d.status !== "pending") return null;
+  if (d?.status !== "pending") return null;
   if ((d.nextAttemptAt ?? 0) > now || (d.claimedUntil ?? 0) > now) return null;
   const [ep, event] = await Promise.all([ctx.db.get(d.endpointId), ctx.db.get(d.eventId)]);
   if (!ep || !event || (!ep.enabled && d.type !== "test.ping")) {
@@ -234,7 +349,7 @@ export async function recordAttempt(
 ): Promise<{ outcome: "success" | "gone" | "retry" | "gave_up" | "disabled" | "ignored"; retryInMs?: number }> {
   const now = ctx.now();
   const d = await ctx.db.get(deliveryId);
-  if (!d || d.status !== "pending") return { outcome: "ignored" };
+  if (d?.status !== "pending") return { outcome: "ignored" };
   const attempts = d.attempts + 1;
   const log = {
     attempts,
@@ -364,7 +479,10 @@ export function webhookProduction(): boolean {
 }
 
 /** URL and subscriptions as the model accepts them (the action checks the same before encrypting). */
-export function checkEndpointInput(input: { url: string; events: readonly string[] }): { url: string; events: string[] } {
+export function checkEndpointInput(input: { url: string; events: readonly string[] }): {
+  url: string;
+  events: string[];
+} {
   const url = checkEndpointUrl(input.url, webhookProduction());
   if (!url.ok) throw appError("invalid_input", url.error, { field: "url" });
   const events = normaliseSubscriptions(input.events);
@@ -399,7 +517,9 @@ export function endpointView(ep: WebhookEndpointDoc, now: number): EndpointView 
     disabledAt: ep.disabledAt ?? null,
     secretHint: ep.secretHint,
     secretRollingUntil:
-      ep.encryptedPreviousSecret && (ep.previousSecretExpiresAt ?? 0) > now ? (ep.previousSecretExpiresAt ?? null) : null,
+      ep.encryptedPreviousSecret && (ep.previousSecretExpiresAt ?? 0) > now
+        ? (ep.previousSecretExpiresAt ?? null)
+        : null,
     failingSince: ep.failingSince ?? null,
     lastSuccessAt: ep.lastSuccessAt ?? null,
     lastFailureAt: ep.lastFailureAt ?? null,
@@ -408,7 +528,10 @@ export function endpointView(ep: WebhookEndpointDoc, now: number): EndpointView 
 }
 
 export async function listEndpoints(ctx: ReadCtx, now: number): Promise<EndpointView[]> {
-  const rows = await ctx.db.query("webhookEndpoints").order("desc").take(MAX_ENDPOINTS * 5);
+  const rows = await ctx.db
+    .query("webhookEndpoints")
+    .order("desc")
+    .take(MAX_ENDPOINTS * 5);
   return rows.map((r) => endpointView(r, now));
 }
 
@@ -420,7 +543,14 @@ export async function getEndpoint(ctx: ReadCtx, id: Id<"webhookEndpoints">): Pro
 
 export async function insertEndpoint(
   ctx: ModelCtx,
-  input: { url: string; description?: string; events: string[]; enabled: boolean; encryptedSecret: string; secretHint: string },
+  input: {
+    url: string;
+    description?: string;
+    events: string[];
+    enabled: boolean;
+    encryptedSecret: string;
+    secretHint: string;
+  },
 ): Promise<Id<"webhookEndpoints">> {
   const { url, events } = checkEndpointInput(input);
   const count = (await ctx.db.query("webhookEndpoints").take(MAX_ENDPOINTS + 1)).length;
@@ -462,7 +592,10 @@ export async function updateEndpoint(
   } else if (input.enabled === false && ep.enabled) {
     Object.assign(patch, { enabled: false, disabledReason: "manual", disabledAt: ctx.now() });
   }
-  await auditedPatch(ctx, "webhookEndpoints", id, patch, { action: "webhook.endpoint.update", label: hostOf(checked.url) });
+  await auditedPatch(ctx, "webhookEndpoints", id, patch, {
+    action: "webhook.endpoint.update",
+    label: hostOf(checked.url),
+  });
   if (patch.enabled === false) await cancelPending(ctx, id, "Endpunkt deaktiviert");
 }
 
@@ -501,11 +634,19 @@ export async function sendTestPing(ctx: ModelCtx, id: Id<"webhookEndpoints">): P
   const now = ctx.now();
   const eventId = await ctx.db.insert("webhookEvents", {
     type: "test.ping",
-    object: { object: "test", message: "Testereignis aus Einstellungen › Webhooks", endpoint_url: ep.url, updated_at: new Date(now).toISOString() },
+    object: {
+      object: "test",
+      message: "Testereignis aus Einstellungen › Webhooks",
+      endpoint_url: ep.url,
+      updated_at: new Date(now).toISOString(),
+    },
     createdAt: now,
   });
   const deliveryId = await newDelivery(ctx, { eventId, endpointId: id, type: "test.ping" });
-  await appendAudit(ctx, { action: "webhook.endpoint.test", entity: { table: "webhookEndpoints", id, label: hostOf(ep.url) } });
+  await appendAudit(ctx, {
+    action: "webhook.endpoint.test",
+    entity: { table: "webhookEndpoints", id, label: hostOf(ep.url) },
+  });
   return deliveryId;
 }
 
@@ -518,7 +659,12 @@ export async function replayDelivery(
   if (!d) throw appError("not_found", WEBHOOK_MESSAGES.deliveryNotFound);
   const ep = await getEndpoint(ctx, d.endpointId);
   if (!(await ctx.db.get(d.eventId))) throw appError("not_found", WEBHOOK_MESSAGES.deliveryNotFound);
-  const id = await newDelivery(ctx, { eventId: d.eventId, endpointId: d.endpointId, type: d.type, replayOf: deliveryId });
+  const id = await newDelivery(ctx, {
+    eventId: d.eventId,
+    endpointId: d.endpointId,
+    type: d.type,
+    replayOf: deliveryId,
+  });
   await appendAudit(ctx, {
     action: "webhook.delivery.replay",
     entity: { table: "webhookEndpoints", id: ep._id, label: `${hostOf(ep.url)} · ${d.type}` },

@@ -19,6 +19,7 @@ import { getCompanyProfile } from "./companyProfile";
 import { contactAddresses, defaultAddressOf, fail, getContact } from "./contacts";
 import { notify } from "./notifications";
 import type { ModelCtx, ReadCtx } from "./types";
+import { emitContactEvent } from "./webhooks";
 
 /**
  * VAT-ID checks (F02 §4.2, CON-050…061). The outbound call happens in the action (convex/vatIdChecks.ts); this
@@ -138,6 +139,7 @@ export async function recordCheck(
   if (r.status === "valid") {
     await resolveVatCheckFollowUps(ctx, contactId, vatId, isQualified(r.provider, r.status, r.qualified));
   }
+  await emitContactEvent(ctx, "contact.vat_id_checked", contactId, c.vatId === vatId ? ["vatIdStatus"] : []);
   return id;
 }
 
@@ -203,4 +205,5 @@ export async function reuseCheck(ctx: ModelCtx, contactId: Id<"contacts">, check
     },
     { action: "contact.vat_check", label: c.number },
   );
+  await emitContactEvent(ctx, "contact.vat_id_checked", contactId, ["vatIdStatus"]);
 }

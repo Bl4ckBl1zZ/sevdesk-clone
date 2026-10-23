@@ -2,8 +2,8 @@ import { Webhook } from "standardwebhooks";
 import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
 import { api, internal } from "./_generated/api";
 import type { Doc, Id } from "./_generated/dataModel";
-import { dunningSetup, markSent } from "./dunning.fixtures";
 import { CONTACT_RANGE, PRODUCT_RANGE } from "./catalog.fixtures";
+import { dunningSetup, markSent } from "./dunning.fixtures";
 import { b2bBuyer, finalizedInvoice, INVOICE_RANGE, invoiceValues, settle, setupInvoicing } from "./invoices.fixtures";
 import { makeT, type TestT } from "./test.setup";
 
@@ -86,7 +86,10 @@ describe("F04 sales documents (SND-15)", () => {
     expect(await types(t)).toEqual(["invoice.sent"]);
     const log = await t.run((ctx) => ctx.db.query("sendLog").collect());
     const second = log.filter((r) => r.kind === "mark_sent")[1] as Doc<"sendLog">;
-    await owner.mutation(api.invoices.retractMark, { id, values: { retractsId: second._id, reason: "Doch nicht versandt" } });
+    await owner.mutation(api.invoices.retractMark, {
+      id,
+      values: { retractsId: second._id, reason: "Doch nicht versandt" },
+    });
     expect(await types(t)).toEqual(["invoice.sent", "invoice.sent_retracted"]);
 
     // another invoice whose render fails five times ends blocked → invoice.artifacts_blocked
@@ -242,7 +245,10 @@ describe("F05 payments and dunning (PAY-060)", () => {
     const [fin] = await eventsOf(t, "reminder.finalized");
     expect(objectOf(fin)).toMatchObject({ id: `rem_${id}`, object: "reminder", number: "MA-2026-0001" });
 
-    await owner.mutation(api.dunning.caseAction, { invoiceId: s.invoiceId, values: { action: "pause", reason: "Telefonat" } });
+    await owner.mutation(api.dunning.caseAction, {
+      invoiceId: s.invoiceId,
+      values: { action: "pause", reason: "Telefonat" },
+    });
     await owner.mutation(api.dunning.caseAction, { invoiceId: s.invoiceId, values: { action: "resume" } });
     await owner.mutation(api.dunning.caseAction, {
       invoiceId: s.invoiceId,
@@ -250,7 +256,11 @@ describe("F05 payments and dunning (PAY-060)", () => {
     });
     expect((await types(t)).slice(2)).toEqual(["dunning_case.paused", "dunning_case.handed_over"]);
     const [handed] = await eventsOf(t, "dunning_case.handed_over");
-    expect(objectOf(handed)).toMatchObject({ object: "dunning_case", invoice_id: `inv_${s.invoiceId}`, status: "handed_over" });
+    expect(objectOf(handed)).toMatchObject({
+      object: "dunning_case",
+      invoice_id: `inv_${s.invoiceId}`,
+      status: "handed_over",
+    });
     expect(JSON.stringify(handed)).not.toContain("Inkasso Nord");
   });
 

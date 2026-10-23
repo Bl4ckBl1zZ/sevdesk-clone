@@ -8,6 +8,7 @@ import { getCompanyProfile, patchCompanyProfile } from "./companyProfile";
 import { finalisedDocumentsForKu } from "./documentHistory";
 import { getDocument, validateStored } from "./salesDocuments";
 import type { ModelCtx } from "./types";
+import { emitEvent } from "./webhooks";
 
 /** The internal process that appends the KU end on the owner's confirmation (02 §4.4, 03 §0.1). */
 export const KU_MONITOR_ACTOR: Actor = "system:ku-monitor";
@@ -49,5 +50,14 @@ export async function confirmKuLimitCrossed(
     actorContext: { actor: KU_MONITOR_ACTOR, channel: "system", label: "Kleinunternehmer-Monitor" },
   };
   await patchCompanyProfile(monitor, { kleinunternehmer: after }, { action: "settings.tax.update", reason });
+  // F08 §7 threshold.warning: the KU limit (§ 19 Abs. 1 UStG) was crossed and regular taxation starts
+  await emitEvent(monitor, "threshold.warning", {
+    id: `threshold_ku_${validFrom}`,
+    object: "threshold",
+    threshold: "ku",
+    crossed: true,
+    valid_from: validFrom,
+    updated_at: new Date(ctx.now()).toISOString(),
+  });
   return { validFrom };
 }

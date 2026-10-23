@@ -16,6 +16,7 @@ import { checkpointStoreFromEnv } from "./lib/checkpointStore";
 import { isTest } from "./lib/env";
 import { berlinParts } from "./lib/time";
 import { notifyKind, resolveEntityNotifications } from "./model/notifications";
+import { emitEvent } from "./model/webhooks";
 
 /**
  * Backup status (F12 AUD-026; 02 §7 `backups.verify`, daily 05:30): `/einstellungen/system/backups` reads it live;
@@ -98,6 +99,13 @@ export const recordCheck = systemMutation({
   handler: async (ctx, { status, detail }) => {
     if (status === "warning" || status === "error") {
       await notifyKind(ctx, "backup.stale", { title: detail, link: "/einstellungen/system/backups", entity: ENTITY });
+      // F12 §7 backup.stale (each daily check while stale; no bucket or file names)
+      await emitEvent(ctx, "backup.stale", {
+        id: "backup_status",
+        object: "backup_status",
+        status,
+        updated_at: new Date(ctx.now()).toISOString(),
+      });
       return "notified";
     }
     if (status === "ok") await resolveEntityNotifications(ctx, ENTITY, "backup.stale");

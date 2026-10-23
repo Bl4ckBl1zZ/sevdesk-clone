@@ -1,3 +1,4 @@
+import { encodeId } from "../../src/domain/api/ids";
 import {
   canTransition,
   isActive,
@@ -11,6 +12,7 @@ import { appError } from "../lib/errors";
 import { appendAudit, auditedInsert, auditedPatch } from "./audit";
 import { notifyKind } from "./notifications";
 import type { ModelCtx, ReadCtx } from "./types";
+import { emitEvent } from "./webhooks";
 
 /**
  * `jobs` (03 §10, F09 EXP-026): created by the starting mutation (actor = the caller, so API/MCP jobs are attributed),
@@ -125,6 +127,8 @@ export async function finishJob(
     link: "/export",
     entity: { table: "jobs", id },
   });
+  // F09 §7 export.completed (clients may also poll GET /jobs/{id})
+  await emitEvent(ctx, "export.completed", jobObject(j, "done", now, result.sha256));
   return true;
 }
 
@@ -138,6 +142,19 @@ export async function failJob(ctx: ModelCtx, id: Id<"jobs">, error: string): Pro
     { status: "failed", error: error.slice(0, 500), finishedAt: ctx.now() },
     { action: "job.fail", label: j.label, reason: error.slice(0, 300) },
   );
+  await emitEvent(ctx, "job.failed", jobObject(j, "failed", ctx.now())); // F09 §7 (no error text: may name data)
+}
+
+/** F09 §7 job events: ID, kind, status, the result hash. */
+function jobObject(j: Doc<"jobs">, status: string, at: number, sha256?: string) {
+  return {
+    id: encodeId("jobs", j._id),
+    object: "job",
+    kind: j.kind,
+    status,
+    ...(sha256 ? { result_sha256: sha256 } : {}),
+    updated_at: new Date(at).toISOString(),
+  };
 }
 
 /** EXP-026: the creator or the owner can cancel a queued or running job. */

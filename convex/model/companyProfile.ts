@@ -5,6 +5,7 @@ import type { Doc } from "../_generated/dataModel";
 import { appError } from "../lib/errors";
 import { appendAudit } from "./audit";
 import type { ModelCtx, ReadCtx } from "./types";
+import { emitSettingsEvent } from "./webhooks";
 
 /**
  * `companyProfile` singleton (03 §1, F01 SET-010, SET-140/141). Every change increments `version`, writes an
@@ -94,5 +95,14 @@ export async function patchCompanyProfile(
     ...(write.reason ? { reason: write.reason } : {}),
     auditSeq: entry.seq,
   });
+  // F01 §7.1: settings.company.updated / settings.tax.updated (field names only)
+  const event = SETTINGS_EVENT[write.action];
+  if (event) await emitSettingsEvent(ctx, event, Object.keys(diff.after));
   return version;
 }
+
+const SETTINGS_EVENT: Record<string, "settings.company.updated" | "settings.tax.updated"> = {
+  "settings.company.update": "settings.company.updated",
+  "settings.logo.update": "settings.company.updated",
+  "settings.tax.update": "settings.tax.updated",
+};

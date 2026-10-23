@@ -142,7 +142,9 @@ export function endpointSubscribes(events: readonly string[], type: WebhookEvent
  * Validates an endpoint's subscription list: `*` alone, or known, non-reserved event types. Returns the normalised
  * (deduplicated, sorted) list or an error text (German, for the form and the REST problem).
  */
-export function normaliseSubscriptions(events: readonly string[]): { ok: true; events: string[] } | { ok: false; error: string } {
+export function normaliseSubscriptions(
+  events: readonly string[],
+): { ok: true; events: string[] } | { ok: false; error: string } {
   const unique = [...new Set(events.map((e) => e.trim()).filter(Boolean))];
   if (unique.length === 0) return { ok: false, error: "Bitte mindestens ein Ereignis oder „Alle Ereignisse“ wählen." };
   if (unique.includes("*")) return { ok: true, events: ["*"] };
@@ -156,7 +158,9 @@ export function normaliseSubscriptions(events: readonly string[]): { ok: true; e
 }
 
 /** Event prefix of a sales document type (05 §5.3); null = the type has no events (proforma, Storno, self-billing). */
-export function documentEventPrefix(type: string): "quote" | "order_confirmation" | "delivery_note" | "invoice" | "reminder" | null {
+export function documentEventPrefix(
+  type: string,
+): "quote" | "order_confirmation" | "delivery_note" | "invoice" | "reminder" | null {
   switch (type) {
     case "quote":
       return "quote";

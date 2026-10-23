@@ -1,3 +1,4 @@
+import { encodeId } from "../../src/domain/api/ids";
 import { sha256Hex } from "../../src/domain/audit/chain";
 import { formatMoneyDe } from "../../src/domain/banking/amount";
 import { dedupeKeys, identicalHashGroups, planImport, toCandidates } from "../../src/domain/banking/dedupe";
@@ -41,6 +42,7 @@ import { applyPlan, existingFor, existingRow } from "./bankImport";
 import { getCompanyProfile } from "./companyProfile";
 import { upsertNotification } from "./salesDocuments";
 import type { ModelCtx, ReadCtx } from "./types";
+import { emitEvent } from "./webhooks";
 
 /**
  * Enable Banking feed model (F07 BNK-011…117, F01 SET-049…050c). The only writer of `bankConnections`,
@@ -873,6 +875,14 @@ export async function recordBalanceCheck(
 
 // ── reminders (BNK-105, EC-BNK-83) ─────────────────────────────────────────────────────────────────────────
 
+/** 05 §5.3 bank consent events: the connection and the consent end — no session or account data. */
+const consentObject = (id: Id<"bankConnections">, validUntil: number, at: number) => ({
+  id: encodeId("bankConnections", id),
+  object: "bank_consent",
+  valid_until: new Date(validUntil).toISOString(),
+  updated_at: new Date(at).toISOString(),
+});
+
 export async function remindConsentExpiry(ctx: ModelCtx): Promise<{ notified: number | null; expired: boolean }> {
   const c = await getConnection(ctx);
   if (!c || c.validUntil === undefined || (c.status !== "active" && c.status !== "error"))
@@ -880,6 +890,8 @@ export async function remindConsentExpiry(ctx: ModelCtx): Promise<{ notified: nu
   const now = ctx.now();
   if (c.validUntil <= now) {
     await recordPollOutcome(ctx, { outcome: "reauth" });
+    // BNK-080 (once: the connection leaves `active`, so the next run returns early)
+    await emitEvent(ctx, "bank_consent.expired", consentObject(c._id, c.validUntil, now));
     return { notified: null, expired: true };
   }
   const due = dueReminder(
@@ -908,6 +920,11 @@ export async function remindConsentExpiry(ctx: ModelCtx): Promise<{ notified: nu
     },
     { action: "bank.feed_reminder", label: `T−${due.daysBefore}` },
   );
+  // BNK-080 bank_consent.expiring at T−14 / T−3 / T−0
+  await emitEvent(ctx, "bank_consent.expiring", {
+    ...consentObject(c._id, c.validUntil, now),
+    days_before: due.daysBefore,
+  });
   return { notified: due.daysBefore, expired: false };
 }
 

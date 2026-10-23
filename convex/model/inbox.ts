@@ -1,4 +1,5 @@
 import type { Infer } from "convex/values";
+import { encodeId } from "../../src/domain/api/ids";
 import {
   canSplitOrMerge,
   MERGE_MAX,
@@ -32,6 +33,7 @@ import {
   type OriginalFileValue,
   type VoucherDoc,
 } from "./vouchers";
+import { emitEvent } from "./webhooks";
 
 /**
  * Receipt inbox (F06 §3.1–3.3, §4.1): capture, duplicate check, classification results → voucher draft, rejection.
@@ -216,8 +218,18 @@ export async function storeInboxItem(
   );
   await indexHashes(ctx, id, files, 0);
   if (status === "new" && args.schedule !== false) await scheduleClassify(ctx, id);
+  await emitEvent(ctx, "inbox_item.received", inboxObject(id, status, args.source, ctx.now())); // 05 §5.3 (F06)
   return { id, status, existed: false };
 }
+
+/** 05 §5.3 inbox events: ID, status and source only (no sender, subject or file names). */
+const inboxObject = (id: Id<"inboxItems">, status: string, source: string, at: number) => ({
+  id: encodeId("inboxItems", id),
+  object: "inbox_item",
+  status,
+  source,
+  updated_at: new Date(at).toISOString(),
+});
 
 /** Classification start: `new`/`processing` → `processing`, attempts + 1. Anything else is not (re)classified. */
 export async function beginClassification(
@@ -609,6 +621,10 @@ export async function finishClassification(
     },
     { action: "inbox.classified", label: label(item) },
   );
+  await emitEvent(ctx, "inbox_item.needs_review", {
+    ...inboxObject(item._id, "needs_review", item.source, ctx.now()),
+    voucher_id: voucherId ? encodeId("vouchers", voucherId) : null,
+  }); // 05 §5.3 (F06)
   return { voucherId };
 }
 

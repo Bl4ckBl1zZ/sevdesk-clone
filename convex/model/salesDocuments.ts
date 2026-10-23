@@ -52,7 +52,6 @@ import { addDays, type CalendarDate } from "../../src/domain/time/calendar-date"
 import type { Doc, Id } from "../_generated/dataModel";
 import { appError } from "../lib/errors";
 import { appendAudit, auditedDelete, auditedInsert, auditedPatch } from "./audit";
-import { emitDocumentEvent } from "./webhooks";
 import { defaultInvoiceAccount } from "./bankAccounts";
 import { assertClockOk } from "./clock";
 import { getCompanyProfile } from "./companyProfile";
@@ -81,6 +80,7 @@ import { afterInvoiceArtifacts, lockInvoicedEntries, releaseDraftEntries, syncDr
 import { turnoverTotals } from "./turnover";
 import type { ModelCtx, ReadCtx } from "./types";
 import { contactChecks, vatCheckFollowUp } from "./vatChecks";
+import { emitDocumentEvent } from "./webhooks";
 
 /**
  * Sales documents (F04) — the only writer of `salesDocuments`, `documentLines`, `documentSnapshots`,

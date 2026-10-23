@@ -45,6 +45,7 @@ import { closedPeriods } from "./payments";
 import type { ModelCtx, ReadCtx } from "./types";
 import { recordVoucherPayment } from "./voucherPayments";
 import { refreshVoucher } from "./voucherStatus";
+import { emitVoucherEvent } from "./webhooks";
 
 /**
  * Purchase vouchers (F06 VOU-001…065, VOU-120…139; 03 §6) — the only writer of `vouchers`, `voucherLines`,
@@ -346,6 +347,7 @@ export async function createVoucher(
     await auditedInsert(ctx, "voucherLines", { voucherId: id, position: i + 1, ...l }, { action: "voucher.create" });
   }
   if (args.files?.length) await indexFileHashes(ctx, id, args.files);
+  await emitVoucherEvent(ctx, "voucher.created", id); // 05 §5.3 (F06)
   return id;
 }
 
@@ -971,6 +973,7 @@ export async function finalizeVoucher(ctx: ModelCtx, args: FinalizeArgs): Promis
     else if (allocated.info) infos.push(allocated.info);
   }
   const after = await requireVoucher(ctx, v._id);
+  await emitVoucherEvent(ctx, "voucher.finalized", v._id, { status: "draft" }); // 05 §5.3 (F06)
   return {
     id: v._id,
     number,

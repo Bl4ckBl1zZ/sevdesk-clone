@@ -57,8 +57,16 @@ export const ID_PREFIXES = {
   datevExports: "dvx_",
   gdpduExports: "gdx_",
   // 05 §5 outbound webhooks (`/webhook-endpoints`): endpoints and delivery-log rows; events are `evt_` (webhook-id);
-  // `dcs_` names the dunning case in `dunning_case.*` payloads (no REST resource of its own).
+  // `dcs_`, `bst_`, `bcn_` name the dunning case, bank statement and bank consent in payloads (no REST resource).
   dunningCases: "dcs_",
+  taxFilings: "txf_",
+  imports: "imp_",
+  members: "mem_",
+  invites: "ivt_",
+  dsgvoRequests: "dsr_",
+  integrityRuns: "irn_",
+  bankStatements: "bst_",
+  bankConnections: "bcn_",
   webhookEndpoints: "whe_",
   webhookDeliveries: "whd_",
 } as const;

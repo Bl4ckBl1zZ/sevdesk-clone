@@ -1,9 +1,11 @@
+import { encodeId } from "../../src/domain/api/ids";
 import { berlinCalendarDate } from "../../src/domain/time/berlin";
 import type { Doc, Id } from "../_generated/dataModel";
 import { appError } from "../lib/errors";
 import { auditedInsert, auditedPatch } from "./audit";
 import { notifyKind } from "./notifications";
 import type { ModelCtx, ReadCtx } from "./types";
+import { emitEvent } from "./webhooks";
 
 /** integrityRuns / integrityCheckpoints writes (03 §10, F12 AUD-013/AUD-015/AUD-016). */
 
@@ -30,6 +32,19 @@ export async function recordIntegrityRun(
       ...(first ? { body: first.detail } : {}),
       link: "/einstellungen/system/integritaet",
       dedupeKey: `integrity.failed|${berlinCalendarDate(ctx.now())}`,
+    });
+    // AUD-015 / 05 §5.3: security-relevant, sent to every `*` endpoint (kinds and seq only, no data)
+    await emitEvent(ctx, "integrity.check_failed", {
+      id: encodeId("integrityRuns", id),
+      object: "integrity_run",
+      scope: run.scope,
+      findings: run.findings
+        .filter((f) => f.severity === "error")
+        .map((f) => ({
+          kind: f.kind,
+          ...(f.firstBrokenSeq !== undefined ? { first_broken_seq: f.firstBrokenSeq } : {}),
+        })),
+      updated_at: new Date(ctx.now()).toISOString(),
     });
   }
   return id;

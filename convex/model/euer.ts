@@ -33,6 +33,7 @@ import { checklistFor, lockMonths, periodRows } from "./periodLock";
 import { sourceHref, taxDeadlines } from "./taxFilings";
 import type { ModelCtx, ReadCtx } from "./types";
 import { kuOn } from "./vouchers";
+import { emitEvent } from "./webhooks";
 
 /**
  * EÜR read model (F08 TAX-015, TAX-016, TAX-022; AO-02): loads the journal, payments, opening items, assets and the
@@ -504,6 +505,19 @@ export async function recordEuerSubmission(ctx: ModelCtx, input: EuerSubmissionI
     },
     { action: "tax_filing.submit", label: `euer ${input.year}`, ...(differs ? { reason } : {}) },
   );
+  // F08 §7 tax_filing.submitted; „abweichend übermittelt“ opens the correction worklist → correction_required
+  const filingObject = {
+    id: `txf_${id}`,
+    object: "tax_filing",
+    kind: "euer",
+    period: String(input.year),
+    status: "submitted_manually",
+    submitted_on: input.submittedOn,
+    submitted_values_differ: differs,
+    updated_at: new Date(now).toISOString(),
+  };
+  await emitEvent(ctx, "tax_filing.submitted", filingObject);
+  if (differs) await emitEvent(ctx, "tax_filing.correction_required", filingObject);
   const locked = lockPlan.length > 0 ? await lockMonths(ctx, lockPlan, "euer_submitted") : { months: [] };
   return { id, kind: "euer" as const, lockedMonths: locked.months, submittedValuesDiffer: differs };
 }

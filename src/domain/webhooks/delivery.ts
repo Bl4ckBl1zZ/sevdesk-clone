@@ -14,7 +14,17 @@ const MIN = 60 * S;
 const H = 60 * MIN;
 
 /** Delay before attempt n+1 after attempt n failed (index 0 = before the 2nd attempt; the 1st is immediate). */
-export const RETRY_DELAYS_MS: readonly number[] = [5 * S, 5 * MIN, 30 * MIN, 2 * H, 5 * H, 10 * H, 14 * H, 20 * H, 24 * H];
+export const RETRY_DELAYS_MS: readonly number[] = [
+  5 * S,
+  5 * MIN,
+  30 * MIN,
+  2 * H,
+  5 * H,
+  10 * H,
+  14 * H,
+  20 * H,
+  24 * H,
+];
 /** 1 immediate attempt + 9 retries. */
 export const MAX_ATTEMPTS = RETRY_DELAYS_MS.length + 1;
 export const DELIVERY_TIMEOUT_MS = 15 * S;

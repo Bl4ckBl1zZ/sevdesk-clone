@@ -1,3 +1,4 @@
+import { encodeId } from "../../src/domain/api/ids";
 import {
   type ContinuityResult,
   checkContinuity,
@@ -25,6 +26,7 @@ import type { Doc, Id } from "../_generated/dataModel";
 import { appError } from "../lib/errors";
 import { auditedInsert, auditedPatch } from "./audit";
 import type { ModelCtx, ReadCtx } from "./types";
+import { emitBankTransactionEvent, emitEvent } from "./webhooks";
 
 /**
  * Statement import pipeline (F07 BNK-030…036, §4.6): parse → normalise → dedupe (BNK-109/110/034) → insert →
@@ -324,6 +326,7 @@ export async function insertCandidate(
     },
   );
   await addRevision(ctx, id, c, kind, importId, true);
+  await emitBankTransactionEvent(ctx, "bank_transaction.imported", id); // BNK-080
   return id;
 }
 
@@ -555,6 +558,20 @@ export async function commitStatementImport(
     },
     { action: "bank.import", label: `Kontoauszug ${periodFrom}–${periodTo}` },
   );
+  if (reconciliation.reconciled) {
+    // BNK-080: the statement's balances reconcile with the booked rows
+    await emitEvent(ctx, "bank_statement.reconciled", {
+      id: encodeId("bankStatements", statementId),
+      object: "bank_statement",
+      bank_account_id: encodeId("bankAccounts", p.account._id),
+      period_from: periodFrom,
+      period_to: periodTo,
+      opening_balance_cents: st.openingBalanceCents ?? null,
+      closing_balance_cents: st.closingBalanceCents ?? null,
+      reconciled: true,
+      updated_at: new Date(now).toISOString(),
+    });
+  }
   await auditedPatch(
     ctx,
     "bankImports",

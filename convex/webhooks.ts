@@ -1,7 +1,7 @@
 import { v } from "convex/values";
 import { webhookEndpointCreateSchema, webhookEndpointUpdateSchema } from "../src/domain/schemas/webhooks";
 import { normaliseSubscriptions } from "../src/domain/webhooks/events";
-import { secretFromBytes, secretHint, SECRET_BYTES } from "../src/domain/webhooks/signature";
+import { SECRET_BYTES, secretFromBytes, secretHint } from "../src/domain/webhooks/signature";
 import { checkEndpointUrl } from "../src/domain/webhooks/url";
 import { internal } from "./_generated/api";
 import type { Id } from "./_generated/dataModel";
@@ -15,11 +15,11 @@ import {
   claimDelivery,
   deleteEndpoint,
   dueDeliveries,
+  endpointView,
   getEndpoint,
   insertEndpoint,
   listDeliveries,
   listEndpoints,
-  endpointView,
   purgeWebhookLog,
   recordAttempt,
   replayDelivery,

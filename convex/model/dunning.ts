@@ -41,7 +41,6 @@ import { addDays, type CalendarDate, formatGermanDate } from "../../src/domain/t
 import type { Doc, Id } from "../_generated/dataModel";
 import { appError } from "../lib/errors";
 import { auditedDelete, auditedInsert, auditedPatch } from "./audit";
-import { emitDocumentEvent, emitDunningCaseEvent } from "./webhooks";
 import { getCompanyProfile, patchCompanyProfile } from "./companyProfile";
 import { assignCounterNumber } from "./numberRanges";
 import { paymentsOfTarget, settlesOf } from "./payments";
@@ -58,6 +57,7 @@ import {
 } from "./salesDocuments";
 import { activeCredits } from "./settlement";
 import type { ModelCtx, ReadCtx } from "./types";
+import { emitDocumentEvent, emitDunningCaseEvent } from "./webhooks";
 
 /**
  * Dunning (F05 §3.7–§3.10, §4.4–§4.6) — the only writer of `dunningPolicies`, `dunningCases`, `dunningRuns` and of

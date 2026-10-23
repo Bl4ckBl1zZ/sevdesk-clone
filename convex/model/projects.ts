@@ -1,3 +1,4 @@
+import { encodeId } from "../../src/domain/api/ids";
 import { foldSearch } from "../../src/domain/contacts/core";
 import { INVOICE_FAMILY_TYPES } from "../../src/domain/documents/lifecycle";
 import { formatCents } from "../../src/domain/money/format";
@@ -20,6 +21,7 @@ import { auditedDelete, auditedInsert, auditedPatch } from "./audit";
 import { notifyKind } from "./notifications";
 import { assignCounterNumber, listDefaultRanges } from "./numberRanges";
 import type { ModelCtx, ReadCtx } from "./types";
+import { emitEvent } from "./webhooks";
 
 /**
  * Projects (F11 PRJ-001…004, 03 §9). The only writer of `projects`. Numbers come from the project range at creation
@@ -292,6 +294,14 @@ export async function checkBudget(ctx: ModelCtx, id: Id<"projects">): Promise<nu
       link: `/projekte/${id}`,
       entity: { table: "projects", id },
       dedupeKey: `project.budget|${id}|${t}|${r.alerts.find((a) => a.thresholdBp === t)?.notifiedAt ?? 0}`,
+    });
+    // F11 project.budget_threshold: once per reached threshold (re-armed per PRJ-003)
+    await emitEvent(ctx, "project.budget_threshold", {
+      id: encodeId("projects", id),
+      object: "project",
+      threshold_bp: t,
+      ratio_bp: status.ratioBp,
+      updated_at: new Date(ctx.now()).toISOString(),
     });
   }
   return r.notify;

@@ -8,7 +8,7 @@ import { internal } from "./_generated/api";
 import { systemAction } from "./functions";
 import { decryptSecret } from "./lib/secrets";
 import { resolveHost } from "./lib/webhookDns";
-import { webhookProduction } from "./model/webhooks";
+import { type ClaimedDelivery, webhookProduction } from "./model/webhooks";
 
 /**
  * Delivery worker `webhooks.deliver` (05 §5.2, 02 §7): one attempt of one delivery.
@@ -45,8 +45,9 @@ async function readSnippet(res: Response): Promise<string | undefined> {
 export const deliver = systemAction({
   job: "webhooks.deliver",
   args: { deliveryId: v.id("webhookDeliveries") },
-  handler: async (ctx, { deliveryId }) => {
-    const claim = await ctx.runMutation(internal.webhooks.claim, { deliveryId });
+  // Explicit types: the handler's result must not be inferred from `internal` (circular api types).
+  handler: async (ctx, { deliveryId }): Promise<{ outcome: string; retryInMs?: number } | null> => {
+    const claim: ClaimedDelivery | null = await ctx.runMutation(internal.webhooks.claim, { deliveryId });
     if (!claim) return null;
     const started = Date.now();
     let status: number | null = null;
@@ -70,7 +71,7 @@ export const deliver = systemAction({
         status = res.status;
         responseSnippet = await readSnippet(res);
         retryAfterMs = parseRetryAfter(res.headers.get("retry-after"), Date.now());
-        if (status >= 300 && status < 400) error = `Weiterleitung (${status}) wird nicht verfolgt.`;
+        if (res.status >= 300 && res.status < 400) error = `Weiterleitung (${res.status}) wird nicht verfolgt.`;
       }
     } catch (e) {
       const name = (e as { name?: string }).name;

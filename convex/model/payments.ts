@@ -6,6 +6,7 @@ import type {
   RateAmount,
 } from "../../src/domain/accounting/events";
 import { taxationMethodAt } from "../../src/domain/accounting/period";
+import { DOCUMENT_ID_PREFIXES, type DocumentIdType, encodeId } from "../../src/domain/api/ids";
 import { derivePaymentStatus, NEGATIVE_OPEN_MESSAGE, type StatusRow } from "../../src/domain/documents/payment-status";
 import { isArchiveOnlyImport } from "../../src/domain/import/sevdesk/types";
 import { formatEuro } from "../../src/domain/money/format";
@@ -38,7 +39,6 @@ import { planRefund, planReversal } from "../../src/domain/payments/reversal";
 import type { SkontoTerms } from "../../src/domain/payments/skonto";
 import type { GrossGroup } from "../../src/domain/payments/split";
 import { berlinCalendarDate } from "../../src/domain/time/berlin";
-import { DOCUMENT_ID_PREFIXES, type DocumentIdType, encodeId } from "../../src/domain/api/ids";
 import { settlementEvent } from "../../src/domain/webhooks/events";
 import { contactObject } from "../../src/domain/webhooks/objects";
 import type { Doc, Id } from "../_generated/dataModel";
@@ -624,10 +624,15 @@ async function emitPaymentEvents(
   });
   if (p.target.kind === "contactCredit") {
     const balance = await creditBalance(ctx, p.target.id);
-    await emitEvent(ctx, "contact.credit_changed", {
-      ...contactObject(p.target.id, ctx.now()),
-      credit_balance_cents: balance,
-    }, { credit_balance_cents: balance - p.amountCents });
+    await emitEvent(
+      ctx,
+      "contact.credit_changed",
+      {
+        ...contactObject(p.target.id, ctx.now()),
+        credit_balance_cents: balance,
+      },
+      { credit_balance_cents: balance - p.amountCents },
+    );
   }
 }
 

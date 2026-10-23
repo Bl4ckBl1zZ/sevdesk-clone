@@ -120,12 +120,16 @@ export const URL_MESSAGES = {
   invalid: "Bitte eine gültige URL angeben (https://…).",
   https: "Webhook-URLs müssen in der Produktion HTTPS verwenden.",
   userinfo: "Die URL darf keine Zugangsdaten enthalten.",
-  local: "Interne Adressen (localhost, private Netze, Link-Local, Metadaten-Dienst) sind als Webhook-Ziel nicht erlaubt.",
+  local:
+    "Interne Adressen (localhost, private Netze, Link-Local, Metadaten-Dienst) sind als Webhook-Ziel nicht erlaubt.",
   length: "Die URL ist zu lang (max. 2.000 Zeichen).",
 } as const;
 
 /** Static URL check at save time (the address check after DNS runs again before every attempt). */
-export function checkEndpointUrl(raw: string, production: boolean): { ok: true; url: string } | { ok: false; error: string } {
+export function checkEndpointUrl(
+  raw: string,
+  production: boolean,
+): { ok: true; url: string } | { ok: false; error: string } {
   const text = raw.trim();
   if (text.length > 2000) return { ok: false, error: URL_MESSAGES.length };
   let u: URL;

@@ -28,6 +28,7 @@ import { assignCounterNumber } from "./numberRanges";
 import { stockMovementCount } from "./stock";
 import { entriesUsingProduct } from "./timeEntries";
 import type { ModelCtx, ReadCtx } from "./types";
+import { emitProductEvent } from "./webhooks";
 
 /**
  * Products (F03, 03 §3). The only writer of `products`, `productCategories` and `customerPrices`. Prices are stored
@@ -168,6 +169,7 @@ export async function createProduct(
     },
     { action: "product.create", label: number },
   );
+  await emitProductEvent(ctx, "product.created", id, { number, active: true }); // F03 §7
   return { id, number, warnings };
 }
 
@@ -203,7 +205,7 @@ export async function updateProduct(
     number = input.number.trim();
   }
   const cleared = Object.fromEntries(REMOVABLE.filter((k) => !(k in fields)).map((k) => [k, undefined]));
-  await auditedPatch(
+  const entry = await auditedPatch(
     ctx,
     "products",
     id,
@@ -217,6 +219,12 @@ export async function updateProduct(
     } as Partial<ProductDoc>,
     { action: "product.update", label: number },
   );
+  const changed = Object.keys((entry?.diff as { after?: object } | undefined)?.after ?? {}).filter(
+    (k) => !["searchText", "version", "numberNormalized", "updatedAt"].includes(k),
+  );
+  if (changed.length > 0) {
+    await emitProductEvent(ctx, "product.updated", id, { number, active: p.active, changedFields: changed });
+  }
   return { warnings };
 }
 
@@ -239,6 +247,12 @@ export async function setProductActive(ctx: ModelCtx, id: Id<"products">, active
       label: p.number,
     },
   );
+  // F03 §7 lists `product.archived`; a restore is a `product.updated` of `active`
+  await emitProductEvent(ctx, active ? "product.updated" : "product.archived", id, {
+    number: p.number,
+    active,
+    changedFields: ["active"],
+  });
 }
 
 /**
@@ -276,6 +290,7 @@ export async function deleteProduct(ctx: ModelCtx, id: Id<"products">): Promise<
     await auditedDelete(ctx, "customerPrices", cp._id, { action: "product.customer_price.delete", label: p.number });
   }
   await auditedDelete(ctx, "products", id, { action: "product.delete", label: p.number });
+  await emitProductEvent(ctx, "product.deleted", id, { number: p.number });
 }
 
 // ── customer prices (PRD-030) ───────────────────────────────────────────────────────────────────────────
@@ -364,6 +379,16 @@ export async function setScheduledPrice(
     { scheduledPrice: values ?? undefined, version: p.version + 1 },
     { action: values ? "product.price_schedule" : "product.price_schedule_cancel", label: p.number },
   );
+  if (values) {
+    await emitProductEvent(ctx, "product.price_scheduled", id, {
+      number: p.number,
+      scheduled_price: {
+        valid_from: values.validFrom,
+        price_mode: values.priceMode,
+        unit_price_micros: values.unitPriceMicros,
+      },
+    });
+  }
 }
 
 /** Cron `products.applyScheduledPrices` (daily 00:05 Europe/Berlin): due scheduled prices become the price. */
@@ -383,6 +408,11 @@ export async function applyScheduledPrices(ctx: ModelCtx, today: CalendarDate): 
       },
       { action: "product.price_apply", label: p.number, reason: `Neuer Preis ab ${p.scheduledPrice.validFrom}` },
     );
+    await emitProductEvent(ctx, "product.updated", p._id, {
+      number: p.number,
+      active: p.active,
+      changedFields: ["priceMode", "unitPriceMicros", "scheduledPrice"],
+    });
     n++;
   }
   return n;

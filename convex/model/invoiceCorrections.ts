@@ -26,7 +26,6 @@ import { isCalendarDate } from "../../src/domain/time/calendar-date";
 import type { Doc, Id } from "../_generated/dataModel";
 import { appError } from "../lib/errors";
 import { auditedInsert, auditedPatch } from "./audit";
-import { emitDocumentEvent } from "./webhooks";
 import { assertClockOk } from "./clock";
 import { onDocumentCancelled as dunningOnCancelled } from "./dunning";
 import { chainMembers, groupsOfDoc, setRegisterStatus, storedSnapshot } from "./invoiceChains";
@@ -44,6 +43,7 @@ import { reverseSelfBillingVoucher } from "./selfBilling";
 import { activeCredits, settlementOf } from "./settlement";
 import { offerReopenAfterStorno } from "./timeEntries";
 import type { ModelCtx, ReadCtx } from "./types";
+import { emitDocumentEvent } from "./webhooks";
 
 /**
  * Storno, Rechnungskorrektur, Rechnungsberichtigung and the advance → final chain actions (F04 §4.7/§4.8,

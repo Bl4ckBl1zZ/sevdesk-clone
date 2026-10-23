@@ -44,7 +44,10 @@ describe("webhook event catalog (05 §5.3)", () => {
       ok: true,
       events: ["invoice.paid", "payment.recorded"],
     });
-    expect(normaliseSubscriptions(["invoice.bezahlt"])).toEqual({ ok: false, error: "Unbekanntes Ereignis: invoice.bezahlt" });
+    expect(normaliseSubscriptions(["invoice.bezahlt"])).toEqual({
+      ok: false,
+      error: "Unbekanntes Ereignis: invoice.bezahlt",
+    });
     expect(normaliseSubscriptions(["test.ping"]).ok).toBe(false);
     expect(normaliseSubscriptions([]).ok).toBe(false);
   });
@@ -129,7 +132,9 @@ describe("webhook delivery rules (05 §5.2)", () => {
       created_at: "2026-10-23T08:00:00.000Z",
       data: { object: { id: "inv_1", object: "invoice" }, previous: { payment_status: "open" } },
     });
-    expect(eventBody({ type: "test.ping", eventId: "e", createdAt: 0, object: {}, previous: {} }).data).toEqual({ object: {} });
+    expect(eventBody({ type: "test.ping", eventId: "e", createdAt: 0, object: {}, previous: {} }).data).toEqual({
+      object: {},
+    });
     expect(snippet("x".repeat(2000))?.length).toBe(1025);
     expect(snippet("")).toBeUndefined();
   });
@@ -154,8 +159,8 @@ describe("webhook signatures (05 §5.2/§5.4)", () => {
     const body = '{"type":"test.ping"}';
     const ts = Math.floor(Date.now() / 1000);
     const headers = await webhookHeaders([secret, old], "evt_x", ts, body);
-    expect(headers["webhook-signature"].split(" ")).toHaveLength(2);
-    expect(headers["webhook-signature"].split(" ")[0]).toBe(await signPayload(secret, "evt_x", ts, body));
+    expect(String(headers["webhook-signature"]).split(" ")).toHaveLength(2);
+    expect(String(headers["webhook-signature"]).split(" ")[0]).toBe(await signPayload(secret, "evt_x", ts, body));
     expect(new Webhook(secret).verify(body, headers)).toBeTruthy();
     expect(new Webhook(old).verify(body, headers)).toBeTruthy();
   });
@@ -200,7 +205,14 @@ describe("webhook SSRF guard (05 §5.1)", () => {
   });
 
   test("API-031 public addresses and the tailnet (100.64.0.0/10, Tailscale ULA) are allowed — 05 §5.1 internet or tailnet", () => {
-    for (const ip of ["93.184.216.34", "1.1.1.1", "2606:4700::1111", "100.64.0.1", "100.101.102.103", "fd7a:115c:a1e0::1"]) {
+    for (const ip of [
+      "93.184.216.34",
+      "1.1.1.1",
+      "2606:4700::1111",
+      "100.64.0.1",
+      "100.101.102.103",
+      "fd7a:115c:a1e0::1",
+    ]) {
       expect(addressAllowed(ip, true), ip).toBe(true);
     }
     expect(classifyAddress("100.100.100.100")).toBe("tailnet");

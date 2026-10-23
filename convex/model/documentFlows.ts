@@ -29,7 +29,6 @@ import type { Doc, Id } from "../_generated/dataModel";
 import { appError } from "../lib/errors";
 import { parse } from "../lib/parse";
 import { auditedPatch } from "./audit";
-import { emitDocumentEvent } from "./webhooks";
 import { inChain, progressOf, recomputeChainOf, remainingOf, rootOf } from "./documentChains";
 import {
   createDraft,
@@ -41,6 +40,7 @@ import {
 } from "./salesDocuments";
 import { reverseDeliveryNote } from "./stock";
 import type { ModelCtx, ReadCtx } from "./types";
+import { emitDocumentEvent } from "./webhooks";
 
 /**
  * Quotes, order confirmations, delivery notes and proforma after finalisation (F04 §4.2.1–4.2.4, §4.3): acceptance,
