@@ -54,6 +54,7 @@ const txLabel = (tx: Doc<"bankTransactions">) => `${tx.bookingDate} ${tx.amountC
 export const accountLabel = (a: Doc<"bankAccounts">) => (a.iban ? `${a.name} (${a.iban})` : a.name);
 
 /** FX pockets need the EUR value (BNK-028, P2) before a journal entry can be posted. */
+// LEGAL-OPEN: BNK-028 ECB reference-rate source for foreign rows without a paired EUR side (F07 §12).
 const FX_POSTING_DEFERRED =
   "Umsätze in Fremdwährung können erst mit der EUR-Bewertung (Kurs der EZB) gebucht werden. Bitte vorerst offen lassen.";
 

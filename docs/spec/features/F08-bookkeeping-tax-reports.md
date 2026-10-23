@@ -503,8 +503,8 @@ Each account has a BWA group key (`UMSATZ`, `WAREN`, `PERSONAL`, `RAUM`, `STEUER
 > igE block below wins over F06 EC-VOU-13 (now a warning only for `reverse_charge_eu`).
 > **Not implemented (2026-10-23):** E-ACC-12 — the app is EÜR-only (E-TAX-21 refuses Bilanzierer), so opening
 > balances are one-sided against 9000 and Σ 9000/9008/9009 is not expected to be zero; the check becomes relevant
-> only with a full opening balance sheet. E-ACC-23/25/26/31/32 need the general bank-transaction posting and FX lot
-> valuation (BNK-028), E-ACC-24 the F07 return-of-a-booked-payment reversal flow, E-TAX-08 an Ist→Soll catch-up in
+> only with a full opening balance sheet. E-ACC-25/32 need the general bank-transaction posting (E-ACC-23/24/26/31
+> are implemented in F07, see F07 §12), E-TAX-08 an Ist→Soll catch-up in
 > the F05 allocation, E-TAX-19 the 2028 Ist-supplier flag.
 
 ### 5.1 Journal and accounts
