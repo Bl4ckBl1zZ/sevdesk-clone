@@ -1,13 +1,19 @@
 import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
-import type { ContactFormValues } from "../src/domain/schemas/contacts";
+import { type ContactFormValues, contactCreateSchema, contactSchema } from "../src/domain/schemas/contacts";
 import { api } from "./_generated/api";
 import type { Doc, Id } from "./_generated/dataModel";
-import { BERLIN, createValues, orgForm, PARIS, personForm } from "./catalog.fixtures";
+import { BERLIN, createValues, orgForm, PARIS, personForm, productForm } from "./catalog.fixtures";
 import { invoiceValues, setupInvoicing } from "./invoices.fixtures";
 import { errorCode } from "./lib/errors";
 import { auditedPatch } from "./model/audit";
 import { patchCompanyProfile } from "./model/companyProfile";
-import { ensurePersonalAccount, resolveContactAlias } from "./model/contacts";
+import {
+  companyContext,
+  createContact,
+  ensurePersonalAccount,
+  resolveContactAlias,
+  updateContact,
+} from "./model/contacts";
 import { recordCheck } from "./model/vatChecks";
 import { makeT, type TestT } from "./test.setup";
 
@@ -839,8 +845,207 @@ describe("CON-101 DATEV personal accounts", () => {
         { action: "settings.company.update" },
       ),
     );
-    const { companyContext } = await import("./model/contacts");
     const cc = await t.model(actor, (ctx) => companyContext(ctx, Date.now()));
     expect(cc.collectiveDebtorAccount).toBe("10000");
+  });
+});
+
+describe("INV-16 self-billing agreement on the supplier contact", () => {
+  test("INV-16 the agreement is stored with end date, file, KU flag and normalised IBAN, refused when incomplete and removable", async () => {
+    const t = makeT();
+    const owner = await setup(t);
+    const s = await org(owner, "Lieferant AG", { roles: ["supplier"] });
+    const storageId = await t.run((ctx) => ctx.storage.store(new Blob(["%PDF-1.7"])));
+    const file = { storageId, sha256: "abc", bytes: 8, mime: "application/pdf", name: "vereinbarung.pdf" };
+    await owner.mutation(api.contacts.setSelfBillingAgreement, {
+      id: s,
+      agreement: {
+        agreedOn: "2026-01-15",
+        scope: "  Provisionsabrechnungen ",
+        validFrom: "2026-02-01",
+        validTo: "2027-01-31",
+        file,
+        supplierKleinunternehmer: true,
+        iban: "de89 3704 0044 0532 0130 00",
+      },
+    });
+    expect((await contactOf(t, s)).selfBillingAgreement).toEqual({
+      agreedOn: "2026-01-15",
+      scope: "Provisionsabrechnungen",
+      validFrom: "2026-02-01",
+      validTo: "2027-01-31",
+      file,
+      supplierKleinunternehmer: true,
+      iban: "DE89370400440532013000",
+    });
+    const bad = await catching(
+      owner.mutation(api.contacts.setSelfBillingAgreement, {
+        id: s,
+        agreement: { agreedOn: "", scope: " ", validFrom: "2026-02-01", validTo: "2026-01-01" },
+      }),
+    );
+    expect(messageOf(bad)).toBe(
+      "Bitte das Datum der Vereinbarung angeben. Das Enddatum liegt vor dem Beginn. Bitte den Umfang der Vereinbarung beschreiben (z. B. Provisionsabrechnungen).",
+    );
+    await owner.mutation(api.contacts.setSelfBillingAgreement, { id: s, agreement: null });
+    expect((await contactOf(t, s)).selfBillingAgreement).toBeUndefined();
+    const audit = await t.run(async (ctx) => (await ctx.db.query("auditLog").collect()).map((a) => a.action));
+    expect(audit).toEqual(
+      expect.arrayContaining(["contact.self_billing_agreement", "contact.self_billing_agreement_removed"]),
+    );
+  });
+});
+
+describe("CON-170 CON-174 deletion and bulk tags", () => {
+  test("CON-170 deleting an unused contact also removes its channels, activities, customer prices and dismissed pairs", async () => {
+    const t = makeT();
+    const owner = await setup(t);
+    const a = await org(owner, "Alpha GmbH", {}, { email: "info@alpha.de" });
+    const b = await org(owner, "Alpha GmbH", {}, { email: "info@alpha.de" });
+    await owner.mutation(api.contacts.dismissDuplicate, { a, b });
+    await owner.mutation(api.contacts.addActivity, {
+      contactId: a,
+      values: { kind: "call", text: "Rückruf", dueOn: "" },
+    });
+    const { id: productId } = await owner.mutation(api.products.create, {
+      values: productForm("Beratung", { unitCode: "HUR" }),
+    });
+    await owner.mutation(api.products.saveCustomerPrice, {
+      productId: productId as Id<"products">,
+      values: { contactId: a, priceMode: "net", price: "80", validFrom: "" },
+    });
+    await owner.mutation(api.contacts.remove, { id: a });
+    const left = await t.run(async (ctx) => ({
+      contact: await ctx.db.get(a),
+      channels: (await ctx.db.query("contactChannels").collect()).filter((c) => c.contactId === a),
+      activities: (await ctx.db.query("contactActivities").collect()).filter((c) => c.contactId === a),
+      prices: (await ctx.db.query("customerPrices").collect()).filter((c) => c.contactId === a),
+      dismissed: await ctx.db.query("dismissedDuplicates").collect(),
+    }));
+    expect(left).toEqual({ contact: null, channels: [], activities: [], prices: [], dismissed: [] });
+    const gone = await catching(owner.query(api.contacts.mergePreview, { winnerId: b, loserIds: [a] }));
+    expect(errorCode(gone)).toBe("not_found");
+    expect(messageOf(gone)).toBe("Kontakt nicht gefunden.");
+  });
+
+  test("CON-174 SET-094 bulk tagging skips contacts that already have the tag; an unknown tag is refused; a deleted tag disappears", async () => {
+    const t = makeT();
+    const owner = await setup(t);
+    const tag = await owner.mutation(api.lookups.saveTag, { values: { name: "Newsletter", color: "gray" } });
+    const a = await org(owner, "Alpha GmbH", { tags: [tag] });
+    const b = await org(owner, "Beta GmbH");
+    expect(await owner.mutation(api.contacts.bulkTag, { ids: [a, b], tagId: tag, add: true })).toBe(1);
+    expect(await owner.mutation(api.contacts.bulkTag, { ids: [a], tagId: tag, add: false })).toBe(1);
+    expect(await owner.mutation(api.contacts.bulkArchive, { ids: [a, b] })).toBe(2);
+    await owner.mutation(api.lookups.deleteTag, { tagId: tag });
+    expect((await contactOf(t, b)).tags).toEqual([]);
+    const e = await catching(owner.mutation(api.contacts.bulkTag, { ids: [a], tagId: tag, add: true }));
+    expect(messageOf(e)).toBe("Tag nicht gefunden.");
+  });
+
+  test("CON-032 removing a non-primary channel keeps the primary; removing the only phone leaves none", async () => {
+    const t = makeT();
+    const owner = await setup(t);
+    const a = await org(owner, "Alpha GmbH", {}, { email: "eins@alpha.de", phone: "+49 30 1234" });
+    const extra = await owner.mutation(api.contacts.saveChannel, {
+      contactId: a,
+      values: { type: "email", value: "zwei@alpha.de", label: "", isPrimary: false, isInvoiceEmail: true },
+    });
+    await owner.mutation(api.contacts.removeChannel, { channelId: extra });
+    const rows = await t.run((ctx) =>
+      ctx.db
+        .query("contactChannels")
+        .withIndex("by_contact", (q) => q.eq("contactId", a))
+        .collect(),
+    );
+    expect(rows.map((r) => [r.type, r.isPrimary])).toEqual([
+      ["email", true],
+      ["phone", true],
+    ]);
+    await owner.mutation(api.contacts.removeChannel, { channelId: rows[1]?._id as Id<"contactChannels"> });
+    expect((await owner.query(api.contacts.get, { id: a }))?.channels.map((c) => c.type)).toEqual(["email"]);
+  });
+});
+
+describe("CON-001 CON-020 CON-030 model-level validation (REST/MCP bypass the form)", () => {
+  test("CON-001 CON-020 CON-030 the model refuses an empty name, an unknown parent, an invalid billing address and an invalid channel", async () => {
+    const t = makeT();
+    const owner = await setup(t);
+    const actor = { actor: owner.actor, role: "owner", channel: "api" } as const;
+    const good = contactCreateSchema.parse(createValues(orgForm("Gut GmbH"), { address: BERLIN }));
+    const run = (values: unknown) => catching(t.model(actor, (ctx) => createContact(ctx, values as typeof good)));
+    expect(errorCode(await run({ ...good, contact: { ...good.contact, organizationName: "" } }))).toBe("invalid_input");
+    const parentless = contactSchema.parse(personForm("Paula", "Ohne"));
+    expect(reasonOf(await run({ ...good, contact: { ...parentless, parentId: "kein-kontakt" } }))).toBe(
+      "PARENT_INVALID",
+    );
+    const badAddress = await run({ ...good, billingAddress: { ...good.billingAddress, postalCode: "1" } });
+    expect(String(dataOf(badAddress).field).startsWith("billingAddress.")).toBe(true);
+    const badMail = await run({
+      ...good,
+      channels: [{ type: "email", value: "kein-mail", label: "", isPrimary: true, isInvoiceEmail: true }],
+    });
+    expect(errorCode(badMail)).toBe("invalid_input");
+    // two channels of one type: only one becomes primary
+    const two = await t.model(actor, (ctx) =>
+      createContact(ctx, {
+        ...good,
+        channels: [
+          { type: "phone", value: "+49 30 1", label: "", isPrimary: false, isInvoiceEmail: false },
+          { type: "phone", value: "+49 30 2", label: "", isPrimary: true, isInvoiceEmail: false },
+        ],
+      }),
+    );
+    const phones = await t.run((ctx) =>
+      ctx.db
+        .query("contactChannels")
+        .withIndex("by_contact", (q) => q.eq("contactId", two.id))
+        .collect(),
+    );
+    expect(phones.map((p) => p.isPrimary)).toEqual([true, false]);
+    // the company's own VAT ID is refused with context (tax rules)
+    await t.model(actor, (ctx) =>
+      patchCompanyProfile(ctx, { vatId: "DE811907980" } as never, { action: "settings.company.update" }),
+    );
+    const own = await catching(
+      t.model(actor, (ctx) => updateContact(ctx, two.id, 1, { ...good.contact, vatId: "DE811907980" })),
+    );
+    expect(errorCode(own)).toBe("invalid_input");
+  });
+});
+
+describe("CON-150 CON-153 statistics and ranking", () => {
+  test("CON-150 CON-153 a finalised invoice to a person counts for its organisation (ranking and stats)", async () => {
+    const t = makeT();
+    const owner = await setup(t);
+    const a = await org(owner, "Alpha GmbH");
+    const p = await person(owner, "Anna", "Alpha", { parentId: a });
+    const { id } = await owner.mutation(api.invoices.createDraft, { values: invoiceValues(p) });
+    await owner.action(api.invoices.finalize, { id, version: 1 });
+    const ranked = await owner.query(api.contacts.ranking, {
+      sortBy: "revenueYear",
+      dir: "desc",
+      kind: "organization",
+      limit: 1,
+    });
+    expect(ranked.map((r) => [r._id, r.revenueYearCents])).toEqual([[a, 100_000]]);
+    const stats = (await owner.query(api.contacts.get, { id: a }))?.stats;
+    expect(stats?.openCents).toBe(119_000);
+  });
+
+  test("CON-141 import matches by invoice e-mail when number and VAT ID do not match", async () => {
+    const t = makeT();
+    const owner = await setup(t);
+    const m = await org(owner, "Mail GmbH", {}, { email: "rechnung@mail.de" });
+    const rows = [
+      {
+        rowNumber: 1,
+        values: createValues(orgForm("Mail GmbH", { number: "X-1", vatId: "ATU13585627" }), {
+          email: "rechnung@mail.de",
+        }),
+      },
+    ];
+    const [preview] = await owner.query(api.contacts.importPreview, { rows, mode: "create_and_update" });
+    expect(preview).toMatchObject({ status: "update", matchId: m });
   });
 });
