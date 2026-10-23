@@ -68,6 +68,8 @@ function detail(over: Partial<InboxDetail> = {}): InboxDetail {
     duplicateOfInboxItemId: null,
     duplicateOfVoucherId: null,
     duplicateOverride: null,
+    createdFrom: null,
+    supersededBy: null,
     rejectText: null,
     rejectedAt: null,
     retentionUntil: null,
@@ -198,5 +200,74 @@ describe("Posteingang item (F06 §6.1)", () => {
     await user.click(screen.getByRole("tab", { name: "Anlagen" }));
     expect(screen.getByRole("link", { name: "Visualisierung als PDF" })).toBeInTheDocument();
     expect(screen.getByText("Rendition – Visualisierung, nicht das Original")).toBeInTheDocument();
+  });
+});
+
+describe("split / merge (INB-009)", () => {
+  const file = (index: number, name: string) => ({
+    ...detail().files[0],
+    index,
+    name,
+    mime: "application/pdf",
+    role: "original",
+    sha256: String(index).padEnd(64, "a"),
+  });
+
+  test("INB-009 „Aufteilen“ assigns each original file to a part; at least two parts are needed", async () => {
+    const a = { ...actions(), split: vi.fn().mockResolvedValue(true), merge: vi.fn().mockResolvedValue(true) };
+    const item = detail({ files: [detail().files[0], file(1, "a.pdf"), file(2, "b.pdf"), file(3, "c.pdf")] as never });
+    renderWithIntl(<InboxItem item={item} canWrite actions={a} />);
+    await userEvent.click(screen.getByRole("button", { name: "Aufteilen" }));
+    const dialog = screen.getByRole("dialog");
+    // Default: every file its own part.
+    expect(within(dialog).getByRole("button", { name: "In 3 Belege aufteilen" })).toBeEnabled();
+    await userEvent.selectOptions(within(dialog).getByLabelText("b.pdf"), "0");
+    await userEvent.selectOptions(within(dialog).getByLabelText("c.pdf"), "0");
+    expect(within(dialog).getByRole("button", { name: "In 1 Beleg aufteilen" })).toBeDisabled();
+    await userEvent.selectOptions(within(dialog).getByLabelText("c.pdf"), "2");
+    await userEvent.click(within(dialog).getByRole("button", { name: "In 2 Belege aufteilen" }));
+    expect(a.split).toHaveBeenCalledWith([[1, 2], [3]]);
+  });
+
+  test("INB-009 „Zusammenführen“ picks other open items; superseded items show the links and no actions", async () => {
+    const a = { ...actions(), split: vi.fn().mockResolvedValue(true), merge: vi.fn().mockResolvedValue(true) };
+    const { unmount } = renderWithIntl(
+      <InboxItem
+        item={detail()}
+        canWrite
+        actions={a}
+        mergeCandidates={[
+          { id: "inb1", label: "Selbst" },
+          { id: "inb2", label: "Rückseite" },
+        ]}
+      />,
+    );
+    // Only one original → no split.
+    expect(screen.queryByRole("button", { name: "Aufteilen" })).toBeNull();
+    await userEvent.click(screen.getByRole("button", { name: "Zusammenführen" }));
+    const dialog = screen.getByRole("dialog");
+    expect(within(dialog).queryByLabelText("Selbst")).toBeNull();
+    await userEvent.click(within(dialog).getByLabelText("Rückseite"));
+    await userEvent.click(within(dialog).getByRole("button", { name: "Zusammenführen" }));
+    expect(a.merge).toHaveBeenCalledWith(["inb2"]);
+    unmount();
+
+    renderWithIntl(
+      <InboxItem
+        item={detail({
+          status: "superseded",
+          statusLabel: "Aufgeteilt/zusammengeführt",
+          voucherId: null,
+          voucherStatus: null,
+          supersededBy: { kind: "split", inboxItemIds: ["n1", "n2"] },
+        } as never)}
+        canWrite
+        actions={a}
+      />,
+    );
+    expect(screen.getByTestId("split-merge-links")).toHaveTextContent("Aufgeteilt in:");
+    expect(screen.getByRole("link", { name: "Beleg 2" })).toHaveAttribute("href", "/posteingang?id=n2");
+    expect(screen.queryByRole("button", { name: "Zusammenführen" })).toBeNull();
+    expect(screen.queryByRole("button", { name: "Ablehnen" })).toBeNull();
   });
 });

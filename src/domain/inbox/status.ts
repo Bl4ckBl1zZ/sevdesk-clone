@@ -5,10 +5,19 @@
  *    │                    │  (sidecar down: stays processing, retried with backoff ≤ 24 h, never „valid“)
  *    └─ exact hash / same Message-ID ─▶ duplicate ── „Trotzdem verarbeiten“ (reason) ─▶ processing
  *   new | processing | needs_review | duplicate ──reject (reason)──▶ rejected
+ *   new | needs_review | duplicate ──split / merge (INB-009)──▶ superseded (kept; the new items carry the files)
  */
 import { addDays, type CalendarDate } from "../time/calendar-date";
 
-export const INBOX_STATUSES = ["new", "processing", "needs_review", "converted", "rejected", "duplicate"] as const;
+export const INBOX_STATUSES = [
+  "new",
+  "processing",
+  "needs_review",
+  "converted",
+  "rejected",
+  "duplicate",
+  "superseded",
+] as const;
 export type InboxStatus = (typeof INBOX_STATUSES)[number];
 
 export const REJECT_REASONS = [
@@ -85,6 +94,7 @@ export const INBOX_STATUS_LABEL_DE: Readonly<Record<InboxStatus, string>> = {
   converted: "Gebucht",
   rejected: "Abgelehnt",
   duplicate: "Dublette",
+  superseded: "Aufgeteilt/zusammengeführt",
 };
 
 /** /posteingang filter chips (F06 §6.1). */
@@ -107,7 +117,7 @@ export interface InboxFilterable {
   classification?: string | undefined;
 }
 
-/** Does an item match a filter chip? `older_than_10_days` = not converted/rejected and received > 10 days ago. */
+/** Does an item match a filter chip? `older_than_10_days` = still open (not converted/rejected/superseded) and received > 10 days ago. */
 export function matchesInboxFilter(item: InboxFilterable, filter: InboxFilter, now: number): boolean {
   switch (filter) {
     case "all":
@@ -126,7 +136,10 @@ export function matchesInboxFilter(item: InboxFilterable, filter: InboxFilter, n
       return item.status === "rejected";
     case "older_than_10_days":
       return (
-        item.status !== "converted" && item.status !== "rejected" && now - item.receivedAt > 10 * 24 * 60 * 60 * 1000
+        item.status !== "converted" &&
+        item.status !== "rejected" &&
+        item.status !== "superseded" &&
+        now - item.receivedAt > 10 * 24 * 60 * 60 * 1000
       );
   }
 }

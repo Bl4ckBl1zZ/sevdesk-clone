@@ -1,5 +1,12 @@
 import type { Infer } from "convex/values";
 import {
+  canSplitOrMerge,
+  MERGE_MAX,
+  mergeFiles,
+  SPLIT_MERGE_MESSAGES,
+  splitFiles,
+} from "../../src/domain/inbox/split-merge";
+import {
   canOverrideDuplicate,
   canReject,
   INBOX_MESSAGES,
@@ -34,6 +41,8 @@ import {
  *  recordMailParse         INB-050 attachments of the .eml as original-derived files; Message-ID duplicate (EC-INB-24)
  *  finishClassification    INB-028 the draft (always) linked to the item; supplier match / proposal (INB-045)
  *  rejectInboxItem         INB-010, EC-INB-12 retention
+ *  splitInboxItem /        INB-009 new items with copies of the file entries (same blob + hash); the sources stay
+ *  mergeInboxItems         (`superseded`, linked both ways, audited)
  * The bytes are handled by the actions (convex/inbox.ts, convex/inboxNode.ts); this layer only writes rows.
  */
 
@@ -91,14 +100,16 @@ function toInboxFile(ctx: ModelCtx, f: NewInboxFile, source: InboxItem["source"]
 async function exactDuplicate(
   ctx: ReadCtx,
   hashes: readonly string[],
-  self?: Id<"inboxItems">,
+  self?: Id<"inboxItems"> | ReadonlySet<Id<"inboxItems">>,
 ): Promise<{ inboxItemId?: Id<"inboxItems">; voucherId?: Id<"vouchers">; at: number } | null> {
+  const isSelf = (id: Id<"inboxItems"> | undefined) =>
+    id !== undefined && (typeof self === "string" ? id === self : (self?.has(id) ?? false));
   for (const h of hashes) {
     for (const row of await ctx.db
       .query("inboxFileHashes")
       .withIndex("by_sha256", (q) => q.eq("sha256", h))
       .collect()) {
-      if (row.inboxItemId === self) continue;
+      if (isSelf(row.inboxItemId)) continue;
       const other = await ctx.db.get(row.inboxItemId);
       if (other) return { inboxItemId: other._id, at: other.receivedAt };
     }
@@ -107,7 +118,7 @@ async function exactDuplicate(
       .withIndex("by_sha256", (q) => q.eq("sha256", h))
       .collect()) {
       const v = await ctx.db.get(row.voucherId);
-      if (v && v.status !== "cancelled" && v.inboxItemId !== self) return { voucherId: v._id, at: v.receivedAt };
+      if (v && v.status !== "cancelled" && !isSelf(v.inboxItemId)) return { voucherId: v._id, at: v.receivedAt };
     }
   }
   return null;
@@ -653,6 +664,127 @@ export async function rejectInboxItem(
     },
     { action: "inbox.reject", label: label(item), ...(text ? { reason: text } : { reason: args.reason }) },
   );
+}
+
+// ── INB-009 split / merge ─────────────────────────────────────────────────────────────────────────────────
+
+/** Checks one source item and deletes its unbooked draft (audited; the files stay on the item). */
+async function prepareSplitMergeSource(ctx: ModelCtx, id: Id<"inboxItems">): Promise<InboxItem> {
+  const item = await requireInboxItem(ctx, id);
+  const voucher = item.voucherId ? await ctx.db.get(item.voucherId) : null;
+  const emlPending = item.files.some((f) => f.role === "eml") && item.mailParsed !== true;
+  const why = canSplitOrMerge({
+    status: item.status,
+    ...(voucher ? { voucherStatus: voucher.status } : {}),
+    emlPending,
+  });
+  if (why) throw appError("invalid_input", why, { reason: "SPLIT_MERGE_STATE" });
+  if (voucher) await deleteVoucherDraft(ctx, voucher._id);
+  return requireInboxItem(ctx, id);
+}
+
+/** Inserts one new item carrying copies of `files`; context (Zugang, sender, subject) from the first source. */
+async function insertDerivedItem(
+  ctx: ModelCtx,
+  sources: readonly InboxItem[],
+  files: InboxFileValue[],
+  kind: "split" | "merge",
+): Promise<Id<"inboxItems">> {
+  const first = sources[0] as InboxItem;
+  const sourceIds = new Set(sources.map((s) => s._id));
+  // The .eml goes with every split part, so it is no duplicate signal here (EC-INB-24 uses the Message-ID).
+  const dup = await exactDuplicate(
+    ctx,
+    files.filter((f) => f.role !== "eml").map((f) => f.sha256),
+    sourceIds,
+  );
+  const override = sources.find((s) => s.duplicateOverride)?.duplicateOverride;
+  const rendition = sources.find((s) => s.mailRendition)?.mailRendition;
+  const skipped = sources.flatMap((s) => s.skippedAttachments ?? []);
+  const status: InboxItem["status"] = dup && !override ? "duplicate" : "new";
+  const name = first.subject ?? files.find((f) => f.role === "original")?.name ?? "Beleg";
+  const id = await auditedInsert(
+    ctx,
+    "inboxItems",
+    {
+      source: first.source,
+      receivedAt: Math.min(...sources.map((s) => s.receivedAt)),
+      capturedAt: Math.min(...sources.map((s) => s.capturedAt)),
+      ...(first.clientCapturedAt !== undefined ? { clientCapturedAt: first.clientCapturedAt } : {}),
+      actor: ctx.actor,
+      ...(first.from ? { from: first.from } : {}),
+      ...(first.to ? { to: first.to } : {}),
+      ...(first.subject ? { subject: first.subject } : {}),
+      ...(first.messageId ? { messageId: first.messageId } : {}),
+      ...(first.mailText ? { mailText: first.mailText } : {}),
+      ...(first.note ? { note: first.note } : {}),
+      ...(sources.some((s) => s.mailParsed) ? { mailParsed: true } : {}),
+      ...(skipped.length > 0 ? { skippedAttachments: skipped } : {}),
+      ...(rendition ? { mailRendition: rendition } : {}),
+      ...(override ? { duplicateOverride: override } : {}),
+      files,
+      status,
+      ...(status === "duplicate" && dup?.inboxItemId ? { duplicateOfInboxItemId: dup.inboxItemId } : {}),
+      ...(status === "duplicate" && dup?.voucherId ? { duplicateOfVoucherId: dup.voucherId } : {}),
+      ...(status === "duplicate" && dup
+        ? { warnings: [{ code: "duplicate_file", message: INBOX_MESSAGES.duplicateFile(germanDateTime(dup.at)) }] }
+        : {}),
+      createdFrom: { kind, inboxItemIds: sources.map((s) => s._id), at: ctx.now(), actor: ctx.actor },
+      attempts: 0,
+    },
+    { action: kind === "split" ? "inbox.split" : "inbox.merge", label: name },
+  );
+  await indexHashes(ctx, id, files, 0);
+  if (status === "new") await scheduleClassify(ctx, id);
+  return id;
+}
+
+async function supersede(ctx: ModelCtx, item: InboxItem, kind: "split" | "merge", ids: Id<"inboxItems">[]) {
+  await auditedPatch(
+    ctx,
+    "inboxItems",
+    item._id,
+    {
+      status: "superseded",
+      supersededBy: { kind, inboxItemIds: ids, at: ctx.now(), actor: ctx.actor },
+      nextAttemptAt: undefined,
+    },
+    { action: kind === "split" ? "inbox.split" : "inbox.merge", label: label(item) },
+  );
+}
+
+/**
+ * INB-009 split: `groups` = indexes of the files with role `original` per new item. The source item keeps all its
+ * files and hashes (GOBD-08) and becomes `superseded`; an unbooked draft is deleted first, the new items are classified.
+ */
+export async function splitInboxItem(
+  ctx: ModelCtx,
+  args: { id: Id<"inboxItems">; groups: readonly (readonly number[])[] },
+): Promise<Id<"inboxItems">[]> {
+  const item = await prepareSplitMergeSource(ctx, args.id);
+  const parts = splitFiles(item.files, args.groups);
+  if (!parts.ok) throw appError("invalid_input", parts.error.message, { reason: "SPLIT_MERGE_GROUPS" });
+  const ids: Id<"inboxItems">[] = [];
+  for (const files of parts.value) ids.push(await insertDerivedItem(ctx, [item], files, "split"));
+  await supersede(ctx, item, "split", ids);
+  return ids;
+}
+
+/** INB-009 merge (e.g. front and back photo): one new item with the files of all items in the given order. */
+export async function mergeInboxItems(ctx: ModelCtx, ids: readonly Id<"inboxItems">[]): Promise<Id<"inboxItems">> {
+  const unique = [...new Set(ids)];
+  // Count check before any draft is deleted.
+  if (unique.length < 2 || unique.length > MERGE_MAX) {
+    const message = unique.length < 2 ? SPLIT_MERGE_MESSAGES.mergeTwo : SPLIT_MERGE_MESSAGES.mergeMax;
+    throw appError("invalid_input", message, { reason: "SPLIT_MERGE_GROUPS" });
+  }
+  const sources: InboxItem[] = [];
+  for (const id of unique) sources.push(await prepareSplitMergeSource(ctx, id));
+  const files = mergeFiles(sources.map((s) => s.files));
+  if (!files.ok) throw appError("invalid_input", files.error.message, { reason: "SPLIT_MERGE_GROUPS" });
+  const id = await insertDerivedItem(ctx, sources, files.value, "merge");
+  for (const s of sources) await supersede(ctx, s, "merge", [id]);
+  return id;
 }
 
 /** VOU-050 „Trotzdem verarbeiten“: a duplicate is classified anyway, with a reason (audited). */

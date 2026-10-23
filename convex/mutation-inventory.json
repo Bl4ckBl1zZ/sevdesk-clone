@@ -1915,6 +1915,12 @@
     "wrapper": "actorMutation",
     "permission": "vouchers.write"
   },
+  "inbox:merge": {
+    "kind": "mutation",
+    "visibility": "public",
+    "wrapper": "mutation",
+    "permission": "vouchers.write"
+  },
   "inbox:ocrPendingInternal": {
     "kind": "mutation",
     "visibility": "internal",
@@ -1998,6 +2004,12 @@
     "visibility": "public",
     "wrapper": "query",
     "permission": "settings.read"
+  },
+  "inbox:split": {
+    "kind": "mutation",
+    "visibility": "public",
+    "wrapper": "mutation",
+    "permission": "vouchers.write"
   },
   "inbox:storeEmailInternal": {
     "kind": "mutation",

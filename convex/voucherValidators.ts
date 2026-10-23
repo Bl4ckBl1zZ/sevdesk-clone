@@ -218,6 +218,14 @@ export const vVoucherDraftInput = v.object({
 });
 
 /** One file of an inbox item (INB-020, VOU-120): capture metadata of the exact bytes. */
+/** INB-009 link between superseded and new inbox items (both directions). */
+export const vInboxSplitMerge = v.object({
+  kind: v.union(v.literal("split"), v.literal("merge")),
+  inboxItemIds: v.array(v.id("inboxItems")),
+  at: v.number(),
+  actor: vActor,
+});
+
 export const vInboxFile = v.object({
   storageId: v.id("_storage"),
   sha256: v.string(),
@@ -500,7 +508,12 @@ export const voucherTables = {
       v.literal("converted"),
       v.literal("rejected"),
       v.literal("duplicate"),
+      v.literal("superseded"),
     ),
+    /** INB-009: this item was split / merged into `inboxItemIds` (it stays, with all its files and hashes). */
+    supersededBy: v.optional(vInboxSplitMerge),
+    /** INB-009: this item was created by splitting / merging `inboxItemIds` (file entries copied unchanged). */
+    createdFrom: v.optional(vInboxSplitMerge),
     rejectReason: v.optional(
       v.union(
         v.literal("no_business_document"),

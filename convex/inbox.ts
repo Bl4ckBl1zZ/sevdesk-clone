@@ -22,6 +22,7 @@ import {
   appendInboxFiles,
   beginClassification,
   finishClassification,
+  mergeInboxItems,
   overrideInboxDuplicate,
   recordMailParse,
   recreateDraft,
@@ -29,6 +30,7 @@ import {
   requireInboxItem,
   scheduleClassifyRetry,
   setOcrPending,
+  splitInboxItem,
   storeInboxItem,
 } from "./model/inbox";
 import {
@@ -195,6 +197,13 @@ export const get = query({
       duplicateOfInboxItemId: item.duplicateOfInboxItemId ?? null,
       duplicateOfVoucherId: item.duplicateOfVoucherId ?? null,
       duplicateOverride: item.duplicateOverride ?? null,
+      // INB-009 links between superseded and new items
+      createdFrom: item.createdFrom
+        ? { kind: item.createdFrom.kind, inboxItemIds: item.createdFrom.inboxItemIds }
+        : null,
+      supersededBy: item.supersededBy
+        ? { kind: item.supersededBy.kind, inboxItemIds: item.supersededBy.inboxItemIds }
+        : null,
       rejectText: item.rejectText ?? null,
       rejectedAt: item.rejectedAt ?? null,
       retentionUntil: item.retentionUntil ?? null,
@@ -412,6 +421,20 @@ export const overrideDuplicate = mutation({
   permission: "vouchers.write",
   args: { id: v.id("inboxItems"), reason: v.string() },
   handler: async (ctx, args) => overrideInboxDuplicate(ctx, args),
+});
+
+/** INB-009: split an item with several files into separate items (originals and hashes unchanged, audited). */
+export const split = mutation({
+  permission: "vouchers.write",
+  args: { id: v.id("inboxItems"), groups: v.array(v.array(v.number())) },
+  handler: async (ctx, args) => ({ ids: await splitInboxItem(ctx, args) }),
+});
+
+/** INB-009: merge several items (e.g. front/back photo) into one (originals and hashes unchanged, audited). */
+export const merge = mutation({
+  permission: "vouchers.write",
+  args: { ids: v.array(v.id("inboxItems")) },
+  handler: async (ctx, { ids }) => ({ id: await mergeInboxItems(ctx, ids) }),
 });
 
 export const createDraft = mutation({

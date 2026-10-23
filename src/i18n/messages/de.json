@@ -5091,6 +5091,8 @@
     "notFound": "Dieser Beleg wurde nicht gefunden.",
     "rejected": "Beleg abgelehnt",
     "overridden": "Dublette wird verarbeitet",
+    "splitDone": "In {count} Belege aufgeteilt",
+    "mergeDone": "{count} Belege zusammengeführt",
     "files": "{count} Dateien",
     "source": {
       "email": "E-Mail",
@@ -5130,6 +5132,8 @@
       "createDraft": "Beleg erfassen",
       "override": "Trotzdem verarbeiten",
       "reject": "Ablehnen",
+      "split": "Aufteilen",
+      "merge": "Zusammenführen",
       "duplicateOf": "Zum ersten Eingang",
       "duplicateOfVoucher": "Zum vorhandenen Beleg",
       "mailText": "E-Mail-Text",
@@ -5150,6 +5154,29 @@
       "description": "Nur wenn es sich wirklich um einen eigenen Beleg handelt (z. B. zwei gleiche Monatsrechnungen).",
       "confirm": "Trotzdem verarbeiten",
       "reason": "Begründung (mindestens 5 Zeichen)"
+    },
+    "split": {
+      "title": "Beleg aufteilen",
+      "description": "Jede Datei einem Teil zuordnen. Jeder Teil wird ein eigener Posteingangsbeleg; die Originaldateien und ihre Prüfsummen bleiben unverändert, ein ungebuchter Entwurf wird verworfen.",
+      "part": "Teil {n}",
+      "confirm": "In {count, plural, one {# Beleg} other {# Belege}} aufteilen"
+    },
+    "merge": {
+      "title": "Belege zusammenführen",
+      "description": "Die ausgewählten Belege werden nach diesem Beleg angehängt (z. B. Vorder- und Rückseite). Die Originaldateien und ihre Prüfsummen bleiben unverändert, ungebuchte Entwürfe werden verworfen.",
+      "confirm": "Zusammenführen",
+      "none": "Keine weiteren offenen Posteingangsbelege."
+    },
+    "splitMerge": {
+      "supersededBy": {
+        "split": "Aufgeteilt in:",
+        "merge": "Zusammengeführt in:"
+      },
+      "createdFrom": {
+        "split": "Entstanden durch Aufteilen von:",
+        "merge": "Entstanden durch Zusammenführen von:"
+      },
+      "item": "Beleg {n}"
     },
     "viewer": {
       "tabs": {

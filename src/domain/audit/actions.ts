@@ -72,6 +72,9 @@ const GROUPS: Record<string, readonly string[] | "*"> = {
     "convert",
     "draft_deleted",
     "poll",
+    // INB-009 split / merge
+    "split",
+    "merge",
   ],
   bank: [
     "connect",
