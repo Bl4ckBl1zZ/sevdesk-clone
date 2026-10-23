@@ -55,6 +55,7 @@ import { ChainCard, DocumentFlowActions } from "./document-actions";
 import { DuplicateButton } from "./duplicate-button";
 import { InvoiceEditor } from "./invoice-editor";
 import { DECISION_LABELS, downloadExport, FORMAT_LABELS, InvoiceStatusBadge, money } from "./invoice-shared";
+import { MessageTextDialog } from "./message-text-dialog";
 import { SelfBillingPanel } from "./self-billing";
 
 type Detail = NonNullable<FunctionReturnType<typeof api.invoices.get>>;
@@ -258,6 +259,7 @@ function FinalActions({ data }: { data: Detail }) {
   const canSend = useCan("invoices.send");
   const [markOpen, setMarkOpen] = useState(false);
   const [originalEntry, setOriginalEntry] = useState<ExportEntry | null>(null);
+  const [mailOpen, setMailOpen] = useState(false);
   const ready = data.doc.artifactStatus === "ready";
   const marked = data.doc.sentAt !== undefined;
   const doExport = async (entry: ExportEntry, original = false, reason?: string) => {
@@ -295,6 +297,8 @@ function FinalActions({ data }: { data: Detail }) {
             </>
           )}
           <DropdownMenuSeparator />
+          <DropdownMenuItem onClick={() => setMailOpen(true)}>{t("mailText")}</DropdownMenuItem>
+          <DropdownMenuSeparator />
           <p className="px-2 py-1.5 text-muted-foreground text-xs" data-testid="postal-hint">
             {POSTAL_HINT}
           </p>
@@ -307,6 +311,7 @@ function FinalActions({ data }: { data: Detail }) {
         </Button>
       )}
       {markOpen && <MarkSentDialog data={data} onClose={() => setMarkOpen(false)} />}
+      {mailOpen && <MessageTextDialog id={data.doc._id} onClose={() => setMailOpen(false)} />}
       {originalEntry && (
         <ReasonDialog
           title={t("exportOriginal")}

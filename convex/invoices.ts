@@ -4,6 +4,7 @@ import { filter } from "convex-helpers/server/filter";
 import { normalizeSearchQuery } from "../src/domain/contacts/core";
 import { defaultMarkSelection, effectiveMark, exportEntriesFor } from "../src/domain/documents/dispatch";
 import { DRAFT_TYPES, type DraftType, isLetterType } from "../src/domain/documents/doc-types";
+import { mailtoHref, messageText as buildMessageText } from "../src/domain/documents/message-text";
 import type { DraftDocument } from "../src/domain/documents/draft";
 import { canonicalSnapshotJson } from "../src/domain/documents/snapshot";
 import { blocking, type Finding, validateDocument } from "../src/domain/documents/validate";
@@ -21,7 +22,7 @@ import { runFinalizePipeline } from "./lib/finalizePipeline";
 import { parse } from "./lib/parse";
 import { defaultInvoiceAccount } from "./model/bankAccounts";
 import { getCompanyProfile } from "./model/companyProfile";
-import { getContact } from "./model/contacts";
+import { contactChannels, getContact } from "./model/contacts";
 import { deliveryNoteDeadline, runUninvoicedSupplyDeadlines } from "./model/deliveryDeadlines";
 import {
   addAttachment as addAttachmentModel,
@@ -580,6 +581,36 @@ export const updateDraft = mutation({
 });
 
 /** F04 DOC-35 „Duplizieren“ (new draft of the same type; advance/partial/final → invoice). */
+/**
+ * SND-19 „E-Mail-Text kopieren“: subject/body from the `message_text` template resolved from the snapshot, plus the
+ * contact's invoice e-mail addresses. Read only — nothing is sent, logged or changed. Drafts → null.
+ */
+export const messageText = query({
+  permission: "documents.read",
+  args: { id: v.id("salesDocuments") },
+  handler: async (ctx, { id }) => {
+    const doc = await ctx.db.get(id);
+    if (!doc || doc.status === "draft") return null;
+    const snapshot = await snapshotOf(ctx, doc);
+    if (!snapshot) return null;
+    const templates = (await ctx.db.query("textTemplates").collect()).filter((t) => t.kind === "message_text");
+    const text = buildMessageText(snapshot, {
+      templates,
+      today: berlinCalendarDate(ctx.now()),
+      openAmountCents: doc.openAmountCents,
+    });
+    const recipients = new Set<string>();
+    if (snapshot.buyer.invoiceEmail) recipients.add(snapshot.buyer.invoiceEmail);
+    const contact = doc.contactId ? await ctx.db.get(doc.contactId) : null;
+    for (const c of [contact?._id, contact?.parentId]) {
+      if (!c) continue;
+      for (const ch of await contactChannels(ctx, c)) if (ch.isInvoiceEmail) recipients.add(ch.value);
+    }
+    const to = [...recipients];
+    return { ...text, recipients: to, mailto: mailtoHref(to, text.subject, text.body) };
+  },
+});
+
 export const duplicate = mutation({
   permission: "documents.write",
   args: { id: v.id("salesDocuments") },
