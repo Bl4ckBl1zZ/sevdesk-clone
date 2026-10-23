@@ -2877,6 +2877,11 @@
       "contact": "Kunde",
       "contactNone": "– Kunde wählen –",
       "contactSelected": "Gewählter Kunde",
+      "lastDocument": {
+        "hint": "Positionen und Texte aus dem letzten Dokument {number} vom {date} übernehmen?",
+        "apply": "Letztes Dokument übernehmen",
+        "dismiss": "Nein, danke"
+      },
       "noInvoiceEmail": "Keine Rechnungs-E-Mail hinterlegt.",
       "addEmail": "E-Mail ergänzen",
       "supplyMode": "Leistungszeitpunkt",

@@ -4,6 +4,8 @@ import { filter } from "convex-helpers/server/filter";
 import { normalizeSearchQuery } from "../src/domain/contacts/core";
 import { defaultMarkSelection, effectiveMark, exportEntriesFor } from "../src/domain/documents/dispatch";
 import { DRAFT_TYPES, type DraftType, isLetterType } from "../src/domain/documents/doc-types";
+import type { DuplicateSource } from "../src/domain/documents/duplicate";
+import { lastDocumentContent, pickLastDocument } from "../src/domain/documents/last-document";
 import { mailtoHref, messageText as buildMessageText } from "../src/domain/documents/message-text";
 import type { DraftDocument } from "../src/domain/documents/draft";
 import { canonicalSnapshotJson } from "../src/domain/documents/snapshot";
@@ -581,6 +583,29 @@ export const updateDraft = mutation({
 });
 
 /** F04 DOC-35 „Duplizieren“ (new draft of the same type; advance/partial/final → invoice). */
+/**
+ * DOC-36 „Letztes Dokument übernehmen“: lines and texts of the contact's last issued document of the same type, for
+ * the editor's offer on a new empty draft. Read only; the editor saves the copied content as a normal draft.
+ */
+export const lastDocument = query({
+  permission: "documents.read",
+  args: { contactId: v.id("contacts"), type: v.string() },
+  handler: async (ctx, { contactId, type }) => {
+    if (!(DRAFT_TYPES as readonly string[]).includes(type)) return null;
+    const docs = await ctx.db
+      .query("salesDocuments")
+      .withIndex("by_contact", (q) => q.eq("contactId", contactId).eq("type", type as DraftType))
+      .collect();
+    const last = pickLastDocument(docs.map((d) => ({ ...d, createdAt: d._creationTime })));
+    if (!last) return null;
+    const content = lastDocumentContent(
+      draftFromDoc(last, await documentLines(ctx, last._id)) as unknown as DuplicateSource,
+    );
+    if (!content) return null;
+    return { id: last._id, number: last.number ?? null, documentDate: last.documentDate ?? null, content };
+  },
+});
+
 /**
  * SND-19 „E-Mail-Text kopieren“: subject/body from the `message_text` template resolved from the snapshot, plus the
  * contact's invoice e-mail addresses. Read only — nothing is sent, logged or changed. Drafts → null.
