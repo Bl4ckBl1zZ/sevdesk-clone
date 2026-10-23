@@ -150,7 +150,7 @@ Normative inputs: [01-compliance](../01-compliance.md) (rule IDs), [02-architect
 | QUO-13 | Invoicing progress of quotes and orders per §4.3.3 (`partially_invoiced` / `invoiced`), recomputed when a derived invoice is finalised, cancelled or corrected | MUST | P1 | — |
 | QUO-14 | Uninvoiced delivery notes: warning at day 150 and escalation at day 180 after the delivery date for B2B/legal-person customers and property-related supplies (dashboard to-do + delivery note badge) | MUST | P2 | UST-01 |
 | QUO-15 | Withdrawal (`cancelled`) of quotes, orders, delivery notes and proforma with a reason, only while no finalised invoice derives from them | MUST | P1 | GOBD-06 |
-| QUO-16 | Quote follow-up reminders (+5/+12 days without reaction) reusing the dunning rule engine | COULD | P4 | — |
+| QUO-16 | Quote follow-up reminders (+5/+12 days without reaction) reusing the dunning rule engine. Implemented as `deadlines.notify` to-dos „Angebot nachfassen“ (kind `quote_follow_up`) counted from the day the quote was marked as sent, only while it is still `sent` and valid; one level per run (dunning step model); any reaction (accept, reject, withdraw, expiry) resolves them. Nothing is sent | COULD | P4 | — |
 | QUO-17 | Delivery notes reduce stock (`stockMovements`) when finalised; cancelling reverses | COULD | P4 | — |
 
 ### 3.3 Invoices (INV)

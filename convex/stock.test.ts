@@ -119,7 +119,7 @@ describe("PRD-090…097 stock", () => {
     expect(reasonOf(await fail(owner.mutation(api.products.remove, { id: cableId })))).toBe("PRODUCT_IN_USE");
   });
 
-  test("PRD-091 PRD-092 PRD-096 T-PRD-029/044 delivery note XRO × 2 → −200 m; one reorder notification; withdrawal reverses", async () => {
+  test("PRD-091 PRD-092 PRD-096 QUO-17 T-PRD-029/044 delivery note XRO × 2 → −200 m; one reorder notification; withdrawal reverses", async () => {
     const t = makeT();
     const { owner, personId, cableId } = await setup(t);
     await owner.mutation(api.stock.configure, { productId: cableId, values: { enabled: true, reorderLevel: "300" } });
