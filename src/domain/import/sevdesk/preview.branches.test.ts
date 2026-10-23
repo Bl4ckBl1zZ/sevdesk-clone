@@ -3,10 +3,20 @@
  * unreadable DATEV/CSV files, unknown files, ambiguous formats, invalid rows) and the summary findings.
  */
 import { describe, expect, test } from "vitest";
+import { sevdeskFixtureBytes, sevdeskPdfNames } from "../../../../test/fixtures/sevdesk-export/load";
 import type { CsvRecord } from "../../csv/csv";
 import type { CalendarDate } from "../../time/calendar-date";
-import { autoMap, type MappedCsvKind } from "./mapping";
-import { type FileMappingInput, type ImportFileInput, lookupKeys, parseImportFiles } from "./preview";
+import { inspectFile } from "./files";
+import { autoMap, isMappedCsvKind, type MappedCsvKind } from "./mapping";
+import {
+  buildPlan,
+  type FileMappingInput,
+  type ImportFileInput,
+  type ImportPlan,
+  type LocalImportState,
+  lookupKeys,
+  parseImportFiles,
+} from "./preview";
 
 const TODAY = "2026-10-18" as CalendarDate;
 
@@ -19,9 +29,39 @@ const csvFile = (id: string, name: string, kind: MappedCsvKind, headers: string[
   mapping: { columns: autoMap(kind, headers) } satisfies FileMappingInput,
 });
 
-const CONTACT_HEADERS = ["Kundennummer", "Kategorie", "Firma", "Vorname", "Nachname", "Straße", "PLZ", "Ort", "Land", "E-Mail", "Telefon", "USt-IdNr."];
+const CONTACT_HEADERS = [
+  "Kundennummer",
+  "Kategorie",
+  "Firma",
+  "Vorname",
+  "Nachname",
+  "Straße",
+  "PLZ",
+  "Ort",
+  "Land",
+  "E-Mail",
+  "Telefon",
+  "USt-IdNr.",
+];
 const PRODUCT_HEADERS = ["Artikelnummer", "Name", "Beschreibung", "Einheit", "Preis (netto)", "Steuersatz"];
-const INVOICE_HEADERS = ["Rechnungsnummer", "Typ", "Rechnungsdatum", "Lieferdatum", "Fällig am", "Kundennummer", "Kunde", "Netto", "Steuer", "Brutto", "Steuersatz", "Steuerregel", "Status", "Offener Betrag", "Währung", "Bezug"];
+const INVOICE_HEADERS = [
+  "Rechnungsnummer",
+  "Typ",
+  "Rechnungsdatum",
+  "Lieferdatum",
+  "Fällig am",
+  "Kundennummer",
+  "Kunde",
+  "Netto",
+  "Steuer",
+  "Brutto",
+  "Steuersatz",
+  "Steuerregel",
+  "Status",
+  "Offener Betrag",
+  "Währung",
+  "Bezug",
+];
 
 describe("IMP-016 per-file handling in the parse step", () => {
   test("IMP-016 ignored files, ZIP archives and PDF/XML/image documents produce no rows and never block", () => {
@@ -47,11 +87,7 @@ describe("IMP-016 per-file handling in the parse step", () => {
     ]);
     expect(parsed.findings).toEqual([]);
     // The documents' hashes are looked up as earlier imported files (IMP-006).
-    expect(lookupKeys(parsed).imported).toEqual([
-      "sevdesk.file|sha-p",
-      "sevdesk.file|sha-x",
-      "sevdesk.file|sha-i",
-    ]);
+    expect(lookupKeys(parsed).imported).toEqual(["sevdesk.file|sha-p", "sevdesk.file|sha-x", "sevdesk.file|sha-i"]);
   });
 
   test("E-IMP-20 an unrecognised file is listed with a warning and does not block", () => {
@@ -91,7 +127,24 @@ describe("IMP-016 per-file handling in the parse step", () => {
 
   test("E-IMP-26 an invoice list whose amounts and dates are ambiguous blocks until the owner chooses the format", () => {
     // „1.000“ can be 1000 (German) or 1,0 (English); „03/04/2026“ can be 3 April or 4 March.
-    const row = ["RE-1", "Rechnung", "03/04/2026", "03/04/2026", "03/05/2026", "1001", "Muster", "1.000", "190", "1.190", "19", "", "Bezahlt", "0", "EUR", ""];
+    const row = [
+      "RE-1",
+      "Rechnung",
+      "03/04/2026",
+      "03/04/2026",
+      "03/05/2026",
+      "1001",
+      "Muster",
+      "1.000",
+      "190",
+      "1.190",
+      "19",
+      "",
+      "Bezahlt",
+      "0",
+      "EUR",
+      "",
+    ];
     const { file, mapping } = csvFile("r", "rechnungen.csv", "invoices", INVOICE_HEADERS, [row]);
     const parsed = parseImportFiles([file], { r: mapping }, TODAY);
     expect(parsed.findings.map((f) => [f.code, f.severity, f.message])).toEqual([
@@ -163,5 +216,98 @@ describe("E-IMP-16 invalid contact and product rows are skipped and listed", () 
       "Zeile 2: 0 % ist mehrdeutig — bitte „zero“ (PV-Nullsatz) oder „exempt“ mit Befreiungsgrund angeben.",
       "Zeile 3: 0 % ist mehrdeutig — bitte „zero“ (PV-Nullsatz) oder „exempt“ mit Befreiungsgrund angeben.",
     ]);
+  });
+});
+
+// ── buildPlan over the synthetic export set (test/fixtures/sevdesk-export) ──
+
+function fixtureParsed() {
+  const names = ["kontakte.csv", "artikel.csv", "rechnungen.csv", ...sevdeskPdfNames().map((n) => `pdf/${n}`)];
+  const files: ImportFileInput[] = [];
+  const mappings: Record<string, FileMappingInput> = {};
+  names.forEach((path, i) => {
+    const name = path.replace(/^pdf\//, "");
+    const info = inspectFile(name, sevdeskFixtureBytes(path));
+    const id = `f${i}`;
+    files.push({ id, name, sha256: `sha-${name}`, kind: info.kind, ...(info.table ? { table: info.table } : {}) });
+    if (isMappedCsvKind(info.kind) && info.headers) mappings[id] = { columns: autoMap(info.kind, info.headers) };
+  });
+  return parseImportFiles(files, mappings, TODAY);
+}
+const local = (over: Partial<LocalImportState> = {}): LocalImportState => ({
+  today: TODAY,
+  imported: {},
+  registerNumbers: {},
+  contactsByNumber: {},
+  contactsByName: {},
+  productsByNumber: {},
+  documentsByNumber: {},
+  ranges: [],
+  opening: { date: "2026-06-01" as CalendarDate, fiscalYear: 2026, receivablesPosted: false, taxedAs: "soll" },
+  ...over,
+});
+const docOf = (p: ImportPlan, number: string) => p.documents.find((d) => d.doc.number === number);
+
+describe("IMP-021 contact linking and excluded master data in the plan", () => {
+  test("IMP-021 excluded contact and product rows stay excluded; their documents fall back to a minimal contact", () => {
+    const parsed = fixtureParsed();
+    const c1001 = parsed.contacts.find((c) => c.number === "1001")?.rowRef as string;
+    const art1 = parsed.products.find((p) => p.number === "ART-001")?.rowRef as string;
+    const p = buildPlan(parsed, local(), { excluded: [c1001, art1] });
+    expect(p.contacts.find((c) => c.rowRef === c1001)?.status).toBe("excluded");
+    expect(p.products.find((x) => x.rowRef === art1)?.status).toBe("excluded");
+    expect(docOf(p, "RE-1001")?.contact).toEqual({ kind: "minimal", key: "m:muster bau gmbh" });
+    expect(p.minimalContacts).toContainEqual({
+      key: "m:muster bau gmbh",
+      name: "Muster Bau GmbH",
+      customerNumber: "1001",
+    });
+  });
+
+  test("IMP-021 a customer number known only locally links the local contact", () => {
+    const p = buildPlan(fixtureParsed(), local({ contactsByNumber: { "2001": { id: "c-neu", name: "Neukunde KG" } } }));
+    expect(docOf(p, "RE-1005")?.contact).toEqual({ kind: "local", id: "c-neu" });
+    expect(p.minimalContacts).toEqual([]);
+  });
+
+  test("IMP-021 a unique exact name match links the local contact with a warning to check it", () => {
+    const p = buildPlan(fixtureParsed(), local({ contactsByName: { "neukunde kg": ["c-77"] } }));
+    expect(docOf(p, "RE-1005")?.contact).toEqual({ kind: "local", id: "c-77" });
+    expect(p.findings.find((f) => f.code === "IMP-021" && f.key === "invoice:RE-1005")).toMatchObject({
+      severity: "warning",
+      message: "RE-1005: Kunde „Neukunde KG“ per Name zugeordnet – bitte prüfen.",
+    });
+  });
+
+  test("IMP-021 two local contacts with the same name are ambiguous → minimal contact, no name match", () => {
+    const p = buildPlan(fixtureParsed(), local({ contactsByName: { "neukunde kg": ["c-1", "c-2"] } }));
+    expect(docOf(p, "RE-1005")?.contact).toEqual({ kind: "minimal", key: "m:neukunde kg" });
+    expect(p.findings.some((f) => f.code === "IMP-021")).toBe(false);
+  });
+
+  test("IMP-006 a minimal contact created by an earlier import is reused instead of created again", () => {
+    const p = buildPlan(fixtureParsed(), local({ imported: { "sevdesk.contact|m:neukunde kg": "c-min" } }));
+    expect(docOf(p, "RE-1005")?.contact).toEqual({ kind: "local", id: "c-min" });
+    expect(p.minimalContacts).toEqual([
+      { key: "m:neukunde kg", name: "Neukunde KG", customerNumber: "2001", localId: "c-min" },
+    ]);
+  });
+
+  test("IMP-006 a contact imported earlier links its documents to the local contact", () => {
+    const p = buildPlan(fixtureParsed(), local({ imported: { "sevdesk.contact|n:1001": "c-1001" } }));
+    expect(p.contacts.find((c) => c.key === "n:1001")).toMatchObject({ status: "skip", localId: "c-1001" });
+    expect(docOf(p, "RE-1001")?.contact).toEqual({ kind: "local", id: "c-1001" });
+  });
+
+  test("E-IMP-31 a Gutschrift whose original was archived locally (not in this upload) references the local document", () => {
+    const parsed = fixtureParsed();
+    const withoutOriginal = { ...parsed, documents: parsed.documents.filter((d) => d.number !== "RE-1001") };
+    const p = buildPlan(
+      withoutOriginal,
+      local({ documentsByNumber: { "RE-1001": { id: "doc-1001", type: "invoice" } } }),
+    );
+    expect(docOf(p, "GS-0001")).toMatchObject({ correctsLocalId: "doc-1001" });
+    expect(docOf(p, "GS-0001")?.correctsKey).toBeUndefined();
+    expect(p.findings.some((f) => f.code === "E-IMP-31" && f.key === "correction:GS-0001")).toBe(false);
   });
 });
