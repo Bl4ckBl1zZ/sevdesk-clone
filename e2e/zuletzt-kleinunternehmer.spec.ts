@@ -31,7 +31,8 @@ test("KU-02 Kleinunternehmer: the invoice shows no VAT and the § 19 note", asyn
   await page.goto("/einstellungen/steuern");
   await page.getByRole("radio", { name: "Ja, Kleinunternehmer" }).check();
   await page.getByLabel(/Kleinunternehmer seit/).fill(`${year}-01-01`);
-  await page.getByLabel(/Gesamtumsatz/).fill("18.000,00");
+  // The SET-040 threshold monitor labels its progress bars „Gesamtumsatz …“ too.
+  await page.getByRole("textbox", { name: /Gesamtumsatz/ }).fill("18.000,00");
   // The earlier specs finalised invoices this year: a retroactive KU entry touches them, so the KU history
   // (SET-034, REASON_REQUIRED) asks for a reason.
   await page.getByLabel("Begründung für die Änderung").fill("E2E: Wechsel zur Kleinunternehmerregelung");
