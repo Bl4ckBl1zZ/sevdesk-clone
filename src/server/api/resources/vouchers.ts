@@ -47,7 +47,12 @@ export async function loadVoucher(convex: ConvexCaller, raw: string) {
     if (!d) throw new ApiProblem("not_found", { detail: "Beleg nicht gefunden." });
     return d as unknown as VoucherDetailRecord;
   } catch (e) {
-    if ((e as { data?: { code?: string } }).data?.code === "not_found") {
+    if (e instanceof ApiProblem) throw e;
+    // A well-formed vou_… ID that is no Convex ID of `vouchers` fails the argument validator: 404, not 500.
+    if (
+      (e as { data?: { code?: string } }).data?.code === "not_found" ||
+      /ArgumentValidationError|Validator/.test(String(e))
+    ) {
       throw new ApiProblem("not_found", { detail: "Beleg nicht gefunden." });
     }
     throw e;
