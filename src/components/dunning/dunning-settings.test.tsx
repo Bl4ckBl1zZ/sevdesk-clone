@@ -171,7 +171,7 @@ describe("Einstellungen › Mahnwesen (F05 §6.6)", () => {
       minOpenAmountCents: 500,
       pauseOnPartialPaymentDays: 14,
     });
-    expect(values.steps).toEqual([
+    expect(values?.steps).toEqual([
       expect.objectContaining({ level: 1, title: "Zahlungserinnerung", feeCents: 0, addFlatFee40: false }),
       expect.objectContaining({ level: 2, feeCents: 250, addInterest: true, textTemplateId: "tpl1" }),
     ]);

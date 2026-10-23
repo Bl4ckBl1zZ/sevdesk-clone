@@ -217,7 +217,7 @@ describe("InvoiceDunningSection (DUN-010)", () => {
     expect(screen.queryByRole("menuitem", { name: "Bestritten" })).toBeNull();
   });
 
-  test("DUN-010 a viewer sees the chain without actions; credit notes do not query; nothing to show renders nothing", () => {
+  test("DUN-010 a viewer sees the chain without actions; a Storno (no receivable) does not query; nothing to show renders nothing", () => {
     backend.data["members:me"] = { role: "viewer" };
     const { unmount } = renderWithIntl(<InvoiceDunningSection invoiceId="inv1" type="invoice" />);
     expect(screen.getByTestId("invoice-reminders")).toBeInTheDocument();
@@ -225,10 +225,10 @@ describe("InvoiceDunningSection (DUN-010)", () => {
     expect(screen.queryByRole("button", { name: "Mahnverfahren" })).toBeNull();
     unmount();
     backend.enabled = [];
-    const credit = renderWithIntl(<InvoiceDunningSection invoiceId="inv1" type="credit_note" />);
+    const storno = renderWithIntl(<InvoiceDunningSection invoiceId="inv1" type="cancellation" />);
     expect(backend.enabled).toContain(false);
-    expect(credit.container).toBeEmptyDOMElement();
-    credit.unmount();
+    expect(storno.container).toBeEmptyDOMElement();
+    storno.unmount();
     backend.data["dunning:forInvoice"] = forInvoice({ dunnable: false, reminders: [], case: null });
     const none = renderWithIntl(<InvoiceDunningSection invoiceId="inv1" type="invoice" />);
     expect(none.container).toBeEmptyDOMElement();

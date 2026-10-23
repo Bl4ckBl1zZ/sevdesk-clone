@@ -136,7 +136,7 @@ describe("Einstellungen › Bank › Verbindung (SET-049, SET-049a, BNK-101)", (
               pending: 1,
             },
           ],
-        } as Partial<ConnectionView>)}
+        } as unknown as Partial<ConnectionView>)}
         canSetup
         canFetch
       />,
@@ -220,7 +220,7 @@ describe("Einstellungen › Bank › Verbindung (SET-049, SET-049a, BNK-101)", (
               printable: false,
             },
           ],
-        } as Partial<ConnectionView>)}
+        } as unknown as Partial<ConnectionView>)}
         canSetup
         canFetch
       />,

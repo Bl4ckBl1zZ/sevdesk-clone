@@ -227,7 +227,7 @@ describe("Rechnungskorrektur delta lines (INV-12)", () => {
   });
 
   test("INV-12 a line with an amount discount is reversed in full and re-added with the new quantity", () => {
-    const line = item({ discount: { kind: "amount", cents: 5_000 } });
+    const line = item({ discount: { kind: "amount", amountCents: 5_000 } });
     expect(creditDeltaLines([line], [{ position: 1, quantityMilli: 6_000 }])).toEqual([
       { ...line, quantityMilli: -10_000 },
       { ...line, quantityMilli: 6_000, unitPriceMicros: 1_000_000 },
