@@ -433,7 +433,7 @@ async function deleteItem(ctx: ModelCtx, item: ErasureItem, label: string) {
   if (item.kind === "salesDocuments") {
     const docId = item.id as Id<"salesDocuments">;
     const d = await ctx.db.get(docId);
-    if (!d || d.status !== "draft") return; // only drafts (bucket 1)
+    if (d?.status !== "draft") return; // only drafts (bucket 1)
     for (const l of await ctx.db
       .query("documentLines")
       .withIndex("by_document", (q) => q.eq("documentId", docId))

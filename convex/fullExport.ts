@@ -37,7 +37,7 @@ export const meta = systemQuery({
   args: { jobId: v.id("jobs") },
   handler: async (ctx, { jobId }) => {
     const j = await ctx.db.get(jobId);
-    if (!j || j.kind !== "full_export" || (j.status !== "queued" && j.status !== "running")) return null;
+    if (j?.kind !== "full_export" || (j.status !== "queued" && j.status !== "running")) return null;
     const head = await chainHead(ctx);
     const checkpoint = await ctx.db.query("integrityCheckpoints").withIndex("by_at").order("desc").first();
     return {

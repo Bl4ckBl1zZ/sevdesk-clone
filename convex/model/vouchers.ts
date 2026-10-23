@@ -1233,7 +1233,7 @@ export async function bulkUpdateDrafts(
   const today = berlinCalendarDate(ctx.now());
   for (const id of sel.value as Id<"vouchers">[]) {
     const v = await ctx.db.get(id);
-    if (!v || v.status !== "draft") {
+    if (v?.status !== "draft") {
       skipped.push({ id, label: v ? label(v) : id, reason: VOUCHER_ERRORS.notDraft });
       continue;
     }
@@ -1274,7 +1274,7 @@ export async function bulkDeleteDrafts(
   const skipped: BulkSkip[] = [];
   for (const id of sel.value as Id<"vouchers">[]) {
     const v = await ctx.db.get(id);
-    if (!v || v.status !== "draft") {
+    if (v?.status !== "draft") {
       skipped.push({ id, label: v ? label(v) : id, reason: VOUCHER_ERRORS.bookedDelete });
       continue;
     }

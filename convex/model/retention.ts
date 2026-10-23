@@ -750,7 +750,7 @@ export async function purgeStep(
   limit = 25,
 ): Promise<{ done: boolean; processed: number }> {
   const batch = await ctx.db.get(batchId);
-  if (!batch || batch.status !== "running") return { done: true, processed: 0 };
+  if (batch?.status !== "running") return { done: true, processed: 0 };
   if (await activeHold(ctx)) throw appError("conflict", PURGE_MESSAGES.hold);
   const day = today(ctx);
   const units = (await selectedUnits(ctx, day, { classes: batch.classes as PurgeClass[], years: batch.years })).slice(
@@ -785,7 +785,7 @@ export async function purgeStep(
 
 export async function auditPrefixCandidate(ctx: ReadCtx & { now: () => number }, batchId: Id<"purgeBatches">) {
   const batch = await ctx.db.get(batchId);
-  if (!batch || batch.status !== "running" || !batch.classes.includes("auditLog")) return null;
+  if (batch?.status !== "running" || !batch.classes.includes("auditLog")) return null;
   const { upToSeq } = await auditPrefix(ctx, today(ctx));
   if (upToSeq === 0) return null;
   const entry = await ctx.db
@@ -931,7 +931,7 @@ export async function finishPurgeBatch(
   result: { ok: boolean; offHostLogKey?: string; error?: string },
 ) {
   const b = await ctx.db.get(batchId);
-  if (!b || b.status !== "running") return;
+  if (b?.status !== "running") return;
   await auditedPatch(
     ctx,
     "purgeBatches",

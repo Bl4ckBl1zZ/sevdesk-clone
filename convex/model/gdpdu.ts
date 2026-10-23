@@ -429,7 +429,7 @@ export async function gdpduSourcePage(
 /** Package metadata read by the worker (supplier, range, restricted contacts, purge batches, cash opening). */
 export async function gdpduMeta(ctx: ReadCtx, jobId: Id<"jobs">, now: number) {
   const job = await ctx.db.get(jobId);
-  if (!job || job.kind !== "gdpdu_export" || (job.status !== "queued" && job.status !== "running")) return null;
+  if (job?.kind !== "gdpdu_export" || (job.status !== "queued" && job.status !== "running")) return null;
   const params = job.params as { year: number; encoding: "utf8" | "ansi"; includeFiles: boolean };
   const r = await gdpduRange(ctx, params.year);
   const profile = await getCompanyProfile(ctx);
