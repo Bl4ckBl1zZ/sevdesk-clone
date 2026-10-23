@@ -45,10 +45,6 @@ function adminClient(): ConvexHttpClient {
   return client;
 }
 
-async function keyCaller(): Promise<Caller> {
-  return (await apiKeyPrincipal())();
-}
-
 /** Inserts an API key and returns a factory: every call is a fresh caller (fresh JWT), as one REST request is. */
 async function apiKeyPrincipal(): Promise<() => Caller> {
   const key = apiKeyFromBytes(crypto.getRandomValues(new Uint8Array(32)));
