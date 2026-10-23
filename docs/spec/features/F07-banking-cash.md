@@ -489,7 +489,7 @@ Where the implementation had to decide details the requirements leave open, or d
 | EC-CSH-30 | Cash payment/transfer dated more than 1 day in the past | Warning ⚑ (daily-recording duty) | W | „Bareinnahmen und -ausgaben sind täglich aufzuzeichnen (§ 146 Abs. 1 S. 2 AO). Bitte künftig am Tag der Zahlung erfassen.“ | EC-200 |
 | EC-CSH-31 | Cash payment/transfer dated more than 10 days in the past without reason | Blocked until a reason (≥ 5 characters) is entered; audited | E | „Die Zahlung liegt mehr als 10 Tage zurück. Bitte eine Begründung für die verspätete Erfassung angeben.“ | EC-200 |
 | EC-CSH-32 | Private cash withdrawal for a corporation | Blocked → Verrechnungskonto Gesellschafter | E | „Kapitalgesellschaften haben kein Privatkonto. Bitte ‚Verrechnungskonto Gesellschafter‘ verwenden.“ | AO-01 |
-| EC-CSH-33 | Voucher „bar“ while the cash balance is insufficient | Blocked with the hint to choose „privat bezahlt“ | E | „Der Kassenbestand reicht nicht aus ({balance}). Wurde der Beleg privat bezahlt? Dann bitte ‚privat bezahlt‘ wählen.“ | AO-05 |
+| EC-CSH-33 | Voucher „bar“ while the cash balance is insufficient | Blocked with the hint to choose „privat bezahlt“ | E | „Der Kassenbestand reicht nicht aus: am {date} wären es {balance} €. Wurde der Beleg privat bezahlt? Dann bitte ‚Privat bezahlt‘ wählen.“ (text owned by F06 EC-VOU-39) | AO-05 |
 | EC-CSH-34 | Quittung printed again | Served from the archived file with „Kopie“ stamp | — | — | GOBD-07 |
 | EC-CSH-35 | Cash payment on a foreign-currency invoice | Blocked (the cash account is EUR only) | E | „Barzahlungen sind nur in EUR möglich.“ | MISC-08 |
 

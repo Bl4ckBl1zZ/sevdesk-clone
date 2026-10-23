@@ -261,7 +261,8 @@ describe("dating and locked periods (CSH-021, EC-170)", () => {
     await owner.mutation(api.vouchers.updateDraft, { id, input: header() });
     const e = await owner.mutation(api.vouchers.finalize, { id, payment: { method: "cash" } }).catch((x) => x);
     expect(errorCode(e)).toBe("cash_negative");
-    expect(messageOf(e)).toContain("‚privat bezahlt‘ wählen");
+    // F06 EC-VOU-39 owns the voucher wording (F07 §12: one message source per rule).
+    expect(messageOf(e)).toContain("Wurde der Beleg privat bezahlt? Dann bitte ‚Privat bezahlt‘ wählen.");
     expect(await payments(t)).toHaveLength(0);
     // „Privat bezahlt“ instead books without touching the till (CSH-023).
     await owner.mutation(api.vouchers.finalize, { id, payment: { method: "private" } });
