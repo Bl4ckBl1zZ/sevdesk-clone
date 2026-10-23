@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
 import { clearInvariantTarget } from "../test/invariants";
 import { api, internal } from "./_generated/api";
-import { b2bBuyer, invoiceValues, setupInvoicing } from "./invoices.fixtures";
+import { b2bBuyer, finalizedInvoice, invoiceValues, setupInvoicing } from "./invoices.fixtures";
 import { memoryCheckpointObjects, memoryFailures } from "./lib/checkpointStore";
 import { makeT } from "./test.setup";
 
@@ -21,6 +21,52 @@ afterEach(() => {
 
 const dataOf = (e: unknown) => (e as { data?: Record<string, unknown> }).data ?? {};
 const codes = (e: unknown) => ((dataOf(e).findings ?? []) as { code: string }[]).map((f) => f.code);
+
+describe("artifact re-hash (E-AUD-08, AUD-013 c)", () => {
+  test("E-AUD-08 an archived file whose bytes changed is a critical finding naming the file and the document", async () => {
+    const t = makeT();
+    const { number } = await finalizedInvoice(t);
+    expect((await t.action(internal.integrity.verify, {})).ok).toBe(true);
+    const pdf = await t.run(async (ctx) =>
+      (await ctx.db.query("documentArtifacts").collect()).find((a) => a.documentId !== undefined),
+    );
+    if (!pdf) throw new Error("no artifact");
+    // the stored file is swapped behind the app's back (same row, other bytes)
+    await t.run(async (ctx) => {
+      const other = await ctx.storage.store(new Blob(["%PDF-1.7 manipuliert"], { type: "application/pdf" }));
+      await ctx.db.patch(pdf._id, { storageId: other });
+    });
+    const res = await t.action(internal.integrity.verify, {});
+    expect(res.ok).toBe(false);
+    expect(res.findings).toEqual([
+      expect.objectContaining({
+        kind: "file_hash_mismatch",
+        severity: "error",
+        detail: `Archivdatei ${pdf.name} (${number}) stimmt nicht mehr mit dem gespeicherten Hash überein.`,
+        entity: { table: "documentArtifacts", id: pdf._id },
+      }),
+    ]);
+    expect((await (await t.asUser("owner")).query(api.integrity.status, {})).finalisationBlocked).toBe(true);
+  });
+
+  test("E-AUD-08 incremental runs check artifacts created since the last run and a sample; full runs check all", async () => {
+    const t = makeT();
+    await finalizedInvoice(t);
+    const run = async (since: number | "all", sample: boolean) =>
+      t.action(internal.integrity.rehashArtifactsForTest, { since, sample });
+    await t.run(async (ctx) => {
+      const a = (await ctx.db.query("documentArtifacts").collect())[0];
+      if (!a) throw new Error("no artifact");
+      await ctx.storage.delete(a.storageId);
+    });
+    expect((await run("all", false)).map((f) => f.detail)).toEqual([
+      expect.stringMatching(/^Archivdatei .+ fehlt im Speicher\.$/),
+    ]);
+    expect(await run(Date.now() + 1, false)).toEqual([]); // nothing new, not sampled
+    expect(await run(Date.now() + 1, true)).toHaveLength(1); // sampled
+    expect(await run(0, false)).toHaveLength(1); // created since the last run
+  });
+});
 
 describe("restore drill (E-AUD-15, AUD-027)", () => {
   test("E-AUD-15 a drill whose chain head does not match the production checkpoint is recorded as failed and notifies", async () => {

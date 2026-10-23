@@ -2119,6 +2119,12 @@
     "wrapper": "mutation",
     "permission": "integrity.acknowledge"
   },
+  "integrity:artifactsPage": {
+    "kind": "query",
+    "visibility": "internal",
+    "wrapper": "systemQuery",
+    "job": "cron.integrity.verify"
+  },
   "integrity:chainPage": {
     "kind": "query",
     "visibility": "internal",
@@ -2172,6 +2178,12 @@
     "visibility": "internal",
     "wrapper": "systemMutation",
     "job": "cron.integrity.checkpoint"
+  },
+  "integrity:rehashArtifactsForTest": {
+    "kind": "action",
+    "visibility": "internal",
+    "wrapper": "systemAction",
+    "job": "cron.integrity.verify"
   },
   "integrity:startupCron": {
     "kind": "action",

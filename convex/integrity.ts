@@ -141,6 +141,38 @@ export const checkpointForDate = systemQuery({
       .first(),
 });
 
+/** AUD-013 (c): one page of archived artifacts with the label of their document (E-AUD-08). */
+export const artifactsPage = systemQuery({
+  job: "cron.integrity.verify",
+  args: { cursor: v.union(v.string(), v.null()), createdSince: v.optional(v.number()) },
+  handler: async (ctx, { cursor, createdSince }) => {
+    const page = await ctx.db.query("documentArtifacts").paginate({ cursor, numItems: 100 });
+    const files: ArtifactFile[] = [];
+    for (const a of page.page) {
+      const doc = a.documentId ? await ctx.db.get(a.documentId) : null;
+      const item = !doc && a.inboxItemId ? await ctx.db.get(a.inboxItemId) : null;
+      files.push({
+        id: a._id,
+        name: a.name,
+        beleg: doc?.number ?? (item ? `Posteingang ${item._id}` : "ohne Beleg"),
+        storageId: a.storageId,
+        sha256: a.sha256,
+        recent: createdSince !== undefined && a.createdAt >= createdSince,
+      });
+    }
+    return { isDone: page.isDone, continueCursor: page.continueCursor, files };
+  },
+});
+
+interface ArtifactFile {
+  id: Id<"documentArtifacts">;
+  name: string;
+  beleg: string;
+  storageId: Id<"_storage">;
+  sha256: string;
+  recent: boolean;
+}
+
 // ── internal writes ───────────────────────────────────────────────────────────────────────────────────
 export const recordRun = systemMutation({
   job: "cron.integrity.verify",
@@ -305,8 +337,14 @@ export async function runVerify(
     if (page.length < PAGE) break;
   }
   if (st.checkpoint) await checkCheckpoint(ctx, st.checkpoint, findings);
-  if (ctx.storage)
+  if (ctx.storage) {
     findings.push(...(await rehashVoucherFiles({ runQuery: ctx.runQuery, storage: ctx.storage })).findings);
+    // AUD-013 (c): artifacts since the last run + a 2 % sample; all on full runs (Sunday) and on the 1st of the month
+    const all = scope === "full" || berlinParts(Date.now()).date.endsWith("-01");
+    findings.push(
+      ...(await rehashArtifacts({ runQuery: ctx.runQuery, storage: ctx.storage }, all ? "all" : (last?.at ?? 0))),
+    );
+  }
   // F08 ACC-020: gapless seq, balanced entries, nothing recorded into a locked period after its lock (RI-13)
   findings.push(...(await verifyJournal({ runQuery: ctx.runQuery })).findings);
 
@@ -315,6 +353,45 @@ export async function runVerify(
     await ctx.runMutation(internal.integrity.recordRun, { scope, lastVerifiedSeq, findings: findings.slice(0, 100) });
   }
   return { ok: !findings.some((f) => f.severity === "error"), lastVerifiedSeq, findings };
+}
+
+const sha256OfBlob = async (blob: Blob) => sha256Hex(new Uint8Array(await blob.arrayBuffer()));
+
+/**
+ * AUD-013 (c) / E-AUD-08: re-hashes archived artifacts (PDF/A-3, XML, reports, letters) against the SHA-256 stored
+ * at creation. `since` = only those created since then plus a random 2 % sample; "all" = every artifact.
+ */
+export async function rehashArtifacts(
+  ctx: Required<Pick<RunCtx, "runQuery" | "storage">>,
+  since: number | "all",
+  sample: () => boolean = () => Math.random() < 0.02,
+): Promise<IntegrityFinding[]> {
+  const findings: IntegrityFinding[] = [];
+  let cursor: string | null = null;
+  for (;;) {
+    const page: { isDone: boolean; continueCursor: string; files: ArtifactFile[] } = await ctx.runQuery(
+      internal.integrity.artifactsPage,
+      { cursor, ...(since === "all" ? {} : { createdSince: since }) },
+    );
+    for (const f of page.files) {
+      if (since !== "all" && !f.recent && !sample()) continue;
+      const blob = await ctx.storage.get(f.storageId);
+      const actual = blob ? await sha256OfBlob(blob) : null;
+      if (actual !== f.sha256) {
+        findings.push({
+          kind: "file_hash_mismatch",
+          severity: "error",
+          detail: blob
+            ? `Archivdatei ${f.name} (${f.beleg}) stimmt nicht mehr mit dem gespeicherten Hash überein.`
+            : `Archivdatei ${f.name} (${f.beleg}) fehlt im Speicher.`,
+          entity: { table: "documentArtifacts", id: f.id },
+        });
+      }
+    }
+    if (page.isDone) break;
+    cursor = page.continueCursor;
+  }
+  return findings;
 }
 
 /**
@@ -375,6 +452,16 @@ export const startupCron = systemAction({
   handler: async (ctx, { force }) => {
     if (isTest() && !force) return null;
     return runStartupCheck(ctx);
+  },
+});
+
+/** Test entry point for the AUD-013 (c) selection (since / sample); IS_TEST only. */
+export const rehashArtifactsForTest = systemAction({
+  job: "cron.integrity.verify",
+  args: { since: v.union(v.number(), v.literal("all")), sample: v.boolean() },
+  handler: async (ctx, { since, sample }): Promise<IntegrityFinding[]> => {
+    if (!isTest()) return [];
+    return rehashArtifacts(ctx, since, () => sample);
   },
 });
 
