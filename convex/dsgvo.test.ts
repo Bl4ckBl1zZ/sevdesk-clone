@@ -1,9 +1,13 @@
 import { unzipSync } from "fflate";
 import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
+import { formatCents } from "../src/domain/money/format";
 import { ABLAUFHEMMUNG_ITEMS, PURGE_PHRASE } from "../src/domain/privacy/purge";
+import { clearInvariantTarget } from "../test/invariants";
 import { api, internal } from "./_generated/api";
 import type { Id } from "./_generated/dataModel";
 import { createValues, personForm } from "./catalog.fixtures";
+import { dunningSetup } from "./dunning.fixtures";
+import { enc, ingest } from "./inbox.fixtures";
 import { finalizedInvoice, invoiceValues, settle } from "./invoices.fixtures";
 import { memoryCheckpointObjects } from "./lib/checkpointStore";
 import { makeT } from "./test.setup";
@@ -29,6 +33,84 @@ beforeEach(() => {
 afterEach(() => {
   vi.useRealTimers();
   memoryCheckpointObjects.clear();
+});
+
+describe("F12 §5.4 erasure and subject edge cases", { timeout: 60_000 }, () => {
+  test("E-PRV-10 erasure for a contact with open receivables: restricted, the owner is warned, dunning stays possible", async () => {
+    const t = makeT();
+    const s = await dunningSetup(t);
+    const owner = s.owner;
+    const id = await owner.mutation(api.dsgvo.create, {
+      contactId: s.contactId,
+      kind: "erasure",
+      channel: "email",
+      receivedAt: "2026-10-12",
+    });
+    const p = await owner.query(api.dsgvo.preview, { contactId: s.contactId });
+    expect(p.openReceivablesCents).toBeGreaterThan(0);
+    expect(p.receivablesNotice).toBe(
+      `Offene Forderungen (${formatCents(p.openReceivablesCents)} €) dürfen weiter verfolgt werden (Art. 18 Abs. 2 DSGVO).`,
+    );
+    await owner.mutation(api.dsgvo.verify, { id, method: "Rückruf unter bekannter Nummer" });
+    await owner.mutation(api.dsgvo.execute, { id });
+    const c = await t.run((ctx) => ctx.db.get(s.contactId));
+    expect(c?.dsgvo?.restrictedAt).toBeTypeOf("number");
+    // the claim may still be pursued: a reminder for the open invoice can be created and finalised
+    vi.setSystemTime(new Date("2026-10-19T08:00:00Z"));
+    const later = await t.asUser("owner", { existingUserId: owner.userId });
+    const { id: reminderId } = await later.mutation(api.dunning.createReminder, { invoiceId: s.invoiceId, values: {} });
+    await later.mutation(api.dunning.finalize, { id: reminderId as Id<"salesDocuments"> });
+    const reminder = await t.run((ctx) => ctx.db.get(reminderId as Id<"salesDocuments">));
+    expect(reminder).toMatchObject({ type: "reminder", status: "finalized" });
+    // … while a new invoice for the restricted contact stays blocked (E-PRV-11)
+    expect(
+      dataOf(await catching(later.mutation(api.invoices.createDraft, { values: invoiceValues(s.contactId) }))).message,
+    ).toBe("Kontakt ist gesperrt (DSGVO Art. 18) und kann nicht verwendet werden.");
+  });
+
+  test("E-PRV-16 a data subject who is no contact is registered freely and found by e-mail across contacts, channels and the inbox", async () => {
+    const t = makeT();
+    const f = await finalizedInvoice(t);
+    await f.owner.mutation(api.contacts.saveChannel, {
+      contactId: f.orgId,
+      values: {
+        type: "email",
+        value: "Erika.Muster@Lieferant.example",
+        label: "Ansprechpartnerin",
+        isPrimary: false,
+        isInvoiceEmail: false,
+      },
+    });
+    // a supplier e-mail that names her as contact person
+    const { id: itemId } = await ingest(t, f.owner, [{ bytes: enc("%PDF-1.4 Rechnung"), name: "rechnung.pdf" }]);
+    await t.run((ctx) =>
+      ctx.db.patch(itemId, {
+        from: "buchhaltung@lieferant.example",
+        mailText: "Ansprechpartnerin: erika.muster@lieferant.example",
+      }),
+    );
+    clearInvariantTarget(); // the mail fields are seeded directly
+
+    const reqId = await f.owner.mutation(api.dsgvo.create, {
+      subject: { name: "Erika Muster", email: "erika.muster@lieferant.example" },
+      kind: "access",
+      channel: "email",
+      receivedAt: "2026-10-12",
+    });
+    expect((await f.owner.query(api.dsgvo.list, {})).find((r) => r.id === reqId)).toMatchObject({
+      subject: "Erika Muster",
+      contactId: null,
+    });
+    const hits = await f.owner.query(api.dsgvo.searchSubject, { email: " ERIKA.MUSTER@lieferant.example " });
+    expect(hits.map((h) => h.kind).sort()).toEqual(["contactChannel", "inboxItem"]);
+    expect(hits.find((h) => h.kind === "contactChannel")?.contactId).toBe(f.orgId);
+    expect(await f.owner.query(api.dsgvo.searchSubject, { email: "niemand@example.test" })).toEqual([]);
+    const bookkeeper = await t.asUser("bookkeeper");
+    expect(
+      dataOf(await catching(bookkeeper.query(api.dsgvo.searchSubject, { email: "erika.muster@lieferant.example" })))
+        .code,
+    ).toBe("forbidden_role");
+  });
 });
 
 describe("DSGVO register (PRV-010)", { timeout: 60_000 }, () => {

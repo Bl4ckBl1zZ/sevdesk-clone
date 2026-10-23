@@ -213,6 +213,58 @@ export async function notifyDeadlines(ctx: ModelCtx): Promise<number> {
   return n;
 }
 
+// ── data subject search (E-PRV-16) ───────────────────────────────────────────────────────────────────
+
+export interface SubjectHit {
+  kind: "contact" | "contactChannel" | "inboxItem" | "sendLog";
+  id: string;
+  contactId: string | null;
+  label: string;
+}
+
+/**
+ * F12 E-PRV-16: a data subject who is not a contact (e.g. a contact person in a supplier e-mail) is registered as a
+ * free subject; to find their data the owner searches the e-mail address across contacts (e-invoice address),
+ * contact channels, inbox items (sender, mail text) and send logs (notes). Case-insensitive, exact address match.
+ */
+export async function findSubjectByEmail(ctx: ReadCtx, email: string): Promise<SubjectHit[]> {
+  const needle = email.trim().toLowerCase();
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(needle))
+    throw appError("invalid_input", "Bitte eine gültige E-Mail-Adresse angeben.");
+  const has = (text: string | undefined) => (text ?? "").toLowerCase().includes(needle);
+  const hits: SubjectHit[] = [];
+  for (const c of await ctx.db.query("contacts").collect()) {
+    if (c.electronicAddress?.scheme === "EM" && c.electronicAddress.value.trim().toLowerCase() === needle) {
+      hits.push({ kind: "contact", id: c._id, contactId: c._id, label: `${c.number} ${c.displayName}` });
+    }
+  }
+  for (const ch of await ctx.db.query("contactChannels").collect()) {
+    if (ch.type === "email" && ch.value.trim().toLowerCase() === needle) {
+      const c = await ctx.db.get(ch.contactId);
+      hits.push({
+        kind: "contactChannel",
+        id: ch._id,
+        contactId: ch.contactId,
+        label: c ? `${c.number} ${c.displayName}` : "Kontaktweg",
+      });
+    }
+  }
+  for (const item of await ctx.db.query("inboxItems").collect()) {
+    if (has(item.from) || has(item.mailText)) {
+      hits.push({
+        kind: "inboxItem",
+        id: item._id,
+        contactId: null,
+        label: `Posteingang ${berlinCalendarDate(Math.floor(item._creationTime))}`,
+      });
+    }
+  }
+  for (const s of await ctx.db.query("sendLog").collect()) {
+    if (has(s.note)) hits.push({ kind: "sendLog", id: s._id, contactId: null, label: `Versand ${s.sentOn}` });
+  }
+  return hits;
+}
+
 // ── erasure (PRV-011, CON-162, EC-180) ─────────────────────────────────────────────────────────────────
 
 const addrKey = (a: { street?: string; postalCode?: string; city?: string }) =>
