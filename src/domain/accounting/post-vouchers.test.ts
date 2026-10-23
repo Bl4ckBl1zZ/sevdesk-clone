@@ -197,6 +197,34 @@ describe("voucher payments (VOU-131, VOU-132, VOU-137, VOU-138)", () => {
     expect(!other.ok && other.error.message).toBe("Für „Sonstige Differenz“ ist ein Konto anzugeben.");
   });
 
+  test("EC-BNK-76 a realised FX difference posts to fx_loss / fx_gain without VAT (PAY-018 mirrored)", () => {
+    // Paid 102,50 € for a 100,00 € claim (expense, − = the money exceeds the voucher) → Kursverlust.
+    const loss = linesOf(paid({ amountCents: 10_250, differences: [{ reason: "fx_difference", amountCents: -250 }] }));
+    expect(loss.filter((l) => l.role === "expense.fx_loss").map((l) => [l.debitCents, l.creditCents])).toEqual([
+      [250, 0],
+    ]);
+    expect(sum(loss, (l) => l.role === "payable")).toBe(10_000);
+    expect(loss.some((l) => l.role?.startsWith("vat.") || l.taxKey)).toBe(false);
+    // Paid 98,00 € for a 100,00 € claim → Kursgewinn.
+    const gain = linesOf(paid({ amountCents: 9_800, differences: [{ reason: "fx_difference", amountCents: 200 }] }));
+    expect(gain.filter((l) => l.role === "income.fx_gain").map((l) => [l.debitCents, l.creditCents])).toEqual([
+      [0, 200],
+    ]);
+    // Income mirror: received 98,00 € on a 100,00 € receivable → Kursverlust.
+    const income = linesOf(
+      paid({
+        direction: "income",
+        amountCents: 9_800,
+        inputVatDeducted: false,
+        differences: [{ reason: "fx_difference", amountCents: 200 }],
+      }),
+    );
+    expect(income.filter((l) => l.role === "expense.fx_loss").map((l) => [l.debitCents, l.creditCents])).toEqual([
+      [200, 0],
+    ]);
+    expect(sum(income, (l) => l.role === "receivable", "creditCents")).toBe(10_000);
+  });
+
   test("VOU-137 CSH-022 cash payment credits the till; VOU-138 CSH-023 private payment is a Privateinlage", () => {
     expect(linesOf(paid({ means: { kind: "cash" } })).find((l) => l.role === "cash")?.creditCents).toBe(11_900);
     expect(linesOf(paid({ means: { kind: "private" } })).find((l) => l.role === "private.deposit")?.creditCents).toBe(

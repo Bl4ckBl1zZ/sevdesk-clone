@@ -407,8 +407,11 @@ export interface VoucherReversedEvent {
 export type VoucherMeans = { kind: "bank_account"; bankAccountId: string } | { kind: "cash" } | { kind: "private" };
 
 export interface VoucherPaymentDifference {
-  /** `skonto` = Skonto received (VOU-132, V3); `bank_fees` (− = we paid more than the voucher); `other`. */
-  reason: "skonto" | "bank_fees" | "other";
+  /**
+   * `skonto` = Skonto received (VOU-132, V3); `bank_fees` (− = we paid more than the voucher); `other`;
+   * `fx_difference` = realised exchange difference of a foreign-currency voucher (EC-BNK-76, no VAT).
+   */
+  reason: "skonto" | "bank_fees" | "other" | "fx_difference";
   /** + = settles more than the money moved (Skonto); − = the money exceeds the voucher (fees). */
   amountCents: number;
   /** Skonto: net/VAT per rate (pro rata by gross, UST-32). */

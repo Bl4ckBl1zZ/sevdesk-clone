@@ -1,5 +1,5 @@
 import { describe, expect, test } from "vitest";
-import { findReversalCandidates, findTransferCandidates, type LinkRow } from "./links";
+import { findReversalCandidates, findTransferCandidates, isCardRefund, type LinkRow } from "./links";
 import { cashWithdrawalAmount, checkMark, MARK_MESSAGES, statusForMark } from "./marking";
 import { allocationStatus, openAmountCents } from "./match-types";
 import { suggestTypeDefault } from "./type-defaults";
@@ -66,6 +66,16 @@ describe("bank reversals (BNK-121)", () => {
     // another merchant or another amount → no suggestion
     expect(findReversalCandidates({ ...refund, merchantName: "Zalando SE" }, [original])).toEqual([]);
     expect(findReversalCandidates({ ...refund, amountCents: 2_000 }, [original])).toEqual([]);
+  });
+
+  test("EC-BNK-27 a card refund is a credit from the same merchant; a bank return or a debit is not", () => {
+    const original = row({ id: "orig", amountCents: -4_990, merchantName: "AMAZON EU S.A R.L." });
+    const refund = row({ id: "rf", amountCents: 4_990, merchantName: "Amazon EU S.à r.l." });
+    expect(isCardRefund(refund, original)).toBe(true);
+    expect(isCardRefund({ ...refund, merchantName: "Zalando SE" }, original)).toBe(false);
+    const bankReturn = row({ id: "rv", amountCents: 4_990, endToEndId: "E" });
+    expect(isCardRefund(bankReturn, row({ ...original, endToEndId: "E" }))).toBe(false);
+    expect(isCardRefund({ ...refund, amountCents: -4_990 }, original)).toBe(false);
   });
 });
 

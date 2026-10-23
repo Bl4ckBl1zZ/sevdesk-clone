@@ -10,4 +10,8 @@ export const MATCH_MESSAGES = {
   reversalLocked: "Zeitraum der ursprünglichen Buchung festgeschrieben – Rückbuchung mit heutigem Datum.",
   bankReturned: (paymentDate: string, target: string) =>
     `Zahlung vom ${formatGermanDate(paymentDate as CalendarDate)} wurde von der Bank zurückgebucht – Zahlung storniert, ${target} wieder offen.`,
+  /** Reversal reason of a payment whose card payment the merchant refunded (EC-BNK-27). */
+  cardRefundReason: "Kartenerstattung durch den Händler",
+  cardRefunded: (paymentDate: string, target: string) =>
+    `Kartenerstattung zur Zahlung vom ${formatGermanDate(paymentDate as CalendarDate)} – Zahlung storniert, ${target} wieder offen.`,
 } as const;

@@ -4833,7 +4833,14 @@
         "lines": "Positionen",
         "totals": "Summen",
         "files": "Dateien",
-        "notes": "Notiz"
+        "notes": "Notiz",
+        "taxPayment": "Steuerzahlung"
+      },
+      "taxPayment": {
+        "subtype": "Art der Steuerzahlung",
+        "choose": "Bitte wählen",
+        "period": "Zeitraum",
+        "periodHint": "Monat (MM/JJJJ), Quartal (Qn/JJJJ) oder Jahr (JJJJ), z. B. 09/2026"
       },
       "draftTitle": "Belegentwurf",
       "direction": "Art",

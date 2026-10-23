@@ -1,4 +1,4 @@
-import { resolveRole } from "../../src/domain/accounting/resolve";
+import { isCardRefund } from "../../src/domain/banking/links";
 import {
   aliasToken,
   autoApplicable,
@@ -19,12 +19,10 @@ import { voucherFxDifference } from "../../src/domain/banking/voucher-fx";
 import type { DocumentSnapshot } from "../../src/domain/documents/snapshot";
 import { isArchiveOnlyImport } from "../../src/domain/import/sevdesk/types";
 import type { DifferenceInput } from "../../src/domain/payments/plan";
-import { calendarDate } from "../../src/domain/time/calendar-date";
 import type { Doc, Id } from "../_generated/dataModel";
 import { appError } from "../lib/errors";
 import { auditedInsert } from "./audit";
 import { linkReversal, requireTransaction, unmatchedTransactions } from "./bankTransactions";
-import { resolveContextAt } from "./journal";
 import { notify } from "./notifications";
 import {
   creditBalance,
@@ -354,11 +352,8 @@ async function withVoucherFx(
     ...(tx.source.instructedAmount ? { instructed: tx.source.instructedAmount } : {}),
   });
   if (!fx) return base;
-  const role = resolveRole(fx.role, await resolveContextAt(ctx, calendarDate(tx.bookingDate)));
-  if (!role.ok || !role.value.account) return base;
-  return {
-    differences: [...own, { reason: "other" as const, amountCents: fx.amountCents, account: role.value.account }],
-  };
+  // Posted on fx_loss / fx_gain by the voucher posting (role from the sign, like BNK-028 / PAY-018).
+  return { differences: [...own, { reason: "fx_difference" as const, amountCents: fx.amountCents }] };
 }
 
 export async function confirmMatch(
@@ -572,9 +567,17 @@ export async function linkBankReversal(
   const counter = await requireTransaction(ctx, args.counterId);
   await linkReversal(ctx, args);
   if (original.allocatedCents <= 0) return { reversalIds: [] as Id<"payments">[], warnings: [] as string[] };
+  // EC-BNK-27: a merchant's card refund reuses the bank-return flow but says what happened.
+  const cardRefund = isCardRefund(
+    {
+      amountCents: counter.amountCents,
+      ...(counter.source.merchantName ? { merchantName: counter.source.merchantName } : {}),
+    },
+    original.source.merchantName ? { merchantName: original.source.merchantName } : {},
+  );
   const r = await reverseTransactionPayments(ctx, {
     transactionId: original._id,
-    reason: "Rückbuchung durch die Bank",
+    reason: cardRefund ? MATCH_MESSAGES.cardRefundReason : "Rückbuchung durch die Bank",
     preferredDate: counter.bookingDate,
     counterTransactionId: counter._id,
   });
@@ -599,7 +602,7 @@ export async function linkBankReversal(
     await notify(ctx, {
       kind: "bank.reversal",
       severity: "warning",
-      title: MATCH_MESSAGES.bankReturned(originalPayment.date, label),
+      title: (cardRefund ? MATCH_MESSAGES.cardRefunded : MATCH_MESSAGES.bankReturned)(originalPayment.date, label),
       link: "/bank/zuordnungen",
       entity: { table: "payments", id: reversalId },
       dedupeKey: `bank.reversal|${reversalId}`,

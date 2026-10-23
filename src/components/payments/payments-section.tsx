@@ -25,6 +25,7 @@ const DIFF_LABEL: Record<string, string> = {
   default_interest: "Verzugszinsen",
   write_off: "Forderungsausfall",
   other: "Preisminderung",
+  fx_difference: "Kursdifferenz",
 };
 
 /** Opens the archived Quittung or downloads the „Kopie“ (PAY-063, EC-PAY-51). */

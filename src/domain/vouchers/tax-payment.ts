@@ -41,6 +41,21 @@ export const PERIOD_SUBTYPES: readonly TaxPaymentSubtype[] = ["ust_prepayment", 
 
 export type TaxPaymentIssue = Issue<"tax_payment_subtype" | "tax_payment_period">;
 
+/** Stored period format: JJJJ, JJJJ-MM or JJJJ-Qn. */
+const TAX_PERIOD = /^\d{4}(-(0[1-9]|1[0-2]|Q[1-4]))?$/;
+
+/**
+ * F07 BNK-064: a period as typed in the voucher editor („09/2026“, „9.2026“, „Q3/2026“, „2026-Q3“, „2026“) in the
+ * stored format, or null if it is none of these.
+ */
+export function normaliseTaxPeriod(text: string): string | null {
+  const t = text.trim().toUpperCase();
+  const month = /^(\d{1,2})\s*[/.]\s*(\d{4})$/.exec(t);
+  const quarter = /^Q([1-4])\s*[/.]\s*(\d{4})$/.exec(t);
+  const out = month ? `${month[2]}-${month[1]?.padStart(2, "0")}` : quarter ? `${quarter[2]}-Q${quarter[1]}` : t;
+  return TAX_PERIOD.test(out) ? out : null;
+}
+
 /** ESt is private (sole proprietors and partnerships only); KSt exists only for corporations. */
 export function checkTaxPayment(input: {
   subtype: TaxPaymentSubtype;
@@ -56,7 +71,7 @@ export function checkTaxPayment(input: {
   if (input.subtype === "kst" && !input.corporation) {
     return issue("tax_payment_subtype", "Körperschaftsteuer fällt nur bei Kapitalgesellschaften an.");
   }
-  if (input.period !== undefined && !/^\d{4}(-(0[1-9]|1[0-2]|Q[1-4]))?$/.test(input.period)) {
+  if (input.period !== undefined && !TAX_PERIOD.test(input.period)) {
     return issue("tax_payment_period", "Bitte den Zeitraum als JJJJ, JJJJ-MM oder JJJJ-Qn angeben.");
   }
   return null;

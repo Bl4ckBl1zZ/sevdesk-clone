@@ -106,16 +106,20 @@ export function SelectInput({
   onChange,
   options,
   hint,
+  error,
   className,
   testId,
+  required,
 }: {
   label: string;
   value: string;
   onChange: (v: string) => void;
   options: readonly { value: string; label: string }[];
   hint?: string;
+  error?: string;
   className?: string;
   testId?: string;
+  required?: boolean;
 }) {
   const id = useId();
   return (
@@ -126,7 +130,9 @@ export function SelectInput({
         className={selectClass}
         value={value}
         data-testid={testId}
-        aria-describedby={hint ? `${id}-hint` : undefined}
+        aria-invalid={error ? true : undefined}
+        aria-required={required || undefined}
+        aria-describedby={hint || error ? `${id}-hint` : undefined}
         onChange={(e) => onChange(e.target.value)}
       >
         {options.map((o) => (
@@ -135,9 +141,9 @@ export function SelectInput({
           </option>
         ))}
       </select>
-      {hint && (
-        <p id={`${id}-hint`} className="text-muted-foreground text-xs">
-          {hint}
+      {(hint || error) && (
+        <p id={`${id}-hint`} className={cn("text-xs", error ? "text-danger" : "text-muted-foreground")}>
+          {error ?? hint}
         </p>
       )}
     </div>

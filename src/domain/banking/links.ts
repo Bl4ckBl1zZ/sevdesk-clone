@@ -30,6 +30,20 @@ export interface LinkRow {
 
 export const REVERSAL_WINDOW_DAYS = 60;
 
+const merchantKey = (m: string | undefined) => normaliseText(m).replace(/ /g, "");
+
+/** Same card merchant on both rows (EC-BNK-27 card refunds carry no reference to the original). */
+const sameMerchant = (a: Pick<LinkRow, "merchantName">, b: Pick<LinkRow, "merchantName">) =>
+  !!a.merchantName && merchantKey(a.merchantName) === merchantKey(b.merchantName);
+
+/** EC-BNK-27: the counter-entry is a card refund of the original — a credit from the same merchant. */
+export function isCardRefund(
+  counter: Pick<LinkRow, "merchantName" | "amountCents">,
+  original: Pick<LinkRow, "merchantName">,
+): boolean {
+  return counter.amountCents > 0 && sameMerchant(counter, original);
+}
+
 export interface ReversalCandidate {
   originalId: string;
   label: string;
@@ -52,14 +66,12 @@ export function findReversalCandidates(counter: LinkRow, rows: readonly LinkRow[
     if (normaliseText(o.purpose) && normaliseText(counter.purpose).includes(normaliseText(o.purpose)))
       reasons.push("purpose");
     // EC-BNK-27: a card refund without a link to the original — same merchant and the inverse amount (suggestion only).
-    const merchant = (m: string | undefined) => normaliseText(m).replace(/ /g, "");
-    const cardRefund = !!counter.merchantName && merchant(counter.merchantName) === merchant(o.merchantName);
-    if (cardRefund) reasons.push("merchant");
+    if (sameMerchant(counter, o)) reasons.push("merchant");
     if (reasons.length === 0) continue;
     if (counter.reversal) reasons.push("reversal_flag");
     out.push({
       originalId: o.id,
-      label: `${cardRefund && counter.amountCents > 0 ? "Kartenerstattung" : "Rückbuchung"} von ${formatGermanDate(o.bookingDate as CalendarDate)} ${formatMoneyDe(o.amountCents, o.currency)}`,
+      label: `${isCardRefund(counter, o) ? "Kartenerstattung" : "Rückbuchung"} von ${formatGermanDate(o.bookingDate as CalendarDate)} ${formatMoneyDe(o.amountCents, o.currency)}`,
       reasons,
       score: reasons.length,
       date: o.bookingDate,

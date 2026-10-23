@@ -25,6 +25,8 @@ import {
   type PriceMode,
   type StoredLine,
   type StoredVoucher,
+  taxPaymentHasPeriod,
+  taxPaymentOptions,
   toDraftInput,
   updateLine,
   type VoucherForm,
@@ -202,6 +204,8 @@ export function VoucherEditor({
     | undefined;
   const totalsEur = data.check?.totalsEur as { grossCents: number } | undefined;
   const hasErrors = !data.check || data.check.errors.length > 0;
+  // BNK-064: the saved draft's own check names a missing or invalid type/period; show it on the field as well.
+  const checkIssue = (code: string) => (dirty ? undefined : data.check?.errors.find((e) => e.code === code)?.message);
 
   return (
     <div className="flex flex-col gap-4" data-testid="voucher-editor">
@@ -310,6 +314,35 @@ export function VoucherEditor({
               onChange={(statedGross) => patch({ statedGross })}
             />
           </FormSection>
+
+          {form.kind === "tax_payment" && (
+            <FormSection title={t("sections.taxPayment")}>
+              <SelectInput
+                label={t("taxPayment.subtype")}
+                value={form.taxPaymentSubtype}
+                required
+                error={checkIssue("tax_payment_subtype")}
+                onChange={(s) =>
+                  patch({
+                    taxPaymentSubtype: s as VoucherForm["taxPaymentSubtype"],
+                    ...(taxPaymentHasPeriod(s) ? {} : { taxPaymentPeriod: "" }),
+                  })
+                }
+                options={[{ value: "", label: t("taxPayment.choose") }, ...taxPaymentOptions()]}
+                testId="voucher-tax-payment-subtype"
+              />
+              {taxPaymentHasPeriod(form.taxPaymentSubtype) && (
+                <TextInput
+                  label={t("taxPayment.period")}
+                  hint={t("taxPayment.periodHint")}
+                  value={form.taxPaymentPeriod}
+                  error={issueFor("taxPaymentPeriod") ?? checkIssue("tax_payment_period")}
+                  onChange={(taxPaymentPeriod) => patch({ taxPaymentPeriod })}
+                  testId="voucher-tax-payment-period"
+                />
+              )}
+            </FormSection>
+          )}
 
           <FormSection title={t("sections.tax")}>
             <SelectInput
