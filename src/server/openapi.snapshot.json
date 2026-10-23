@@ -22156,6 +22156,16 @@
               }
             }
           },
+          "409": {
+            "description": "`immutable_record` – Dieser Datensatz ist unveränderlich (GoBD).",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
           "422": {
             "description": "`validation_failed` – Die Eingaben sind nicht gültig.",
             "content": {
