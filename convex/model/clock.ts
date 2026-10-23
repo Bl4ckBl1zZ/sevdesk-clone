@@ -1,4 +1,4 @@
-import { CLOCK_SKEW_BLOCK_MS, clockSkewCheck } from "../../src/domain/system/clock";
+import { CLOCK_SKEW_BLOCK_MS, CLOCK_SOURCE_WARN_AFTER_MS, clockReadingCheck } from "../../src/domain/system/clock";
 import type { Doc } from "../_generated/dataModel";
 import type { DatabaseWriter } from "../_generated/server";
 import { appError } from "../lib/errors";
@@ -27,7 +27,15 @@ export async function recordClockReading(
   ctx: ModelCtx,
   r: { offsetMs: number | null; reference: string },
 ): Promise<Doc<"clockReadings">["status"]> {
-  const check = clockSkewCheck(r.offsetMs);
+  // E-AUD-13: an unreachable reference becomes a warning after 1 h without a good reading.
+  const history =
+    r.offsetMs === null
+      ? await ctx.db
+          .query("clockReadings")
+          .withIndex("by_at", (q) => q.gte("at", ctx.now() - 2 * CLOCK_SOURCE_WARN_AFTER_MS))
+          .collect()
+      : [];
+  const check = clockReadingCheck(r.offsetMs, history, ctx.now());
   const prev = await latestClockReading(ctx);
   const id = await ctx.db.insert("clockReadings", {
     at: ctx.now(),

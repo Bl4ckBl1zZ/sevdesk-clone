@@ -64,6 +64,45 @@ describe("Verfahrensdokumentation (AUD-024, AUD-025)", { timeout: 30_000 }, () =
     ).toBe("forbidden_role");
   });
 
+  test("E-AUD-42 an old version is delivered unchanged (same file, same SHA-256) after later releases and changes", async () => {
+    const t = makeT();
+    const { owner } = await setupInvoicing(t);
+    await owner.mutation(api.verfahrensdoku.saveInputs, { values: complete() });
+    await owner.action(api.verfahrensdoku.release, {});
+    const v1 = await t.run((ctx) =>
+      ctx.db
+        .query("verfahrensdokuVersions")
+        .withIndex("by_version", (q) => q.eq("version", 1))
+        .first(),
+    );
+    if (!v1) throw new Error("no version 1");
+    const bytesOf = async (storageId: string) =>
+      new Uint8Array(
+        await t.run(async (ctx) => {
+          const blob = await ctx.storage.get(storageId as never);
+          return blob ? await blob.arrayBuffer() : new ArrayBuffer(0);
+        }),
+      );
+    const before = await bytesOf(v1.file.storageId);
+
+    // later: inputs change, number ranges change, a new version is released
+    await owner.mutation(api.verfahrensdoku.saveInputs, { values: { ...complete(), deputy: "Neue Vertretung" } });
+    await owner.mutation(api.settings.saveNumberRanges, {
+      values: { ranges: [{ ...INVOICE_RANGE, format: "R-{YYYY}-{#####}" }] },
+    });
+    expect((await owner.action(api.verfahrensdoku.release, {})).version).toBe(2);
+
+    const old = await owner.query(api.verfahrensdoku.versionUrl, { version: 1 });
+    expect(old).toMatchObject({ name: v1.file.name, sha256: v1.file.sha256, url: expect.any(String) });
+    const after = await bytesOf(v1.file.storageId);
+    expect(after).toEqual(before);
+    expect(await sha256Hex(after)).toBe(v1.file.sha256);
+    expect(new TextDecoder().decode(after)).not.toContain("Neue Vertretung");
+    expect(errorCode(await owner.query(api.verfahrensdoku.versionUrl, { version: 9 }).catch((e: unknown) => e))).toBe(
+      "not_found",
+    );
+  });
+
   test("AUD-025 E-AUD-41 a changed number range marks the release outdated with a diff and a notification", async () => {
     const t = makeT();
     const { owner } = await setupInvoicing(t);

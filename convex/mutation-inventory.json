@@ -1375,6 +1375,12 @@
     "wrapper": "query",
     "permission": "dsgvo.manage"
   },
+  "dsgvo:searchSubject": {
+    "kind": "query",
+    "visibility": "public",
+    "wrapper": "query",
+    "permission": "dsgvo.manage"
+  },
   "dsgvo:setRequestStatus": {
     "kind": "mutation",
     "visibility": "public",
@@ -2137,6 +2143,12 @@
     "wrapper": "mutation",
     "permission": "integrity.acknowledge"
   },
+  "integrity:artifactsPage": {
+    "kind": "query",
+    "visibility": "internal",
+    "wrapper": "systemQuery",
+    "job": "cron.integrity.verify"
+  },
   "integrity:chainPage": {
     "kind": "query",
     "visibility": "internal",
@@ -2191,6 +2203,12 @@
     "wrapper": "systemMutation",
     "job": "cron.integrity.checkpoint"
   },
+  "integrity:rehashArtifactsForTest": {
+    "kind": "action",
+    "visibility": "internal",
+    "wrapper": "systemAction",
+    "job": "cron.integrity.verify"
+  },
   "integrity:runNow": {
     "kind": "action",
     "visibility": "public",
@@ -2226,6 +2244,12 @@
     "visibility": "internal",
     "wrapper": "systemAction",
     "job": "cron.integrity.verify"
+  },
+  "integrity:verifyCheckpointFile": {
+    "kind": "action",
+    "visibility": "public",
+    "wrapper": "action",
+    "permission": "integrity.read"
   },
   "integrity:verifyCron": {
     "kind": "action",

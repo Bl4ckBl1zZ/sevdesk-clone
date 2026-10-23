@@ -25,6 +25,7 @@ import {
 } from "../src/domain/settings/profile";
 import { thresholdMonitor as thresholdMonitorOf } from "../src/domain/settings/threshold-monitor";
 import { type CronScheduleSpec, cronStatusRows } from "../src/domain/system/cron-status";
+import { apiExposureChecks } from "../src/domain/system/security";
 import { taxScope as taxScopeOf } from "../src/domain/tax/scope";
 import { berlinCalendarDate } from "../src/domain/time/berlin";
 import { internal } from "./_generated/api";
@@ -756,13 +757,16 @@ export const runAccessChecks = action({
     };
     await reach("app", "/api/health");
     const api = await reach("api", "/einstellungen");
-    if (!("error" in api) && api.status !== 404) {
-      checks.push({
-        id: "api-ui",
-        label: `api.${domain} liefert keine Seiten der Oberfläche`,
-        status: "error",
-        detail: `Erwartet 404, erhalten ${api.status}.`,
-      });
+    if (!("error" in api)) {
+      // F12 E-AUD-22: admin pages on api. (or on its port 8443 listener) are a critical finding
+      const on8443 = await probe(`https://api.${domain}:8443/einstellungen`);
+      checks.push(
+        ...apiExposureChecks({
+          apiHost: `api.${domain}`,
+          adminStatus: api.status,
+          port8443AdminStatus: "error" in on8443 ? null : on8443.status,
+        }),
+      );
     }
     await reach("convex", "/version");
     await reach("convex-site", "/api/auth/ok");

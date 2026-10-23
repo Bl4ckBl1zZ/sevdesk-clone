@@ -217,6 +217,91 @@ describe("channel matrix and delivery (NTF-002, NTF-003, NTF-004)", () => {
   });
 });
 
+describe("F12 §5.5 notification edge cases", () => {
+  test("E-NTF-01 an unreachable ntfy server leaves in-app and e-mail untouched; the warning comes after the 3rd failure", async () => {
+    const t = makeT();
+    const owner = await withChannels(t);
+    delete process.env.NTFY_SENDER; // the real HTTP transport …
+    const fetchMock = vi.fn(async () => {
+      throw new TypeError("fetch failed: getaddrinfo ENOTFOUND ntfy.example.test"); // … to a server that is down
+    });
+    vi.stubGlobal("fetch", fetchMock);
+    try {
+      const sys = t.asSystem("cron.backups.verify");
+      const raise = async (i: number) => {
+        await sys.model((ctx) => notifyKind(ctx, "backup.stale", { title: `Alt ${i}`, dedupeKey: `stale-${i}` }));
+        await t.finishAllScheduledFunctions(() => {});
+      };
+      await raise(1);
+      await raise(2);
+      expect(await owner.query(api.notifications.list, { kind: "ntfy.failed" })).toHaveLength(0);
+      await raise(3);
+      expect(fetchMock).toHaveBeenCalledTimes(3);
+      const [warn, ...more] = await owner.query(api.notifications.list, { kind: "ntfy.failed" });
+      expect(more).toHaveLength(0);
+      expect(warn).toMatchObject({
+        severity: "warning",
+        title: "ntfy-Benachrichtigungen konnten nicht zugestellt werden.",
+      });
+      // in-app and e-mail were delivered for every event
+      expect(await owner.query(api.notifications.list, { kind: "backup.stale" })).toHaveLength(3);
+      expect(await mails(t, "notification")).toHaveLength(3);
+      expect(await mails(t, "ntfy")).toHaveLength(0);
+    } finally {
+      vi.unstubAllGlobals();
+    }
+  });
+
+  test("E-NTF-02 disabling e-mail (or in-app) for a critical kind is refused with the F12 text; the matrix is unchanged", async () => {
+    const t = makeT();
+    const owner = await withChannels(t);
+    for (const kind of [
+      "integrity.failed",
+      "checkpoint.upload_failed",
+      "access.misconfigured",
+      "clock.skew_critical",
+    ]) {
+      for (const off of [{ email: false }, { inApp: false }]) {
+        const e = await catching(
+          owner.mutation(api.notifications.setChannels, {
+            kind,
+            channels: { inApp: true, email: true, ntfy: true, digest: false, ...off },
+          }),
+        );
+        expect(messageOf(e)).toBe("Kritische Meldungen können nicht abbestellt werden.");
+      }
+    }
+    const stored = await t.run((ctx) => ctx.db.query("notificationSettings").first());
+    expect(stored?.channelsByKind?.["integrity.failed"]).toBeUndefined();
+    const matrix = await owner.query(api.notifications.settings, {});
+    expect(matrix.rows.find((r) => r.kind === "integrity.failed")).toMatchObject({ locked: true });
+  });
+
+  test("E-NTF-03 the same event repeated hourly is deduplicated: one notification, the counter increments, delivered once", async () => {
+    const t = makeT();
+    await withChannels(t);
+    const sys = t.asSystem("cron.backups.verify");
+    for (let h = 0; h < 5; h++) {
+      vi.setSystemTime(new Date(NOW.getTime() + h * HOUR));
+      await sys.model((ctx) =>
+        notifyKind(ctx, "backup.stale", {
+          title: `Letzte Datenbanksicherung vor ${27 + h} Stunden.`,
+          entity: { table: "system", id: "backups" },
+        }),
+      );
+    }
+    const all = await rows(t);
+    expect(all).toHaveLength(1);
+    expect(all[0]).toMatchObject({
+      kind: "backup.stale",
+      count: 5,
+      title: "Letzte Datenbanksicherung vor 31 Stunden.",
+    });
+    await t.finishAllScheduledFunctions(() => {});
+    expect(await mails(t, "notification")).toHaveLength(1);
+  });
+});
+
 describe("event sources (NTF-007)", () => {
   test("NTF-007 a payment recorded via MCP creates the payment.received and invoice.paid notifications", async () => {
     const t = makeT();

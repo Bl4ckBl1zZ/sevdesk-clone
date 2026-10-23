@@ -1,8 +1,10 @@
 import { v } from "convex/values";
 import {
   BACKUP_SOURCES,
+  BACKUP_UNCHECKABLE,
   type BackupRow,
   type BackupStatus,
+  BUCKET_LOCK_MISSING,
   evaluateBackup,
   type LatestObject,
   worstStatus,
@@ -28,12 +30,23 @@ export interface BackupOverview {
   checkpoint: { latest: LatestObject | null; bucketLock: "present" | "absent" | "unknown" } | null;
   status: BackupStatus;
   checkedAt: number;
+  /** F12 E-AUD-44/45 warnings (missing read-only credentials, no bucket lock on the checkpoint bucket). */
+  notices: string[];
 }
 
 async function computeOverview(now: number): Promise<BackupOverview> {
   const lister = backupListerFromEnv();
-  if (!lister)
-    return { configured: false, bucket: null, sources: [], checkpoint: null, status: "unknown", checkedAt: now };
+  if (!lister) {
+    return {
+      configured: false,
+      bucket: null,
+      sources: [],
+      checkpoint: null,
+      status: "unknown",
+      checkedAt: now,
+      notices: [BACKUP_UNCHECKABLE],
+    };
+  }
   const sources: BackupRow[] = [];
   for (const s of BACKUP_SOURCES) {
     try {
@@ -66,6 +79,7 @@ async function computeOverview(now: number): Promise<BackupOverview> {
     checkpoint,
     status: worstStatus(sources.map((r) => r.status)),
     checkedAt: now,
+    notices: checkpoint?.bucketLock === "absent" ? [BUCKET_LOCK_MISSING] : [],
   };
 }
 

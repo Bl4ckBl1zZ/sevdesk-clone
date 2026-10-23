@@ -1,12 +1,7 @@
+import { forbiddenRoleMessage, memberRefusalMessage } from "../../src/domain/access/auditor";
 import { isSessionFresh, REAUTH_MESSAGE_DE } from "../../src/domain/access/fresh";
 import { resolveIdentity } from "../../src/domain/access/identity";
-import {
-  canDo,
-  canKeyDo,
-  type Permission,
-  ROLE_LABEL_DE,
-  requiresFreshSession,
-} from "../../src/domain/access/permissions";
+import { canDo, canKeyDo, type Permission, requiresFreshSession } from "../../src/domain/access/permissions";
 import { memberAccess } from "../../src/domain/access/signup";
 import { components } from "../_generated/api";
 import type { QueryCtx } from "../_generated/server";
@@ -41,8 +36,11 @@ export async function resolveActor(
     const member = await getMemberByAuthUserId(ctx, resolved.authUserId);
     if (!member) throw appError("not_a_member");
     const access = memberAccess(member, opts.now);
-    if (access === "expired") throw appError("member_expired");
-    if (access === "disabled") throw appError("member_disabled");
+    if (access !== "active") {
+      // E-AUD-30/31: an auditor is told the date and whom to contact; other members get the short text.
+      const company = member.role === "auditor" ? (await ctx.db.query("companyProfile").first())?.name : undefined;
+      throw appError(`member_${access}`, memberRefusalMessage(member, access, company));
+    }
     if (opts.checkSession) {
       const session = resolved.sessionId
         ? await ctx.runQuery(components.betterAuth.adapter.findOne, {
@@ -68,7 +66,8 @@ export async function resolveActor(
     // E-AUD-30a / 02 §4.2: an e-mail-code sign-in of a member with TOTP creates no session (and therefore no JWT)
     // until twoFactor.verifyTotp succeeded (convex/auth.ts `totpForEmailCodeSignIns`) — nothing to check here.
     if (!canDo(member.role, permission)) {
-      throw appError("forbidden_role", `Ihre Rolle (${ROLE_LABEL_DE[member.role]}) erlaubt diese Aktion nicht.`, {
+      // E-AUD-29 / E-AUD-32: „Nur Lesezugriff.“ for an auditor, the role text otherwise.
+      throw appError("forbidden_role", forbiddenRoleMessage(member.role), {
         role: member.role,
         permission,
       });

@@ -7,6 +7,13 @@ import {
   sha256Hex,
   verifyChainPage,
 } from "../src/domain/audit/chain";
+import {
+  chainCheck,
+  decodeCheckpoint,
+  signatureCheck,
+  summarizeChecks,
+  type VerifyCheck,
+} from "../src/domain/audit/checkpoint-verify";
 import { PROTECTED_TABLES } from "../src/domain/audit/immutability";
 import { internal } from "./_generated/api";
 import type { Doc, Id, TableNames } from "./_generated/dataModel";
@@ -15,7 +22,7 @@ import { verifyJournal } from "./journalIntegrity";
 import { checkpointKey, checkpointStoreFromEnv } from "./lib/checkpointStore";
 import { env, instanceName, isTest } from "./lib/env";
 import { appError } from "./lib/errors";
-import { loadCheckpointKey, signCheckpoint, verifyCheckpoint } from "./lib/jws";
+import { checkpointPublicKeys, loadCheckpointKey, signCheckpoint, verifyWithKnownKeys } from "./lib/jws";
 import { rateLimiter } from "./lib/rateLimits";
 import { berlinParts } from "./lib/time";
 import { chainHead } from "./model/audit";
@@ -136,6 +143,38 @@ export const checkpointForDate = systemQuery({
       .first(),
 });
 
+/** AUD-013 (c): one page of archived artifacts with the label of their document (E-AUD-08). */
+export const artifactsPage = systemQuery({
+  job: "cron.integrity.verify",
+  args: { cursor: v.union(v.string(), v.null()), createdSince: v.optional(v.number()) },
+  handler: async (ctx, { cursor, createdSince }) => {
+    const page = await ctx.db.query("documentArtifacts").paginate({ cursor, numItems: 100 });
+    const files: ArtifactFile[] = [];
+    for (const a of page.page) {
+      const doc = a.documentId ? await ctx.db.get(a.documentId) : null;
+      const item = !doc && a.inboxItemId ? await ctx.db.get(a.inboxItemId) : null;
+      files.push({
+        id: a._id,
+        name: a.name,
+        beleg: doc?.number ?? (item ? `Posteingang ${item._id}` : "ohne Beleg"),
+        storageId: a.storageId,
+        sha256: a.sha256,
+        recent: createdSince !== undefined && a.createdAt >= createdSince,
+      });
+    }
+    return { isDone: page.isDone, continueCursor: page.continueCursor, files };
+  },
+});
+
+interface ArtifactFile {
+  id: Id<"documentArtifacts">;
+  name: string;
+  beleg: string;
+  storageId: Id<"_storage">;
+  sha256: string;
+  recent: boolean;
+}
+
 // ── internal writes ───────────────────────────────────────────────────────────────────────────────────
 export const recordRun = systemMutation({
   job: "cron.integrity.verify",
@@ -212,14 +251,14 @@ async function checkCheckpoint(
 
   const pem = env("CHECKPOINT_SIGNING_KEY_PEM");
   if (pem) {
-    const key = await loadCheckpointKey(pem);
-    if (cp.kid === key.kid) {
-      const res = await verifyCheckpoint(cp.jws, key.publicJwk);
-      if (!res.ok || res.payload.lastSeq !== cp.lastSeq || res.payload.lastHash !== cp.lastHash) {
+    // AUD-017: the current key and the retired keys after a rotation (CHECKPOINT_RETIRED_PUBLIC_JWKS)
+    const keys = await checkpointPublicKeys(pem, env("CHECKPOINT_RETIRED_PUBLIC_JWKS"));
+    if (keys.has(cp.kid)) {
+      const res = await verifyWithKnownKeys(cp.jws, cp.kid, keys);
+      if (res.kind !== "valid" || res.payload.lastSeq !== cp.lastSeq || res.payload.lastHash !== cp.lastHash) {
         fail("checkpoint_signature", `Prüfpunkt vom ${date} ist ungültig oder weicht von der externen Kopie ab.`);
       }
     } else {
-      // TODO(P1, AUD-017): keep retired public keys (kid → JWK) to verify checkpoints after a key rotation.
       findings.push({
         kind: "checkpoint_signature",
         severity: "warning",
@@ -300,8 +339,14 @@ export async function runVerify(
     if (page.length < PAGE) break;
   }
   if (st.checkpoint) await checkCheckpoint(ctx, st.checkpoint, findings);
-  if (ctx.storage)
+  if (ctx.storage) {
     findings.push(...(await rehashVoucherFiles({ runQuery: ctx.runQuery, storage: ctx.storage })).findings);
+    // AUD-013 (c): artifacts since the last run + a 2 % sample; all on full runs (Sunday) and on the 1st of the month
+    const all = scope === "full" || berlinParts(Date.now()).date.endsWith("-01");
+    findings.push(
+      ...(await rehashArtifacts({ runQuery: ctx.runQuery, storage: ctx.storage }, all ? "all" : (last?.at ?? 0))),
+    );
+  }
   // F08 ACC-020: gapless seq, balanced entries, nothing recorded into a locked period after its lock (RI-13)
   findings.push(...(await verifyJournal({ runQuery: ctx.runQuery })).findings);
 
@@ -310,6 +355,45 @@ export async function runVerify(
     await ctx.runMutation(internal.integrity.recordRun, { scope, lastVerifiedSeq, findings: findings.slice(0, 100) });
   }
   return { ok: !findings.some((f) => f.severity === "error"), lastVerifiedSeq, findings };
+}
+
+const sha256OfBlob = async (blob: Blob) => sha256Hex(new Uint8Array(await blob.arrayBuffer()));
+
+/**
+ * AUD-013 (c) / E-AUD-08: re-hashes archived artifacts (PDF/A-3, XML, reports, letters) against the SHA-256 stored
+ * at creation. `since` = only those created since then plus a random 2 % sample; "all" = every artifact.
+ */
+export async function rehashArtifacts(
+  ctx: Required<Pick<RunCtx, "runQuery" | "storage">>,
+  since: number | "all",
+  sample: () => boolean = () => Math.random() < 0.02,
+): Promise<IntegrityFinding[]> {
+  const findings: IntegrityFinding[] = [];
+  let cursor: string | null = null;
+  for (;;) {
+    const page: { isDone: boolean; continueCursor: string; files: ArtifactFile[] } = await ctx.runQuery(
+      internal.integrity.artifactsPage,
+      { cursor, ...(since === "all" ? {} : { createdSince: since }) },
+    );
+    for (const f of page.files) {
+      if (since !== "all" && !f.recent && !sample()) continue;
+      const blob = await ctx.storage.get(f.storageId);
+      const actual = blob ? await sha256OfBlob(blob) : null;
+      if (actual !== f.sha256) {
+        findings.push({
+          kind: "file_hash_mismatch",
+          severity: "error",
+          detail: blob
+            ? `Archivdatei ${f.name} (${f.beleg}) stimmt nicht mehr mit dem gespeicherten Hash überein.`
+            : `Archivdatei ${f.name} (${f.beleg}) fehlt im Speicher.`,
+          entity: { table: "documentArtifacts", id: f.id },
+        });
+      }
+    }
+    if (page.isDone) break;
+    cursor = page.continueCursor;
+  }
+  return findings;
 }
 
 /**
@@ -370,6 +454,16 @@ export const startupCron = systemAction({
   handler: async (ctx, { force }) => {
     if (isTest() && !force) return null;
     return runStartupCheck(ctx);
+  },
+});
+
+/** Test entry point for the AUD-013 (c) selection (since / sample); IS_TEST only. */
+export const rehashArtifactsForTest = systemAction({
+  job: "cron.integrity.verify",
+  args: { since: v.union(v.number(), v.literal("all")), sample: v.boolean() },
+  handler: async (ctx, { since, sample }): Promise<IntegrityFinding[]> => {
+    if (!isTest()) return [];
+    return rehashArtifacts(ctx, since, () => sample);
   },
 });
 
@@ -524,6 +618,52 @@ export const runNow = action({
     return { ok: r.ok, lastVerifiedSeq: r.lastVerifiedSeq, findings: r.findings.length };
   },
 });
+
+/**
+ * AUD-017 „Prüfpunkt verifizieren“: an uploaded checkpoint (e.g. the R2 copy or the e-mail copy) is verified against
+ * the configured public keys and the live audit chain (lastSeq must carry lastHash). Read-only; nothing is stored.
+ */
+export const verifyCheckpointFile = action({
+  permission: "integrity.read",
+  args: { jws: v.string() },
+  handler: async (ctx, { jws }): Promise<CheckpointFileResult> => {
+    const decoded = decodeCheckpoint(jws.slice(0, 64_000));
+    if (!decoded.ok) {
+      const checks: VerifyCheck[] = [{ id: "format", status: "error", detail: decoded.detail }];
+      return { ...summarizeChecks(checks), checks, kid: null, date: null, lastSeq: null };
+    }
+    const keys = await checkpointPublicKeys(env("CHECKPOINT_SIGNING_KEY_PEM"), env("CHECKPOINT_RETIRED_PUBLIC_JWKS"));
+    const sig = await verifyWithKnownKeys(decoded.jws, decoded.kid, keys);
+    const checks: VerifyCheck[] = [signatureCheck(sig)];
+    const st = await ctx.runQuery(internal.integrity.state, {});
+    const entry: Doc<"auditLog"> | null = await ctx.runQuery(internal.integrity.entryAt, {
+      seq: decoded.payload.lastSeq,
+    });
+    checks.push(
+      chainCheck(decoded.payload, entry ? { seq: entry.seq, hash: entry.hash } : null, {
+        instance: instanceName(),
+        headSeq: st.head?.seq ?? 0,
+        anchorSeq: st.anchor?.seq,
+      }),
+    );
+    return {
+      ...summarizeChecks(checks),
+      checks,
+      kid: decoded.kid ?? null,
+      date: decoded.payload.date,
+      lastSeq: decoded.payload.lastSeq,
+    };
+  },
+});
+
+export interface CheckpointFileResult {
+  ok: boolean;
+  message: string;
+  checks: VerifyCheck[];
+  kid: string | null;
+  date: string | null;
+  lastSeq: number | null;
+}
 
 /** AUD-015: the owner acknowledges a failed run with a note (does not alter data). */
 export const acknowledge = mutation({

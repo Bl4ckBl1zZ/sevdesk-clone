@@ -137,13 +137,14 @@ export function memoryCheckpointStore(bucket = "test-checkpoints"): CheckpointSt
       return { ok: true };
     },
     async bucketLock() {
-      return "unknown";
+      return memoryBucketLock.value;
     },
   };
 }
 
-/** Test hooks for the fake: inspect/tamper objects, simulate failures. */
+/** Test hooks for the fake: inspect/tamper objects, simulate failures, the bucket-lock answer (E-AUD-45). */
 export const memoryFailures = { remaining: 0 };
+export const memoryBucketLock: { value: "present" | "absent" | "unknown" } = { value: "unknown" };
 export const memoryCheckpointObjects = memoryObjects;
 
 /** R2 when configured; the fake only with IS_TEST; otherwise null (upload fails → `uploadStatus: failed`). */

@@ -9,6 +9,7 @@ import {
   erasurePreview,
   executeErasure,
   extendRequest,
+  findSubjectByEmail,
   listRequests,
   notifyDeadlines,
   recordAccessExport,
@@ -33,6 +34,13 @@ export const list = query({
   permission: "dsgvo.read",
   args: {},
   handler: async (ctx) => listRequests(ctx),
+});
+
+/** E-PRV-16: where does an e-mail address occur (contacts, channels, inbox, send logs)? Owner only, never via API. */
+export const searchSubject = query({
+  permission: "dsgvo.manage",
+  args: { email: v.string() },
+  handler: async (ctx, { email }) => findSubjectByEmail(ctx, email),
 });
 
 export const create = mutation({

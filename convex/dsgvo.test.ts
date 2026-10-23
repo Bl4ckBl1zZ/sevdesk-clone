@@ -1,9 +1,13 @@
 import { unzipSync } from "fflate";
 import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
+import { formatCents } from "../src/domain/money/format";
 import { ABLAUFHEMMUNG_ITEMS, PURGE_PHRASE } from "../src/domain/privacy/purge";
+import { clearInvariantTarget } from "../test/invariants";
 import { api, internal } from "./_generated/api";
 import type { Id } from "./_generated/dataModel";
 import { createValues, personForm } from "./catalog.fixtures";
+import { dunningSetup } from "./dunning.fixtures";
+import { enc, ingest } from "./inbox.fixtures";
 import { finalizedInvoice, invoiceValues, settle } from "./invoices.fixtures";
 import { memoryCheckpointObjects } from "./lib/checkpointStore";
 import { makeT } from "./test.setup";
@@ -29,6 +33,335 @@ beforeEach(() => {
 afterEach(() => {
   vi.useRealTimers();
   memoryCheckpointObjects.clear();
+});
+
+describe("F12 §5.4 erasure and subject edge cases", { timeout: 60_000 }, () => {
+  test("E-PRV-10 erasure for a contact with open receivables: restricted, the owner is warned, dunning stays possible", async () => {
+    const t = makeT();
+    const s = await dunningSetup(t);
+    const owner = s.owner;
+    const id = await owner.mutation(api.dsgvo.create, {
+      contactId: s.contactId,
+      kind: "erasure",
+      channel: "email",
+      receivedAt: "2026-10-12",
+    });
+    const p = await owner.query(api.dsgvo.preview, { contactId: s.contactId });
+    expect(p.openReceivablesCents).toBeGreaterThan(0);
+    expect(p.receivablesNotice).toBe(
+      `Offene Forderungen (${formatCents(p.openReceivablesCents)} €) dürfen weiter verfolgt werden (Art. 18 Abs. 2 DSGVO).`,
+    );
+    await owner.mutation(api.dsgvo.verify, { id, method: "Rückruf unter bekannter Nummer" });
+    await owner.mutation(api.dsgvo.execute, { id });
+    const c = await t.run((ctx) => ctx.db.get(s.contactId));
+    expect(c?.dsgvo?.restrictedAt).toBeTypeOf("number");
+    // the claim may still be pursued: a reminder for the open invoice can be created and finalised
+    vi.setSystemTime(new Date("2026-10-19T08:00:00Z"));
+    const later = await t.asUser("owner", { existingUserId: owner.userId });
+    const { id: reminderId } = await later.mutation(api.dunning.createReminder, { invoiceId: s.invoiceId, values: {} });
+    await later.mutation(api.dunning.finalize, { id: reminderId as Id<"salesDocuments"> });
+    const reminder = await t.run((ctx) => ctx.db.get(reminderId as Id<"salesDocuments">));
+    expect(reminder).toMatchObject({ type: "reminder", status: "finalized" });
+    // … while a new invoice for the restricted contact stays blocked (E-PRV-11)
+    expect(
+      dataOf(await catching(later.mutation(api.invoices.createDraft, { values: invoiceValues(s.contactId) }))).message,
+    ).toBe("Kontakt ist gesperrt (DSGVO Art. 18) und kann nicht verwendet werden.");
+  });
+
+  test("E-PRV-16 a data subject who is no contact is registered freely and found by e-mail across contacts, channels and the inbox", async () => {
+    const t = makeT();
+    const f = await finalizedInvoice(t);
+    await f.owner.mutation(api.contacts.saveChannel, {
+      contactId: f.orgId,
+      values: {
+        type: "email",
+        value: "Erika.Muster@Lieferant.example",
+        label: "Ansprechpartnerin",
+        isPrimary: false,
+        isInvoiceEmail: false,
+      },
+    });
+    // a supplier e-mail that names her as contact person
+    const { id: itemId } = await ingest(t, f.owner, [{ bytes: enc("%PDF-1.4 Rechnung"), name: "rechnung.pdf" }]);
+    await t.run((ctx) =>
+      ctx.db.patch(itemId, {
+        from: "buchhaltung@lieferant.example",
+        mailText: "Ansprechpartnerin: erika.muster@lieferant.example",
+      }),
+    );
+    clearInvariantTarget(); // the mail fields are seeded directly
+
+    const reqId = await f.owner.mutation(api.dsgvo.create, {
+      subject: { name: "Erika Muster", email: "erika.muster@lieferant.example" },
+      kind: "access",
+      channel: "email",
+      receivedAt: "2026-10-12",
+    });
+    expect((await f.owner.query(api.dsgvo.list, {})).find((r) => r.id === reqId)).toMatchObject({
+      subject: "Erika Muster",
+      contactId: null,
+    });
+    const hits = await f.owner.query(api.dsgvo.searchSubject, { email: " ERIKA.MUSTER@lieferant.example " });
+    expect(hits.map((h) => h.kind).sort()).toEqual(["contactChannel", "inboxItem"]);
+    expect(hits.find((h) => h.kind === "contactChannel")?.contactId).toBe(f.orgId);
+    expect(await f.owner.query(api.dsgvo.searchSubject, { email: "niemand@example.test" })).toEqual([]);
+    const bookkeeper = await t.asUser("bookkeeper");
+    expect(
+      dataOf(await catching(bookkeeper.query(api.dsgvo.searchSubject, { email: "erika.muster@lieferant.example" })))
+        .code,
+    ).toBe("forbidden_role");
+  });
+});
+
+describe("receivable letters and learned bank aliases in the DSGVO flows (PRV-011, PRV-013)", {
+  timeout: 60_000,
+}, () => {
+  test("PRV-011 PRV-013 a customer's account statement is retained (letters6) and exported as PDF; the learned bank alias is erased", async () => {
+    const t = makeT();
+    const f = await finalizedInvoice(t);
+    const contactId = f.personId as Id<"contacts">;
+    await f.owner.mutation(api.payments.recordForInvoice, {
+      documentId: f.id as Id<"salesDocuments">,
+      source: { kind: "cash" },
+      date: "2026-10-12",
+      amountCents: 50_000,
+    });
+    const { letterId } = await f.owner.action(api.payments.letter, {
+      request: { kind: "account_statement", contactId, from: "2026-10-01", to: "2026-10-12" },
+    });
+    const aliasId = await t.run((ctx) =>
+      ctx.db.insert("contactAliases", {
+        contactId,
+        token: "erika muster",
+        iban: "DE02120300000000202051",
+        source: "match_confirmed",
+        createdAt: Date.now(),
+      }),
+    );
+    // an F06 „Bitte um Rechnungskorrektur“ to the same person (as supplier), archived on the matched inbox item
+    const ingested = (await ingest(t, f.owner, [{ bytes: enc("%PDF-1.4 Rechnung"), name: "rechnung.pdf" }])) as {
+      ids?: string[];
+      id?: string;
+    };
+    const itemId = (ingested.ids?.[0] ?? ingested.id) as Id<"inboxItems">;
+    const correctionId = await t.run(async (ctx) => {
+      await ctx.db.patch(itemId, { supplierMatch: { contactId, by: "name" } });
+      const storageId = await ctx.storage.store(new Blob(["%PDF-1.4 Korrektur"], { type: "application/pdf" }));
+      return ctx.db.insert("documentArtifacts", {
+        inboxItemId: itemId,
+        kind: "supplier_correction_letter",
+        storageId,
+        sha256: "0".repeat(64),
+        bytes: 18,
+        mime: "application/pdf",
+        name: "Korrekturanforderung-1.pdf",
+        createdAt: Date.now(),
+        retentionUntil: "2032-12-31",
+      });
+    });
+    clearInvariantTarget(); // the BNK-048 alias, the match and the correction letter are seeded directly
+
+    const p = await f.owner.query(api.dsgvo.preview, { contactId });
+    expect(p.restrict).toContainEqual(
+      expect.objectContaining({
+        kind: "receivableLetter",
+        id: letterId,
+        retentionClass: "letters6",
+        retentionUntil: "2032-12-31",
+      }),
+    );
+    expect(p.restrict).toContainEqual(
+      expect.objectContaining({ kind: "correctionLetter", id: correctionId, retentionUntil: "2032-12-31" }),
+    );
+    expect(p.deleteNow).toContainEqual(expect.objectContaining({ kind: "contactAliases", id: aliasId }));
+
+    // Art. 15: the letter PDF and its metadata are part of the access export
+    const access = await f.owner.mutation(api.dsgvo.create, {
+      contactId,
+      kind: "access",
+      channel: "email",
+      receivedAt: "2026-10-12",
+    });
+    const { jobId } = await f.owner.mutation(api.dsgvo.startExport, { id: access });
+    await settle(t);
+    const job = await t.run((ctx) => ctx.db.get(jobId as Id<"jobs">));
+    const buf = await t.run(async (ctx) =>
+      (await ctx.storage.get(job?.resultStorageId as Id<"_storage">))?.arrayBuffer(),
+    );
+    const zip = unzipSync(new Uint8Array(buf as ArrayBuffer));
+    expect(new TextDecoder().decode(zip["belege/Kontoauszug-2026-10-12.pdf"]?.subarray(0, 5))).toBe("%PDF-");
+    expect(new TextDecoder().decode(zip["belege/Korrekturanforderung-1.pdf"])).toBe("%PDF-1.4 Korrektur");
+    const daten = JSON.parse(new TextDecoder().decode(zip["daten.json"]));
+    expect(daten.letters).toEqual([
+      expect.objectContaining({
+        id: letterId,
+        kind: "account_statement",
+        date: "2026-10-12",
+        title: "Kontoauszug",
+        sentOn: null,
+      }),
+      expect.objectContaining({
+        id: correctionId,
+        kind: "supplier_correction_letter",
+        date: "2026-10-12",
+        title: "Bitte um Rechnungskorrektur",
+        subject: "Korrekturanforderung-1.pdf",
+      }),
+    ]);
+
+    // Art. 17: the alias goes now, the letter stays restricted until its retention ends
+    const erasure = await f.owner.mutation(api.dsgvo.create, {
+      contactId,
+      kind: "erasure",
+      channel: "email",
+      receivedAt: "2026-10-12",
+    });
+    await f.owner.mutation(api.dsgvo.verify, { id: erasure, method: "Rückruf unter bekannter Nummer" });
+    await f.owner.mutation(api.dsgvo.execute, { id: erasure });
+    expect(await t.run((ctx) => ctx.db.get(aliasId))).toBeNull();
+    expect(await t.run((ctx) => ctx.db.get(letterId))).not.toBeNull();
+  });
+
+  test("PRV-011 learned supplier defaults, duplicate hints, merge undo data, a recurring supplier voucher (with its reference file) and a running timer are erased; a manual entry naming the contact is retained (books10)", async () => {
+    const t = makeT();
+    const f = await finalizedInvoice(t);
+    const contactId = f.personId as Id<"contacts">;
+    const referenceId = await t.run((ctx) =>
+      ctx.storage.store(new Blob(["%PDF-1.4 Mietvertrag"], { type: "application/pdf" })),
+    );
+    const seeded = await t.run(async (ctx) => ({
+      profile: await ctx.db.insert("supplierProfiles", {
+        key: "erika muster",
+        contactId,
+        lastAccount: "4930",
+        uses: 3,
+        accountStreak: 3,
+        updatedAt: Date.now(),
+      }),
+      dismissed: await ctx.db.insert("dismissedDuplicates", {
+        a: contactId,
+        b: f.orgId as Id<"contacts">,
+        at: Date.now(),
+        actor: f.owner.actor,
+      }),
+      timer: await ctx.db.insert("runningTimer", { startedAt: Date.now(), contactId, startedVia: "ui" }),
+      rule: await ctx.db.insert("matchingRules", {
+        name: "Erika Muster zuordnen",
+        priority: 1,
+        enabled: true,
+        mode: "suggest",
+        when: { counterpartyContains: "Muster" },
+        apply: { action: "link_contact", contactId },
+        createdVia: "ui",
+        createdAt: Date.now(),
+        actor: f.owner.actor,
+      }),
+      time: await ctx.db.insert("timeEntries", {
+        contactId,
+        date: "2026-10-01",
+        durationMinutes: 60,
+        description: "Beratung",
+        hourlyRateMicros: 1_000_000,
+        currency: "EUR",
+        billable: true,
+        status: "invoiced",
+        invoicedLineHistory: [],
+        source: "manual",
+        retentionClass: "vouchers8",
+        retentionUntil: "2034-12-31",
+        actor: f.owner.actor,
+      }),
+      merge: await ctx.db.insert("contactMerges", {
+        winnerId: contactId,
+        loserId: f.orgId as Id<"contacts">,
+        moved: [],
+        fieldChoices: {},
+        restore: { winner: { notes: "alte Notiz zu Erika" }, loserStatus: "archived" },
+        at: Date.now(),
+        actor: f.owner.actor,
+      }),
+      recurring: await ctx.db.insert("recurringVouchers", {
+        name: "Miete Muster",
+        template: {
+          direction: "expense",
+          kind: "standard",
+          supplierContactId: contactId,
+          currency: "EUR",
+          priceMode: "gross",
+          taxRule: "no_input_vat",
+          lines: [{ account: "4210", amountCents: 50_000, vatRateBp: 0 }],
+        },
+        interval: "P1M",
+        firstDate: "2026-11-01",
+        nextDate: "2026-11-01",
+        active: true,
+        createAs: "draft",
+        referenceFile: {
+          storageId: referenceId,
+          sha256: "0".repeat(64),
+          bytes: 22,
+          mime: "application/pdf",
+          name: "mietvertrag.pdf",
+        },
+        lastGeneratedIds: [],
+        actor: f.owner.actor,
+        version: 1,
+      }),
+      manual: await ctx.db.insert("manualEntries", {
+        date: "2026-10-12",
+        text: "Ausbuchung Kleinbetrag",
+        lines: [
+          { account: "1400", debitCents: 0, creditCents: 100, contactId },
+          { account: "6930", debitCents: 100, creditCents: 0 },
+        ],
+        attachments: [],
+        recordedAt: Date.now(),
+        actor: f.owner.actor,
+      }),
+    }));
+    clearInvariantTarget(); // seeded directly
+
+    const p = await f.owner.query(api.dsgvo.preview, { contactId });
+    expect(p.deleteNow.map((i) => i.kind)).toEqual(
+      expect.arrayContaining([
+        "supplierProfiles",
+        "dismissedDuplicates",
+        "runningTimer",
+        "contactMerges",
+        "recurringVouchers",
+        "matchingRules",
+      ]),
+    );
+    expect(p.restrict).toContainEqual(
+      expect.objectContaining({
+        kind: "manualEntry",
+        id: seeded.manual,
+        retentionClass: "books10",
+        retentionUntil: "2036-12-31",
+      }),
+    );
+    expect(p.restrict).toContainEqual(
+      expect.objectContaining({
+        kind: "timeEntry",
+        id: seeded.time,
+        retentionClass: "vouchers8",
+        retentionUntil: "2034-12-31",
+      }),
+    );
+    const id = await f.owner.mutation(api.dsgvo.create, {
+      contactId,
+      kind: "erasure",
+      channel: "email",
+      receivedAt: "2026-10-12",
+    });
+    await f.owner.mutation(api.dsgvo.verify, { id, method: "Rückruf unter bekannter Nummer" });
+    await f.owner.mutation(api.dsgvo.execute, { id });
+    for (const gone of [seeded.profile, seeded.dismissed, seeded.timer, seeded.merge, seeded.recurring, seeded.rule]) {
+      expect(await t.run((ctx) => ctx.db.get(gone))).toBeNull();
+    }
+    expect(await t.run((ctx) => ctx.storage.get(referenceId))).toBeNull();
+    expect(await t.run((ctx) => ctx.db.get(seeded.manual))).not.toBeNull();
+  });
 });
 
 describe("DSGVO register (PRV-010)", { timeout: 60_000 }, () => {

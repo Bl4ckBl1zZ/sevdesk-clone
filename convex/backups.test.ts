@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
 import { api, internal } from "./_generated/api";
 import { memoryBuckets } from "./lib/backupStore";
+import { memoryBucketLock } from "./lib/checkpointStore";
 import { makeT } from "./test.setup";
 
 /** F12 AUD-026: backup status page data and the daily `backups.verify` notification (fake R2 lister). */
@@ -49,6 +50,45 @@ describe("backup status (AUD-026)", () => {
     expect(await t.action(internal.backups.verifyCron, { force: true })).toBe("ok");
     const after = await t.run((ctx) => ctx.db.query("notifications").collect());
     expect(after.find((n) => n.kind === "backup.stale")?.resolvedAt).toBeDefined();
+  });
+
+  test("E-AUD-44 without the read-only R2 credentials the status is unknown with the F12 warning", async () => {
+    const t = makeT();
+    const owner = await t.asUser("owner");
+    process.env.IS_TEST = ""; // no fake lister: the real one needs R2_BACKUP_READONLY_* (absent here)
+    try {
+      expect(await owner.action(api.backups.status, {})).toMatchObject({
+        configured: false,
+        status: "unknown",
+        notices: ["Sicherungsstatus kann nicht geprüft werden (R2-Lesezugang fehlt)."],
+      });
+      expect(await t.action(internal.backups.verifyCron, { force: true })).toBeNull(); // nothing notified
+    } finally {
+      process.env.IS_TEST = "true";
+    }
+  });
+
+  test("E-AUD-45 a checkpoint bucket without a bucket-lock rule adds the recommendation warning", async () => {
+    const t = makeT();
+    memoryBuckets.set("backups", [obj("postgres/x", 1), obj("convex-export/x", 1), obj("convex-volume/x", 1)]);
+    memoryBuckets.set("checkpoints", [obj("checkpoints/2026/10/19.jws", 1)]);
+    memoryBucketLock.value = "absent";
+    const o = await (await t.asUser("owner")).action(api.backups.status, {});
+    memoryBucketLock.value = "unknown";
+    expect(o.status).toBe("ok");
+    expect(o.checkpoint?.bucketLock).toBe("absent");
+    expect(o.notices).toEqual(["Für den Prüfpunkt-Bucket ist keine Aufbewahrungssperre eingerichtet (empfohlen)."]);
+  });
+
+  test("E-AUD-43 a stale database backup is notified with its age in hours", async () => {
+    const t = makeT();
+    memoryBuckets.set("backups", [obj("postgres/x", 30), obj("convex-export/x", 1), obj("convex-volume/x", 1)]);
+    expect(await t.action(internal.backups.verifyCron, { force: true })).toBe("notified");
+    const n = (await t.run((ctx) => ctx.db.query("notifications").collect())).find((x) => x.kind === "backup.stale");
+    expect(n).toMatchObject({
+      severity: "error",
+      title: "Dokploy-Datenbank (Postgres): Letzte Datenbanksicherung vor 30 Stunden.",
+    });
   });
 
   test("AUD-026 viewers may read the status; the page needs settings.read", async () => {

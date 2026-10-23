@@ -558,7 +558,7 @@ export const bulkFinalizeInput = systemQuery({
   args: { jobId: v.id("jobs") },
   handler: async (ctx, { jobId }) => {
     const j = await ctx.db.get(jobId);
-    if (!j || j.kind !== "voucher_bulk_finalize" || (j.status !== "queued" && j.status !== "running")) return null;
+    if (j?.kind !== "voucher_bulk_finalize" || (j.status !== "queued" && j.status !== "running")) return null;
     const p = j.params as { ids: Id<"vouchers">[]; labels: Record<string, string> };
     return { ids: p.ids, labels: p.labels, by: j.by };
   },

@@ -70,7 +70,7 @@ function BackupsPanelInner() {
         {!data ? (
           <div className="h-32" aria-busy="true" />
         ) : !data.configured ? (
-          <p role="status" className="text-muted-foreground text-sm">
+          <p role="status" className="text-sm text-warning">
             {t("notConfigured")}
           </p>
         ) : (
@@ -96,7 +96,9 @@ function BackupsPanelInner() {
                 {data.checkpoint.latest
                   ? t("checkpointLatest", { date: dateTimeDe.format(data.checkpoint.latest.at) })
                   : t("checkpointNone")}{" "}
-                {t(`bucketLock.${data.checkpoint.bucketLock}`)}
+                <span className={data.checkpoint.bucketLock === "absent" ? "text-warning" : undefined}>
+                  {t(`bucketLock.${data.checkpoint.bucketLock}`)}
+                </span>
               </p>
             )}
           </>

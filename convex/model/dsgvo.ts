@@ -24,7 +24,7 @@ import { auditedInsert, auditedPatch } from "./audit";
 import { shredContactKey } from "./contactKeys";
 import { createJob } from "./jobs";
 import { notifyKind } from "./notifications";
-import { contactReferences, deleteHashed } from "./retention";
+import { contactReferences, correctionLettersOfContact, deleteHashed, receivableLettersOfContact } from "./retention";
 import type { ModelCtx, ReadCtx } from "./types";
 
 /**
@@ -213,6 +213,58 @@ export async function notifyDeadlines(ctx: ModelCtx): Promise<number> {
   return n;
 }
 
+// ── data subject search (E-PRV-16) ───────────────────────────────────────────────────────────────────
+
+export interface SubjectHit {
+  kind: "contact" | "contactChannel" | "inboxItem" | "sendLog";
+  id: string;
+  contactId: string | null;
+  label: string;
+}
+
+/**
+ * F12 E-PRV-16: a data subject who is not a contact (e.g. a contact person in a supplier e-mail) is registered as a
+ * free subject; to find their data the owner searches the e-mail address across contacts (e-invoice address),
+ * contact channels, inbox items (sender, mail text) and send logs (notes). Case-insensitive, exact address match.
+ */
+export async function findSubjectByEmail(ctx: ReadCtx, email: string): Promise<SubjectHit[]> {
+  const needle = email.trim().toLowerCase();
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(needle))
+    throw appError("invalid_input", "Bitte eine gültige E-Mail-Adresse angeben.");
+  const has = (text: string | undefined) => (text ?? "").toLowerCase().includes(needle);
+  const hits: SubjectHit[] = [];
+  for (const c of await ctx.db.query("contacts").collect()) {
+    if (c.electronicAddress?.scheme === "EM" && c.electronicAddress.value.trim().toLowerCase() === needle) {
+      hits.push({ kind: "contact", id: c._id, contactId: c._id, label: `${c.number} ${c.displayName}` });
+    }
+  }
+  for (const ch of await ctx.db.query("contactChannels").collect()) {
+    if (ch.type === "email" && ch.value.trim().toLowerCase() === needle) {
+      const c = await ctx.db.get(ch.contactId);
+      hits.push({
+        kind: "contactChannel",
+        id: ch._id,
+        contactId: ch.contactId,
+        label: c ? `${c.number} ${c.displayName}` : "Kontaktweg",
+      });
+    }
+  }
+  for (const item of await ctx.db.query("inboxItems").collect()) {
+    if (has(item.from) || has(item.mailText)) {
+      hits.push({
+        kind: "inboxItem",
+        id: item._id,
+        contactId: null,
+        label: `Posteingang ${berlinCalendarDate(Math.floor(item._creationTime))}`,
+      });
+    }
+  }
+  for (const s of await ctx.db.query("sendLog").collect()) {
+    if (has(s.note)) hits.push({ kind: "sendLog", id: s._id, contactId: null, label: `Versand ${s.sentOn}` });
+  }
+  return hits;
+}
+
 // ── erasure (PRV-011, CON-162, EC-180) ─────────────────────────────────────────────────────────────────
 
 const addrKey = (a: { street?: string; postalCode?: string; city?: string }) =>
@@ -292,6 +344,40 @@ export async function erasurePreview(
     .collect()) {
     deletable.push({ kind: "recurringTemplates", id: r._id, label: "Vorlage für wiederkehrende Rechnungen" });
   }
+  for (const a of await ctx.db
+    .query("contactAliases")
+    .withIndex("by_contact", (q) => q.eq("contactId", contactId))
+    .collect()) {
+    deletable.push({ kind: "contactAliases", id: a._id, label: "Gelernter Zahlungsname (Bankabgleich)" });
+  }
+  // learned or configured data without retention duty that points at the person (PRV-011 bucket 1)
+  for (const s of await ctx.db.query("supplierProfiles").collect()) {
+    if (s.contactId === contactId)
+      deletable.push({ kind: "supplierProfiles", id: s._id, label: "Gelernte Lieferantenvorgaben" });
+  }
+  for (const r of await ctx.db.query("matchingRules").collect()) {
+    if (r.apply.contactId === contactId)
+      deletable.push({ kind: "matchingRules", id: r._id, label: `Abgleichsregel „${r.name}“` });
+  }
+  for (const r of await ctx.db.query("recurringVouchers").collect()) {
+    if (r.template.supplierContactId === contactId) {
+      deletable.push({ kind: "recurringVouchers", id: r._id, label: `Wiederkehrender Beleg „${r.name}“` });
+    }
+  }
+  for (const d of await ctx.db.query("dismissedDuplicates").collect()) {
+    if (d.a === contactId || d.b === contactId) {
+      deletable.push({ kind: "dismissedDuplicates", id: d._id, label: "Verworfener Dublettenhinweis" });
+    }
+  }
+  for (const m of await ctx.db.query("contactMerges").collect()) {
+    if (m.winnerId === contactId || m.loserId === contactId) {
+      deletable.push({ kind: "contactMerges", id: m._id, label: "Zusammenführungsprotokoll (Rückgängig-Daten)" });
+    }
+  }
+  for (const timer of await ctx.db.query("runningTimer").collect()) {
+    if (timer.contactId === contactId)
+      deletable.push({ kind: "runningTimer", id: timer._id, label: "Laufende Zeiterfassung" });
+  }
   const refs = (await contactReferences(ctx, contactId, day)).filter((r) => isRetained(r.retentionUntil, day));
   const printed =
     refs.length > 0
@@ -347,7 +433,7 @@ async function deleteItem(ctx: ModelCtx, item: ErasureItem, label: string) {
   if (item.kind === "salesDocuments") {
     const docId = item.id as Id<"salesDocuments">;
     const d = await ctx.db.get(docId);
-    if (!d || d.status !== "draft") return; // only drafts (bucket 1)
+    if (d?.status !== "draft") return; // only drafts (bucket 1)
     for (const l of await ctx.db
       .query("documentLines")
       .withIndex("by_document", (q) => q.eq("documentId", docId))
@@ -360,6 +446,17 @@ async function deleteItem(ctx: ModelCtx, item: ErasureItem, label: string) {
     for (const f of a?.attachments ?? []) {
       try {
         await ctx.storage.delete(f.storageId);
+      } catch {
+        // gone
+      }
+    }
+  }
+  if (item.kind === "recurringVouchers") {
+    // the supplier's reference invoice kept with the template
+    const r = await ctx.db.get(item.id as Id<"recurringVouchers">);
+    if (r?.referenceFile) {
+      try {
+        await ctx.storage.delete(r.referenceFile.storageId);
       } catch {
         // gone
       }
@@ -517,6 +614,20 @@ export async function accessExportData(ctx: ReadCtx, requestId: Id<"dsgvoRequest
       artifacts.push({ number: d.number ?? d._id, kind: a.kind, storageId: a.storageId, sha256: a.sha256 });
     }
   }
+  // F05 receivable letters and F06 supplier correction letters addressed to the person (PDFs into belege/)
+  const letters = await receivableLettersOfContact(ctx, contactId);
+  for (const l of letters) {
+    artifacts.push({
+      number: `${l.title}-${l.date}`,
+      kind: "letter_pdf",
+      storageId: l.file.storageId,
+      sha256: l.file.sha256,
+    });
+  }
+  const corrections = await correctionLettersOfContact(ctx, contactId);
+  for (const a of corrections) {
+    artifacts.push({ number: a.name.replace(/\.pdf$/i, ""), kind: a.kind, storageId: a.storageId, sha256: a.sha256 });
+  }
   const payments = await ctx.db
     .query("payments")
     .withIndex("by_contact", (q) => q.eq("contactId", contactId))
@@ -551,6 +662,24 @@ export async function accessExportData(ctx: ReadCtx, requestId: Id<"dsgvoRequest
     artifacts,
     payments: payments.map((p) => ({ id: p._id, date: p.date, amountCents: p.amountCents, number: p.number ?? null })),
     vatChecks: vatChecks.map((v) => ({ id: v._id, vatId: v.vatId, checkedAt: v.checkedAt, status: v.status })),
+    letters: [
+      ...letters.map((l) => ({
+        id: l._id,
+        kind: l.kind as string,
+        date: l.date,
+        title: l.title,
+        subject: l.subject,
+        sentOn: l.sent?.sentOn ?? null,
+      })),
+      ...corrections.map((a) => ({
+        id: a._id,
+        kind: a.kind as string,
+        date: berlinCalendarDate(a.createdAt) as string,
+        title: "Bitte um Rechnungskorrektur",
+        subject: a.name,
+        sentOn: null,
+      })),
+    ],
     audit,
   };
 }

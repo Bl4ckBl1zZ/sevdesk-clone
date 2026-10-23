@@ -8,6 +8,11 @@
 
 export type BackupStatus = "ok" | "warning" | "error" | "unknown";
 
+/** F12 E-AUD-44: without the read-only R2 credentials the status is „unbekannt“ (warning). */
+export const BACKUP_UNCHECKABLE = "Sicherungsstatus kann nicht geprüft werden (R2-Lesezugang fehlt).";
+/** F12 E-AUD-45: the checkpoint bucket has no bucket-lock rule (recommended, not required). */
+export const BUCKET_LOCK_MISSING = "Für den Prüfpunkt-Bucket ist keine Aufbewahrungssperre eingerichtet (empfohlen).";
+
 export interface BackupSource {
   readonly prefix: string;
   readonly label: string;
@@ -53,8 +58,11 @@ export function evaluateBackup(source: BackupSource, latest: LatestObject | null
       : ageHours > source.warnHours
         ? "warning"
         : "ok";
+  // F12 E-AUD-43: „Letzte Datenbanksicherung vor {stunden} Stunden.“
   const detail =
-    status === "ok" ? `Letzte Sicherung ${ageText(ageHours)}.` : `Letzte Sicherung ${ageText(ageHours)} – zu alt.`;
+    status === "ok"
+      ? `Letzte Sicherung ${ageText(ageHours)}.`
+      : `Letzte Datenbanksicherung vor ${Math.floor(ageHours)} Stunden.`;
   return { ...base, ageHours, status, detail };
 }
 

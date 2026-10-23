@@ -18,7 +18,13 @@ import { systemAction } from "./functions";
 
 const enc = new TextEncoder();
 const sha = (b: Uint8Array) => createHash("sha256").update(b).digest("hex");
-const EXT: Record<string, string> = { pdf: "pdf", zugferd_pdf: "pdf", xrechnung_xml: "xml" };
+const EXT: Record<string, string> = {
+  pdf: "pdf",
+  zugferd_pdf: "pdf",
+  xrechnung_xml: "xml",
+  letter_pdf: "pdf", // F05 receivable letters
+  supplier_correction_letter: "pdf", // F06 INB-046
+};
 const safe = (s: string) => s.replace(/[^A-Za-z0-9._-]/g, "_");
 
 export const runExport = systemAction({
@@ -50,6 +56,7 @@ export const runExport = systemAction({
             documents: data.documents,
             payments: data.payments,
             vatChecks: data.vatChecks,
+            letters: data.letters,
             audit: data.audit,
           };
       const files: Record<string, Uint8Array> = {
@@ -76,6 +83,7 @@ export const runExport = systemAction({
             Aktivitäten: data.activities.length,
             Belege: data.documents.length,
             Zahlungen: data.payments.length,
+            Schreiben: data.letters.length,
             "USt-IdNr.-Prüfungen": data.vatChecks.length,
             Protokolleinträge: data.audit.length,
           },

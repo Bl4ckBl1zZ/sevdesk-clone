@@ -1,10 +1,11 @@
+import { exportPKCS8, generateKeyPair } from "jose";
 import { afterEach, describe, expect, test } from "vitest";
 import { sha256Hex } from "../src/domain/audit/chain";
 import { clearInvariantTarget } from "../test/invariants";
 import { api, internal } from "./_generated/api";
 import { checkpointKey, memoryCheckpointObjects, memoryFailures } from "./lib/checkpointStore";
 import { errorCode } from "./lib/errors";
-import { loadCheckpointKey, verifyCheckpoint } from "./lib/jws";
+import { loadCheckpointKey, signCheckpoint, verifyCheckpoint } from "./lib/jws";
 import { berlinParts } from "./lib/time";
 import { makeT, type TestT } from "./test.setup";
 
@@ -41,7 +42,7 @@ describe("integrity.verify (AUD-013, RI-14)", () => {
     expect(second.lastVerifiedSeq).toBeGreaterThan(first.lastVerifiedSeq);
   });
 
-  test("AUD-013 SEC-04 a direct DB edit of an audit diff is reported with the first broken seq (E-AUD-03/05)", async () => {
+  test("E-AUD-05 AUD-013 SEC-04 a direct DB edit of an audit diff is reported with the first broken seq and its entity", async () => {
     const t = makeT();
     await withActivity(t);
     const target = await t.run(async (ctx) => {
@@ -66,7 +67,7 @@ describe("integrity.verify (AUD-013, RI-14)", () => {
     clearInvariantTarget(); // tampered on purpose
   });
 
-  test("AUD-013 RI-14 a deleted audit entry is reported as a gap (E-AUD-04)", async () => {
+  test("E-AUD-04 AUD-013 RI-14 a deleted audit entry is reported as a gap with its seq range", async () => {
     const t = makeT();
     await withActivity(t);
     await t.run(async (ctx) => {
@@ -77,13 +78,21 @@ describe("integrity.verify (AUD-013, RI-14)", () => {
       if (e) await ctx.db.delete(e._id);
     });
     const res = await t.action(internal.integrity.verify, {});
-    expect(res.findings.map((f) => f.kind)).toContain("chain_gap");
+    expect(res.findings).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          kind: "chain_gap",
+          severity: "error",
+          detail: "Lücke in der Protokollkette zwischen seq 1 und 3.",
+        }),
+      ]),
+    );
     const invariants = await t.query(internal.invariants.check, {});
     expect(invariants.map((v) => v.id)).toContain("RI-14");
     clearInvariantTarget();
   });
 
-  test("AUD-015 only the owner acknowledges a failed run, with a note (E-AUD-16); this unblocks finalisation", async () => {
+  test("E-AUD-16 AUD-015 only the owner acknowledges a failed run, with a note; this unblocks finalisation", async () => {
     const t = makeT();
     await withActivity(t);
     await t.run(async (ctx) => {
@@ -99,8 +108,12 @@ describe("integrity.verify (AUD-013, RI-14)", () => {
     const { lastRun } = await owner.query(api.integrity.status, {});
     if (!lastRun) throw new Error("no run");
     await expect(bookkeeper.mutation(api.integrity.acknowledge, { runId: lastRun.id, note: "x" })).rejects.toThrow();
-    const short = await owner.mutation(api.integrity.acknowledge, { runId: lastRun.id, note: " " }).catch(errorCode);
-    expect(short).toBe("invalid_input");
+    const short = await owner
+      .mutation(api.integrity.acknowledge, { runId: lastRun.id, note: " " })
+      .catch((e: unknown) => e);
+    expect(errorCode(short)).toBe("invalid_input");
+    expect((short as { data: { message: string } }).data.message).toBe("Bitte beschreiben Sie Ursache und Maßnahmen.");
+    expect((await owner.query(api.integrity.status, {})).finalisationBlocked).toBe(true);
     await owner.mutation(api.integrity.acknowledge, {
       runId: lastRun.id,
       note: "Testmanipulation, Ursache dokumentiert",
@@ -160,22 +173,34 @@ describe("signed daily checkpoint (AUD-016, SEC-04)", () => {
     expect(await sha256Hex(first.jws)).toMatch(/^[0-9a-f]{64}$/);
   });
 
-  test("AUD-016 a failed upload is recorded and retried by the hourly run (E-AUD-10)", async () => {
+  test("E-AUD-10 AUD-016 a failed upload is recorded and retried hourly; the second failure notifies with the error", async () => {
     const t = makeT();
     await withActivity(t);
-    memoryFailures.remaining = 1;
+    memoryFailures.remaining = 2;
     const res = await t.action(internal.integrity.checkpoint, {});
     expect(res).toMatchObject({ uploaded: false });
     expect(await t.run((ctx) => ctx.db.query("integrityCheckpoints").first())).toMatchObject({
       uploadStatus: "failed",
     });
+    const notified = () =>
+      t.run(async (ctx) =>
+        (await ctx.db.query("notifications").collect()).filter((n) => n.kind === "checkpoint.upload_failed"),
+      );
+    expect(await notified()).toHaveLength(0); // one failure: retry, no notification yet
+    await t.action(internal.integrity.checkpointCron, { force: true }); // hourly retry fails again
+    expect(await notified()).toEqual([
+      expect.objectContaining({
+        severity: "critical",
+        title: expect.stringMatching(/^Prüfpunkt konnte nicht extern gespeichert werden \(.+\)\.$/),
+      }),
+    ]);
     await t.action(internal.integrity.checkpointCron, { force: true });
     expect(await t.run((ctx) => ctx.db.query("integrityCheckpoints").first())).toMatchObject({
       uploadStatus: "uploaded",
     });
   });
 
-  test("AUD-013 the verify run checks the checkpoint: a differing R2 copy is critical (E-AUD-06)", async () => {
+  test("E-AUD-06 AUD-013 the verify run checks the checkpoint: a differing R2 copy or an invalid signature is critical", async () => {
     const t = makeT();
     await withActivity(t);
     await t.action(internal.integrity.checkpoint, {});
@@ -183,15 +208,28 @@ describe("signed daily checkpoint (AUD-016, SEC-04)", () => {
     const date = berlinParts(Date.now()).date;
     memoryCheckpointObjects.set(checkpointKey(date), "eyJ.forged.copy");
     const res = await t.action(internal.integrity.verify, {});
+    const message = `Prüfpunkt vom ${date.split("-").reverse().join(".")} ist ungültig oder weicht von der externen Kopie ab.`;
     expect(res.findings).toEqual([
-      expect.objectContaining({
-        kind: "checkpoint_signature",
-        detail: expect.stringContaining("weicht von der externen Kopie ab"),
-      }),
+      expect.objectContaining({ kind: "checkpoint_signature", severity: "error", detail: message }),
     ]);
+    // the local JWS itself is altered (signature no longer valid)
+    memoryCheckpointObjects.clear();
+    await t.run(async (ctx) => {
+      const cp = await ctx.db.query("integrityCheckpoints").first();
+      if (!cp) throw new Error("no checkpoint");
+      const [h, p, sig] = cp.jws.split(".");
+      await ctx.db.patch(cp._id, { jws: `${h}.${p}.${sig?.slice(0, -4)}AAAA` });
+    });
+    const forged = await t.action(internal.integrity.verify, {});
+    expect(forged.ok).toBe(false);
+    expect(forged.findings.length).toBeGreaterThan(0);
+    for (const f of forged.findings) {
+      expect(f).toMatchObject({ kind: "checkpoint_signature", severity: "error", detail: message });
+    }
+    clearInvariantTarget();
   });
 
-  test("AUD-013 RI-14 rows removed from an append-only table after the checkpoint are reported (E-AUD-09)", async () => {
+  test("E-AUD-09 AUD-013 RI-14 rows removed from an append-only table after the checkpoint are a critical finding", async () => {
     const t = makeT();
     await withActivity(t);
     await t.action(internal.integrity.verify, {});
@@ -201,7 +239,16 @@ describe("signed daily checkpoint (AUD-016, SEC-04)", () => {
       if (run) await ctx.db.delete(run._id);
     });
     const res = await t.action(internal.integrity.verify, {});
-    expect(res.findings.some((f) => f.detail.startsWith("In integrityRuns fehlen 1 Datensätze"))).toBe(true);
+    const date = berlinParts(Date.now()).date.split("-").reverse().join(".");
+    expect(res.ok).toBe(false);
+    expect(res.findings).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          severity: "error",
+          detail: `In integrityRuns fehlen 1 Datensätze gegenüber dem Prüfpunkt vom ${date}.`,
+        }),
+      ]),
+    );
     clearInvariantTarget();
   });
 
@@ -240,6 +287,91 @@ describe("signed daily checkpoint (AUD-016, SEC-04)", () => {
     const t = makeT();
     expect(await t.action(internal.integrity.verifyCron, {})).toBeNull();
     expect(await t.action(internal.integrity.checkpointCron, {})).toBeNull();
+  });
+});
+
+describe("checkpoint verification tool (AUD-017)", () => {
+  afterEach(() => {
+    delete process.env.CHECKPOINT_RETIRED_PUBLIC_JWKS;
+  });
+
+  test("AUD-017 „Prüfpunkt verifizieren“: an uploaded checkpoint verifies by signature and lastSeq/lastHash in the chain", async () => {
+    const t = makeT();
+    const owner = await withActivity(t);
+    const cp = await t.action(internal.integrity.checkpoint, {});
+    if (!("jws" in cp)) throw new Error("no checkpoint");
+    await owner.mutation(api.invites.create, { email: "later@example.test", role: "viewer" }); // the chain grew
+    const key = await loadCheckpointKey(process.env.CHECKPOINT_SIGNING_KEY_PEM as string);
+    const res = await owner.action(api.integrity.verifyCheckpointFile, { jws: `${cp.jws}\n` });
+    expect(res).toMatchObject({ ok: true, message: "Prüfpunkt bestätigt.", kid: key.kid });
+    expect(res.checks.map((c) => [c.id, c.status])).toEqual([
+      ["signature", "ok"],
+      ["chain", "ok"],
+    ]);
+    expect(res.checks[0]?.detail).toBe(`Signatur gültig (Schlüssel-Fingerabdruck ${key.kid}).`);
+    // auditors may verify too (read-only), viewers may not
+    expect((await (await t.asUser("auditor")).action(api.integrity.verifyCheckpointFile, { jws: cp.jws })).ok).toBe(
+      true,
+    );
+    const viewer = await t.asUser("viewer");
+    expect(errorCode(await viewer.action(api.integrity.verifyCheckpointFile, { jws: cp.jws }).catch((e) => e))).toBe(
+      "forbidden_role",
+    );
+    // nothing was written by the verification
+    expect(await t.run(async (ctx) => (await ctx.db.query("integrityRuns").collect()).length)).toBe(0);
+  });
+
+  test("AUD-017 a modified checkpoint, one from another chain state and a non-JWS file are not confirmed", async () => {
+    const t = makeT();
+    const owner = await withActivity(t);
+    const cp = await t.action(internal.integrity.checkpoint, {});
+    if (!("jws" in cp)) throw new Error("no checkpoint");
+    const [h, , sig] = cp.jws.split(".");
+    const forgedPayload = Buffer.from(JSON.stringify({ date: "2026-10-12", lastSeq: 1, lastHash: "x" })).toString(
+      "base64url",
+    );
+    const forged = await owner.action(api.integrity.verifyCheckpointFile, { jws: `${h}.${forgedPayload}.${sig}` });
+    expect(forged.ok).toBe(false);
+    expect(forged.checks[0]).toMatchObject({ id: "signature", status: "error" });
+
+    // validly signed, but the hash at lastSeq is not the one of this chain (e.g. a checkpoint of a manipulated copy)
+    const key = await loadCheckpointKey(process.env.CHECKPOINT_SIGNING_KEY_PEM as string);
+    const foreign = await signCheckpoint(
+      { instance: "test", date: "2026-10-12", lastSeq: 2, lastHash: "0".repeat(64) },
+      key,
+    );
+    const r = await owner.action(api.integrity.verifyCheckpointFile, { jws: foreign });
+    expect(r.ok).toBe(false);
+    expect(r.message).toBe(
+      "Prüfpunkt nicht bestätigt: Protokolleintrag seq 2 stimmt nicht mit dem Prüfpunkt vom 12.10.2026 überein.",
+    );
+
+    expect(await owner.action(api.integrity.verifyCheckpointFile, { jws: "hallo" })).toMatchObject({
+      ok: false,
+      checks: [{ id: "format", status: "error" }],
+    });
+  });
+
+  test("AUD-017 after a key rotation the retired public key still verifies old checkpoints; unknown keys are reported", async () => {
+    const t = makeT();
+    const owner = await withActivity(t);
+    const head = await t.run((ctx) => ctx.db.query("auditLog").withIndex("by_seq").order("desc").first());
+    if (!head) throw new Error("no head");
+    const { privateKey } = await generateKeyPair("ES256", { extractable: true });
+    const old = await loadCheckpointKey(await exportPKCS8(privateKey));
+    const jws = await signCheckpoint(
+      { instance: "test", date: "2026-01-02", lastSeq: head.seq, lastHash: head.hash },
+      old,
+    );
+    const unknown = await owner.action(api.integrity.verifyCheckpointFile, { jws });
+    expect(unknown.checks[0]).toEqual({
+      id: "signature",
+      status: "error",
+      detail: `Der Schlüssel ${old.kid} ist nicht hinterlegt – Signatur kann nicht geprüft werden.`,
+    });
+    process.env.CHECKPOINT_RETIRED_PUBLIC_JWKS = JSON.stringify([old.publicJwk]);
+    const ok = await owner.action(api.integrity.verifyCheckpointFile, { jws });
+    expect(ok).toMatchObject({ ok: true, kid: old.kid });
   });
 });
 

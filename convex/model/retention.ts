@@ -93,6 +93,22 @@ export const PURGE_UNITS: readonly UnitDef[] = [
     label: (d) => `Buchung ${String(d.seq ?? "")}`,
   },
   { table: "vatIdChecks", cls: "books10", until: (d) => str(d.retentionUntil), label: () => "USt-IdNr.-Prüfung" },
+  // F05 PAY-005/048, DUN-028/044: archived account statements, payment confirmations, interest claims and
+  // Mahnbescheid sheets are business correspondence (Handels- und Geschäftsbriefe, 6 years from the letter date).
+  {
+    table: "receivableLetters",
+    cls: "letters6",
+    until: computed("letters6", "date"),
+    label: (d) => `${str(d.title) ?? "Schreiben"} ${str(d.date) ?? ""}`.trim(),
+  },
+  // F06 INB-046: the archived „Bitte um Rechnungskorrektur“ letter (owner = the inbox item, not a document); the
+  // artifacts of documents are purged with their document (children).
+  {
+    table: "documentArtifacts",
+    cls: "letters6",
+    until: (d) => (d.kind === "supplier_correction_letter" ? str(d.retentionUntil) : undefined),
+    label: (d) => str(d.name) ?? "Korrekturschreiben",
+  },
 ];
 
 export interface PurgeUnit extends RetainedRecord {
@@ -229,6 +245,82 @@ export async function contactReferences(ctx: ReadCtx, contactId: Id<"contacts">,
     .withIndex("by_contact", (q) => q.eq("contactId", contactId))
     .collect()) {
     push("openingItem", "openingItems", o._id, "books10", `${o.fiscalYear + 10}-12-31`, `Eröffnungsposten ${o.number}`);
+  }
+  for (const l of await receivableLettersOfContact(ctx, contactId)) {
+    push(
+      "receivableLetter",
+      "receivableLetters",
+      l._id,
+      "letters6",
+      retentionUntilFor("letters6", l.date, day > l.date ? day : l.date),
+      `${l.title} ${l.date}`,
+    );
+  }
+  for (const a of await correctionLettersOfContact(ctx, contactId)) {
+    push("correctionLetter", "documentArtifacts", a._id, "letters6", a.retentionUntil, a.name);
+  }
+  // F08 manual journal entries naming the contact on a line (books10 from the entry date)
+  for (const m of await ctx.db.query("manualEntries").collect()) {
+    if (!m.lines.some((l) => l.contactId === contactId)) continue;
+    const until = retentionUntilFor("books10", m.date, day > m.date ? day : m.date);
+    if (until) push("manualEntry", "manualEntries", m._id, "books10", until, `Buchung ${m.date} ${m.text}`);
+  }
+  // F11 invoiced time entries are part of the invoice basis (vouchers8, retentionUntil set when invoiced)
+  for (const e of await ctx.db
+    .query("timeEntries")
+    .withIndex("by_contact", (q) => q.eq("contactId", contactId))
+    .collect()) {
+    if (e.retentionClass === "vouchers8" && e.retentionUntil) {
+      push("timeEntry", "timeEntries", e._id, "vouchers8", e.retentionUntil, `Zeiteintrag ${e.date}`);
+    }
+  }
+  return out;
+}
+
+/**
+ * F05 receivable letters addressed to the contact: linked directly or through one of its documents (a payment
+ * confirmation may carry only the document link).
+ */
+export async function receivableLettersOfContact(
+  ctx: ReadCtx,
+  contactId: Id<"contacts">,
+): Promise<Doc<"receivableLetters">[]> {
+  const byId = new Map<string, Doc<"receivableLetters">>();
+  for (const l of await ctx.db
+    .query("receivableLetters")
+    .withIndex("by_contact", (q) => q.eq("contactId", contactId))
+    .collect()) {
+    byId.set(l._id, l);
+  }
+  for (const d of await ctx.db
+    .query("salesDocuments")
+    .withIndex("by_contact", (q) => q.eq("contactId", contactId))
+    .collect()) {
+    for (const l of await ctx.db
+      .query("receivableLetters")
+      .withIndex("by_document", (q) => q.eq("documentId", d._id))
+      .collect()) {
+      byId.set(l._id, l);
+    }
+  }
+  return [...byId.values()];
+}
+
+/**
+ * F06 INB-046 supplier correction letters to the contact: the inbox item matched the supplier contact or was
+ * converted into a voucher of that supplier.
+ */
+export async function correctionLettersOfContact(
+  ctx: ReadCtx,
+  contactId: Id<"contacts">,
+): Promise<Doc<"documentArtifacts">[]> {
+  const out: Doc<"documentArtifacts">[] = [];
+  for (const a of await ctx.db.query("documentArtifacts").collect()) {
+    if (a.kind !== "supplier_correction_letter" || !a.inboxItemId) continue;
+    const item = await ctx.db.get(a.inboxItemId);
+    if (!item) continue;
+    const voucher = item.voucherId ? await ctx.db.get(item.voucherId) : null;
+    if (item.supplierMatch?.contactId === contactId || voucher?.supplierContactId === contactId) out.push(a);
   }
   return out;
 }
@@ -570,7 +662,13 @@ async function anonymiseContact(ctx: ModelCtx, batchId: Id<"purgeBatches">, u: P
   if (!c) return 0;
   await tombstone(ctx, batchId, { table: "contacts", id, doc: c as unknown as Record<string, unknown> }, u, c.number);
   let n = 1;
-  const subTables = ["contactAddresses", "contactChannels", "contactActivities", "customerPrices"] as const;
+  const subTables = [
+    "contactAddresses",
+    "contactChannels",
+    "contactActivities",
+    "customerPrices",
+    "contactAliases", // BNK-048 learned counterparty name token / IBAN
+  ] as const;
   for (const t of subTables) {
     for (const row of await ctx.db
       .query(t)
@@ -652,7 +750,7 @@ export async function purgeStep(
   limit = 25,
 ): Promise<{ done: boolean; processed: number }> {
   const batch = await ctx.db.get(batchId);
-  if (!batch || batch.status !== "running") return { done: true, processed: 0 };
+  if (batch?.status !== "running") return { done: true, processed: 0 };
   if (await activeHold(ctx)) throw appError("conflict", PURGE_MESSAGES.hold);
   const day = today(ctx);
   const units = (await selectedUnits(ctx, day, { classes: batch.classes as PurgeClass[], years: batch.years })).slice(
@@ -687,7 +785,7 @@ export async function purgeStep(
 
 export async function auditPrefixCandidate(ctx: ReadCtx & { now: () => number }, batchId: Id<"purgeBatches">) {
   const batch = await ctx.db.get(batchId);
-  if (!batch || batch.status !== "running" || !batch.classes.includes("auditLog")) return null;
+  if (batch?.status !== "running" || !batch.classes.includes("auditLog")) return null;
   const { upToSeq } = await auditPrefix(ctx, today(ctx));
   if (upToSeq === 0) return null;
   const entry = await ctx.db
@@ -833,7 +931,7 @@ export async function finishPurgeBatch(
   result: { ok: boolean; offHostLogKey?: string; error?: string },
 ) {
   const b = await ctx.db.get(batchId);
-  if (!b || b.status !== "running") return;
+  if (b?.status !== "running") return;
   await auditedPatch(
     ctx,
     "purgeBatches",

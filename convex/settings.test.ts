@@ -99,6 +99,7 @@ const ARGS: Record<string, Record<string, unknown>> = {
   "invites:resend": { inviteId: "placeholder" },
   "invites:revoke": { inviteId: "placeholder" },
   "integrity:acknowledge": { runId: "placeholder", note: "geprüft" },
+  "integrity:verifyCheckpointFile": { jws: "kein.pruef.punkt" },
   "settings:addBankAccount": { values: { ...BANK, name: "Zweitkonto", iban: "DE02 1203 0000 0000 2020 51" } },
   "settings:setDefaultBankAccount": { bankAccountId: "placeholder" },
   "settings:archiveBankAccount": { bankAccountId: "placeholder" },

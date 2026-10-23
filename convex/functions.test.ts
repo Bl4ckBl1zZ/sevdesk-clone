@@ -2,7 +2,7 @@ import { v } from "convex/values";
 import { afterEach, describe, expect, test } from "vitest";
 import { clearInvariantTarget } from "../test/invariants";
 import { api, internal } from "./_generated/api";
-import { mutation, query, systemMutation } from "./functions";
+import { auditCheck, mutation, query, systemMutation } from "./functions";
 import { errorCode } from "./lib/errors";
 import { appendAudit } from "./model/audit";
 import { guardedDb, newWriteStats } from "./model/db";
@@ -71,8 +71,9 @@ describe("wrappers: roles and scopes (02 §4.3, E-AUD-29)", () => {
       expect.unreachable();
     } catch (e) {
       expect(errorCode(e)).toBe("forbidden_role");
+      // E-AUD-32: an auditor is told „Nur Lesezugriff.“, the other roles their role (E-AUD-29)
       expect((e as { data: { message: string } }).data.message).toMatch(
-        /^Ihre Rolle \(.+\) erlaubt diese Aktion nicht\.$/,
+        role === "auditor" ? /^Nur Lesezugriff\.$/ : /^Ihre Rolle \(.+\) erlaubt diese Aktion nicht\.$/,
       );
     }
   });
@@ -182,7 +183,7 @@ describe("wrappers: definition rules (AUD-011, AUD-012)", () => {
 describe("guarded db (AUD-001, AUD-005, AUD-010)", () => {
   afterEach(() => clearInvariantTarget());
 
-  test("AUD-005 audit entries cannot be patched or deleted through the model layer (E-AUD-02)", async () => {
+  test("E-AUD-02 AUD-005 audit entries cannot be patched or deleted through the model layer: immutable_record with the F12 text", async () => {
     const t = makeT();
     const owner = await t.asUser("owner");
     await owner.mutation(api.invites.create, { email: "a@b.de", role: "viewer" });
@@ -194,12 +195,22 @@ describe("guarded db (AUD-001, AUD-005, AUD-010)", () => {
       const patch = await codeOf(db.patch("auditLog", first._id, { reason: "forged" }));
       const legacy = await codeOf(db.patch(first._id, { reason: "forged" }));
       const del = await codeOf(db.delete("auditLog", first._id));
-      return [patch, legacy, del];
+      const replace = await db.replace("auditLog", first._id, { ...first, reason: "forged" }).catch((e: unknown) => e);
+      const message = (replace as { data?: { message?: string } }).data?.message;
+      return [patch, legacy, del, errorCode(replace), message];
     });
-    expect(code).toEqual(["immutable_record", "immutable_record", "immutable_record"]);
+    expect(code).toEqual([
+      "immutable_record",
+      "immutable_record",
+      "immutable_record",
+      "immutable_record",
+      "Protokolleinträge sind unveränderlich.",
+    ]);
+    // nothing changed: the chain still verifies
+    expect((await t.action(internal.integrity.verify, {})).ok).toBe(true);
   });
 
-  test("AUD-001 a transaction that writes without an audit entry is detected (E-AUD-01 audit_missing)", async () => {
+  test("E-AUD-01 AUD-001 a transaction that writes without an audit entry is detected (audit_missing)", async () => {
     const t = makeT();
     const stats = await t.run(async (ctx) => {
       const s = newWriteStats();
@@ -220,6 +231,28 @@ describe("guarded db (AUD-001, AUD-005, AUD-010)", () => {
     expect(violations).toEqual([
       expect.objectContaining({ id: "RI-15", message: expect.stringContaining("ohne Protokolleintrag") }),
     ]);
+  });
+
+  test("E-AUD-01 the wrapper aborts an unaudited write with audit_missing and the F12 text; audited writes pass", () => {
+    const unaudited = newWriteStats();
+    unaudited.writes = 1;
+    const e = (() => {
+      try {
+        auditCheck(unaudited)();
+        return undefined;
+      } catch (x) {
+        return x;
+      }
+    })();
+    expect(errorCode(e)).toBe("audit_missing");
+    expect((e as { data: { message: string } }).data.message).toBe(
+      "Interner Fehler: Änderung ohne Protokolleintrag abgelehnt.",
+    );
+    const audited = newWriteStats();
+    audited.writes = 1;
+    audited.audits = 1;
+    expect(() => auditCheck(audited)()).not.toThrow();
+    expect(() => auditCheck(newWriteStats())()).not.toThrow(); // reads only
   });
 
   test("AUD-001 audited writes count as audited", async () => {

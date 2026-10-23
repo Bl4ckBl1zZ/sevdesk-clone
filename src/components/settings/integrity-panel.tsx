@@ -7,6 +7,7 @@ import { useState } from "react";
 import { toast } from "sonner";
 import { useRun } from "@/components/catalog/shared";
 import { ConvexGuard } from "@/components/convex/convex-provider";
+import { CheckpointVerify } from "@/components/settings/checkpoint-verify";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { useAuthedQuery } from "@/hooks/use-authed-query";
@@ -92,6 +93,7 @@ function IntegrityPanelInner() {
           </ul>
         )}
         {me?.role === "owner" && <RunNowButton />}
+        <CheckpointVerify />
       </CardContent>
     </Card>
   );

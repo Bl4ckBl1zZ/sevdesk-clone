@@ -1,6 +1,6 @@
 import { createHmac } from "node:crypto";
 import { createFunctionHandle } from "convex/server";
-import { afterEach, describe, expect, test } from "vitest";
+import { afterEach, describe, expect, test, vi } from "vitest";
 import { api, components, internal } from "./_generated/api";
 import { createAuthOptions } from "./auth";
 import { errorCode } from "./lib/errors";
@@ -95,7 +95,7 @@ describe("sign-up gate via Better Auth (02 §4.3, TST-AUD-28)", () => {
     });
   });
 
-  test("SEC-01 bootstrap: any other address is refused before a code is sent (E-AUD-26)", async () => {
+  test("E-AUD-26 SEC-01 bootstrap: any other address is refused before a code is sent; no user, audited with a hash only", async () => {
     const t = makeT();
     const res = await requestCode(t, "intruder@example.test");
     expect(res.status).toBe(403);
@@ -174,6 +174,25 @@ describe("sign-up gate via Better Auth (02 §4.3, TST-AUD-28)", () => {
     const res = await requestCode(t, "old@example.test");
     expect(res.status).toBe(403);
     expect(res.json.message).toBe("Ihr Zugang ist abgelaufen.");
+  });
+
+  test("E-AUD-26 after bootstrap an uninvited address gets no user; the refusal is audited with a hash, not the address", async () => {
+    const t = makeT();
+    await signIn(t, OWNER);
+    const refused = await requestCode(t, "fremd@example.test");
+    expect(refused.status).toBe(403);
+    expect(refused.json.message).toBe("Für diese E-Mail-Adresse besteht keine Einladung.");
+    expect(await lastCode(t, "fremd@example.test")).toBeUndefined();
+    const denied = (await t.run((ctx) => ctx.db.query("auditLog").collect())).filter(
+      (e) => e.action === "security.access_denied",
+    );
+    expect(denied).toEqual([
+      expect.objectContaining({
+        entity: expect.objectContaining({ id: expect.stringMatching(/^email-sha256:[0-9a-f]{32}$/) }),
+      }),
+    ]);
+    expect(JSON.stringify(denied)).not.toContain("fremd@example.test");
+    expect((await t.run((ctx) => ctx.db.query("members").collect())).map((m) => m.email)).toEqual([OWNER]);
   });
 
   test("SEC-02 sign-out ends the session and is audited (auth.sign_out)", async () => {
@@ -274,13 +293,37 @@ describe("OTP throttle and auth mail (02 §4.2, §9)", () => {
     process.env.BETTER_AUTH_SECRET = saved.BETTER_AUTH_SECRET;
   });
 
-  test("SEC-01 at most 5 codes per hour per address (E-AUD-27); other addresses are unaffected", async () => {
+  test("E-AUD-27 SEC-01 at most 5 codes per hour per address; other addresses are unaffected", async () => {
     const t = makeT();
     for (let i = 0; i < 5; i++) expect((await requestCode(t, OWNER)).status).toBe(200);
     const sixth = await requestCode(t, OWNER);
     expect(sixth.status).toBe(429);
     expect(sixth.json.message).toMatch(/^Zu viele Codes angefordert — bitte in \d+ Minuten erneut versuchen\.$/);
     expect((await requestCode(t, "OTHER@example.test")).status).toBe(403); // gate, not throttle
+  });
+
+  test("E-AUD-27 at most 20 codes per day per address, even when the hourly window is fresh", async () => {
+    const t = makeT();
+    const start = new Date("2026-10-12T06:00:00Z").getTime();
+    vi.useFakeTimers({ toFake: ["Date"] });
+    try {
+      for (let h = 0; h < 4; h++) {
+        vi.setSystemTime(start + h * 61 * 60_000);
+        for (let i = 0; i < 5; i++) {
+          expect(await t.mutation(internal.signup.consumeOtpQuota, { email: "viel@example.test" })).toEqual({
+            ok: true,
+          });
+        }
+      }
+      vi.setSystemTime(start + 5 * 61 * 60_000); // new hour window, 21st code of the day
+      const refused = await t.mutation(internal.signup.consumeOtpQuota, { email: "Viel@Example.test" });
+      expect(refused).toMatchObject({ ok: false });
+      if (refused.ok) throw new Error("not throttled");
+      expect(refused.message).toMatch(/^Zu viele Codes angefordert — bitte in \d+ Minuten erneut versuchen\.$/);
+      expect(refused.retryAfter).toBeGreaterThan(60 * 60_000);
+    } finally {
+      vi.useRealTimers();
+    }
   });
 
   test("SEC-01 the throttle reset exists only for tests (IS_TEST) and is a no-op otherwise", async () => {

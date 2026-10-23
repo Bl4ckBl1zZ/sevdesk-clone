@@ -1,4 +1,5 @@
-import { canDo, type Permission, ROLE_LABEL_DE } from "@/domain/access/permissions";
+import { forbiddenRoleMessage } from "@/domain/access/auditor";
+import { canDo, type Permission } from "@/domain/access/permissions";
 import { memberAccess } from "@/domain/access/signup";
 import type { MemberRole } from "@/domain/schemas/actor";
 
@@ -32,7 +33,7 @@ export function checkAccess(member: CurrentMember | null, permission: Permission
     return {
       ok: false,
       reason: "forbidden_role",
-      message: `Ihre Rolle (${ROLE_LABEL_DE[member.role]}) erlaubt diese Aktion nicht.`,
+      message: forbiddenRoleMessage(member.role), // E-AUD-32: „Nur Lesezugriff.“ for auditors
     };
   }
   return { ok: true, member };

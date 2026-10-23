@@ -2,10 +2,11 @@ import { api } from "@convex/_generated/api";
 import { RoleGate } from "@/components/auth/role-gate";
 import { SettingsPage } from "@/components/settings/settings-page";
 import { SecurityPanel } from "@/components/settings/system-panels";
-import { evaluateSecurity, WEB_SECRET_ENV } from "@/domain/system/security";
+import { certificateCheck, evaluateSecurity, WEB_SECRET_ENV } from "@/domain/system/security";
 import { fetchAuthQuery } from "@/lib/auth-server";
 import { cachedHealth } from "@/server/system/health";
 import { systemVersions } from "@/server/system/info";
+import { certificateValidTo } from "@/server/system/tls";
 
 export const metadata = { title: "Sicherheit" };
 export const dynamic = "force-dynamic";
@@ -41,5 +42,12 @@ async function SecurityContent() {
     },
     Date.now(),
   );
+  // F12 E-AUD-30b: wildcard certificate of BASE_DOMAIN valid for more than 14 days
+  const domain = inputs.accessConcept?.baseDomain;
+  if (domain) {
+    checks.push(
+      certificateCheck({ baseDomain: domain, validTo: await certificateValidTo(`app.${domain}`) }, Date.now()),
+    );
+  }
   return <SecurityPanel checks={checks} />;
 }

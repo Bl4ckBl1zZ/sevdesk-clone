@@ -48,7 +48,9 @@ describe("backup status page (AUD-026)", () => {
     expect(pg).toHaveTextContent("2 MB");
     expect(within(pg).getByText("Aktuell")).toBeInTheDocument();
     expect(within(ex).getByText("Fehlt oder zu alt")).toBeInTheDocument();
-    expect(screen.getByTestId("backup-checkpoint")).toHaveTextContent("Keine Bucket-Sperre eingerichtet");
+    expect(screen.getByTestId("backup-checkpoint")).toHaveTextContent(
+      "Für den Prüfpunkt-Bucket ist keine Aufbewahrungssperre eingerichtet (empfohlen).",
+    );
   });
 
   test("AUD-026 without read-only credentials the page explains what is missing", async () => {
@@ -62,5 +64,27 @@ describe("backup status page (AUD-026)", () => {
     });
     renderWithIntl(<BackupsPanel />);
     expect(await screen.findByRole("status")).toHaveTextContent("R2_BACKUP_READONLY_ACCESS_KEY_ID");
+  });
+
+  test("E-AUD-44 missing read-only R2 credentials: the status is a warning „Sicherungsstatus kann nicht geprüft werden“", async () => {
+    backend.status = vi.fn().mockResolvedValue({
+      configured: false,
+      bucket: null,
+      sources: [],
+      checkpoint: null,
+      status: "unknown",
+      checkedAt: AT,
+    });
+    renderWithIntl(<BackupsPanel />);
+    const status = await screen.findByRole("status");
+    expect(status).toHaveTextContent("Sicherungsstatus kann nicht geprüft werden (R2-Lesezugang fehlt).");
+    expect(status.className).toContain("text-warning");
+  });
+
+  test("E-AUD-45 no bucket-lock rule on the checkpoint bucket is shown as a recommendation warning", async () => {
+    renderWithIntl(<BackupsPanel />);
+    const line = await screen.findByTestId("backup-checkpoint");
+    expect(line).toHaveTextContent("Für den Prüfpunkt-Bucket ist keine Aufbewahrungssperre eingerichtet (empfohlen).");
+    expect(within(line).getByText(/Aufbewahrungssperre/).className).toContain("text-warning");
   });
 });

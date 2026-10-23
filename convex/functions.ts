@@ -176,12 +176,17 @@ function withConfirmToken(def: ConfirmableDef, intent: ConfirmIntent): Confirmab
 /** F01 SET-134: `cron.*` system mutations whose run is recorded after the audit check (latest run per job). */
 const cronRunStarts = new WeakMap<WriteStats, { job: SystemJob; startedAt: number }>();
 
-const auditCheck =
+/**
+ * AUD-001 / E-AUD-01: a mutation that wrote without an audit entry is aborted (exported for the unit test). For a
+ * `cron.*` job the run is then recorded (F01 SET-134); that needs the mutation context, so it is only done when given.
+ */
+export const auditCheck =
   (stats: WriteStats) =>
-  async ({ ctx }: { ctx: { db: DatabaseWriter } }) => {
+  (arg?: { ctx: { db: DatabaseWriter } }): Promise<void> | undefined => {
     if (stats.writes > 0 && stats.audits === 0) throw appError("audit_missing");
     const cron = cronRunStarts.get(stats);
-    if (cron) await recordCronRun(ctx, { ...cron, finishedAt: Date.now(), result: "ok" });
+    if (cron && arg) return recordCronRun(arg.ctx, { ...cron, finishedAt: Date.now(), result: "ok" });
+    return undefined;
   };
 
 function systemContext(job: SystemJob): ActorContext {
