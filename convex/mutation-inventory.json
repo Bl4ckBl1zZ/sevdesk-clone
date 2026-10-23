@@ -1885,6 +1885,12 @@
     "wrapper": "actorMutation",
     "permission": "vouchers.write"
   },
+  "inbox:archiveCorrectionLetterInternal": {
+    "kind": "mutation",
+    "visibility": "internal",
+    "wrapper": "actorMutation",
+    "permission": "vouchers.write"
+  },
   "inbox:beginInternal": {
     "kind": "mutation",
     "visibility": "internal",
@@ -1896,6 +1902,12 @@
     "visibility": "internal",
     "wrapper": "systemQuery",
     "job": "inbox.classify"
+  },
+  "inbox:correctionRequest": {
+    "kind": "query",
+    "visibility": "public",
+    "wrapper": "query",
+    "permission": "vouchers.read"
   },
   "inbox:counts": {
     "kind": "query",
@@ -1949,6 +1961,18 @@
     "kind": "mutation",
     "visibility": "internal",
     "wrapper": "actorMutation",
+    "permission": "vouchers.write"
+  },
+  "inbox:markCorrectionSent": {
+    "kind": "mutation",
+    "visibility": "public",
+    "wrapper": "mutation",
+    "permission": "vouchers.write"
+  },
+  "inbox:merge": {
+    "kind": "mutation",
+    "visibility": "public",
+    "wrapper": "mutation",
     "permission": "vouchers.write"
   },
   "inbox:ocrPendingInternal": {
@@ -2011,6 +2035,12 @@
     "wrapper": "mutation",
     "permission": "vouchers.write"
   },
+  "inbox:retractCorrectionMark": {
+    "kind": "mutation",
+    "visibility": "public",
+    "wrapper": "mutation",
+    "permission": "vouchers.write"
+  },
   "inbox:retryInternal": {
     "kind": "mutation",
     "visibility": "internal",
@@ -2035,6 +2065,12 @@
     "wrapper": "query",
     "permission": "settings.read"
   },
+  "inbox:split": {
+    "kind": "mutation",
+    "visibility": "public",
+    "wrapper": "mutation",
+    "permission": "vouchers.write"
+  },
   "inbox:storeEmailInternal": {
     "kind": "mutation",
     "visibility": "internal",
@@ -2052,6 +2088,12 @@
     "visibility": "internal",
     "wrapper": "systemAction",
     "job": "inbox.classify"
+  },
+  "inboxNode:exportCorrectionLetter": {
+    "kind": "action",
+    "visibility": "public",
+    "wrapper": "action",
+    "permission": "vouchers.write"
   },
   "inboxNode:pollR2": {
     "kind": "action",
@@ -4345,6 +4387,36 @@
     "wrapper": "query",
     "permission": "vouchers.approve"
   },
+  "vouchers:bulkDelete": {
+    "kind": "mutation",
+    "visibility": "public",
+    "wrapper": "mutation",
+    "permission": "vouchers.write"
+  },
+  "vouchers:bulkFinalizeInput": {
+    "kind": "query",
+    "visibility": "internal",
+    "wrapper": "systemQuery",
+    "job": "exports.run"
+  },
+  "vouchers:bulkFinalizeJob": {
+    "kind": "action",
+    "visibility": "internal",
+    "wrapper": "systemAction",
+    "job": "exports.run"
+  },
+  "vouchers:bulkFinalizeOneInternal": {
+    "kind": "mutation",
+    "visibility": "internal",
+    "wrapper": "actorMutation",
+    "permission": "vouchers.finalize"
+  },
+  "vouchers:bulkUpdate": {
+    "kind": "mutation",
+    "visibility": "public",
+    "wrapper": "mutation",
+    "permission": "vouchers.write"
+  },
   "vouchers:cancel": {
     "kind": "mutation",
     "visibility": "public",
@@ -4494,6 +4566,12 @@
     "visibility": "public",
     "wrapper": "query",
     "permission": "members.read"
+  },
+  "vouchers:startBulkFinalize": {
+    "kind": "mutation",
+    "visibility": "public",
+    "wrapper": "mutation",
+    "permission": "vouchers.finalize"
   },
   "vouchers:suggest": {
     "kind": "query",

@@ -11,6 +11,7 @@ import {
 } from "../src/domain/inbox/status";
 import { berlinCalendarDate } from "../src/domain/time/berlin";
 import { CAPTURE_MESSAGES, checkUpload, pageCount } from "../src/domain/vouchers/capture";
+import { type ImageQuality, withImageQuality } from "../src/domain/vouchers/image-quality";
 import { internal } from "./_generated/api";
 import type { Doc, Id } from "./_generated/dataModel";
 import { action, actorMutation, mutation, query, systemMutation, systemQuery } from "./functions";
@@ -18,9 +19,16 @@ import { appError } from "./lib/errors";
 import { inboxBucketFromEnv } from "./lib/r2Inbox";
 import { getCompanyProfile } from "./model/companyProfile";
 import {
+  archiveCorrectionLetter,
+  correctionRequestView,
+  markCorrectionSent as markCorrectionSentModel,
+  retractCorrectionMark as retractCorrectionMarkModel,
+} from "./model/correctionRequest";
+import {
   appendInboxFiles,
   beginClassification,
   finishClassification,
+  mergeInboxItems,
   overrideInboxDuplicate,
   recordMailParse,
   recreateDraft,
@@ -28,6 +36,7 @@ import {
   requireInboxItem,
   scheduleClassifyRetry,
   setOcrPending,
+  splitInboxItem,
   storeInboxItem,
 } from "./model/inbox";
 import {
@@ -41,7 +50,8 @@ import {
 } from "./model/inboxSettings";
 import { getIntegration, recordIntegrationTest } from "./model/integrations";
 import { kuOn } from "./model/vouchers";
-import { vVoucherDraftInput } from "./voucherValidators";
+import { vSendChannel } from "./validators";
+import { vImageQuality, vVoucherDraftInput } from "./voucherValidators";
 
 /**
  * Posteingang (F06 §3.1–3.3, §6.1): capture, list/detail, reject, duplicate override, settings. The classification
@@ -156,6 +166,8 @@ export const get = query({
       ...(await rowOf(ctx, item)),
       voucherStatus: voucher?.status ?? null,
       visualisationUrl: vis ? await ctx.storage.getUrl(vis.storageId) : null,
+      // INB-007: readable PDF of a mail without attachment (rendition of the .eml).
+      mailRenditionUrl: item.mailRendition ? await ctx.storage.getUrl(item.mailRendition.storageId) : null,
       to: item.to ?? null,
       messageId: item.messageId ?? null,
       mailText: item.mailText ?? null,
@@ -192,6 +204,13 @@ export const get = query({
       duplicateOfInboxItemId: item.duplicateOfInboxItemId ?? null,
       duplicateOfVoucherId: item.duplicateOfVoucherId ?? null,
       duplicateOverride: item.duplicateOverride ?? null,
+      // INB-009 links between superseded and new items
+      createdFrom: item.createdFrom
+        ? { kind: item.createdFrom.kind, inboxItemIds: item.createdFrom.inboxItemIds }
+        : null,
+      supersededBy: item.supersededBy
+        ? { kind: item.supersededBy.kind, inboxItemIds: item.supersededBy.inboxItemIds }
+        : null,
       rejectText: item.rejectText ?? null,
       rejectedAt: item.rejectedAt ?? null,
       retentionUntil: item.retentionUntil ?? null,
@@ -222,6 +241,7 @@ const vNewFile = v.object({
     v.union(v.literal("original"), v.literal("extracted_xml"), v.literal("embedded_attachment"), v.literal("eml")),
   ),
   derivedFrom: v.optional(v.number()),
+  image: v.optional(vImageQuality),
 });
 
 export const storeInternal = actorMutation({
@@ -249,6 +269,7 @@ interface Checked {
   bytes: number;
   pages: number;
   clientCapturedAt?: number;
+  image?: ImageQuality;
 }
 
 /** Reads and checks stored uploads (magic bytes, size); on any rejection every stored blob of the call is deleted. */
@@ -286,6 +307,7 @@ async function checkStored(
       bytes: bytes.byteLength,
       pages: pageCount(bytes, checked.value.mime),
       ...(f.clientCapturedAt !== undefined ? { clientCapturedAt: f.clientCapturedAt } : {}),
+      ...withImageQuality(bytes, checked.value.mime),
     });
   }
   return out;
@@ -347,6 +369,8 @@ export const ingestBase64 = action({
   args: {
     files: v.array(v.object({ filename: v.string(), contentBase64: v.string() })),
     note: v.optional(v.string()),
+    /** INB-004: the PWA share target (a signed-in UI session) records its items as `source = "app"`. */
+    via: v.optional(v.literal("app")),
   },
   handler: async (ctx, args): Promise<{ id: Id<"inboxItems">; status: ItemDoc["status"] }> => {
     if (args.files.length === 0 || args.files.length > MAX_FILES) {
@@ -377,7 +401,10 @@ export const ingestBase64 = action({
     try {
       const r = await ctx.runMutation(internal.inbox.storeInternal, {
         actorContext: ctx.actorContext,
-        source: SOURCE_BY_CHANNEL[ctx.actorContext.channel] ?? "api",
+        source:
+          args.via === "app" && ctx.actorContext.channel === "ui"
+            ? "app"
+            : (SOURCE_BY_CHANNEL[ctx.actorContext.channel] ?? "api"),
         files: checked,
         ...(args.note ? { note: args.note } : {}),
       });
@@ -401,6 +428,55 @@ export const overrideDuplicate = mutation({
   permission: "vouchers.write",
   args: { id: v.id("inboxItems"), reason: v.string() },
   handler: async (ctx, args) => overrideInboxDuplicate(ctx, args),
+});
+
+/** INB-009: split an item with several files into separate items (originals and hashes unchanged, audited). */
+export const split = mutation({
+  permission: "vouchers.write",
+  args: { id: v.id("inboxItems"), groups: v.array(v.array(v.number())) },
+  handler: async (ctx, args) => ({ ids: await splitInboxItem(ctx, args) }),
+});
+
+/** INB-009: merge several items (e.g. front/back photo) into one (originals and hashes unchanged, audited). */
+export const merge = mutation({
+  permission: "vouchers.write",
+  args: { ids: v.array(v.id("inboxItems")) },
+  handler: async (ctx, { ids }) => ({ id: await mergeInboxItems(ctx, ids) }),
+});
+
+// ── INB-046 supplier correction request ──────────────────────────────────────────────────────────────────
+
+/** „Korrektur anfordern“ panel: letter text, archived PDF, history of marks. */
+export const correctionRequest = query({
+  permission: "vouchers.read",
+  args: { id: v.id("inboxItems") },
+  handler: async (ctx, { id }) => correctionRequestView(ctx, id, berlinCalendarDate(Date.now())),
+});
+
+export const archiveCorrectionLetterInternal = actorMutation({
+  permission: "vouchers.write",
+  args: {
+    id: v.id("inboxItems"),
+    storageId: v.id("_storage"),
+    sha256: v.string(),
+    bytes: v.number(),
+    name: v.string(),
+  },
+  handler: async (ctx, args) => archiveCorrectionLetter(ctx, args),
+});
+
+/** „Als versendet markieren“ (the owner sent the letter by any means; the app never sends). */
+export const markCorrectionSent = mutation({
+  permission: "vouchers.write",
+  args: { id: v.id("inboxItems"), sentOn: v.string(), channel: vSendChannel, note: v.optional(v.string()) },
+  handler: async (ctx, { id, ...values }) => ({ sendLogId: await markCorrectionSentModel(ctx, id, values) }),
+});
+
+/** „Versandmarkierung zurücknehmen“ (reason ≥ 10 characters; append-only retraction row). */
+export const retractCorrectionMark = mutation({
+  permission: "vouchers.write",
+  args: { id: v.id("inboxItems"), retractsId: v.id("sendLog"), reason: v.string() },
+  handler: async (ctx, { id, retractsId, reason }) => retractCorrectionMarkModel(ctx, id, { retractsId, reason }),
 });
 
 export const createDraft = mutation({
@@ -542,6 +618,7 @@ export const mailParsedInternal = actorMutation({
     messageId: v.optional(v.string()),
     mailText: v.optional(v.string()),
     files: v.array(vNewFile),
+    mailRendition: v.optional(v.object({ storageId: v.id("_storage"), sha256: v.string() })),
     skipped: v.array(
       v.object({
         name: v.string(),

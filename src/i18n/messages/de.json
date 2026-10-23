@@ -4721,6 +4721,28 @@
     "done": "Übernommen: {created} angelegt, {updated} aktualisiert, {skipped} bereits importiert, {existing} vorhanden, {errors} fehlerhaft."
   },
   "vouchers": {
+    "bulk": {
+      "label": "Aktionen für {count, plural, one {# Beleg} other {# Belege}}",
+      "set": "Konto/Steuerregel setzen",
+      "setTitle": "{count, plural, one {# Entwurf} other {# Entwürfe}} ändern",
+      "setHint": "Leere Felder bleiben unverändert. Gebuchte Belege werden übersprungen.",
+      "account": "Konto (alle Positionen)",
+      "taxRule": "Steuerregel",
+      "unchanged": "unverändert",
+      "costCenter": "Kostenstelle (alle Positionen)",
+      "apply": "Übernehmen",
+      "updated": "{count, plural, one {# Entwurf} other {# Entwürfe}} geändert",
+      "skipped": "{count, plural, one {# Beleg} other {# Belege}} übersprungen",
+      "book": "Sammelbuchung",
+      "bookTitle": "{count, plural, one {# Entwurf} other {# Entwürfe}} buchen",
+      "bookHint": "Die Buchung läuft im Hintergrund. Entwürfe mit Fehlern oder zu bestätigenden Hinweisen (⚑) werden übersprungen und unter Export › Aufträge aufgelistet.",
+      "bookConfirm": "Sammelbuchung starten",
+      "bookStarted": "Sammelbuchung gestartet – Fortschritt unter Export › Aufträge",
+      "delete": "Entwürfe löschen",
+      "deleteTitle": "{count, plural, one {# Entwurf} other {# Entwürfe}} löschen?",
+      "deleteHint": "Nur Entwürfe werden gelöscht; gebuchte Belege bleiben unverändert.",
+      "deleted": "{count, plural, one {# Entwurf} other {# Entwürfe}} gelöscht"
+    },
     "list": {
       "tabsLabel": "Status der Belege",
       "tabs": {
@@ -4731,7 +4753,8 @@
         "partially_paid": "Teilbezahlt",
         "paid": "Bezahlt",
         "cancelled": "Storniert",
-        "unbooked": "Unbearbeitet > 10 Tage"
+        "unbooked": "Unbearbeitet > 10 Tage",
+        "paper_destructible": "Papier vernichtbar"
       },
       "columns": {
         "select": "Auswahl",
@@ -4893,6 +4916,11 @@
       "noPayments": "Noch keine Zahlung erfasst.",
       "openAmount": "Offen",
       "recordPayment": "Bar/Privat bezahlt erfassen",
+      "girocode": "Mit Banking-App bezahlen",
+      "girocodeTitle": "GiroCode zum Bezahlen",
+      "girocodeHint": "Mit der Banking-App scannen: Empfänger, IBAN, offener Betrag und Belegnummer sind vorausgefüllt. Die App löst selbst keine Zahlung aus.",
+      "girocodeAlt": "GiroCode über {amount} an {name}",
+      "close": "Schließen",
       "paymentRecorded": "Zahlung erfasst",
       "reversed": "storniert",
       "bankSuggestions": "Passende Bankumsätze",
@@ -4940,7 +4968,9 @@
       "added": "Datei hinzugefügt",
       "captured": "Erfasst am {date}",
       "eigenbelegFile": "Eigenbeleg (PDF)",
-      "bewirtungFile": "Bewirtungsbeleg (PDF)"
+      "bewirtungFile": "Bewirtungsbeleg (PDF)",
+      "retake": "Neu aufnehmen",
+      "qualityLow": "Bildqualität niedrig"
     },
     "bewirtung": {
       "title": "Bewirtungsbeleg",
@@ -5104,6 +5134,8 @@
     "notFound": "Dieser Beleg wurde nicht gefunden.",
     "rejected": "Beleg abgelehnt",
     "overridden": "Dublette wird verarbeitet",
+    "splitDone": "In {count} Belege aufgeteilt",
+    "mergeDone": "{count} Belege zusammengeführt",
     "files": "{count} Dateien",
     "source": {
       "email": "E-Mail",
@@ -5122,7 +5154,8 @@
       "mail_unparseable": "E-Mail nicht lesbar",
       "ocr_pending": "Wartet auf Belegerkennung",
       "pdf_encrypted": "PDF verschlüsselt",
-      "kleinunternehmer_supplier": "Kleinunternehmer"
+      "kleinunternehmer_supplier": "Kleinunternehmer",
+      "no_attachment": "Keine Anlage"
     },
     "item": {
       "untitled": "Beleg",
@@ -5142,6 +5175,8 @@
       "createDraft": "Beleg erfassen",
       "override": "Trotzdem verarbeiten",
       "reject": "Ablehnen",
+      "split": "Aufteilen",
+      "merge": "Zusammenführen",
       "duplicateOf": "Zum ersten Eingang",
       "duplicateOfVoucher": "Zum vorhandenen Beleg",
       "mailText": "E-Mail-Text",
@@ -5163,6 +5198,57 @@
       "confirm": "Trotzdem verarbeiten",
       "reason": "Begründung (mindestens 5 Zeichen)"
     },
+    "correction": {
+      "title": "Korrektur beim Lieferanten anfordern",
+      "open": "Korrektur anfordern",
+      "hint": "Die App versendet nichts. Bitte den Text kopieren oder das PDF exportieren, selbst versenden (E-Mail, Post, Portal) und anschließend als versendet markieren.",
+      "copy": "Text kopieren",
+      "copied": "Text kopiert",
+      "copyFailed": "Kopieren nicht möglich – bitte den Text markieren und kopieren.",
+      "exportPdf": "Als PDF exportieren",
+      "exported": "Brief als PDF archiviert",
+      "exportFirst": "Zum Markieren bitte zuerst das PDF exportieren – die Markierung verweist auf das archivierte Schreiben.",
+      "archived": "archiviert am {at} · SHA-256 {hash}…",
+      "markSent": "Als versendet markieren",
+      "markTitle": "Korrekturanforderung als versendet markieren",
+      "markDescription": "Wird unveränderbar protokolliert (Datum, Versandweg, archiviertes Schreiben).",
+      "sentOn": "Versanddatum",
+      "channel": "Versandweg",
+      "note": "Hinweis (optional)",
+      "noteRequired": "Hinweis (Pflicht bei „Sonstiges“)",
+      "marked": "Als versendet markiert",
+      "history": "Versandmarkierungen",
+      "markRow": "Versendet am {date} · {channel}",
+      "retractionRow": "Zurückgenommen: {reason}",
+      "retract": "Versandmarkierung zurücknehmen",
+      "retractTitle": "Versandmarkierung zurücknehmen",
+      "retractDescription": "Die Markierung bleibt protokolliert; die Rücknahme wird mit Grund ergänzt.",
+      "reason": "Grund (mindestens 10 Zeichen)",
+      "retracted": "Versandmarkierung zurückgenommen"
+    },
+    "split": {
+      "title": "Beleg aufteilen",
+      "description": "Jede Datei einem Teil zuordnen. Jeder Teil wird ein eigener Posteingangsbeleg; die Originaldateien und ihre Prüfsummen bleiben unverändert, ein ungebuchter Entwurf wird verworfen.",
+      "part": "Teil {n}",
+      "confirm": "In {count, plural, one {# Beleg} other {# Belege}} aufteilen"
+    },
+    "merge": {
+      "title": "Belege zusammenführen",
+      "description": "Die ausgewählten Belege werden nach diesem Beleg angehängt (z. B. Vorder- und Rückseite). Die Originaldateien und ihre Prüfsummen bleiben unverändert, ungebuchte Entwürfe werden verworfen.",
+      "confirm": "Zusammenführen",
+      "none": "Keine weiteren offenen Posteingangsbelege."
+    },
+    "splitMerge": {
+      "supersededBy": {
+        "split": "Aufgeteilt in:",
+        "merge": "Zusammengeführt in:"
+      },
+      "createdFrom": {
+        "split": "Entstanden durch Aufteilen von:",
+        "merge": "Entstanden durch Zusammenführen von:"
+      },
+      "item": "Beleg {n}"
+    },
     "viewer": {
       "tabs": {
         "view": "Darstellung",
@@ -5182,6 +5268,7 @@
         "eml": "E-Mail (Original)"
       },
       "visualisation": "Visualisierung als PDF",
+      "mailRendition": "Darstellung der E-Mail als PDF",
       "rendition": "Rendition – Visualisierung, nicht das Original",
       "skipped": {
         "too_large": "{name} ({mb} MB) – zu groß, bleibt in der E-Mail",

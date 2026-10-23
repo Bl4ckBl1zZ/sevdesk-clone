@@ -24,6 +24,7 @@ describe("no inbound webhooks (BNK-108, SEC-06, 05 §5.1)", () => {
       "api/mcp/route.ts",
       "api/openapi.json/route.ts",
       "api/v1/[...path]/route.ts",
+      "share-target/route.ts", // PWA share target (INB-004): signed-in session + role check, same-origin only
     ]);
     // Convex HTTP actions: Better Auth only.
     const http = readFileSync(join(ROOT, "convex/http.ts"), "utf8");

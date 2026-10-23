@@ -83,6 +83,14 @@ export const vStatedTotals = v.object({
 });
 
 /** 03 §6 `vouchers.originalFiles[]` (GOBD-07/08, VOU-120…122). */
+/** VOU-124: header-measured pixel size and the „Bildqualität niedrig“ verdict of a captured image. */
+export const vImageQuality = v.object({
+  width: v.number(),
+  height: v.number(),
+  estimatedDpi: v.number(),
+  low: v.boolean(),
+});
+
 export const vOriginalFile = v.object({
   storageId: v.id("_storage"),
   sha256: v.string(),
@@ -97,6 +105,7 @@ export const vOriginalFile = v.object({
   capturedVia: vCaptureChannel,
   replacedBy: v.optional(v.number()),
   replaceReason: v.optional(v.string()),
+  image: v.optional(vImageQuality),
 });
 
 export const vRendition = v.object({
@@ -209,6 +218,14 @@ export const vVoucherDraftInput = v.object({
 });
 
 /** One file of an inbox item (INB-020, VOU-120): capture metadata of the exact bytes. */
+/** INB-009 link between superseded and new inbox items (both directions). */
+export const vInboxSplitMerge = v.object({
+  kind: v.union(v.literal("split"), v.literal("merge")),
+  inboxItemIds: v.array(v.id("inboxItems")),
+  at: v.number(),
+  actor: vActor,
+});
+
 export const vInboxFile = v.object({
   storageId: v.id("_storage"),
   sha256: v.string(),
@@ -223,6 +240,7 @@ export const vInboxFile = v.object({
   clientCapturedAt: v.optional(v.number()),
   capturedBy: vActor,
   capturedVia: vCaptureChannel,
+  image: v.optional(vImageQuality),
 });
 
 /** Validation finding mapped to the BMF categories (INB-024). */
@@ -467,6 +485,8 @@ export const voucherTables = {
     ),
     /** The .eml has been unpacked into its attachments (INB-050; idempotent classification). */
     mailParsed: v.optional(v.boolean()),
+    /** INB-007: readable PDF of a mail without attachment (a rendition of the .eml, never the original). */
+    mailRendition: v.optional(v.object({ storageId: v.id("_storage"), sha256: v.string(), createdAt: v.number() })),
     classification: v.optional(
       v.union(v.literal("xrechnung"), v.literal("zugferd"), v.literal("pdf"), v.literal("image"), v.literal("other")),
     ),
@@ -490,7 +510,12 @@ export const voucherTables = {
       v.literal("converted"),
       v.literal("rejected"),
       v.literal("duplicate"),
+      v.literal("superseded"),
     ),
+    /** INB-009: this item was split / merged into `inboxItemIds` (it stays, with all its files and hashes). */
+    supersededBy: v.optional(vInboxSplitMerge),
+    /** INB-009: this item was created by splitting / merging `inboxItemIds` (file entries copied unchanged). */
+    createdFrom: v.optional(vInboxSplitMerge),
     rejectReason: v.optional(
       v.union(
         v.literal("no_business_document"),

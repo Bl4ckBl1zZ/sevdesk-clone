@@ -191,3 +191,19 @@ test("SET-110 SET-111 settings pages show credentials state, AVV and the OCR def
   await expect(page.getByLabel("Modell")).toHaveValue(/claude-/);
   await expectNoAxeViolations();
 });
+
+test("INB-004 T06-005 the PWA share target turns a shared PDF into an inbox item from the app", async ({ page }) => {
+  const manifest = await (await page.request.get("/manifest.webmanifest")).json();
+  expect(manifest.share_target).toMatchObject({ action: "/share-target", method: "POST" });
+  const res = await page.request.post("/share-target", {
+    multipart: {
+      files: { name: "geteilt.pdf", mimeType: "application/pdf", buffer: pdf(`share-${Date.now()}`) },
+    },
+    maxRedirects: 0,
+  });
+  expect(res.status()).toBe(303);
+  const location = res.headers().location ?? "";
+  expect(location).toMatch(/^\/posteingang\?id=/);
+  await page.goto(location);
+  await expect(page.getByTestId("inbox-item")).toContainText("geteilt.pdf", { timeout: 30_000 });
+});

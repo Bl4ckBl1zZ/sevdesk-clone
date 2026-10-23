@@ -19,11 +19,12 @@ import { CATEGORY_LABEL_DE } from "@/domain/einvoice/verdict";
 import { REJECT_REASON_LABEL_DE, REJECT_REASONS, type RejectReason } from "@/domain/inbox/status";
 import { cn } from "@/lib/utils";
 import { EinvoiceView } from "./einvoice-view";
+import { type MergeCandidate, MergeDialog, SPLIT_MERGE_OPEN, SplitDialog, SplitMergeLinks } from "./inbox-split-merge";
 
 /**
  * One Posteingang item (F06 §6.1): source, status, flags and ⚑ warnings; the viewer (PDF/image, or for an
  * E-Rechnung the tabs „Darstellung | Prüfbericht | XML | Anlagen“); actions „Beleg öffnen“, „Ablehnen“ (INB-010)
- * and „Trotzdem verarbeiten“ (VOU-050). All supplier/mail/OCR text is rendered as escaped text (INB-030).
+ * „Trotzdem verarbeiten“ (VOU-050) and „Aufteilen“ / „Zusammenführen“ (INB-009). All supplier/mail/OCR text is rendered as escaped text (INB-030).
  */
 
 export type InboxDetail = NonNullable<FunctionReturnType<typeof api.inbox.get>>;
@@ -40,6 +41,7 @@ const FLAG_KEYS = [
   "ocr_pending",
   "pdf_encrypted",
   "kleinunternehmer_supplier",
+  "no_attachment",
 ] as const;
 type FlagKey = (typeof FLAG_KEYS)[number];
 const isFlag = (f: string): f is FlagKey => (FLAG_KEYS as readonly string[]).includes(f);
@@ -53,6 +55,7 @@ const STATUS_TONES: Record<string, string> = {
   converted: "border-success/30 bg-success/10 text-success",
   rejected: "border-border bg-muted text-foreground line-through",
   duplicate: "border-danger/30 bg-danger/10 text-danger",
+  superseded: "border-border bg-muted text-muted-foreground",
 };
 
 export function InboxStatusBadge({ status, label }: { status: string; label: string }) {
@@ -82,16 +85,25 @@ export interface InboxItemActions {
   reject: (reason: RejectReason, text: string) => Promise<boolean>;
   overrideDuplicate: (reason: string) => Promise<boolean>;
   createDraft: () => Promise<void>;
+  /** INB-009: `groups` = file indexes (role `original`) per new item. */
+  split?: (groups: number[][]) => Promise<boolean>;
+  /** INB-009: merge the current item with `ids` (current item first). */
+  merge?: (ids: string[]) => Promise<boolean>;
 }
 
 export function InboxItem({
   item,
   canWrite,
   actions,
+  mergeCandidates = [],
+  correction,
 }: {
   item: InboxDetail;
   canWrite: boolean;
   actions: InboxItemActions;
+  mergeCandidates?: readonly MergeCandidate[];
+  /** INB-046 „Korrektur anfordern“ panel (self-fetching; rendered by the screen). */
+  correction?: React.ReactNode;
 }) {
   const t = useTranslations("inbox.item");
   const tSource = useTranslations("inbox.source");
@@ -99,7 +111,11 @@ export function InboxItem({
   const headingId = useId();
   const [rejecting, setRejecting] = useState(false);
   const [overriding, setOverriding] = useState(false);
-  const open = item.status !== "converted" && item.status !== "rejected";
+  const [splitMerge, setSplitMerge] = useState<"split" | "merge" | null>(null);
+  const open = item.status !== "converted" && item.status !== "rejected" && item.status !== "superseded";
+  const voucherBooked = item.voucherId !== null && item.voucherStatus !== null && item.voucherStatus !== "draft";
+  const canSplitMerge = (SPLIT_MERGE_OPEN as readonly string[]).includes(item.status) && !voucherBooked;
+  const originalCount = item.files.filter((f) => f.role === "original").length;
   const title = item.supplierName ?? item.subject ?? item.fileName ?? t("untitled");
 
   return (
@@ -221,6 +237,16 @@ export function InboxItem({
               {t("override")}
             </Button>
           )}
+          {canSplitMerge && actions.split && originalCount >= 2 && (
+            <Button variant="outline" className="h-11 md:h-9" onClick={() => setSplitMerge("split")}>
+              {t("split")}
+            </Button>
+          )}
+          {canSplitMerge && actions.merge && (
+            <Button variant="outline" className="h-11 md:h-9" onClick={() => setSplitMerge("merge")}>
+              {t("merge")}
+            </Button>
+          )}
           {open && (
             <Button variant="outline" className="h-11 md:h-9" onClick={() => setRejecting(true)}>
               {t("reject")}
@@ -228,6 +254,8 @@ export function InboxItem({
           )}
         </div>
       )}
+      <SplitMergeLinks item={item} />
+      {correction}
       {item.duplicateOfInboxItemId && (
         <p className="text-sm">
           <Link href={`/posteingang?id=${item.duplicateOfInboxItemId}` as Route} className="underline">
@@ -260,6 +288,24 @@ export function InboxItem({
           onClose={() => setRejecting(false)}
           onReject={async (reason, text) => {
             if (await actions.reject(reason, text)) setRejecting(false);
+          }}
+        />
+      )}
+      {splitMerge === "split" && actions.split && (
+        <SplitDialog
+          item={item}
+          onClose={() => setSplitMerge(null)}
+          onSplit={async (groups) => {
+            if (await actions.split?.(groups)) setSplitMerge(null);
+          }}
+        />
+      )}
+      {splitMerge === "merge" && actions.merge && (
+        <MergeDialog
+          candidates={mergeCandidates.filter((c) => c.id !== item.id)}
+          onClose={() => setSplitMerge(null)}
+          onMerge={async (ids) => {
+            if (await actions.merge?.(ids)) setSplitMerge(null);
           }}
         />
       )}
@@ -401,6 +447,17 @@ function FilesList({ item }: { item: InboxDetail }) {
           <div className="flex min-w-0 flex-col">
             <a href={item.visualisationUrl} target="_blank" rel="noreferrer" className="font-medium hover:underline">
               {t("visualisation")}
+            </a>
+            <span className="text-muted-foreground text-xs">{t("rendition")}</span>
+          </div>
+        </li>
+      )}
+      {item.mailRenditionUrl && (
+        <li className="flex flex-wrap items-start gap-2 rounded-md border border-dashed p-2 text-sm">
+          <FileIcon className="mt-0.5 size-4 shrink-0 text-muted-foreground" aria-hidden="true" />
+          <div className="flex min-w-0 flex-col">
+            <a href={item.mailRenditionUrl} target="_blank" rel="noreferrer" className="font-medium hover:underline">
+              {t("mailRendition")}
             </a>
             <span className="text-muted-foreground text-xs">{t("rendition")}</span>
           </div>

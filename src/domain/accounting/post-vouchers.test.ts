@@ -293,3 +293,29 @@ describe("ACC-019 cost centres on voucher postings", () => {
     expect(ent.every((l) => l.costCenterId === "kst1")).toBe(true);
   });
 });
+
+describe("private vouchers (F06 VOU-066)", () => {
+  test("VOU-066 a private voucher posts the gross to Privatentnahmen against the payable — no expense, no input VAT", () => {
+    const lines = linesOf(
+      booked({
+        voucherKind: "private",
+        taxRule: "no_input_vat",
+        lines: [
+          { account: "6815", netCents: 10_000, vatCents: 1900, vatRateBp: 1900 },
+          { account: "6815", netCents: 5000, vatCents: 350, vatRateBp: 700 },
+        ],
+      }),
+    );
+    expect(lines.map((l) => [l.role ?? l.account, l.debitCents, l.creditCents])).toEqual([
+      ["private.withdrawal", 17_250, 0],
+      ["payable", 0, 17_250],
+    ]);
+    const r = postEvent(booked({ voucherKind: "private", taxRule: "no_input_vat" }), CTX);
+    expect(r.ok && r.value.kind === "entry" && r.value.posting.explanation).toBe("V-private");
+  });
+
+  test("VOU-066 EC-VOU-17 corporations have no Privatentnahmen: the posting is refused", () => {
+    const r = postEvent(booked({ voucherKind: "private", taxRule: "no_input_vat" }), { ...CTX, legalForm: "gmbh" });
+    expect(r).toMatchObject({ ok: false, error: { code: "private_withdrawal_corporation" } });
+  });
+});

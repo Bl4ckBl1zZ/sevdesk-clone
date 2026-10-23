@@ -3,6 +3,7 @@ import userEvent from "@testing-library/user-event";
 import { getFunctionName } from "convex/server";
 import { beforeEach, describe, expect, test, vi } from "vitest";
 import { renderWithIntl } from "@/i18n/test-utils";
+import { VoucherBulkBar } from "./voucher-bulk-bar";
 import { BookDialog } from "./voucher-payment";
 import { VouchersList } from "./vouchers-list";
 
@@ -48,7 +49,7 @@ vi.mock("convex/react", () => ({
   },
 }));
 vi.mock("next/navigation", () => ({ useRouter: () => ({ push: vi.fn(), replace: vi.fn() }) }));
-const toast = vi.hoisted(() => ({ success: vi.fn(), error: vi.fn(), info: vi.fn() }));
+const toast = vi.hoisted(() => ({ success: vi.fn(), error: vi.fn(), info: vi.fn(), warning: vi.fn() }));
 vi.mock("sonner", () => ({ toast }));
 
 const preview = (payment?: { method: string; date?: string; amountCents?: number }) => ({
@@ -207,5 +208,51 @@ describe("VOU-100 VOU-111 Belege list", () => {
     expect(screen.getByTestId("open-queue")).toHaveTextContent("1 Beleg nacheinander bearbeiten");
     expect(screen.getByTestId("vouchers-table").querySelector("[data-status=overdue]")).not.toBeNull();
     expect(screen.getByTestId("vouchers-table")).toHaveTextContent("169,00 €");
+  });
+});
+
+describe("VOU-101 bulk actions on drafts", () => {
+  test("VOU-101 set account and tax rule on the selection; skipped vouchers are listed with the reason", async () => {
+    const onDone = vi.fn();
+    renderWithIntl(<VoucherBulkBar ids={["d1", "d2"]} onDone={onDone} />);
+    backend.mutations["vouchers:bulkUpdate"] = vi.fn().mockResolvedValue({
+      updated: ["d1"],
+      skipped: [{ id: "d2", label: "BE-2026-00002", reason: "Nur Entwürfe können geändert werden." }],
+    });
+    await userEvent.click(screen.getByTestId("bulk-set"));
+    const apply = screen.getByRole("button", { name: "Übernehmen" });
+    expect(apply).toBeDisabled();
+    await userEvent.type(screen.getByLabelText("Konto (alle Positionen)"), "6815");
+    await userEvent.selectOptions(screen.getByLabelText("Steuerregel"), "no_input_vat");
+    await userEvent.click(apply);
+    expect(backend.mutations["vouchers:bulkUpdate"]).toHaveBeenCalledWith({
+      ids: ["d1", "d2"],
+      patch: { account: "6815", taxRule: "no_input_vat" },
+    });
+    expect(toast.success).toHaveBeenCalledWith("1 Entwurf geändert");
+    expect(toast.warning).toHaveBeenCalledWith("1 Beleg übersprungen", {
+      description: "BE-2026-00002: Nur Entwürfe können geändert werden.",
+    });
+    expect(onDone).toHaveBeenCalled();
+  });
+
+  test("VOU-101 „Sammelbuchung“ starts the background job; delete asks first", async () => {
+    renderWithIntl(<VoucherBulkBar ids={["d1"]} onDone={vi.fn()} />);
+    backend.mutations["vouchers:startBulkFinalize"] = vi.fn().mockResolvedValue({ jobId: "j1" });
+    backend.mutations["vouchers:bulkDelete"] = vi.fn().mockResolvedValue({ deleted: ["d1"], skipped: [] });
+    await userEvent.click(screen.getByTestId("bulk-book"));
+    await userEvent.click(screen.getByRole("button", { name: "Sammelbuchung starten" }));
+    expect(backend.mutations["vouchers:startBulkFinalize"]).toHaveBeenCalledWith({ ids: ["d1"] });
+    expect(toast.success).toHaveBeenCalledWith("Sammelbuchung gestartet – Fortschritt unter Export › Aufträge");
+    await userEvent.click(screen.getByTestId("bulk-delete"));
+    expect(backend.mutations["vouchers:bulkDelete"]).not.toHaveBeenCalled();
+    await userEvent.click(screen.getByRole("button", { name: "Entwürfe löschen" }));
+    expect(backend.mutations["vouchers:bulkDelete"]).toHaveBeenCalledWith({ ids: ["d1"] });
+    expect(toast.success).toHaveBeenCalledWith("1 Entwurf gelöscht");
+  });
+
+  test("VOU-101 no bar without a selection", () => {
+    const { container } = renderWithIntl(<VoucherBulkBar ids={[]} onDone={vi.fn()} />);
+    expect(container.querySelector("fieldset")).toBeNull();
   });
 });

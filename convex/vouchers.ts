@@ -7,9 +7,12 @@ import { berlinCalendarDate } from "../src/domain/time/berlin";
 import type { CalendarDate } from "../src/domain/time/calendar-date";
 import { allowedAccounts } from "../src/domain/vouchers/accounts";
 import { bewirtungEigenbelegContent } from "../src/domain/vouchers/bewirtung";
+import { checkBulkSelection } from "../src/domain/vouchers/bulk";
 import { checkUpload, pageCount } from "../src/domain/vouchers/capture";
 import { voucherEigenbelegContent } from "../src/domain/vouchers/eigenbeleg";
+import { withImageQuality } from "../src/domain/vouchers/image-quality";
 import { UNBOOKED_DAYS } from "../src/domain/vouchers/missing-receipts";
+import { PAYMENT_MESSAGES } from "../src/domain/vouchers/payment-choice";
 import { upcomingVoucherDates } from "../src/domain/vouchers/recurring";
 import { suggestAccount } from "../src/domain/vouchers/suggest";
 import { supplierKeys } from "../src/domain/vouchers/supplier-key";
@@ -28,22 +31,27 @@ import {
   vConfirmToken,
 } from "./functions";
 import { isTest } from "./lib/env";
-import { appError, errorCode } from "./lib/errors";
+import { appError } from "./lib/errors";
 import { auditedInsert } from "./model/audit";
 import type { FileRefValue } from "./model/bankImport";
 import { getCompanyProfile } from "./model/companyProfile";
-import { assertCashOutflowAllowed, cashLines, previewJournal, resolveContextAt } from "./model/journal";
+import { createJob } from "./model/jobs";
+import { cashLines, cashOutflowDip, previewJournal, resolveContextAt } from "./model/journal";
 import {
   createRecurringVoucher,
   generateDueRecurringVouchers,
   updateRecurringVoucher,
 } from "./model/recurringVouchers";
+import type { ActorContext } from "./model/types";
 import { rebookVoucherPayment, recordVoucherPayment, voucherBankSuggestions } from "./model/voucherPayments";
 import {
   accountContextAt,
   addVoucherFile,
   approveBewirtung,
   approveEigenbeleg,
+  bulkDeleteDrafts,
+  bulkFinalizeOne,
+  bulkUpdateDrafts,
   cancelVoucher,
   checkBewirtungFor,
   checkEigenbelegFor,
@@ -62,6 +70,7 @@ import {
 import {
   listRow,
   missingReceipts,
+  scanningReleased,
   tabMatches,
   unbookedVouchers,
   VOUCHER_TABS,
@@ -72,9 +81,11 @@ import { vFileRef } from "./validators";
 import {
   vBewirtungInput,
   vEigenbelegInput,
+  vImageQuality,
   vRecurringTemplate,
   vVoucherDraftInput,
   vVoucherPaymentInput,
+  vVoucherTaxRule,
 } from "./voucherValidators";
 
 /**
@@ -98,9 +109,10 @@ export const list = query({
       [d.supplierName, d.documentNumber, d.internalNumber, d.internalNote]
         .filter((s): s is string => !!s)
         .some((s) => s.toLowerCase().includes(needle));
+    const opts = { scanningReleased: t === "paper_destructible" ? await scanningReleased(ctx) : false };
     const page = await filter(
       ctx.db.query("vouchers").withIndex("by_documentDate").order("desc"),
-      (d) => tabMatches(d, t, now) && matches(d),
+      (d) => tabMatches(d, t, now, opts) && matches(d),
     ).paginate(paginationOpts);
     return { ...page, page: page.page.map((d) => listRow(d, today)) };
   },
@@ -113,8 +125,10 @@ export const counts = query({
     const now = ctx.now();
     const all = await ctx.db.query("vouchers").collect();
     const out = Object.fromEntries(VOUCHER_TABS.map((t) => [t, 0])) as Record<VoucherTab, number>;
-    for (const d of all) for (const t of VOUCHER_TABS) if (tabMatches(d, t, now)) out[t]++;
-    return out;
+    const opts = { scanningReleased: await scanningReleased(ctx) };
+    for (const d of all) for (const t of VOUCHER_TABS) if (tabMatches(d, t, now, opts)) out[t]++;
+    // VOU-123: the „Papier vernichtbar“ tab is offered only under a released scanning procedure.
+    return { ...out, paperDestructibleAvailable: opts.scanningReleased };
   },
 });
 
@@ -147,15 +161,10 @@ export const preview = query({
         const balanceCents = rows.reduce((sum, l) => sum + l.debitCents - l.creditCents, 0);
         cash = { balanceCents, balanceAfterCents: balanceCents + deltaCents };
       }
-      if (deltaCents < 0) {
-        try {
-          await assertCashOutflowAllowed(ctx, p.payment.date, -deltaCents);
-        } catch (e) {
-          if (errorCode(e) !== "cash_negative") throw e;
-          const data = (e as { data?: { message?: string } }).data;
-          errors.push({ code: "cash_negative", message: data?.message ?? "Der Kassenbestand würde negativ." });
-        }
-      }
+      // EC-VOU-39: the same text as the act (with the hint to „Privat bezahlt“).
+      const dip = deltaCents < 0 ? await cashOutflowDip(ctx, p.payment.date, -deltaCents) : null;
+      if (dip)
+        errors.push({ code: "cash_negative", message: PAYMENT_MESSAGES.cashNegative(dip.date, dip.balanceCents) });
     }
     return {
       id: args.id,
@@ -370,6 +379,7 @@ export const attachFileInternal = actorMutation({
       name: v.string(),
       pages: v.number(),
       clientCapturedAt: v.optional(v.number()),
+      image: v.optional(vImageQuality),
     }),
     replaceIndex: v.optional(v.number()),
     reason: v.optional(v.string()),
@@ -446,6 +456,7 @@ export const attachFile = action({
           name: args.name.trim() || "beleg",
           pages: pageCount(bytes, checked.value.mime),
           ...(args.clientCapturedAt ? { clientCapturedAt: args.clientCapturedAt } : {}),
+          ...withImageQuality(bytes, checked.value.mime),
         },
         ...(args.replaceIndex !== undefined ? { replaceIndex: args.replaceIndex } : {}),
         ...(args.reason ? { reason: args.reason } : {}),
@@ -495,6 +506,103 @@ export const correct = mutation({
     acknowledgeWarnings: v.optional(v.array(v.string())),
   },
   handler: async (ctx, args) => correctVoucher(ctx, args),
+});
+
+// ── bulk actions on drafts (VOU-101) ────────────────────────────────────────────────────────────────────
+
+export const bulkUpdate = mutation({
+  permission: "vouchers.write",
+  args: {
+    ids: v.array(v.id("vouchers")),
+    patch: v.object({
+      account: v.optional(v.string()),
+      taxRule: v.optional(vVoucherTaxRule),
+      costCenterId: v.optional(v.union(v.string(), v.null())),
+      addTagIds: v.optional(v.array(v.id("tags"))),
+    }),
+  },
+  handler: async (ctx, args) => bulkUpdateDrafts(ctx, args),
+});
+
+export const bulkDelete = mutation({
+  permission: "vouchers.write",
+  args: { ids: v.array(v.id("vouchers")) },
+  handler: async (ctx, { ids }) => bulkDeleteDrafts(ctx, ids),
+});
+
+/** ⚠ „Sammelbuchung“: a job books every selected draft without blocking errors or ⚑ warnings (VOU-101). */
+export const startBulkFinalize = mutation({
+  permission: "vouchers.finalize",
+  args: { ids: v.array(v.id("vouchers")), confirmToken: vConfirmToken },
+  handler: async (ctx, { ids }) => {
+    const sel = checkBulkSelection(ids);
+    if (!sel.ok) throw appError("invalid_input", sel.error.message);
+    const labels: Record<string, string> = {};
+    for (const id of sel.value as Id<"vouchers">[]) {
+      const d = await ctx.db.get(id);
+      labels[id] = d?.supplierName ?? d?.documentNumber ?? "Entwurf";
+    }
+    const jobId = await createJob(ctx, {
+      kind: "voucher_bulk_finalize",
+      label: `Sammelbuchung (${sel.value.length} Belege)`,
+      params: { ids: sel.value, labels },
+      total: sel.value.length,
+    });
+    await ctx.scheduler.runAfter(0, internal.vouchers.bulkFinalizeJob, { jobId });
+    return { jobId };
+  },
+});
+
+export const bulkFinalizeInput = systemQuery({
+  job: "exports.run",
+  args: { jobId: v.id("jobs") },
+  handler: async (ctx, { jobId }) => {
+    const j = await ctx.db.get(jobId);
+    if (!j || j.kind !== "voucher_bulk_finalize" || (j.status !== "queued" && j.status !== "running")) return null;
+    const p = j.params as { ids: Id<"vouchers">[]; labels: Record<string, string> };
+    return { ids: p.ids, labels: p.labels, by: j.by };
+  },
+});
+
+export const bulkFinalizeOneInternal = actorMutation({
+  permission: "vouchers.finalize",
+  args: { id: v.id("vouchers"), confirmToken: vConfirmToken },
+  handler: async (ctx, { id }) => bulkFinalizeOne(ctx, id),
+});
+
+export const bulkFinalizeJob = systemAction({
+  job: "exports.run",
+  args: { jobId: v.id("jobs") },
+  handler: async (ctx, { jobId }): Promise<boolean> => {
+    try {
+      const job = await ctx.runQuery(internal.vouchers.bulkFinalizeInput, { jobId });
+      if (!job) return false;
+      const skipped: { id: string; label: string; reason: string }[] = [];
+      let done = 0;
+      for (const id of job.ids) {
+        if (!(await ctx.runMutation(internal.bulk.jobStep, { jobId, done }))) return false;
+        done++;
+        try {
+          const r = await ctx.runMutation(internal.vouchers.bulkFinalizeOneInternal, {
+            actorContext: job.by as ActorContext,
+            id,
+          });
+          if (r.skipped) skipped.push({ id, label: job.labels[id] ?? id, reason: r.skipped });
+        } catch (e) {
+          const data = (e as { data?: { message?: string } }).data;
+          skipped.push({
+            id,
+            label: job.labels[id] ?? id,
+            reason: data?.message ?? (e instanceof Error ? e.message : String(e)),
+          });
+        }
+      }
+      return await ctx.runMutation(internal.bulk.jobDone, { jobId, skipped });
+    } catch (e) {
+      await ctx.runMutation(internal.bulk.jobFailed, { jobId, error: e instanceof Error ? e.message : String(e) });
+      return false;
+    }
+  },
 });
 
 export const cancel = mutation({

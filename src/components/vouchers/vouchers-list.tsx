@@ -34,6 +34,7 @@ import { Table, TableBody, TableCell, TableFooter, TableHead, TableHeader, Table
 import { useAuthedQuery } from "@/hooks/use-authed-query";
 import { cn } from "@/lib/utils";
 import { queueHref } from "./queue-model";
+import { VoucherBulkBar } from "./voucher-bulk-bar";
 import { money, useVoucherUpload, VoucherStatusBadge } from "./voucher-shared";
 
 /**
@@ -41,7 +42,17 @@ import { money, useVoucherUpload, VoucherStatusBadge } from "./voucher-shared";
  * on phones; upload button and a drop zone (left half = Ausgabe, right half = Einnahme, as sevdesk); drafts can be
  * selected for the batch queue (VOU-100).
  */
-const TABS = ["all", "draft", "open", "overdue", "partially_paid", "paid", "cancelled", "unbooked"] as const;
+const TABS = [
+  "all",
+  "draft",
+  "open",
+  "overdue",
+  "partially_paid",
+  "paid",
+  "cancelled",
+  "unbooked",
+  "paper_destructible",
+] as const;
 type Tab = (typeof TABS)[number];
 
 export const voucherPath = (id: string) => `/belege/${id}` as Route;
@@ -99,7 +110,8 @@ function VouchersListInner() {
     <StatusFilter
       label={t("tabsLabel")}
       current={tab}
-      options={TABS.map((s) => ({
+      // VOU-123: „Papier vernichtbar“ only under a released scanning procedure (Verfahrensdokumentation).
+      options={TABS.filter((s) => s !== "paper_destructible" || counts?.paperDestructibleAvailable).map((s) => ({
         value: s,
         label: t(`tabs.${s}`),
         ...(counts ? { count: counts[s] } : {}),
@@ -136,6 +148,7 @@ function VouchersListInner() {
           {t("queue", { count: selected.length })}
         </Link>
       )}
+      <VoucherBulkBar ids={selected} onDone={() => setSelected([])} />
       {canWrite && (
         <div className="flex flex-wrap gap-2 md:ml-auto">
           <Button variant="outline" className="h-11 md:h-9" onClick={() => void manual()} disabled={busy}>

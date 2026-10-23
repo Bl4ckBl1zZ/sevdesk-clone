@@ -159,6 +159,24 @@ export function postVoucherBooked(
     });
   }
 
+  // ── private vouchers (F06 VOU-066): a private expense paid from business money is a Privatentnahme ──
+  // S `private.withdrawal` (gross, no input VAT — the business is not the recipient) · H `payable`; the bank debit
+  // or cash payment then settles the payable like any voucher. Corporations have no Privatentnahmen (EC-VOU-17).
+  if (e.voucherKind === "private") {
+    if (e.direction !== "expense") return err(invalid("Private Belege sind nur als Ausgabe möglich."));
+    if (ctx.corporation) {
+      return err(
+        issue(
+          "private_withdrawal_corporation",
+          "Kapitalgesellschaften haben kein Privatkonto. Bitte Verrechnungskonto Gesellschafter verwenden.",
+        ),
+      );
+    }
+    const gross = e.lines.reduce((s, l) => s + l.netCents + l.vatCents, 0);
+    lines.push(...debit(R("private.withdrawal"), gross), ...credit(R("payable"), gross, { ...contact, ...fxOf(e) }));
+    return ok({ lines, explanation: "V-private", text: textWith(head, e.counterpartyName) });
+  }
+
   // ── income vouchers (VOU-010) ───────────────────────────────────────────────────────────────────────
   if (e.direction === "income") {
     let gross = 0;

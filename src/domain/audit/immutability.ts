@@ -294,6 +294,9 @@ export const IMMUTABILITY_MATRIX: Readonly<Record<string, TableRule>> = {
       duplicateOverride: "once",
       skippedAttachments: "mutable",
       mailParsed: "mutable",
+      mailRendition: "once", // F06 INB-007 rendition of a mail without attachment
+      supersededBy: "once", // F06 INB-009 split / merge links
+      createdFrom: "once",
       classification: "mutable",
       einvoiceProfile: "mutable",
       einvoice: "mutable",

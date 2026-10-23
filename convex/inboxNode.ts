@@ -17,20 +17,25 @@ import {
   verdictOf,
 } from "../src/domain/einvoice/verdict";
 import { senderAllowed } from "../src/domain/inbox/allowlist";
+import { CORRECTION_MESSAGES } from "../src/domain/inbox/correction-request";
 import { INBOX_MAIL_MESSAGES, parseInboundEmail } from "../src/domain/inbox/email";
 import { OCR_MESSAGES, OCR_REVIEW_THRESHOLD, postValidateExtraction } from "../src/domain/inbox/ocr";
 import { budgetExceeded } from "../src/domain/inbox/ocr-settings";
 import { planPoll } from "../src/domain/inbox/r2-plan";
 import { INBOX_MESSAGES, nextRetryDelayMs } from "../src/domain/inbox/status";
+import { berlinCalendarDate } from "../src/domain/time/berlin";
 import type { CalendarDate } from "../src/domain/time/calendar-date";
 import { pageCount } from "../src/domain/vouchers/capture";
+import { renderCorrectionLetter } from "../src/pdf/correction-letter";
 import { renderEinvoiceVisualisation } from "../src/pdf/einvoice-visualisation";
 import { ENCRYPTED_PDF_MESSAGE, extractInvoiceXml, multipleXmlMessage, pdfTextLayer } from "../src/pdf/hybrid";
-import { internal } from "./_generated/api";
+import { renderMailRendition } from "../src/pdf/mail-rendition";
+import { api, internal } from "./_generated/api";
 import type { Doc, Id } from "./_generated/dataModel";
 import { action, systemAction } from "./functions";
 import { claudeOcrFor } from "./lib/claudeOcr";
 import { inboundValidator } from "./lib/einvoiceInbound";
+import { appError } from "./lib/errors";
 import { inboxBucketFromEnv } from "./lib/r2Inbox";
 import { decryptSecret } from "./lib/secrets";
 import type { ActorContext } from "./model/types";
@@ -78,6 +83,29 @@ async function storeVisualisation(
 ): Promise<{ storageId: Id<"_storage">; sha256: string } | undefined> {
   try {
     const pdf = await renderEinvoiceVisualisation(inv);
+    return { storageId: await storeBytes(ctx, pdf, "application/pdf"), sha256: await sha256Hex(pdf) };
+  } catch {
+    return undefined;
+  }
+}
+
+/** INB-007: best effort — a rendering failure never blocks the item (the .eml and its text stay available). */
+async function storeMailRendition(
+  ctx: { storage: { store: (b: Blob) => Promise<Id<"_storage">> } },
+  mail: { from?: string; to?: string; subject?: string; date?: string; text: string },
+  createdAt: number,
+): Promise<{ storageId: Id<"_storage">; sha256: string } | undefined> {
+  try {
+    const pdf = await renderMailRendition(
+      {
+        ...(mail.from ? { from: mail.from } : {}),
+        ...(mail.to ? { to: mail.to } : {}),
+        ...(mail.subject ? { subject: mail.subject } : {}),
+        ...(mail.date ? { date: mail.date } : {}),
+        text: mail.text,
+      },
+      createdAt,
+    );
     return { storageId: await storeBytes(ctx, pdf, "application/pdf"), sha256: await sha256Hex(pdf) };
   } catch {
     return undefined;
@@ -156,6 +184,7 @@ export const classify = systemAction({
             }
           }
           if (files.length === 0 && !mailFlags.includes("attachment_too_large")) {
+            mailFlags.push("no_attachment");
             mailWarnings.push({ code: "mail_no_attachment", message: INBOX_MAIL_MESSAGES.noAttachment });
           }
           if (!senderAllowed(parsed.value.from, input.allowlist)) {
@@ -171,6 +200,9 @@ export const classify = systemAction({
           }
         }
         const p = parsed.ok ? parsed.value : null;
+        // INB-007 / EC-INB-21: no attachment → a readable PDF of the mail (rendition; the .eml stays the original).
+        const mailRendition =
+          p && mailFlags.includes("no_attachment") ? await storeMailRendition(ctx, p, Date.now()) : undefined;
         const r = await ctx.runMutation(internal.inbox.mailParsedInternal, {
           actorContext,
           id,
@@ -180,6 +212,7 @@ export const classify = systemAction({
           ...(p?.messageId ? { messageId: p.messageId } : {}),
           ...(p?.text ? { mailText: p.text } : {}),
           files,
+          ...(mailRendition ? { mailRendition } : {}),
           skipped,
           flags: mailFlags,
           warnings: mailWarnings,
@@ -643,6 +676,41 @@ export const testR2 = action({
       objectsWaiting: plan.batch.length,
     });
     return { ok: true, detail, objects: plan.batch.length, oldest };
+  },
+});
+
+/**
+ * INB-046 „Als PDF exportieren“: renders the correction letter and archives it ONCE (sha256, `letters6`); later calls
+ * return the archived artifact (a concurrent second render loses and its blob is deleted). Never sends anything.
+ */
+export const exportCorrectionLetter = action({
+  permission: "vouchers.write",
+  args: { id: v.id("inboxItems") },
+  handler: async (
+    ctx,
+    { id },
+  ): Promise<{ artifactId: Id<"documentArtifacts">; sha256: string; url: string | null; text: string }> => {
+    const view = await ctx.runQuery(api.inbox.correctionRequest, { id });
+    if (!view.available || !view.text || !view.subject) {
+      throw appError("invalid_input", CORRECTION_MESSAGES.notAvailable);
+    }
+    if (view.artifact) {
+      return { artifactId: view.artifact.id, sha256: view.artifact.sha256, url: view.artifact.url, text: view.text };
+    }
+    const pdf = await renderCorrectionLetter({ subject: view.subject, text: view.text }, Date.now());
+    const storageId = await storeBytes(ctx, pdf, "application/pdf");
+    const sha256 = await sha256Hex(pdf);
+    const r = await ctx.runMutation(internal.inbox.archiveCorrectionLetterInternal, {
+      actorContext: ctx.actorContext,
+      id,
+      storageId,
+      sha256,
+      bytes: pdf.byteLength,
+      name: `Rechnungskorrektur-${berlinCalendarDate(Date.now())}.pdf`,
+    });
+    if (r.existed) await ctx.storage.delete(storageId);
+    const after = await ctx.runQuery(api.inbox.correctionRequest, { id });
+    return { artifactId: r.artifactId, sha256: r.sha256, url: after.artifact?.url ?? null, text: view.text };
   },
 });
 

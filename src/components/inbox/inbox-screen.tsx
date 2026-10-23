@@ -38,6 +38,7 @@ import { INBOX_FILTERS, type InboxFilter } from "@/domain/inbox/status";
 import { useAuthedQuery } from "@/hooks/use-authed-query";
 import { cn } from "@/lib/utils";
 import { filesFromDataTransfer, type PickedFile, precheckFiles } from "./drop-files";
+import { InboxCorrection } from "./inbox-correction";
 import { InboxItem, InboxStatusBadge, sourceKey, useFlagLabel } from "./inbox-item";
 
 /**
@@ -94,6 +95,8 @@ function InboxScreenInner() {
   const reject = useMutation(api.inbox.reject);
   const override = useMutation(api.inbox.overrideDuplicate);
   const createDraft = useMutation(api.inbox.createDraft);
+  const split = useMutation(api.inbox.split);
+  const merge = useMutation(api.inbox.merge);
   const run = useRun();
   const fileRef = useRef<HTMLInputElement>(null);
   const folderRef = useRef<HTMLInputElement>(null);
@@ -278,8 +281,27 @@ function InboxScreenInner() {
           const r = await run(() => createDraft({ id: detail.id }));
           if (r.ok) router.push(`/belege/${r.value}` as Route);
         },
+        split: async (groups: number[][]) => {
+          const r = await run(() => split({ id: detail.id, groups }), t("splitDone", { count: groups.length }));
+          if (r.ok && r.value.ids[0]) router.replace(url.hrefWith({ id: r.value.ids[0] }), { scroll: false });
+          return r.ok;
+        },
+        merge: async (ids: string[]) => {
+          const r = await run(
+            () => merge({ ids: [detail.id, ...(ids as Id<"inboxItems">[])] }),
+            t("mergeDone", { count: ids.length + 1 }),
+          );
+          if (r.ok) router.replace(url.hrefWith({ id: r.value.id }), { scroll: false });
+          return r.ok;
+        },
       }
     : null;
+  const mergeCandidates = (rows ?? [])
+    .filter((r) => r.status === "new" || r.status === "needs_review" || r.status === "duplicate")
+    .map((r) => ({
+      id: r.id as string,
+      label: `${r.supplierName ?? r.subject ?? r.fileName ?? t("item.untitled")} · ${formatDateTime(r.receivedAt)}`,
+    }));
 
   return (
     <PageBody>
@@ -301,7 +323,13 @@ function InboxScreenInner() {
             ) : detail === null || !actions ? (
               <p className="text-muted-foreground text-sm">{t("notFound")}</p>
             ) : (
-              <InboxItem item={detail} canWrite={canWrite} actions={actions} />
+              <InboxItem
+                item={detail}
+                canWrite={canWrite}
+                actions={actions}
+                mergeCandidates={mergeCandidates}
+                correction={<InboxCorrection id={detail.id} canWrite={canWrite} />}
+              />
             )}
           </div>
         )}

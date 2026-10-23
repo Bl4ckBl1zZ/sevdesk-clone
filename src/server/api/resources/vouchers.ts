@@ -235,7 +235,7 @@ export const vouchersResource = defineResource("vouchers", "Belege (Ausgaben)", 
     scope: "vouchers:write",
     params,
     response: { status: 204, description: "Gelöscht" },
-    errors: ["not_found", "validation_failed"],
+    errors: ["not_found", "validation_failed", "immutable_record"],
     handler: async ({ convex, params: p }) => {
       await convex.mutation(api.vouchers.deleteDraft, { id: rawId("vouchers", p.id) as VId });
       return { status: 204 };
