@@ -1,3 +1,4 @@
+import { isCardRefund } from "../../src/domain/banking/links";
 import {
   aliasToken,
   autoApplicable,
@@ -566,9 +567,17 @@ export async function linkBankReversal(
   const counter = await requireTransaction(ctx, args.counterId);
   await linkReversal(ctx, args);
   if (original.allocatedCents <= 0) return { reversalIds: [] as Id<"payments">[], warnings: [] as string[] };
+  // EC-BNK-27: a merchant's card refund reuses the bank-return flow but says what happened.
+  const cardRefund = isCardRefund(
+    {
+      amountCents: counter.amountCents,
+      ...(counter.source.merchantName ? { merchantName: counter.source.merchantName } : {}),
+    },
+    original.source.merchantName ? { merchantName: original.source.merchantName } : {},
+  );
   const r = await reverseTransactionPayments(ctx, {
     transactionId: original._id,
-    reason: "Rückbuchung durch die Bank",
+    reason: cardRefund ? MATCH_MESSAGES.cardRefundReason : "Rückbuchung durch die Bank",
     preferredDate: counter.bookingDate,
     counterTransactionId: counter._id,
   });
@@ -593,7 +602,7 @@ export async function linkBankReversal(
     await notify(ctx, {
       kind: "bank.reversal",
       severity: "warning",
-      title: MATCH_MESSAGES.bankReturned(originalPayment.date, label),
+      title: (cardRefund ? MATCH_MESSAGES.cardRefunded : MATCH_MESSAGES.bankReturned)(originalPayment.date, label),
       link: "/bank/zuordnungen",
       entity: { table: "payments", id: reversalId },
       dedupeKey: `bank.reversal|${reversalId}`,

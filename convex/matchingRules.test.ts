@@ -510,6 +510,17 @@ describe("matching vouchers (BNK-049)", () => {
     await s.owner.mutation(api.banking.linkReversalTo, { counterId: refund, originalId: pay });
     expect((await txOf(s.t, refund)).reversalOfId).toBe(pay);
     expect((await s.t.run((ctx) => ctx.db.get(voucherId)))?.openAmountCents).toBe(11_900);
+    // The reversal says what happened: a card refund by the merchant, not a return by the bank. Booking unchanged.
+    const reversal = await s.t.run(async (ctx) =>
+      (await ctx.db.query("payments").collect()).find((p) => p.reversalOfId !== undefined),
+    );
+    expect(reversal?.reason).toBe("Kartenerstattung durch den Händler");
+    const notes = await s.t.run((ctx) => ctx.db.query("notifications").collect());
+    const voucher = await s.t.run((ctx) => ctx.db.get(voucherId));
+    expect(notes.map((n) => n.title)).toContain(
+      `Kartenerstattung zur Zahlung vom ${TODAY.split("-").reverse().join(".")} – Zahlung storniert, Beleg ${voucher?.internalNumber} wieder offen.`,
+    );
+    expect(notes.some((n) => n.title.includes("von der Bank zurückgebucht"))).toBe(false);
   });
 });
 
