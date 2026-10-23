@@ -2,6 +2,7 @@ import { describe, expect, test } from "vitest";
 import { api } from "./_generated/api";
 import type { Id } from "./_generated/dataModel";
 import { consumerBuyer, finalizedInvoice, invoiceValues } from "./invoices.fixtures";
+import { errorCode } from "./lib/errors";
 import { makeT } from "./test.setup";
 
 /** Branch coverage of convex/documentsApi.ts — the REST/MCP list, get and head reads (API-021, API-022). */
@@ -59,10 +60,11 @@ describe("documentsApi.list", { timeout: 60_000 }, () => {
     expect(quotes.page).toEqual([]);
   });
 
-  test("API-005 a viewer key without documents:read is refused", async () => {
+  test("API-005 a key without documents:read is refused with forbidden_scope", async () => {
     const t = makeT();
     const key = await t.asApiKey(["contacts:read"]);
-    await expect(key.query(api.documentsApi.list, { paginationOpts: PAGE, type: "invoice" })).rejects.toThrow();
+    const code = await key.query(api.documentsApi.list, { paginationOpts: PAGE, type: "invoice" }).catch(errorCode);
+    expect(code).toBe("forbidden_scope");
   });
 });
 
