@@ -898,6 +898,7 @@
     },
     "system": {
       "versionsTitle": "Versionen",
+      "copySystemInfo": "Systeminfo kopieren",
       "appVersion": "App-Version",
       "gitSha": "Git-Commit",
       "buildDate": "Build-Datum",

@@ -31,7 +31,7 @@ async function SystemContent() {
       <HealthPanel checks={report.checks} isOwner={me.role === "owner"} />
       {canDo(me.role, "integrity.read") && <IntegrityPanel />}
       <CronStatusCard />
-      <VersionsCard versions={systemVersions()} einvoice={report.einvoiceTools} />
+      <VersionsCard versions={systemVersions()} einvoice={report.einvoiceTools} checks={report.checks} />
     </div>
   );
 }
