@@ -834,7 +834,12 @@ describe("F04 §5.2 texts, alerts, terms, contacts (EC-DOC-78, 79, 99…101, 106
 
 describe("F04 §5.2 duplicates (EC-DOC-73)", () => {
   test("EC-DOC-73 T-EC-073 a possible duplicate for the same supply warns (never blocks); other amounts or dates beyond 30 days do not", () => {
-    const earlier = { number: "RE-2026-0040", documentDate: "2026-10-10", grossCents: 113_050, supplyEnd: "2026-10-09" };
+    const earlier = {
+      number: "RE-2026-0040",
+      documentDate: "2026-10-10",
+      grossCents: 113_050,
+      supplyEnd: "2026-10-09",
+    };
     const r = run(makeDraft(), makeContext({ recentInvoices: [earlier] }));
     const f = r.findings.find((x) => x.code === "possible_duplicate");
     expect(f).toMatchObject({ severity: "W", rule: "UST-34", params: { number: "RE-2026-0040", date: "2026-10-10" } });

@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
-import type { Id } from "./_generated/dataModel";
 import { api } from "./_generated/api";
+import type { Id } from "./_generated/dataModel";
 import { finalizedInvoice, invoiceValues, settle } from "./invoices.fixtures";
 import { makeT } from "./test.setup";
 

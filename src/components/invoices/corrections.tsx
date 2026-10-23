@@ -417,7 +417,10 @@ export function StornoDialog({
 
   const doCancel = async (fallback: boolean) => {
     setBusy(true);
-    const options = { ...(reason.trim() ? { reason: reason.trim() } : {}), ...(fallback ? { einvoiceFallback: true } : {}) };
+    const options = {
+      ...(reason.trim() ? { reason: reason.trim() } : {}),
+      ...(fallback ? { einvoiceFallback: true } : {}),
+    };
     if (!fallback) {
       const check = await run(() => validate({ id, ...options }));
       if (!check.ok) return setBusy(false);
@@ -505,7 +508,10 @@ export function StornoDialog({
               </dd>
             </dl>
           )}
-          <p className={preview?.exportSuggested ? "text-warning" : "text-muted-foreground"} data-testid="storno-notice">
+          <p
+            className={preview?.exportSuggested ? "text-warning" : "text-muted-foreground"}
+            data-testid="storno-notice"
+          >
             {preview?.notice}
           </p>
           <div className="flex flex-col gap-1.5">
@@ -517,7 +523,12 @@ export function StornoDialog({
           {fallbackOffered && (
             <div role="alert" className="flex flex-col gap-2 rounded-lg border border-warning/40 bg-warning/5 p-3">
               <p>{t("fallbackHint")}</p>
-              <Button variant="outline" className="h-11 self-start md:h-9" disabled={busy} onClick={() => void doCancel(true)}>
+              <Button
+                variant="outline"
+                className="h-11 self-start md:h-9"
+                disabled={busy}
+                onClick={() => void doCancel(true)}
+              >
                 {t("fallback")}
               </Button>
             </div>

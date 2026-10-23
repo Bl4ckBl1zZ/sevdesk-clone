@@ -67,7 +67,12 @@ function shippedTemplate(docType: SalesDocType, language: "de" | "en"): MessageT
   const own = DEFAULT_TEXT_TEMPLATES.find(
     (t) => t.kind === "message_text" && t.language === language && (t.docTypes as string[]).includes(docType),
   );
-  return own ?? (DEFAULT_TEXT_TEMPLATES.find((t) => t.kind === "message_text" && t.language === language && t.docTypes[0] === "invoice") as MessageTemplate);
+  return (
+    own ??
+    (DEFAULT_TEXT_TEMPLATES.find(
+      (t) => t.kind === "message_text" && t.language === language && t.docTypes[0] === "invoice",
+    ) as MessageTemplate)
+  );
 }
 
 /** Placeholder values of a finalised document, taken from its snapshot (plus the live open amount). */
@@ -165,7 +170,9 @@ export function messageText(
   const tpl = own ?? shippedTemplate(s.type, s.language);
   const values = messagePlaceholderValues(s, { today: p.today, openAmountCents: p.openAmountCents });
   return {
-    subject: resolvePlainText(tpl.subject ?? "", values).replace(/\s+/g, " ").trim(),
+    subject: resolvePlainText(tpl.subject ?? "", values)
+      .replace(/\s+/g, " ")
+      .trim(),
     body: htmlToPlainText(renderTemplate(tpl.body, values)),
     templateName: own?.name ?? null,
   };

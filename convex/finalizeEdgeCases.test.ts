@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
 import type { DocumentSnapshot } from "../src/domain/documents/snapshot";
 import { normalizeNumber } from "../src/domain/numbering/format";
+import type { Actor } from "../src/domain/schemas/actor";
 import type { CalendarDate } from "../src/domain/time/calendar-date";
 import { api, internal } from "./_generated/api";
 import type { Id } from "./_generated/dataModel";
@@ -12,6 +13,7 @@ import { auditedInsert, auditedPatch } from "./model/audit";
 import { patchCompanyProfile } from "./model/companyProfile";
 import { assignCounterNumber } from "./model/numberRanges";
 import { loadDocumentContext } from "./model/salesDocuments";
+import type { ActorContext } from "./model/types";
 import { makeT, type TestT } from "./test.setup";
 
 /**
@@ -44,10 +46,11 @@ const invoiceNumbers = (t: TestT) =>
   );
 const snapshotOf = async (t: TestT, id: Id<"salesDocuments">) => {
   const d = await doc(t, id);
-  const s = await t.run((ctx) => (d.snapshotId ? ctx.db.get(d.snapshotId) : null));
+  const snapshotId = d.snapshotId;
+  const s = snapshotId ? await t.run((ctx) => ctx.db.get(snapshotId)) : null;
   return JSON.parse(s?.json ?? "null") as DocumentSnapshot;
 };
-const OWNER_ACTOR = (actor: string) => ({ actor, role: "owner", channel: "ui" }) as const;
+const OWNER_ACTOR = (actor: string): ActorContext => ({ actor: actor as Actor, role: "owner", channel: "ui" });
 
 describe("commit re-validation (EC-DOC-01, EC-DOC-02, EC-DOC-08)", () => {
   test("EC-DOC-01 T-EC-001 company data changed between preview and commit → nothing committed; the commit reads fresh data", async () => {

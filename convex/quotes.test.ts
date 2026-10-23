@@ -327,7 +327,9 @@ describe("QUO-01…07 quotes", () => {
     await run("2026-10-17T07:00:00Z");
     const first = await followUps();
     expect(first).toHaveLength(1);
-    expect(first[0]?.title).toMatch(/^Angebot nachfassen: AN-2026-\d{4} – seit 5 Tagen keine Reaktion \(versendet am 12\.10\.2026\)$/);
+    expect(first[0]?.title).toMatch(
+      /^Angebot nachfassen: AN-2026-\d{4} – seit 5 Tagen keine Reaktion \(versendet am 12\.10\.2026\)$/,
+    );
     await run("2026-10-18T07:00:00Z"); // idempotent per level
     expect(await followUps()).toHaveLength(1);
     await run("2026-10-24T07:00:00Z");

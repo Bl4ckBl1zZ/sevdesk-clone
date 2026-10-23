@@ -1,6 +1,6 @@
 import { describe, expect, test } from "vitest";
 import { makeSnapshot } from "../../../test/factories/snapshot";
-import { mailtoHref, messageText, type MessageTemplate, pickMessageTemplate } from "./message-text";
+import { type MessageTemplate, mailtoHref, messageText, pickMessageTemplate } from "./message-text";
 
 const tpl = (patch: Partial<MessageTemplate> = {}): MessageTemplate => ({
   kind: "message_text",
@@ -45,14 +45,21 @@ describe("SND-19 „E-Mail-Text kopieren“", () => {
     const s = makeSnapshot({ number: "RE-2026-0042" });
     const r = messageText(
       { ...s, texts: { subject: "Kabel <5 m & Stecker" } },
-      { templates: [tpl({ subject: "{{document.subject}}", body: "<p>{{document.subject}}</p>" })], today: "2026-10-20" },
+      {
+        templates: [tpl({ subject: "{{document.subject}}", body: "<p>{{document.subject}}</p>" })],
+        today: "2026-10-20",
+      },
     );
     expect(r.subject).toBe("Kabel <5 m & Stecker");
     expect(r.body).toBe("Kabel <5 m & Stecker");
   });
 
   test("SND-19 mailto link carries recipients, subject and body only (no attachments)", () => {
-    const href = mailtoHref(["rechnung@mueller.de", "buchhaltung@mueller.de"], "Rechnung RE-1 & Co", "Zeile 1\nZeile 2");
+    const href = mailtoHref(
+      ["rechnung@mueller.de", "buchhaltung@mueller.de"],
+      "Rechnung RE-1 & Co",
+      "Zeile 1\nZeile 2",
+    );
     expect(href).toBe(
       "mailto:rechnung%40mueller.de,buchhaltung%40mueller.de?subject=Rechnung%20RE-1%20%26%20Co&body=Zeile%201%0D%0AZeile%202",
     );

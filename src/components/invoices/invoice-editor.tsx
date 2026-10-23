@@ -126,8 +126,7 @@ export function InvoiceEditor({
   );
   // DOC-36 „Letztes Dokument übernehmen“: offered on a new draft while nothing has been typed yet.
   const [takeoverDismissed, setTakeoverDismissed] = useState<string | null>(null);
-  const offerTakeover =
-    !id && !!state.contactId && takeoverDismissed !== state.contactId && isEmptyContent(state);
+  const offerTakeover = !id && !!state.contactId && takeoverDismissed !== state.contactId && isEmptyContent(state);
   const lastDoc = useAuthedQuery(
     api.invoices.lastDocument,
     { contactId: state.contactId as Id<"contacts">, type },
@@ -347,7 +346,11 @@ export function InvoiceEditor({
                     })}
                   </span>
                   <span className="flex gap-2">
-                    <Button variant="outline" className="h-11 md:h-9" onClick={() => setTakeoverDismissed(state.contactId)}>
+                    <Button
+                      variant="outline"
+                      className="h-11 md:h-9"
+                      onClick={() => setTakeoverDismissed(state.contactId)}
+                    >
                       {t("lastDocument.dismiss")}
                     </Button>
                     <Button className="h-11 md:h-9" onClick={takeOver}>
