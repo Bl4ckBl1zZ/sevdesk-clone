@@ -1,4 +1,4 @@
-import { describe, expect, test } from "vitest";
+import { describe, expect, test, vi } from "vitest";
 import { ersetzendesScannen } from "../src/domain/docs/ersetzendes-scannen";
 import { api, internal } from "./_generated/api";
 import type { Doc, Id } from "./_generated/dataModel";
@@ -8,6 +8,10 @@ import { postJournalEntry } from "./model/journal";
 import { bookedTransaction } from "./payments.fixtures";
 import { makeT, type TestT } from "./test.setup";
 import { header, line, OWNER, pdfBytes, setupCompany, TODAY, upload, YEAR } from "./vouchers.fixtures";
+import { objectOf, outboxOf, outboxTypes, stubHookFetch, subscribeHook } from "./webhooks.fixtures";
+
+// The F06 webhook test subscribes an endpoint: the SSRF guard must never resolve DNS for real.
+vi.mock("./lib/webhookDns", () => ({ resolveHost: async () => ["93.184.216.34"] }));
 
 async function errorOf(p: Promise<unknown>): Promise<{ code: string; message: string; data: Record<string, unknown> }> {
   try {
@@ -109,6 +113,33 @@ describe("capture and drafts (VOU-001, VOU-120…122)", () => {
         (a) => (a.diff as { before?: { supplierName?: string } }).before?.supplierName === "Büro Schmidt GmbH",
       ),
     ).toBe(true);
+  });
+});
+
+describe("outbound events (05 §5.3, F06)", () => {
+  test("API-030 voucher.created on the draft and voucher.finalized on „Buchen“ — no supplier name", async () => {
+    const t = makeT();
+    const { supplier } = await setupCompany(t);
+    const owner = await t.asUser("owner");
+    stubHookFetch();
+    try {
+      await subscribeHook(owner, ["voucher.created", "voucher.finalized"]);
+      const id = await draft(t, owner, { supplierContactId: supplier });
+      await owner.mutation(api.vouchers.finalize, { id });
+      expect(await outboxTypes(t)).toEqual(["voucher.created", "voucher.finalized"]);
+      const [fin] = await outboxOf(t, "voucher.finalized");
+      expect(objectOf(fin)).toMatchObject({
+        id: `vou_${id}`,
+        object: "voucher",
+        status: "open",
+        internal_number: `BE-${YEAR}-00001`,
+      });
+      expect(fin?.previous).toEqual({ status: "draft" });
+      const v = await voucher(t, id);
+      expect(JSON.stringify(fin)).not.toContain(v.supplierName ?? "§never§");
+    } finally {
+      vi.unstubAllGlobals();
+    }
   });
 });
 

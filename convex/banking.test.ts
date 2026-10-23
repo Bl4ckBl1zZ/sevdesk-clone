@@ -14,6 +14,10 @@ import { auditedInsert } from "./model/audit";
 import { patchCompanyProfile } from "./model/companyProfile";
 import { fileReferences } from "./model/files";
 import { makeT, type TestT } from "./test.setup";
+import { objectOf, outboxOf, outboxTypes, stubHookFetch, subscribeHook } from "./webhooks.fixtures";
+
+// BNK-080 tests subscribe a webhook endpoint: the SSRF guard must never resolve DNS for real.
+vi.mock("./lib/webhookDns", () => ({ resolveHost: async () => ["93.184.216.34"] }));
 
 const OWNER = { actor: "user:test-owner", role: "owner", channel: "ui" } as const;
 const IBAN = "LT443250010000000101";
@@ -89,6 +93,44 @@ const byRef = (list: Doc<"bankTransactions">[], n: string) =>
       r.source.entryReference?.endsWith(`-0000000000${n}`) ||
       r.source.providerTransactionId?.endsWith(`-0000000000${n}`),
   ) as Doc<"bankTransactions">;
+
+describe("F07 outbound events (BNK-080)", () => {
+  test("BNK-080 a statement import emits bank_transaction.imported per new row and bank_statement.reconciled; a reversal link emits bank_transaction.reversal_linked", async () => {
+    const s = await setup();
+    stubHookFetch();
+    try {
+      await subscribeHook(s.owner);
+      await importFile(s, s.eur, camtOct, "eur-2026-10.camt053.xml");
+      const types = await outboxTypes(s.t);
+      expect(types.filter((x) => x === "bank_transaction.imported")).toHaveLength(13);
+      expect(types.filter((x) => x === "bank_statement.reconciled")).toHaveLength(1);
+      const [imported] = await outboxOf(s.t, "bank_transaction.imported");
+      expect(objectOf(imported)).toMatchObject({
+        object: "bank_transaction",
+        bank_account_id: `bac_${s.eur}`,
+        status: "open",
+      });
+      expect(JSON.stringify(imported)).not.toMatch(/counterparty|purpose|LT44/);
+      expect(objectOf((await outboxOf(s.t, "bank_statement.reconciled"))[0])).toMatchObject({
+        object: "bank_statement",
+        reconciled: true,
+        closing_balance_cents: 1_300_723,
+      });
+      // a second import of the same month adds no rows → no further imported events
+      await importFile(s, s.eur, camtOct, "eur-2026-10.camt053.xml", { force: true });
+      expect((await outboxTypes(s.t)).filter((x) => x === "bank_transaction.imported")).toHaveLength(13);
+
+      const list = await rows(s.t, s.eur);
+      const original = byRef(list, "10");
+      const counter = byRef(list, "11");
+      await s.owner.mutation(api.banking.linkReversalTo, { counterId: counter._id, originalId: original._id });
+      const [linked] = await outboxOf(s.t, "bank_transaction.reversal_linked");
+      expect(objectOf(linked)).toMatchObject({ id: `btx_${counter._id}`, reversal_of: `btx_${original._id}` });
+    } finally {
+      vi.unstubAllGlobals();
+    }
+  });
+});
 
 describe("F07 statement import pipeline (BNK-030…036)", () => {
   test("T07-041 EC-156 BNK-030 CAMT.053 import: preview counts, commit, reconciled with the closing balance", async () => {

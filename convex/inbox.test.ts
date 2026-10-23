@@ -1,5 +1,5 @@
 import { CII_BASIC_WL, CII_V6, hybridPdf, plainPdf, ublXml } from "@test/fixtures/einvoice-in/builders";
-import { describe, expect, test } from "vitest";
+import { describe, expect, test, vi } from "vitest";
 import { sha256Hex } from "../src/domain/audit/chain";
 import { api } from "./_generated/api";
 import {
@@ -20,8 +20,11 @@ import { auditedInsert } from "./model/audit";
 import { patchCompanyProfile } from "./model/companyProfile";
 import { makeT, type TestT } from "./test.setup";
 import { header, line, OWNER, pdfBytes, setupCompany, TODAY } from "./vouchers.fixtures";
+import { objectOf, outbox, outboxOf, outboxTypes, stubHookFetch, subscribeHook } from "./webhooks.fixtures";
 
 installInboxFakes();
+// The F06 webhook test subscribes an endpoint: the SSRF guard must never resolve DNS for real.
+vi.mock("./lib/webhookDns", () => ({ resolveHost: async () => ["93.184.216.34"] }));
 
 async function errorOf(p: Promise<unknown>): Promise<{ code: string; message: string }> {
   try {
@@ -48,6 +51,34 @@ async function asBuyer(t: TestT) {
     ),
   );
 }
+
+describe("outbound events (05 §5.3, F06)", () => {
+  test("API-030 a captured receipt emits inbox_item.received, then inbox_item.needs_review with its draft — no file names", async () => {
+    const t = makeT();
+    const owner = await setup(t);
+    stubHookFetch();
+    try {
+      await subscribeHook(owner, ["inbox_item.received", "inbox_item.needs_review", "voucher.created"]);
+      const r = await ingest(t, owner, [{ bytes: pdfBytes("evt-1"), name: "Quittung-Erika.pdf" }]);
+      await settleInbox(t);
+      expect(await outboxTypes(t)).toEqual(["inbox_item.received", "voucher.created", "inbox_item.needs_review"]);
+      const it = await item(t, r.id);
+      expect(objectOf((await outboxOf(t, "inbox_item.received"))[0])).toMatchObject({
+        id: `inb_${r.id}`,
+        object: "inbox_item",
+        status: "new",
+        source: "upload",
+      });
+      expect(objectOf((await outboxOf(t, "inbox_item.needs_review"))[0])).toMatchObject({
+        status: "needs_review",
+        voucher_id: `vou_${it.voucherId}`,
+      });
+      expect(JSON.stringify(await outbox(t))).not.toContain("Erika");
+    } finally {
+      vi.unstubAllGlobals();
+    }
+  });
+});
 
 describe("capture (INB-001…003, INB-020, VOU-050)", () => {
   test("INB-020 INB-027 INB-028 T06-020 a plain PDF becomes an item „Zu prüfen“ with a linked draft carrying the original", async () => {

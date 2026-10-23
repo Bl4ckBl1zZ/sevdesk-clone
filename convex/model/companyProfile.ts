@@ -63,6 +63,8 @@ export async function patchCompanyProfile(
       ...(write.reason ? { reason: write.reason } : {}),
       auditSeq: entry.seq,
     });
+    const created = SETTINGS_EVENT[write.action];
+    if (created) await emitSettingsEvent(ctx, created, Object.keys(patch));
     return 1;
   }
 
