@@ -669,6 +669,7 @@ export const pipelinePreview = systemQuery({
       snapshotJson: p.snapshot ? canonicalSnapshotJson(p.snapshot) : null,
       format: p.format,
       decision: p.decision,
+      expected: p.taxCase ? { taxCase: p.taxCase, buyerIsConsumer: p.buyerIsConsumer ?? false } : null,
     };
   },
 });
@@ -683,12 +684,18 @@ export const commit = actorMutation({
     id: v.id("salesDocuments"),
     version: v.number(),
     validation: v.union(v.literal("passed"), v.literal("skipped"), v.literal("not_required")),
+    // EC-DOC-02: the derivation the preview of this pipeline run saw (not part of the MCP token).
+    expected: v.optional(v.object({ taxCase: v.string(), buyerIsConsumer: v.boolean() })),
     ...vFinalizeOptions,
     confirmToken: vConfirmToken,
   },
   confirmArgs: ["id", "version", ...Object.keys(vFinalizeOptions)],
   handler: async (ctx, a) => {
-    const r = await commitFinalization(ctx, a.id, a.version, { ...optionsOf(a), validation: a.validation });
+    const r = await commitFinalization(ctx, a.id, a.version, {
+      ...optionsOf(a),
+      validation: a.validation,
+      ...(a.expected ? { expected: a.expected } : {}),
+    });
     if (r.status === "finalized" && !r.idempotentReplay) {
       await ctx.scheduler.runAfter(0, internal.documentArtifacts.render, { id: a.id });
     }

@@ -459,7 +459,13 @@ export async function loadDocumentContext(
         priorYearTurnover: [],
         backdateWindowDays: 10,
       };
-  const bank = doc.bankAccountId ? await ctx.db.get(doc.bankAccountId) : null;
+  const storedBank = doc.bankAccountId ? await ctx.db.get(doc.bankAccountId) : null;
+  // EC-DOC-97: a draft whose account was closed (archived) switches to the current default; issued documents keep
+  // the IBAN of their snapshot.
+  const bank =
+    doc.status === "draft" && storedBank?.archivedAt !== undefined
+      ? await defaultInvoiceAccount(ctx, doc.currency)
+      : storedBank;
   const methods = await listPaymentMethods(ctx);
   const method = (doc.paymentMethodId ? methods.find((m) => m._id === doc.paymentMethodId) : undefined) ??
     methods.find((m) => m.isDefault && m.active) ?? { kind: "transfer" as const, text: "Überweisung" };
@@ -1057,6 +1063,8 @@ export interface FinalizePreview {
   /** ER-03 reason text, tax case with its derivation and the totals — for the finalise preview (DOC-42). */
   decisionReason?: string;
   taxCase?: string;
+  /** Price display basis the preview was built for (consumer → gross display, EC-DOC-02). */
+  buyerIsConsumer?: boolean;
   taxCaseReasons?: string[];
   totals?: { netCents: number; vatCents: number; grossCents: number; payableCents: number };
 }
@@ -1079,6 +1087,7 @@ export async function finalizePreview(
     documentDate,
     decisionReason: result.einvoice.er03.reason,
     ...(result.resolved.taxCase ? { taxCase: result.resolved.taxCase } : {}),
+    ...(loaded.ctx.contact ? { buyerIsConsumer: loaded.ctx.contact.isConsumer } : {}),
     taxCaseReasons: result.resolved.derivation.kind === "ok" ? [...result.resolved.derivation.reasons] : [],
     ...(t
       ? {
@@ -1161,7 +1170,11 @@ export async function commitFinalization(
   ctx: ModelCtx,
   id: Id<"salesDocuments">,
   version: number,
-  o: FinalizeOptions & { validation: "passed" | "skipped" | "not_required" },
+  o: FinalizeOptions & {
+    validation: "passed" | "skipped" | "not_required";
+    /** What the preview of the same pipeline run derived; a different result now → revalidation (EC-DOC-02). */
+    expected?: { taxCase: string; buyerIsConsumer: boolean } | undefined;
+  },
 ): Promise<CommitResult> {
   await assertClockOk(ctx); // AUD-019 / EC-027: no business date while the clock is off by > 60 s
   const stored = await getDocument(ctx, id);
@@ -1179,6 +1192,8 @@ export async function commitFinalization(
   const { loaded, draft, result } = await validateStored(ctx, doc, now, validateOptions(o));
   const errors = blocking(result.findings);
   if (errors.length > 0) return { status: "invalid", findings: errors };
+  const changed = o.expected ? derivationChanged(o.expected, result.resolved.taxCase, loaded.ctx.contact) : null;
+  if (changed) return { status: "invalid", findings: [changed] };
   const documentDate = result.resolved.documentDate;
   const predecessor = await revisedQuoteOf(ctx, stored);
   const assigned = await assignDocumentNumber(ctx, stored, documentDate, predecessor).catch((e: unknown) => {
@@ -1227,7 +1242,11 @@ export async function commitFinalization(
     dctx: loaded.ctx,
     resolved: result.resolved,
   });
-  const reasons = [o.backdateReason, o.overrides?.vatCheck?.reason, o.overrides?.rc13bCertificate?.reason].filter(
+  // EC-DOC-18: a supply older than 6 months is noted in the audit entry of the finalisation.
+  const late = result.findings.some((f) => f.code === "supply_older_than_6_months")
+    ? `Leistung liegt mehr als 6 Monate zurück (Leistungsdatum ${snapshot.supplyDate ? supplyEndOf(snapshot.supplyDate) : documentDate})`
+    : undefined;
+  const reasons = [o.backdateReason, o.overrides?.vatCheck?.reason, o.overrides?.rc13bCertificate?.reason, late].filter(
     Boolean,
   );
   await auditedPatch(
@@ -1284,7 +1303,10 @@ export async function commitFinalization(
       snapshot,
       Object.fromEntries((await ctx.db.query("costCenters").collect()).map((c) => [c.number, c._id as string])),
     ) ?? (await chainJournalEvent(ctx, await getDocument(ctx, id), snapshot));
-  if (event) await postJournalEntry(ctx, event);
+  // EC-DOC-46: a 0-€ invoice has no booking effect (a journal entry needs two non-zero lines) — nothing is posted.
+  const zeroInvoice =
+    event?.kind === "invoice_finalised" && event.vatGroups.every((g) => g.netCents === 0 && g.vatCents === 0);
+  if (event && !zeroInvoice) await postJournalEntry(ctx, event);
   // F04 §4.9 step 4 / INV-16: the Gutschrift is recorded as a purchase (voucher with input VAT and payable).
   if (stored.type === "self_billing") await recordSelfBillingVoucher(ctx, await getDocument(ctx, id), snapshot);
   if (predecessor) {
@@ -1304,6 +1326,27 @@ export async function commitFinalization(
     await vatCheckFollowUp(ctx, { contactId: stored.contactId, number: assigned.number, ...result.overriddenVatCheck });
   }
   return { status: "finalized", number: assigned.number, idempotentReplay: false };
+}
+
+/**
+ * EC-DOC-02: the contact changed between the preview and the commit so that the tax case or the price display
+ * (consumer ↔ business) differs — the previewed document is no longer the one that would be issued.
+ */
+function derivationChanged(
+  expected: { taxCase: string; buyerIsConsumer: boolean },
+  taxCase: string,
+  contact: { isConsumer: boolean } | null,
+): Finding | null {
+  if (expected.taxCase === taxCase && expected.buyerIsConsumer === (contact?.isConsumer ?? false)) return null;
+  return {
+    code: "contact_changed_since_preview",
+    severity: "E",
+    rule: "UST-03",
+    group: "pflichtangaben",
+    message:
+      "Die Kundendaten wurden während der Fertigstellung geändert (Steuerfall oder Preisdarstellung). Bitte die Vorschau aktualisieren.",
+    field: "contactId",
+  };
 }
 
 /** The previous quote version a revision draft replaces (QUO-06); it must still be replaceable at the commit. */

@@ -149,7 +149,7 @@ describe("REST preview, export and mark-sent (F04 §7.1)", () => {
 });
 
 describe("MCP ⚠ document_finalize, document_export, document_mark_sent (06 §3.4)", () => {
-  test("MCP-012 MCP-005 document_finalize and document_mark_sent are ⚠ with their intents; document_export is a W tool", () => {
+  test("MCP-012 MCP-005 EC-DOC-91 T-EC-091 document_finalize and document_mark_sent are ⚠ with their intents; document_export is a W tool; no send tool", () => {
     const byName = new Map(TOOLS.map((x) => [x.name, x]));
     for (const [name, intent] of [
       ["document_finalize", "document_finalize"],
@@ -222,6 +222,30 @@ describe("MCP ⚠ document_finalize, document_export, document_mark_sent (06 §3
     await settle(t);
   });
 
+  test("EC-DOC-04 T-EC-004 a draft edited in the UI after the MCP preview: document_finalize with the old token → preview_outdated, nothing committed", async () => {
+    const { t, owner, id, personId } = await invoiceDraft();
+    const client = await connect((await t.asMcp(["documents:read", "invoices:finalize"])).key);
+    const preview = (await client.callTool({ name: "document_preview", arguments: { id: `inv_${id}` } })) as ToolCall;
+    const token = preview.structuredContent?.confirm_token as string;
+    await owner.mutation(api.invoices.updateDraft, {
+      id,
+      version: 1,
+      values: invoiceValues(personId, { headText: "Nach der Vorschau geändert" }),
+    });
+    for (const version of [1, 2]) {
+      const r = (await client.callTool({
+        name: "document_finalize",
+        arguments: { id: `inv_${id}`, version, confirm_token: token },
+      })) as ToolCall;
+      expect(errorOf(r).code, `version ${version}`).toBe("preview_outdated");
+    }
+    const d = await t.run((ctx) => ctx.db.get(id));
+    expect(d).toMatchObject({ status: "draft", version: 2 });
+    expect(d?.number).toBeUndefined();
+    const register = await t.run((ctx) => ctx.db.query("numberRegister").collect());
+    expect(register.filter((r) => r.docType === "invoice")).toHaveLength(0);
+  });
+
   test("DOC-24 a blocked preview issues no token; the preview needs invoices:finalize", async () => {
     const { t, owner, personId } = await invoiceDraft();
     const { id } = await owner.mutation(api.invoices.createDraft, {
@@ -237,7 +261,7 @@ describe("MCP ⚠ document_finalize, document_export, document_mark_sent (06 §3
     expect(preview.structuredContent?.confirm_token).toBeUndefined();
   });
 
-  test("MCP-012 SND-24 document_export returns tailnet links; document_mark_sent needs the preview_action token", async () => {
+  test("MCP-012 SND-24 EC-DOC-91 document_export returns tailnet links; document_mark_sent needs the preview_action token", async () => {
     const { t, id } = await finalizedInvoice();
     const client = await connect((await t.asMcp(["documents:read", "invoices:send"])).key);
     const exp = (await client.callTool({ name: "document_export", arguments: { id: `inv_${id}` } })) as ToolCall;

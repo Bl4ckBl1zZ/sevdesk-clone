@@ -451,7 +451,7 @@ describe("DOC-33 QUO-08…13 conversions and invoicing progress", () => {
     expect(reasonOf(e)).toBe("withdraw_has_invoices");
   });
 
-  test("QUO-11 UST-08 T-QUO-006 three delivery notes become one collective invoice; all notes are invoiced once", {
+  test("QUO-11 UST-08 T-QUO-006 EC-DOC-72 T-EC-072 three delivery notes become one collective invoice; all notes are invoiced once", {
     timeout: 60_000,
   }, async () => {
     const t = makeT();

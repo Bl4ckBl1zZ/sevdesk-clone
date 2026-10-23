@@ -166,7 +166,7 @@ describe("DOC-24 finalisation (02 §6)", () => {
     expect(codes(e)).toContain("setup_incomplete");
   });
 
-  test("DOC-60 an unacknowledged integrity failure blocks finalisation", async () => {
+  test("DOC-60 EC-DOC-100 T-EC-100 an unacknowledged integrity failure blocks finalisation", async () => {
     const t = makeT();
     const { owner } = await setupInvoicing(t);
     const { personId } = await b2bBuyer(owner);
@@ -182,7 +182,7 @@ describe("DOC-24 finalisation (02 §6)", () => {
     expect(codes(e)).toContain("integrity_alert_open");
   });
 
-  test("DOC-59 EC-027 a server clock off by more than 60 s blocks finalisation before a number is used", async () => {
+  test("DOC-59 EC-027 EC-DOC-12 T-EC-012 a server clock off by more than 60 s blocks finalisation before a number is used", async () => {
     const t = makeT();
     const { owner } = await setupInvoicing(t);
     const { personId } = await b2bBuyer(owner);
@@ -222,7 +222,7 @@ describe("DOC-24 finalisation (02 §6)", () => {
     expect(detail?.register).toMatchObject({ number: "RE-2026-0002", status: "issued" }); // DOC-39
   });
 
-  test("EC-002 finalising the same version twice is idempotent (same number, no second entry)", async () => {
+  test("EC-002 EC-DOC-03 T-EC-003 finalising the same version twice is idempotent (same number, no second entry)", async () => {
     const t = makeT();
     const { owner, id, number } = await finalizedInvoice(t);
     const again = await owner.action(api.invoices.finalize, { id, version: 1 });
@@ -379,7 +379,7 @@ describe("DOC-28 ER-11 ER-13 INV-21 artifacts", () => {
     expect(Buffer.from(embedded[0]?.bytes ?? []).equals(Buffer.from(x.bytes))).toBe(true);
   });
 
-  test("DOC-28 a failed render retries with backoff and ends blocked with an alert; „Erneut erzeugen“ recovers", async () => {
+  test("DOC-28 EC-DOC-82 T-EC-082 a failed render retries with backoff and ends blocked with an alert; „Erneut erzeugen“ recovers", async () => {
     const t = makeT();
     const { owner } = await setupInvoicing(t);
     const { personId } = await b2bBuyer(owner);
@@ -415,12 +415,16 @@ describe("DOC-28 ER-11 ER-13 INV-21 artifacts", () => {
       .action(api.documentArtifacts.exportFiles, { id, request: { entry: "default" } })
       .catch((x: unknown) => x);
     expect(errorCode(exp)).toBe("artifacts_blocked");
+    const mark = await owner
+      .mutation(api.invoices.markSent, { id, values: { sentOn: "2026-10-12", channel: "post", artifactIds: ["x"] } })
+      .catch((x: unknown) => x);
+    expect(dataOf(mark).reason).toBe("artifacts_blocked");
 
     vi.unstubAllEnvs();
     vi.unstubAllGlobals();
     await owner.mutation(api.invoices.retryArtifacts, { id });
     await settle(t);
-    expect((await doc(t, id)).artifactStatus).toBe("ready");
+    expect(await doc(t, id)).toMatchObject({ artifactStatus: "ready", number: "RE-2026-0001" }); // never renumbered
     expect((await owner.query(api.invoices.todos, {})).some((n) => n.kind === "artifacts_blocked")).toBe(false);
   });
 
@@ -561,27 +565,32 @@ describe("MAIL-02 SND-07 SND-17 SND-18 sent mark", () => {
     ]);
   });
 
-  test("DOC-32 SND-05 EC-099 after the mark the export serves the archived „Kopie“; the original needs a reason", async () => {
+  test("DOC-32 SND-05 EC-099 EC-DOC-85 T-EC-085 after the mark the export serves the archived „Kopie“; the original needs a reason and is byte-identical", async () => {
     const t = makeT();
     const { owner, id } = await finalizedInvoice(t);
-    const artifactIds = ((await owner.query(api.invoices.get, { id }))?.artifacts ?? []).map((a) => a._id);
+    const archived = (await owner.query(api.invoices.get, { id }))?.artifacts ?? [];
+    const artifactIds = archived.map((a) => a._id);
     await owner.mutation(api.invoices.markSent, {
       id,
       values: { sentOn: "2026-10-12", channel: "email_manual", artifactIds },
     });
-    const copy = await owner.action(api.documentArtifacts.exportFiles, { id, request: { entry: "zugferd_pdf" } });
+    vi.setSystemTime(new Date("2027-03-12T10:00:00Z")); // months later
+    const later = await t.asUser("owner", { existingUserId: owner.userId });
+    const copy = await later.action(api.documentArtifacts.exportFiles, { id, request: { entry: "zugferd_pdf" } });
     expect(copy.files.map((f) => f.name)).toEqual(["RE-2026-0001_Kopie.pdf"]);
-    const again = await owner.action(api.documentArtifacts.exportFiles, { id, request: { entry: "zugferd_pdf" } });
+    const again = await later.action(api.documentArtifacts.exportFiles, { id, request: { entry: "zugferd_pdf" } });
     expect(again.files[0]?.artifactId).toBe(copy.files[0]?.artifactId); // archived once, served again
-    const noReason = await owner
+    const noReason = await later
       .action(api.documentArtifacts.exportFiles, { id, request: { entry: "zugferd_pdf", original: true } })
       .catch((x: unknown) => x);
     expect(errorCode(noReason)).toBe("resend_original_reason");
-    const orig = await owner.action(api.documentArtifacts.exportFiles, {
+    const orig = await later.action(api.documentArtifacts.exportFiles, {
       id,
       request: { entry: "zugferd_pdf", original: true, reason: "Kunde hat Original verloren" },
     });
     expect(orig.files[0]?.name).toBe("RE-2026-0001.pdf");
+    const original = archived.find((a) => a.kind === "zugferd_pdf" && a.variant === "original");
+    expect(orig.files[0]?.sha256).toBe(original?.sha256); // the original is byte-identical
     expect(await auditActions(t, "documentExports", id)).toContain("document.download_original");
   });
 
