@@ -1,5 +1,12 @@
 import { describe, expect, test } from "vitest";
-import { CLOCK_SKEW_BLOCK_MS, clockSkewBlocksFinalization, clockSkewCheck, sntpOffsetMs, sntpRequest } from "./clock";
+import {
+  CLOCK_SKEW_BLOCK_MS,
+  clockReadingCheck,
+  clockSkewBlocksFinalization,
+  clockSkewCheck,
+  sntpOffsetMs,
+  sntpRequest,
+} from "./clock";
 
 /** Builds an SNTP server reply with receive/transmit timestamps (ms since 1970). */
 function reply(receiveMs: number, transmitMs: number): Uint8Array {
@@ -37,14 +44,61 @@ describe("SET-131 GOBD-22 clock skew against NTP", () => {
 
   test("SET-131 T-SET-100 EC-027 3 s skew warns; 61 s blocks finalisation with a German message", () => {
     expect(clockSkewCheck(800)).toMatchObject({ status: "ok" });
-    expect(clockSkewCheck(-3000)).toMatchObject({ status: "warning", detail: "Die Serveruhr weicht um 3,0 s ab." });
+    expect(clockSkewCheck(-3000)).toMatchObject({ status: "warning" });
     expect(clockSkewCheck(61_000)).toMatchObject({ status: "error" });
     expect(clockSkewCheck(null)).toMatchObject({ status: "unknown" });
     expect(clockSkewBlocksFinalization(3000)).toBeNull();
     expect(clockSkewBlocksFinalization(CLOCK_SKEW_BLOCK_MS + 1000)).toMatchObject({
       code: "CLOCK_SKEW",
-      message:
-        "Die Serveruhr weicht um 61 s von der Referenzzeit ab. Fertigstellen ist gesperrt, bis die Uhrzeit korrigiert ist.",
+      message: "Fertigstellen gesperrt: Die Serverzeit weicht um 61 s ab.",
     });
+  });
+
+  test("E-AUD-11 a skew > 2 s is a warning with the GOBD-22 text", () => {
+    expect(clockSkewCheck(-3000)).toEqual({
+      status: "warning",
+      detail: "Die Serverzeit weicht um 3,0 s ab. Bitte Zeitsynchronisation (NTP) prüfen.",
+    });
+    expect(clockSkewCheck(2000)).toMatchObject({ status: "ok" }); // exactly 2 s is still fine
+  });
+
+  test("E-AUD-12 a skew > 60 s refuses finalising and date-assigning actions (EC-027)", () => {
+    expect(clockSkewCheck(-90_000)).toEqual({
+      status: "error",
+      detail: "Fertigstellen gesperrt: Die Serverzeit weicht um 90 s ab.",
+    });
+    expect(clockSkewCheck(60_000)).toMatchObject({ status: "warning" });
+    expect(clockSkewBlocksFinalization(-90_000)?.message).toBe(
+      "Fertigstellen gesperrt: Die Serverzeit weicht um 90 s ab.",
+    );
+  });
+
+  test("E-AUD-13 an unreachable time source is unknown at first and a warning after 1 h without a good reading", () => {
+    const now = 10 * 3_600_000;
+    const unknown = "Zeitquelle nicht erreichbar – Abweichung kann nicht geprüft werden.";
+    expect(clockSkewCheck(null)).toEqual({ status: "unknown", detail: unknown });
+    // last good reading 50 min ago → still unknown (no alarm for a short outage)
+    expect(clockReadingCheck(null, [{ at: now - 50 * 60_000, offsetMs: 300 }], now)).toEqual({
+      status: "unknown",
+      detail: unknown,
+    });
+    // last good reading 61 min ago → warning
+    expect(
+      clockReadingCheck(
+        null,
+        [
+          { at: now - 10 * 60_000, offsetMs: null },
+          { at: now - 61 * 60_000, offsetMs: 300 },
+        ],
+        now,
+      ),
+    ).toEqual({ status: "warning", detail: unknown });
+    // never a good reading: the outage counts from the oldest unknown reading
+    expect(clockReadingCheck(null, [{ at: now - 70 * 60_000, offsetMs: null }], now)).toMatchObject({
+      status: "warning",
+    });
+    expect(clockReadingCheck(null, [], now)).toMatchObject({ status: "unknown" });
+    // a measured offset is judged as usual
+    expect(clockReadingCheck(5_000, [], now)).toMatchObject({ status: "warning" });
   });
 });

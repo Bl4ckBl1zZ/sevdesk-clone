@@ -67,7 +67,7 @@ export const ERRORS = {
   owner_presence_required: "Ein manueller Abruf ist nur in der Oberfläche möglich, solange Sie angemeldet sind.",
   // F07 BNK-102/105 Enable Banking failures (messages: src/domain/banking/feed/messages.ts)
   bank_feed_error: "Enable Banking hat die Anfrage abgelehnt.",
-  clock_skew: "Die Serveruhr weicht zu stark ab. Fertigstellen ist gesperrt, bis die Uhrzeit korrigiert ist.",
+  clock_skew: "Fertigstellen gesperrt: Die Serverzeit weicht zu stark ab.",
   // F08 P2: Festschreibung, Steuermeldungen, Anlagen
   period_lock_blocked: "Die Festschreibung ist nicht möglich.",
   transfer_ticket_required: "Bitte das Transferticket aus dem ELSTER-Übermittlungsprotokoll eintragen.",

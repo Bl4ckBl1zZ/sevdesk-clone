@@ -1,4 +1,5 @@
 import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
+import { httpStatusFor } from "../src/domain/errors/http-status";
 import { api } from "./_generated/api";
 import { finalizedInvoice } from "./invoices.fixtures";
 import { errorCode } from "./lib/errors";
@@ -31,6 +32,21 @@ const auditorOf = (t: TestT, years: number[], extra: { expiresAt?: number; disab
     ...(extra.disabledAt !== undefined ? { disabledAt: extra.disabledAt } : {}),
     auditor: { purpose: "Az. 123/456/78901", fiscalYears: years },
   });
+
+describe("fail closed (E-AUD-21, EC-185)", () => {
+  test("E-AUD-21 without a session (or with an expired one) Convex answers 401 „Bitte melden Sie sich an.“ / „Sitzung abgelaufen“", async () => {
+    const t = makeT();
+    const anonymous = await failure(t.query(api.invoices.list, { paginationOpts: { numItems: 5, cursor: null } }));
+    expect(anonymous).toEqual({ code: "unauthenticated", message: "Bitte melden Sie sich an." });
+    expect(httpStatusFor("unauthenticated")).toBe(401);
+    expect(await failure(t.mutation(api.notifications.markAllRead, {}))).toEqual(anonymous);
+
+    const stale = await t.asUser("owner", { sessionExpired: true });
+    const r = await failure(stale.mutation(api.notifications.markAllRead, {}));
+    expect(r).toEqual({ code: "session_invalid", message: "Sitzung abgelaufen. Bitte melden Sie sich erneut an." });
+    expect(httpStatusFor("session_invalid")).toBe(401);
+  });
+});
 
 describe("role refusals (E-AUD-29, E-AUD-32)", () => {
   test("E-AUD-29 a bookkeeper writing owner-only settings and a viewer finalising get forbidden_role with their role", async () => {

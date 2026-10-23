@@ -36,28 +36,50 @@ export function sntpOffsetMs(packet: Uint8Array, t1: number, t4: number): number
 const seconds = (ms: number, digits: number) =>
   (Math.abs(ms) / 1000).toLocaleString("de-DE", { minimumFractionDigits: digits, maximumFractionDigits: digits });
 
+/** F12 E-AUD-13 (§5.1): the time source could not be read. */
+export const CLOCK_SOURCE_UNREACHABLE = "Zeitquelle nicht erreichbar – Abweichung kann nicht geprüft werden.";
+/** E-AUD-13: without any good reading for this long, the unreachable source becomes a warning. */
+export const CLOCK_SOURCE_WARN_AFTER_MS = 60 * 60 * 1000;
+
+const blockedText = (offsetMs: number) =>
+  `Fertigstellen gesperrt: Die Serverzeit weicht um ${seconds(offsetMs, 0)} s ab.`;
+
+/** F12 §5.1 E-AUD-11 (> 2 s warning, GOBD-22) and E-AUD-12 (> 60 s blocks, EC-027); null = source unreachable. */
 export function clockSkewCheck(offsetMs: number | null): {
   status: "ok" | "warning" | "error" | "unknown";
   detail: string;
 } {
-  if (offsetMs === null) return { status: "unknown", detail: "Referenzzeit (NTP) nicht erreichbar." };
+  if (offsetMs === null) return { status: "unknown", detail: CLOCK_SOURCE_UNREACHABLE };
   const abs = Math.abs(offsetMs);
-  if (abs > CLOCK_SKEW_BLOCK_MS) {
+  if (abs > CLOCK_SKEW_BLOCK_MS) return { status: "error", detail: blockedText(offsetMs) };
+  if (abs > CLOCK_SKEW_WARN_MS) {
     return {
-      status: "error",
-      detail: `Die Serveruhr weicht um ${seconds(offsetMs, 0)} s ab. Fertigstellen ist gesperrt.`,
+      status: "warning",
+      detail: `Die Serverzeit weicht um ${seconds(offsetMs, 1)} s ab. Bitte Zeitsynchronisation (NTP) prüfen.`,
     };
   }
-  if (abs > CLOCK_SKEW_WARN_MS)
-    return { status: "warning", detail: `Die Serveruhr weicht um ${seconds(offsetMs, 1)} s ab.` };
   return { status: "ok", detail: `Abweichung ${seconds(offsetMs, 1)} s.` };
+}
+
+/**
+ * E-AUD-13: like `clockSkewCheck`, but an unreachable source turns into a warning once there has been no good
+ * reading for an hour. `history` = earlier readings (any order); the outage counts from the last good reading, or
+ * from the oldest unknown one when there never was a good reading.
+ */
+export function clockReadingCheck(
+  offsetMs: number | null,
+  history: readonly { at: number; offsetMs: number | null }[],
+  now: number,
+): ReturnType<typeof clockSkewCheck> {
+  const check = clockSkewCheck(offsetMs);
+  if (offsetMs !== null) return check;
+  const good = history.filter((r) => r.offsetMs !== null).map((r) => r.at);
+  const since = good.length > 0 ? Math.max(...good) : history.length > 0 ? Math.min(...history.map((r) => r.at)) : now;
+  return now - since >= CLOCK_SOURCE_WARN_AFTER_MS ? { status: "warning", detail: CLOCK_SOURCE_UNREACHABLE } : check;
 }
 
 /** EC-027: finalisation guard (wired into the P1 finalisation transaction with the last measured offset). */
 export function clockSkewBlocksFinalization(offsetMs: number | null): Issue | null {
   if (offsetMs === null || Math.abs(offsetMs) <= CLOCK_SKEW_BLOCK_MS) return null;
-  return issue(
-    "CLOCK_SKEW",
-    `Die Serveruhr weicht um ${Math.round(Math.abs(offsetMs) / 1000)} s von der Referenzzeit ab. Fertigstellen ist gesperrt, bis die Uhrzeit korrigiert ist.`,
-  );
+  return issue("CLOCK_SKEW", blockedText(offsetMs));
 }
