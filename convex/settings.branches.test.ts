@@ -58,7 +58,8 @@ function stubFetch(rules: [string, Reply][]) {
   return calls;
 }
 
-const ownerCtx = (owner: { actor: string }) => ({ actor: owner.actor, role: "owner", channel: "ui" }) as const;
+const ownerCtx = (owner: Awaited<ReturnType<TestT["asUser"]>>) =>
+  ({ actor: owner.actor, role: "owner", channel: "ui" }) as const;
 
 describe("SET-007 live access checks", () => {
   test("SET-007 E-AUD-22 unreachable hosts, admin pages on api., a dashboard without basic auth are errors", async () => {
