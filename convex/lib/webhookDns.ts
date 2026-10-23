@@ -1,3 +1,5 @@
+"use node";
+
 import { lookup } from "node:dns/promises";
 
 /**
