@@ -2263,6 +2263,30 @@
     "wrapper": "systemQuery",
     "job": "cron.invariants.check"
   },
+  "invariants:checkCron": {
+    "kind": "action",
+    "visibility": "internal",
+    "wrapper": "systemAction",
+    "job": "cron.invariants.check"
+  },
+  "invariants:page": {
+    "kind": "query",
+    "visibility": "internal",
+    "wrapper": "systemQuery",
+    "job": "cron.invariants.check"
+  },
+  "invariants:recordRun": {
+    "kind": "mutation",
+    "visibility": "internal",
+    "wrapper": "systemMutation",
+    "job": "cron.invariants.check"
+  },
+  "invariants:run": {
+    "kind": "action",
+    "visibility": "internal",
+    "wrapper": "systemAction",
+    "job": "invariants.run"
+  },
   "invites:create": {
     "kind": "mutation",
     "visibility": "public",
@@ -2875,10 +2899,16 @@
     "wrapper": "mutation",
     "permission": "members.manage"
   },
-  "migrations:run": {
+  "migrations:apply": {
     "kind": "mutation",
     "visibility": "internal",
     "wrapper": "systemMutation",
+    "job": "migration"
+  },
+  "migrations:run": {
+    "kind": "action",
+    "visibility": "internal",
+    "wrapper": "systemAction",
     "job": "migration"
   },
   "notifications:deliver": {

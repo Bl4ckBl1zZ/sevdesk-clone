@@ -12,6 +12,9 @@ const crons = cronJobs();
 crons.cron("integrity.verify (CEST)", "0 0 * * *", internal.integrity.verifyCron, {});
 crons.cron("integrity.verify (CET)", "0 1 * * *", internal.integrity.verifyCron, {});
 
+// invariants.check — 10 §2 RI-* daily 02:15 Europe/Berlin (hourly tick, runs in the 02:xx Berlin hour); paged
+crons.cron("invariants.check", "15 * * * *", internal.invariants.checkCron, {});
+
 // backups.verify — AUD-026 daily 05:30 Europe/Berlin (hourly tick, runs in the 05:xx Berlin hour)
 crons.cron("backups.verify", "30 * * * *", internal.backups.verifyCron, {});
 

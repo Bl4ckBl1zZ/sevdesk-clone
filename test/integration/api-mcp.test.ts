@@ -60,7 +60,7 @@ describe.skipIf(!enabled)("REST and MCP against the self-hosted backend (05 §7,
   beforeEach(() => {
     const admin = adminClient();
     // biome-ignore lint/suspicious/noExplicitAny: internal function via the admin key
-    useInvariantTarget({ query: (ref, args) => admin.query(ref as any, args as any) } as InvariantTarget);
+    useInvariantTarget({ action: (ref, args) => admin.action(ref as any, args as any) } as InvariantTarget);
   });
 
   test("API-006 API-016 a real key is exchanged for a server JWT that Convex verifies; /me reflects the stored key", async () => {

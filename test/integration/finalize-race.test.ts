@@ -113,7 +113,7 @@ describe.skipIf(!enabled)("EC-001 parallel finalisations on the self-hosted back
   beforeEach(() => {
     const admin = adminClient();
     // biome-ignore lint/suspicious/noExplicitAny: internal function via the admin key
-    useInvariantTarget({ query: (ref, args) => admin.query(ref as any, args as any) } as InvariantTarget);
+    useInvariantTarget({ action: (ref, args) => admin.action(ref as any, args as any) } as InvariantTarget);
   });
 
   test(`EC-001 ${COUNT} drafts finalised at the same time get distinct numbers; none is issued twice`, {

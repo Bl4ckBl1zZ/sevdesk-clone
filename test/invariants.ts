@@ -2,8 +2,9 @@ import { internal } from "../convex/_generated/api";
 
 /**
  * Runtime invariants (docs/spec/10-edge-cases.md, RI-*), checked after every Convex and integration test
- * (07-testing §5a). The checks themselves run server-side in `internal.invariants.check`
- * (convex/model/invariants.ts) so convex-test, the real backend and the nightly job share one implementation.
+ * (07-testing §5a). The checks themselves run server-side in the paged action `internal.invariants.run`
+ * (convex/invariants.ts, convex/model/invariants.ts) so convex-test, the real backend and the nightly job share one
+ * implementation and the check keeps working on a backend that has accumulated a lot of data.
  *
  * Tests register the backend under test with `useInvariantTarget(target)` (`makeT()` does it automatically);
  * the afterEach hook in test/setup-invariants.ts asserts. A test that tampers with data on purpose calls
@@ -21,9 +22,9 @@ export interface InvariantViolation {
   message: string;
 }
 
-/** Anything that can run an internal query: a convex-test instance or an admin `ConvexHttpClient`. */
+/** Anything that can run an internal action: a convex-test instance or an admin `ConvexHttpClient`. */
 export interface InvariantTarget {
-  query: (ref: typeof internal.invariants.check, args: Record<string, never>) => Promise<InvariantViolation[]>;
+  action: (ref: typeof internal.invariants.run, args: Record<string, never>) => Promise<InvariantViolation[]>;
 }
 
 let current: InvariantTarget | undefined;
@@ -41,7 +42,7 @@ export function currentInvariantTarget(): InvariantTarget | undefined {
 }
 
 export async function checkInvariants(target: InvariantTarget): Promise<InvariantViolation[]> {
-  return target.query(internal.invariants.check, {});
+  return target.action(internal.invariants.run, {});
 }
 
 export async function assertInvariants(target: InvariantTarget | undefined = current): Promise<void> {

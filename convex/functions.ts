@@ -51,7 +51,8 @@ export const SYSTEM_JOBS = [
   "verfahrensdoku.release", // F12 AUD-025: read side of the owner's release action (Markdown + sources)
   "cron.system.clock", // F12 AUD-019: clock check every 10 minutes (reference CLOCK_REFERENCE_URL)
   "cron.members.expire",
-  "cron.invariants.check",
+  "cron.invariants.check", // 02 §7 invariants.check: daily 02:15 Europe/Berlin, ERROR findings → integrityRuns
+  "invariants.run", // 10 §2: paged invariant check on demand (tests' assertInvariants, ops, migration pre-check)
   "cron.products.applyScheduledPrices", // F03 PRD-031, 02 §7 products.applyScheduledPrices
   "cron.api.cleanup", // 05 §3/§7, 06 §2.3: expired idempotency records and confirm tokens, access log > 90 days
   "cron.deadlines.notify", // 02 §7 deadlines.notify (F04 SND-21 to-dos)

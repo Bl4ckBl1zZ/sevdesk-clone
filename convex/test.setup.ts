@@ -106,8 +106,9 @@ export interface SeedUserOptions {
   existingUserId?: string;
 }
 
-export function makeT() {
-  const t = convexTest(schema, modules);
+/** `transactionLimits: true` enforces the Convex per-execution read/write limits (convex-test default: off). */
+export function makeT(opts: { transactionLimits?: boolean } = {}) {
+  const t = convexTest({ schema, modules, transactionLimits: opts.transactionLimits ?? false });
   t.registerComponent("betterAuth", authSchema, authModules);
   rateLimiterTest.register(t, "rateLimiter");
   // biome-ignore lint/correctness/useHookAtTopLevel: not a React hook (name from 07-testing §5a)

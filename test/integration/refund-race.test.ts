@@ -82,7 +82,7 @@ describe.skipIf(!enabled)("concurrent cash refunds on the self-hosted backend (F
   beforeEach(() => {
     const admin = adminClient();
     // biome-ignore lint/suspicious/noExplicitAny: internal function via the admin key
-    useInvariantTarget({ query: (ref, args) => admin.query(ref as any, args as any) } as InvariantTarget);
+    useInvariantTarget({ action: (ref, args) => admin.action(ref as any, args as any) } as InvariantTarget);
   });
 
   test("T05-163 EC-PAY-33 two simultaneous cash refunds above the open refund: exactly one is booked", async (ctx) => {
