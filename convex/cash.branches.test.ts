@@ -191,7 +191,7 @@ describe("CSH-024 transfer checks before the Eigenbeleg (EC-CSH-06/19/30/31)", (
     expect(priv).not.toHaveProperty("shareholder");
     // no address entered: the Eigenbeleg shows the name only (blank address line)
     expect(priv?.company.name).toBe("Muster Consulting e.K.");
-    expect(priv?.company.address.trim()).toBe("");
+    expect(priv?.company.address?.trim()).toBe("");
     const withIban = await owner.query(api.cash.transferContext, {
       kind: "deposit_to_bank",
       date: TODAY,

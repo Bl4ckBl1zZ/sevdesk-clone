@@ -436,7 +436,7 @@ describe("F07 statement import guards (BNK-030…036, GOBD-20)", () => {
     expect(r.counts).toMatchObject({ new: 2 });
     const [st] = await s.owner.query(api.banking.statements, { accountId: s.eur });
     expect(st).toMatchObject({ openingBalanceCents: null, closingBalanceCents: null, format: "revolut_csv" });
-    expect(st?.periodFrom <= "2026-10-03" && st?.periodTo >= "2026-10-07").toBe(true);
+    expect((st?.periodFrom ?? "") <= "2026-10-03" && (st?.periodTo ?? "") >= "2026-10-07").toBe(true);
     const [imp] = await s.owner.query(api.banking.imports, { accountId: s.eur });
     expect(imp).toMatchObject({ fileName: "ohne-saldo.csv", periodFrom: st?.periodFrom, periodTo: st?.periodTo });
   });
