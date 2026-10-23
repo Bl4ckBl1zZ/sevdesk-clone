@@ -1,0 +1,8 @@
+﻿"Belegnummer";"Status";"Position ";"Lieferant / Kunde";"Kategorie";"Beschreibung";"Datum";"Fällig am";"Bezahlt am";"offener Betrag";"Betrag";"Kostenstelle";"Umsatzsteuersatz"
+ER-2026-001;bezahlt;;Muster Bürobedarf GmbH;;Druckerpapier;03.03.2026;17.03.2026;10.03.2026;0,00;119,00;;
+ER-2026-001;bezahlt;1;Muster Bürobedarf GmbH;Bürobedarf;Druckerpapier;03.03.2026;;;;119,00;;19,00
+ER-2026-002;bezahlt;;Beispiel Software AG;;Lizenzen;15.04.2026;;15.04.2026;0,00;137,00;;
+ER-2026-002;bezahlt;1;Beispiel Software AG;Software;Jahreslizenz;15.04.2026;;;;119,00;;19,00
+ER-2026-002;bezahlt;2;Beispiel Software AG;Fachliteratur;Handbuch;15.04.2026;;;;18,00;;7,00
+ER-2026-003;offen;;Test Versand KG;;Porto;20.05.2026;03.06.2026;;25,00;25,00;;
+ER-2026-003;offen;1;Test Versand KG;Porto;Paket;20.05.2026;;;;25,00;;0,00

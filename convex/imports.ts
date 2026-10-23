@@ -1,5 +1,6 @@
 import { v } from "convex/values";
 import { sha256Hex } from "../src/domain/audit/chain";
+import { decodeCsv } from "../src/domain/csv/csv";
 import { retentionUntil } from "../src/domain/documents/finalize";
 import { isZipBytes } from "../src/domain/import/sevdesk/archive";
 import { IMPORT_FILE_MAX_BYTES, inspectFile } from "../src/domain/import/sevdesk/files";
@@ -34,9 +35,11 @@ import {
   attachImportProtocol,
   beginImportCommit,
   commitImportContacts,
+  commitImportDatevAccounts,
   commitImportDocuments,
   commitImportOpeningItems,
   commitImportProducts,
+  commitImportVouchers,
   continueImportedRanges,
   createImport,
   discardImport,
@@ -44,6 +47,8 @@ import {
   finishImport,
   IMPORT_MESSAGES,
   type ImportedDocumentPayload,
+  type ImportedVoucherPayload,
+  importedVoucherRetention,
   importLocalState,
   removeImportFile,
   requireImport,
@@ -132,6 +137,49 @@ const vDocPayload = v.object({
   deviations: v.array(v.string()),
   post: v.optional(v.boolean()),
   correctedTotal: v.optional(v.object({ exportedGrossCents: v.number(), grossCents: v.number(), reason: v.string() })),
+});
+
+/** IMP-025: archived voucher as committed (`ImportedVoucherPayload`). */
+const vVoucherPayload = v.object({
+  key: v.string(),
+  number: v.string(),
+  supplierName: v.string(),
+  documentDate: v.string(),
+  dueDate: v.optional(v.string()),
+  paidOn: v.optional(v.string()),
+  statusText: v.string(),
+  cancelled: v.boolean(),
+  costCenter: v.optional(v.string()),
+  taxRule: v.union(v.literal("no_input_vat"), v.literal("input_vat_deductible")),
+  lines: v.array(
+    v.object({
+      position: v.number(),
+      description: v.string(),
+      account: v.string(),
+      rateBp: v.number(),
+      netCents: v.number(),
+      vatCents: v.number(),
+      grossCents: v.number(),
+    }),
+  ),
+  totals: v.object({
+    netCents: v.number(),
+    vatCents: v.number(),
+    grossCents: v.number(),
+    byRate: v.array(v.object({ rateBp: v.number(), netCents: v.number(), vatCents: v.number() })),
+  }),
+  statedGrossCents: v.number(),
+  deviations: v.array(v.string()),
+  fileId: v.string(),
+});
+/** IMP-026: a DATEV personal account planned for a contact. */
+const vDatevAccountPayload = v.object({
+  account: v.string(),
+  field: v.union(v.literal("debtorAccount"), v.literal("creditorAccount")),
+  contact: v.union(
+    v.object({ kind: v.literal("import"), key: v.string() }),
+    v.object({ kind: v.literal("local"), id: v.string() }),
+  ),
 });
 
 // ── reads ─────────────────────────────────────────────────────────────────────────────────────────────
@@ -223,6 +271,7 @@ const vKeys = v.object({
   contactNames: v.array(v.string()),
   productNumbers: v.array(v.string()),
   documentNumbers: v.array(v.string()),
+  personalAccounts: v.optional(v.array(v.string())),
 });
 
 /** IMP-009: the local data the preview depends on (read-only; business tables are never touched by a preview). */
@@ -407,7 +456,7 @@ async function computePlan(
       kind: f.kind as ImportFileInput["kind"],
       ...(f.ignored ? { ignored: true } : {}),
     };
-    if (!isMappedCsvKind(f.kind) || f.ignored) {
+    if ((!isMappedCsvKind(f.kind) && f.kind !== "datev") || f.ignored) {
       files.push(base);
       continue;
     }
@@ -416,6 +465,12 @@ async function computePlan(
     const bytes = new Uint8Array(await blob.arrayBuffer());
     // GOBD-20: what is parsed is exactly the stored, hashed upload.
     if ((await sha256Hex(bytes)) !== f.sha256) throw appError("conflict", `Die Datei ${f.name} wurde verändert.`);
+    if (f.kind === "datev") {
+      // IMP-026: EXTF is read by its own parser (line 1 is the EXTF header); DATEV writes Windows-1252.
+      const decoded = decodeCsv(bytes);
+      files.push({ ...base, ...(decoded.ok ? { text: decoded.value.text } : {}) });
+      continue;
+    }
     const info = inspectFile(f.name, bytes);
     files.push({ ...base, ...(info.table ? { table: info.table } : {}) });
   }
@@ -495,6 +550,22 @@ export const commitDocumentsInternal = actorMutation({
   permission: "imports.commit",
   args: { importId: v.id("imports"), docs: v.array(vDocPayload) },
   handler: async (ctx, { importId, docs }) => commitImportDocuments(ctx, importId, docs),
+});
+
+export const commitVouchersInternal = actorMutation({
+  permission: "imports.commit",
+  args: { importId: v.id("imports"), vouchers: v.array(vVoucherPayload) },
+  handler: async (ctx, { importId, vouchers }) => commitImportVouchers(ctx, importId, vouchers),
+});
+
+export const commitDatevInternal = actorMutation({
+  permission: "imports.commit",
+  args: {
+    importId: v.id("imports"),
+    accounts: v.array(vDatevAccountPayload),
+    files: v.array(v.object({ id: v.string(), sha256: v.string() })),
+  },
+  handler: async (ctx, { importId, accounts, files }) => commitImportDatevAccounts(ctx, importId, accounts, files),
 });
 
 export const commitOpeningInternal = actorMutation({
@@ -638,6 +709,7 @@ export const failInternal = actorMutation({
 const CONTACT_BATCH = 50;
 const PRODUCT_BATCH = 50;
 const DOCUMENT_BATCH = 25;
+const VOUCHER_BATCH = 25;
 
 function chunks<T>(list: readonly T[], size: number): T[][] {
   const out: T[][] = [];
@@ -688,6 +760,35 @@ function docPayload(p: ImportPlan["documents"][number]): ImportedDocumentPayload
     deviations: p.deviations,
     ...(p.post ? { post: true } : {}),
     ...(p.correction ? { correctedTotal: { ...p.correction } } : {}),
+  };
+}
+
+function voucherPayload(p: ImportPlan["vouchers"][number]): ImportedVoucherPayload {
+  const v = p.voucher;
+  return {
+    key: v.key,
+    number: v.number,
+    supplierName: v.supplierName,
+    documentDate: v.documentDate,
+    ...(v.dueDate ? { dueDate: v.dueDate } : {}),
+    ...(v.paidOn ? { paidOn: v.paidOn } : {}),
+    statusText: v.statusText,
+    cancelled: v.cancelled,
+    ...(v.costCenter ? { costCenter: v.costCenter } : {}),
+    taxRule: v.taxRule,
+    lines: v.lines.map((l) => ({
+      position: l.position,
+      description: l.description,
+      account: l.account,
+      rateBp: l.rateBp,
+      netCents: l.netCents,
+      vatCents: l.vatCents,
+      grossCents: l.grossCents,
+    })),
+    totals: { ...v.totals, byRate: v.totals.byRate.map((r) => ({ ...r })) },
+    statedGrossCents: v.statedGrossCents,
+    deviations: v.deviations,
+    fileId: p.fileId as string,
   };
 }
 
@@ -762,10 +863,19 @@ export const commit = action({
     // IMP-014: the records carry channel `import`; the actor stays the committing user / API key.
     const actorContext = { ...ctx.actorContext, channel: "import" as const };
     const importId = args.importId;
-    const counts = { contactsCreated: 0, productsCreated: 0, documentsCreated: 0, openingItemsCreated: 0, skipped: 0 };
+    const counts = {
+      contactsCreated: 0,
+      productsCreated: 0,
+      documentsCreated: 0,
+      openingItemsCreated: 0,
+      vouchersCreated: 0,
+      datevAccountsAssigned: 0,
+      skipped: 0,
+    };
     const log: string[] = [];
     try {
-      // IMP-018 commit order: contacts → products → sales documents with artifacts → open items → number ranges.
+      // IMP-018 commit order: contacts (+ DATEV personal accounts) → products → sales documents with artifacts →
+      // open items → number ranges → vouchers.
       const contacts = plan.contacts.filter((c) => c.status === "new").map((c) => ({ key: c.key, values: c.values }));
       const minimal = plan.minimalContacts
         .filter((m) => !m.localId)
@@ -788,6 +898,22 @@ export const commit = action({
         );
         counts.contactsCreated += r.created;
         counts.skipped += r.skipped;
+      }
+      // IMP-026: personal accounts from the DATEV Stammdaten, once the contacts exist (reference data only).
+      const datevAccounts = plan.datevAccounts
+        .filter((a) => a.status === "new")
+        .map((a) => ({ account: a.account, field: a.field, contact: a.contact }));
+      if (datevAccounts.length > 0 || plan.datevFiles.length > 0) {
+        const r = await withRetry(() =>
+          ctx.runMutation(internal.imports.commitDatevInternal, {
+            actorContext,
+            importId,
+            accounts: datevAccounts,
+            files: plan.datevFiles,
+          }),
+        );
+        counts.datevAccountsAssigned = r.assigned;
+        if (r.assigned > 0) log.push(`DATEV-Personenkonten übernommen: ${r.assigned}`);
       }
       const products = plan.products
         .filter((p) => p.status === "new")
@@ -838,12 +964,23 @@ export const commit = action({
         });
         for (const d of args.numberRanges) log.push(`Nummernkreis ${d.rangeKey}: ${d.format}, nächste ${d.next}`);
       }
+      // IMP-025: archived vouchers (no journal entries) after the number ranges.
+      const vouchers = plan.vouchers.filter((p) => p.status === "new" && p.fileId).map(voucherPayload);
+      for (const batch of chunks(vouchers, VOUCHER_BATCH)) {
+        const r = await withRetry(() =>
+          ctx.runMutation(internal.imports.commitVouchersInternal, { actorContext, importId, vouchers: batch }),
+        );
+        counts.vouchersCreated += r.created;
+        counts.skipped += r.skipped;
+      }
+      if (counts.vouchersCreated > 0) log.push(`Eingangsbelege archiviert (ohne Buchung): ${counts.vouchersCreated}`);
       if (args.missingPdfReason?.trim()) {
         log.push(`Ohne Original-PDF übernommen (${missingPdfKeys(plan).length}): ${args.missingPdfReason.trim()}`);
       }
-      const maxRetention = plan.documents
-        .filter((p) => p.status === "new")
-        .map((p) => retentionUntil(p.doc.type, p.doc.documentDate))
+      const maxRetention = [
+        ...plan.documents.filter((p) => p.status === "new").map((p) => retentionUntil(p.doc.type, p.doc.documentDate)),
+        ...vouchers.map((v) => importedVoucherRetention(v.documentDate)),
+      ]
         .sort()
         .at(-1);
       const stats = { ...plan.counts, ...counts };

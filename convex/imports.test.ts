@@ -1,6 +1,7 @@
 /// <reference types="vite/client" />
 import { describe, expect, test } from "vitest";
 import { sha256Hex } from "../src/domain/audit/chain";
+import { buchungsstapelFile, debitorenKreditorenFile, type ExtfHeader, raw, txt } from "../src/domain/datev/extf";
 import kontakte from "../test/fixtures/sevdesk-export/kontakte.csv?raw";
 import pdfGs from "../test/fixtures/sevdesk-export/pdf/GS-0001.pdf?raw";
 import pdfOrphan from "../test/fixtures/sevdesk-export/pdf/RE-0999.pdf?raw";
@@ -10,6 +11,7 @@ import pdf1002 from "../test/fixtures/sevdesk-export/pdf/Rechnung_RE-1002.pdf?ra
 import pdf1003 from "../test/fixtures/sevdesk-export/pdf/re 1003.PDF?raw";
 import rechnungen from "../test/fixtures/sevdesk-export/rechnungen.csv?raw";
 import vPart from "../test/fixtures/sevdesk-export-verified/18-10-2026_part.csv?raw";
+import vVoucherPdf from "../test/fixtures/sevdesk-export-verified/belege/Beleg_ER-2026-001.pdf?raw";
 import vContacts from "../test/fixtures/sevdesk-export-verified/contacts.csv?raw";
 import vInvoices from "../test/fixtures/sevdesk-export-verified/invoices.csv?raw";
 import vPdf1000 from "../test/fixtures/sevdesk-export-verified/pdf/2026-06-10_Rechnung_RE-5000_0123456789abcdef0123456789abcd00.pdf?raw";
@@ -17,6 +19,7 @@ import vPdf1001 from "../test/fixtures/sevdesk-export-verified/pdf/2026-06-26_Re
 import vPdf1002 from "../test/fixtures/sevdesk-export-verified/pdf/2026-07-29_Rechnung_RE-5002_0123456789abcdef0123456789abcd02.pdf?raw";
 import vPdf1003 from "../test/fixtures/sevdesk-export-verified/pdf/2026-08-12_Stornorechnung_RE-5003_0123456789abcdef0123456789abcd03.pdf?raw";
 import vPdf1004 from "../test/fixtures/sevdesk-export-verified/pdf/2026-09-15_Rechnung_RE-5004_0123456789abcdef0123456789abcd04.pdf?raw";
+import vVouchers from "../test/fixtures/sevdesk-export-verified/voucher.csv?raw";
 import { api, internal } from "./_generated/api";
 import type { Id } from "./_generated/dataModel";
 import { setupInvoicing } from "./invoices.fixtures";
@@ -71,7 +74,12 @@ async function setup(opts: { bookkeepingStart?: string | null; taxation?: "soll"
 }
 type Owner = Awaited<ReturnType<typeof setup>>["owner"];
 
-async function upload(t: TestT, owner: Owner, importId: Id<"imports">, files = FILES) {
+async function upload(
+  t: TestT,
+  owner: Owner,
+  importId: Id<"imports">,
+  files: readonly { name: string; content: string | Uint8Array<ArrayBuffer> }[] = FILES,
+) {
   const stored = [];
   for (const f of files)
     stored.push({ storageId: await t.run((ctx) => ctx.storage.store(new Blob([f.content]))), name: f.name });
@@ -888,5 +896,177 @@ describe("F09 sevdesk import in the verified export layout (Kleinunternehmer acc
       })
       .catch((x) => x);
     expect(messageOf(e)).toBe("Bitte für jede Betragskorrektur einen Grund angeben.");
+  });
+});
+
+describe("F09 IMP-025 / IMP-026 vouchers and the DATEV export from sevdesk (Convex)", () => {
+  const JPEG = new Uint8Array([0xff, 0xd8, 0xff, 0xe0, 0x00, 0x10, 0x4a, 0x46, 0x49, 0x46, 0x00, 0xff, 0xd9]);
+  const VOUCHER_FILES = [
+    { name: "voucher.csv", content: vVouchers },
+    { name: "Beleg_ER-2026-001.pdf", content: vVoucherPdf },
+    { name: "ER-2026-002.jpg", content: JPEG },
+  ];
+  const journalCount = (t: TestT) => t.run(async (ctx) => (await ctx.db.query("journalEntries").collect()).length);
+
+  test("IMP-025 TST-IMP-26 paid vouchers before the Buchungsbeginn are archived with their files byte-identical, without journal entries", async () => {
+    const { t, owner } = await setup({ bookkeepingStart: "2026-10-18" });
+    const importId = await owner.mutation(api.imports.create, {});
+    await upload(t, owner, importId, VOUCHER_FILES);
+    const view = await owner.query(api.imports.get, { importId });
+    expect(view?.files.map((f) => f.kind)).toEqual(["vouchers", "pdf", "image"]);
+    const first = await owner.action(api.imports.preview, { importId });
+    // ER-2026-003 is still open (E-IMP-43): blocked until excluded
+    expect(first.preview.blocking).toBe(1);
+    const open = first.preview.findings.find((f: { code: string }) => f.code === "E-IMP-43");
+    await owner.mutation(api.imports.setResolutions, { importId, resolutions: { excluded: [open?.rowRef as string] } });
+    const p = await owner.action(api.imports.preview, { importId });
+    expect(p.preview.blocking).toBe(0);
+    expect(p.preview.counts).toMatchObject({ vouchers: 2, vouchersExcluded: 1, pdfOrphans: 0 });
+    const journalBefore = await journalCount(t);
+    const r = await owner.action(api.imports.commit, { importId, previewHash: p.previewHash, numberRanges: [] });
+    expect(r.counts.vouchersCreated).toBe(2);
+    expect(await journalCount(t)).toBe(journalBefore);
+    const vouchers = await t.run((ctx) => ctx.db.query("vouchers").collect());
+    expect(vouchers).toHaveLength(2);
+    const v2 = vouchers.find((v) => v.documentNumber === "ER-2026-002");
+    expect(v2).toMatchObject({
+      imported: true,
+      origin: { source: "sevdesk_export", externalId: "voucher:beispiel software ag|ER-2026-002", importId },
+      status: "paid",
+      openAmountCents: 0,
+      supplierName: "Beispiel Software AG",
+      documentDate: "2026-04-15",
+      journalEntryIds: [],
+      retentionClass: "vouchers8",
+      retentionUntil: "2034-12-31",
+      totals: { grossCents: 13_700, vatCents: 2_018, netCents: 11_682 },
+      statedTotals: { grossCents: 13_700 },
+    });
+    expect(v2?.lockedAt).toBeTypeOf("number");
+    // GOBD-07: the archived original is the uploaded file itself (same storage object, same SHA-256)
+    const jpgFile = (await t.run((ctx) => ctx.db.get(importId)))?.files.find((f) => f.kind === "image");
+    expect(v2?.originalFiles).toEqual([
+      expect.objectContaining({
+        sha256: await sha256Hex(JPEG),
+        storageId: jpgFile?.storageId,
+        name: "ER-2026-002.jpg",
+        role: "original",
+      }),
+    ]);
+    const lines = await t.run((ctx) =>
+      ctx.db
+        .query("voucherLines")
+        .withIndex("by_voucher", (q) => q.eq("voucherId", v2?._id as Id<"vouchers">))
+        .collect(),
+    );
+    expect(lines.map((l) => [l.position, l.grossCents, l.vatRateBp, l.vatCents, l.account])).toEqual([
+      [1, 11_900, 1900, 1_900, ""],
+      [2, 1_800, 700, 118, ""],
+    ]);
+    const hashes = await t.run((ctx) => ctx.db.query("voucherFileHashes").collect());
+    expect(hashes.map((h) => h.voucherId).sort()).toEqual(vouchers.map((v) => v._id).sort());
+    const audit = await t.run((ctx) => ctx.db.query("auditLog").collect());
+    expect(audit.find((a) => a.action === "voucher.import" && a.entity.table === "vouchers")?.reason).toContain(
+      "sevdesk-Export",
+    );
+    // IMP-006: a re-run with the same export skips the archived vouchers
+    const again = await owner.mutation(api.imports.create, {});
+    await upload(t, owner, again, VOUCHER_FILES);
+    const pa = await owner.action(api.imports.preview, { importId: again });
+    expect(pa.preview.counts).toMatchObject({ vouchers: 0, vouchersSkipped: 2 });
+  });
+
+  test("IMP-025 E-IMP-44 vouchers dated on/after the Buchungsbeginn are blocked (no archive-only voucher in the booked period)", async () => {
+    const { t, owner } = await setup({ bookkeepingStart: "2026-04-01" });
+    const importId = await owner.mutation(api.imports.create, {});
+    await upload(t, owner, importId, VOUCHER_FILES);
+    const p = await owner.action(api.imports.preview, { importId });
+    const codes = p.preview.findings
+      .filter((f: { severity: string }) => f.severity === "error")
+      .map((f: { code: string }) => f.code);
+    expect(codes.sort()).toEqual(["E-IMP-44", "E-IMP-44"]);
+    expect(p.preview.counts.vouchers).toBe(1);
+  });
+
+  const HEADER: ExtfHeader = {
+    category: 21,
+    formatName: "Buchungsstapel",
+    formatVersion: 13,
+    createdAt: "20261018120000000",
+    exportedBy: "sevdesk",
+    consultantNumber: 1001,
+    clientNumber: 1,
+    fiscalYearStart: "2026-01-01",
+    accountLength: 4,
+    from: "2026-01-01",
+    to: "2026-10-17",
+    chart: "SKR03",
+  };
+  const bytesOf = (b: Uint8Array) => new Uint8Array(b);
+
+  test("IMP-026 TST-IMP-27 debtor numbers land on contacts, the tax case is refined, no journal entries come from the DATEV file and the file stays archived", async () => {
+    const { t, owner } = await setup({ bookkeepingStart: "2026-10-01" });
+    const contacts = "Kundennummer;Name;Ort\nK-900;Datev Test GmbH;Berlin\n";
+    const invoices =
+      "Rechnungsnummer;Rechnungsdatum;Kundennummer;Kunde;Netto;Steuer;Brutto;Offen\nRE-9001;15.06.2026;K-900;Datev Test GmbH;100,00;0,00;100,00;0,00\n";
+    const stamm = bytesOf(
+      debitorenKreditorenFile({ ...HEADER, category: 16, formatName: "Debitoren/Kreditoren" }, [
+        { Konto: raw("10900"), "Name (Adressatentyp Unternehmen)": txt("Datev Test GmbH"), Kundennummer: txt("K-900") },
+      ]).encoded.bytes,
+    );
+    const stapel = bytesOf(
+      buchungsstapelFile(HEADER, 13, [
+        {
+          "Umsatz (ohne Soll/Haben-Kz)": raw("100,00"),
+          "Soll/Haben-Kennzeichen": txt("S"),
+          Konto: raw("10900"),
+          "Gegenkonto (ohne BU-Schlüssel)": raw("8125"),
+          Belegdatum: raw("1506"),
+          "Belegfeld 1": txt("RE-9001"),
+        },
+      ]).encoded.bytes,
+    );
+    const importId = await owner.mutation(api.imports.create, {});
+    await upload(t, owner, importId, [
+      { name: "kontakte.csv", content: contacts },
+      { name: "rechnungen.csv", content: invoices },
+      { name: "EXTF_Stammdaten.csv", content: stamm },
+      { name: "EXTF_Buchungsstapel.csv", content: stapel },
+    ]);
+    const view = await owner.query(api.imports.get, { importId });
+    expect(view?.files.map((f) => f.kind)).toEqual(["contacts", "invoices", "datev", "datev"]);
+    const p = await owner.action(api.imports.preview, { importId });
+    expect(p.preview.blocking).toBe(0);
+    expect(p.preview.counts).toMatchObject({ datevAccounts: 1, datevRefined: 1 });
+    const journalBefore = await journalCount(t);
+    const r = await owner.action(api.imports.commit, {
+      importId,
+      previewHash: p.previewHash,
+      numberRanges: [],
+      missingPdfReason: "PDF fehlt im Test",
+    });
+    expect(r.counts.datevAccountsAssigned).toBe(1);
+    expect(await journalCount(t)).toBe(journalBefore);
+    const contact = await t.run(async (ctx) =>
+      (await ctx.db.query("contacts").collect()).find((c) => c.number === "K-900"),
+    );
+    expect(contact?.debtorAccount).toBe("10900");
+    const doc = (await importedDocs(t)).find((d) => d.number === "RE-9001");
+    expect(doc?.taxCase).toBe("intra_community_supply");
+    expect(doc?.totals.byGroup).toEqual([{ category: "K", rateBp: 0, netCents: 10_000, vatCents: 0 }]);
+    // IMP-024: both DATEV files stay with the committed import as migration evidence; each is recorded once
+    const done = await owner.query(api.imports.get, { importId });
+    expect(done?.files.filter((f) => f.kind === "datev")).toHaveLength(2);
+    const records = await t.run((ctx) => ctx.db.query("importedRecords").collect());
+    expect(
+      records
+        .filter((x) => x.externalType === "sevdesk.datev")
+        .map((x) => x.externalId)
+        .sort(),
+    ).toEqual([await sha256Hex(stamm), await sha256Hex(stapel)].sort());
+    const assign = await t.run(async (ctx) =>
+      (await ctx.db.query("auditLog").collect()).find((a) => a.action === "contact.account.assign"),
+    );
+    expect(assign?.reason).toContain("sevdesk-Export");
   });
 });

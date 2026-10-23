@@ -18,6 +18,7 @@ import {
 import { type ImportedDocType, isArchiveOnlyImport } from "../../src/domain/import/sevdesk/types";
 import { formatCents } from "../../src/domain/money/format";
 import { normalizeNumber, type YearMonth } from "../../src/domain/numbering/format";
+import { retentionUntilFor } from "../../src/domain/rules/retention";
 import { contactCreateSchema, emptyAddress, emptyContactForm } from "../../src/domain/schemas/contacts";
 import { productSchema } from "../../src/domain/schemas/products";
 import type { TaxCase } from "../../src/domain/tax/tax-case";
@@ -451,8 +452,37 @@ export async function importLocalState(ctx: ReadCtx, keys: LookupKeys, today: Ca
   for (const p of await ctx.db.query("periods").collect()) {
     if (p.status !== "open") closedPeriods[p.period] = p.reason ?? p.status;
   }
+  // IMP-026: current personal accounts of the contacts the DATEV Stammdaten may land on, and the owners of the accounts.
+  const contactAccounts: Record<string, { debtorAccount?: string; creditorAccount?: string }> = {};
+  const accountOwners: Record<string, string> = {};
+  if ((keys.personalAccounts ?? []).length > 0) {
+    const ids = new Set([...Object.values(contactsByNumber).map((c) => c.id), ...Object.values(contactsByName).flat()]);
+    for (const id of ids) {
+      const c = await ctx.db.get(id as Id<"contacts">);
+      if (c) {
+        contactAccounts[id] = {
+          ...(c.debtorAccount ? { debtorAccount: c.debtorAccount } : {}),
+          ...(c.creditorAccount ? { creditorAccount: c.creditorAccount } : {}),
+        };
+      }
+    }
+    for (const account of keys.personalAccounts ?? []) {
+      const owner =
+        (await ctx.db
+          .query("contacts")
+          .withIndex("by_debtorAccount", (q) => q.eq("debtorAccount", account))
+          .first()) ??
+        (await ctx.db
+          .query("contacts")
+          .withIndex("by_creditorAccount", (q) => q.eq("creditorAccount", account))
+          .first());
+      if (owner) accountOwners[account] = owner._id;
+    }
+  }
   const profile = await getCompanyProfile(ctx);
   return {
+    contactAccounts,
+    accountOwners,
     closedPeriods,
     taxationMethod: (profile?.taxationMethod ?? []).map((m) => ({ validFrom: m.validFrom, method: m.method })),
     today,
@@ -970,6 +1000,233 @@ export async function commitImportOpeningItems(ctx: ModelCtx, importId: Id<"impo
   }
   await recordImported(ctx, importId, EXTERNAL_TYPES.opening, importId, "journalEntries", posted.entryIds[0]);
   return { created: items.length };
+}
+
+// ── IMP-025 historical vouchers ─────────────────────────────────────────────────────────────────────────
+
+export interface ImportedVoucherPayload {
+  key: string;
+  number: string;
+  supplierName: string;
+  documentDate: string;
+  dueDate?: string;
+  paidOn?: string;
+  statusText: string;
+  cancelled: boolean;
+  costCenter?: string;
+  taxRule: "no_input_vat" | "input_vat_deductible";
+  lines: {
+    position: number;
+    description: string;
+    account: string;
+    rateBp: number;
+    netCents: number;
+    vatCents: number;
+    grossCents: number;
+  }[];
+  totals: {
+    netCents: number;
+    vatCents: number;
+    grossCents: number;
+    byRate: { rateBp: number; netCents: number; vatCents: number }[];
+  };
+  statedGrossCents: number;
+  deviations: string[];
+  fileId: string;
+}
+
+/** IMP-025 / GOBD-20: vouchers are Buchungsbelege (class vouchers8, 8 years from the end of the voucher's year). */
+export const importedVoucherRetention = (documentDate: string): string =>
+  retentionUntilFor("vouchers8", documentDate) as string;
+
+/**
+ * IMP-025: archived historic vouchers — read-only from insert (status paid/cancelled, `lockedAt`, `imported`,
+ * `origin`), the original file byte-identical from the import (same storage object and SHA-256), no journal entry
+ * (the preview admits only settled vouchers dated before the Buchungsbeginn). Re-runs skip by `importedRecords`.
+ */
+export async function commitImportVouchers(
+  ctx: ModelCtx,
+  importId: Id<"imports">,
+  vouchers: readonly ImportedVoucherPayload[],
+): Promise<{ created: number; skipped: number }> {
+  const row = await requireRunning(ctx, importId);
+  const opening = await openingContextForImport(ctx);
+  let created = 0;
+  let skipped = 0;
+  const now = ctx.now();
+  const reason = importAuditReason(importId);
+  for (const v of vouchers) {
+    if (await importedRecord(ctx, EXTERNAL_TYPES.voucher, v.key)) {
+      skipped++;
+      continue;
+    }
+    // Authoritative re-check in the writing transaction: never an archive-only voucher inside the booked period.
+    if (!opening || v.documentDate >= opening.date) {
+      throw appError(
+        "conflict",
+        `${v.number}: Belege ab dem Buchungsbeginn werden nicht archiviert. Bitte Vorschau neu erstellen.`,
+        { reason: "E_IMP_44" },
+      );
+    }
+    const file = row.files.find((f) => f.id === v.fileId && (f.kind === "pdf" || f.kind === "image"));
+    if (!file) throw appError("conflict", `${v.number}: Belegdatei nicht gefunden.`, { reason: "E_IMP_42" });
+    const notes = [
+      "Importiert aus sevdesk-Export · archiviert · ohne Buchung (vor dem Buchungsbeginn).",
+      v.statusText ? `Status laut sevdesk: ${v.statusText}.` : "",
+      v.paidOn ? `Bezahlt am laut sevdesk: ${v.paidOn}.` : "",
+      v.costCenter ? `Kostenstelle laut sevdesk: ${v.costCenter}.` : "",
+      ...v.deviations,
+    ]
+      .filter(Boolean)
+      .join(" ");
+    const originalFiles = [
+      {
+        storageId: file.storageId,
+        sha256: file.sha256,
+        bytes: file.bytes,
+        mime: file.mime,
+        name: file.name.split(/[\\/]/).at(-1) ?? file.name,
+        role: "original" as const,
+        capturedAt: now,
+        capturedBy: ctx.actor,
+        // vCaptureChannel has no `import`: the file came in as an upload of the sevdesk export (channel `import`
+        // is on the audit entries, IMP-014).
+        capturedVia: "upload" as const,
+      },
+    ];
+    const voucherId = await auditedInsert(
+      ctx,
+      "vouchers",
+      {
+        direction: "expense",
+        kind: "standard",
+        status: v.cancelled ? "cancelled" : "paid",
+        supplierName: v.supplierName,
+        documentNumber: v.number,
+        documentDate: v.documentDate,
+        ...(v.dueDate ? { dueDate: v.dueDate } : {}),
+        receivedAt: now,
+        // SEVDESK-LAYOUT-UNSURE: the voucher list has no currency column; amounts are taken as EUR.
+        currency: "EUR",
+        priceMode: "gross",
+        taxRule: v.taxRule,
+        totals: { ...v.totals, selfAssessedVatCents: 0 },
+        statedTotals: { grossCents: v.statedGrossCents },
+        openAmountCents: 0,
+        originalFiles,
+        renditions: [],
+        duplicateDismissals: [],
+        tags: [],
+        internalNote: notes,
+        journalEntryIds: [],
+        imported: true,
+        origin: { source: SOURCE, externalId: v.key, importId },
+        recordedAt: now,
+        lockedAt: now,
+        ...(v.cancelled ? { cancelledAt: now, cancelReason: "Storniert (laut sevdesk-Export)" } : {}),
+        retentionClass: "vouchers8",
+        retentionUntil: importedVoucherRetention(v.documentDate),
+        actor: ctx.actor,
+        version: 1,
+      },
+      { action: "voucher.import", label: v.number, reason },
+    );
+    for (const l of v.lines) {
+      await auditedInsert(
+        ctx,
+        "voucherLines",
+        {
+          voucherId,
+          position: l.position,
+          account: l.account,
+          description: l.description,
+          netCents: l.netCents,
+          vatRateBp: l.rateBp,
+          vatCents: l.vatCents,
+          grossCents: l.grossCents,
+        },
+        { action: "voucher.import", label: v.number, reason },
+      );
+    }
+    // VOU-050: the identical-file lookup also finds imported originals.
+    await auditedInsert(
+      ctx,
+      "voucherFileHashes",
+      { sha256: file.sha256, voucherId, fileIndex: 0 },
+      { action: "voucher.import", label: v.number, reason },
+    );
+    if (!(await importedRecord(ctx, EXTERNAL_TYPES.file, file.sha256))) {
+      await recordImported(ctx, importId, EXTERNAL_TYPES.file, file.sha256, "vouchers", voucherId);
+    }
+    await recordImported(ctx, importId, EXTERNAL_TYPES.voucher, v.key, "vouchers", voucherId);
+    created++;
+  }
+  return { created, skipped };
+}
+
+// ── IMP-026 DATEV personal accounts ─────────────────────────────────────────────────────────────────────
+
+export interface DatevAccountPayload {
+  account: string;
+  field: "debtorAccount" | "creditorAccount";
+  contact: { kind: "import"; key: string } | { kind: "local"; id: string };
+}
+
+/**
+ * IMP-026: personal accounts from sevdesk's DATEV Stammdaten on contacts — only where the contact has none and no
+ * other contact owns the account (re-checked here; the preview reported conflicts, E-IMP-47). The DATEV files are
+ * recorded once (`sevdesk.datev` / SHA-256); they stay archived with the import as migration evidence (IMP-024).
+ * No journal entry is ever written from them.
+ */
+export async function commitImportDatevAccounts(
+  ctx: ModelCtx,
+  importId: Id<"imports">,
+  accounts: readonly DatevAccountPayload[],
+  files: readonly { id: string; sha256: string }[],
+): Promise<{ assigned: number; skipped: number }> {
+  await requireRunning(ctx, importId);
+  let assigned = 0;
+  let skipped = 0;
+  for (const a of accounts) {
+    let contactId: Id<"contacts"> | null = null;
+    if (a.contact.kind === "local") contactId = ctx.db.normalizeId("contacts", a.contact.id);
+    else {
+      const rec = await importedRecord(ctx, EXTERNAL_TYPES.contact, a.contact.key);
+      contactId = rec ? ctx.db.normalizeId("contacts", rec.localId) : null;
+    }
+    const contact = contactId ? await ctx.db.get(contactId) : null;
+    if (!contact || contact[a.field]) {
+      skipped++;
+      continue;
+    }
+    const owner = await ctx.db
+      .query("contacts")
+      .withIndex(a.field === "debtorAccount" ? "by_debtorAccount" : "by_creditorAccount", (q) =>
+        q.eq(a.field, a.account),
+      )
+      .first();
+    if (owner && owner._id !== contact._id) {
+      skipped++;
+      continue;
+    }
+    await auditedPatch(
+      ctx,
+      "contacts",
+      contact._id,
+      { [a.field]: a.account, version: contact.version + 1 },
+      {
+        action: "contact.account.assign",
+        label: `${contact.number} · ${a.account}`,
+        reason: importAuditReason(importId),
+      },
+    );
+    assigned++;
+  }
+  for (const f of files) {
+    if (await importedRecord(ctx, EXTERNAL_TYPES.datev, f.sha256)) continue;
+    await recordImported(ctx, importId, EXTERNAL_TYPES.datev, f.sha256, "imports", importId);
+  }
+  return { assigned, skipped };
 }
 
 export async function continueImportedRanges(

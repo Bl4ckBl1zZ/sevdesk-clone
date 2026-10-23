@@ -271,7 +271,7 @@ function FilesSection({ view, importId, editable }: { view: View; importId: Id<"
               id={inputId}
               type="file"
               multiple
-              accept=".csv,.txt,.pdf,.xml,.zip"
+              accept=".csv,.txt,.pdf,.xml,.zip,.jpg,.jpeg,.png"
               disabled={busy}
               onChange={(e) => onFiles(e.target.files)}
             />
@@ -547,6 +547,10 @@ const COUNT_KEYS = [
   "pdfMatched",
   "pdfMissing",
   "pdfOrphans",
+  "vouchers",
+  "vouchersSkipped",
+  "datevAccounts",
+  "datevRefined",
   "drafts",
 ] as const;
 
@@ -595,7 +599,8 @@ function PreviewSection({
   );
   const res: Resolutions = view.resolutions;
   const excluded = new Set(res.excluded ?? []);
-  const pdfFiles = view.files.filter((f) => f.kind === "pdf" && !f.ignored);
+  // IMP-025: voucher files may be images; E-IMP-22/E-IMP-42 rows choose from both.
+  const pdfFiles = view.files.filter((f) => (f.kind === "pdf" || f.kind === "image") && !f.ignored);
 
   const updateRes = (next: Resolutions) => run(() => setResolutions({ importId, resolutions: next }));
   const createPreview = async () => {
@@ -1144,7 +1149,7 @@ function FindingRow({
       {editable ? (
         <TableCell className="align-top">
           <div className="flex flex-col gap-2">
-            {f.code === "E-IMP-22" && f.key ? (
+            {(f.code === "E-IMP-22" || f.code === "E-IMP-42") && f.key ? (
               <select
                 aria-label={`${t("choosePdf")}: ${f.key}`}
                 className={selectClass}

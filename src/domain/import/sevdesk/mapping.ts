@@ -29,23 +29,25 @@ export const IMPORT_FILE_KINDS = [
   "vouchers",
   "datev",
   "pdf",
+  "image",
   "xml",
   "zip",
   "unknown",
 ] as const;
 export type ImportFileKind = (typeof IMPORT_FILE_KINDS)[number];
-/** CSV kinds the P1 importer maps and commits (vouchers and DATEV follow in P2, IMP-025/026). */
-export type MappedCsvKind = "contacts" | "products" | "invoices";
+/** CSV kinds the importer maps by header name (the DATEV export has a fixed EXTF layout, IMP-026). */
+export type MappedCsvKind = "contacts" | "products" | "invoices" | "vouchers";
 export const isMappedCsvKind = (k: string): k is MappedCsvKind =>
-  k === "contacts" || k === "products" || k === "invoices";
+  k === "contacts" || k === "products" || k === "invoices" || k === "vouchers";
 
 export const IMPORT_FILE_KIND_LABELS: Readonly<Record<ImportFileKind, string>> = {
   contacts: "Kontakte (CSV)",
   products: "Artikel (CSV)",
   invoices: "Rechnungsliste (CSV)",
-  vouchers: "Belegliste (CSV, ab P2)",
-  datev: "DATEV-Export (ab P2)",
+  vouchers: "Belegliste (CSV)",
+  datev: "DATEV-Export (Referenzdaten)",
   pdf: "Beleg-PDF",
+  image: "Belegbild (JPG/PNG)",
   xml: "E-Rechnung (XML)",
   zip: "ZIP-Archiv",
   unknown: "Unbekannt",
@@ -143,6 +145,74 @@ const INVOICE_CANDIDATES: Readonly<Record<InvoiceField, readonly string[]>> = {
   subject: ["betreff"],
 };
 
+// ── voucher list target fields (§4.3.1 row "Voucher list CSV", IMP-025) ───────────────────────────────
+
+export const VOUCHER_FIELDS = [
+  "number",
+  "status",
+  "position",
+  "supplierName",
+  "category",
+  "description",
+  "documentDate",
+  "dueDate",
+  "paidOn",
+  "open",
+  "amount",
+  "net",
+  "vat",
+  "rate",
+  "costCenter",
+  "account",
+] as const;
+export type VoucherField = (typeof VOUCHER_FIELDS)[number];
+
+export const VOUCHER_FIELD_LABELS: Readonly<Record<VoucherField, string>> = {
+  number: "Belegnummer",
+  status: "Status",
+  position: "Position",
+  supplierName: "Lieferant",
+  category: "Kategorie",
+  description: "Beschreibung",
+  documentDate: "Belegdatum",
+  dueDate: "Fällig am",
+  paidOn: "Bezahlt am",
+  open: "Offener Betrag",
+  amount: "Betrag (brutto)",
+  net: "Netto",
+  vat: "Umsatzsteuer",
+  rate: "Steuersatz",
+  costCenter: "Kostenstelle",
+  account: "Buchungskonto",
+};
+
+const REQUIRED_VOUCHER: readonly VoucherField[] = ["number", "documentDate", "amount"];
+
+/**
+ * Preset `sevdesk-vouchers` (normalised candidates, priority order). Verified sevdesk headers (2026-10-18, „Ausgaben ›
+ * Exportieren › CSV (Excel)“): „Belegnummer“, „Status“, „Position “, „Lieferant / Kunde“, „Kategorie“, „Beschreibung“,
+ * „Datum“, „Fällig am“, „Bezahlt am“, „offener Betrag“, „Betrag“, „Kostenstelle“, „Umsatzsteuersatz“. The others are
+ * unverified alternates. SEVDESK-LAYOUT-UNSURE: „Betrag“ is assumed to be the gross amount.
+ */
+const VOUCHER_CANDIDATES: Readonly<Record<VoucherField, readonly string[]>> = {
+  number: ["belegnummer", "beleg nr", "belegnr", "rechnungsnummer"],
+  status: ["status"],
+  position: ["position", "pos"],
+  supplierName: ["lieferant kunde", "lieferant", "kreditor", "lieferantenname", "name"],
+  category: ["kategorie"],
+  description: ["beschreibung", "buchungstext", "text"],
+  documentDate: ["datum", "belegdatum", "rechnungsdatum"],
+  dueDate: ["faellig am", "faelligkeit"],
+  paidOn: ["bezahlt am", "zahlungsdatum"],
+  open: ["offener betrag", "offen", "restbetrag"],
+  amount: ["betrag", "brutto", "bruttobetrag", "betrag brutto", "gesamtbetrag brutto"],
+  net: ["netto", "nettobetrag", "betrag netto"],
+  vat: ["steuer", "ust", "umsatzsteuer", "steuerbetrag", "ust betrag"],
+  rate: ["umsatzsteuersatz", "steuersatz", "ust satz", "mwst satz"],
+  costCenter: ["kostenstelle"],
+  account: ["buchungskonto", "konto", "sachkonto"],
+};
+
 const PER_RATE = /^(netto|ust|mwst|steuer|brutto) (\d{1,2})(?: (\d{1,2}))? ?%?$/;
 const PER_RATE_FIELD: Readonly<Record<string, "net" | "vat" | "gross">> = {
   netto: "net",
@@ -184,6 +254,13 @@ export function targetFields(kind: MappedCsvKind): TargetFieldDef[] {
       key: f,
       label: PRODUCT_IMPORT_FIELD_LABELS[f],
       required: f === "number" || f === "name",
+    }));
+  }
+  if (kind === "vouchers") {
+    return VOUCHER_FIELDS.map((f) => ({
+      key: f,
+      label: VOUCHER_FIELD_LABELS[f],
+      required: REQUIRED_VOUCHER.includes(f),
     }));
   }
   return INVOICE_FIELDS.map((f) => ({
@@ -228,6 +305,18 @@ export function autoMap(kind: MappedCsvKind, headers: readonly string[]): Column
     return out;
   }
   const normalised = headers.map(normalizeHeader);
+  if (kind === "vouchers") {
+    for (const field of VOUCHER_FIELDS) {
+      for (const candidate of VOUCHER_CANDIDATES[field]) {
+        const i = normalised.indexOf(candidate);
+        if (i >= 0 && headers[i] !== undefined && !Object.values(out).includes(headers[i])) {
+          out[field] = headers[i];
+          break;
+        }
+      }
+    }
+    return out;
+  }
   for (const field of INVOICE_FIELDS) {
     for (const candidate of INVOICE_CANDIDATES[field]) {
       const i = normalised.indexOf(candidate);
@@ -266,10 +355,12 @@ export function checkMapping(kind: MappedCsvKind, headers: readonly string[], ma
   const perRate = Object.keys(mapping).some((k) => parsePerRate(k) !== null);
   if (kind === "invoices" && perRate && missing.includes("gross")) missing.splice(missing.indexOf("gross"), 1);
   const conflicts: { target: string; headers: string[] }[] = [];
-  if (kind === "invoices") {
+  if (kind === "invoices" || kind === "vouchers") {
     const normalised = headers.map(normalizeHeader);
-    for (const field of INVOICE_FIELDS) {
-      const fits = headers.filter((_, i) => INVOICE_CANDIDATES[field].includes(normalised[i] ?? ""));
+    const candidates: Readonly<Record<string, readonly string[]>> =
+      kind === "invoices" ? INVOICE_CANDIDATES : VOUCHER_CANDIDATES;
+    for (const [field, list] of Object.entries(candidates)) {
+      const fits = headers.filter((_, i) => list.includes(normalised[i] ?? ""));
       if (fits.length > 1) conflicts.push({ target: field, headers: fits });
     }
   }
@@ -317,6 +408,12 @@ export function classifyFile(input: {
   const ascii = String.fromCharCode(...h.subarray(0, 8));
   const ext = (/\.([a-z0-9]+)$/i.exec(input.name)?.[1] ?? "").toLowerCase();
   if (ascii.startsWith("%PDF-")) return "pdf";
+  // IMP-025: voucher files may be photos or scans (JPEG / PNG magic bytes).
+  if (
+    (h[0] === 0xff && h[1] === 0xd8 && h[2] === 0xff) ||
+    (h[0] === 0x89 && h[1] === 0x50 && h[2] === 0x4e && h[3] === 0x47)
+  )
+    return "image";
   if (h[0] === 0x50 && h[1] === 0x4b && h[2] === 0x03 && h[3] === 0x04) return "zip";
   if (ext === "xml" || /^\s*(﻿)?<\?xml/.test(input.firstLine ?? "")) return "xml";
   if (/^\s*﻿?"?EXTF"?[;,]/.test(input.firstLine ?? "")) return "datev";
@@ -326,7 +423,14 @@ export function classifyFile(input: {
   const gross = has(n, INVOICE_CANDIDATES.gross) || n.some((x) => /^brutto \d/.test(x));
   const date = has(n, INVOICE_CANDIDATES.documentDate);
   if (invoiceNumber && gross && date) return "invoices";
-  if (has(n, ["belegnummer", "belegdatum"]) && has(n, ["lieferant", "kreditor"])) return "vouchers";
+  // IMP-025: verified sevdesk voucher list („Belegnummer“, „Datum“, „Lieferant / Kunde“, „Betrag“) and alternates.
+  if (
+    has(n, ["belegnummer", "beleg nr", "belegnr"]) &&
+    has(n, ["datum", "belegdatum"]) &&
+    has(n, ["lieferant kunde", "lieferant", "kreditor", "lieferantenname"])
+  ) {
+    return "vouchers";
+  }
   if (has(n, ["nummer"]) && gross && date && has(n, ["typ", "rechnungstyp", "belegart"])) return "invoices";
   const articleNumber = has(n, ["artikelnummer", "artikel nr", "artikelnr", "produktnummer"]);
   if (articleNumber && n.some((x) => x.includes("preis"))) return "products";

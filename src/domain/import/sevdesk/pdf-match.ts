@@ -8,7 +8,7 @@
 export function normalizeForMatch(value: string): string {
   return value
     .toLowerCase()
-    .replace(/\.(pdf|xml)$/i, "")
+    .replace(/\.(pdf|xml|jpe?g|png)$/i, "")
     .replace(/^(rechnungskorrektur|stornorechnung|rechnung|gutschrift|storno|korrektur|invoice)(?=[\s_\-./]|\d|$)/, "")
     .replace(/[\s_\-./]+/g, "-")
     .replace(/^-+|-+$/g, "");

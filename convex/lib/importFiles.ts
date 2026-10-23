@@ -44,7 +44,12 @@ export async function describeImportFile(
     storageId,
     sha256: await sha256Hex(bytes),
     bytes: bytes.length,
-    mime: blobType || MIME_BY_KIND[info.kind] || (info.table ? "text/csv" : "application/octet-stream"),
+    mime:
+      blobType ||
+      MIME_BY_KIND[info.kind] ||
+      // IMP-025 voucher photos/scans
+      (info.kind === "image" ? (bytes[0] === 0xff ? "image/jpeg" : "image/png") : undefined) ||
+      (info.table ? "text/csv" : "application/octet-stream"),
     name: name.slice(0, 255),
     kind: info.kind,
     ...(info.encoding ? { encoding: info.encoding } : {}),

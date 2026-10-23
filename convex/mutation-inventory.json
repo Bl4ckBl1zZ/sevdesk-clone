@@ -1735,6 +1735,12 @@
     "wrapper": "actorMutation",
     "permission": "imports.commit"
   },
+  "imports:commitDatevInternal": {
+    "kind": "mutation",
+    "visibility": "internal",
+    "wrapper": "actorMutation",
+    "permission": "imports.commit"
+  },
   "imports:commitDocumentsInternal": {
     "kind": "mutation",
     "visibility": "internal",
@@ -1748,6 +1754,12 @@
     "permission": "imports.commit"
   },
   "imports:commitProductsInternal": {
+    "kind": "mutation",
+    "visibility": "internal",
+    "wrapper": "actorMutation",
+    "permission": "imports.commit"
+  },
+  "imports:commitVouchersInternal": {
     "kind": "mutation",
     "visibility": "internal",
     "wrapper": "actorMutation",

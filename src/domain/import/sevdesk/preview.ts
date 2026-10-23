@@ -21,6 +21,15 @@ import { contactCreateSchema, emptyContactForm } from "../../schemas/contacts";
 import { productSchema } from "../../schemas/products";
 import { type CalendarDate, formatGermanDate } from "../../time/calendar-date";
 import { IMPORT_PRIVACY_NOTICE_CODE, importPrivacyNotice } from "../privacy-notice";
+import {
+  type DatevReference,
+  datevReference,
+  type PlannedAccount,
+  parseExtf,
+  planDatevAccounts,
+  refineWithDatev,
+} from "./datev";
+import { dedupe } from "./dedupe";
 import { type DateFormat, detectDateFormat, detectNumberFormat, type NumberFormat } from "./formats";
 import {
   type ImportedDocument,
@@ -42,6 +51,7 @@ import {
 import { type LocalRange, proposeContinuation, type RangeProposal } from "./number-pattern";
 import { matchFiles, type PdfMatchResult } from "./pdf-match";
 import { IMPORTED_DOC_TYPE_LABELS, type ImportFinding, type KuHistory, rowRefOf } from "./types";
+import { type ImportedVoucher, type PlannedVoucher, parseVoucherList, planVouchers } from "./vouchers";
 
 export type { KuHistory } from "./types";
 
@@ -53,6 +63,10 @@ export const EXTERNAL_TYPES = {
   product: "sevdesk.product",
   document: "sevdesk.document",
   file: "sevdesk.file",
+  /** IMP-025: archived voucher (`voucher:<supplier>|<number>`). */
+  voucher: "sevdesk.voucher",
+  /** IMP-026: a DATEV export file read as reference data (SHA-256). */
+  datev: "sevdesk.datev",
   /** One marker per import: its open items were posted as F08 opening receivables (IMP-007). */
   opening: "sevdesk.opening_receivables",
 } as const;
@@ -68,6 +82,8 @@ export interface ImportFileInput {
   readonly ignored?: boolean;
   /** CSV kinds: decoded table. */
   readonly table?: { readonly headers: string[]; readonly records: CsvRecord[] };
+  /** DATEV EXTF files (IMP-026): the decoded text (line 1 is the EXTF header, not a CSV header). */
+  readonly text?: string;
 }
 
 export interface FileMappingInput {
@@ -128,6 +144,10 @@ export interface LocalImportState {
   readonly opening?: OpeningContext | null;
   /** E-IMP-19: local open amount (EUR cents) of documents imported earlier, by `importedKey`. */
   readonly importedOpen?: Readonly<Record<string, number>>;
+  /** IMP-026: current personal accounts of the local contacts found by number/name (contact id → accounts). */
+  readonly contactAccounts?: Readonly<Record<string, { debtorAccount?: string; creditorAccount?: string }>>;
+  /** IMP-026: local contact already owning a DATEV personal account (account → contact id). */
+  readonly accountOwners?: Readonly<Record<string, string>>;
 }
 
 export interface OpeningContext {
@@ -189,7 +209,11 @@ export interface ParsedImport {
   readonly contacts: ParsedContact[];
   readonly products: ParsedProduct[];
   readonly documents: ImportedDocument[];
-  readonly documentFiles: { id: string; name: string; sha256: string; kind: "pdf" | "xml" }[];
+  readonly documentFiles: { id: string; name: string; sha256: string; kind: "pdf" | "xml" | "image" }[];
+  /** IMP-025: vouchers of the voucher list(s). */
+  readonly vouchers: ImportedVoucher[];
+  /** IMP-026: reference data of the DATEV file(s) (`files` = the EXTF files read). */
+  readonly datev: DatevReference & { readonly files: { id: string; sha256: string }[]; refined: number };
   readonly findings: ImportFinding[];
   readonly skippedDrafts: number;
   readonly skippedReminders: number;
@@ -238,6 +262,11 @@ export function parseImportFiles(
   const documentFiles: ParsedImport["documentFiles"] = [];
   let skippedDrafts = 0;
   let skippedReminders = 0;
+  const vouchers: ImportedVoucher[] = [];
+  const datevAccounts: DatevReference["accounts"] = [];
+  const datevBookings: DatevReference["bookings"] = [];
+  const datevFiles: { id: string; sha256: string }[] = [];
+  let datevChart: DatevReference["chart"];
   const rateBpToday = (key: string) => {
     const r = lookupVatRate(key, today);
     return r.ok ? r.value.value.rateBp : undefined;
@@ -250,7 +279,7 @@ export function parseImportFiles(
       summaries.push({ ...base, rows: 0, blocked: false });
       continue;
     }
-    if (file.kind === "pdf" || file.kind === "xml") {
+    if (file.kind === "pdf" || file.kind === "xml" || file.kind === "image") {
       documentFiles.push({ id: file.id, name: file.name, sha256: file.sha256, kind: file.kind });
       summaries.push({ ...base, rows: 0, blocked: false });
       continue;
@@ -260,12 +289,35 @@ export function parseImportFiles(
       summaries.push({ ...base, rows: 0, blocked: false });
       continue;
     }
-    if (file.kind !== "contacts" && file.kind !== "products" && file.kind !== "invoices") {
-      const message =
-        file.kind === "unknown"
-          ? `Datei ${file.name} wurde nicht erkannt. Bitte Dateiart wählen oder ignorieren.`
-          : `${file.name}: Diese Dateiart wird erst in einer späteren Ausbaustufe übernommen (P2) und jetzt ignoriert.`;
-      findings.push({ code: file.kind === "unknown" ? "E-IMP-20" : "IMP-018", severity: "warning", message, ...at });
+    // IMP-026: the DATEV export has a fixed EXTF layout (no column mapping) and is reference data only.
+    if (file.kind === "datev") {
+      const t = file.text === undefined ? null : parseExtf(file.text);
+      if (!t?.ok) {
+        findings.push({
+          code: "E-IMP-15",
+          severity: "error",
+          message: `${file.name} konnte nicht als DATEV-Export gelesen werden${t && !t.ok ? `: ${t.error.message}` : "."}`,
+          ...at,
+        });
+        summaries.push({ ...base, rows: 0, blocked: true });
+        continue;
+      }
+      const r = datevReference(t.value, file);
+      findings.push(...r.findings);
+      datevAccounts.push(...r.reference.accounts);
+      datevBookings.push(...r.reference.bookings);
+      if (r.reference.chart) datevChart ??= r.reference.chart;
+      datevFiles.push({ id: file.id, sha256: file.sha256 });
+      summaries.push({ ...base, rows: t.value.rows.length, blocked: false });
+      continue;
+    }
+    if (file.kind !== "contacts" && file.kind !== "products" && file.kind !== "invoices" && file.kind !== "vouchers") {
+      findings.push({
+        code: "E-IMP-20",
+        severity: "warning",
+        message: `Datei ${file.name} wurde nicht erkannt. Bitte Dateiart wählen oder ignorieren.`,
+        ...at,
+      });
       summaries.push({ ...base, rows: 0, blocked: false });
       continue;
     }
@@ -295,7 +347,7 @@ export function parseImportFiles(
     }
     let numberFormat: NumberFormat | "ambiguous" | undefined;
     let dateFormat: DateFormat | "ambiguous" | undefined;
-    if (kind === "invoices") {
+    if (kind === "invoices" || kind === "vouchers") {
       const values = invoiceDetectionValues(table, mapping);
       const nd = detectNumberFormat(values.amounts);
       const dd = detectDateFormat(values.dates);
@@ -320,6 +372,19 @@ export function parseImportFiles(
       blocked,
     });
     if (blocked) continue;
+    if (kind === "vouchers") {
+      const r = parseVoucherList(table.headers, table.records, mapping, {
+        fileId: file.id,
+        fileName: file.name,
+        numberFormat: numberFormat as NumberFormat,
+        dateFormat: dateFormat as DateFormat,
+        kleinunternehmer: kuHistory,
+      });
+      findings.push(...r.findings);
+      vouchers.push(...r.vouchers);
+      skippedDrafts += r.skippedDrafts;
+      continue;
+    }
     if (kind === "invoices" && mapsNoTaxColumn(mapping)) {
       // EC-203: sevdesk's own list carries neither tax data nor positions, and its totals can deviate from the PDF.
       findings.push({
@@ -445,7 +510,35 @@ export function parseImportFiles(
       });
     }
   }
-  const fromCompany = documents.filter((d) => d.taxCaseFromCompany).length;
+  // IMP-026 / §4.3.2 input (2): the DATEV export refines the tax case of the invoices (label wins, amounts must fit).
+  const datev: ParsedImport["datev"] = {
+    accounts: datevAccounts,
+    bookings: datevBookings,
+    ...(datevChart ? { chart: datevChart } : {}),
+    files: datevFiles,
+    refined: 0,
+  };
+  let refinedDocuments = documents;
+  if (datevBookings.length > 0) {
+    if (!datevChart) {
+      findings.push({
+        code: "E-IMP-48",
+        severity: "warning",
+        message: "Der DATEV-Export nennt keinen Kontenrahmen (SKR03/SKR04) – Steuerfälle werden daraus nicht ergänzt.",
+      });
+    }
+    const r = refineWithDatev(documents, datev, findings);
+    refinedDocuments = r.documents;
+    datev.refined = r.refined;
+    if (r.refined > 0) {
+      findings.push({
+        code: "IMP-026",
+        severity: "info",
+        message: `${r.refined} Steuerfälle aus dem DATEV-Export von sevdesk ergänzt (Erlöskonto je Rechnungsnummer). Die Buchungen des DATEV-Exports werden nicht übernommen.`,
+      });
+    }
+  }
+  const fromCompany = refinedDocuments.filter((d) => d.taxCaseFromCompany).length;
   if (fromCompany > 0) {
     findings.push({
       code: "E-IMP-38",
@@ -474,7 +567,18 @@ export function parseImportFiles(
       message: `${skippedReminders} Mahnungen werden nicht übernommen.`,
     });
   }
-  return { files: summaries, contacts, products, documents, documentFiles, findings, skippedDrafts, skippedReminders };
+  return {
+    files: summaries,
+    contacts,
+    products,
+    documents: refinedDocuments,
+    documentFiles,
+    vouchers,
+    datev,
+    findings,
+    skippedDrafts,
+    skippedReminders,
+  };
 }
 
 // ── step 2: keys the local snapshot must cover ────────────────────────────────────────────────────────
@@ -486,6 +590,8 @@ export interface LookupKeys {
   readonly contactNames: string[];
   readonly productNumbers: string[];
   readonly documentNumbers: string[];
+  /** IMP-026: DATEV personal accounts whose current owner the plan needs. */
+  readonly personalAccounts?: string[];
 }
 
 export function lookupKeys(parsed: ParsedImport): LookupKeys {
@@ -498,15 +604,24 @@ export function lookupKeys(parsed: ParsedImport): LookupKeys {
       ...parsed.documents.map((d) => importedKey(EXTERNAL_TYPES.document, d.key)),
       ...parsed.documents.map((d) => importedKey(EXTERNAL_TYPES.contact, minimalKey(d.customerName))),
       ...parsed.documentFiles.map((f) => importedKey(EXTERNAL_TYPES.file, f.sha256)),
+      ...parsed.vouchers.map((v) => importedKey(EXTERNAL_TYPES.voucher, v.key)),
     ],
     registerNumbers: [...new Set(docNumbers)],
     contactNumbers: [
       ...new Set([
         ...parsed.contacts.flatMap((c) => (c.number ? [normalizeContactNumber(c.number)] : [])),
         ...parsed.documents.flatMap((d) => (d.customerNumber ? [normalizeContactNumber(d.customerNumber)] : [])),
+        ...parsed.datev.accounts.flatMap((a) => (a.customerNumber ? [normalizeContactNumber(a.customerNumber)] : [])),
       ]),
     ],
-    contactNames: [...new Set(parsed.documents.map((d) => foldSearch(d.customerName)).filter(Boolean))],
+    contactNames: [
+      ...new Set(
+        [...parsed.documents.map((d) => d.customerName), ...parsed.datev.accounts.map((a) => a.name)]
+          .map(foldSearch)
+          .filter(Boolean),
+      ),
+    ],
+    personalAccounts: [...new Set(parsed.datev.accounts.map((a) => a.account))],
     productNumbers: [...new Set(parsed.products.map((p) => p.key))],
     documentNumbers: [...new Set(refs)],
   };
@@ -572,6 +687,12 @@ export interface ImportPlan {
   readonly opening: (Omit<OpeningContext, "receivablesPosted"> & { items: OpeningItemPlan[] }) | null;
   /** E-IMP-10: rows dated on/after the Buchungsbeginn and the owner's choice (`null` = none or no Buchungsbeginn). */
   readonly bookedPeriod: BookedPeriod | null;
+  /** IMP-025: archived vouchers (status `new` are committed). */
+  readonly vouchers: PlannedVoucher[];
+  /** IMP-026: DATEV personal accounts for contacts (status `new` are set at commit). */
+  readonly datevAccounts: PlannedAccount[];
+  /** IMP-026: the DATEV files read as reference data (archived as migration evidence, IMP-024). */
+  readonly datevFiles: { id: string; sha256: string }[];
   readonly counts: Readonly<Record<string, number>>;
   /** Errors on rows/files that would be committed — commit is refused while > 0. */
   readonly blocking: number;
@@ -635,44 +756,6 @@ function applyCorrection(
     },
     correction: { exportedGrossCents: from, grossCents: to, reason },
   };
-}
-
-/** E-IMP-24: same key twice — identical content counts once, different content blocks all copies. */
-function dedupe<T extends { key: string; fingerprint: string; rowRef: string; line: number; fileId: string }>(
-  items: readonly T[],
-  label: (t: T) => string,
-  findings: ImportFinding[],
-  fileName: (id: string) => string,
-): { kept: T[]; conflicted: Set<string>; dropped: number } {
-  const byKey = new Map<string, T[]>();
-  for (const i of items) byKey.set(i.key, [...(byKey.get(i.key) ?? []), i]);
-  const kept: T[] = [];
-  const conflicted = new Set<string>();
-  let dropped = 0;
-  for (const group of byKey.values()) {
-    const first = group[0] as T;
-    if (group.every((g) => g.fingerprint === first.fingerprint)) {
-      kept.push(first);
-      dropped += group.length - 1;
-      continue;
-    }
-    const files = [...new Set(group.map((g) => fileName(g.fileId)))].join(", ");
-    for (const g of group) {
-      conflicted.add(g.rowRef);
-      findings.push({
-        code: "E-IMP-24",
-        severity: "error",
-        message: `${label(g)} ist mehrfach mit unterschiedlichen Werten enthalten (${files}).`,
-        fileId: g.fileId,
-        fileName: fileName(g.fileId),
-        line: g.line,
-        rowRef: g.rowRef,
-        key: g.key,
-      });
-      kept.push(g);
-    }
-  }
-  return { kept, conflicted, dropped };
 }
 
 export function buildPlan(
@@ -1099,11 +1182,42 @@ export function buildPlan(
     });
     return { ...p, deviations: [...p.deviations, "Original-PDF fehlt."] };
   });
-  if (pdf.orphans.length > 0) {
+  // ── vouchers (IMP-025): matched against the PDFs no sales document claimed, plus images ──
+  const vd = dedupe(parsed.vouchers, (v) => `Beleg ${v.number}`, findings, fileName);
+  const voucherErrorRows = new Set([
+    ...vd.conflicted,
+    ...findings.filter((f) => f.severity === "error" && f.rowRef).map((f) => f.rowRef as string),
+  ]);
+  const orphanPdfs = new Set(pdf.orphans);
+  const voucherFiles = parsed.documentFiles.filter(
+    (f) => (f.kind === "pdf" && orphanPdfs.has(f.id)) || f.kind === "image",
+  );
+  const vp =
+    vd.kept.length > 0
+      ? planVouchers(
+          {
+            vouchers: vd.kept,
+            errorRows: voucherErrorRows,
+            excluded,
+            imported: (key) => isImported(EXTERNAL_TYPES.voucher, key),
+            bookkeepingStart: local.opening?.date ?? null,
+            files: voucherFiles,
+            assignments: resolutions.pdfAssignments ?? {},
+            fileName,
+          },
+          findings,
+        )
+      : null;
+  const plannedVouchers = vp?.planned ?? [];
+  // Files no row claims: PDFs left after the voucher pass (images no voucher uses count too).
+  const orphans = vp
+    ? vp.match.orphans
+    : [...pdf.orphans, ...parsed.documentFiles.filter((f) => f.kind === "image").map((f) => f.id)];
+  if (orphans.length > 0) {
     findings.push({
       code: "E-IMP-23",
       severity: "warning",
-      message: `${pdf.orphans.length} Dateien ohne passenden Beleg in der Liste.`,
+      message: `${orphans.length} Dateien ohne passenden Beleg in der Liste.`,
     });
   }
   const xmlCount = parsed.documentFiles.filter((f) => f.kind === "xml").length;
@@ -1227,6 +1341,45 @@ export function buildPlan(
           }),
         }
       : null;
+  // ── DATEV personal accounts (IMP-026) ──
+  const datevAccounts =
+    parsed.datev.accounts.length > 0
+      ? planDatevAccounts(
+          {
+            accounts: parsed.datev.accounts,
+            importContacts: contacts
+              .filter((c) => c.status === "new" || c.status === "existing" || c.status === "skip")
+              .map((c) => {
+                const v = c.values.contact as { debtorAccount?: unknown; creditorAccount?: unknown };
+                const debtor = typeof v.debtorAccount === "string" ? v.debtorAccount.trim() : "";
+                const creditor = typeof v.creditorAccount === "string" ? v.creditorAccount.trim() : "";
+                return {
+                  key: c.key,
+                  ...(c.number ? { number: c.number } : {}),
+                  name: c.name,
+                  status: c.status,
+                  ...(c.localId ? { localId: c.localId } : {}),
+                  ...(debtor ? { debtorAccount: debtor } : {}),
+                  ...(creditor ? { creditorAccount: creditor } : {}),
+                };
+              }),
+            contactsByNumber: local.contactsByNumber,
+            contactsByName: local.contactsByName,
+            contactAccounts: local.contactAccounts ?? {},
+            accountOwners: local.accountOwners ?? {},
+            fileName,
+          },
+          findings,
+        )
+      : [];
+  if (parsed.datev.files.length > 0) {
+    findings.push({
+      code: "IMP-026",
+      severity: "info",
+      message:
+        "Der DATEV-Export wird nur als Referenz gelesen (Personenkonten, Steuerfälle) und als Nachweis archiviert – seine Buchungen werden nicht übernommen.",
+    });
+  }
   const live = (status: string) => status === "new" || status === "existing" || status === "skip";
   const blockedFiles = parsed.files.filter((f) => f.blocked).length;
   const blocking =
@@ -1234,13 +1387,15 @@ export function buildPlan(
     contacts.filter((c) => c.status === "error").length +
     products.filter((p) => p.status === "error").length +
     finalDocs.filter((p) => p.status === "error").length +
+    plannedVouchers.filter((p) => p.status === "error").length +
     findings.filter((f) => f.severity === "error" && f.rowRef && !excluded.has(f.rowRef) && !isPlanned(f.rowRef))
       .length;
   function isPlanned(rowRef: string) {
     return (
       contacts.some((c) => c.rowRef === rowRef) ||
       products.some((p) => p.rowRef === rowRef) ||
-      finalDocs.some((p) => p.doc.rowRef === rowRef)
+      finalDocs.some((p) => p.doc.rowRef === rowRef) ||
+      plannedVouchers.some((p) => p.voucher.rowRef === rowRef)
     );
   }
   const count = (list: readonly { status: string }[], s: string) => list.filter((x) => x.status === s).length;
@@ -1262,13 +1417,22 @@ export function buildPlan(
     booked: posted.length,
     pdfMatched: Object.keys(pdf.matched).length,
     pdfMissing: newDocs.filter((p) => !p.pdfFileId).length,
-    pdfOrphans: pdf.orphans.length,
-    duplicatesDropped: cd.dropped + pd.dropped + dd.dropped + pdf.duplicates.length,
+    pdfOrphans: orphans.length,
+    vouchers: plannedVouchers.filter((p) => p.status === "new").length,
+    vouchersSkipped: plannedVouchers.filter((p) => p.status === "skip").length,
+    vouchersExcluded: plannedVouchers.filter((p) => p.status === "excluded").length,
+    datevAccounts: datevAccounts.filter((a) => a.status === "new").length,
+    datevConflicts: datevAccounts.filter((a) => a.status === "conflict").length,
+    datevRefined: parsed.datev.refined,
+    duplicatesDropped: cd.dropped + pd.dropped + dd.dropped + vd.dropped + pdf.duplicates.length,
     drafts: parsed.skippedDrafts,
     nameMatched,
     errors: findings.filter((f) => f.severity === "error").length,
     warnings: findings.filter((f) => f.severity === "warning").length,
-    rows: [...contacts, ...products].filter((x) => live(x.status)).length + newDocs.length,
+    rows:
+      [...contacts, ...products].filter((x) => live(x.status)).length +
+      newDocs.length +
+      plannedVouchers.filter((p) => p.status === "new").length,
   };
   return {
     files: parsed.files,
@@ -1277,13 +1441,16 @@ export function buildPlan(
     documents: finalDocs,
     minimalContacts: [...minimal.values()],
     findings,
-    pdf,
+    pdf: { ...pdf, orphans },
     documentFiles: parsed.documentFiles,
     numberRanges,
     openItems,
     openItemDifference,
     opening: openingPlan,
     bookedPeriod,
+    vouchers: plannedVouchers,
+    datevAccounts,
+    datevFiles: parsed.datev.files,
     counts,
     blocking,
   };
@@ -1395,6 +1562,16 @@ export function previewHashInput(
     ranges: plan.numberRanges.map((r) => [r.rangeKey, r.candidates.map((c) => [c.format, c.next])]),
     opening: plan.opening,
     bookedPeriod: plan.bookedPeriod,
+    // IMP-025 / IMP-026: the committed vouchers and the personal accounts set on contacts.
+    vouchers: plan.vouchers.map((p) => [
+      p.voucher.key,
+      p.status,
+      p.localId ?? null,
+      p.fileId ?? null,
+      p.voucher.totals.grossCents,
+    ]),
+    datevAccounts: plan.datevAccounts.map((a) => [a.account, a.field, canonicalize(a.contact), a.status]),
+    documentTaxCases: plan.documents.map((p) => [p.doc.key, p.doc.taxCase]),
   });
 }
 
@@ -1442,6 +1619,21 @@ export function summarizePlan(plan: ImportPlan, findingLimit = 500) {
         .slice(0, 10)
         .map((p) => ({ key: p.key, number: p.number, name: p.name })),
       documents: docSample,
+      vouchers: plan.vouchers
+        .filter((p) => p.status === "new")
+        .slice(0, 10)
+        .map((p) => ({
+          key: p.voucher.key,
+          number: p.voucher.number,
+          supplierName: p.voucher.supplierName,
+          documentDate: p.voucher.documentDate,
+          grossCents: p.voucher.totals.grossCents,
+          file: p.fileId ? (plan.documentFiles.find((f) => f.id === p.fileId)?.name ?? null) : null,
+        })),
+      datevAccounts: plan.datevAccounts
+        .filter((a) => a.status === "new")
+        .slice(0, 10)
+        .map((a) => ({ account: a.account, field: a.field, contact: a.contactLabel })),
     },
   };
 }
