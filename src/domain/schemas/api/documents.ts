@@ -321,8 +321,18 @@ export function wireToDraft(
         ...(w.payment_terms.skonto_days !== undefined ? { skontoDays: w.payment_terms.skonto_days } : {}),
       }
     : (base?.paymentTerms ?? defaults.paymentTerms);
-  const pick = <K extends keyof DraftValues>(key: K, wire: DraftValues[K] | undefined) =>
-    wire !== undefined ? (wire === "" ? {} : { [key]: wire }) : base?.[key] !== undefined ? { [key]: base[key] } : {};
+  // "" clears the field: on PATCH the stored value must go too (the base is spread below), so remember the key.
+  const cleared: (keyof DraftValues)[] = [];
+  const pick = <K extends keyof DraftValues>(key: K, wire: DraftValues[K] | undefined) => {
+    if (wire === "") cleared.push(key);
+    return wire !== undefined
+      ? wire === ""
+        ? {}
+        : { [key]: wire }
+      : base?.[key] !== undefined
+        ? { [key]: base[key] }
+        : {};
+  };
   const values = {
     ...(base ?? {}),
     type,
@@ -350,6 +360,7 @@ export function wireToDraft(
     lines: w.lines,
   } as DraftValues;
   if (supply === undefined && !base) delete (values as { supplyDate?: unknown }).supplyDate;
+  for (const key of cleared) delete (values as Partial<DraftValues>)[key];
   return { values, issues };
 }
 
