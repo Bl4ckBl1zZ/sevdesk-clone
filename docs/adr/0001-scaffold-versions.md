@@ -9,7 +9,7 @@
 | Package | Version | Note |
 |---|---|---|
 | Node / pnpm | 24 / 12.11.2 | `packageManager` field, `.nvmrc` |
-| next / react / react-dom | 16.4.0 / 19.3.0 / 19.3.0 | upgrade to the patch announced for 2026-10-14 |
+| next / react / react-dom | 16.4.1 / 19.3.0 / 19.3.0 | 16.4.1 adopted 2026-10-23 (GHSA-2464-fhr4-w9xw and the `use cache` RCE, both critical, fixed in 16.4.1) |
 | typescript | **6.0.3** | see deviation 1 |
 | tailwindcss, @tailwindcss/postcss | 4.3.3 | |
 | shadcn (CLI) / @base-ui/react | 4.21.4 / 1.9.0 | style `base-vega`, base color neutral — see deviation 2 |
