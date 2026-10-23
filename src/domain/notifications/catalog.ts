@@ -99,6 +99,13 @@ export const NOTIFICATION_KINDS = {
   "bank.reauth_required": def("error", ALARM, "Bankverbindung erneuern", "Bankverbindung muss erneuert werden"),
   // F12 E-PRV-12: a DSGVO request not answered by its due date (error; the warning `dsgvo.deadline` precedes it)
   "dsgvo.overdue": def("error", ALARM, "DSGVO-Anfrage überfällig", "Eine Datenschutzanfrage ist überfällig"),
+  // 05 §5.1: an outbound webhook endpoint answered 410 Gone or failed for 3 days and was disabled
+  "webhook.disabled": def(
+    "error",
+    ALARM,
+    "Webhook deaktiviert",
+    "Ein Webhook-Endpunkt wurde deaktiviert – Details in der App",
+  ),
   // warning · in-app, digest, ntfy
   "deadline.ustva": def("warning", DEADLINE, "Frist Umsatzsteuer-Voranmeldung", "Frist Umsatzsteuer-Voranmeldung naht"),
   "deadline.zm": def("warning", DEADLINE, "Frist Zusammenfassende Meldung", "Frist Zusammenfassende Meldung naht"),

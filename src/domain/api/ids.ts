@@ -56,6 +56,9 @@ export const ID_PREFIXES = {
   jobs: "job_",
   datevExports: "dvx_",
   gdpduExports: "gdx_",
+  // 05 §5 outbound webhooks (`/webhook-endpoints`): endpoints and delivery-log rows; events are `evt_` (webhook-id).
+  webhookEndpoints: "whe_",
+  webhookDeliveries: "whd_",
 } as const;
 
 export type IdTable = keyof typeof ID_PREFIXES;

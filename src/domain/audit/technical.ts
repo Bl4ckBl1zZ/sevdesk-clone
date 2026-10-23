@@ -17,10 +17,15 @@ export const TECHNICAL_TABLES: readonly string[] = [
   "clockReadings",
   // F01 SET-134: latest run per cron job (status table on Einstellungen › System)
   "cronRuns",
+  // 05 §5.2 outbound webhooks: the outbox and the delivery log (30 days, purged by cron.webhooks.sweep)
+  "webhookEvents",
+  "webhookDeliveries",
 ];
 
 export const TECHNICAL_FIELDS: Readonly<Record<string, readonly string[]>> = {
   apiKeys: ["lastUsedAt"],
+  // 05 §5.1: delivery health of a webhook endpoint (an automatic disable is audited)
+  webhookEndpoints: ["failingSince", "lastSuccessAt", "lastFailureAt"],
   contacts: ["updatedAt"],
   products: ["updatedAt"],
 };

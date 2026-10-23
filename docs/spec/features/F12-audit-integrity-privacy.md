@@ -193,7 +193,7 @@ scheduled purge date reached → appears in the purge worklist (still manual, PR
 | Kind | Severity | Channels |
 |---|---|---|
 | `integrity.failed`, `checkpoint.upload_failed` (2×), `access.misconfigured`, `clock.skew_critical` | critical | in-app, e-mail, ntfy |
-| `backup.stale`, `restore_drill.overdue`, `restore_drill.failed` (E-AUD-15), `einvoice_tools.down`, `artifact.blocked`, `auth_mail.failed`, `bank.reauth_required`, `dsgvo.overdue` (E-PRV-12) | error | in-app, e-mail, ntfy |
+| `backup.stale`, `restore_drill.overdue`, `restore_drill.failed` (E-AUD-15), `einvoice_tools.down`, `artifact.blocked`, `auth_mail.failed`, `bank.reauth_required`, `dsgvo.overdue` (E-PRV-12), `webhook.disabled` (05 §5.1: an outbound webhook endpoint answered 410 Gone or failed for 3 days) | error | in-app, e-mail, ntfy |
 | `bank.reversal` (F07 E-ACC-24/EC-BNK-27: a bank return or card refund reversed a booked payment), `deadline.ustva`, `deadline.zm`, `deadline.14a`, `deadline.vorauszahlung`, `deadline.annual_return` (F08 TAX-019), `deadline.period_lock` (F08 ACC-018), `dsgvo.deadline`, `uninvoiced.150d` | warning | in-app, digest, ntfy (due − 1 day) |
 | `threshold.ku`, `threshold.800k`, `threshold.oss`, `project.budget`, `stock.low` (F03 PRD-096), `rules.stale`, `api_key.expiring`, `bank.consent_expiring`, `member.expiring`, `cert.expiring`, `verfahrensdoku.outdated`, `retention.purge_eligible`, `period.unlocked_old`, `ntfy.failed` (E-NTF-01), `dunning_reset` (F05 EC-DUE-10: a retracted sent mark reset the default start) | warning | in-app, digest |
 | `timer.long` (F11 PRJ-005) | warning | in-app |

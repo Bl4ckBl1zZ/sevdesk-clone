@@ -72,6 +72,10 @@ export const PERMISSIONS = {
   "apiKeys.manage": { roles: ["owner"], scope: null, write: true, fresh: true },
   /** 05 §2.1 revocation: owner, without re-authentication so a leaked key is revoked at once (EC-186). */
   "apiKeys.revoke": { roles: ["owner"], scope: null, write: true },
+  /** 05 §5.1 Einstellungen › Webhooks / `GET /webhook-endpoints`: endpoints and the delivery log (owner; `webhooks:manage`). */
+  "webhooks.read": { roles: ["owner"], scope: "webhooks:manage", write: false },
+  /** 05 §5.1 create/update/delete endpoints, roll secrets, „Test senden", „Erneut senden" (owner; `webhooks:manage`). */
+  "webhooks.manage": { roles: ["owner"], scope: "webhooks:manage", write: true },
   /** The calling key itself: `/me`, rate limit, access log, idempotency records (05 §3, §4.8). */
   "apiKeys.self": { roles: [], scope: null, write: false, anyKey: true },
   /** F12 AUD-020 security status page (owner; never via REST/MCP). */
