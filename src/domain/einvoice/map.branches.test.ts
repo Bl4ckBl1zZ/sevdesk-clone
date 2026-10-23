@@ -101,7 +101,7 @@ describe("mapToEn16931 — parties and addresses (App. A.1, A.3)", () => {
     });
   });
 
-  test("INV-19 BR-CO-26 a seller without register, VAT ID and tax number has no BT-29/BT-32", () => {
+  test("INV-19 a seller without register, VAT ID and tax number has no BT-29/BT-32 (rule BR-CO-26)", () => {
     const s = makeSnapshot();
     const inv = en16931({ ...s, seller: { ...s.seller, register: undefined, vatId: undefined, taxNumber: undefined } });
     expect(inv.seller).not.toHaveProperty("identifier");
@@ -175,7 +175,7 @@ describe("mapToEn16931 — notes and references (App. A.1, A.5, A.6)", () => {
 });
 
 describe("mapToEn16931 — lines and allowances (App. A.10, App. E.3)", () => {
-  test("INV-19 BR-27 a negative unit price moves its sign to the quantity (BT-146 stays ≥ 0)", () => {
+  test("INV-19 a negative unit price moves its sign to the quantity (BT-146 stays ≥ 0, rule BR-27)", () => {
     const inv = en16931(
       makeSnapshot({
         lines: [item({ quantityMilli: 2_000, unitPriceMicros: 1_000_000 }), item({ unitPriceMicros: -500_000 })],

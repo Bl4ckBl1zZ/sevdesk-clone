@@ -10,7 +10,7 @@ const decoded = (b: Uint8Array) => {
 };
 
 describe("statement file decoding (BNK-033: UTF-8 / Windows-1252 auto-detect)", () => {
-  test("BNK-033 UTF-16 files (both byte orders) are refused with a hint to save as UTF-8", () => {
+  test("BNK-033 files in UTF-16 (both byte orders) are refused with a hint to save as UTF-8", () => {
     for (const bom of [bytes(0xff, 0xfe, 0x3a, 0x00), bytes(0xfe, 0xff, 0x00, 0x3a)]) {
       const r = decodeStatement(bom);
       expect(r.ok ? null : r.error.message).toContain("UTF-16 wird nicht unterstützt, bitte als UTF-8 speichern");
