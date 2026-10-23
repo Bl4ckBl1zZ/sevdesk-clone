@@ -20,7 +20,7 @@ export interface MailRenditionInput {
 }
 
 /** WinAnsi cannot encode every character; replace the common typographic ones, drop the rest to "?". */
-const winAnsi = (s: string) =>
+export const winAnsi = (s: string) =>
   s
     .replace(/−/g, "-")
     .replace(/[‘’‚]/g, "'")
@@ -29,7 +29,7 @@ const winAnsi = (s: string) =>
     .replace(/[^\n\r -ÿ€–—…•]/g, "?");
 
 /** Word wrap; words wider than the line are broken hard (long URLs). */
-function wrap(text: string, width: number, measure: (s: string) => number): string[] {
+export function wrap(text: string, width: number, measure: (s: string) => number): string[] {
   const out: string[] = [];
   for (const para of text.split(/\r?\n/)) {
     let line = "";

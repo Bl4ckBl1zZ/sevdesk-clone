@@ -3,13 +3,27 @@
  * supplier correction request (INB-046).
  */
 
+import { CII_V6 } from "@test/fixtures/einvoice-in/builders";
 import { pdfText } from "@test/golden/pdf-text";
 import { describe, expect, test } from "vitest";
 import { api, internal } from "./_generated/api";
 import type { Id } from "./_generated/dataModel";
-import { eml, enableInbox, ingest, installInboxFakes, item, putR2, settleInbox, voucherOf } from "./inbox.fixtures";
+import {
+  eml,
+  enableInbox,
+  enc,
+  ingest,
+  installInboxFakes,
+  item,
+  putR2,
+  settleInbox,
+  validatorPasses,
+  voucherOf,
+} from "./inbox.fixtures";
+import { inboundValidatorFake } from "./lib/einvoiceInbound";
+import { patchCompanyProfile } from "./model/companyProfile";
 import { makeT, type TestT } from "./test.setup";
-import { header, pdfBytes, setupCompany } from "./vouchers.fixtures";
+import { header, OWNER, pdfBytes, setupCompany, TODAY } from "./vouchers.fixtures";
 
 installInboxFakes();
 
@@ -152,6 +166,134 @@ describe("split / merge (INB-009)", () => {
     expect((await item(t, id)).status).toBe("converted");
     await expect(owner.mutation(api.inbox.split, { id, groups: [[0], [1]] })).rejects.toThrow(
       "Nur offene Posteingangsbelege können aufgeteilt oder zusammengeführt werden.",
+    );
+  });
+});
+
+describe("supplier correction request (INB-046)", () => {
+  test("INB-046 EC-103 T06-046 letter for a faulty E-Rechnung → PDF archived once with sha256 → marked sent (post, today) → retraction needs a reason → reject as „Korrektur angefordert“", async () => {
+    const t = makeT();
+    const owner = await setup(t);
+    await enableInbox(owner);
+    await t.model(OWNER, (ctx) =>
+      patchCompanyProfile(
+        ctx,
+        { name: "Beispiel Kunde GmbH", vatId: "DE811907980" },
+        { action: "settings.company.update" },
+      ),
+    );
+    inboundValidatorFake.impl = {
+      validateXml: async () => ({
+        kind: "done",
+        acceptable: false,
+        report: "<report/>",
+        tool: "kosit",
+        findings: [{ ruleId: "BR-DE-17", text: "Rechnungsart unzulässig", category: "business_rule" }],
+      }),
+      validatePdf: async () => validatorPasses(),
+    };
+    const r = await ingest(t, owner, [{ bytes: enc(CII_V6), name: "v6.xml" }]);
+    await settleInbox(t);
+    const it = await item(t, r.id);
+    const model = it.einvoice?.model as { number: string; seller: { name: string } };
+
+    const view = await owner.query(api.inbox.correctionRequest, { id: r.id });
+    expect(view.available).toBe(true);
+    expect(view.text).toContain(model.seller.name);
+    expect(view.text).toContain(`Bitte um Rechnungskorrektur – Ihre Rechnung Nr. ${model.number}`);
+    expect(view.text).toContain("– Geschäftsregelfehler (BR-DE-17): Rechnungsart unzulässig");
+    expect(view.text).toContain("Bitte senden Sie die korrigierte Rechnung an belege@in.example.de.");
+    expect(view.artifact).toBeNull();
+
+    // Marking before the export is refused: the mark references the archived letter.
+    await expect(
+      owner.mutation(api.inbox.markCorrectionSent, { id: r.id, sentOn: TODAY, channel: "post" }),
+    ).rejects.toThrow("Bitte den Brief zuerst als PDF exportieren");
+
+    const first = await owner.action(api.inboxNode.exportCorrectionLetter, { id: r.id });
+    expect(first.sha256).toMatch(/^[0-9a-f]{64}$/);
+    const again = await owner.action(api.inboxNode.exportCorrectionLetter, { id: r.id });
+    expect(again).toMatchObject({ artifactId: first.artifactId, sha256: first.sha256 });
+    const artifacts = await t.run((ctx) => ctx.db.query("documentArtifacts").collect());
+    expect(artifacts).toHaveLength(1);
+    expect(artifacts[0]).toMatchObject({
+      inboxItemId: r.id,
+      kind: "supplier_correction_letter",
+      retentionUntil: `${Number(TODAY.slice(0, 4)) + 6}-12-31`,
+    });
+    const bytes = new Uint8Array(
+      await t.run(async (ctx) => {
+        const blob = artifacts[0] ? await ctx.storage.get(artifacts[0].storageId) : null;
+        return blob ? blob.arrayBuffer() : new ArrayBuffer(0);
+      }),
+    );
+    expect(await pdfText(bytes)).toContain("BR-DE-17");
+
+    // sentOn in the future and „other“ without a note are rejected; post today is appended with the artifact hash.
+    const tomorrow = new Date(Date.parse(`${TODAY}T12:00:00Z`) + 86_400_000).toISOString().slice(0, 10);
+    await expect(
+      owner.mutation(api.inbox.markCorrectionSent, { id: r.id, sentOn: tomorrow, channel: "post" }),
+    ).rejects.toThrow("Das Versanddatum darf nicht in der Zukunft liegen.");
+    await expect(
+      owner.mutation(api.inbox.markCorrectionSent, { id: r.id, sentOn: TODAY, channel: "other" }),
+    ).rejects.toThrow("Bitte beschreiben, wie das Dokument übermittelt wurde.");
+    const { sendLogId } = await owner.mutation(api.inbox.markCorrectionSent, {
+      id: r.id,
+      sentOn: TODAY,
+      channel: "post",
+    });
+    const row = await t.run((ctx) => ctx.db.get(sendLogId));
+    expect(row).toMatchObject({
+      inboxItemId: r.id,
+      purpose: "supplier_correction_request",
+      kind: "mark_sent",
+      channel: "post",
+      sentOn: TODAY,
+      artifacts: [{ artifactId: first.artifactId, sha256: first.sha256 }],
+    });
+    expect(row?.documentId).toBeUndefined();
+
+    await expect(
+      owner.mutation(api.inbox.retractCorrectionMark, { id: r.id, retractsId: sendLogId, reason: "kurz" }),
+    ).rejects.toThrow("Bitte begründen, warum die Versandmarkierung zurückgenommen wird (mind. 10 Zeichen).");
+    await owner.mutation(api.inbox.retractCorrectionMark, {
+      id: r.id,
+      retractsId: sendLogId,
+      reason: "Brief ging an die falsche Adresse",
+    });
+    const after = await owner.query(api.inbox.correctionRequest, { id: r.id });
+    expect(after.marks.map((m) => [m.kind, m.retracted])).toEqual([
+      ["mark_sent", true],
+      ["retraction", false],
+    ]);
+    expect(after.effectiveMarkId).toBeNull();
+    const audit = await t.run((ctx) => ctx.db.query("auditLog").collect());
+    expect(audit.map((a) => a.action)).toEqual(
+      expect.arrayContaining([
+        "inbox.correction_exported",
+        "inbox.correction_mark_sent",
+        "inbox.correction_mark_retracted",
+      ]),
+    );
+
+    // The item can then be rejected as faulty (retention letters6, EC-INB-12).
+    await owner.mutation(api.inbox.reject, { id: r.id, reason: "faulty_invoice_correction_requested" });
+    expect((await item(t, r.id)).retentionUntil).toBe(`${Number(TODAY.slice(0, 4)) + 6}-12-31`);
+    // Viewers can read but not mark.
+    const viewer = await t.asUser("viewer");
+    await expect(
+      viewer.mutation(api.inbox.markCorrectionSent, { id: r.id, sentOn: TODAY, channel: "post" }),
+    ).rejects.toThrow();
+  });
+
+  test("INB-046 no correction request for a valid E-Rechnung or a plain upload without findings", async () => {
+    const t = makeT();
+    const owner = await setup(t);
+    const r = await ingest(t, owner, [{ bytes: pdfBytes("plain-ok"), name: "ok.pdf" }]);
+    await settleInbox(t);
+    expect((await owner.query(api.inbox.correctionRequest, { id: r.id })).available).toBe(false);
+    await expect(owner.action(api.inboxNode.exportCorrectionLetter, { id: r.id })).rejects.toThrow(
+      "Für diesen Beleg liegt kein Prüfbefund vor",
     );
   });
 });

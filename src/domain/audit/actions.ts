@@ -75,6 +75,10 @@ const GROUPS: Record<string, readonly string[] | "*"> = {
     // INB-009 split / merge
     "split",
     "merge",
+    // INB-046 supplier correction request
+    "correction_exported",
+    "correction_mark_sent",
+    "correction_mark_retracted",
   ],
   bank: [
     "connect",

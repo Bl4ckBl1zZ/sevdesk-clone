@@ -19,6 +19,12 @@ import { appError } from "./lib/errors";
 import { inboxBucketFromEnv } from "./lib/r2Inbox";
 import { getCompanyProfile } from "./model/companyProfile";
 import {
+  archiveCorrectionLetter,
+  correctionRequestView,
+  markCorrectionSent as markCorrectionSentModel,
+  retractCorrectionMark as retractCorrectionMarkModel,
+} from "./model/correctionRequest";
+import {
   appendInboxFiles,
   beginClassification,
   finishClassification,
@@ -44,6 +50,7 @@ import {
 } from "./model/inboxSettings";
 import { getIntegration, recordIntegrationTest } from "./model/integrations";
 import { kuOn } from "./model/vouchers";
+import { vSendChannel } from "./validators";
 import { vImageQuality, vVoucherDraftInput } from "./voucherValidators";
 
 /**
@@ -435,6 +442,41 @@ export const merge = mutation({
   permission: "vouchers.write",
   args: { ids: v.array(v.id("inboxItems")) },
   handler: async (ctx, { ids }) => ({ id: await mergeInboxItems(ctx, ids) }),
+});
+
+// ── INB-046 supplier correction request ──────────────────────────────────────────────────────────────────
+
+/** „Korrektur anfordern“ panel: letter text, archived PDF, history of marks. */
+export const correctionRequest = query({
+  permission: "vouchers.read",
+  args: { id: v.id("inboxItems") },
+  handler: async (ctx, { id }) => correctionRequestView(ctx, id, berlinCalendarDate(Date.now())),
+});
+
+export const archiveCorrectionLetterInternal = actorMutation({
+  permission: "vouchers.write",
+  args: {
+    id: v.id("inboxItems"),
+    storageId: v.id("_storage"),
+    sha256: v.string(),
+    bytes: v.number(),
+    name: v.string(),
+  },
+  handler: async (ctx, args) => archiveCorrectionLetter(ctx, args),
+});
+
+/** „Als versendet markieren“ (the owner sent the letter by any means; the app never sends). */
+export const markCorrectionSent = mutation({
+  permission: "vouchers.write",
+  args: { id: v.id("inboxItems"), sentOn: v.string(), channel: vSendChannel, note: v.optional(v.string()) },
+  handler: async (ctx, { id, ...values }) => ({ sendLogId: await markCorrectionSentModel(ctx, id, values) }),
+});
+
+/** „Versandmarkierung zurücknehmen“ (reason ≥ 10 characters; append-only retraction row). */
+export const retractCorrectionMark = mutation({
+  permission: "vouchers.write",
+  args: { id: v.id("inboxItems"), retractsId: v.id("sendLog"), reason: v.string() },
+  handler: async (ctx, { id, retractsId, reason }) => retractCorrectionMarkModel(ctx, id, { retractsId, reason }),
 });
 
 export const createDraft = mutation({

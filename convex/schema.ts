@@ -2031,6 +2031,8 @@ export default defineSchema({
   // 03 §4 documentArtifacts 🔒 (append-only, DOC-28/32, SND-02). `variant` also marks the "Kopie" of a hybrid PDF.
   documentArtifacts: defineTable({
     documentId: v.optional(v.id("salesDocuments")),
+    /** D-11 / INB-046: alternative owner — the archived supplier correction letter of an inbox item. */
+    inboxItemId: v.optional(v.id("inboxItems")),
     kind: v.union(
       v.literal("pdf"),
       v.literal("zugferd_pdf"),
@@ -2038,6 +2040,7 @@ export default defineSchema({
       v.literal("validation_report_kosit"),
       v.literal("validation_report_mustang"),
       v.literal("timesheet_pdf"), // F11 PRJ-014 Leistungsnachweis
+      v.literal("supplier_correction_letter"), // F06 INB-046 „Bitte um Rechnungskorrektur“
     ),
     variant: v.optional(v.union(v.literal("original"), v.literal("copy"), v.literal("reading"))),
     storageId: v.id("_storage"),
@@ -2048,11 +2051,15 @@ export default defineSchema({
     tool: v.optional(v.object({ name: v.string(), version: v.string(), config: v.optional(v.string()) })),
     createdAt: v.number(),
     retentionUntil: v.string(),
-  }).index("by_document", ["documentId", "kind"]),
+  })
+    .index("by_document", ["documentId", "kind"])
+    .index("by_inboxItem", ["inboxItemId", "kind"]),
 
   // 03 §4 sendLog 🔒 (append-only dispatch record, SND-07/18/22; the app never sends)
   sendLog: defineTable({
     documentId: v.optional(v.id("salesDocuments")),
+    /** D-11 / INB-046: target of a `supplier_correction_request` mark (the inbox item is retained, EC-INB-12). */
+    inboxItemId: v.optional(v.id("inboxItems")),
     purpose: v.union(
       v.literal("document"),
       v.literal("reminder_void_notice"),
@@ -2067,7 +2074,9 @@ export default defineSchema({
     einvoiceHandedOverElectronically: v.optional(v.boolean()),
     at: v.number(),
     actor: vActor,
-  }).index("by_document_at", ["documentId", "at"]),
+  })
+    .index("by_document_at", ["documentId", "at"])
+    .index("by_inboxItem_at", ["inboxItemId", "at"]),
 
   // 03 §10 notifications (in-app to-dos; unprotected, audited). `resolvedAt` (03 delta): closed by the resolving
   // act (SND-21: the sent mark, a Storno or a withdrawal) — open to-dos have no `resolvedAt`.
