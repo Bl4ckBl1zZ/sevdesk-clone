@@ -193,8 +193,7 @@ describe("„Zahlung buchen“ dialog (F05 §6.1)", () => {
     });
   });
 
-  test("EC-PAY-38 „1.234“ is read as thousands and shown back; more than 2 decimals is rejected", async () => {
-    const user = userEvent.setup();
+  test("EC-PAY-38 „1.234“ is read as thousands and shown back; more than 2 decimals is rejected", () => {
     renderWithIntl(<PaymentDialog {...props()} data={data()} />);
     const amount = screen.getByLabelText("Betrag (€)");
     setAmount("1.234");
