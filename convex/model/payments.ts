@@ -49,7 +49,7 @@ import { applyAllocation, requireTransaction } from "./bankTransactions";
 import { cashOpeningDate } from "./cash";
 import { assertClockOk } from "./clock";
 import { getCompanyProfile } from "./companyProfile";
-import { onSettlementChanged as dunningOnSettlementChanged } from "./dunning";
+import { onSettlementChanged as dunningOnSettlementChanged, remindersOf } from "./dunning";
 import { entriesBySource, postJournalEntry, previewJournal } from "./journal";
 import { notifyKind } from "./notifications";
 import { snapshotOf } from "./salesDocuments";
@@ -240,6 +240,28 @@ interface LoadedTarget {
   counterpartyName?: string;
 }
 
+/**
+ * PAY-024: fees (incl. the 40 € flat fee) and default interest claimed by the latest issued reminder, less what
+ * earlier payments already received as `dunning_fees` / `default_interest` (reversals carry the negated rows).
+ */
+async function claimedDunningAmounts(ctx: ReadCtx, doc: Doc<"salesDocuments">) {
+  const issued = (await remindersOf(ctx, doc._id)).filter((r) => r.status === "finalized" || r.status === "sent");
+  const latest = issued.at(-1)?.reminder;
+  if (!latest) return { claimedFeesCents: 0, claimedInterestCents: 0 };
+  let feesReceived = 0;
+  let interestReceived = 0;
+  for (const p of await paymentsOfTarget(ctx, { kind: "salesDocument", id: doc._id })) {
+    for (const d of p.differences) {
+      if (d.reason === "dunning_fees") feesReceived -= d.amountCents;
+      if (d.reason === "default_interest") interestReceived -= d.amountCents;
+    }
+  }
+  return {
+    claimedFeesCents: Math.max(0, latest.feeCents + latest.flatFee40Cents - feesReceived),
+    claimedInterestCents: Math.max(0, latest.interestCents - interestReceived),
+  };
+}
+
 async function loadTarget(ctx: ReadCtx, ref: TargetRef, date: string): Promise<LoadedTarget | null> {
   const profile = await getCompanyProfile(ctx);
   const methodOnDate = taxationMethodAt(profile?.taxationMethod ?? [], date);
@@ -286,8 +308,7 @@ async function loadTarget(ctx: ReadCtx, ref: TargetRef, date: string): Promise<L
         skonto,
         taxedAs: notDueVat.length > 0 ? "ist" : "soll",
         methodOnDate,
-        claimedFeesCents: 0,
-        claimedInterestCents: 0,
+        ...(await claimedDunningAmounts(ctx, doc)),
         ...(doc.fxRateToEur ? { fxRateToEur: doc.fxRateToEur.rate } : {}),
       },
     };
@@ -1342,6 +1363,7 @@ export async function invoicePaymentArgs(ctx: ReadCtx, input: InvoicePaymentInpu
       id: doc._id,
       ...(doc.contactId ? { contactId: doc.contactId } : {}),
       openAmountCents: doc.openAmountCents ?? doc.totals.payableCents,
+      ...(input.excess?.mode === "fees" ? await claimedDunningAmounts(ctx, doc) : {}),
     },
     sourceKind: input.source.kind,
     amountCents: input.amountCents,
