@@ -2293,6 +2293,12 @@
     "wrapper": "query",
     "permission": "documents.read"
   },
+  "invoices:lastDocument": {
+    "kind": "query",
+    "visibility": "public",
+    "wrapper": "query",
+    "permission": "documents.read"
+  },
   "invoices:list": {
     "kind": "query",
     "visibility": "public",
@@ -2310,6 +2316,12 @@
     "visibility": "public",
     "wrapper": "query",
     "permission": "invoices.send"
+  },
+  "invoices:messageText": {
+    "kind": "query",
+    "visibility": "public",
+    "wrapper": "query",
+    "permission": "documents.read"
   },
   "invoices:notifyDeadlinesCron": {
     "kind": "mutation",
