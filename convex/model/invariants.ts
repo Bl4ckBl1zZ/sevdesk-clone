@@ -456,25 +456,30 @@ const chainStep = tableStep<"auditLog">({
   },
 });
 
-/** RI-14 — the head contains the latest checkpoint. */
+/** RI-14 — the head contains the latest checkpoint (also the migration after-check, AUD-028). */
+export async function checkpointViolations(ctx: ReadCtx): Promise<InvariantViolation[]> {
+  const anchor = await chainAnchor(ctx);
+  const cp = await ctx.db.query("integrityCheckpoints").withIndex("by_at").order("desc").first();
+  if (!cp || cp.lastSeq <= 0 || (anchor && cp.lastSeq <= anchor.seq)) return [];
+  const atCp = await ctx.db
+    .query("auditLog")
+    .withIndex("by_seq", (q) => q.eq("seq", cp.lastSeq))
+    .first();
+  if (atCp && atCp.hash === cp.lastHash) return [];
+  return [
+    {
+      id: "RI-14",
+      severity: "ERROR",
+      message: `Kette enthält den Prüfpunkt vom ${cp.date} (seq ${cp.lastSeq}) nicht.`,
+    },
+  ];
+}
+
 const checkpointStep: OnceStep = {
   kind: "once",
   name: "checkpoint",
   run: async (ctx, acc) => {
-    const anchor = await chainAnchor(ctx);
-    const cp = await ctx.db.query("integrityCheckpoints").withIndex("by_at").order("desc").first();
-    if (!cp || cp.lastSeq <= 0 || (anchor && cp.lastSeq <= anchor.seq)) return;
-    const atCp = await ctx.db
-      .query("auditLog")
-      .withIndex("by_seq", (q) => q.eq("seq", cp.lastSeq))
-      .first();
-    if (!atCp || atCp.hash !== cp.lastHash) {
-      acc.violations.checkpoint.push({
-        id: "RI-14",
-        severity: "ERROR",
-        message: `Kette enthält den Prüfpunkt vom ${cp.date} (seq ${cp.lastSeq}) nicht.`,
-      });
-    }
+    acc.violations.checkpoint.push(...(await checkpointViolations(ctx)));
   },
 };
 
@@ -816,150 +821,162 @@ const documentsStep = tableStep<"salesDocuments">({
   key: "_creationTime",
   cost: 8,
   maxBatch: 50,
-  handle: async (ctx, docs, acc) => {
-    if (docs.length === 0) return;
-    const kuHistory = (await ctx.db.query("companyProfile").first())?.kleinunternehmer ?? [];
-    const dunning = dunningChecker(ctx);
-    for (const d of docs) {
-      const artifacts: ArtifactInvariantRow[] = [];
-      const artifactKinds: { id: string; kind: string }[] = [];
-      for (const a of await ctx.db
-        .query("documentArtifacts")
-        .withIndex("by_document", (q) => q.eq("documentId", d._id))
-        .collect()) {
-        const file = await ctx.db.system.get(a.storageId);
-        artifactKinds.push({ id: String(a._id), kind: a.kind });
-        artifacts.push({
-          id: String(a._id),
-          sha256: a.sha256,
-          storedSha256: file ? (file.sha256 === hexToBase64(a.sha256) ? a.sha256 : file.sha256) : null,
-        });
-      }
-      const snap = d.snapshotId ? await ctx.db.get(d.snapshotId) : null;
-      let parsed: DocumentSnapshot | null = null;
-      if (snap) parsed = JSON.parse(snap.json) as DocumentSnapshot;
-      const row: DocumentInvariantRow = {
-        id: String(d._id),
-        type: d.type,
-        status: d.status,
-        ...(d.number ? { number: d.number } : {}),
-        ...(d.documentDate ? { documentDate: d.documentDate } : {}),
-        hasSupplyDate: d.supplyDate !== undefined,
-        ...(d.retentionUntil ? { retentionUntil: d.retentionUntil } : {}),
-        ...(d.artifactStatus ? { artifactStatus: d.artifactStatus } : {}),
-        ...(d.imported ? { imported: true } : {}),
-        ...(d.status === "draft"
-          ? {}
-          : {
-              snapshot: snap
-                ? {
-                    present: true,
-                    hashMatches: (await sha256Hex(snap.json)) === snap.snapshotHash,
-                    ...(parsed ? { number: parsed.number } : {}),
-                  }
-                : { present: false, hashMatches: false },
-            }),
-        artifacts,
-      };
-      acc.rows.documents.push({ id: row.id, status: row.status, ...(row.number ? { number: row.number } : {}) });
-      acc.rows.chainRows.push({
-        id: String(d._id),
-        type: d.type,
-        status: d.status,
-        ...(d.number ? { number: d.number } : {}),
-        ...(d.correctsId ? { originalId: String(d.correctsId) } : {}),
-        ...(d.correctionKind ? { correctionKind: d.correctionKind } : {}),
-        groups: (parsed?.totals.byGroup ?? []).map((g) => ({
-          category: g.category,
-          rateBp: g.rateBp,
-          netCents: g.baseCents,
-          vatCents: g.vatCents,
-        })),
-        ...(parsed?.deductions
-          ? {
-              deductions: parsed.deductions.map((x) => ({
-                advanceNumber: x.advanceNumber,
-                byGroup: x.byGroup.map((g) => ({
-                  category: g.category,
-                  rateBp: g.rateBp,
-                  netCents: g.netCents,
-                  vatCents: g.vatCents,
-                })),
-              })),
-            }
-          : {}),
-        // A standalone chain's root is its first advance (no chainRootId on the root itself).
-        ...(isChainType(d.type) ? { chainRootId: String(d.chainRootId ?? d._id) } : {}),
-        ...(d.deductedInId ? { deductedInId: String(d.deductedInId) } : {}),
+  handle: (ctx, docs, acc) => handleDocuments(ctx, docs, acc),
+});
+
+/**
+ * The per-document findings for a chosen set of documents (the migration after-check re-checks only the documents a
+ * migration window touched, AUD-028); cross-row checks (RI-02, chains) need all rows and are not included.
+ */
+export async function documentViolations(ctx: ReadCtx, docs: Doc<"salesDocuments">[]): Promise<InvariantViolation[]> {
+  const acc = emptyAccumulator();
+  await handleDocuments(ctx, docs, acc);
+  return [...acc.violations.documents, ...acc.violations.dunning];
+}
+
+async function handleDocuments(ctx: ReadCtx, docs: Doc<"salesDocuments">[], acc: InvariantAccumulator) {
+  if (docs.length === 0) return;
+  const kuHistory = (await ctx.db.query("companyProfile").first())?.kleinunternehmer ?? [];
+  const dunning = dunningChecker(ctx);
+  for (const d of docs) {
+    const artifacts: ArtifactInvariantRow[] = [];
+    const artifactKinds: { id: string; kind: string }[] = [];
+    for (const a of await ctx.db
+      .query("documentArtifacts")
+      .withIndex("by_document", (q) => q.eq("documentId", d._id))
+      .collect()) {
+      const file = await ctx.db.system.get(a.storageId);
+      artifactKinds.push({ id: String(a._id), kind: a.kind });
+      artifacts.push({
+        id: String(a._id),
+        sha256: a.sha256,
+        storedSha256: file ? (file.sha256 === hexToBase64(a.sha256) ? a.sha256 : file.sha256) : null,
       });
-      const out = acc.violations.documents;
-      out.push(...checkFinalisedDocument(row));
-      if (parsed) {
-        const nets = parsed.lines.flatMap((l) => (l.kind === "item" && !l.optional ? [l.netCents] : []));
-        out.push(...checkTotals(row.number ?? row.id, nets, parsed.totals));
-      }
-      const marks = await ctx.db
-        .query("sendLog")
-        .withIndex("by_document_at", (q) => q.eq("documentId", d._id))
-        .collect();
-      if (parsed) {
-        const name = d.number ?? String(d._id);
-        out.push(
-          ...checkKleinunternehmerDocument(
-            { name, type: d.type, ...(d.imported ? { imported: true } : {}), snapshot: parsed },
-            kuHistory,
-          ),
-        );
-        out.push(
-          ...checkEinvoiceDocument({
-            name,
-            type: d.type,
-            status: d.status,
-            ...(d.imported ? { imported: true } : {}),
-            decision: d.einvoice?.decision,
-            validation: d.einvoice?.validation,
-            artifactStatus: d.artifactStatus,
-            snapshot: parsed,
-            artifacts: artifactKinds,
-            marks: [...marks]
-              .sort((a, b) => a.at - b.at)
-              .map((m) => ({
-                id: String(m._id),
-                kind: m.kind,
-                ...(m.retractsId ? { retractsId: String(m.retractsId) } : {}),
-                channel: m.channel,
-                artifactIds: m.artifacts.map((a) => String(a.artifactId)),
-                ...(m.einvoiceHandedOverElectronically ? { einvoiceHandedOverElectronically: true } : {}),
-              })),
+    }
+    const snap = d.snapshotId ? await ctx.db.get(d.snapshotId) : null;
+    let parsed: DocumentSnapshot | null = null;
+    if (snap) parsed = JSON.parse(snap.json) as DocumentSnapshot;
+    const row: DocumentInvariantRow = {
+      id: String(d._id),
+      type: d.type,
+      status: d.status,
+      ...(d.number ? { number: d.number } : {}),
+      ...(d.documentDate ? { documentDate: d.documentDate } : {}),
+      hasSupplyDate: d.supplyDate !== undefined,
+      ...(d.retentionUntil ? { retentionUntil: d.retentionUntil } : {}),
+      ...(d.artifactStatus ? { artifactStatus: d.artifactStatus } : {}),
+      ...(d.imported ? { imported: true } : {}),
+      ...(d.status === "draft"
+        ? {}
+        : {
+            snapshot: snap
+              ? {
+                  present: true,
+                  hashMatches: (await sha256Hex(snap.json)) === snap.snapshotHash,
+                  ...(parsed ? { number: parsed.number } : {}),
+                }
+              : { present: false, hashMatches: false },
           }),
-        );
-        out.push(...checkGeschaeftsbriefFooter(name, parsed.issuer ?? parsed.seller));
-      }
+      artifacts,
+    };
+    acc.rows.documents.push({ id: row.id, status: row.status, ...(row.number ? { number: row.number } : {}) });
+    acc.rows.chainRows.push({
+      id: String(d._id),
+      type: d.type,
+      status: d.status,
+      ...(d.number ? { number: d.number } : {}),
+      ...(d.correctsId ? { originalId: String(d.correctsId) } : {}),
+      ...(d.correctionKind ? { correctionKind: d.correctionKind } : {}),
+      groups: (parsed?.totals.byGroup ?? []).map((g) => ({
+        category: g.category,
+        rateBp: g.rateBp,
+        netCents: g.baseCents,
+        vatCents: g.vatCents,
+      })),
+      ...(parsed?.deductions
+        ? {
+            deductions: parsed.deductions.map((x) => ({
+              advanceNumber: x.advanceNumber,
+              byGroup: x.byGroup.map((g) => ({
+                category: g.category,
+                rateBp: g.rateBp,
+                netCents: g.netCents,
+                vatCents: g.vatCents,
+              })),
+            })),
+          }
+        : {}),
+      // A standalone chain's root is its first advance (no chainRootId on the root itself).
+      ...(isChainType(d.type) ? { chainRootId: String(d.chainRootId ?? d._id) } : {}),
+      ...(d.deductedInId ? { deductedInId: String(d.deductedInId) } : {}),
+    });
+    const out = acc.violations.documents;
+    out.push(...checkFinalisedDocument(row));
+    if (parsed) {
+      const nets = parsed.lines.flatMap((l) => (l.kind === "item" && !l.optional ? [l.netCents] : []));
+      out.push(...checkTotals(row.number ?? row.id, nets, parsed.totals));
+    }
+    const marks = await ctx.db
+      .query("sendLog")
+      .withIndex("by_document_at", (q) => q.eq("documentId", d._id))
+      .collect();
+    if (parsed) {
+      const name = d.number ?? String(d._id);
       out.push(
-        ...checkSentMarks(
-          {
-            id: row.id,
-            status: d.status,
-            ...(d.number ? { number: d.number } : {}),
-            ...(d.finalizedAt ? { finalizedOn: berlinCalendarDate(d.finalizedAt) } : {}),
-            ...(d.imported ? { imported: true } : {}),
-          },
-          marks.map((m) => ({
-            id: String(m._id),
-            kind: m.kind,
-            ...(m.retractsId ? { retractsId: String(m.retractsId) } : {}),
-            sentOn: m.sentOn,
-            recordedOn: berlinCalendarDate(m.at),
-            at: m.at,
-            artifacts: m.artifacts.map((a) => ({ artifactId: String(a.artifactId), sha256: a.sha256 })),
-          })),
-          artifacts,
+        ...checkKleinunternehmerDocument(
+          { name, type: d.type, ...(d.imported ? { imported: true } : {}), snapshot: parsed },
+          kuHistory,
         ),
       );
-      if (d.type === "reminder") acc.violations.dunning.push(...(await dunning(d, snap)));
+      out.push(
+        ...checkEinvoiceDocument({
+          name,
+          type: d.type,
+          status: d.status,
+          ...(d.imported ? { imported: true } : {}),
+          decision: d.einvoice?.decision,
+          validation: d.einvoice?.validation,
+          artifactStatus: d.artifactStatus,
+          snapshot: parsed,
+          artifacts: artifactKinds,
+          marks: [...marks]
+            .sort((a, b) => a.at - b.at)
+            .map((m) => ({
+              id: String(m._id),
+              kind: m.kind,
+              ...(m.retractsId ? { retractsId: String(m.retractsId) } : {}),
+              channel: m.channel,
+              artifactIds: m.artifacts.map((a) => String(a.artifactId)),
+              ...(m.einvoiceHandedOverElectronically ? { einvoiceHandedOverElectronically: true } : {}),
+            })),
+        }),
+      );
+      out.push(...checkGeschaeftsbriefFooter(name, parsed.issuer ?? parsed.seller));
     }
-  },
-});
+    out.push(
+      ...checkSentMarks(
+        {
+          id: row.id,
+          status: d.status,
+          ...(d.number ? { number: d.number } : {}),
+          ...(d.finalizedAt ? { finalizedOn: berlinCalendarDate(d.finalizedAt) } : {}),
+          ...(d.imported ? { imported: true } : {}),
+        },
+        marks.map((m) => ({
+          id: String(m._id),
+          kind: m.kind,
+          ...(m.retractsId ? { retractsId: String(m.retractsId) } : {}),
+          sentOn: m.sentOn,
+          recordedOn: berlinCalendarDate(m.at),
+          at: m.at,
+          artifacts: m.artifacts.map((a) => ({ artifactId: String(a.artifactId), sha256: a.sha256 })),
+        })),
+        artifacts,
+      ),
+    );
+    if (d.type === "reminder") acc.violations.dunning.push(...(await dunning(d, snap)));
+  }
+}
 
 /**
  * RI-24 (F05 MAHN-02/03): no consumer reminder carries the 40 € flat fee, and every printed interest segment uses
