@@ -5,7 +5,7 @@ import { internal } from "./_generated/api";
 import { action, mutation, query, systemAction, systemMutation } from "./functions";
 import { clockOffsetMs } from "./lib/clock";
 import { env, isTest } from "./lib/env";
-import { clockView, recordClockReading } from "./model/clock";
+import { clockView, recordClockReading, recordCronRun as recordCronRunModel } from "./model/clock";
 import { getCompanyProfile } from "./model/companyProfile";
 import { getIntegration } from "./model/integrations";
 import {
@@ -194,6 +194,13 @@ export const clockCron = systemAction({
     if (!reference) return null;
     return ctx.runMutation(internal.system.recordClock, { offsetMs: await clockOffsetMs(), reference });
   },
+});
+
+/** F01 SET-134: written by the systemAction wrapper after a successful run of a `cron.*` action. */
+export const recordCronRun = systemMutation({
+  job: "system.cronRuns",
+  args: { job: v.string(), startedAt: v.number(), finishedAt: v.number() },
+  handler: async (ctx, a) => recordCronRunModel(ctx, { ...a, result: "ok" }),
 });
 
 /** SET-132 / GOBD-22: the latest clock reading for the integrity panel and the banner. */

@@ -9,7 +9,7 @@ import { useTranslations } from "next-intl";
 import { useId, useState } from "react";
 import { type UseFormReturn, useWatch } from "react-hook-form";
 import { toast } from "sonner";
-import { FormDialog, formatDateTime, useRun } from "@/components/catalog/shared";
+import { FormDialog, formatDateTime, useCan, useRun } from "@/components/catalog/shared";
 import { CheckboxField, SelectField, TextField } from "@/components/forms/fields";
 import { useZodForm } from "@/components/setup/use-zod-form";
 import { Badge } from "@/components/ui/badge";
@@ -86,6 +86,12 @@ export function StockTab({ productId, canWrite }: { productId: Id<"products">; c
         )}
         {canWrite && <StockSettings key={JSON.stringify(stock)} productId={productId} stock={stock} />}
       </section>
+      {stock?.enabled && stock.quantityMilli < 0 && !data.preventNegativeStock && (
+        <p role="status" className="rounded-md border border-warning/40 bg-warning/10 p-3 text-sm">
+          {t("negativeWarning")}
+        </p>
+      )}
+      {stock?.enabled && <PreventNegativeOption enabled={data.preventNegativeStock} />}
       <section aria-labelledby={historyId} className="flex flex-col gap-3 rounded-xl border p-4 text-sm">
         <h2 id={historyId} className="font-semibold text-base">
           {t("history")}
@@ -230,5 +236,35 @@ function AdjustDialog({
       />
       <TextField form={form} name="text" label={t("text")} description={t("textHint")} required />
     </FormDialog>
+  );
+}
+
+/** PRD-095: company option „Negativen Bestand verhindern“ (owner only; applies to every product). */
+function PreventNegativeOption({ enabled }: { enabled: boolean }) {
+  const t = useTranslations("products.stock");
+  const canSet = useCan("settings.write");
+  const set = useMutation(api.stock.setPreventNegative);
+  const run = useRun();
+  const id = useId();
+  return (
+    <div className="flex items-start gap-3 rounded-xl border p-4 text-sm">
+      <input
+        id={id}
+        type="checkbox"
+        className="mt-0.5 size-5 shrink-0 accent-primary md:size-4"
+        checked={enabled}
+        disabled={!canSet}
+        aria-describedby={`${id}-hint`}
+        onChange={(e) => void run(() => set({ enabled: e.target.checked }), t("preventSaved"))}
+      />
+      <div className="flex flex-col gap-1">
+        <label htmlFor={id} className="font-medium">
+          {t("preventNegative")}
+        </label>
+        <p id={`${id}-hint`} className="text-muted-foreground">
+          {t("preventNegativeHint")}
+        </p>
+      </div>
+    </div>
   );
 }

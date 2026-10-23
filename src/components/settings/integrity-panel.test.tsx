@@ -1,4 +1,4 @@
-import { screen } from "@testing-library/react";
+import { fireEvent, screen, waitFor } from "@testing-library/react";
 import { getFunctionName } from "convex/server";
 import { beforeEach, describe, expect, test, vi } from "vitest";
 import { renderWithIntl } from "@/i18n/test-utils";
@@ -13,8 +13,10 @@ vi.mock("@/hooks/use-authed-query", () => ({
   useAuthedQuery: (ref: unknown, _args: unknown, enabled = true) =>
     enabled ? backend.data[getFunctionName(ref as never)] : undefined,
 }));
-vi.mock("convex/react", () => ({ useMutation: () => vi.fn() }));
-vi.mock("sonner", () => ({ toast: { success: vi.fn(), error: vi.fn() } }));
+const runNow = vi.hoisted(() => vi.fn());
+const toasts = vi.hoisted(() => ({ success: vi.fn(), error: vi.fn() }));
+vi.mock("convex/react", () => ({ useMutation: () => vi.fn(), useAction: () => runNow }));
+vi.mock("sonner", () => ({ toast: toasts }));
 
 const AT = Date.UTC(2026, 9, 19, 0, 30);
 
@@ -76,6 +78,21 @@ describe("integrity status panel (SET-132)", () => {
     renderWithIntl(<IntegrityPanel />);
     expect(screen.getByTestId("integrity-last-run")).toHaveTextContent("1 Befund (vollständig)");
     expect(screen.getByRole("list", { name: "Befunde der letzten Prüfung" })).toHaveTextContent("seq 41");
+  });
+
+  test("SET-133 the owner can run the integrity check on demand; other roles see no button", async () => {
+    runNow.mockResolvedValueOnce({ ok: true, lastVerifiedSeq: 1234, findings: 0 });
+    const { unmount } = renderWithIntl(<IntegrityPanel />);
+    fireEvent.click(screen.getByRole("button", { name: "Integritätsprüfung jetzt ausführen" }));
+    await waitFor(() => expect(toasts.success).toHaveBeenCalledWith("Integritätsprüfung abgeschlossen: in Ordnung."));
+    expect(runNow).toHaveBeenCalledWith({});
+    expect(
+      screen.getByText("Vollständige Prüfung der Hash-Kette; höchstens einmal in 10 Minuten."),
+    ).toBeInTheDocument();
+    unmount();
+    backend.data["members:me"] = { role: "bookkeeper" };
+    renderWithIntl(<IntegrityPanel />);
+    expect(screen.queryByRole("button", { name: "Integritätsprüfung jetzt ausführen" })).toBeNull();
   });
 
   test("AUD-019 GOBD-22 a clock skew over 2 s shows a warning banner, over 60 s an alert", () => {

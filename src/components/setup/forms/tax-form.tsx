@@ -228,6 +228,18 @@ export function TaxForm({
           </p>
         </Section>
       )}
+
+      {withSectionIds && (
+        <Section title={t("sepaTitle")}>
+          <TextField
+            form={form}
+            name="creditorId"
+            label={t("creditorId")}
+            description={t("creditorIdHint")}
+            autoComplete="off"
+          />
+        </Section>
+      )}
     </form>
   );
 }

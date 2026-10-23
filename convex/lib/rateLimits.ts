@@ -1,4 +1,4 @@
-import { HOUR, RateLimiter, SECOND } from "@convex-dev/rate-limiter";
+import { HOUR, MINUTE, RateLimiter, SECOND } from "@convex-dev/rate-limiter";
 import { components } from "../_generated/api";
 
 /**
@@ -11,6 +11,8 @@ export const RATE_LIMIT_CONFIG = {
   // F02 CON-058: outbound VAT-ID checks are throttled to 1 request per second per provider.
   vatCheckBzst: { kind: "token bucket", rate: 1, period: SECOND, capacity: 1 },
   vatCheckVies: { kind: "token bucket", rate: 1, period: SECOND, capacity: 1 },
+  // F01 SET-133: „Integritätsprüfung jetzt ausführen“ at most once per 10 minutes (instance-wide).
+  integrityRunNow: { kind: "fixed window", rate: 1, period: 10 * MINUTE },
 } as const;
 
 export const rateLimiter = new RateLimiter(components.rateLimiter, RATE_LIMIT_CONFIG);

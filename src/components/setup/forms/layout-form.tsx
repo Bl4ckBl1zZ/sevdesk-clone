@@ -2,9 +2,10 @@
 
 import { useTranslations } from "next-intl";
 import { useId, useState } from "react";
-import type { UseFormReturn } from "react-hook-form";
+import { type UseFormReturn, useWatch } from "react-hook-form";
 import { FormErrorSummary, RadioCardGroup } from "@/components/forms/fields";
 import { type LayoutValues, LOGO_TYPES, layoutSchema, validateLogoFile } from "@/domain/schemas/settings";
+import { accentContrastWarning } from "@/domain/settings/contrast";
 import { useZodForm } from "../use-zod-form";
 
 type LayoutForm = UseFormReturn<LayoutValues, unknown, LayoutValues>;
@@ -26,6 +27,8 @@ export function LayoutForm({
   const [logo, setLogo] = useState<File | null>(null);
   const [logoError, setLogoError] = useState<string | null>(null);
   const colorError = form.formState.errors.accentColor?.message;
+  // SET-077: contrast against white below 3:1 → a warning only, saving stays possible.
+  const contrast = accentContrastWarning(useWatch({ control: form.control, name: "accentColor" }) ?? "");
 
   return (
     <form
@@ -81,6 +84,15 @@ export function LayoutForm({
           {...form.register("accentColor")}
         />
         {colorError && <p className="text-danger text-sm">{colorError}</p>}
+        {!colorError && contrast && (
+          <p
+            role="status"
+            className="rounded-md border border-warning/40 bg-warning/10 p-3 text-sm"
+            data-testid="accent-contrast-warning"
+          >
+            {contrast.message}
+          </p>
+        )}
       </div>
       <p className="text-muted-foreground text-sm">{t("previewHint")}</p>
     </form>

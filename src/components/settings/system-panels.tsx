@@ -8,11 +8,12 @@ import { useTranslations } from "next-intl";
 import { useId, useState } from "react";
 import { toast } from "sonner";
 import { ConvexGuard } from "@/components/convex/convex-provider";
+import { CopyButton } from "@/components/settings/copy-button";
 import type { StatusCheck } from "@/components/setup/actions";
 import { StatusCheckList } from "@/components/setup/status-check";
 import { Badge } from "@/components/ui/badge";
 import { Button, buttonVariants } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardAction, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import {
   Dialog,
   DialogContent,
@@ -25,6 +26,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import type { EinvoiceToolsVersions, HealthCheck } from "@/domain/system/health";
+import { buildSystemInfo } from "@/domain/system/system-info";
 import { useAdapterErrorToast } from "@/hooks/use-adapter-error-toast";
 import { useAuthedQuery } from "@/hooks/use-authed-query";
 import { cn } from "@/lib/utils";
@@ -42,9 +44,12 @@ export interface VersionsView {
 export function VersionsCard({
   versions,
   einvoice,
+  checks = [],
 }: {
   versions: VersionsView;
   einvoice: EinvoiceToolsVersions | null;
+  /** SET-136: health results included (redacted) in „Systeminfo kopieren“. */
+  checks?: readonly HealthCheck[];
 }) {
   const t = useTranslations("settings.system");
   const rows: [string, string][] = [
@@ -66,6 +71,17 @@ export function VersionsCard({
         <CardTitle>
           <h2>{t("versionsTitle")}</h2>
         </CardTitle>
+        <CardAction>
+          <CopyButton
+            label={t("copySystemInfo")}
+            value={buildSystemInfo({
+              versions: versions as unknown as Record<string, unknown>,
+              einvoice: einvoice as unknown as Record<string, unknown> | null,
+              checks,
+              generatedAt: new Date().toISOString(),
+            })}
+          />
+        </CardAction>
       </CardHeader>
       <CardContent>
         <dl className="grid gap-x-6 gap-y-2 text-sm @2xl/main:grid-cols-2">

@@ -372,6 +372,7 @@ export function validateDocument(
     // EC-DOC-17: the first entry inside the period that changes the status the period started with.
     const change = history.find((e) => e.validFrom > range.from && e.validFrom <= range.to && e.isKU !== startKu);
     if (change || startKu !== kuFrom) {
+      // EC-025 / EC-DOC-17: name the first status change inside the period (not the period end).
       const at = change?.validFrom ?? range.to;
       push(
         finding(

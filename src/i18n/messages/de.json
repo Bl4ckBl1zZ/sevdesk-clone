@@ -577,6 +577,34 @@
     "bankConnection": "Bankanbindung",
     "bankConnectionHint": "Umsätze automatisch über Enable Banking (PSD2, Revolut Business) abrufen – viermal täglich, Zustimmung für 180 Tage. Kontoauszug-Importe bleiben jederzeit möglich.",
     "sectionsLabel": "Abschnitte",
+    "cronStatus": {
+      "title": "Hintergrundaufgaben",
+      "description": "Geplante Aufgaben (Cron) mit letzter Ausführung, Dauer, Ergebnis und nächstem Lauf. Zeiten in deutscher Zeit.",
+      "name": "Aufgabe",
+      "schedule": "Zeitplan",
+      "lastRun": "Letzter Lauf",
+      "duration": "Dauer",
+      "result": "Ergebnis",
+      "nextRun": "Nächster Lauf",
+      "never": "noch nie",
+      "unknown": "unbekannt",
+      "states": {
+        "ok": "in Ordnung",
+        "overdue": "überfällig",
+        "never": "noch nicht gelaufen",
+        "error": "Fehler"
+      }
+    },
+    "thresholds": {
+      "title": "Buchführungsgrenzen (§ 141 AO)",
+      "intro": "Nur ein Hinweis, keine Sperre: Liegen Umsatz oder Gewinn über den Grenzen, kann das Finanzamt zur Buchführung (Bilanz) auffordern.",
+      "turnover_prior_year": "Gesamtumsatz {year}",
+      "turnover_current_year": "Gesamtumsatz {year} (laufend)",
+      "profit_prior_year": "Gewinn {year} (EÜR)",
+      "barLabel": "{label}: {percent} % der Grenze von {limit}",
+      "unknown": "Noch nicht bekannt – folgt aus der EÜR {year}.",
+      "of": "{amount} von {limit}"
+    },
     "comingSoon": "Diese Einstellungen folgen in einer späteren Phase.",
     "tabs": {
       "allgemein": "Allgemein",
@@ -870,6 +898,7 @@
     },
     "system": {
       "versionsTitle": "Versionen",
+      "copySystemInfo": "Systeminfo kopieren",
       "appVersion": "App-Version",
       "gitSha": "Git-Commit",
       "buildDate": "Build-Datum",
@@ -1292,7 +1321,10 @@
       "datevConsultantNumber": "Beraternummer",
       "datevClientNumber": "Mandantennummer",
       "datevAccountLength": "Sachkontenlänge",
-      "datevRanges": "Personenkonten: Debitoren {debFrom}–{debTo}, Kreditoren {credFrom}–{credTo}"
+      "datevRanges": "Personenkonten: Debitoren {debFrom}–{debTo}, Kreditoren {credFrom}–{credTo}",
+      "sepaTitle": "SEPA-Lastschrift",
+      "creditorId": "Gläubiger-Identifikationsnummer",
+      "creditorIdHint": "Optional, z. B. DE98ZZZ09999999999. Wird erst für SEPA-Lastschriften benötigt."
     },
     "bank": {
       "iban": "IBAN",
@@ -1454,7 +1486,12 @@
       "noHead": "Noch keine Einträge",
       "clock": "Serveruhr",
       "clockUnknown": "Noch nicht gemessen (CLOCK_REFERENCE_URL nicht gesetzt)",
-      "findingsLabel": "Befunde der letzten Prüfung"
+      "findingsLabel": "Befunde der letzten Prüfung",
+      "runNow": "Integritätsprüfung jetzt ausführen",
+      "running": "Prüfung läuft …",
+      "runNowHint": "Vollständige Prüfung der Hash-Kette; höchstens einmal in 10 Minuten.",
+      "runNowOk": "Integritätsprüfung abgeschlossen: in Ordnung.",
+      "runNowFailed": "Integritätsprüfung abgeschlossen: {count, plural, one {# Befund} other {# Befunde}}."
     }
   },
   "accounting": {
@@ -1700,8 +1737,11 @@
         "email": "E-Mail",
         "phone": "Telefon",
         "vat": "USt-IdNr",
-        "tags": "Tags"
+        "tags": "Tags",
+        "open": "Offen",
+        "revenueYear": "Umsatz (Jahr)"
       },
+      "exportXlsx": "Excel (XLSX)",
       "selectAll": "Alle auf dieser Seite auswählen",
       "selectRow": "{name} auswählen",
       "empty": "Noch keine Kontakte vorhanden.",
@@ -1856,6 +1896,10 @@
       "days": "{days} Tage",
       "stats": "Umsatz",
       "statsHint": "Umsatz und offene Posten erscheinen, sobald Rechnungen fertiggestellt sind.",
+      "supplierStats": "Als Lieferant",
+      "spendThisYear": "Ausgaben dieses Jahr (netto)",
+      "spendAllTime": "Ausgaben gesamt (netto)",
+      "openPayables": "Offene Verbindlichkeiten",
       "taxProfile": "Abgeleiteter Steuerfall",
       "service": "Leistung",
       "goods": "Lieferung",
@@ -1991,7 +2035,14 @@
       "due": "fällig am {date}",
       "doneAt": "erledigt",
       "edited": "bearbeitet",
-      "derived": "automatisch"
+      "derived": "automatisch",
+      "filterLabel": "Verlauf filtern",
+      "kindAll": "Alle",
+      "kindDerived": "Automatische Ereignisse",
+      "from": "Von",
+      "to": "Bis",
+      "search": "In Notizen suchen",
+      "noMatch": "Keine Einträge für diese Filter."
     },
     "duplicates": {
       "reasons": "Gründe",
@@ -2156,7 +2207,22 @@
       "tabs": {
         "master": "Stammdaten",
         "prices": "Preise",
-        "stock": "Bestand"
+        "stock": "Bestand",
+        "usage": "Verwendung"
+      },
+      "usage": {
+        "thisYear": "Dieses Jahr",
+        "lastYear": "Vorjahr",
+        "units": "Menge",
+        "revenue": "Umsatz netto",
+        "documents": "Dokumente mit diesem Produkt",
+        "empty": "Dieses Produkt wurde noch in keinem Dokument verwendet.",
+        "document": "Dokument",
+        "date": "Datum",
+        "contact": "Kontakt",
+        "status": "Status",
+        "draft": "Entwurf",
+        "soldHint": "Menge und Umsatz aus fertiggestellten Rechnungen (inkl. Storno und Korrektur)."
       },
       "facts": "Eckdaten",
       "rate": "Steuersatz heute",
@@ -2261,6 +2327,10 @@
       "onlyErrors": "nur Fehler"
     },
     "stock": {
+      "negativeWarning": "Der Bestand ist negativ. Bitte Zugang buchen oder den Bestand korrigieren.",
+      "preventNegative": "Negativen Bestand verhindern",
+      "preventNegativeHint": "Gilt für alle Produkte: Ein Lieferschein, der den Bestand unter null bringen würde, kann nicht fertiggestellt werden.",
+      "preventSaved": "Einstellung gespeichert.",
       "heading": "Bestand",
       "settings": "Bestandsführung",
       "enabled": "Bestand führen",

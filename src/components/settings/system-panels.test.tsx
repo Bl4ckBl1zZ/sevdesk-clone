@@ -79,6 +79,30 @@ describe("System page (F01 SET-130/131/135)", () => {
     expect(screen.getByText("Git-Commit").nextSibling).toHaveTextContent("abc1234");
   });
 
+  test("SET-136 „Systeminfo kopieren“ copies a redacted JSON with versions and health", async () => {
+    const writeText = vi.fn().mockResolvedValue(undefined);
+    Object.defineProperty(navigator, "clipboard", { value: { writeText }, configurable: true });
+    renderWithIntl(
+      <VersionsCard
+        versions={{
+          app: { version: "1.0.0", gitSha: "abc1234", buildDate: "2026-10-12" },
+          next: "16.4.0",
+          node: "v24.9.0",
+          convexImage: null,
+          betterAuth: "1.6.33",
+          ruleTables: "2026-10-12",
+        }}
+        einvoice={null}
+        checks={[{ id: "email", label: "E-Mail", status: "error", detail: "Absender inhaber@muster.de abgelehnt" }]}
+      />,
+    );
+    screen.getByRole("button", { name: "Systeminfo kopieren" }).click();
+    await vi.waitFor(() => expect(writeText).toHaveBeenCalledOnce());
+    const info = JSON.parse(writeText.mock.calls[0]?.[0] as string);
+    expect(info.versions.app.gitSha).toBe("abc1234");
+    expect(info.health).toEqual([{ id: "email", status: "error", detail: "Absender [e-mail] abgelehnt" }]);
+  });
+
   test("SET-131 health checks show status, latency and detail; only the owner may run the service checks", () => {
     const checks = [
       { id: "convex", label: "Datenbank (Convex)", status: "ok" as const, latencyMs: 12, detail: "Backend 1.46" },

@@ -3,7 +3,16 @@
 import { api } from "@convex/_generated/api";
 import type { Id } from "@convex/_generated/dataModel";
 import { useConvex, useMutation } from "convex/react";
-import { Building2Icon, MailIcon, PhoneIcon, PlusIcon, UserIcon, UsersIcon } from "lucide-react";
+import {
+  ArrowDownIcon,
+  ArrowUpIcon,
+  Building2Icon,
+  MailIcon,
+  PhoneIcon,
+  PlusIcon,
+  UserIcon,
+  UsersIcon,
+} from "lucide-react";
 import type { Route } from "next";
 import Link from "next/link";
 import { useTranslations } from "next-intl";
@@ -19,7 +28,9 @@ import { Button, buttonVariants } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { telHref } from "@/domain/contacts/channels";
 import { ROLE_LABELS } from "@/domain/contacts/core";
+import { rowsToXlsx } from "@/domain/contacts/xlsx";
 import { type CsvVariant, csvFileName, formatTextCsv } from "@/domain/csv/export";
+import { formatEuro } from "@/domain/money";
 import { useAuthedQuery } from "@/hooks/use-authed-query";
 import { cn } from "@/lib/utils";
 
@@ -31,6 +42,9 @@ const STATUS_CHIPS = ["open", "customer", "supplier", "prospect", "archived"] as
 type Chip = (typeof STATUS_CHIPS)[number];
 const TYPES = ["b2b", "b2c", "b2g"] as const;
 const VAT = ["qualified", "valid", "invalid", "unchecked", "unavailable"] as const;
+/** CON-153: sortable figure columns; `?sort=open-desc` etc. in the URL. */
+const SORTS = ["open-desc", "open-asc", "revenueYear-desc", "revenueYear-asc"] as const;
+type Sort = (typeof SORTS)[number];
 
 export function ContactsList() {
   return (
@@ -61,7 +75,37 @@ function ContactsListInner() {
     }),
     [q, chip, type, vat],
   );
-  const { results, status, loadMore } = useAuthedPaginatedQuery(api.contacts.list, args, 50);
+  const sort = (SORTS as readonly string[]).includes(url.get("sort")) ? (url.get("sort") as Sort) : undefined;
+  const [sortBy, dir] = (sort?.split("-") ?? []) as ["open" | "revenueYear", "asc" | "desc"];
+  const paged = useAuthedPaginatedQuery(api.contacts.list, args, 50);
+  const ranked = useAuthedQuery(
+    api.contacts.ranking,
+    { ...args, sortBy: sortBy ?? "open", dir: dir ?? "desc" },
+    sort !== undefined,
+  );
+  const results = sort ? (ranked ?? []) : paged.results;
+  const status = sort ? "Exhausted" : paged.status;
+  const loadMore = paged.loadMore;
+  const sortHeader = (key: "open" | "revenueYear", label: string) => {
+    const active = sortBy === key ? dir : undefined;
+    const next = active === "desc" ? `${key}-asc` : `${key}-desc`;
+    return (
+      <TableHead
+        className="text-right"
+        aria-sort={active === "desc" ? "descending" : active === "asc" ? "ascending" : "none"}
+      >
+        <button
+          type="button"
+          className="inline-flex min-h-11 items-center gap-1 font-medium hover:underline md:min-h-0"
+          onClick={() => url.set({ sort: next })}
+        >
+          {label}
+          {active === "desc" && <ArrowDownIcon aria-hidden="true" className="size-3.5" />}
+          {active === "asc" && <ArrowUpIcon aria-hidden="true" className="size-3.5" />}
+        </button>
+      </TableHead>
+    );
+  };
   const canWrite = useCan("contacts.write");
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const typeId = useId();
@@ -84,6 +128,23 @@ function ContactsListInner() {
     if (!r.ok) return;
     const day = new Date().toISOString().slice(0, 10);
     downloadText(csvFileName("kontakte", variant, day), formatTextCsv(r.value, variant));
+  };
+
+  /** CON-144: the same rows as an Excel workbook (all cells text). */
+  const exportXlsx = async () => {
+    const r = await run(() => convex.query(api.contacts.exportRows, args), t("exported"));
+    if (!r.ok) return;
+    const day = new Date().toISOString().slice(0, 10);
+    const url = URL.createObjectURL(
+      new Blob([rowsToXlsx(r.value) as BlobPart], {
+        type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+      }),
+    );
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `kontakte_${day}.xlsx`;
+    a.click();
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
   };
 
   const filters = (
@@ -144,6 +205,9 @@ function ContactsListInner() {
           </Link>
         )}
         <ExportMenu local={(variant) => exportCsv(variant)} />
+        <Button variant="outline" className="h-11 md:h-9" onClick={() => void exportXlsx()}>
+          {t("exportXlsx")}
+        </Button>
         {canWrite && (
           <Link href="/kontakte/neu" className={cn(buttonVariants(), "hidden h-9 md:inline-flex")}>
             <PlusIcon aria-hidden="true" />
@@ -202,6 +266,8 @@ function ContactsListInner() {
               <TableHead>{t("columns.phone")}</TableHead>
               <TableHead>{t("columns.vat")}</TableHead>
               <TableHead>{t("columns.tags")}</TableHead>
+              {sortHeader("open", t("columns.open"))}
+              {sortHeader("revenueYear", t("columns.revenueYear"))}
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -249,6 +315,8 @@ function ContactsListInner() {
                     ))}
                   </span>
                 </TableCell>
+                <TableCell className="text-right tabular-nums">{formatEuro(r.openCents)}</TableCell>
+                <TableCell className="text-right tabular-nums">{formatEuro(r.revenueYearCents)}</TableCell>
               </TableRow>
             ))}
           </TableBody>

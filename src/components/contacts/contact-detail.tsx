@@ -26,6 +26,8 @@ import { Textarea } from "@/components/ui/textarea";
 import { telHref } from "@/domain/contacts/channels";
 import { ROLE_LABELS } from "@/domain/contacts/core";
 import { DUPLICATE_REASON_LABELS } from "@/domain/contacts/duplicates";
+import { filterTimeline, type TimelineFilter } from "@/domain/contacts/timeline";
+import { formatEuro } from "@/domain/money";
 import { ACTIVITY_KIND_LABELS, ACTIVITY_KINDS, activitySchema } from "@/domain/schemas/contacts";
 import { TAX_CASE_LABELS } from "@/domain/tax/tax-case";
 import { useAuthedQuery } from "@/hooks/use-authed-query";
@@ -37,6 +39,7 @@ import { VatBadge } from "./contacts-list";
 import { MergeDialog } from "./duplicates-panel";
 
 import { SelfBillingAgreementCard } from "./self-billing-agreement";
+import { TimelineFilterBar } from "./timeline-filter";
 
 export type ContactBundle = NonNullable<FunctionReturnType<typeof api.contacts.get>>;
 
@@ -360,6 +363,19 @@ function Facts({ data }: { data: ContactBundle }) {
         <h2 className="mb-2 font-semibold text-base">{t("stats")}</h2>
         <p className="text-muted-foreground">{t("statsHint")}</p>
       </section>
+      {data.supplierStats && (
+        <section className="rounded-xl border p-4 text-sm" data-testid="supplier-stats">
+          <h2 className="mb-2 font-semibold text-base">{t("supplierStats")}</h2>
+          <dl className="grid grid-cols-[1fr_auto] gap-x-3 gap-y-1">
+            <dt className="text-muted-foreground">{t("spendThisYear")}</dt>
+            <dd className="text-right tabular-nums">{formatEuro(data.supplierStats.spendThisYearCents)}</dd>
+            <dt className="text-muted-foreground">{t("spendAllTime")}</dt>
+            <dd className="text-right tabular-nums">{formatEuro(data.supplierStats.spendAllTimeCents)}</dd>
+            <dt className="text-muted-foreground">{t("openPayables")}</dt>
+            <dd className="text-right tabular-nums">{formatEuro(data.supplierStats.openPayablesCents)}</dd>
+          </dl>
+        </section>
+      )}
     </aside>
   );
 }
@@ -474,15 +490,30 @@ function Timeline({ data, canWrite }: { data: ContactBundle; canWrite: boolean }
   type Entry =
     | { key: string; at: number; manual: (typeof data.activities)[number] }
     | { key: string; at: number; derived: (typeof data.derived)[number] };
-  const entries: Entry[] = [
+  const [filter, setFilter] = useState<TimelineFilter>({ kind: "all" });
+  const all: Entry[] = [
     ...data.activities.map((a) => ({ key: a._id as string, at: a._creationTime, manual: a })),
     ...data.derived.map((d, i) => ({ key: `d-${i}-${d.at}`, at: d.at, derived: d })),
   ].sort((a, b) => b.at - a.at);
+  // CON-124: kind, period and note search
+  const entries = filterTimeline(
+    all.map((e) => ({
+      ...e,
+      kind: "manual" in e ? e.manual.kind : ("derived" as const),
+      text: "manual" in e ? e.manual.text : e.derived.text,
+    })),
+    filter,
+  );
   return (
     <div className="flex flex-col gap-4">
       {canWrite && <Composer contactId={data.contact._id} />}
-      {entries.length === 0 ? (
+      {all.length > 0 && <TimelineFilterBar value={filter} onChange={setFilter} />}
+      {all.length === 0 ? (
         <p className="text-muted-foreground text-sm">{t("empty")}</p>
+      ) : entries.length === 0 ? (
+        <p className="text-muted-foreground text-sm" role="status">
+          {t("noMatch")}
+        </p>
       ) : (
         <ol className="flex flex-col gap-2" aria-label={t("composer")}>
           {entries.map((e) =>

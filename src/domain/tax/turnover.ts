@@ -24,7 +24,9 @@ import type { CalendarDate } from "../time/calendar-date";
 
 // LEGAL-OPEN: 01 KU-01 [UNSURE] — § 19 Abs. 2 UStG counts vereinnahmte Entgelte; the monitor uses invoiced net
 // amounts per supply year (the crossing is evaluated on the supply date, 01 open item 2). Fixed-asset sales are
-// excluded once assets exist (F08 AST, P2); until then no document line is an asset sale.
+// excluded (EC-065): the proceeds of an asset disposal (F08 AST-010, `assets.disposal.documentId`) linked to the
+// invoice are subtracted. The finalise-time KU check of that invoice still counts them, because the disposal can only
+// be linked to a finalised invoice.
 
 export const TURNOVER_DOC_TYPES = [
   "invoice",
@@ -46,6 +48,11 @@ export interface TurnoverDoc {
   readonly fxRateToEur?: { readonly rate: string } | undefined;
   /** Final invoices: Σ net of the deducted advances (document currency). */
   readonly deductedNetCents?: number | undefined;
+  /**
+   * EC-065: net proceeds (EUR, signed like `netCents`) of fixed-asset sales contained in the document; not part of
+   * the Gesamtumsatz (§ 19 Abs. 2 Satz 1 UStG).
+   */
+  readonly assetSaleNetEurCents?: number | undefined;
 }
 
 export function toEurCents(cents: number, d: Pick<TurnoverDoc, "currency" | "fxRateToEur">): number {
@@ -64,7 +71,7 @@ export function turnoverYear(d: Pick<TurnoverDoc, "supplyEnd" | "documentDate">)
 export function gesamtumsatzContribution(d: TurnoverDoc): number {
   if (d.status === "draft" || !(TURNOVER_DOC_TYPES as readonly string[]).includes(d.type)) return 0;
   const net = d.type === "final_invoice" ? d.netCents - (d.deductedNetCents ?? 0) : d.netCents;
-  return toEurCents(net, d);
+  return toEurCents(net, d) - (d.assetSaleNetEurCents ?? 0);
 }
 
 export function gesamtumsatzOfYear(docs: readonly TurnoverDoc[], year: number): number {
@@ -180,8 +187,18 @@ export interface EightHundredKInput {
   readonly bookkeepingDuty: boolean;
 }
 
+/**
+ * EC-029: in December the owner is warned once the running Gesamtumsatz reaches this share of the ER-03 threshold
+ * (basis points) — a monitoring hint, not a legal limit (the limit itself comes from the rule table).
+ */
+export const ER03_APPROACH_WARN_BP = 9000;
+
 export interface MonitorNotice {
-  readonly code: "bookkeeping_duty_info" | "er03_mandatory_next_year" | "ist_limit_exceeded";
+  readonly code:
+    | "bookkeeping_duty_info"
+    | "er03_mandatory_next_year"
+    | "er03_threshold_approaching"
+    | "ist_limit_exceeded";
   readonly severity: "info" | "warning";
   readonly message: string;
 }
@@ -217,6 +234,19 @@ export function eightHundredKMonitor(i: EightHundredKInput): MonitorNotice[] {
         code: "er03_mandatory_next_year",
         severity: "warning",
         message: `Gesamtumsatz ${y}: ${formatEuro(cents)} (über ${formatEuro(ob.value.value.priorYearLimitCents)}). Ab 01.01.${y + 1} müssen Sie B2B-Rechnungen im Inland als E-Rechnung ausstellen.`,
+      });
+    } else if (
+      ob.ok &&
+      ob.value.value.mode === "turnover_threshold" &&
+      y === year &&
+      i.today.slice(5, 7) === "12" &&
+      cents * 10_000 >= ob.value.value.priorYearLimitCents * ER03_APPROACH_WARN_BP
+    ) {
+      // EC-029: the current year may still cross the threshold before 31.12.
+      out.push({
+        code: "er03_threshold_approaching",
+        severity: "warning",
+        message: `Gesamtumsatz ${y}: ${formatEuro(cents)} (Grenze ${formatEuro(ob.value.value.priorYearLimitCents)}). Wird die Grenze bis 31.12.${y} überschritten, müssen Sie ab 01.01.${y + 1} B2B-Rechnungen im Inland als E-Rechnung ausstellen.`,
       });
     }
     const ist = lookupRule(IST_TAXATION_LIMIT, jan1(y + 1));

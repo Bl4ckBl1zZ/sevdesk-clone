@@ -17,7 +17,8 @@ describe("counter capacity (F01 §5.5, F04 EC-DOC-06)", () => {
     expect(counterCapacityWarning("RE-{YYYY}-{####}", 8_999)).toBeNull();
     const msg = "Der Zähler erreicht bald 9999; danach werden die Nummern eine Stelle länger.";
     expect(counterCapacityWarning("RE-{YYYY}-{####}", 9_000)).toBe(msg);
-    expect(counterCapacityWarning("RE-{YYYY}-{####}", 10_000)).toBe(msg);
+    // Once the counter is past the capacity the numbers are already longer: no warning any more (EC-011).
+    expect(counterCapacityWarning("RE-{YYYY}-{####}", 10_000)).toBeNull();
     expect(counterCapacityWarning("RE-{YYYY}-{######}", 9_000)).toBeNull();
   });
 });

@@ -32,7 +32,7 @@ import { getCompanyProfile } from "./companyProfile";
 import { resolveContextAt } from "./journal";
 import { getMemberByAuthUserId } from "./members";
 import { openItemsAsOf } from "./payments";
-import { turnoverRows } from "./turnover";
+import { thresholdMonitorInput, turnoverRows } from "./turnover";
 import type { ReadCtx } from "./types";
 
 /**
@@ -124,7 +124,6 @@ export async function dashboardOverview(
     const priorYearCents = gesamtumsatzOfYear(rows, year - 1);
     const currentYearCents = gesamtumsatzOfYear(rows, year);
     const ossYear = (y: number) => rows.reduce((s, r) => (turnoverYear(r) === y ? s + r.ossNetEurCents : s), 0);
-    const method = [...(profile?.taxationMethod ?? [])].sort((a, b) => a.validFrom.localeCompare(b.validFrom)).at(-1);
     const ossRule = lookupRule(OSS_THRESHOLD, today);
     monitors = {
       ku: ku ? kuMonitor({ today, priorYearCents, currentYearCents, foundedOn: profile?.foundedOn }) : [],
@@ -136,13 +135,8 @@ export async function dashboardOverview(
               limitCents: ossRule.value.value.limitCents,
             }
           : null,
-      notices: eightHundredKMonitor({
-        today,
-        priorYearCents,
-        currentYearCents,
-        taxationMethod: method?.method ?? "soll",
-        bookkeepingDuty: (profile?.profitMethod ?? []).some((p) => p.method === "bilanz"),
-      }),
+      // SET-040: same input as the settings threshold monitor (incl. the prior-year EÜR profit, § 141 AO)
+      notices: eightHundredKMonitor(await thresholdMonitorInput(ctx, today)),
     };
     customers = topCustomers(
       dated.map((d) => ({

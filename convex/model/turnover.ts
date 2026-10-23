@@ -9,6 +9,8 @@ import {
 } from "../../src/domain/tax/turnover";
 import type { CalendarDate } from "../../src/domain/time/calendar-date";
 import type { Doc, Id } from "../_generated/dataModel";
+import { getCompanyProfile } from "./companyProfile";
+import { euerProfitCents } from "./euer";
 import type { ReadCtx } from "./types";
 
 /**
@@ -68,6 +70,13 @@ export async function turnoverRows(
   opts: { withOss?: boolean } = {},
 ): Promise<TurnoverRow[]> {
   const out: TurnoverRow[] = [];
+  // EC-065: proceeds of fixed-asset sales (AST-010 disposal linked to its invoice) are not part of the Gesamtumsatz.
+  const assetSales = new Map<string, number>();
+  for (const a of await ctx.db.query("assets").collect()) {
+    const sale = a.disposal;
+    if (sale?.kind !== "sale" || !sale.documentId || a.voidedAt !== undefined) continue;
+    assetSales.set(sale.documentId, (assetSales.get(sale.documentId) ?? 0) + (sale.proceedsCents ?? 0));
+  }
   for (const type of TURNOVER_DOC_TYPES) {
     for (const d of await ctx.db
       .query("salesDocuments")
@@ -75,6 +84,8 @@ export async function turnoverRows(
       .collect()) {
       if (d._id === exclude || d.status === "draft") continue;
       const deducted = (d.deductions ?? []).reduce((s, x) => s + x.byGroup.reduce((t, g) => t + g.netCents, 0), 0);
+      const assetSale =
+        assetSales.get(d._id) ?? (d.type === "cancellation" && d.correctsId ? -(assetSales.get(d.correctsId) ?? 0) : 0);
       out.push({
         id: d._id,
         type: d.type,
@@ -85,6 +96,7 @@ export async function turnoverRows(
         currency: d.currency,
         ...(d.fxRateToEur ? { fxRateToEur: { rate: d.fxRateToEur.rate } } : {}),
         ...(deducted ? { deductedNetCents: deducted } : {}),
+        ...(assetSale ? { assetSaleNetEurCents: assetSale } : {}),
         ossNetEurCents: opts.withOss === false ? 0 : await ossOf(ctx, d),
       });
     }
@@ -113,5 +125,27 @@ export async function turnoverTotals(
       currentYearCents: gesamtumsatzOfYear(rows, year),
     },
     oss: { priorYearEurCents: oss(year - 1), currentYearEurCents: oss(year) },
+  };
+}
+
+/**
+ * F01 SET-040: input of the threshold monitor (settings page and dashboard). Turnover = Gesamtumsatz from the
+ * finalised documents; for the prior year the stored manual figure (SET-043) counts as well — the larger of both, so a
+ * year the app holds only partly never hides a crossing. Profit = EÜR profit of the prior year (null until known).
+ */
+export async function thresholdMonitorInput(ctx: ReadCtx, today: CalendarDate) {
+  const profile = await getCompanyProfile(ctx);
+  const year = Number(today.slice(0, 4));
+  const rows = await turnoverRows(ctx, undefined, { withOss: false });
+  const manualPrior = profile?.priorYearTotalTurnoverCents.find((t) => t.year === year - 1)?.amountCents;
+  const method = [...(profile?.taxationMethod ?? [])].sort((a, b) => a.validFrom.localeCompare(b.validFrom)).at(-1);
+  const profit = profile ? await euerProfitCents(ctx, profile, year - 1) : null;
+  return {
+    today,
+    priorYearCents: Math.max(gesamtumsatzOfYear(rows, year - 1), manualPrior ?? 0),
+    currentYearCents: gesamtumsatzOfYear(rows, year),
+    ...(profit !== null ? { priorYearProfitCents: profit } : {}),
+    taxationMethod: method?.method ?? ("soll" as const),
+    bookkeepingDuty: (profile?.profitMethod ?? []).some((p) => p.method === "bilanz"),
   };
 }
