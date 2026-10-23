@@ -123,7 +123,7 @@ describe("BNK-064 TAX-018 tax-payment type and period in the voucher editor", ()
       [],
       "2026-10-19",
     );
-    expect(form).toMatchObject({ taxPaymentSubtype: "ust_prepayment", taxPaymentPeriod: "2026-09" });
+    expect(form).toMatchObject({ taxPaymentSubtype: "ust_prepayment" as const, taxPaymentPeriod: "2026-09" });
     expect(toDraftInput(form).input.taxPayment).toEqual({
       subtype: "ust_prepayment",
       period: "2026-09",
@@ -137,31 +137,38 @@ describe("BNK-064 TAX-018 tax-payment type and period in the voucher editor", ()
     expect("taxPayment" in toDraftInput(form).input).toBe(false);
     const { input, issues } = toDraftInput({
       ...form,
-      taxPaymentSubtype: "ust_prepayment",
+      taxPaymentSubtype: "ust_prepayment" as const,
       taxPaymentPeriod: "09/2026",
     });
     expect(issues).toEqual([]);
     expect(input.taxPayment).toEqual({ subtype: "ust_prepayment", period: "2026-09" });
     expect(
-      toDraftInput({ ...form, taxPaymentSubtype: "sondervorauszahlung", taxPaymentPeriod: "2026" }).input.taxPayment,
+      toDraftInput({ ...form, taxPaymentSubtype: "sondervorauszahlung" as const, taxPaymentPeriod: "2026" }).input
+        .taxPayment,
     ).toEqual({ subtype: "sondervorauszahlung", period: "2026" });
   });
 
   test("BNK-064 an invalid period is reported in German on its field; types without a period drop it", () => {
-    const form = { ...voucherFormFrom(stored, [], "2026-10-19"), taxPaymentSubtype: "ust_prepayment" };
+    const form = { ...voucherFormFrom(stored, [], "2026-10-19"), taxPaymentSubtype: "ust_prepayment" as const };
     const bad = toDraftInput({ ...form, taxPaymentPeriod: "September" });
     expect(bad.issues).toEqual([
       { field: "taxPaymentPeriod", message: "Bitte den Zeitraum als JJJJ, MM/JJJJ oder Qn/JJJJ angeben." },
     ]);
     expect(bad.input.taxPayment).toEqual({ subtype: "ust_prepayment" });
-    expect(toDraftInput({ ...form, taxPaymentSubtype: "gewerbesteuer", taxPaymentPeriod: "September" })).toMatchObject({
+    expect(
+      toDraftInput({ ...form, taxPaymentSubtype: "gewerbesteuer" as const, taxPaymentPeriod: "September" }),
+    ).toMatchObject({
       issues: [],
       input: { taxPayment: { subtype: "gewerbesteuer" } },
     });
   });
 
   test("BNK-064 other voucher kinds never send a tax-payment type", () => {
-    const form = { ...emptyVoucherForm("2026-10-19"), taxPaymentSubtype: "ust_prepayment", taxPaymentPeriod: "x" };
+    const form = {
+      ...emptyVoucherForm("2026-10-19"),
+      taxPaymentSubtype: "ust_prepayment" as const,
+      taxPaymentPeriod: "x",
+    };
     const { input, issues } = toDraftInput(form);
     expect(issues).toEqual([]);
     expect("taxPayment" in input).toBe(false);

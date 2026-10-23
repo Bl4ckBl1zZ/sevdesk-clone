@@ -36,8 +36,6 @@ export const vDifferenceReason = v.union(
   v.literal("default_interest"),
   v.literal("write_off"),
   v.literal("other"),
-  // EC-BNK-76: realised exchange difference of a foreign-currency voucher (server-derived, never client input).
-  v.literal("fx_difference"),
 );
 export const vWriteOffReason = v.union(
   v.literal("insolvency"),
@@ -50,7 +48,9 @@ export const vRateCorrection = v.object({ rateBp: v.number(), netCents: v.number
 
 /** A stored difference (the planned one, with the VAT split per rate, UST-32). */
 export const vPaymentDifference = v.object({
-  reason: vDifferenceReason,
+  // EC-BNK-76: `fx_difference` (realised Kursdifferenz of a foreign-currency voucher) is stored only — it is
+  // derived by the bank matching on the server and never accepted as input (`vDifferenceInput`).
+  reason: v.union(vDifferenceReason, v.literal("fx_difference")),
   amountCents: v.number(),
   subReason: v.optional(vWriteOffReason),
   account: v.optional(v.string()),

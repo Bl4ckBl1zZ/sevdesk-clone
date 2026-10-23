@@ -73,10 +73,9 @@ describe("bank reversals (BNK-121)", () => {
     const refund = row({ id: "rf", amountCents: 4_990, merchantName: "Amazon EU S.à r.l." });
     expect(isCardRefund(refund, original)).toBe(true);
     expect(isCardRefund({ ...refund, merchantName: "Zalando SE" }, original)).toBe(false);
-    expect(
-      isCardRefund({ ...refund, merchantName: undefined, endToEndId: "E" }, { ...original, endToEndId: "E" }),
-    ).toBe(false);
-    expect(isCardRefund({ ...refund, amountCents: -4_990 }, { ...original, amountCents: 4_990 })).toBe(false);
+    const bankReturn = row({ id: "rv", amountCents: 4_990, endToEndId: "E" });
+    expect(isCardRefund(bankReturn, row({ ...original, endToEndId: "E" }))).toBe(false);
+    expect(isCardRefund({ ...refund, amountCents: -4_990 }, original)).toBe(false);
   });
 });
 
