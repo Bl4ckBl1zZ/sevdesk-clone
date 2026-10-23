@@ -169,7 +169,8 @@ function withConfirmToken(def: ConfirmableDef, intent: ConfirmIntent): Confirmab
   };
 }
 
-const auditCheck = (stats: WriteStats) => () => {
+/** AUD-001 / E-AUD-01: a mutation that wrote without an audit entry is aborted (exported for the unit test). */
+export const auditCheck = (stats: WriteStats) => () => {
   if (stats.writes > 0 && stats.audits === 0) throw appError("audit_missing");
 };
 

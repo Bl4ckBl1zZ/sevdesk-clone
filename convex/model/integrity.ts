@@ -86,8 +86,9 @@ export async function recordCheckpointUpload(
   // F12 §4.8: `checkpoint.upload_failed` after the second failed attempt for the same checkpoint.
   if (!result.ok && cp.uploadStatus === "failed") {
     await notifyKind(ctx, "checkpoint.upload_failed", {
-      title: `Prüfpunkt vom ${cp.date} konnte nicht in den externen Speicher hochgeladen werden`,
-      body: result.detail.slice(0, 300),
+      // E-AUD-10 (F12 §5.1)
+      title: `Prüfpunkt konnte nicht extern gespeichert werden (${result.detail.slice(0, 200) || "unbekannter Fehler"}).`,
+      body: `Prüfpunkt vom ${cp.date.split("-").reverse().join(".")}`,
       link: "/einstellungen/system/integritaet",
       entity: { table: "integrityCheckpoints", id },
     });
