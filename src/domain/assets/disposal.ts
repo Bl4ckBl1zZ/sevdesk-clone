@@ -26,6 +26,11 @@ export interface DisposalInput {
   plan: readonly PlanRow[];
   /** Periods (`YYYY-MM`) with a posted AfA entry. */
   postedPeriods: readonly string[];
+  /**
+   * Acquisition date of the asset. A Sammelposten's plan starts at the fiscal year end (E-AST-07), so its first plan
+   * row is not the acquisition month; without the date the first plan period is used.
+   */
+  acquisitionDate?: CalendarDate;
   disposal: {
     date: CalendarDate;
     kind: DisposalKind;
@@ -54,7 +59,7 @@ export function planDisposal(input: DisposalInput): Result<DisposalPlan, AssetIs
   const { disposal } = input;
   const month = disposal.date.slice(0, 7);
   const acquired = input.plan[0]?.period;
-  if (acquired && month < acquired) {
+  if (input.acquisitionDate ? disposal.date < input.acquisitionDate : acquired && month < acquired) {
     return err(issue("asset_invalid", "Das Abgangsdatum liegt vor der Anschaffung."));
   }
   if (disposal.kind === "sale") {

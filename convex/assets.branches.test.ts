@@ -408,3 +408,17 @@ describe("ACC-014 AST-012 assets acquired before the Buchungsbeginn", () => {
     expect(list[0]).toMatchObject({ afaYearCents: 50_000, bookValueCents: 70_000 });
   });
 });
+
+describe("AST-010 E-AST-07 Sammelposten disposal in the acquisition year", () => {
+  test("AST-010 E-AST-07 a pool item bought in February can be disposed of in May of the same year (pool unchanged); a date before the purchase is refused", async () => {
+    const t = makeT();
+    const owner = await company(t);
+    const poolId = await owner.mutation(api.assets.create, {
+      ...desk({ name: "Stuhl", account: "0675", method: "pool", costCents: 60_000, usefulLifeMonths: undefined }),
+    });
+    const before = await fail(owner.mutation(api.assets.dispose, { id: poolId, date: "2026-02-09", kind: "scrap" }));
+    expect(before.message).toBe("Das Abgangsdatum liegt vor der Anschaffung.");
+    const r = await owner.mutation(api.assets.dispose, { id: poolId, date: "2026-05-01", kind: "scrap" });
+    expect(r).toEqual({ info: "Der Sammelposten wird unverändert fortgeführt (§ 6 Abs. 2a EStG).", rbwCents: 0 });
+  });
+});

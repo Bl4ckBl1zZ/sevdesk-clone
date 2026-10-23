@@ -2,7 +2,7 @@ import { describe, expect, test } from "vitest";
 import { voucherInputVatDeducted, voucherLineBaseCents } from "../accounting/post-vouchers";
 import { JSTG_2026_ASSET_THRESHOLDS_DRAFT } from "../rules/afa";
 import { calendarDate } from "../time/calendar-date";
-import { planDisposal } from "./disposal";
+import { POOL_DISPOSAL_INFO, planDisposal } from "./disposal";
 import { assetDraftsFromVoucher } from "./from-voucher";
 import { afaRoleFor, allowedMethods, assetClassOf, validateAssetSetup } from "./methods";
 import { anlagenspiegel, gwgList, poolSummary } from "./report";
@@ -399,6 +399,30 @@ describe("AST-010 disposal (EC-176)", () => {
       lossCents: 300_000,
       kind: "loss",
     });
+  });
+
+  test("AST-010 E-AST-07 a Sammelposten item disposed in its acquisition year before December keeps the pool unchanged; a date before the acquisition is refused", () => {
+    const pool = planOf({ acquisitionDate: d("2026-02-10"), costCents: 60_000, method: "pool" });
+    // the pool release is planned at year end, so the plan's first row is not the acquisition month
+    expect(pool[0]?.period).not.toBe("2026-02");
+    const r = planDisposal({
+      method: "pool",
+      costCents: 60_000,
+      plan: pool,
+      postedPeriods: [],
+      acquisitionDate: d("2026-02-10"),
+      disposal: { date: d("2026-05-01"), kind: "scrap" },
+    });
+    expect(r).toEqual({ ok: true, value: { kind: "pool_unchanged", info: POOL_DISPOSAL_INFO } });
+    const before = planDisposal({
+      method: "pool",
+      costCents: 60_000,
+      plan: pool,
+      postedPeriods: [],
+      acquisitionDate: d("2026-02-10"),
+      disposal: { date: d("2026-02-09"), kind: "scrap" },
+    });
+    expect(!before.ok && before.error.message).toBe("Das Abgangsdatum liegt vor der Anschaffung.");
   });
 
   test("AST-010 a sale needs the net proceeds", () => {
