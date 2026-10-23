@@ -1,10 +1,11 @@
+import { exportPKCS8, generateKeyPair } from "jose";
 import { afterEach, describe, expect, test } from "vitest";
 import { sha256Hex } from "../src/domain/audit/chain";
 import { clearInvariantTarget } from "../test/invariants";
 import { api, internal } from "./_generated/api";
 import { checkpointKey, memoryCheckpointObjects, memoryFailures } from "./lib/checkpointStore";
 import { errorCode } from "./lib/errors";
-import { loadCheckpointKey, verifyCheckpoint } from "./lib/jws";
+import { loadCheckpointKey, signCheckpoint, verifyCheckpoint } from "./lib/jws";
 import { berlinParts } from "./lib/time";
 import { makeT, type TestT } from "./test.setup";
 
@@ -286,6 +287,91 @@ describe("signed daily checkpoint (AUD-016, SEC-04)", () => {
     const t = makeT();
     expect(await t.action(internal.integrity.verifyCron, {})).toBeNull();
     expect(await t.action(internal.integrity.checkpointCron, {})).toBeNull();
+  });
+});
+
+describe("checkpoint verification tool (AUD-017)", () => {
+  afterEach(() => {
+    delete process.env.CHECKPOINT_RETIRED_PUBLIC_JWKS;
+  });
+
+  test("AUD-017 „Prüfpunkt verifizieren“: an uploaded checkpoint verifies by signature and lastSeq/lastHash in the chain", async () => {
+    const t = makeT();
+    const owner = await withActivity(t);
+    const cp = await t.action(internal.integrity.checkpoint, {});
+    if (!("jws" in cp)) throw new Error("no checkpoint");
+    await owner.mutation(api.invites.create, { email: "later@example.test", role: "viewer" }); // the chain grew
+    const key = await loadCheckpointKey(process.env.CHECKPOINT_SIGNING_KEY_PEM as string);
+    const res = await owner.action(api.integrity.verifyCheckpointFile, { jws: `${cp.jws}\n` });
+    expect(res).toMatchObject({ ok: true, message: "Prüfpunkt bestätigt.", kid: key.kid });
+    expect(res.checks.map((c) => [c.id, c.status])).toEqual([
+      ["signature", "ok"],
+      ["chain", "ok"],
+    ]);
+    expect(res.checks[0]?.detail).toBe(`Signatur gültig (Schlüssel-Fingerabdruck ${key.kid}).`);
+    // auditors may verify too (read-only), viewers may not
+    expect((await (await t.asUser("auditor")).action(api.integrity.verifyCheckpointFile, { jws: cp.jws })).ok).toBe(
+      true,
+    );
+    const viewer = await t.asUser("viewer");
+    expect(errorCode(await viewer.action(api.integrity.verifyCheckpointFile, { jws: cp.jws }).catch((e) => e))).toBe(
+      "forbidden_role",
+    );
+    // nothing was written by the verification
+    expect(await t.run(async (ctx) => (await ctx.db.query("integrityRuns").collect()).length)).toBe(0);
+  });
+
+  test("AUD-017 a modified checkpoint, one from another chain state and a non-JWS file are not confirmed", async () => {
+    const t = makeT();
+    const owner = await withActivity(t);
+    const cp = await t.action(internal.integrity.checkpoint, {});
+    if (!("jws" in cp)) throw new Error("no checkpoint");
+    const [h, , sig] = cp.jws.split(".");
+    const forgedPayload = Buffer.from(JSON.stringify({ date: "2026-10-12", lastSeq: 1, lastHash: "x" })).toString(
+      "base64url",
+    );
+    const forged = await owner.action(api.integrity.verifyCheckpointFile, { jws: `${h}.${forgedPayload}.${sig}` });
+    expect(forged.ok).toBe(false);
+    expect(forged.checks[0]).toMatchObject({ id: "signature", status: "error" });
+
+    // validly signed, but the hash at lastSeq is not the one of this chain (e.g. a checkpoint of a manipulated copy)
+    const key = await loadCheckpointKey(process.env.CHECKPOINT_SIGNING_KEY_PEM as string);
+    const foreign = await signCheckpoint(
+      { instance: "test", date: "2026-10-12", lastSeq: 2, lastHash: "0".repeat(64) },
+      key,
+    );
+    const r = await owner.action(api.integrity.verifyCheckpointFile, { jws: foreign });
+    expect(r.ok).toBe(false);
+    expect(r.message).toBe(
+      "Prüfpunkt nicht bestätigt: Protokolleintrag seq 2 stimmt nicht mit dem Prüfpunkt vom 12.10.2026 überein.",
+    );
+
+    expect(await owner.action(api.integrity.verifyCheckpointFile, { jws: "hallo" })).toMatchObject({
+      ok: false,
+      checks: [{ id: "format", status: "error" }],
+    });
+  });
+
+  test("AUD-017 after a key rotation the retired public key still verifies old checkpoints; unknown keys are reported", async () => {
+    const t = makeT();
+    const owner = await withActivity(t);
+    const head = await t.run((ctx) => ctx.db.query("auditLog").withIndex("by_seq").order("desc").first());
+    if (!head) throw new Error("no head");
+    const { privateKey } = await generateKeyPair("ES256", { extractable: true });
+    const old = await loadCheckpointKey(await exportPKCS8(privateKey));
+    const jws = await signCheckpoint(
+      { instance: "test", date: "2026-01-02", lastSeq: head.seq, lastHash: head.hash },
+      old,
+    );
+    const unknown = await owner.action(api.integrity.verifyCheckpointFile, { jws });
+    expect(unknown.checks[0]).toEqual({
+      id: "signature",
+      status: "error",
+      detail: `Der Schlüssel ${old.kid} ist nicht hinterlegt – Signatur kann nicht geprüft werden.`,
+    });
+    process.env.CHECKPOINT_RETIRED_PUBLIC_JWKS = JSON.stringify([old.publicJwk]);
+    const ok = await owner.action(api.integrity.verifyCheckpointFile, { jws });
+    expect(ok).toMatchObject({ ok: true, kid: old.kid });
   });
 });
 

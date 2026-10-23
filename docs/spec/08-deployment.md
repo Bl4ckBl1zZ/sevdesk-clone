@@ -383,6 +383,7 @@ dokploy schedule create --name r2-monthly-copy --scheduleType server --serverId 
 | `R2_BACKUP_BUCKET` / `R2_BACKUP_READONLY_ACCESS_KEY_ID` / `R2_BACKUP_READONLY_SECRET_ACCESS_KEY` | bucket of the Dokploy destination | `backups.verify` listing (read-only) |
 | `R2_INBOX_BUCKET` / `R2_INBOX_ACCESS_KEY_ID` / `R2_INBOX_SECRET_ACCESS_KEY` | `rechnungen-inbox` (P2) | Receipt inbox polling (F06) |
 | `CHECKPOINT_SIGNING_KEY_PEM` | ES256 PEM | Signs the daily audit checkpoints (02 §4.5/§4.6, SEC-04). Separate from all other keys; generated once by `bootstrap.sh` (`openssl ecparam -name prime256v1 -genkey`), backed up offline; rotation per `deploy/runbooks/rotate-secrets.md` (new `kid`, old public keys kept) |
+| `CHECKPOINT_RETIRED_PUBLIC_JWKS` | JSON array of public JWKs (optional) | After a rotation of `CHECKPOINT_SIGNING_KEY_PEM`: the old public keys, so older checkpoints still verify in the nightly run, the „Prüfpunkt verifizieren“ upload and `pnpm integrity:verify-checkpoint` (F12 AUD-017) |
 | `ENABLE_BANKING_APP_ID` / `ENABLE_BANKING_PRIVATE_KEY_PEM` | UUID / RSA PEM | Enable Banking bank sync (P2, F07) |
 | `APP_ENCRYPTION_KEY` | 32 bytes base64 | Same key as in `web` |
 | `EINVOICE_TOOLS_URL` | `http://einvoice-tools:8080` | Internal URL reachable from the backend container |

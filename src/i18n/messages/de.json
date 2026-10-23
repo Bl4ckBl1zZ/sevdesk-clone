@@ -1430,8 +1430,8 @@
     "note": "Notiz",
     "acknowledgeConfirm": "Bestätigen",
     "acknowledged": "Integritätsfehler bestätigt.",
-    "clockWarning": "Uhrzeit-Abweichung: {detail} Bitte die Zeitsynchronisation (NTP) des Servers prüfen.",
-    "clockError": "Uhrzeit-Abweichung: {detail} Fertigstellen, Stornieren, Versandmarkierungen und Zahlungen sind gesperrt, bis die Serveruhr korrigiert ist.",
+    "clockWarning": "Uhrzeit-Abweichung: {detail}",
+    "clockError": "Uhrzeit-Abweichung: {detail} Auch Stornieren, Versandmarkierungen und Zahlungen sind gesperrt, bis die Serveruhr korrigiert ist.",
     "panel": {
       "title": "Integritätsstatus",
       "description": "Hash-Kette des Änderungsprotokolls, signierte Prüfpunkte und Serveruhr (GoBD, Unveränderbarkeit).",
@@ -1455,6 +1455,18 @@
       "clock": "Serveruhr",
       "clockUnknown": "Noch nicht gemessen (CLOCK_REFERENCE_URL nicht gesetzt)",
       "findingsLabel": "Befunde der letzten Prüfung"
+    },
+    "verify": {
+      "title": "Prüfpunkt verifizieren",
+      "description": "Laden Sie einen signierten Prüfpunkt hoch (z. B. checkpoints/JJJJ/MM/TT.jws aus dem R2-Bucket). Geprüft werden die Signatur und ob die aktuelle Protokollkette den Stand des Prüfpunkts enthält. Es wird nichts gespeichert.",
+      "file": "Prüfpunkt-Datei (.jws)",
+      "busy": "Prüfpunkt wird geprüft …",
+      "tooLarge": "Die Datei ist zu groß für einen Prüfpunkt.",
+      "failed": "Der Prüfpunkt konnte nicht geprüft werden. Bitte erneut versuchen.",
+      "summary": "Prüfpunkt vom {date} · bis seq {seq}",
+      "checks": "Einzelprüfungen",
+      "ok": "In Ordnung",
+      "error": "Fehler"
     }
   },
   "accounting": {

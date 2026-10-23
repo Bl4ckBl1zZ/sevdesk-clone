@@ -3,6 +3,7 @@
 import { api } from "@convex/_generated/api";
 import { useTranslations } from "next-intl";
 import { ConvexGuard } from "@/components/convex/convex-provider";
+import { CheckpointVerify } from "@/components/settings/checkpoint-verify";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { useAuthedQuery } from "@/hooks/use-authed-query";
 
@@ -85,6 +86,7 @@ function IntegrityPanelInner() {
             ))}
           </ul>
         )}
+        <CheckpointVerify />
       </CardContent>
     </Card>
   );

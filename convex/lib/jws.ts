@@ -39,3 +39,45 @@ export async function verifyCheckpoint(
     return { ok: false, error: String(e) };
   }
 }
+
+/**
+ * F12 AUD-017: the public keys a checkpoint may be verified with — the current signing key and retired keys after a
+ * rotation (`CHECKPOINT_RETIRED_PUBLIC_JWKS`: JSON array of public JWKs). Keyed by the RFC 7638 thumbprint (`kid`).
+ */
+export async function checkpointPublicKeys(pem: string | undefined, retiredJson: string | undefined) {
+  const keys = new Map<string, JWK>();
+  if (pem) {
+    const current = await loadCheckpointKey(pem);
+    keys.set(current.kid, current.publicJwk);
+  }
+  if (retiredJson) {
+    let list: unknown;
+    try {
+      list = JSON.parse(retiredJson);
+    } catch {
+      list = [];
+    }
+    for (const jwk of Array.isArray(list) ? (list as JWK[]) : []) {
+      if (!jwk || typeof jwk !== "object" || jwk.kty !== "EC") continue;
+      const { d: _d, ...pub } = jwk;
+      keys.set(await calculateJwkThumbprint(pub), { ...pub, alg: "ES256" });
+    }
+  }
+  return keys;
+}
+
+/** AUD-017: verifies a checkpoint JWS with the key its header names (`kid`). */
+export async function verifyWithKnownKeys(
+  jws: string,
+  kid: string | undefined,
+  keys: ReadonlyMap<string, JWK>,
+): Promise<
+  | { kind: "valid"; kid: string; payload: Record<string, unknown> }
+  | { kind: "invalid"; kid: string | undefined }
+  | { kind: "unknown_key"; kid: string | undefined }
+> {
+  const jwk = kid ? keys.get(kid) : undefined;
+  if (!kid || !jwk) return { kind: "unknown_key", kid };
+  const res = await verifyCheckpoint(jws, jwk);
+  return res.ok ? { kind: "valid", kid, payload: res.payload } : { kind: "invalid", kid };
+}

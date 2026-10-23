@@ -7,14 +7,21 @@ import {
   sha256Hex,
   verifyChainPage,
 } from "../src/domain/audit/chain";
+import {
+  chainCheck,
+  decodeCheckpoint,
+  signatureCheck,
+  summarizeChecks,
+  type VerifyCheck,
+} from "../src/domain/audit/checkpoint-verify";
 import { PROTECTED_TABLES } from "../src/domain/audit/immutability";
 import { internal } from "./_generated/api";
 import type { Doc, Id, TableNames } from "./_generated/dataModel";
-import { mutation, query, systemAction, systemMutation, systemQuery } from "./functions";
+import { action, mutation, query, systemAction, systemMutation, systemQuery } from "./functions";
 import { verifyJournal } from "./journalIntegrity";
 import { checkpointKey, checkpointStoreFromEnv } from "./lib/checkpointStore";
 import { env, instanceName, isTest } from "./lib/env";
-import { loadCheckpointKey, signCheckpoint, verifyCheckpoint } from "./lib/jws";
+import { checkpointPublicKeys, loadCheckpointKey, signCheckpoint, verifyWithKnownKeys } from "./lib/jws";
 import { berlinParts } from "./lib/time";
 import { chainHead } from "./model/audit";
 import {
@@ -210,14 +217,14 @@ async function checkCheckpoint(
 
   const pem = env("CHECKPOINT_SIGNING_KEY_PEM");
   if (pem) {
-    const key = await loadCheckpointKey(pem);
-    if (cp.kid === key.kid) {
-      const res = await verifyCheckpoint(cp.jws, key.publicJwk);
-      if (!res.ok || res.payload.lastSeq !== cp.lastSeq || res.payload.lastHash !== cp.lastHash) {
+    // AUD-017: the current key and the retired keys after a rotation (CHECKPOINT_RETIRED_PUBLIC_JWKS)
+    const keys = await checkpointPublicKeys(pem, env("CHECKPOINT_RETIRED_PUBLIC_JWKS"));
+    if (keys.has(cp.kid)) {
+      const res = await verifyWithKnownKeys(cp.jws, cp.kid, keys);
+      if (res.kind !== "valid" || res.payload.lastSeq !== cp.lastSeq || res.payload.lastHash !== cp.lastHash) {
         fail("checkpoint_signature", `Prüfpunkt vom ${date} ist ungültig oder weicht von der externen Kopie ab.`);
       }
     } else {
-      // TODO(P1, AUD-017): keep retired public keys (kid → JWK) to verify checkpoints after a key rotation.
       findings.push({
         kind: "checkpoint_signature",
         severity: "warning",
@@ -500,6 +507,52 @@ export const status = query({
     };
   },
 });
+
+/**
+ * AUD-017 „Prüfpunkt verifizieren“: an uploaded checkpoint (e.g. the R2 copy or the e-mail copy) is verified against
+ * the configured public keys and the live audit chain (lastSeq must carry lastHash). Read-only; nothing is stored.
+ */
+export const verifyCheckpointFile = action({
+  permission: "integrity.read",
+  args: { jws: v.string() },
+  handler: async (ctx, { jws }): Promise<CheckpointFileResult> => {
+    const decoded = decodeCheckpoint(jws.slice(0, 64_000));
+    if (!decoded.ok) {
+      const checks: VerifyCheck[] = [{ id: "format", status: "error", detail: decoded.detail }];
+      return { ...summarizeChecks(checks), checks, kid: null, date: null, lastSeq: null };
+    }
+    const keys = await checkpointPublicKeys(env("CHECKPOINT_SIGNING_KEY_PEM"), env("CHECKPOINT_RETIRED_PUBLIC_JWKS"));
+    const sig = await verifyWithKnownKeys(decoded.jws, decoded.kid, keys);
+    const checks: VerifyCheck[] = [signatureCheck(sig)];
+    const st = await ctx.runQuery(internal.integrity.state, {});
+    const entry: Doc<"auditLog"> | null = await ctx.runQuery(internal.integrity.entryAt, {
+      seq: decoded.payload.lastSeq,
+    });
+    checks.push(
+      chainCheck(decoded.payload, entry ? { seq: entry.seq, hash: entry.hash } : null, {
+        instance: instanceName(),
+        headSeq: st.head?.seq ?? 0,
+        anchorSeq: st.anchor?.seq,
+      }),
+    );
+    return {
+      ...summarizeChecks(checks),
+      checks,
+      kid: decoded.kid ?? null,
+      date: decoded.payload.date,
+      lastSeq: decoded.payload.lastSeq,
+    };
+  },
+});
+
+export interface CheckpointFileResult {
+  ok: boolean;
+  message: string;
+  checks: VerifyCheck[];
+  kid: string | null;
+  date: string | null;
+  lastSeq: number | null;
+}
 
 /** AUD-015: the owner acknowledges a failed run with a note (does not alter data). */
 export const acknowledge = mutation({

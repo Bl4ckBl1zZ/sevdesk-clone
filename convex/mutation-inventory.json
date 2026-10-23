@@ -2203,6 +2203,12 @@
     "wrapper": "systemAction",
     "job": "cron.integrity.verify"
   },
+  "integrity:verifyCheckpointFile": {
+    "kind": "action",
+    "visibility": "public",
+    "wrapper": "action",
+    "permission": "integrity.read"
+  },
   "integrity:verifyCron": {
     "kind": "action",
     "visibility": "internal",
