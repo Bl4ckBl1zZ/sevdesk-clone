@@ -78,6 +78,7 @@ export const SYSTEM_JOBS = [
   "system.restore", // F09 EXP-024 ops only (npx convex run restore:preflight / restore:complete) → system.restore
   "cron.retention.scan", // F12 PRV-003 monthly scan → retention.purge_eligible (never purges)
   "cron.dsgvo.deadlines", // F12 PRV-010 daily: reminders at due − 7 / − 1 days, overdue error (E-PRV-12)
+  "cron.rules.freshness", // F01 SET-124 weekly: stale rule tables, overrides duplicating/contradicting shipped rows
   "retention.purge", // F12 PRV-006/008 purge worker reads (writes run as the owner via actorMutations)
   "retention.replay", // F12 PRV-009 ops: re-applies the off-host purge log after a restore
   "dsgvo.export", // F12 PRV-013 access/portability export worker reads (Node action)

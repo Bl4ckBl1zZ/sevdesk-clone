@@ -1,3 +1,4 @@
+import { type FreshnessFinding, rulesFreshness } from "../../src/domain/rules/freshness";
 import {
   checkOverride,
   type GroupedOverrides,
@@ -12,6 +13,7 @@ import type { CalendarDate } from "../../src/domain/time/calendar-date";
 import type { Doc, Id } from "../_generated/dataModel";
 import { appError } from "../lib/errors";
 import { auditedDelete, auditedInsert } from "./audit";
+import { notifyKind } from "./notifications";
 import type { ModelCtx, ReadCtx } from "./types";
 
 /**
@@ -94,4 +96,41 @@ export async function deleteRuleOverride(ctx: ModelCtx, id: Id<"ruleOverrides">,
     label: `${row.tableId} ab ${row.validFrom}`,
     reason: why,
   });
+}
+
+/**
+ * F01 SET-124 `rules.freshness` (weekly cron): one `rules.stale` notification per finding (deduplicated per finding
+ * while open). A shipped row contradicting an override (SET-E26) lists the documents finalised with the override.
+ */
+export async function runRulesFreshness(ctx: ModelCtx, today: CalendarDate): Promise<FreshnessFinding[]> {
+  const findings = rulesFreshness(await listRuleOverrides(ctx), today);
+  const snapshots = findings.some((f) => f.code === "override_differs_from_shipped")
+    ? await ctx.db.query("documentSnapshots").collect()
+    : [];
+  for (const f of findings) {
+    let body = f.message;
+    if (f.code === "override_differs_from_shipped" && f.overrideId) {
+      const rowId = `override:${f.overrideId}`;
+      const numbers: string[] = [];
+      for (const s of snapshots) {
+        if (!Object.values(s.ruleVersions).includes(rowId)) continue;
+        const d = await ctx.db.get(s.documentId);
+        numbers.push(d?.number ?? String(s.documentId));
+      }
+      if (numbers.length > 0) body += ` Mit der Überschreibung fertiggestellt: ${numbers.sort().join(", ")}.`;
+    }
+    await notifyKind(ctx, "rules.stale", {
+      title:
+        f.code === "table_stale"
+          ? "Regeltabelle veraltet"
+          : f.code === "override_duplicates_shipped"
+            ? "Überschreibung überflüssig"
+            : "Ausgelieferte Regel weicht ab",
+      body,
+      link: "/einstellungen/regeln",
+      ...(f.overrideId ? { entity: { table: "ruleOverrides", id: f.overrideId } } : {}),
+      dedupeKey: `rules.stale|${f.code}|${f.overrideId ?? f.tableId}`,
+    });
+  }
+  return findings;
 }

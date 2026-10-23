@@ -105,4 +105,7 @@ crons.monthly("retention.scan", { day: 1, hourUTC: 6, minuteUTC: 0 }, internal.r
 // dsgvo.deadlines — daily 07:30 UTC (F12 PRV-010, E-PRV-12): reminders at due − 7 / − 1 days, overdue as error.
 crons.cron("dsgvo.deadlines", "30 7 * * *", internal.dsgvo.deadlinesCron, {});
 
+// rules.freshness — weekly, Mondays 06:20 UTC (F01 SET-124, 02 §7): stale rule tables, duplicate/contradicted overrides.
+crons.cron("rules.freshness", "20 6 * * 1", internal.settings.rulesFreshnessCron, {});
+
 export default crons;

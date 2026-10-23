@@ -27,10 +27,10 @@ import { taxScope as taxScopeOf } from "../src/domain/tax/scope";
 import { berlinCalendarDate } from "../src/domain/time/berlin";
 import { internal } from "./_generated/api";
 import type { Doc } from "./_generated/dataModel";
-import { action, actorMutation, mutation, query } from "./functions";
+import { action, actorMutation, mutation, query, systemMutation } from "./functions";
 import { configuredTransport } from "./lib/authMail";
 import { checkpointStoreFromEnv, r2LatestObject } from "./lib/checkpointStore";
-import { baseDomain, env, passkeyRpId } from "./lib/env";
+import { baseDomain, env, isTest, passkeyRpId } from "./lib/env";
 import { appError } from "./lib/errors";
 import { parse } from "./lib/parse";
 import {
@@ -75,6 +75,7 @@ import {
   addRuleOverride as addRuleOverrideModel,
   deleteRuleOverride as deleteRuleOverrideModel,
   ruleOverviewView,
+  runRulesFreshness,
 } from "./model/ruleOverrides";
 import { seedSettingsDefaults } from "./model/seeds";
 import { setupChecklist, setupFacts } from "./model/setup";
@@ -218,6 +219,16 @@ export const taxScope = query({
       .sort((a, b) => a.validFromFiscalYear - b.validFromFiscalYear)
       .at(-1)?.method;
     return taxScopeOf({ legalForm: profile?.legalForm, profitMethod: method });
+  },
+});
+
+/** SET-124 `rules.freshness` (weekly, 02 §7): stale rule tables and overrides that duplicate/contradict shipped rows. */
+export const rulesFreshnessCron = systemMutation({
+  job: "cron.rules.freshness",
+  args: { force: v.optional(v.boolean()) },
+  handler: async (ctx, { force }) => {
+    if (isTest() && !force) return null; // 02 §7: crons skip with IS_TEST unless invoked explicitly
+    return runRulesFreshness(ctx, berlinCalendarDate(ctx.now()));
   },
 });
 

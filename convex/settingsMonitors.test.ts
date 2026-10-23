@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
 import type { CalendarDate } from "../src/domain/time/calendar-date";
-import { api } from "./_generated/api";
+import { api, internal } from "./_generated/api";
 import { b2bBuyer, invoiceValues, settle, setupInvoicing } from "./invoices.fixtures";
 import { patchCompanyProfile } from "./model/companyProfile";
 import { makeT } from "./test.setup";
@@ -84,5 +84,61 @@ describe("SET-040 settings.thresholdMonitor", () => {
     expect((await viewer.query(api.settings.thresholdMonitor, {})).bars).toHaveLength(3);
     const auditor = await t.asUser("auditor");
     await expect(auditor.query(api.settings.thresholdMonitor, {})).rejects.toThrow();
+  });
+});
+
+describe("SET-124 rules.freshness cron", () => {
+  test("SET-124 notifies duplicate overrides and contradicted overrides (listing the documents that used them); skips under IS_TEST", async () => {
+    const t = makeT();
+    const { owner } = await setupInvoicing(t, { seller: "ku" });
+    // duplicate of the shipped Basiszinssatz row 2026-07-01 (1,52 %)
+    const { id: dup } = await owner.mutation(api.settings.addRuleOverride, {
+      values: {
+        ruleSet: "basiszinssatz",
+        tableId: "basiszinssatz",
+        rate: "1,52",
+        validFrom: "2026-07-01",
+        validTo: "2026-12-31",
+        source: "https://www.bundesbank.de/basiszinssatz",
+      },
+    });
+    // own KU note text 2026 — differs from the shipped text, used by a finalised invoice
+    const { id: own } = await owner.mutation(api.settings.addRuleOverride, {
+      values: {
+        ruleSet: "noteText",
+        tableId: "ku_note_19",
+        de: "Gemäß § 19 Abs. 1 UStG wird keine Umsatzsteuer berechnet.",
+        en: "No VAT is charged under Section 19 (1) UStG.",
+        validFrom: "2026-01-01",
+        validTo: "2026-12-31",
+        source: "Eigene Formulierung (SET-036)",
+      },
+    });
+    const { personId } = await b2bBuyer(owner);
+    const { id } = await owner.mutation(api.invoices.createDraft, { values: invoiceValues(personId) });
+    const { number } = await owner.action(api.invoices.finalize, { id, version: 1 });
+    await settle(t);
+
+    expect(await t.mutation(internal.settings.rulesFreshnessCron, {})).toBeNull();
+    const findings = await t.mutation(internal.settings.rulesFreshnessCron, { force: true });
+    expect(findings?.map((f) => [f.code, f.overrideId])).toEqual(
+      expect.arrayContaining([
+        ["override_duplicates_shipped", dup],
+        ["override_differs_from_shipped", own],
+      ]),
+    );
+    const stale = () =>
+      t.run(async (ctx) => (await ctx.db.query("notifications").collect()).filter((n) => n.kind === "rules.stale"));
+    const notes = await stale();
+    expect(notes.find((n) => n.entity?.id === dup)?.body).toContain(
+      "Ihre Überschreibung entspricht der ausgelieferten Regel — entfernen?",
+    );
+    expect(notes.find((n) => n.entity?.id === own)?.body).toContain(
+      `Mit der Überschreibung fertiggestellt: ${number}.`,
+    );
+    expect(notes.every((n) => n.link === "/einstellungen/regeln")).toBe(true);
+    // weekly re-run while open: the same notifications are counted up (NTF-006), not duplicated
+    await t.mutation(internal.settings.rulesFreshnessCron, { force: true });
+    expect(await stale()).toHaveLength(notes.length);
   });
 });

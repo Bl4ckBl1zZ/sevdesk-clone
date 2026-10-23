@@ -3733,6 +3733,12 @@
     "wrapper": "query",
     "permission": "settings.read"
   },
+  "settings:rulesFreshnessCron": {
+    "kind": "mutation",
+    "visibility": "internal",
+    "wrapper": "systemMutation",
+    "job": "cron.rules.freshness"
+  },
   "settings:runAccessChecks": {
     "kind": "action",
     "visibility": "public",
@@ -3816,6 +3822,12 @@
     "visibility": "public",
     "wrapper": "action",
     "permission": "integrations.manage"
+  },
+  "settings:thresholdMonitor": {
+    "kind": "query",
+    "visibility": "public",
+    "wrapper": "query",
+    "permission": "settings.read"
   },
   "settingsApi:company": {
     "kind": "query",
