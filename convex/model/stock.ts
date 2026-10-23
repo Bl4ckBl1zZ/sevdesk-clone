@@ -5,6 +5,7 @@ import {
   deliveryNoteMovements,
   type ManualMovementInput,
   manualMovement,
+  negativeStockCheck,
   reorderTransition,
   reversingMovements,
   STOCK_MESSAGES,
@@ -16,6 +17,7 @@ import {
 import type { Doc, Id } from "../_generated/dataModel";
 import { appError } from "../lib/errors";
 import { auditedInsert, auditedPatch } from "./audit";
+import { getCompanyProfile, patchCompanyProfile } from "./companyProfile";
 import { notify } from "./notifications";
 import type { ModelCtx, ReadCtx } from "./types";
 
@@ -199,9 +201,30 @@ export async function applyDeliveryNote(ctx: ModelCtx, doc: Doc<"salesDocuments"
     })),
     products,
   );
+  // PRD-095: below zero is allowed (warning) unless „Negativen Bestand verhindern“ is set — then the finalisation
+  // transaction is rolled back (no number is consumed).
+  const current = new Map<string, { name: string; quantityMilli: number; unitCode: string }>();
+  for (const m of moves) {
+    const p = await ctx.db.get(m.productId as Id<"products">);
+    if (p) current.set(m.productId, { name: p.name, quantityMilli: p.stock?.quantityMilli ?? 0, unitCode: p.unitCode });
+  }
+  const prevent = (await getCompanyProfile(ctx))?.defaults.preventNegativeStock === true;
+  const check = negativeStockCheck(moves, current, prevent);
+  if (check.block) throw appError("conflict", check.block.message, { reason: check.block.code });
   const text = `${DOC_TYPE_LABEL_DE.delivery_note} ${doc.number ?? ""}`.trim();
   for (const m of moves) await book(ctx, { ...m, documentId: doc._id, text }, "product.stock.delivery_note");
   return moves.length;
+}
+
+/** PRD-095: company option „Negativen Bestand verhindern“ (`defaults.preventNegativeStock`). */
+export async function setPreventNegativeStock(ctx: ModelCtx, enabled: boolean): Promise<void> {
+  const profile = await getCompanyProfile(ctx);
+  if (!profile) throw appError("setup_incomplete");
+  await patchCompanyProfile(
+    ctx,
+    { defaults: { ...profile.defaults, preventNegativeStock: enabled } },
+    { action: "settings.company.update", label: "Negativen Bestand verhindern" },
+  );
 }
 
 /** PRD-092: withdrawing a finalised delivery note books the reversing `correction` movements. */

@@ -8,6 +8,7 @@
  * - Crossing below the reorder level opens one notification until the stock is back at or above the level.
  */
 import { roundHalfAway } from "../money";
+import { formatMilli } from "../money/format";
 import { type Issue, issue } from "../result";
 
 export const STOCK_REASONS = ["delivery_note", "manual_in", "manual_out", "correction"] as const;
@@ -153,3 +154,34 @@ export function withRunningBalance<M extends MovementRow>(movements: readonly M[
 /** PRD-090 cache: Σ of all movements. */
 export const stockSum = (movements: readonly { readonly quantityMilli: number }[]): number =>
   movements.reduce((s, m) => s + m.quantityMilli, 0);
+
+/**
+ * PRD-095: negative stock is allowed with a warning by default; with the company option „Negativen Bestand
+ * verhindern“ a delivery note that would take any product below zero is blocked (`STOCK_NEGATIVE`).
+ */
+export function negativeStockCheck(
+  moves: readonly { readonly productId: string; readonly quantityMilli: number }[],
+  current: ReadonlyMap<string, { readonly name: string; readonly quantityMilli: number; readonly unitCode: string }>,
+  prevent: boolean,
+): { readonly block: Issue<"STOCK_NEGATIVE"> | null; readonly warning: string | null } {
+  const after = new Map<string, number>();
+  for (const m of moves)
+    after.set(m.productId, (after.get(m.productId) ?? current.get(m.productId)?.quantityMilli ?? 0) + m.quantityMilli);
+  const below = [...after].filter(([, q]) => q < 0);
+  if (below.length === 0) return { block: null, warning: null };
+  const list = below
+    .map(([id, q]) => {
+      const c = current.get(id);
+      return `${c?.name ?? id} (${formatMilli(q)} ${c?.unitCode ?? ""})`.replace(" )", ")");
+    })
+    .join(", ");
+  return prevent
+    ? {
+        block: issue(
+          "STOCK_NEGATIVE",
+          `Der Lieferschein würde den Bestand ins Minus bringen: ${list}. „Negativen Bestand verhindern“ ist aktiviert.`,
+        ),
+        warning: null,
+      }
+    : { block: null, warning: `${STOCK_MESSAGES.negative} ${list}` };
+}

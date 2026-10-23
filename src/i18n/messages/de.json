@@ -2205,7 +2205,22 @@
       "tabs": {
         "master": "Stammdaten",
         "prices": "Preise",
-        "stock": "Bestand"
+        "stock": "Bestand",
+        "usage": "Verwendung"
+      },
+      "usage": {
+        "thisYear": "Dieses Jahr",
+        "lastYear": "Vorjahr",
+        "units": "Menge",
+        "revenue": "Umsatz netto",
+        "documents": "Dokumente mit diesem Produkt",
+        "empty": "Dieses Produkt wurde noch in keinem Dokument verwendet.",
+        "document": "Dokument",
+        "date": "Datum",
+        "contact": "Kontakt",
+        "status": "Status",
+        "draft": "Entwurf",
+        "soldHint": "Menge und Umsatz aus fertiggestellten Rechnungen (inkl. Storno und Korrektur)."
       },
       "facts": "Eckdaten",
       "rate": "Steuersatz heute",
@@ -2310,6 +2325,10 @@
       "onlyErrors": "nur Fehler"
     },
     "stock": {
+      "negativeWarning": "Der Bestand ist negativ. Bitte Zugang buchen oder den Bestand korrigieren.",
+      "preventNegative": "Negativen Bestand verhindern",
+      "preventNegativeHint": "Gilt für alle Produkte: Ein Lieferschein, der den Bestand unter null bringen würde, kann nicht fertiggestellt werden.",
+      "preventSaved": "Einstellung gespeichert.",
       "heading": "Bestand",
       "settings": "Bestandsführung",
       "enabled": "Bestand führen",

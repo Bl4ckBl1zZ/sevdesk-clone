@@ -9,6 +9,7 @@ import { PRODUCT_EXPORT_HEADERS, productExportRow, productImportForm, productRow
 import { computeMargin, priceViews, resolveRate } from "../src/domain/products/pricing";
 import { rateChangeBanner, upcomingRateChanges } from "../src/domain/products/rate-change";
 import { revenueAccountOptions } from "../src/domain/products/revenue-account";
+import { productUsage, type UsageLine } from "../src/domain/products/usage";
 import {
   categorySchema,
   customerPriceSchema,
@@ -195,6 +196,39 @@ export const get = query({
       tags: tags.map((t) => ({ _id: t._id, name: t.name, color: t.color ?? null })),
       usageCount: await productUsageCount(ctx, id),
     };
+  },
+});
+
+/** PRD-074 usage tab: documents with the product, units sold and revenue this/last year (finalised invoices). */
+export const usage = query({
+  permission: "products.read",
+  args: { id: v.id("products") },
+  handler: async (ctx, { id }) => {
+    const rows: UsageLine[] = [];
+    const docs = new Map<string, Doc<"salesDocuments"> | null>();
+    for (const l of await ctx.db
+      .query("documentLines")
+      .withIndex("by_product", (q) => q.eq("productId", id))
+      .collect()) {
+      if (l.kind !== "item") continue;
+      const key = l.documentId as string;
+      if (!docs.has(key)) docs.set(key, await ctx.db.get(l.documentId));
+      const d = docs.get(key);
+      if (!d) continue;
+      rows.push({
+        documentId: key,
+        ...(d.number ? { number: d.number } : {}),
+        type: d.type,
+        status: d.status,
+        ...(d.documentDate ? { documentDate: d.documentDate } : {}),
+        ...(d.contactName ? { contactName: d.contactName } : {}),
+        currency: d.currency,
+        ...(d.fxRateToEur ? { fxRateToEur: d.fxRateToEur.rate } : {}),
+        quantityMilli: l.quantityMilli ?? 0,
+        netCents: l.lineNetCents ?? 0,
+      });
+    }
+    return productUsage(rows, berlinCalendarDate(ctx.now()));
   },
 });
 

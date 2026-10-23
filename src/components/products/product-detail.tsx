@@ -41,6 +41,7 @@ import {
 import { useAuthedQuery } from "@/hooks/use-authed-query";
 import { ProductForm } from "./product-form";
 import { StockTab } from "./stock-tab";
+import { UsageTab } from "./usage-tab";
 
 type Bundle = NonNullable<FunctionReturnType<typeof api.products.get>>;
 
@@ -83,13 +84,14 @@ function ProductDetailInner({ id }: { id: Id<"products"> }) {
         <div className="grid gap-4 @4xl/detail:grid-cols-[minmax(0,1fr)_20rem]">
           <Tabs value={tab} onValueChange={(v) => setTab(String(v))} className="min-w-0">
             <TabsList className="h-auto w-full justify-start overflow-x-auto">
-              {(p.type === "good" ? (["master", "prices", "stock"] as const) : (["master", "prices"] as const)).map(
-                (k) => (
-                  <TabsTrigger key={k} value={k} className="h-11 flex-none px-3 md:h-9">
-                    {t(`tabs.${k}`)}
-                  </TabsTrigger>
-                ),
-              )}
+              {(p.type === "good"
+                ? (["master", "prices", "usage", "stock"] as const)
+                : (["master", "prices", "usage"] as const)
+              ).map((k) => (
+                <TabsTrigger key={k} value={k} className="h-11 flex-none px-3 md:h-9">
+                  {t(`tabs.${k}`)}
+                </TabsTrigger>
+              ))}
             </TabsList>
             <TabsContent value="master" className="pt-4">
               {canWrite ? <ProductForm key={p.version} product={p} /> : <ReadOnly data={data} />}
@@ -97,6 +99,9 @@ function ProductDetailInner({ id }: { id: Id<"products"> }) {
             <TabsContent value="prices" className="flex flex-col gap-4 pt-4">
               <ScheduledPrice data={data} canWrite={canWrite} />
               <CustomerPrices data={data} canWrite={canWrite} />
+            </TabsContent>
+            <TabsContent value="usage" className="pt-4">
+              {tab === "usage" && <UsageTab productId={p._id} />}
             </TabsContent>
             {p.type === "good" && (
               <TabsContent value="stock" className="pt-4">
