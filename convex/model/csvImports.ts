@@ -19,6 +19,7 @@ import type { Id } from "../_generated/dataModel";
 import { appError } from "../lib/errors";
 import { parse } from "../lib/parse";
 import { auditedInsert } from "./audit";
+import { getCompanyProfile } from "./companyProfile";
 import { createContact, getContact, updateContact } from "./contacts";
 import { assertEditable, type ImportRow, patchWorkspace, requireImport, requireRunning } from "./imports";
 import { createProduct, ensureCategoryPath } from "./products";
@@ -281,7 +282,16 @@ export async function genericLocalState(
     const c = cid ? await ctx.db.get(cid) : null;
     if (c) contactNumbers[id] = c.number;
   }
-  return { imported, contactsByNumber, contactsByEmail, contactsByVatId, productsByNumber: {}, contactNumbers };
+  const ownVatId = (await getCompanyProfile(ctx))?.vatId;
+  return {
+    imported,
+    contactsByNumber,
+    contactsByEmail,
+    contactsByVatId,
+    productsByNumber: {},
+    contactNumbers,
+    ...(ownVatId ? { ownVatId } : {}),
+  };
 }
 
 export interface GenericCommitRow {

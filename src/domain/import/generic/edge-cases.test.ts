@@ -75,6 +75,17 @@ describe("generic CSV import edge cases (F09 §5.3)", () => {
     expect(looksLikeMojibake(table(utf8("Name\nKÃ¶ln\n")).records[0]?.cells[0] ?? "")).toBe(true);
   });
 
+  test("E-IMP-16 a contact row with the company's own USt-IdNr is an error row in the preview, not a new contact", async () => {
+    const [first, second] = await contactRows();
+    if (!first || !second) throw new Error("fixture rows missing");
+    const own = { ...second, keys: { ...second.keys, vatId: "DE123456788" } };
+    const plan = buildGenericPlan("contacts", [first, own], { ...EMPTY, ownVatId: "de 123 456 788" });
+    expect(plan.rows[1]).toMatchObject({ status: "error", message: "Zeile 3: Das ist Ihre eigene USt-IdNr." });
+    expect(plan.counts).toMatchObject({ new: 1, errors: 1 });
+    // without a company USt-IdNr the row is new
+    expect(buildGenericPlan("contacts", [first, own], EMPTY).counts).toMatchObject({ new: 2, errors: 0 });
+  });
+
   test("E-IMP-17 an existing contact is listed as „Zeile n: Kontakt existiert bereits (nr).“ and skipped by default", async () => {
     const rows = await contactRows();
     const local: GenericLocalState = {

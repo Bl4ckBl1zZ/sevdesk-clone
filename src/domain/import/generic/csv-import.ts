@@ -203,6 +203,8 @@ export interface GenericLocalState {
   readonly productsByNumber: Readonly<Record<string, string>>;
   /** Contact number per local contact id (E-IMP-17 message „Kontakt existiert bereits ({nr})“). */
   readonly contactNumbers?: Readonly<Record<string, string>>;
+  /** The company's own USt-IdNr (E-IMP-16: a contact row carrying it is refused like createContact's VAT_ID_OWN). */
+  readonly ownVatId?: string;
 }
 
 /** E-IMP-17: what happens to rows matching an existing contact (products are always skipped). */
@@ -240,8 +242,12 @@ export function buildGenericPlan(
 ): GenericPlan {
   const update = target === "contacts" && options.onExisting === "update";
   const seen = new Map<string, number>();
+  const ownVatId = target === "contacts" && local.ownVatId ? normVatId(local.ownVatId) : undefined;
   const planned = rows.map((r): PlannedGenericRow => {
     if (r.error) return { ...r, status: "error", message: r.error };
+    if (ownVatId && r.keys.vatId === ownVatId) {
+      return { ...r, status: "error", message: `Zeile ${r.line}: Das ist Ihre eigene USt-IdNr.` };
+    }
     const imported = r.idempotencyKey ? local.imported[r.idempotencyKey] : undefined;
     if (imported) {
       return { ...r, status: "skip", localId: imported, message: `Zeile ${r.line} wurde bereits importiert.` };

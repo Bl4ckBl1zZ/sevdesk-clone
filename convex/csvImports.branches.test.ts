@@ -211,22 +211,54 @@ describe("F09 IMP-012 IMP-023 commit states and optional keys", () => {
     expect(records).toHaveLength(2);
   });
 
-  test("E-IMP-14 IMP-023 a row refused in the writing transaction marks the import failed with the German message", async () => {
+  test("E-IMP-16 a contact row with the company's own USt-IdNr is listed as an error in the preview and not imported", async () => {
     const { t, owner } = await setup();
-    // The company's own USt-IdNr passes the row schema in the preview, but createContact refuses it (VAT_ID_OWN).
     const own = (await t.run((ctx) => getCompanyProfile(ctx)))?.vatId as string;
     expect(own).toMatch(/^DE\d{9}$/);
-    const importId = await project(t, owner, `Firma;USt-IdNr\nEigen GmbH;${own}\n`, "contacts", "eigen.csv");
+    const importId = await project(
+      t,
+      owner,
+      `Firma;USt-IdNr\nEigen GmbH;${own}\nFremd AG;DE136695976\n`,
+      "contacts",
+      "eigen.csv",
+    );
     await owner.mutation(api.csvImports.setMapping, {
       importId,
       columns: { organizationName: "Firma", vatId: "USt-IdNr" },
     });
     const p = await owner.action(api.csvImports.preview, { importId });
+    expect(p.preview.counts).toMatchObject({ new: 1, errors: 1 });
+    expect(p.preview.problems).toContainEqual(
+      expect.objectContaining({ line: 2, status: "error", message: "Zeile 2: Das ist Ihre eigene USt-IdNr." }),
+    );
+    expect(await owner.action(api.csvImports.commit, { importId, previewHash: p.previewHash })).toMatchObject({
+      status: "done",
+      created: 1,
+    });
+    const names = (await t.run((ctx) => ctx.db.query("contacts").collect())).map((c) => c.displayName);
+    expect(names).toContain("Fremd AG");
+    expect(names).not.toContain("Eigen GmbH");
+  });
+
+  test("E-IMP-14 IMP-023 a row refused in the writing transaction marks the import failed with the German message", async () => {
+    const { t, owner } = await setup();
+    const cols = { organizationName: "Firma", debtorAccount: "Debitorenkonto" };
+    const first = await project(t, owner, "Firma;Debitorenkonto\nErste GmbH;10001\n", "contacts", "erste.csv");
+    await owner.mutation(api.csvImports.setMapping, { importId: first, columns: cols });
+    const p1 = await owner.action(api.csvImports.preview, { importId: first });
+    await owner.action(api.csvImports.commit, { importId: first, previewHash: p1.previewHash });
+    // The personal account is only checked against other contacts in the writing transaction (DATEV_ACCOUNT_TAKEN).
+    const importId = await project(t, owner, "Firma;Debitorenkonto\nZweite GmbH;10001\n", "contacts", "zweite.csv");
+    await owner.mutation(api.csvImports.setMapping, { importId, columns: cols });
+    const p = await owner.action(api.csvImports.preview, { importId });
     expect(p.preview.counts).toMatchObject({ new: 1 });
+    const message = "Das Personenkonto 10001 ist bereits Erste GmbH zugeordnet.";
     const e = await failure(owner.action(api.csvImports.commit, { importId, previewHash: p.previewHash }));
-    expect(e).toMatchObject({ code: "invalid_input", reason: "VAT_ID_OWN", message: "Das ist Ihre eigene USt-IdNr." });
-    expect(await row(t, importId)).toMatchObject({ status: "failed", error: "Das ist Ihre eigene USt-IdNr." });
+    expect(e).toMatchObject({ code: "invalid_input", reason: "DATEV_ACCOUNT_TAKEN" });
+    expect(e.message).toContain(message);
+    expect((await row(t, importId)).status).toBe("failed");
+    expect((await row(t, importId)).error).toContain(message);
     const contacts = await t.run((ctx) => ctx.db.query("contacts").collect());
-    expect(contacts.some((c) => c.displayName === "Eigen GmbH")).toBe(false);
+    expect(contacts.some((c) => c.displayName === "Zweite GmbH")).toBe(false);
   });
 });
