@@ -65,6 +65,7 @@ import {
   updateContact,
 } from "./model/contacts";
 import { listDefaultRanges, nextValue } from "./model/numberRanges";
+import type { ActorFields } from "./model/types";
 import { contactChecks } from "./model/vatChecks";
 import { vFileRef } from "./validators";
 
@@ -165,7 +166,11 @@ async function matches(ctx: QueryCtx, c: Doc<"contacts">, f: ListFilter): Promis
   return true;
 }
 
-async function listRow(ctx: QueryCtx, c: Doc<"contacts">, figures?: { openCents: number; revenueYearCents: number }) {
+async function listRow(
+  ctx: QueryCtx & Pick<ActorFields, "now">,
+  c: Doc<"contacts">,
+  figures?: { openCents: number; revenueYearCents: number },
+) {
   const addresses = await contactAddresses(ctx, c._id);
   const channels = await contactChannels(ctx, c._id);
   const billing = defaultAddressOf(addresses, "billing");
@@ -194,7 +199,7 @@ async function listRow(ctx: QueryCtx, c: Doc<"contacts">, figures?: { openCents:
 }
 
 /** CON-153 columns „Offen“ / „Umsatz (Jahr)“ of one contact (CON-150 definitions). */
-async function figuresOf(ctx: QueryCtx, id: Id<"contacts">) {
+async function figuresOf(ctx: QueryCtx & Pick<ActorFields, "now">, id: Id<"contacts">) {
   const s = await contactStats(ctx, id, berlinCalendarDate(ctx.now()));
   return { openCents: s.openCents, revenueYearCents: s.revenueThisYearCents };
 }

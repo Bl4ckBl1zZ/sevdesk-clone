@@ -111,7 +111,7 @@ describe("EC-111 contact address changes after invoices were issued", () => {
     );
     const after = await snapshotOf(owner, id);
     expect(after).toEqual(before);
-    expect(after.buyer.address.street).toBe("Musterweg 5");
+    expect(after.buyer.address?.street).toBe("Musterweg 5");
   });
 });
 

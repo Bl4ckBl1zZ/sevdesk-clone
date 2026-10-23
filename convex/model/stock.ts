@@ -223,7 +223,7 @@ export async function setPreventNegativeStock(ctx: ModelCtx, enabled: boolean): 
   await patchCompanyProfile(
     ctx,
     { defaults: { ...profile.defaults, preventNegativeStock: enabled } },
-    { action: "settings.company.update", label: "Negativen Bestand verhindern" },
+    { action: "settings.company.update" },
   );
 }
 

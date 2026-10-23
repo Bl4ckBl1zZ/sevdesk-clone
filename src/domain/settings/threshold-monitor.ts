@@ -1,6 +1,7 @@
 import { lookupRule } from "../rules/rule-table";
 import { BOOKKEEPING_DUTY_LIMITS } from "../rules/thresholds";
 import { type EightHundredKInput, eightHundredKMonitor, type MonitorNotice } from "../tax/turnover";
+import type { CalendarDate } from "../time/calendar-date";
 
 /**
  * F01 SET-040 (AO-01): threshold monitor on the settings page and the dashboard — Gesamtumsatz of the prior and the
@@ -35,7 +36,7 @@ const bar = (key: ThresholdBar["key"], year: number, amountCents: number | null,
 export function thresholdMonitor(i: EightHundredKInput): ThresholdMonitor {
   const year = Number(i.today.slice(0, 4));
   const limits = (y: number) => {
-    const r = lookupRule(BOOKKEEPING_DUTY_LIMITS, `${y}-01-01`);
+    const r = lookupRule(BOOKKEEPING_DUTY_LIMITS, `${y}-01-01` as CalendarDate);
     return r.ok ? r.value.value : null;
   };
   const prior = limits(year - 1);
