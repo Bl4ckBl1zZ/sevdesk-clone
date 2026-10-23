@@ -18,6 +18,7 @@ import {
   SECURITY_EVENT_TYPES,
   SUBSCRIBABLE_EVENT_TYPES,
   settlementEvent,
+  WEBHOOK_EVENT_GROUPS,
 } from "./events";
 import { secretFromBytes, secretHint, signPayload, webhookHeaders } from "./signature";
 import { addressAllowed, checkEndpointUrl, classifyAddress, isProductionSite } from "./url";
@@ -26,6 +27,12 @@ const S = 1000;
 const H = 3600 * S;
 
 describe("webhook event catalog (05 §5.3)", () => {
+  test("API-028 the Einstellungen › Webhooks picker groups every subscribable event exactly once", () => {
+    const grouped = WEBHOOK_EVENT_GROUPS.flatMap((g) => g.events);
+    expect([...grouped].sort()).toEqual([...SUBSCRIBABLE_EVENT_TYPES].sort());
+    expect(new Set(grouped).size).toBe(grouped.length);
+  });
+
   test("API-030 portal and online-payment events (F10) are reserved: not subscribable and refused in a subscription", () => {
     expect(RESERVED_EVENT_TYPES).toEqual(
       expect.arrayContaining(["quote.viewed", "invoice.viewed", "payment.failed", "sepa.returned"]),

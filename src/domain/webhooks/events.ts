@@ -124,6 +124,41 @@ export const SUBSCRIBABLE_EVENT_TYPES: readonly WebhookEventType[] = WEBHOOK_EVE
   (t) => !RESERVED_EVENT_TYPES.includes(t) && t !== "test.ping",
 );
 
+/** Areas of the event picker in Einstellungen › Webhooks (labels in de.json `webhooks.groups.<key>`). */
+export type WebhookEventGroupKey =
+  | "contacts"
+  | "products"
+  | "sales"
+  | "receivables"
+  | "vouchers"
+  | "banking"
+  | "tax"
+  | "settings"
+  | "projects"
+  | "jobs"
+  | "security";
+
+export const WEBHOOK_EVENT_GROUPS: readonly { key: WebhookEventGroupKey; events: readonly WebhookEventType[] }[] =
+  (() => {
+    const areas: readonly { key: WebhookEventGroupKey; prefixes: readonly string[] }[] = [
+      { key: "contacts", prefixes: ["contact"] },
+      { key: "products", prefixes: ["product"] },
+      { key: "sales", prefixes: ["quote", "order_confirmation", "delivery_note", "invoice"] },
+      { key: "receivables", prefixes: ["reminder", "dunning_case", "payment"] },
+      { key: "vouchers", prefixes: ["voucher", "inbox_item"] },
+      { key: "banking", prefixes: ["bank_transaction", "bank_consent", "bank_statement", "cash_movement"] },
+      { key: "tax", prefixes: ["period", "tax_filing", "threshold"] },
+      { key: "settings", prefixes: ["settings"] },
+      { key: "projects", prefixes: ["time_entry", "project"] },
+      { key: "jobs", prefixes: ["export", "import", "job"] },
+      { key: "security", prefixes: ["integrity", "api_key", "member", "dsgvo", "backup"] },
+    ];
+    return areas.map((a) => ({
+      key: a.key,
+      events: SUBSCRIBABLE_EVENT_TYPES.filter((t) => a.prefixes.includes(t.slice(0, t.indexOf(".")))),
+    }));
+  })();
+
 export function isWebhookEventType(value: string): value is WebhookEventType {
   return (WEBHOOK_EVENT_TYPES as readonly string[]).includes(value);
 }
