@@ -38,6 +38,9 @@ import { planRefund, planReversal } from "../../src/domain/payments/reversal";
 import type { SkontoTerms } from "../../src/domain/payments/skonto";
 import type { GrossGroup } from "../../src/domain/payments/split";
 import { berlinCalendarDate } from "../../src/domain/time/berlin";
+import { DOCUMENT_ID_PREFIXES, type DocumentIdType, encodeId } from "../../src/domain/api/ids";
+import { settlementEvent } from "../../src/domain/webhooks/events";
+import { contactObject } from "../../src/domain/webhooks/objects";
 import type { Doc, Id } from "../_generated/dataModel";
 import { appError } from "../lib/errors";
 import { settleOpeningItem } from "./accounting";
@@ -53,6 +56,7 @@ import { snapshotOf } from "./salesDocuments";
 import { creditedCentsOf } from "./settlement";
 import type { ModelCtx, ReadCtx } from "./types";
 import { refreshVoucher } from "./voucherStatus";
+import { emitDocumentEvent, emitEvent } from "./webhooks";
 
 /**
  * Payments (F05 PAY-010…PAY-063, 03 §5) — the only writer of `payments`. Every payment row, its journal entry
@@ -561,11 +565,22 @@ export interface SettlementChange {
 
 /**
  * Extension point (F05 §4.1 step 8–9): called in the payment transaction after every change of a document's
- * settlement. The dunning slice pauses/closes/reopens its case here (DUN-034/035); the webhook outbox
- * (`invoice.paid`, `invoice.partially_paid`, `payment.recorded`, PAY-060) attaches here once it exists.
+ * settlement. The dunning slice pauses/closes/reopens its case here (DUN-034/035); the webhook outbox writes
+ * `invoice.paid` / `invoice.partially_paid` here (PAY-060, PAY-016: same transaction).
  */
 export async function onSettlementChanged(ctx: ModelCtx, change: SettlementChange): Promise<void> {
   await dunningOnSettlementChanged(ctx, change);
+  // PAY-060 / 05 §5.3: invoice.paid / invoice.partially_paid when the payment status changed to it
+  const settled = await ctx.db.get(change.documentId);
+  const settledEvent = settled
+    ? settlementEvent(settled.type, change.before.paymentStatus, change.after.paymentStatus)
+    : null;
+  if (settledEvent) {
+    await emitDocumentEvent(ctx, change.documentId, settledEvent.slice("invoice.".length), {
+      payment_status: change.before.paymentStatus ?? null,
+      open_amount_cents: change.before.openAmountCents ?? null,
+    });
+  }
   // NTF-007 (F12 §4.8 `invoice.paid`): raised here, so payments recorded via UI, REST, MCP or bank matching notify.
   if (change.after.paymentStatus === "paid" && change.before.paymentStatus !== "paid") {
     const doc = await ctx.db.get(change.documentId);
@@ -574,6 +589,45 @@ export async function onSettlementChanged(ctx: ModelCtx, change: SettlementChang
       link: `/rechnungen/${change.documentId}`,
       entity: { table: "salesDocuments", id: change.documentId },
     });
+  }
+}
+
+/**
+ * PAY-060 / 05 §5.3: `payment.recorded` / `payment.reversed` for one payment row (IDs, amount, date, target, source
+ * kind — no names or IBANs) and `contact.credit_changed` when the row moves a customer credit balance.
+ */
+async function emitPaymentEvents(
+  ctx: ModelCtx,
+  paymentId: Id<"payments">,
+  type: "payment.recorded" | "payment.reversed",
+): Promise<void> {
+  const p = await ctx.db.get(paymentId);
+  if (!p) return;
+  let targetId = p.target.id;
+  if (p.target.kind === "salesDocument") {
+    const doc = await ctx.db.get(p.target.id as Id<"salesDocuments">);
+    targetId = `${DOCUMENT_ID_PREFIXES[(doc?.type ?? "invoice") as DocumentIdType]}${p.target.id}`;
+  } else if (p.target.kind === "voucher") targetId = encodeId("vouchers", p.target.id);
+  else if (p.target.kind === "opening_item") targetId = encodeId("openingItems", p.target.id);
+  else if (p.target.kind === "contactCredit") targetId = encodeId("contacts", p.target.id);
+  await emitEvent(ctx, type, {
+    id: encodeId("payments", paymentId),
+    object: "payment",
+    amount_cents: p.amountCents,
+    currency: p.currency,
+    date: p.date,
+    source: p.source.kind,
+    target: { kind: p.target.kind, id: targetId },
+    contact_id: p.contactId ? encodeId("contacts", p.contactId) : null,
+    reversal_of: p.reversalOfId ? encodeId("payments", p.reversalOfId) : null,
+    updated_at: new Date(ctx.now()).toISOString(),
+  });
+  if (p.target.kind === "contactCredit") {
+    const balance = await creditBalance(ctx, p.target.id);
+    await emitEvent(ctx, "contact.credit_changed", {
+      ...contactObject(p.target.id, ctx.now()),
+      credit_balance_cents: balance,
+    }, { credit_balance_cents: balance - p.amountCents });
   }
 }
 
@@ -688,6 +742,7 @@ export async function recordPayment(ctx: ModelCtx, args: RecordArgs): Promise<Re
       }
     }
     await refreshTarget(ctx, row, row.settlesCents, "payment.record");
+    await emitPaymentEvents(ctx, id, "payment.recorded");
   }
   if (args.source.kind === "bank" && plan.totalCents > 0) {
     await applyAllocation(ctx, { transactionId: args.source.transactionId, deltaCents: plan.totalCents });
@@ -818,6 +873,7 @@ export async function reversePayment(
       );
     }
     await refreshTarget(ctx, r, -settlesOf(r), "payment.reverse");
+    await emitPaymentEvents(ctx, reversalId, "payment.reversed");
     if (r.bankTransactionId && r.amountCents !== 0) {
       await applyAllocation(
         ctx,
@@ -968,6 +1024,7 @@ export async function refundCredit(
   if (args.source.kind === "bank") {
     await applyAllocation(ctx, { transactionId: args.source.transactionId, deltaCents: args.amountCents });
   }
+  await emitPaymentEvents(ctx, id, "payment.recorded"); // a refund is a (negative) payment row
   return { paymentId: id, date: plan.value.date, warnings: plan.value.warnings };
 }
 
@@ -1105,6 +1162,7 @@ export async function refundCorrection(
     await auditedPatch(ctx, "payments", id, { journalEntryIds: posted.entryIds }, { action: "payment.refund" });
   }
   await refreshDocument(ctx, doc._id, "payment.refund");
+  await emitPaymentEvents(ctx, id, "payment.recorded"); // a refund is a (negative) payment row
   if (args.source.kind === "bank") {
     await applyAllocation(ctx, { transactionId: args.source.transactionId, deltaCents: args.amountCents });
   }

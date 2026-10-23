@@ -56,7 +56,9 @@ export const ID_PREFIXES = {
   jobs: "job_",
   datevExports: "dvx_",
   gdpduExports: "gdx_",
-  // 05 §5 outbound webhooks (`/webhook-endpoints`): endpoints and delivery-log rows; events are `evt_` (webhook-id).
+  // 05 §5 outbound webhooks (`/webhook-endpoints`): endpoints and delivery-log rows; events are `evt_` (webhook-id);
+  // `dcs_` names the dunning case in `dunning_case.*` payloads (no REST resource of its own).
+  dunningCases: "dcs_",
   webhookEndpoints: "whe_",
   webhookDeliveries: "whd_",
 } as const;

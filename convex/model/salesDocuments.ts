@@ -52,6 +52,7 @@ import { addDays, type CalendarDate } from "../../src/domain/time/calendar-date"
 import type { Doc, Id } from "../_generated/dataModel";
 import { appError } from "../lib/errors";
 import { appendAudit, auditedDelete, auditedInsert, auditedPatch } from "./audit";
+import { emitDocumentEvent } from "./webhooks";
 import { defaultInvoiceAccount } from "./bankAccounts";
 import { assertClockOk } from "./clock";
 import { getCompanyProfile } from "./companyProfile";
@@ -932,6 +933,7 @@ export async function createDraft(
     { action },
   );
   await syncDraftLocks(ctx, id); // F11 PRJ-012: entries billed on the lines → in_draft
+  await emitDocumentEvent(ctx, id, "created"); // 05 §5.3 quote.created / invoice.created (draft)
   return id;
 }
 
@@ -1335,6 +1337,9 @@ export async function commitFinalization(
   if (result.overriddenVatCheck && stored.contactId) {
     await vatCheckFollowUp(ctx, { contactId: stored.contactId, number: assigned.number, ...result.overriddenVatCheck });
   }
+  await emitDocumentEvent(ctx, id, "finalized", { status: stored.status }); // 05 §5.3 *.finalized (F04 §4.6 step 2d)
+  // 05 §5.3 invoice.corrected: a finalised Rechnungskorrektur corrects its original
+  if (stored.type === "correction" && stored.correctsId) await emitDocumentEvent(ctx, stored.correctsId, "corrected");
   return { status: "finalized", number: assigned.number, idempotentReplay: false };
 }
 
@@ -1456,6 +1461,7 @@ export async function recordArtifacts(
   if (opts.initial && doc.artifactStatus !== "ready") {
     await auditedPatch(ctx, "salesDocuments", id, { artifactStatus: "ready" }, { action, label: label(doc) });
     await afterInvoiceArtifacts(ctx, doc);
+    await emitDocumentEvent(ctx, id, "artifacts_ready", { artifact_status: doc.artifactStatus ?? null }); // SND-15
   }
   // F04 §4.9: the archived Gutschrift PDF becomes the original file of its purchase voucher (VOU-120).
   if (opts.initial && doc.type === "self_billing") await attachSelfBillingPdf(ctx, doc, artifacts);
@@ -1492,6 +1498,7 @@ export async function recordArtifactFailure(
     { artifactStatus: "blocked", artifactAttempts: attempts, artifactError: error.slice(0, 2000) } as never,
     { action: "document.artifacts_blocked", label: label(doc) },
   );
+  await emitDocumentEvent(ctx, id, "artifacts_blocked", { artifact_status: "pending" }); // SND-15
   await upsertNotification(ctx, {
     kind: "artifacts_blocked",
     severity: "error",
@@ -1700,6 +1707,8 @@ export async function markSent(
     await resolveNotifications(ctx, id, "exported_not_marked");
     await resolveNotifications(ctx, id, "export_and_send");
     await dunningDispatchChanged(ctx, id);
+    // SND-15: `*.sent` only on the first effective mark (no event for further marks or exports)
+    await emitDocumentEvent(ctx, id, "sent", { status: doc.status });
   }
   // DUN-056 / EC-DUN-33: a reminder marked sent more than 3 days after its document date.
   const late = r.firstEffective ? lateMarkWarning(doc, values.sentOn) : null;
@@ -1761,6 +1770,8 @@ export async function retractMark(
       { action: "document.mark_sent_retracted", label: label(doc), reason: input.reason.trim() },
     );
     await dunningDispatchChanged(ctx, id);
+    // SND-15: `*.sent_retracted` when the retraction returns the document to `finalized`
+    await emitDocumentEvent(ctx, id, "sent_retracted", { status: doc.status });
     return { status: "finalized" };
   }
   const next = effectiveMark(await sendLogRowsAfter(ctx, id));

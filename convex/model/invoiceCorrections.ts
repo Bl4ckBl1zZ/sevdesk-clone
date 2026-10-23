@@ -26,6 +26,7 @@ import { isCalendarDate } from "../../src/domain/time/calendar-date";
 import type { Doc, Id } from "../_generated/dataModel";
 import { appError } from "../lib/errors";
 import { auditedInsert, auditedPatch } from "./audit";
+import { emitDocumentEvent } from "./webhooks";
 import { assertClockOk } from "./clock";
 import { onDocumentCancelled as dunningOnCancelled } from "./dunning";
 import { chainMembers, groupsOfDoc, setRegisterStatus, storedSnapshot } from "./invoiceChains";
@@ -323,6 +324,7 @@ export async function cancelDocument(
     { action: "document.cancelled", label: `${label(original)} → ${assigned.number}`, ...(reason ? { reason } : {}) },
   );
   await setRegisterStatus(ctx, original.number, "cancelled_by_storno");
+  await emitDocumentEvent(ctx, original._id, "cancelled", { status: original.status }); // 05 §5.3 invoice.cancelled
   // REC-16 / SND-21: the export to-dos of the original close with its Storno.
   for (const kind of ["export_and_send", "exported_not_marked"]) await resolveNotifications(ctx, original._id, kind);
   await dunningOnCancelled(ctx, original._id); // EC-077: the dunning case closes, reminders stay archived

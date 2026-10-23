@@ -8,11 +8,14 @@ import {
   snippet,
 } from "../../src/domain/webhooks/delivery";
 import {
+  documentEvent,
   endpointSubscribes,
   isReservedEventType,
   normaliseSubscriptions,
   type WebhookEventType,
 } from "../../src/domain/webhooks/events";
+import { encodeDocumentId } from "../../src/domain/api/ids";
+import { contactObject, type DocumentLike, documentObject, refObject } from "../../src/domain/webhooks/objects";
 import { checkEndpointUrl, isProductionSite } from "../../src/domain/webhooks/url";
 import { internal } from "../_generated/api";
 import type { Doc, Id } from "../_generated/dataModel";
@@ -68,6 +71,55 @@ export async function emitEvent(
   ).filter((e) => endpointSubscribes(e.events, type));
   if (endpoints.length === 0) return null;
   return enqueue(ctx, type, object, previous, endpoints);
+}
+
+/**
+ * Sales-document events (F04 SND-15, F05 PAY-060): `<prefix>.<suffix>` for the document's type when the catalog has
+ * it (`invoice.sent`, `quote.accepted`, `reminder.finalized`, …); a no-op for types without events.
+ */
+export async function emitDocumentEvent(
+  ctx: ModelCtx,
+  id: Id<"salesDocuments">,
+  suffix: string,
+  previous?: Record<string, unknown>,
+): Promise<Id<"webhookEvents"> | null> {
+  const doc = await ctx.db.get(id);
+  const type = doc ? documentEvent(doc.type, suffix) : null;
+  if (!doc || !type) return null;
+  return emitEvent(ctx, type, documentObject(doc as unknown as DocumentLike, ctx.now()), previous);
+}
+
+/** Contact events (F02 §7): the contact ID and the changed field NAMES only. */
+export async function emitContactEvent(
+  ctx: ModelCtx,
+  type: Extract<WebhookEventType, `contact.${string}`>,
+  contactId: Id<"contacts">,
+  changedFields?: Iterable<string>,
+): Promise<Id<"webhookEvents"> | null> {
+  const fields = changedFields ? [...new Set(changedFields)].filter((f) => !f.startsWith("_")).sort() : [];
+  return emitEvent(ctx, type, contactObject(contactId, ctx.now()), fields.length ? { changed_fields: fields } : undefined);
+}
+
+/** F05 PAY-060 `dunning_case.paused` / `dunning_case.handed_over`: case and invoice IDs, status, level. */
+export async function emitDunningCaseEvent(
+  ctx: ModelCtx,
+  type: "dunning_case.paused" | "dunning_case.handed_over",
+  caseId: Id<"dunningCases">,
+  previous?: Record<string, unknown>,
+): Promise<Id<"webhookEvents"> | null> {
+  const c = await ctx.db.get(caseId);
+  if (!c) return null;
+  return emitEvent(
+    ctx,
+    type,
+    refObject("dunningCases", caseId, "dunning_case", ctx.now(), {
+      invoice_id: encodeDocumentId("invoice", c.invoiceId),
+      status: c.status,
+      level: c.currentLevel,
+      paused_until: c.pausedUntil ?? null,
+    }),
+    previous,
+  );
 }
 
 async function enqueue(
