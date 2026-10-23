@@ -4,6 +4,7 @@ import { isOverdue } from "../src/domain/payments/open-items";
 import { quittungContent } from "../src/domain/payments/quittung";
 import { berlinCalendarDate } from "../src/domain/time/berlin";
 import { isCalendarDate } from "../src/domain/time/calendar-date";
+import { renderLetter } from "../src/pdf/letter";
 import { renderQuittung } from "../src/pdf/quittung";
 import { api, internal } from "./_generated/api";
 import type { Doc, Id } from "./_generated/dataModel";
@@ -28,10 +29,11 @@ import {
   requirePayment,
   reversePayment,
 } from "./model/payments";
+import { archiveLetter, lettersOf, markLetterSent as markLetterSentModel, planLetter } from "./model/receivableLetters";
 import { displayStatusOf } from "./model/salesDocuments";
 import type { ReadCtx } from "./model/types";
 import { vAllocationInput, vDifferenceInput, vPaymentSource, vWriteOffReason } from "./paymentValidators";
-import { vFileRef } from "./validators";
+import { vFileRef, vSendChannel } from "./validators";
 
 /**
  * Payments, open items, credit balances (F05 P1). Thin public functions over convex/model/payments.ts; the ⚠ acts
@@ -512,5 +514,146 @@ export const receipt = action({
       pdfBase64: base64(bytes),
       name: c.content.fileName,
     };
+  },
+});
+
+// ── receivables letters (PAY-005, PAY-048, DUN-028, DUN-044) ────────────────────────────────────────────
+
+const vLetterRequest = v.union(
+  v.object({
+    kind: v.literal("account_statement"),
+    contactId: v.id("contacts"),
+    from: v.string(),
+    to: v.string(),
+    confirmationRequest: v.optional(v.boolean()),
+  }),
+  v.object({
+    kind: v.literal("payment_confirmation"),
+    paymentId: v.id("payments"),
+    lang: v.optional(v.union(v.literal("de"), v.literal("en"))),
+    subject: v.optional(v.string()),
+    body: v.optional(v.string()),
+  }),
+  v.object({ kind: v.literal("interest_claim"), invoiceId: v.id("salesDocuments") }),
+  v.object({ kind: v.literal("mahnbescheid_sheet"), invoiceId: v.id("salesDocuments") }),
+);
+
+/** The letter content as the PDF will show it (dialog preview; the action renders exactly this). */
+export const letterPreview = query({
+  permission: "payments.receipt",
+  args: { request: vLetterRequest },
+  handler: async (ctx, { request }) => {
+    const planned = await planLetter(ctx, request, ctx.now());
+    return { content: planned.content, data: planned.data ?? null, links: planned.links };
+  },
+});
+
+export const archiveLetterInternal = actorMutation({
+  permission: "payments.receipt",
+  args: {
+    kind: v.union(
+      v.literal("account_statement"),
+      v.literal("payment_confirmation"),
+      v.literal("interest_claim"),
+      v.literal("mahnbescheid_sheet"),
+    ),
+    links: v.object({
+      contactId: v.optional(v.id("contacts")),
+      documentId: v.optional(v.id("salesDocuments")),
+      paymentId: v.optional(v.id("payments")),
+    }),
+    date: v.string(),
+    title: v.string(),
+    subject: v.string(),
+    file: vFileRef,
+    data: v.optional(v.string()),
+  },
+  handler: async (ctx, args) => archiveLetter(ctx, args),
+});
+
+/**
+ * „Kontoauszug“, „Zahlungsbestätigung“, „Zinsforderung“, „Mahnbescheid-Datenblatt“ as PDF: rendered, archived with
+ * sha256 (GOBD-11) and returned for download. The app never sends it (B2); `markLetterSent` records the dispatch.
+ */
+export const letter = action({
+  permission: "payments.receipt",
+  args: { request: vLetterRequest },
+  handler: async (
+    ctx,
+    { request },
+  ): Promise<{
+    letterId: Id<"receivableLetters">;
+    url: string | null;
+    pdfBase64: string;
+    name: string;
+    data: string | null;
+  }> => {
+    const p = await ctx.runQuery(api.payments.letterPreview, { request });
+    const bytes = await renderLetter(p.content);
+    const storageId = await ctx.storage.store(new Blob([bytes as BlobPart], { type: "application/pdf" }));
+    let letterId: Id<"receivableLetters">;
+    try {
+      letterId = await ctx.runMutation(internal.payments.archiveLetterInternal, {
+        actorContext: ctx.actorContext,
+        kind: p.content.kind,
+        links: p.links,
+        date: p.content.date,
+        title: p.content.title,
+        subject: p.content.subject,
+        file: {
+          storageId,
+          sha256: await sha256Hex(bytes),
+          bytes: bytes.byteLength,
+          mime: "application/pdf",
+          name: p.content.fileName,
+        },
+        ...(p.data ? { data: p.data } : {}),
+      });
+    } catch (e) {
+      await ctx.storage.delete(storageId);
+      throw e;
+    }
+    let bin = "";
+    for (const b of bytes) bin += String.fromCharCode(b);
+    return {
+      letterId,
+      url: await ctx.storage.getUrl(storageId),
+      pdfBase64: btoa(bin),
+      name: p.content.fileName,
+      data: p.data,
+    };
+  },
+});
+
+/** Archived letters of a contact or an invoice (newest first) with download links. */
+export const letters = query({
+  permission: "payments.read",
+  args: { contactId: v.optional(v.id("contacts")), documentId: v.optional(v.id("salesDocuments")) },
+  handler: async (ctx, args) => {
+    const rows = await lettersOf(ctx, args);
+    return Promise.all(
+      rows.map(async (r) => ({
+        id: r._id,
+        kind: r.kind,
+        date: r.date,
+        title: r.title,
+        subject: r.subject,
+        fileName: r.file.name,
+        sha256: r.file.sha256,
+        url: await ctx.storage.getUrl(r.file.storageId),
+        hasData: r.data !== undefined,
+        sent: r.sent ? { sentOn: r.sent.sentOn, channel: r.sent.channel, note: r.sent.note ?? null } : null,
+      })),
+    );
+  },
+});
+
+/** „Als versendet markieren“ for an archived letter (manual, once). */
+export const markLetterSent = mutation({
+  permission: "dunning.write",
+  args: { id: v.id("receivableLetters"), sentOn: v.string(), channel: vSendChannel, note: v.optional(v.string()) },
+  handler: async (ctx, { id, ...values }) => {
+    await markLetterSentModel(ctx, id, values);
+    return null;
   },
 });

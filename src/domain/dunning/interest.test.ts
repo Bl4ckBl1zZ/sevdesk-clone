@@ -6,7 +6,7 @@ import { computeInterest } from "./interest";
 const d = (s: string) => s as CalendarDate;
 
 describe("DUN-020 MAHN-02 § 288 interest calculator (golden G1–G5, F05 §4.7)", () => {
-  test("MAHN-02 T05-090 G1: B2B 10.000,00 € 2026-06-01 … 2026-07-31 splits at the Basiszinssatz change → 173,76 € (EC-126, EC-DUN-09)", () => {
+  test("MAHN-02 EC-DUN-09 T05-090 G1: B2B 10.000,00 € 2026-06-01 … 2026-07-31 splits at the Basiszinssatz change → 173,76 € (EC-126, EC-DUN-09)", () => {
     const r = computeInterest({ principalCents: 1_000_000, from: d("2026-06-01"), to: d("2026-07-31"), margin: "b2b" });
     expect(r.ok).toBe(true);
     if (!r.ok) return;

@@ -9,6 +9,7 @@
  * sources only, left unallocated on the transaction (d).
  */
 import { CASH_REASON_DAYS, CASH_REASON_MIN_LENGTH, CASH_WARNING_DAYS } from "../cash/dating";
+import { fcToEurCents, parseFxRate } from "../money/convert";
 import { err, type Issue, issue, ok, type Result } from "../result";
 import { type CalendarDate, daysBetween, isCalendarDate } from "../time/calendar-date";
 import { PAY_MESSAGES } from "./messages";
@@ -58,8 +59,11 @@ export interface DifferenceInput {
 
 export interface AllocationInput {
   target: TargetRef;
+  /** In the target's (document) currency. */
   amountCents: number;
   differences?: DifferenceInput[];
+  /** PAY-018: foreign-currency target — the EUR amount actually received for this allocation (EC-PAY-22). */
+  eurAmountCents?: number;
 }
 
 export interface PaymentInput {
@@ -97,6 +101,8 @@ export interface TargetFacts {
   claimedInterestCents?: number;
   /** contactCredit: the current credit balance of the contact. */
   creditBalanceCents?: number;
+  /** PAY-018: snapshot rate of a foreign-currency document, „1 EUR = x FC“ (03 FxRate). */
+  fxRateToEur?: string;
 }
 
 export interface SourceFacts {
@@ -145,6 +151,13 @@ export interface PlannedRow {
   settlesCents: number;
   /** Open amount of the target after this row (contactCredit: credit balance after). */
   openAfterCents: number;
+  /**
+   * PAY-018 foreign currency: EUR received, EUR value of the settled share at the invoice rate, and the realised
+   * exchange difference (`eurAtInvoiceCents − eurAmountCents`; + = loss → fxLoss, − = gain → fxGain).
+   */
+  eurAmountCents?: number;
+  eurAtInvoiceCents?: number;
+  fxDifferenceCents?: number;
 }
 
 export type PaymentWarningCode =
@@ -153,7 +166,9 @@ export type PaymentWarningCode =
   | "cash_daily_recording"
   | "write_off_ist"
   | "taxation_method_changed"
-  | "reversal_period_locked";
+  | "reversal_period_locked"
+  | "advance_reopened"
+  | "fx_difference";
 
 export interface PaymentWarning {
   code: PaymentWarningCode;
@@ -185,12 +200,15 @@ export type PaymentErrorCode =
   | "tx_not_allocatable"
   | "tx_direction"
   | "source_exceeded"
+  | "concurrent_allocation"
+  | "cash_without_invoice"
   | "target_unknown"
   | "draft"
   | "cancelled"
   | "written_off"
   | "not_payable"
   | "fx_deferred"
+  | "fx_missing"
   | "amount_positive"
   | "amount_invalid"
   | "excess"
@@ -223,6 +241,10 @@ const userDated = (k: SourceInput["kind"]) => k !== "bank";
 export function planPayment(input: PaymentInput, ctx: PlanContext): Result<PaymentPlan, PaymentIssue> {
   const src = input.source;
   if (src.kind === "private") return fail("private_source", PAY_MESSAGES.privateOnSales);
+  // EC-PAY-43 / AO-04: no cash function — cash always settles an issued document (an excess may become credit).
+  if (src.kind === "cash" && !input.allocations.some((a) => a.target.kind !== "contactCredit")) {
+    return fail("cash_without_invoice", PAY_MESSAGES.cashWithoutInvoice);
+  }
   if (input.allocations.length === 0) return fail("no_allocations", PAY_MESSAGES.noAllocations);
   const seen = new Set<string>();
   for (const a of input.allocations) {
@@ -301,6 +323,12 @@ export function planPayment(input: PaymentInput, ctx: PlanContext): Result<Payme
       return fail("credit_other_contact", PAY_MESSAGES.creditOtherContact);
     }
   } else if (money > available) {
+    // EC-PAY-03: it would have fit the transaction, but another allocation fully matched it meanwhile — a matched
+    // transaction is never offered for allocation, so the client planned on a stale state (the Convex mutation
+    // re-reads `allocatedCents` serializably). A partially matched one keeps the informative EC-PAY-02 message.
+    if (bank && bank.status === "matched" && money <= Math.abs(bank.amountCents)) {
+      return fail("concurrent_allocation", PAY_MESSAGES.concurrent);
+    }
     return fail("source_exceeded", PAY_MESSAGES.sourceExceeded(money, available), { sum: money, available });
   }
   return ok({
@@ -326,10 +354,17 @@ function planDocumentRow(
     return fail("not_payable", "Auf dieses Dokument können keine Zahlungen gebucht werden.");
   }
   if (f.paymentStatus === "written_off" && !ctx.allowWrittenOff) return fail("written_off", PAY_MESSAGES.writtenOff);
-  if (f.currency !== "EUR") {
-    return sourceKind === "cash"
-      ? fail("cash_eur_only", PAY_MESSAGES.cashEurOnly)
-      : fail("fx_deferred", PAY_MESSAGES.fxDeferred);
+  const foreign = f.currency !== "EUR";
+  if (foreign) {
+    if (sourceKind === "cash") return fail("cash_eur_only", PAY_MESSAGES.cashEurOnly);
+    if (!f.fxRateToEur || !parseFxRate(f.fxRateToEur).ok || sourceKind === "adjustment" || sourceKind === "credit") {
+      return fail("fx_deferred", PAY_MESSAGES.fxDeferred);
+    }
+    if (a.eurAmountCents === undefined) return fail("fx_missing", PAY_MESSAGES.fxMissing);
+    if (!isInt(a.eurAmountCents)) return fail("amount_invalid", "Bitte höchstens zwei Nachkommastellen angeben.");
+    if (a.eurAmountCents <= 0) return fail("amount_positive", PAY_MESSAGES.amountPositive);
+    // P1: Skonto/fees/write-off in foreign currency would need their own EUR valuation — not offered yet.
+    if ((a.differences ?? []).length > 0) return fail("differences_not_allowed", PAY_MESSAGES.fxDifferencesNotAllowed);
   }
   if (sourceKind === "adjustment") {
     if (a.amountCents !== 0) return fail("adjustment_invalid", "Eine Ausbuchung ohne Zahlung hat keinen Zahlbetrag.");
@@ -448,7 +483,24 @@ function planDocumentRow(
     differences: diffs,
     settlesCents: settles,
     openAfterCents: f.openAmountCents - settles,
+    ...(foreign ? fxOf(f, settles, a.eurAmountCents as number, warnings) : {}),
   });
+}
+
+/**
+ * PAY-018 / EC-PAY-23: EUR value of the settled share at the invoice rate, taken cumulatively (the payment that
+ * settles the rest absorbs the rounding; one half-up rounding on the EUR side), and the realised FX difference.
+ */
+function fxOf(f: TargetFacts, settles: number, eurAmountCents: number, warnings: PaymentWarning[]) {
+  const rate = parseFxRate(f.fxRateToEur as string);
+  if (!rate.ok) throw new Error("unreachable: the rate is checked before");
+  const before = f.payableCents - f.openAmountCents;
+  const eurAtInvoiceCents = fcToEurCents(before + settles, rate.value) - fcToEurCents(before, rate.value);
+  const fxDifferenceCents = eurAtInvoiceCents - eurAmountCents;
+  if (fxDifferenceCents !== 0) {
+    warnings.push({ code: "fx_difference", message: PAY_MESSAGES.fxDifference(fxDifferenceCents), ack: false });
+  }
+  return { eurAmountCents, eurAtInvoiceCents, fxDifferenceCents };
 }
 
 function planOpeningRow(

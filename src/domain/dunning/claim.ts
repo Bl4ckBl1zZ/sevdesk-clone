@@ -43,6 +43,8 @@ export interface ClaimInput {
   /** Company Bundesland for the § 193 shift. */
   readonly state?: string | undefined;
   readonly overrides?: readonly RuleOverride<BasiszinssatzValue>[];
+  /** Document currency (default EUR). EC-DUN-27: fees/interest in it, the 40 € always in EUR. */
+  readonly currency?: string | undefined;
 }
 
 export interface Claim {
@@ -56,9 +58,19 @@ export interface Claim {
   readonly flatFeeAlreadyClaimed: boolean;
   readonly openAmountCents: number;
   readonly newDueDate: CalendarDate;
+  /** In the document currency; for a non-EUR invoice without the EUR flat fee (EC-DUN-27). */
   readonly totalCents: number;
   readonly defaultStartDate?: CalendarDate;
+  /** EC-DUN-27: set for a non-EUR invoice — the claim is split by currency, the 40 € stays EUR. */
+  readonly currency?: string;
+  readonly flatFeeCurrency?: "EUR";
 }
+
+/** EC-DUN-27 / MISC-08: the § 288 Abs. 5 flat fee is a EUR amount; a foreign-currency claim shows it apart. */
+export const FLAT_FEE_EUR_MESSAGE = "Pauschale nach § 288 Abs. 5 BGB wird in EUR ausgewiesen.";
+const isForeign = (currency: string | undefined) => currency !== undefined && currency !== "EUR";
+const totalOf = (c: Pick<Claim, "openAmountCents" | "currency">, fee: number, interest: number, flat: number) =>
+  c.openAmountCents + fee + interest + (isForeign(c.currency) ? 0 : flat);
 
 export function computeClaim(i: ClaimInput): Result<Claim, Issue> {
   const inDefault = inDefaultOn(i.defaultStart, i.date);
@@ -96,8 +108,14 @@ export function computeClaim(i: ClaimInput): Result<Claim, Issue> {
     flatFeeAlreadyClaimed: !i.isConsumer && i.flatFeeCharged,
     openAmountCents: i.openAmountCents,
     newDueDate,
-    totalCents: i.openAmountCents + feeCents + interestCents + flatFee40Cents,
+    totalCents: totalOf(
+      { openAmountCents: i.openAmountCents, currency: i.currency },
+      feeCents,
+      interestCents,
+      flatFee40Cents,
+    ),
     ...(i.defaultStart ? { defaultStartDate: i.defaultStart.date } : {}),
+    ...(isForeign(i.currency) ? { currency: i.currency as string, flatFeeCurrency: "EUR" as const } : {}),
   });
 }
 
@@ -207,6 +225,9 @@ export function applyManualAmounts(
       message: `Die Zinsen übersteigen den berechneten Betrag (${formatEuro(computed.interestCents)}). Bitte Grund angeben.`,
     });
   }
+  if (flatFee40Cents > 0 && isForeign(computed.currency)) {
+    findings.push({ code: "flat_fee_eur", severity: "W", rule: "MAHN-03", message: FLAT_FEE_EUR_MESSAGE });
+  }
   let newDueDate = computed.newDueDate;
   if (m.newDueDate) {
     if (m.newDueDate <= ctx.date) {
@@ -227,7 +248,7 @@ export function applyManualAmounts(
       interestSegments,
       flatFee40Cents,
       newDueDate,
-      totalCents: computed.openAmountCents + feeCents + interestCents + flatFee40Cents,
+      totalCents: totalOf(computed, feeCents, interestCents, flatFee40Cents),
     },
     findings,
   };

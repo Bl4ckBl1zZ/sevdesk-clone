@@ -1676,6 +1676,39 @@ export default defineSchema({
     finishedAt: v.optional(v.number()),
     actor: vActor,
   }).index("by_date", ["date"]),
+  // F05 receivables letters 🔒 (PAY-005 Kontoauszug, PAY-048 Zahlungsbestätigung, DUN-028 Zinsforderung, DUN-044
+  // Mahnbescheid-Datenblatt): every generated PDF is archived with its sha256 (Handelsbrief, GOBD-11) and may be
+  // marked sent once (manual, B2 — the app never sends). Written only by convex/model/receivableLetters.ts.
+  receivableLetters: defineTable({
+    kind: v.union(
+      v.literal("account_statement"),
+      v.literal("payment_confirmation"),
+      v.literal("interest_claim"),
+      v.literal("mahnbescheid_sheet"),
+    ),
+    contactId: v.optional(v.id("contacts")),
+    documentId: v.optional(v.id("salesDocuments")),
+    paymentId: v.optional(v.id("payments")),
+    date: v.string(),
+    title: v.string(),
+    subject: v.string(),
+    file: vFileRef,
+    /** DUN-044: the JSON data exported next to the PDF. */
+    data: v.optional(v.string()),
+    sent: v.optional(
+      v.object({
+        sentOn: v.string(),
+        channel: vSendChannel,
+        note: v.optional(v.string()),
+        at: v.number(),
+        actor: vActor,
+      }),
+    ),
+    actor: vActor,
+    createdAt: v.number(),
+  })
+    .index("by_contact", ["contactId"])
+    .index("by_document", ["documentId"]),
 
   // 03 §4 salesDocuments 🔒 (F04). P1 invoices core: the fields plain invoices use; quotes/advances/Storno/
   // corrections/reminders add theirs with their slices (the matrix row in src/domain/audit/immutability.ts already

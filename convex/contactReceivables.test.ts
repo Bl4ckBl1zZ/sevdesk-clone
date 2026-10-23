@@ -56,4 +56,29 @@ describe("PAY-004 Kontakt › Offene Posten", { timeout: 30_000 }, () => {
     expect(org.items.map((i) => i.id)).toEqual([id]);
     expect(other).toBe(orgId);
   });
+
+  test("PAY-008 payment behaviour of the last 12 months: amount-weighted days to pay and share paid late", async () => {
+    const t = makeT();
+    const { owner, id, personId } = await finalizedInvoice(t); // dated 2026-10-12, due 2026-11-11
+    const account = await t.run((ctx) => defaultInvoiceAccount(ctx));
+    if (!account) throw new Error("no invoice bank account");
+    const second = await owner.mutation(api.invoices.createDraft, { values: invoiceValues(personId) });
+    await owner.action(api.invoices.finalize, { id: second.id, version: 1 });
+    await settle(t);
+    const pay = (o: typeof owner, documentId: Id<"salesDocuments">, date: string) =>
+      o.mutation(api.payments.recordForInvoice, {
+        documentId,
+        source: { kind: "clearing", accountId: account._id },
+        date,
+        amountCents: 119_000,
+      });
+    await pay(owner, second.id, "2026-10-12"); // in time, 0 days
+    vi.setSystemTime(new Date("2026-11-20T10:00:00Z"));
+    const later = await t.asUser("owner", { existingUserId: owner.userId });
+    await pay(later, id, "2026-11-20"); // 39 days, after the due date → late
+    const contactId = (await t.run((ctx) => ctx.db.get(id)))?.contactId as Id<"contacts">;
+    const view = await later.query(api.payments.contactReceivables, { contactId });
+    // (119 000 × 0 + 119 000 × 39) / 238 000 = 19,5 → 20
+    expect(view.behaviour).toEqual({ averageDaysToPay: 20, lateShareBp: 5000, invoices: 2, from: "2025-11-21" });
+  });
 });

@@ -8,6 +8,10 @@ const backend = vi.hoisted(() => ({ data: {} as Record<string, unknown> }));
 vi.mock("@/hooks/use-authed-query", () => ({
   useAuthedQuery: (ref: unknown) => backend.data[getFunctionName(ref as never)],
 }));
+vi.mock("@/components/receivables/letters", () => ({
+  StatementButton: () => <button type="button">Kontoauszug erstellen</button>,
+  ArchivedLetters: () => null,
+}));
 vi.mock("@/components/dunning/contact-dunning-card", () => ({
   ContactDunningCard: ({ contactId }: { contactId: string }) => <div data-testid="dunning-card">{contactId}</div>,
 }));
@@ -37,6 +41,7 @@ beforeEach(() => {
       creditCents: 1_500,
       averageDaysToPay: 12,
       paidInvoices: 3,
+      behaviour: { averageDaysToPay: 14, lateShareBp: 3333, invoices: 3, from: "2025-10-24" },
       truncated: false,
       payments: [
         {
@@ -103,6 +108,7 @@ describe("ContactReceivables (PAY-004)", () => {
       creditCents: 0,
       averageDaysToPay: null,
       paidInvoices: 0,
+      behaviour: null,
       truncated: false,
       payments: [],
     };
@@ -110,5 +116,11 @@ describe("ContactReceivables (PAY-004)", () => {
     expect(screen.getByText("Keine offenen Posten.")).toBeInTheDocument();
     expect(screen.getByText("Noch keine Zahlungen erfasst.")).toBeInTheDocument();
     expect(screen.getByText("Noch keine bezahlten Rechnungen")).toBeInTheDocument();
+  });
+
+  test("PAY-008 shows the payment behaviour of the last 12 months (weighted days, late share)", () => {
+    renderWithIntl(<ContactReceivables contactId="c1" />);
+    expect(screen.getByText("Zahlungsverhalten (12 Monate)")).toBeInTheDocument();
+    expect(screen.getByText("Ø 14 Tage (betragsgewichtet), 33,33 % verspätet – 3 Rechnungen")).toBeInTheDocument();
   });
 });

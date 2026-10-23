@@ -410,7 +410,7 @@ export async function previewJournal(
   | {
       status: "lines";
       text: string;
-      lines: { account: string; role?: string; debitCents: number; creditCents: number }[];
+      lines: { account: string; role?: string; taxKey?: string; debitCents: number; creditCents: number }[];
     }
   | { status: "skipped" | "error"; message?: string }
 > {
@@ -432,6 +432,8 @@ export async function previewJournal(
     lines: resolved.value.lines.map((l) => ({
       account: l.account,
       ...(l.role !== undefined ? { role: l.role } : {}),
+      // F05 PAY-015: the booking preview shows the tax key
+      ...(l.taxKey !== undefined ? { taxKey: l.taxKey } : {}),
       debitCents: l.debitCents,
       creditCents: l.creditCents,
     })),

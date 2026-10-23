@@ -6,7 +6,7 @@
 import type { BasiszinssatzValue } from "../rules/basiszinssatz";
 import type { RuleOverride } from "../rules/rule-table";
 import { addDays, type CalendarDate, formatGermanDate } from "../time/calendar-date";
-import { type Claim, computeClaim, type PrincipalHistory } from "./claim";
+import { type Claim, computeClaim, FLAT_FEE_EUR_MESSAGE, type PrincipalHistory } from "./claim";
 import { type DefaultStartViaReminder, defaultStartOf, type ReminderFacts } from "./default-start";
 import { limitationDateOf } from "./limitation";
 import { type DunningPolicy, nextStepOf, type PolicyStep, resolvePolicyId } from "./policy";
@@ -90,6 +90,8 @@ export interface InvoiceState {
   readonly reminders: readonly ReminderState[];
   readonly paymentSignal: boolean;
   readonly history: PrincipalHistory;
+  /** Document currency (EC-DUN-27); default EUR. */
+  readonly currency?: string | undefined;
 }
 
 export interface EvaluationContext {
@@ -238,11 +240,13 @@ export function evaluateInvoice(today: CalendarDate, inv: InvoiceState, ctx: Eva
     flatFeeCharged: inv.case?.flatFeeCharged ?? false,
     state: ctx.state,
     ...(ctx.overrides ? { overrides: ctx.overrides } : {}),
+    ...(inv.currency ? { currency: inv.currency } : {}),
   });
   if (!claim.ok) return skip("claim_error", { level: step.level, detail: claim.error.message });
   // 8. finalize or draft (DUN-057, EC-DUN-19)
   const wantsFinalize = ctx.autoFinalizeReminders && step.autoFinalize;
   const notes: string[] = [];
+  if (claim.value.flatFeeCurrency && claim.value.flatFee40Cents > 0) notes.push(FLAT_FEE_EUR_MESSAGE);
   if (wantsFinalize && !ctx.bankDataCurrent) {
     notes.push(`Bankdaten nicht aktuell${ctx.bankDataNote ? ` (${ctx.bankDataNote})` : ""} – nur Entwurf.`);
   }

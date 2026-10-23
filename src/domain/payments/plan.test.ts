@@ -145,17 +145,68 @@ describe("planPayment (F05 §4.1, PAY-010 ff.)", () => {
     );
   });
 
-  test("T05-016 T05-017 EC-PAY-04/05 draft, cancelled and Storno documents are rejected", () => {
-    expect(errorOf(planPayment(pay(100), ctx({}, [{ ...INV, status: "draft" }])))?.message).toBe(
-      "Zahlungen können nur auf fertiggestellte Rechnungen gebucht werden.",
-    );
-    expect(errorOf(planPayment(pay(100), ctx({}, [{ ...INV, status: "cancelled" }])))?.code).toBe("cancelled");
-    expect(errorOf(planPayment(pay(100), ctx({}, [{ ...INV, docType: "cancellation" }])))?.message).toBe(
-      "Die Rechnung ist storniert. Bitte die Zahlung der neuen Rechnung zuordnen oder als Guthaben des Kunden erfassen.",
+  test("EC-PAY-03 GOBD-02 a transaction allocated meanwhile by another client fails the re-check with „neu laden“", () => {
+    // Client B planned against the full 1.190,00; client A has allocated all of it in the meantime.
+    const bank = (allocatedCents: number): SourceFacts => ({
+      kind: "bank",
+      bank: {
+        bookingDate: "2026-10-12",
+        amountCents: 119000,
+        allocatedCents,
+        currency: "EUR",
+        status: allocatedCents === 0 ? "open" : allocatedCents === 119000 ? "matched" : "partially_matched",
+      },
+    });
+    const input: PaymentInput = {
+      source: { kind: "bank", transactionId: "tx" },
+      date: TODAY,
+      allocations: [{ target: INV.ref, amountCents: 119000 }],
+    };
+    expect(planPayment(input, ctx({}, undefined, bank(0))).ok).toBe(true);
+    expect(errorOf(planPayment(input, ctx({}, undefined, bank(119000))))).toEqual({
+      code: "concurrent_allocation",
+      message: "Diese Bankbuchung wurde soeben anderweitig zugeordnet. Bitte neu laden.",
+    });
+    // a partially matched transaction keeps the informative EC-PAY-02 message
+    expect(errorOf(planPayment(input, ctx({}, undefined, bank(100000))))?.message).toBe(
+      "Die Zuordnungen (1.190,00\u00a0€) übersteigen den verfügbaren Betrag der Zahlung (190,00\u00a0€).",
     );
   });
 
-  test("T05-018 EC-PAY-06/07 future date rejected; before the invoice date → ⚑ warning", () => {
+  test("EC-PAY-43 AO-04 a cash receipt without an invoice („Barverkauf“) is impossible", () => {
+    const msg =
+      "Bareinnahmen ohne Rechnung sind nicht vorgesehen (keine Kassenfunktion). Bitte zuerst eine Rechnung erstellen.";
+    const cash = (allocations: PaymentInput["allocations"]) =>
+      planPayment({ source: { kind: "cash" }, date: TODAY, allocations }, ctx({}, [INV], { kind: "cash" }));
+    expect(errorOf(cash([]))).toEqual({ code: "cash_without_invoice", message: msg });
+    // only a credit balance, no issued document
+    expect(errorOf(cash([{ target: { kind: "contactCredit", id: "c1" }, amountCents: 5000 }]))).toEqual({
+      code: "cash_without_invoice",
+      message: msg,
+    });
+    expect(cash([{ target: INV.ref, amountCents: 5000 }]).ok).toBe(true);
+  });
+
+  test("T05-016 EC-PAY-04 a draft is rejected", () => {
+    expect(errorOf(planPayment(pay(100), ctx({}, [{ ...INV, status: "draft" }])))?.message).toBe(
+      "Zahlungen können nur auf fertiggestellte Rechnungen gebucht werden.",
+    );
+  });
+
+  test("T05-017 EC-PAY-05 a cancelled invoice and the Stornorechnung itself are rejected with the credit hint", () => {
+    const hint =
+      "Die Rechnung ist storniert. Bitte die Zahlung der neuen Rechnung zuordnen oder als Guthaben des Kunden erfassen.";
+    expect(errorOf(planPayment(pay(100), ctx({}, [{ ...INV, status: "cancelled" }])))).toEqual({
+      code: "cancelled",
+      message: hint,
+    });
+    expect(errorOf(planPayment(pay(100), ctx({}, [{ ...INV, docType: "cancellation" }])))).toEqual({
+      code: "cancelled",
+      message: hint,
+    });
+  });
+
+  test("T05-018 EC-PAY-06 EC-PAY-07 future date rejected; before the invoice date → ⚑ warning", () => {
     expect(errorOf(planPayment(pay(100, { date: "2026-10-14" }), ctx()))?.message).toBe(
       "Das Zahlungsdatum darf nicht in der Zukunft liegen.",
     );
@@ -229,7 +280,7 @@ describe("planPayment (F05 §4.1, PAY-010 ff.)", () => {
     ]);
   });
 
-  test("T05-037 T05-038 PAY-020 PAY-023 bank fees (no VAT) + Skonto on one allocation; EC-PAY-10 above 25,00 €", () => {
+  test("T05-037 T05-038 PAY-020 PAY-023 EC-PAY-10 bank fees (no VAT) + Skonto on one allocation; EC-PAY-10 above 25,00 €", () => {
     const r = planPayment(
       pay(116270, {
         allocations: [
@@ -254,12 +305,23 @@ describe("planPayment (F05 §4.1, PAY-010 ff.)", () => {
       }),
       ctx(),
     );
+    // EC-PAY-10: allowed, but ⚑ (must be acknowledged); exactly 25,00 € does not warn
+    expect(high.ok && high.value.warnings.map((w) => [w.code, w.ack])).toEqual([["bank_fees_high", true]]);
+    const edge = planPayment(
+      pay(116500, {
+        allocations: [
+          { target: INV.ref, amountCents: 116500, differences: [{ reason: "bank_fees", amountCents: 2500 }] },
+        ],
+      }),
+      ctx(),
+    );
+    expect(edge.ok && edge.value.warnings).toEqual([]);
     expect(high.ok && high.value.warnings[0]?.message).toBe(
       "Ungewöhnlich hohe Bankgebühren (30,00 €). Bitte prüfen, ob es sich um eine Teilzahlung handelt.",
     );
   });
 
-  test("T05-040 T05-041 T05-042 PAY-025 write-off: sub-reason required, statute_barred only after limitation, Ist info", () => {
+  test("T05-040 T05-041 T05-042 PAY-025 EC-PAY-14 EC-PAY-15 EC-PAY-16 write-off: sub-reason required, statute_barred only after limitation, Ist info", () => {
     const wo = (sub?: "insolvency" | "statute_barred", facts = INV, today = TODAY) =>
       planPayment(
         {
@@ -286,6 +348,9 @@ describe("planPayment (F05 §4.1, PAY-010 ff.)", () => {
     expect(ok.ok && ok.value.totalCents).toBe(0);
     const ist = wo("insolvency", { ...INV, taxedAs: "ist", methodOnDate: "ist" });
     expect(ist.ok && ist.value.warnings.map((w) => [w.code, w.ack])).toEqual([["write_off_ist", false]]);
+    expect(ist.ok && ist.value.warnings[0]?.message).toBe(
+      "Bei Ist-Versteuerung wurde die Umsatzsteuer noch nicht abgeführt – es erfolgt keine USt-Korrektur.",
+    );
     expect(wo("statute_barred", { ...INV, dueDate: "2022-06-01" }).ok).toBe(true);
     expect(limitationDate("2023-03-01")).toBe("2026-12-31");
   });
@@ -444,5 +509,81 @@ describe("single-invoice shape and excess resolution (PAY-030)", () => {
       { reason: "default_interest", amountCents: -1200 },
     ]);
     expect(allocationsForInvoice({ invoice, sourceKind: "bank", amountCents: 120000 }).ok).toBe(false);
+  });
+});
+
+describe("foreign-currency payments (PAY-018, MISC-08)", () => {
+  // USD invoice 1.190,00 USD at „1 EUR = 1.19 USD“ → 1.000,00 € at invoice
+  const USD: TargetFacts = { ...INV, currency: "USD", fxRateToEur: "1.19", skonto: null };
+  const fx = (amountCents: number, eurAmountCents?: number, facts: TargetFacts = USD) =>
+    planPayment(
+      pay(amountCents, {
+        allocations: [{ target: INV.ref, amountCents, ...(eurAmountCents !== undefined ? { eurAmountCents } : {}) }],
+      }),
+      ctx({}, [facts]),
+    );
+
+  test("EC-PAY-22 a payment on a foreign-currency invoice without the EUR amount received is rejected", () => {
+    expect(errorOf(fx(119000))).toEqual({
+      code: "fx_missing",
+      message: "Bitte den tatsächlich erhaltenen Euro-Betrag angeben (Fremdwährung).",
+    });
+    expect(errorOf(fx(119000, 0))?.code).toBe("amount_positive");
+  });
+
+  test("EC-PAY-23 PAY-018 the EUR difference to the value at invoice is an FX gain/loss (never Skonto), rounded once on the EUR side", () => {
+    const loss = fx(119000, 98000);
+    expect(loss.ok && loss.value.rows[0]).toMatchObject({
+      amountCents: 119000,
+      settlesCents: 119000,
+      openAfterCents: 0,
+      differences: [],
+      eurAmountCents: 98000,
+      eurAtInvoiceCents: 100000,
+      fxDifferenceCents: 2000, // + = loss
+    });
+    expect(loss.ok && loss.value.warnings).toEqual([
+      { code: "fx_difference", message: "Kursdifferenz: 20,00\u00a0€ (Kursverlust)", ack: false },
+    ]);
+    const gain = fx(119000, 101050);
+    expect(gain.ok && gain.value.rows[0]?.fxDifferenceCents).toBe(-1050);
+    expect(gain.ok && gain.value.warnings[0]?.message).toBe("Kursdifferenz: 10,50\u00a0€ (Kursgewinn)");
+    const none = fx(119000, 100000);
+    expect(none.ok && [none.value.rows[0]?.fxDifferenceCents, none.value.warnings]).toEqual([0, []]);
+    // partial payments: the EUR value at invoice is taken cumulatively, so the last payment absorbs the rounding
+    // 0,01 USD → 0,0084 € → 0,01 €; the rest 1.189,99 USD → 1.000,00 − 0,01 = 999,99 €
+    const first = fx(1, 1);
+    expect(first.ok && first.value.rows[0]?.eurAtInvoiceCents).toBe(1);
+    const rest = fx(118999, 99999, { ...USD, openAmountCents: 118999 });
+    expect(rest.ok && rest.value.rows[0]?.eurAtInvoiceCents).toBe(99999);
+  });
+
+  test("PAY-018 P1: differences (Skonto, fees, write-off) are not offered on a foreign-currency payment", () => {
+    const r = planPayment(
+      pay(116620, {
+        allocations: [
+          {
+            target: INV.ref,
+            amountCents: 116620,
+            eurAmountCents: 98000,
+            differences: [{ reason: "bank_fees", amountCents: 2380 }],
+          },
+        ],
+      }),
+      ctx({}, [USD]),
+    );
+    expect(errorOf(r)).toEqual({
+      code: "differences_not_allowed",
+      message:
+        "Differenzen (Skonto, Gebühren, Ausbuchung) sind bei Zahlungen in Fremdwährung noch nicht möglich. Bitte den Zahlbetrag ohne Differenz erfassen; der Rest bleibt offen.",
+    });
+  });
+
+  test("EC-CSH-35 cash on a foreign-currency invoice stays impossible; an invoice without a rate is deferred", () => {
+    expect(errorOf(planPayment(pay(100, { source: { kind: "cash" } }), ctx({}, [USD], { kind: "cash" })))?.code).toBe(
+      "cash_eur_only",
+    );
+    const { fxRateToEur: _, ...noRate } = USD;
+    expect(errorOf(fx(100, 84, noRate))?.code).toBe("fx_deferred");
   });
 });

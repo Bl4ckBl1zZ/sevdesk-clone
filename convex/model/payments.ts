@@ -9,7 +9,12 @@ import { taxationMethodAt } from "../../src/domain/accounting/period";
 import { derivePaymentStatus, NEGATIVE_OPEN_MESSAGE, type StatusRow } from "../../src/domain/documents/payment-status";
 import { isArchiveOnlyImport } from "../../src/domain/import/sevdesk/types";
 import { formatEuro } from "../../src/domain/money/format";
-import { averageDaysToPay, type PaidInvoice } from "../../src/domain/payments/customer";
+import {
+  averageDaysToPay,
+  type PaidInvoice,
+  paymentBehaviour,
+  type SettledInvoice,
+} from "../../src/domain/payments/customer";
 import { PAY_MESSAGES } from "../../src/domain/payments/messages";
 import { computeOpenItems, type OpenItemDocument, type SettlementRow } from "../../src/domain/payments/open-items";
 import {
@@ -279,6 +284,7 @@ async function loadTarget(ctx: ReadCtx, ref: TargetRef, date: string): Promise<L
         methodOnDate,
         claimedFeesCents: 0,
         claimedInterestCents: 0,
+        ...(doc.fxRateToEur ? { fxRateToEur: doc.fxRateToEur.rate } : {}),
       },
     };
   }
@@ -325,6 +331,10 @@ async function sourceFacts(
   source: SourceArg,
 ): Promise<{ facts: SourceFacts; tx?: Doc<"bankTransactions"> }> {
   if (source.kind === "bank") {
+    // EC-PAY-25 / BNK-111: a provisional (PDNG) feed row is never booked or matched — only its booked successor.
+    if (ctx.db.normalizeId("bankPendingTransactions", source.transactionId) !== null) {
+      throw appError("invalid_input", PAY_MESSAGES.pendingTx, { reason: "TX_PENDING" });
+    }
     const tx = await requireTransaction(ctx, source.transactionId);
     if (tx.currency !== "EUR") throw appError("invalid_input", PAY_MESSAGES.fxDeferred, { reason: "FX_DEFERRED" });
     return {
@@ -409,6 +419,13 @@ export async function planFor(ctx: ReadCtx, original: RecordArgs, now: number): 
     ...(args.allowWrittenOff ? { allowWrittenOff: true } : {}),
   });
   if (!r.ok) rejected(r.error);
+  // PAY-018 gate: the domain plans foreign-currency payments (EUR received, FX difference, EC-PAY-22/23), but the
+  // invoice journal entry of a non-EUR document is still posted in document-currency cents (F08 `invoice_finalised`
+  // carries no EUR conversion), so an FX payment could not be booked against a matching EUR receivable yet.
+  // LEGAL-OPEN: F05 PAY-018 spec note — lifted once non-EUR invoices post in EUR (MISC-08, W1/W4).
+  if (r.value.rows.some((row) => row.eurAmountCents !== undefined)) {
+    throw appError("invalid_input", PAY_MESSAGES.fxDeferred, { reason: "FX_DEFERRED" });
+  }
   return { plan: r.value, targets, ...(tx ? { tx } : {}) };
 }
 
@@ -811,7 +828,17 @@ export async function reversePayment(
     }
     ids.push(reversalId);
   }
-  return { reversalIds: ids, date: plan.value.date, warnings: plan.value.warnings };
+  const warnings = [...plan.value.warnings];
+  // EC-PAY-34 / UST-41: a reversed advance payment after the final invoice deducted it — the advance re-opens as a
+  // separate receivable; the finalised deduction stays (RI-08). The owner is warned in the reversal result.
+  for (const r of rows) {
+    if (r.target.kind !== "salesDocument") continue;
+    const advance = await ctx.db.get(r.target.id as Id<"salesDocuments">);
+    if (advance?.type !== "advance_invoice" || !advance.deductedInId) continue;
+    const message = PAY_MESSAGES.advanceReopened(advance.number ?? "", advance.openAmountCents ?? 0);
+    warnings.push({ code: "advance_reopened", message, ack: false });
+  }
+  return { reversalIds: ids, date: plan.value.date, warnings };
 }
 
 /** BNK-047 „Zuordnung aufheben“ / BNK-121 bank reversal: reverses every active allocation of a transaction. */
@@ -1382,6 +1409,7 @@ export async function contactReceivables(ctx: ReadCtx, contactId: Id<"contacts">
   const totals = { openCents: 0, overdueCents: 0, dueWithin7Cents: 0 };
   const payments: PaymentDoc[] = [];
   const paid: PaidInvoice[] = [];
+  const settled: SettledInvoice[] = [];
   let creditCents = 0;
   for (const cid of ids) {
     const open = await openItemsAsOf(ctx, { asOf: today, contactId: cid });
@@ -1402,7 +1430,18 @@ export async function contactReceivables(ctx: ReadCtx, contactId: Id<"contacts">
       .collect()) {
       if (!PAYABLE_TYPES.has(d.type) || d.paymentStatus !== "paid" || !d.documentDate) continue;
       const st = await documentSettlement(ctx, d._id);
-      if (st.paidOn && st.receivedCents > 0) paid.push({ documentDate: d.documentDate, paidOn: st.paidOn });
+      if (st.paidOn && st.receivedCents > 0) {
+        paid.push({ documentDate: d.documentDate, paidOn: st.paidOn });
+        // PAY-008: weighted by the received amount (EUR; foreign-currency receipts are not recordable yet, PAY-018)
+        if (d.currency === "EUR") {
+          settled.push({
+            documentDate: d.documentDate,
+            ...(d.dueDate ? { dueDate: d.dueDate } : {}),
+            paidOn: st.paidOn,
+            amountCents: st.receivedCents,
+          });
+        }
+      }
     }
   }
   items.sort((a, b) => (a.dueDate ?? a.documentDate).localeCompare(b.dueDate ?? b.documentDate));
@@ -1413,6 +1452,7 @@ export async function contactReceivables(ctx: ReadCtx, contactId: Id<"contacts">
     creditCents,
     averageDaysToPay: averageDaysToPay(paid),
     paidInvoices: paid.length,
+    behaviour: paymentBehaviour(settled, today),
     truncated: payments.length > HISTORY_LIMIT,
     payments: payments.slice(0, HISTORY_LIMIT).map((p) => ({
       paymentId: p._id,

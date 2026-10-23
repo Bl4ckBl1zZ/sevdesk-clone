@@ -155,6 +155,7 @@ import type * as model_periodLock from "../model/periodLock.js";
 import type * as model_privacy from "../model/privacy.js";
 import type * as model_products from "../model/products.js";
 import type * as model_projects from "../model/projects.js";
+import type * as model_receivableLetters from "../model/receivableLetters.js";
 import type * as model_recurring from "../model/recurring.js";
 import type * as model_recurringVouchers from "../model/recurringVouchers.js";
 import type * as model_reports from "../model/reports.js";
@@ -367,6 +368,7 @@ declare const fullApi: ApiFromModules<{
   "model/privacy": typeof model_privacy;
   "model/products": typeof model_products;
   "model/projects": typeof model_projects;
+  "model/receivableLetters": typeof model_receivableLetters;
   "model/recurring": typeof model_recurring;
   "model/recurringVouchers": typeof model_recurringVouchers;
   "model/reports": typeof model_reports;

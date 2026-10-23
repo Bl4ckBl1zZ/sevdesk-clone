@@ -12,6 +12,7 @@ import { useId, useState } from "react";
 import { ConfirmDialog, formatDate, todayBerlin, useCan } from "@/components/catalog/shared";
 import { money } from "@/components/invoices/invoice-shared";
 import { FactList } from "@/components/layout/list-layout";
+import { LetterButton } from "@/components/receivables/letters";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -44,6 +45,7 @@ type CaseAction = CaseActionValues["action"];
 export function InvoiceDunningSection({ invoiceId, type }: { invoiceId: string; type: SalesDocType }) {
   const t = useTranslations("dunning.invoice");
   const tPreview = useTranslations("dunning.preview");
+  const tl = useTranslations("receivables.letters");
   const router = useRouter();
   const data = useAuthedQuery(
     api.dunning.forInvoice,
@@ -94,6 +96,14 @@ export function InvoiceDunningSection({ invoiceId, type }: { invoiceId: string; 
                 {active.length > 0 ? t("nextLevel") : t("create")}
               </Button>
             )}
+            {/* DUN-044: data sheet for the online Mahnantrag once the debtor is in default */}
+            {data.defaultStart && (
+              <LetterButton
+                label={tl("mahnbescheid")}
+                testId="mahnbescheid-sheet"
+                request={{ kind: "mahnbescheid_sheet", invoiceId: invoiceId as Id<"salesDocuments"> }}
+              />
+            )}
             {caseActions.length > 0 && (
               <DropdownMenu>
                 <DropdownMenuTrigger render={<Button variant="outline" className="h-11 md:h-9" />}>
@@ -120,6 +130,19 @@ export function InvoiceDunningSection({ invoiceId, type }: { invoiceId: string; 
         {data.contactBlocked && <Badge variant="outline">{t("contactBlocked")}</Badge>}
         <LimitationBadge limitation={data.limitation} />
       </div>
+      {data.zugangNotice && (data.dunnable || data.zugangNotice.severity === "I") && (
+        <p
+          role="status"
+          data-testid="zugang-notice"
+          className={
+            data.zugangNotice.severity === "W"
+              ? "rounded-md border border-warning/40 bg-warning/5 p-2 text-sm"
+              : "text-muted-foreground text-sm"
+          }
+        >
+          {data.zugangNotice.message}
+        </p>
+      )}
       <FactList
         items={[
           {

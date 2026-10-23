@@ -9,11 +9,15 @@ import { formatDate } from "@/components/catalog/shared";
 import { ContactDunningCard } from "@/components/dunning/contact-dunning-card";
 import { money } from "@/components/invoices/invoice-shared";
 import { FactList } from "@/components/layout/list-layout";
+import { ArchivedLetters, StatementButton } from "@/components/receivables/letters";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { formatBasisPoints } from "@/domain/money/format";
 import { PAYMENT_SOURCE_LABEL_DE } from "@/domain/payments/customer";
 import { useAuthedQuery } from "@/hooks/use-authed-query";
+
+const formatPercentBp = (bp: number) => `${formatBasisPoints(bp)} %`;
 
 /** F05 PAY-004 Kontakt › „Offene Posten": open items, payment history, credit, dunning cases, average days to pay. */
 export function ContactReceivables({ contactId }: { contactId: string }) {
@@ -41,8 +45,28 @@ export function ContactReceivables({ contactId }: { contactId: string }) {
                     ? t("noPaidInvoices")
                     : t("days", { days: data.averageDaysToPay, count: data.paidInvoices }),
               },
+              // PAY-008: payment behaviour of the last 12 months (weighted by amount)
+              ...(data.behaviour
+                ? [
+                    {
+                      label: t("behaviour"),
+                      value: t("behaviourValue", {
+                        days: data.behaviour.averageDaysToPay,
+                        late: formatPercentBp(data.behaviour.lateShareBp),
+                        count: data.behaviour.invoices,
+                      }),
+                    },
+                  ]
+                : []),
             ]}
           />
+          {/* PAY-005 Kontoauszug / Saldenbestätigung as PDF; archived letters with the manual sent mark */}
+          <div className="mt-3 flex flex-col gap-3">
+            <div>
+              <StatementButton contactId={contactId} />
+            </div>
+            <ArchivedLetters contactId={contactId} />
+          </div>
         </CardContent>
       </Card>
       <Card>

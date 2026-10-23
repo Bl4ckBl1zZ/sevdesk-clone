@@ -11,7 +11,7 @@ import { money } from "@/components/invoices/invoice-shared";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { formatCents } from "@/domain/money/format";
-import { parseCents } from "@/domain/money/parse";
+import { parsePaymentAmount } from "@/domain/payments/amount";
 import { useAuthedQuery } from "@/hooks/use-authed-query";
 
 type PaymentsData = FunctionReturnType<typeof api.payments.forDocument>;
@@ -73,8 +73,17 @@ export function PaymentDialog({
     otherAccount: useId(),
   };
 
-  const parsed = parseCents(amountText);
-  const amountCents = parsed.ok ? Number(parsed.value) : null;
+  // EC-PAY-38 / 04 §8: „1.234“ = 1.234,00 € (shown back), > 2 decimals rejected
+  const parsed = parsePaymentAmount(amountText);
+  const amountCents = parsed.ok ? parsed.value.cents : null;
+  const amountHint =
+    amountText.trim() === ""
+      ? null
+      : parsed.ok
+        ? parsed.value.interpretation
+          ? `= ${parsed.value.interpretation}`
+          : null
+        : parsed.error.message;
   const incoming = (unmatched ?? []).filter((x) => x.direction === "in" && x.currency === "EUR");
   const tx = incoming.find((x) => x.id === txId);
   const effectiveDate = tx ? tx.bookingDate : date;
@@ -214,10 +223,20 @@ export function PaymentDialog({
               id={ids.amount}
               inputMode="decimal"
               value={amountText}
-              aria-invalid={!parsed.ok}
+              aria-invalid={amountText.trim() !== "" && !parsed.ok}
+              aria-describedby={amountHint ? `${ids.amount}-hint` : undefined}
               onChange={(e) => setAmountText(e.target.value)}
               className="h-11 text-right tabular-nums md:h-9"
             />
+            {amountHint && (
+              <p
+                id={`${ids.amount}-hint`}
+                className={parsed.ok ? "text-muted-foreground text-xs" : "text-destructive text-xs"}
+                data-testid="amount-hint"
+              >
+                {amountHint}
+              </p>
+            )}
           </div>
         </div>
         {means === "cash" && cashBack > 1 && (
@@ -365,9 +384,11 @@ export function PaymentDialog({
                   {(() => {
                     const p = preview.postings[i];
                     if (p?.status !== "lines") return null;
+                    // PAY-015: account (role resolved to the chart), debit S / credit H, tax key
                     return p.lines.map((l) => (
                       <li key={`${l.account}-${l.debitCents}-${l.creditCents}`}>
                         {l.account} {l.debitCents ? `${money(l.debitCents)} S` : `${money(l.creditCents)} H`}
+                        {l.taxKey ? ` · ${l.taxKey}` : ""}
                       </li>
                     ));
                   })()}

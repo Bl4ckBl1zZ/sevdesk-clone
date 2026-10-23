@@ -33,6 +33,7 @@ import {
   validatePolicy,
 } from "../../src/domain/dunning/policy";
 import { defaultReminderTexts, reminderPlaceholderValues } from "../../src/domain/dunning/templates";
+import { validateZugangOverride, ZUGANG_MESSAGES } from "../../src/domain/dunning/zugang";
 import { basiszinsRuleVersions } from "../../src/domain/rules/overrides";
 import type { DunningSettingsValues, PolicyValues, ReminderCreateValues } from "../../src/domain/schemas/dunning";
 import { berlinCalendarDate } from "../../src/domain/time/berlin";
@@ -422,6 +423,7 @@ export async function loadInvoiceState(ctx: ReadCtx, inv: SalesDoc, today: Calen
     reminders: reminders.map((r) => reminderState(r, dunningCase)),
     paymentSignal: await paymentSignal(ctx, inv, contactName, today),
     history: await principalHistory(ctx, inv),
+    ...(inv.currency !== "EUR" ? { currency: inv.currency } : {}),
   };
   return { inv, contact, dunningCase, reminders, state };
 }
@@ -469,7 +471,7 @@ export async function dunnableInvoices(ctx: ReadCtx): Promise<SalesDoc[]> {
   return out.sort((a, b) => ((a.dueDate ?? "") < (b.dueDate ?? "") ? -1 : 1));
 }
 
-function defaultStartFor(l: LoadedInvoice, s: RunSettings): DefaultStart | null {
+export function defaultStartFor(l: LoadedInvoice, s: RunSettings): DefaultStart | null {
   return defaultStartOf({
     dueDate: l.state.dueDate,
     invoiceZugang: l.state.zugang,
@@ -646,6 +648,7 @@ export async function planReminder(
     flatFeeCharged: loaded.dunningCase?.flatFeeCharged ?? false,
     state: settings.ctx.state,
     ...(settings.ctx.overrides ? { overrides: settings.ctx.overrides } : {}),
+    ...(inv.currency !== "EUR" ? { currency: inv.currency } : {}),
   });
   if (!computedR.ok) throw appError("invalid_input", computedR.error.message, { reason: computedR.error.code });
   const flatFeeRem = loaded.dunningCase?.flatFeeReminderId
@@ -665,6 +668,18 @@ export async function planReminder(
     date: today,
   });
   findings.push(...applied.findings);
+  // EC-DUN-27: the reminder document prints all amounts in the document currency; until it can show the EUR flat
+  // fee as a separate line, a non-EUR reminder with the 40 € may be drafted but not finalised.
+  // LEGAL-OPEN: F05 EC-DUN-27 spec note (snapshot/PDF currency split, F04 template).
+  if (opts.forFinalize && applied.claim.flatFeeCurrency && applied.claim.flatFee40Cents > 0) {
+    findings.push(
+      err(
+        "flat_fee_eur_not_printable",
+        "Die 40-€-Pauschale einer Rechnung in Fremdwährung kann auf der Mahnung noch nicht gesondert in EUR ausgewiesen werden. Bitte die Pauschale weglassen und gesondert in EUR geltend machen.",
+        "MAHN-03",
+      ),
+    );
+  }
   return { inv, loaded, settings, policyId, step, computed: computedR.value, claim: applied.claim, findings };
 }
 
@@ -1131,6 +1146,7 @@ export async function withdrawReminder(ctx: ModelCtx, id: Id<"salesDocuments">, 
     );
   }
   await resolveNotifications(ctx, id, "reminder_mark_sent");
+  await resolveNotifications(ctx, id, "reminder_withdraw_suggested");
   await refreshDefaultStart(ctx, r.reminder.invoiceId);
 }
 
@@ -1177,6 +1193,16 @@ export async function onSettlementChanged(ctx: ModelCtx, change: SettlementChang
           link: `/mahnungen/${r._id}`,
           entity: { table: "salesDocuments", id: r._id },
           dedupeKey: `reminder_mark_sent:${r._id}`,
+        });
+      } else if (r.status === "sent" && r.number) {
+        // EC-DUN-23 / DUN-009: the reminder stays (immutable); „gegenstandslos“ (+ optional notice) is suggested.
+        await upsertNotification(ctx, {
+          kind: "reminder_withdraw_suggested",
+          severity: "info",
+          title: `Mahnung ${r.number}: Zahlung nach Mahnung eingegangen – Mahnung als gegenstandslos markieren?`,
+          link: `/mahnungen/${r._id}`,
+          entity: { table: "salesDocuments", id: r._id },
+          dedupeKey: `reminder_withdraw_suggested:${r._id}`,
         });
       }
     }
@@ -1231,7 +1257,21 @@ export async function onDispatchChanged(ctx: ModelCtx, documentId: Id<"salesDocu
     if (d.sentAt !== undefined) await resolveNotifications(ctx, documentId, "reminder_mark_sent");
     await refreshDefaultStart(ctx, d.reminder.invoiceId);
   } else if (DUNNABLE.has(d.type)) {
+    const before = await caseOf(ctx, documentId);
     await refreshDefaultStart(ctx, documentId);
+    // EC-DUE-10: the invoice mark was retracted → Zugang gone, a default start depending on it was reset.
+    // (A calendar-route default start needs no Zugang and survives — then nothing was reset.)
+    const after = before ? await caseOf(ctx, documentId) : null;
+    if (!d.zugang && before?.defaultStartDate && !after?.defaultStartDate && before.status !== "closed") {
+      await upsertNotification(ctx, {
+        kind: "dunning_reset",
+        severity: "warning",
+        title: `${d.number ?? "Rechnung"}: ${ZUGANG_MESSAGES.markRetracted}`,
+        link: `/rechnungen/${documentId}`,
+        entity: { table: "salesDocuments", id: documentId },
+        dedupeKey: `dunning_reset:${documentId}:${before.defaultStartDate}`,
+      });
+    }
   }
 }
 
@@ -1468,14 +1508,8 @@ export async function overrideZugang(
   v: { date: string; reason: string },
 ) {
   const d = await getDocument(ctx, documentId);
-  const today = todayOf(ctx);
-  if (!d.sentOn || v.date < d.sentOn || v.date > today || v.reason.trim().length < 5) {
-    throw appError(
-      "invalid_input",
-      `Das Zugangsdatum muss zwischen Versanddatum (${d.sentOn ? formatGermanDate(d.sentOn as CalendarDate) : "–"}) und heute liegen und begründet werden.`,
-      { field: "date" },
-    );
-  }
+  const invalid = validateZugangOverride({ date: v.date, reason: v.reason, sentOn: d.sentOn, today: todayOf(ctx) });
+  if (invalid) throw appError("invalid_input", invalid, { field: "date" });
   await assertRetractionAllowed(ctx, d).catch(() => {
     throw appError(
       "conflict",

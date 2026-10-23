@@ -116,8 +116,8 @@ const GROUPS: Record<string, readonly string[] | "*"> = {
   cash: ["transfer", "transfer_reverse"],
   // F05 dunning: policies, reminders, cases, runs (dunning.policy.*, dunning.reminder.*, dunning.case.*, dunning.run)
   dunning: "*",
-  // F05 PAY-044 receivables.refreshOverdue
-  receivables: ["overdue"],
+  // F05 PAY-044 receivables.refreshOverdue; PAY-005/048, DUN-028/044 archived letters and their manual sent mark
+  receivables: ["overdue", "letter_archive", "letter_mark_sent"],
   journal: ["post", "reverse", "manual", "opening_balance"],
   period: ["lock"],
   tax_filing: ["submit", "correct", "sondervorauszahlung", "supersede"],

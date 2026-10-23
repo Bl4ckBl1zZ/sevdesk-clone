@@ -6,6 +6,7 @@ import { type DunningAction, SKIP_REASON_LABEL_DE } from "../src/domain/dunning/
 import { computeInterest } from "../src/domain/dunning/interest";
 import { limitationStatus } from "../src/domain/dunning/limitation";
 import { paymentTermsWarning, validatePolicy } from "../src/domain/dunning/policy";
+import { zugangNotice } from "../src/domain/dunning/zugang";
 import {
   caseActionSchema,
   dunningSettingsSchema,
@@ -436,6 +437,8 @@ export const forInvoice = query({
       dunnable,
       zugang: inv.zugang ?? null,
       sentOn: inv.sentOn ?? null,
+      // EC-DUE-07 / EC-DUE-08
+      zugangNotice: zugangNotice({ zugang: inv.zugang }),
       disputed: inv.disputed ? { reason: inv.disputed.reason, at: inv.disputed.at } : null,
       blocked: inv.dunningBlocked ? { reason: inv.dunningBlocked.reason } : null,
       contactBlocked: l.state.contact.blocked,
