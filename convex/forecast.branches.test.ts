@@ -140,11 +140,13 @@ describe("RPT-012 Liquiditätsvorschau sources", () => {
     const t = makeT();
     const { bank, customer } = await setupBooks(t, { ku: true });
     await statement(t, bank);
-    await post(t, {
-      ...invoiceEvent(customer, "d1", "2026-10-02", 10_000),
-      taxCase: "kleinunternehmer",
-      vatGroups: [{ category: "E", rateBp: 0, netCents: 10_000, vatCents: 0 }],
-    });
+    await post(
+      t,
+      invoiceEvent(customer, "d1", "2026-10-02", 10_000, {
+        taxCase: "kleinunternehmer",
+        vatGroups: [{ category: "E", rateBp: 0, netCents: 10_000, vatCents: 0 }],
+      }),
+    );
     const owner = await t.asUser("owner");
     const f = await owner.query(api.reports.forecast, {});
     expect(f.openingParts).toEqual([{ label: "Revolut EUR", cents: 0, reported: false }]);
