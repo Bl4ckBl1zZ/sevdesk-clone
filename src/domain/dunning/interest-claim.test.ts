@@ -46,7 +46,12 @@ describe("„Zinsforderung stellen“ (DUN-028)", () => {
       ["2026-07-01", "2026-07-31", 1052],
     ]);
     // fees of the reminders, part of it already received with the payment (PAY-024)
-    const less = computeInterestClaim({ ...base, reminderFeesCents: 500, feesReceivedCents: 4_500, interestReceivedCents: 7_376 });
+    const less = computeInterestClaim({
+      ...base,
+      reminderFeesCents: 500,
+      feesReceivedCents: 4_500,
+      interestReceivedCents: 7_376,
+    });
     expect(less.ok && less.value.totalCents).toBe(10_000);
     // a consumer: 5 points, no flat fee
     const b2c = computeInterestClaim({ ...base, isConsumer: true });
@@ -58,7 +63,10 @@ describe("„Zinsforderung stellen“ (DUN-028)", () => {
       ok: false,
       error: { code: "not_paid" },
     });
-    const early = computeInterestClaim({ ...base, defaultStart: { date: d("2026-08-02"), route: "30_days", label: "" } });
+    const early = computeInterestClaim({
+      ...base,
+      defaultStart: { date: d("2026-08-02"), route: "30_days", label: "" },
+    });
     expect(early.ok ? null : early.error.message).toBe(
       "Die Rechnung wurde vor Verzugsbeginn bezahlt – es sind keine Verzugszinsen entstanden.",
     );

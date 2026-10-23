@@ -6,9 +6,6 @@
  * A Mahnbescheid suspends the limitation (§ 204 Abs. 1 Nr. 3 BGB), a reminder does not (DUN-041).
  */
 import type { LegalForm } from "../company/legal-forms";
-import { err, type Issue, issue, ok, type Result } from "../result";
-import { lookupVerzugSurcharges } from "../rules/thresholds";
-import type { CalendarDate } from "../time/calendar-date";
 import {
   de,
   eur,
@@ -18,6 +15,9 @@ import {
   type LetterContent,
   senderLineOf,
 } from "../receivables/letter";
+import { err, type Issue, issue, ok, type Result } from "../result";
+import { lookupVerzugSurcharges } from "../rules/thresholds";
+import type { CalendarDate } from "../time/calendar-date";
 import type { DefaultStart } from "./default-start";
 import { percentPoints } from "./interest-claim";
 import { limitationDateOf } from "./limitation";
@@ -123,7 +123,9 @@ const LEGAL_FORM_DE: Readonly<Record<LegalForm, string>> = {
   other: "sonstige",
 };
 
-export function mahnbescheidData(i: MahnbescheidInput): Result<MahnbescheidData, Issue<"not_open" | "eur_only" | string>> {
+export function mahnbescheidData(
+  i: MahnbescheidInput,
+): Result<MahnbescheidData, Issue<"not_open" | "eur_only" | string>> {
   if (i.invoice.currency !== "EUR") return err(issue("eur_only", MAHNBESCHEID_MESSAGES.eurOnly));
   if (i.invoice.openAmountCents <= 0) return err(issue("not_open", MAHNBESCHEID_MESSAGES.notOpen));
   const hints: string[] = [];
@@ -147,7 +149,8 @@ export function mahnbescheidData(i: MahnbescheidInput): Result<MahnbescheidData,
   }
   const reminderFees = Math.max(0, i.reminderFeesCents - i.feesReceivedCents);
   const flatOpen = Math.max(0, flat - Math.max(0, i.feesReceivedCents - i.reminderFeesCents));
-  if (d.kind === "organisation" && !d.legalForm) hints.push(MAHNBESCHEID_MESSAGES.missing("Rechtsform des Antragsgegners fehlt"));
+  if (d.kind === "organisation" && !d.legalForm)
+    hints.push(MAHNBESCHEID_MESSAGES.missing("Rechtsform des Antragsgegners fehlt"));
   if (d.kind === "organisation" && !d.representative) {
     hints.push(MAHNBESCHEID_MESSAGES.missing("Gesetzlicher Vertreter des Antragsgegners fehlt"));
   }

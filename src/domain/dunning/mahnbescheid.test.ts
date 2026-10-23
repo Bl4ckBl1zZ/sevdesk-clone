@@ -82,10 +82,21 @@ describe("Mahnbescheid data sheet (DUN-044)", () => {
   test("DUN-044 a consumer: 5 points and no flat fee; missing legal form/representative and no default give hints", () => {
     const b2c = mahnbescheidData({
       ...base,
-      debtor: { ...base.debtor, name: "Erika Beispiel", kind: "person", isConsumer: true, legalForm: undefined, representative: undefined },
+      debtor: {
+        ...base.debtor,
+        name: "Erika Beispiel",
+        kind: "person",
+        isConsumer: true,
+        legalForm: undefined,
+        representative: undefined,
+      },
     });
-    expect(b2c.ok && [b2c.value.zinsen?.prozentpunkte, b2c.value.nebenforderungen.pauschale288Abs5Cents]).toEqual([5, 0]);
-    expect(b2c.ok && b2c.value.zinsen?.text).toMatch(/^5 Prozentpunkte über dem jeweiligen Basiszinssatz seit 01\.11\.2026/);
+    expect(b2c.ok && [b2c.value.zinsen?.prozentpunkte, b2c.value.nebenforderungen.pauschale288Abs5Cents]).toEqual([
+      5, 0,
+    ]);
+    expect(b2c.ok && b2c.value.zinsen?.text).toMatch(
+      /^5 Prozentpunkte über dem jeweiligen Basiszinssatz seit 01\.11\.2026/,
+    );
     const org = mahnbescheidData({
       ...base,
       defaultStart: null,

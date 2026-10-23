@@ -4,12 +4,7 @@
  * reminder fees claimed and the § 288 Abs. 5 flat fee (business debtors), less what was already received as dunning
  * fees/interest (PAY-024 differences). Pure; `date` is passed in.
  */
-import { err, type Issue, issue, ok, type Result } from "../result";
-import type { BasiszinssatzValue } from "../rules/basiszinssatz";
-import { shiftToBusinessDay } from "../rules/holidays";
-import type { RuleOverride } from "../rules/rule-table";
-import { lookupVerzugSurcharges } from "../rules/thresholds";
-import { addDays, type CalendarDate } from "../time/calendar-date";
+
 import {
   de,
   eur,
@@ -21,8 +16,14 @@ import {
   recipientLines,
   senderLineOf,
 } from "../receivables/letter";
+import { err, type Issue, issue, ok, type Result } from "../result";
+import type { BasiszinssatzValue } from "../rules/basiszinssatz";
+import { shiftToBusinessDay } from "../rules/holidays";
+import type { RuleOverride } from "../rules/rule-table";
+import { lookupVerzugSurcharges } from "../rules/thresholds";
+import { addDays, type CalendarDate } from "../time/calendar-date";
 import type { PrincipalHistory } from "./claim";
-import { type DefaultStart, DEFAULT_ROUTE_LABEL_DE } from "./default-start";
+import { DEFAULT_ROUTE_LABEL_DE, type DefaultStart } from "./default-start";
 import { computeInterest, type InterestSegment } from "./interest";
 
 export const INTEREST_CLAIM_MESSAGES = {
@@ -131,7 +132,9 @@ export function interestClaimLetter(i: {
   ]);
   const sums: string[][] = [
     ["Verzugszinsen gesamt", "", "", "", eur(c.interestCents)],
-    ...(c.interestReceivedCents > 0 ? [["abzüglich erhaltene Zinsen", "", "", "", `−${eur(c.interestReceivedCents)}`]] : []),
+    ...(c.interestReceivedCents > 0
+      ? [["abzüglich erhaltene Zinsen", "", "", "", `−${eur(c.interestReceivedCents)}`]]
+      : []),
     ...(c.reminderFeesCents > 0 ? [["Mahngebühren", "", "", "", eur(c.reminderFeesCents)]] : []),
     ...(c.flatFee40Cents > 0 ? [["Pauschale nach § 288 Abs. 5 BGB", "", "", "", eur(c.flatFee40Cents)]] : []),
     ...(c.feesReceivedCents > 0 ? [["abzüglich erhaltene Kosten", "", "", "", `−${eur(c.feesReceivedCents)}`]] : []),

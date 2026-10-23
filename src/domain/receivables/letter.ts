@@ -9,7 +9,12 @@ import { geschaeftsbriefFooter } from "../company/footer";
 import { formatEuro } from "../money/format";
 import { type CalendarDate, formatGermanDate } from "../time/calendar-date";
 
-export const LETTER_KINDS = ["account_statement", "payment_confirmation", "interest_claim", "mahnbescheid_sheet"] as const;
+export const LETTER_KINDS = [
+  "account_statement",
+  "payment_confirmation",
+  "interest_claim",
+  "mahnbescheid_sheet",
+] as const;
 export type LetterKind = (typeof LETTER_KINDS)[number];
 
 export const LETTER_KIND_LABEL_DE: Readonly<Record<LetterKind, string>> = {

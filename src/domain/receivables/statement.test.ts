@@ -63,7 +63,10 @@ describe("customer account statement (PAY-005)", () => {
       payments: [
         pay("a", "2026-09-05", "RE-2026-0002", 119_000),
         { ...pay("b", "2026-09-08", "RE-2026-0002", -119_000), reversal: true },
-        { ...pay("c", "2026-09-20", "RE-2026-0002", 0, [{ reason: "write_off", amountCents: 119_000 }]), sourceKind: "adjustment" },
+        {
+          ...pay("c", "2026-09-20", "RE-2026-0002", 0, [{ reason: "write_off", amountCents: 119_000 }]),
+          sourceKind: "adjustment",
+        },
       ],
     });
     expect(s.entries.map((e) => [e.text, e.amountCents])).toEqual([

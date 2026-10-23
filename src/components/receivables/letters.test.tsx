@@ -15,11 +15,13 @@ vi.mock("@/hooks/use-authed-query", () => ({
 vi.mock("convex/react", () => {
   const fn = (ref: unknown) => {
     const name = getFunctionName(ref as never);
-    backend.fns[name] ??= vi.fn().mockResolvedValue(
-      name === "payments:letter"
-        ? { letterId: "l1", url: null, pdfBase64: btoa("%PDF-1.7"), name: "Brief.pdf", data: null }
-        : null,
-    );
+    backend.fns[name] ??= vi
+      .fn()
+      .mockResolvedValue(
+        name === "payments:letter"
+          ? { letterId: "l1", url: null, pdfBase64: btoa("%PDF-1.7"), name: "Brief.pdf", data: null }
+          : null,
+      );
     return backend.fns[name];
   };
   return { useMutation: fn, useAction: fn };
