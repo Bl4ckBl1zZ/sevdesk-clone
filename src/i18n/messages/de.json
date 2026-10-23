@@ -6418,10 +6418,12 @@
       "add": "Zeit erfassen",
       "project": "Projekt / Kunde",
       "total": "Summe",
-      "empty": "Keine Zeiten in dieser Woche."
+      "empty": "Keine Zeiten in dieser Woche.",
+      "tableLabel": "Stunden je Projekt und Tag"
     },
     "report": {
       "label": "Zeitauswertung",
+      "tableLabel": "Stunden je {group}",
       "from": "Von",
       "to": "Bis",
       "groupBy": "Gruppieren nach",

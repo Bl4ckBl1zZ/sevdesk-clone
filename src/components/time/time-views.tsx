@@ -94,8 +94,8 @@ export function WeekView({ projectId }: { projectId?: string }) {
         <EmptyState icon={CalendarRangeIcon} title={t("empty")} />
       ) : (
         <>
-          <div className="hidden overflow-x-auto @3xl/main:block">
-            <Table data-testid="week-table">
+          <div className="hidden @3xl/main:block">
+            <Table data-testid="week-table" scrollLabel={t("tableLabel")}>
               <TableHeader>
                 <TableRow>
                   <TableHead>{t("project")}</TableHead>
@@ -275,8 +275,8 @@ export function TimeReportView() {
               </div>
             ))}
           </dl>
-          <div className="overflow-x-auto">
-            <Table data-testid="time-report-table">
+          <div>
+            <Table data-testid="time-report-table" scrollLabel={t("tableLabel", { group: t(`groups.${groupBy}`) })}>
               <TableHeader>
                 <TableRow>
                   <TableHead>{t(`groups.${groupBy}`)}</TableHead>
@@ -304,8 +304,8 @@ export function TimeReportView() {
           <div className="flex flex-col gap-2">
             <h2 className="font-semibold text-base">{t("utilisation")}</h2>
             <p className="text-muted-foreground text-sm">{t("utilisationHint")}</p>
-            <div className="overflow-x-auto">
-              <Table data-testid="time-report-weeks">
+            <div>
+              <Table data-testid="time-report-weeks" scrollLabel={t("utilisation")}>
                 <TableHeader>
                   <TableRow>
                     <TableHead>{t("groups.week")}</TableHead>

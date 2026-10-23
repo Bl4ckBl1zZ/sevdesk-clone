@@ -468,6 +468,9 @@ describe("Week view and time reports (F11 §6, PRJ-017)", () => {
     expect(within(screen.getByTestId("time-report-weeks")).getAllByRole("row")[1]).toHaveTextContent("66,66 %");
     expect(screen.getByRole("button", { name: /Export/ })).toBeInTheDocument();
     expect(screen.getByLabelText("Gruppieren nach")).toHaveValue("project");
+    // Phones scroll the tables sideways: each scroll container is a named, focusable region (04 §9, axe).
+    expect(screen.getByRole("region", { name: "Stunden je Projekt" })).toHaveAttribute("tabindex", "0");
+    expect(screen.getByRole("region", { name: "Auslastung je Woche" })).toHaveAttribute("tabindex", "0");
   });
 });
 
