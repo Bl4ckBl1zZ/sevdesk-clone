@@ -5,6 +5,7 @@ import { serializeEinvoice } from "../einvoice/serialize";
 import type { SnapshotInputLine } from "./build-snapshot";
 import { type ArchivedArtifact, type MarkSentContext, validateMarkSent } from "./dispatch";
 import type { DraftDocument } from "./draft";
+import type { OriginalContext } from "./relations";
 import { validateDocument } from "./validate";
 
 /** 10-edge-cases §3.1/§3.2/§3.5 edge cases on document dates, the mark-sent dialog and long texts (pure domain). */
@@ -33,9 +34,33 @@ describe("EC-023 supply date in the future", () => {
     }
   });
 
-  test("EC-023 a correction with a future supply date is blocked as well", () => {
+  test("EC-023 a correction of an invoice with a future supply date is blocked; a correction of an Anzahlung keeps its expected date", () => {
     const draft = makeDraft({ type: "correction", correctionKind: "rectification", ...future });
     expect(severityOf(draft, "supply_date_in_future")).toBe("E");
+    const original = (type: "invoice" | "advance_invoice" | "partial_invoice"): ReturnType<typeof makeContext> => {
+      const snap = makeSnapshot({ supplyDate: { kind: "date", date: "2026-11-15" } });
+      const o: OriginalContext = {
+        id: "orig",
+        type,
+        status: "finalized",
+        number: "RE-2026-0001",
+        documentDate: "2026-10-01",
+        currency: "EUR",
+        groups: [{ category: "S", rateBp: 1900, netCents: 95_000, vatCents: 18_050 }],
+        hadXml: false,
+        format: "none",
+        er03RefDate: "2026-10-01",
+        earlierCredits: [],
+        earlierCorrections: [],
+        snapshot: snap,
+      };
+      return makeContext({ relations: { original: o } });
+    };
+    const found = (ctx: ReturnType<typeof makeContext>) =>
+      validateDocument(draft, ctx).findings.some((f) => f.code === "supply_date_in_future");
+    expect(found(original("invoice"))).toBe(true);
+    expect(found(original("advance_invoice"))).toBe(false);
+    expect(found(original("partial_invoice"))).toBe(false);
   });
 
   test("EC-023 advance invoices, amount-based partial invoices, quotes, order confirmations and proforma may name a future supply date", () => {

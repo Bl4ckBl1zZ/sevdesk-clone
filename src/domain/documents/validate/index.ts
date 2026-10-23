@@ -303,10 +303,13 @@ export function validateDocument(
       ),
     );
   }
-  // EC-023: only Anzahlungen (advance, amount-based partial) and non-invoices may name a future supply date.
+  // EC-023: only Anzahlungen (advance, amount-based partial) and non-invoices may name a future supply date; a
+  // correction of an Anzahlung keeps the advance's expected supply date.
+  const correctsAdvance =
+    ctx.relations?.original?.type === "advance_invoice" || ctx.relations?.original?.type === "partial_invoice";
   if (
     range &&
-    (draft.type === "invoice" || draft.type === "final_invoice" || draft.type === "correction") &&
+    (draft.type === "invoice" || draft.type === "final_invoice" || (draft.type === "correction" && !correctsAdvance)) &&
     range.from > docDate
   ) {
     push(
