@@ -6,6 +6,8 @@ import {
   emptyVoucherForm,
   paymentInput,
   paymentMethodsFor,
+  taxPaymentHasPeriod,
+  taxPaymentOptions,
   toDraftInput,
   updateLine,
   voucherFormFrom,
@@ -102,6 +104,82 @@ describe("VOU-001 VOU-002 voucher editor state (F06 §6.3)", () => {
       supplyDate: { kind: "date", date: "2026-10-09" },
       lines: [{ account: "6640", amountCents: 11_900, vatRateBp: 1900, vatCents: 1900, nonDeductibleShareBp: 3000 }],
     });
+  });
+});
+
+describe("BNK-064 TAX-018 tax-payment type and period in the voucher editor", () => {
+  const stored = {
+    direction: "expense" as const,
+    kind: "tax_payment" as const,
+    supplierName: "Finanzamt Berlin-Mitte",
+    currency: "EUR",
+    priceMode: "gross" as const,
+    taxRule: "no_input_vat",
+  };
+
+  test("BNK-064 a tax-payment draft from a Finanzamt row loads its type and period; saving sends them back", () => {
+    const form = voucherFormFrom(
+      { ...stored, taxPayment: { subtype: "ust_prepayment", period: "2026-09", filingId: "f1" } },
+      [],
+      "2026-10-19",
+    );
+    expect(form).toMatchObject({ taxPaymentSubtype: "ust_prepayment", taxPaymentPeriod: "2026-09" });
+    expect(toDraftInput(form).input.taxPayment).toEqual({
+      subtype: "ust_prepayment",
+      period: "2026-09",
+      filingId: "f1",
+    });
+  });
+
+  test("BNK-064 a draft without type (the bank reference named none) gets type and period chosen in the editor", () => {
+    const form = voucherFormFrom(stored, [], "2026-10-19");
+    expect(form).toMatchObject({ taxPaymentSubtype: "", taxPaymentPeriod: "" });
+    expect("taxPayment" in toDraftInput(form).input).toBe(false);
+    const { input, issues } = toDraftInput({
+      ...form,
+      taxPaymentSubtype: "ust_prepayment",
+      taxPaymentPeriod: "09/2026",
+    });
+    expect(issues).toEqual([]);
+    expect(input.taxPayment).toEqual({ subtype: "ust_prepayment", period: "2026-09" });
+    expect(
+      toDraftInput({ ...form, taxPaymentSubtype: "sondervorauszahlung", taxPaymentPeriod: "2026" }).input.taxPayment,
+    ).toEqual({ subtype: "sondervorauszahlung", period: "2026" });
+  });
+
+  test("BNK-064 an invalid period is reported in German on its field; types without a period drop it", () => {
+    const form = { ...voucherFormFrom(stored, [], "2026-10-19"), taxPaymentSubtype: "ust_prepayment" };
+    const bad = toDraftInput({ ...form, taxPaymentPeriod: "September" });
+    expect(bad.issues).toEqual([
+      { field: "taxPaymentPeriod", message: "Bitte den Zeitraum als JJJJ, MM/JJJJ oder Qn/JJJJ angeben." },
+    ]);
+    expect(bad.input.taxPayment).toEqual({ subtype: "ust_prepayment" });
+    expect(toDraftInput({ ...form, taxPaymentSubtype: "gewerbesteuer", taxPaymentPeriod: "September" })).toMatchObject({
+      issues: [],
+      input: { taxPayment: { subtype: "gewerbesteuer" } },
+    });
+  });
+
+  test("BNK-064 other voucher kinds never send a tax-payment type", () => {
+    const form = { ...emptyVoucherForm("2026-10-19"), taxPaymentSubtype: "ust_prepayment", taxPaymentPeriod: "x" };
+    const { input, issues } = toDraftInput(form);
+    expect(issues).toEqual([]);
+    expect("taxPayment" in input).toBe(false);
+  });
+
+  test("BNK-064 the type options and the period question come from the domain", () => {
+    expect(taxPaymentOptions().map((o) => o.value)).toEqual([
+      "ust_prepayment",
+      "sondervorauszahlung",
+      "ust_annual",
+      "gewerbesteuer",
+      "est_private",
+      "kst",
+    ]);
+    expect(taxPaymentOptions()[0]?.label).toBe("USt-Vorauszahlung");
+    expect(taxPaymentHasPeriod("ust_prepayment")).toBe(true);
+    expect(taxPaymentHasPeriod("gewerbesteuer")).toBe(false);
+    expect(taxPaymentHasPeriod("")).toBe(false);
   });
 });
 

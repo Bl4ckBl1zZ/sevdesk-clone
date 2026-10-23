@@ -6,6 +6,8 @@
 import { formatCents } from "@/domain/money/format";
 import { parseBasisPoints, parseCents } from "@/domain/money/parse";
 import { BOOK_BUTTON_DE, type VoucherPaymentMethod } from "@/domain/vouchers/payment-choice";
+import { normaliseTaxPeriod, PERIOD_SUBTYPES, TAX_PAYMENT_LABEL_DE } from "@/domain/vouchers/tax-payment";
+import { TAX_PAYMENT_SUBTYPES, type TaxPaymentSubtype } from "@/domain/vouchers/types";
 
 export type Direction = "expense" | "income";
 export type VoucherKind = "standard" | "bewirtung" | "eigenbeleg" | "asset" | "tax_payment" | "private";
@@ -45,6 +47,11 @@ export interface VoucherForm {
   taxRule: string;
   statedGross: string;
   internalNote: string;
+  /** Kind `tax_payment` only (F07 BNK-064, F08 TAX-018): the subtype ("" = not chosen yet) and the period as typed. */
+  taxPaymentSubtype: TaxPaymentSubtype | "";
+  taxPaymentPeriod: string;
+  /** Kept as stored (not edited here). */
+  taxPaymentFilingId: string;
   lines: VoucherLineForm[];
 }
 
@@ -81,9 +88,18 @@ export function emptyVoucherForm(today: string, direction: Direction = "expense"
     taxRule: "",
     statedGross: "",
     internalNote: "",
+    taxPaymentSubtype: "",
+    taxPaymentPeriod: "",
+    taxPaymentFilingId: "",
     lines: [emptyLine()],
   };
 }
+
+/** The tax-payment types in the domain's order with their German labels (TAX-018). */
+export const taxPaymentOptions = () => TAX_PAYMENT_SUBTYPES.map((s) => ({ value: s, label: TAX_PAYMENT_LABEL_DE[s] }));
+
+/** USt-Vorauszahlung, Sondervorauszahlung and USt-Jahreszahlung refer to a period (TAX-018). */
+export const taxPaymentHasPeriod = (subtype: string) => (PERIOD_SUBTYPES as readonly string[]).includes(subtype);
 
 const pct = (bp: number) => (bp / 100).toLocaleString("de-DE", { maximumFractionDigits: 2 });
 
@@ -105,6 +121,7 @@ export interface StoredVoucher {
   taxRule: string;
   statedTotals?: { grossCents?: number };
   internalNote?: string;
+  taxPayment?: { subtype: TaxPaymentSubtype; period?: string; filingId?: string };
 }
 
 export interface StoredLine {
@@ -138,6 +155,9 @@ export function voucherFormFrom(v: StoredVoucher, lines: readonly StoredLine[], 
     taxRule: v.taxRule,
     statedGross: v.statedTotals?.grossCents !== undefined ? formatCents(v.statedTotals.grossCents) : "",
     internalNote: v.internalNote ?? "",
+    taxPaymentSubtype: v.taxPayment?.subtype ?? "",
+    taxPaymentPeriod: v.taxPayment?.period ?? "",
+    taxPaymentFilingId: v.taxPayment?.filingId ?? "",
     lines:
       lines.length > 0
         ? lines.map((l) => ({
@@ -205,6 +225,20 @@ export function toDraftInput(f: VoucherForm): { input: Record<string, unknown>; 
     if (r.ok) stated = r.value;
     else issues.push({ field: "statedGross", message: "Betrag ungültig." });
   }
+  let taxPayment: Record<string, string> | null = null;
+  if (f.kind === "tax_payment" && f.taxPaymentSubtype) {
+    taxPayment = { subtype: f.taxPaymentSubtype };
+    if (taxPaymentHasPeriod(f.taxPaymentSubtype) && f.taxPaymentPeriod.trim()) {
+      const period = normaliseTaxPeriod(f.taxPaymentPeriod);
+      if (period) taxPayment.period = period;
+      else
+        issues.push({
+          field: "taxPaymentPeriod",
+          message: "Bitte den Zeitraum als JJJJ, MM/JJJJ oder Qn/JJJJ angeben.",
+        });
+    }
+    if (f.taxPaymentFilingId) taxPayment.filingId = f.taxPaymentFilingId;
+  }
   const text = (s: string) => s.trim();
   const input: Record<string, unknown> = {
     direction: f.direction,
@@ -224,6 +258,7 @@ export function toDraftInput(f: VoucherForm): { input: Record<string, unknown>; 
     ...(f.taxRule ? { taxRule: f.taxRule } : {}),
     ...(stated !== null ? { statedTotals: { grossCents: stated } } : {}),
     internalNote: text(f.internalNote),
+    ...(taxPayment ? { taxPayment } : {}),
     lines,
   };
   return { input, issues };

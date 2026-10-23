@@ -12,7 +12,7 @@ import {
 } from "./bewirtung";
 import { checkEigenbelegApproval, eigenbelegVolumeInfo, voucherEigenbelegContent } from "./eigenbeleg";
 import { canTransition, deriveVoucherStatus, VOUCHER_TRANSITIONS, VoucherOverpaidError } from "./lifecycle";
-import { checkTaxPayment, suggestTaxPayment, TAX_PAYMENT_ROLE } from "./tax-payment";
+import { checkTaxPayment, normaliseTaxPeriod, suggestTaxPayment, TAX_PAYMENT_ROLE } from "./tax-payment";
 
 const d = (s: string) => s as CalendarDate;
 
@@ -255,6 +255,21 @@ describe("tax payments (TAX-018)", () => {
     expect(checkTaxPayment({ subtype: "ust_prepayment", period: "09/2026", corporation: false })?.code).toBe(
       "tax_payment_period",
     );
+  });
+
+  test("BNK-064 TAX-018 a period typed the German way is normalised to JJJJ, JJJJ-MM or JJJJ-Qn; anything else is refused", () => {
+    expect(normaliseTaxPeriod("2026-09")).toBe("2026-09");
+    expect(normaliseTaxPeriod(" 09/2026 ")).toBe("2026-09");
+    expect(normaliseTaxPeriod("9/2026")).toBe("2026-09");
+    expect(normaliseTaxPeriod("09.2026")).toBe("2026-09");
+    expect(normaliseTaxPeriod("2026-q3")).toBe("2026-Q3");
+    expect(normaliseTaxPeriod("Q3/2026")).toBe("2026-Q3");
+    expect(normaliseTaxPeriod("2026")).toBe("2026");
+    for (const bad of ["13/2026", "2026-00", "Q5/2026", "26", "09/26", "Sept 2026", ""]) {
+      expect(normaliseTaxPeriod(bad)).toBeNull();
+    }
+    // The normalised value always passes the period check of the voucher validation.
+    expect(checkTaxPayment({ subtype: "ust_prepayment", period: "2026-Q3", corporation: false })).toBeNull();
   });
 
   test("TAX-018 the subtype is suggested from the Finanzamt reference", () => {
