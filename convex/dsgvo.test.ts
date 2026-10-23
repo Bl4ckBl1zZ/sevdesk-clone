@@ -138,7 +138,28 @@ describe("receivable letters and learned bank aliases in the DSGVO flows (PRV-01
         createdAt: Date.now(),
       }),
     );
-    clearInvariantTarget(); // the BNK-048 alias is seeded directly
+    // an F06 „Bitte um Rechnungskorrektur“ to the same person (as supplier), archived on the matched inbox item
+    const ingested = (await ingest(t, f.owner, [{ bytes: enc("%PDF-1.4 Rechnung"), name: "rechnung.pdf" }])) as {
+      ids?: string[];
+      id?: string;
+    };
+    const itemId = (ingested.ids?.[0] ?? ingested.id) as Id<"inboxItems">;
+    const correctionId = await t.run(async (ctx) => {
+      await ctx.db.patch(itemId, { supplierMatch: { contactId, by: "name" } });
+      const storageId = await ctx.storage.store(new Blob(["%PDF-1.4 Korrektur"], { type: "application/pdf" }));
+      return ctx.db.insert("documentArtifacts", {
+        inboxItemId: itemId,
+        kind: "supplier_correction_letter",
+        storageId,
+        sha256: "0".repeat(64),
+        bytes: 18,
+        mime: "application/pdf",
+        name: "Korrekturanforderung-1.pdf",
+        createdAt: Date.now(),
+        retentionUntil: "2032-12-31",
+      });
+    });
+    clearInvariantTarget(); // the BNK-048 alias, the match and the correction letter are seeded directly
 
     const p = await f.owner.query(api.dsgvo.preview, { contactId });
     expect(p.restrict).toContainEqual(
@@ -148,6 +169,9 @@ describe("receivable letters and learned bank aliases in the DSGVO flows (PRV-01
         retentionClass: "letters6",
         retentionUntil: "2032-12-31",
       }),
+    );
+    expect(p.restrict).toContainEqual(
+      expect.objectContaining({ kind: "correctionLetter", id: correctionId, retentionUntil: "2032-12-31" }),
     );
     expect(p.deleteNow).toContainEqual(expect.objectContaining({ kind: "contactAliases", id: aliasId }));
 
@@ -166,6 +190,7 @@ describe("receivable letters and learned bank aliases in the DSGVO flows (PRV-01
     );
     const zip = unzipSync(new Uint8Array(buf as ArrayBuffer));
     expect(new TextDecoder().decode(zip["belege/Kontoauszug-2026-10-12.pdf"]?.subarray(0, 5))).toBe("%PDF-");
+    expect(new TextDecoder().decode(zip["belege/Korrekturanforderung-1.pdf"])).toBe("%PDF-1.4 Korrektur");
     const daten = JSON.parse(new TextDecoder().decode(zip["daten.json"]));
     expect(daten.letters).toEqual([
       expect.objectContaining({
@@ -174,6 +199,13 @@ describe("receivable letters and learned bank aliases in the DSGVO flows (PRV-01
         date: "2026-10-12",
         title: "Kontoauszug",
         sentOn: null,
+      }),
+      expect.objectContaining({
+        id: correctionId,
+        kind: "supplier_correction_letter",
+        date: "2026-10-12",
+        title: "Bitte um Rechnungskorrektur",
+        subject: "Korrekturanforderung-1.pdf",
       }),
     ]);
 
@@ -213,6 +245,32 @@ describe("receivable letters and learned bank aliases in the DSGVO flows (PRV-01
         actor: f.owner.actor,
       }),
       timer: await ctx.db.insert("runningTimer", { startedAt: Date.now(), contactId, startedVia: "ui" }),
+      rule: await ctx.db.insert("matchingRules", {
+        name: "Erika Muster zuordnen",
+        priority: 1,
+        enabled: true,
+        mode: "suggest",
+        when: { counterpartyContains: "Muster" },
+        apply: { action: "link_contact", contactId },
+        createdVia: "ui",
+        createdAt: Date.now(),
+        actor: f.owner.actor,
+      }),
+      time: await ctx.db.insert("timeEntries", {
+        contactId,
+        date: "2026-10-01",
+        durationMinutes: 60,
+        description: "Beratung",
+        hourlyRateMicros: 1_000_000,
+        currency: "EUR",
+        billable: true,
+        status: "invoiced",
+        invoicedLineHistory: [],
+        source: "manual",
+        retentionClass: "vouchers8",
+        retentionUntil: "2034-12-31",
+        actor: f.owner.actor,
+      }),
       merge: await ctx.db.insert("contactMerges", {
         winnerId: contactId,
         loserId: f.orgId as Id<"contacts">,
@@ -271,6 +329,7 @@ describe("receivable letters and learned bank aliases in the DSGVO flows (PRV-01
         "runningTimer",
         "contactMerges",
         "recurringVouchers",
+        "matchingRules",
       ]),
     );
     expect(p.restrict).toContainEqual(
@@ -281,6 +340,14 @@ describe("receivable letters and learned bank aliases in the DSGVO flows (PRV-01
         retentionUntil: "2036-12-31",
       }),
     );
+    expect(p.restrict).toContainEqual(
+      expect.objectContaining({
+        kind: "timeEntry",
+        id: seeded.time,
+        retentionClass: "vouchers8",
+        retentionUntil: "2034-12-31",
+      }),
+    );
     const id = await f.owner.mutation(api.dsgvo.create, {
       contactId,
       kind: "erasure",
@@ -289,7 +356,7 @@ describe("receivable letters and learned bank aliases in the DSGVO flows (PRV-01
     });
     await f.owner.mutation(api.dsgvo.verify, { id, method: "Rückruf unter bekannter Nummer" });
     await f.owner.mutation(api.dsgvo.execute, { id });
-    for (const gone of [seeded.profile, seeded.dismissed, seeded.timer, seeded.merge, seeded.recurring]) {
+    for (const gone of [seeded.profile, seeded.dismissed, seeded.timer, seeded.merge, seeded.recurring, seeded.rule]) {
       expect(await t.run((ctx) => ctx.db.get(gone))).toBeNull();
     }
     expect(await t.run((ctx) => ctx.storage.get(referenceId))).toBeNull();
