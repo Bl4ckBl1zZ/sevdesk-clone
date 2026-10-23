@@ -265,13 +265,33 @@ export interface InvariantBudget {
   bytes?: number;
 }
 
-/** Stays clear of the Convex limits (4,096 reads, 16 MiB, 32,000 documents) incl. one batch of overshoot. */
-export const DEFAULT_PAGE_BUDGET: Required<InvariantBudget> = { calls: 1500, docs: 8000, bytes: 3_000_000 };
+/**
+ * Per page about a third of the Convex limits (4,096 index ranges, 16 MiB / 32,000 documents read; older backends
+ * 8 MiB / 16,384), so the one batch that may run past the budget still fits.
+ */
+export const DEFAULT_PAGE_BUDGET: Required<InvariantBudget> = { calls: 1300, docs: 5000, bytes: 2_500_000 };
+
+/** First batch of a step (row size still unknown) — bounded so even 100 KB rows stay far below the limits. */
+const FIRST_BATCH = 25;
 
 export interface ReadStats {
   calls: number;
   docs: number;
   bytes: number;
+  /** Largest single document read (approximate bytes). */
+  largestDoc: number;
+}
+
+/**
+ * Sizes a step's next batch to the remaining budget: calls (estimated lookups per row), documents and bytes — the
+ * latter from the largest row seen so far in this step (a row's own size and its lookups' share), FIRST_BATCH while
+ * unknown. Steps report each batch with `measured`.
+ */
+interface BatchSizer {
+  /** Size of the next batch; also starts measuring it. */
+  batch(key: string, maxBatch: number, cost: number): number;
+  /** Records the batch just read (`rows` rows) for the next estimate of `key`. */
+  measured(key: string, rows: number): void;
 }
 
 export interface InvariantPage {
@@ -285,11 +305,11 @@ const TERMINAL = new Set(["get", "collect", "first", "take", "unique", "paginate
 const sizeOf = (doc: unknown) => (doc ? JSON.stringify(doc).length : 0);
 
 /** Counts db calls, documents and (approximate) bytes read through `db` — the page budget and the read report. */
-function countingDb<T extends object>(target: T, stats: ReadStats): T {
+function countingDb<T extends object>(target: T, stats: ReadStats, batch: { largest: number }): T {
   return new Proxy(target, {
     get(t, prop, receiver) {
       const value = Reflect.get(t, prop, receiver);
-      if (prop === "system" && value && typeof value === "object") return countingDb(value, stats);
+      if (prop === "system" && value && typeof value === "object") return countingDb(value, stats, batch);
       if (typeof value !== "function") return value;
       return (...args: unknown[]) => {
         const out = (value as (...a: unknown[]) => unknown).apply(t, args);
@@ -304,11 +324,16 @@ function countingDb<T extends object>(target: T, stats: ReadStats): T {
                   ? [res]
                   : [];
             stats.docs += docs.length;
-            for (const d of docs) stats.bytes += sizeOf(d);
+            for (const d of docs) {
+              const size = sizeOf(d);
+              stats.bytes += size;
+              if (size > stats.largestDoc) stats.largestDoc = size;
+              if (size > batch.largest) batch.largest = size;
+            }
             return res;
           });
         }
-        return out && typeof out === "object" && !(out instanceof Promise) ? countingDb(out, stats) : out;
+        return out && typeof out === "object" && !(out instanceof Promise) ? countingDb(out, stats, batch) : out;
       };
     },
   });
@@ -332,10 +357,10 @@ interface TableStep<T extends TableNames> extends StepBase {
   maxBatch: number;
   handle: (ctx: ReadCtx, docs: Doc<T>[], acc: InvariantAccumulator, state: InvariantState) => Promise<void>;
 }
-/** A step that manages its own paging in `state.sub`; `left` = remaining call budget; returns true when done. */
+/** A step that manages its own paging in `state.sub` and sizes its batches with `sizer`; true when done. */
 interface CustomStep extends StepBase {
   kind: "custom";
-  run: (ctx: ReadCtx, acc: InvariantAccumulator, state: InvariantState, left: number) => Promise<boolean>;
+  run: (ctx: ReadCtx, acc: InvariantAccumulator, state: InvariantState, sizer: BatchSizer) => Promise<boolean>;
 }
 type Step = OnceStep | TableStep<TableNames> | CustomStep;
 
@@ -400,7 +425,7 @@ const chainStep = tableStep<"auditLog">({
   index: "by_seq",
   key: "seq",
   cost: 0,
-  maxBatch: 1000,
+  maxBatch: 500,
   handle: async (ctx, entries, acc, state) => {
     if (!state.chain) {
       const anchor = await chainAnchor(ctx);
@@ -494,7 +519,7 @@ interface ReplayState {
 const replayStep = (table: TableNames, tableIndex: number): CustomStep => ({
   kind: "custom",
   name: `replay:${table}`,
-  run: async (ctx, acc, st, left) => {
+  run: async (ctx, acc, st, sizer) => {
     const sub: ReplayState = (st.sub as ReplayState | null) ?? {
       phase: "audit",
       afterId: null,
@@ -507,7 +532,8 @@ const replayStep = (table: TableNames, tableIndex: number): CustomStep => ({
       if (v) acc.rows.replayFindings.push({ table: tableIndex, at: doc._creationTime, id: String(doc._id), v });
     };
     if (sub.phase === "audit") {
-      const n = Math.max(2, Math.min(1000, Math.floor(left)));
+      const key = `${table}:audit`;
+      const n = Math.max(2, sizer.batch(key, 500, 1));
       const entries = await ctx.db
         .query("auditLog")
         .withIndex("by_entity", (q) => {
@@ -553,6 +579,7 @@ const replayStep = (table: TableNames, tableIndex: number): CustomStep => ({
           ),
         );
       }
+      sizer.measured(key, entries.length);
       if (complete) sub.phase = "count";
       return false;
     }
@@ -564,17 +591,14 @@ const replayStep = (table: TableNames, tableIndex: number): CustomStep => ({
       index: "by_creation_time",
       key: "_creationTime",
       cost: counting ? 0 : 1,
-      maxBatch: counting ? 2000 : 200,
+      maxBatch: counting ? 1000 : 200,
       handle: async () => {},
     } satisfies TableStep<TableNames>;
-    const page = await keyPage(
-      ctx,
-      step,
-      sub.cursor,
-      Math.max(1, Math.min(step.maxBatch, counting ? step.maxBatch : Math.floor(left))),
-    );
+    const key = `${table}:${sub.phase}`;
+    const page = await keyPage(ctx, step, sub.cursor, sizer.batch(key, step.maxBatch, step.cost));
     sub.cursor = page.cursor;
     if (counting) {
+      sizer.measured(key, page.docs.length);
       sub.total += page.docs.length;
       if (!page.done) return false;
       if (sub.total <= sub.audited) return true;
@@ -591,6 +615,7 @@ const replayStep = (table: TableNames, tableIndex: number): CustomStep => ({
         .first();
       if (!entry) report(doc, replayFinding(table, doc, [], anchor));
     }
+    sizer.measured(key, page.docs.length);
     return page.done;
   },
 });
@@ -1145,13 +1170,33 @@ export async function invariantsPage(
   state: InvariantState | null,
   budget: InvariantBudget = {},
 ): Promise<InvariantPage> {
-  const reads: ReadStats = { calls: 0, docs: 0, bytes: 0 };
-  const rctx = { ...ctx, db: countingDb(ctx.db, reads) } as ReadCtx;
+  const reads: ReadStats = { calls: 0, docs: 0, bytes: 0, largestDoc: 0 };
+  const current = { largest: 0, bytesBefore: 0 };
+  const rctx = { ...ctx, db: countingDb(ctx.db, reads, current) } as ReadCtx;
   const acc = emptyAccumulator();
   const st: InvariantState = state ? { ...state } : { ...INITIAL_STATE };
   const calls = budget.calls ?? Number.POSITIVE_INFINITY;
   const docs = budget.docs ?? Number.POSITIVE_INFINITY;
   const bytes = budget.bytes ?? Number.POSITIVE_INFINITY;
+  const rowBytes = new Map<string, number>();
+  const sizer: BatchSizer = {
+    batch: (key, maxBatch, cost) => {
+      current.largest = 0;
+      current.bytesBefore = reads.bytes;
+      let n = maxBatch;
+      if (cost > 0) n = Math.min(n, Math.floor((calls - reads.calls) / cost));
+      n = Math.min(n, Math.floor((docs - reads.docs) / (1 + cost)));
+      const size = rowBytes.get(key);
+      n = Math.min(n, size === undefined ? FIRST_BATCH : Math.floor((bytes - reads.bytes) / Math.max(1, size)));
+      return Math.max(1, n);
+    },
+    measured: (key, rows) => {
+      if (rows === 0) return;
+      // a row's share of the batch (incl. its lookups) or the largest document read in it, whichever is larger
+      const size = Math.max((reads.bytes - current.bytesBefore) / rows, current.largest);
+      rowBytes.set(key, Math.max(rowBytes.get(key) ?? 0, size));
+    },
+  };
   let ran = false;
   while (st.step < STEPS.length) {
     if (ran && (reads.calls >= calls || reads.docs >= docs || reads.bytes >= bytes)) break;
@@ -1166,7 +1211,7 @@ export async function invariantsPage(
     const left = calls - reads.calls;
     if (step.kind === "custom") {
       if (ran && left < 1) break;
-      const done = await step.run(rctx, acc, st, left);
+      const done = await step.run(rctx, acc, st, sizer);
       ran = true;
       if (done) {
         st.step++;
@@ -1176,9 +1221,10 @@ export async function invariantsPage(
       continue;
     }
     if (ran && step.cost > 0 && left < step.cost) break;
-    const n = Math.max(1, Math.min(step.maxBatch, step.cost > 0 ? Math.floor(left / step.cost) : step.maxBatch));
-    const page = await keyPage(rctx, step, st.cursor, n);
+    const key = String(st.step);
+    const page = await keyPage(rctx, step, st.cursor, sizer.batch(key, step.maxBatch, step.cost));
     await step.handle(rctx, page.docs, acc, st);
+    sizer.measured(key, page.docs.length);
     ran = true;
     if (page.done) {
       st.step++;
@@ -1332,7 +1378,7 @@ export async function driveInvariants(
   runPage: (state: InvariantState | null) => Promise<InvariantPage>,
 ): Promise<{ violations: InvariantViolation[]; pages: number; maxReads: ReadStats }> {
   const acc = emptyAccumulator();
-  const maxReads: ReadStats = { calls: 0, docs: 0, bytes: 0 };
+  const maxReads: ReadStats = { calls: 0, docs: 0, bytes: 0, largestDoc: 0 };
   let state: InvariantState | null = null;
   let pages = 0;
   for (;;) {
@@ -1342,6 +1388,7 @@ export async function driveInvariants(
     maxReads.calls = Math.max(maxReads.calls, page.reads.calls);
     maxReads.docs = Math.max(maxReads.docs, page.reads.docs);
     maxReads.bytes = Math.max(maxReads.bytes, page.reads.bytes);
+    maxReads.largestDoc = Math.max(maxReads.largestDoc, page.reads.largestDoc);
     if (page.done) break;
     state = page.state;
   }

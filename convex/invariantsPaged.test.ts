@@ -16,7 +16,7 @@ import { makeT, type TestT } from "./test.setup";
  * report exactly what the single-transaction `internal.invariants.check` reports.
  */
 
-/** Convex per-execution limits the pages must stay under (convex-test does not enforce them). */
+/** Convex per-execution limits (index ranges, documents and bytes read), as enforced by convex-test. */
 const CONVEX_LIMITS = { calls: 4096, docs: 32_000, bytes: 16 * 1024 * 1024 };
 
 async function pages(t: TestT, budget?: { calls?: number; docs?: number; bytes?: number }) {
@@ -70,51 +70,57 @@ describe("paged invariants.check (10 §2, AUD-013)", () => {
     expect(await t.action(internal.invariants.run, {})).toEqual(single);
   });
 
-  test("AUD-013 a database whose single pass exceeds 4,096 reads is checked in pages within the Convex limits", async () => {
-    const t = makeT();
+  test("AUD-013 a database whose single pass exceeds the Convex read limits is checked in pages within them", async () => {
+    const t = makeT({ transactionLimits: true }); // convex-test enforces the Convex per-execution limits
     const { id } = await finalizedInvoice(t);
     // 1,500 finalised documents with snapshot and artifacts (clones of a real one, written past the model layer).
-    await t.run(async (ctx) => {
-      const doc = await ctx.db.get(id);
-      if (!doc?.snapshotId) throw new Error("no snapshot");
-      const snap = await ctx.db.get(doc.snapshotId);
-      if (!snap) throw new Error("no snapshot");
-      const artifacts = await ctx.db
-        .query("documentArtifacts")
-        .withIndex("by_document", (q) => q.eq("documentId", id))
-        .collect();
-      expect(artifacts.length).toBeGreaterThan(0);
-      const { _id, _creationTime, ...docFields } = doc;
-      const { _id: _s, _creationTime: _sc, ...snapFields } = snap;
-      for (let i = 0; i < 1500; i++) {
-        const number = `K-${String(i).padStart(5, "0")}`;
-        const copy: Id<"salesDocuments"> = await ctx.db.insert("salesDocuments", { ...docFields, number });
-        const snapshotId = await ctx.db.insert("documentSnapshots", { ...snapFields, documentId: copy });
-        await ctx.db.patch(copy, { snapshotId });
-        for (const a of artifacts) {
-          const { _id: _a, _creationTime: _ac, ...artifactFields } = a;
-          await ctx.db.insert("documentArtifacts", { ...artifactFields, documentId: copy });
+    for (let chunk = 0; chunk < 5; chunk++) {
+      await t.run(async (ctx) => {
+        const doc = await ctx.db.get(id);
+        if (!doc?.snapshotId) throw new Error("no snapshot");
+        const snap = await ctx.db.get(doc.snapshotId);
+        if (!snap) throw new Error("no snapshot");
+        const artifacts = await ctx.db
+          .query("documentArtifacts")
+          .withIndex("by_document", (q) => q.eq("documentId", id))
+          .collect();
+        expect(artifacts.length).toBeGreaterThan(0);
+        const { _id, _creationTime, ...docFields } = doc;
+        const { _id: _s, _creationTime: _sc, ...snapFields } = snap;
+        for (let i = chunk * 300; i < (chunk + 1) * 300; i++) {
+          const number = `K-${String(i).padStart(5, "0")}`;
+          const copy: Id<"salesDocuments"> = await ctx.db.insert("salesDocuments", { ...docFields, number });
+          const snapshotId = await ctx.db.insert("documentSnapshots", { ...snapFields, documentId: copy });
+          await ctx.db.patch(copy, { snapshotId });
+          for (const a of artifacts) {
+            const { _id: _a, _creationTime: _ac, ...artifactFields } = a;
+            await ctx.db.insert("documentArtifacts", { ...artifactFields, documentId: copy });
+          }
         }
-      }
-    });
+      });
+    }
     clearInvariantTarget(); // the clones have no audit entries and no register rows — reported, asserted below
 
-    const [single] = await pages(t, {});
-    expect(single?.done).toBe(true);
-    expect(single?.reads.calls).toBeGreaterThan(CONVEX_LIMITS.calls); // the former single query fails on the backend
+    // the former single query (and `check`) fails on the backend
+    await expect(t.query(internal.invariants.check, {})).rejects.toThrow(/too many|too much/i);
 
     const paged = await pages(t);
     expect(paged.length).toBeGreaterThan(1);
     for (const p of paged) {
-      expect(p.reads.calls).toBeLessThan(CONVEX_LIMITS.calls);
-      expect(p.reads.docs).toBeLessThan(CONVEX_LIMITS.docs);
-      expect(p.reads.bytes).toBeLessThan(CONVEX_LIMITS.bytes);
+      // our own estimate per page stays near the budget (one batch past it at most), far below the limits
+      expect(p.reads.calls).toBeLessThan(CONVEX_LIMITS.calls / 2);
+      expect(p.reads.docs).toBeLessThan(CONVEX_LIMITS.docs / 2);
+      expect(p.reads.bytes).toBeLessThan(CONVEX_LIMITS.bytes / 2);
     }
 
     const violations = await t.action(internal.invariants.run, {});
-    expect(violations).toEqual(await t.query(internal.invariants.check, {}));
     expect(violations.filter((v) => v.id === "RI-15").length).toBeGreaterThanOrEqual(1500);
-  }, 300_000);
+    expect(violations.filter((v) => v.id === "RI-01").length).toBeGreaterThanOrEqual(1500);
+    // the page size does not change the result
+    expect(await t.action(internal.invariants.run, { budget: { calls: 300, docs: 1000, bytes: 500_000 } })).toEqual(
+      violations,
+    );
+  }, 600_000);
 });
 
 describe("invariants.check cron (02 §7 daily 02:15, AUD-013, AUD-015, SET-134)", () => {
