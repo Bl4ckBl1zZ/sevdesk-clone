@@ -136,7 +136,7 @@ describe("export jobs (EXP-026)", () => {
     const [job] = await f.owner.query(api.jobs.list, {});
     expect(job).toMatchObject({ kind: "csv_export", status: "done", hasResult: true });
     expect((await f.owner.query(api.notifications.list, { kind: "export.ready" })).length).toBe(1);
-  });
+  }, 90_000); // 5,001 rows; slow under coverage instrumentation
 
   test("EXP-026 a job can be cancelled while queued; the worker then stops and keeps no file; others' jobs are protected", async () => {
     const t = makeT();

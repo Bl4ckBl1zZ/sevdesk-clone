@@ -6,8 +6,10 @@ import { components } from "../_generated/api";
  * key. Never per client IP — behind the fork's socat proxies every request has the same source address.
  */
 export const RATE_LIMIT_CONFIG = {
-  otpPerHour: { kind: "fixed window", rate: 5, period: HOUR },
-  otpPerDay: { kind: "fixed window", rate: 20, period: 24 * HOUR },
+  // Windows aligned to the UTC epoch (full hours, days from 00:00 UTC) instead of a random per-key start, so the
+  // daily cap (E-AUD-27) resets at a fixed time and a window boundary never falls at an arbitrary point.
+  otpPerHour: { kind: "fixed window", rate: 5, period: HOUR, start: 0 },
+  otpPerDay: { kind: "fixed window", rate: 20, period: 24 * HOUR, start: 0 },
   // F02 CON-058: outbound VAT-ID checks are throttled to 1 request per second per provider.
   vatCheckBzst: { kind: "token bucket", rate: 1, period: SECOND, capacity: 1 },
   vatCheckVies: { kind: "token bucket", rate: 1, period: SECOND, capacity: 1 },
