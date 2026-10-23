@@ -1,9 +1,9 @@
-import { screen } from "@testing-library/react";
+import { screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { getFunctionName } from "convex/server";
 import { beforeEach, describe, expect, test, vi } from "vitest";
 import { renderWithIntl } from "@/i18n/test-utils";
-import { BankConnectionView, type ConnectionView } from "./bank-connection";
+import { BankConnectionPanel, BankConnectionView, type ConnectionView } from "./bank-connection";
 
 const backend = vi.hoisted(() => ({
   data: {} as Record<string, unknown>,
@@ -25,6 +25,9 @@ vi.mock("convex/react", () => {
 });
 const sync = vi.hoisted(() => ({ syncNowAction: vi.fn() }));
 vi.mock("@/app/(app)/(shell)/einstellungen/bank/verbindung/actions", () => sync);
+vi.mock("@/components/convex/convex-provider", () => ({
+  ConvexGuard: ({ children }: { children: React.ReactNode }) => children,
+}));
 vi.mock("@/components/catalog/shared", async (orig) => ({
   ...(await orig<Record<string, unknown>>()),
   useCan: () => true,
@@ -145,5 +148,125 @@ describe("Einstellungen › Bank › Verbindung (SET-049, SET-049a, BNK-101)", (
     await user.click(screen.getByRole("button", { name: "Jetzt abrufen" }));
     expect(sync.syncNowAction).toHaveBeenCalled();
     await vi.waitFor(() => expect(toast.success).toHaveBeenCalledWith("3 neue Umsätze abgerufen."));
+  });
+
+  test("BNK-011 „Trennen“ revokes the session; with lost access a reason is required (BNK-117)", async () => {
+    const user = userEvent.setup();
+    renderWithIntl(
+      <BankConnectionView
+        view={view({ status: "active", statusLabel: "Verbunden", configured: true, keyStored: true })}
+        canSetup
+        canFetch
+      />,
+    );
+    await user.click(screen.getByRole("button", { name: "Trennen" }));
+    const dialog = screen.getByRole("dialog", { name: "Bankanbindung trennen" });
+    await user.click(within(dialog).getByRole("checkbox", { name: "Privaten Schlüssel ebenfalls löschen" }));
+    await user.click(within(dialog).getByRole("checkbox", { name: /Zugang dauerhaft verloren/ }));
+    const confirm = within(dialog).getByRole("button", { name: "Trennen" });
+    expect(confirm).toBeDisabled();
+    await user.type(within(dialog).getByLabelText("Grund"), "eingeschränkter Modus beendet");
+    await user.click(confirm);
+    expect(backend.calls["bankFeedNode:disconnect"]).toHaveBeenCalledWith({
+      deleteKey: true,
+      feedLost: "eingeschränkter Modus beendet",
+    });
+  });
+
+  test("BNK-101 an uploaded PEM key is sent only when it looks like a private key", async () => {
+    const user = userEvent.setup();
+    renderWithIntl(
+      <BankConnectionView
+        view={view({ applicationId: "1f3c0000-aaaa-bbbb-cccc-000000000001", keyStored: true, configured: true })}
+        canSetup
+        canFetch
+      />,
+    );
+    expect(screen.getByRole("radio", { name: "Gespeicherten Schlüssel behalten" })).toBeChecked();
+    await user.click(screen.getByRole("radio", { name: /Vorhandenen privaten Schlüssel hochladen/ }));
+    const save = screen.getByRole("button", { name: "Einrichtung speichern" });
+    expect(save).toBeDisabled();
+    await user.type(screen.getByLabelText("Privater Schlüssel (PEM)"), "-----BEGIN PRIVATE KEY-----");
+    await user.selectOptions(screen.getByLabelText("Umgebung"), "sandbox");
+    await user.click(save);
+    expect(backend.calls["bankFeedNode:saveSetup"]).toHaveBeenCalledWith({
+      applicationId: "1f3c0000-aaaa-bbbb-cccc-000000000001",
+      environment: "sandbox",
+      privateKeyPem: "-----BEGIN PRIVATE KEY-----",
+    });
+  });
+
+  test("BNK-104 a new consent account is mapped to an existing account of the same currency", async () => {
+    backend.data = {
+      "banking:accounts": [
+        { id: "acc1", name: "Revolut EUR", kind: "bank", currency: "EUR" },
+        { id: "acc2", name: "Revolut USD", kind: "bank", currency: "USD" },
+      ],
+    };
+    const user = userEvent.setup();
+    renderWithIntl(
+      <BankConnectionView
+        view={view({
+          status: "active",
+          configured: true,
+          pendingAccounts: [
+            {
+              uid: "u1",
+              message: "Neues EUR-Konto in der Zustimmung",
+              iban: null,
+              localDetails: [{ scheme: "SORT", identification: "04-00-75" }],
+              currency: "EUR",
+              name: "Main",
+              printable: false,
+            },
+          ],
+        } as Partial<ConnectionView>)}
+        canSetup
+        canFetch
+      />,
+    );
+    expect(screen.getByText("Neues EUR-Konto in der Zustimmung")).toBeVisible();
+    expect(screen.getByText("SORT 04-00-75 · EUR · Main")).toBeVisible();
+    expect(screen.getByText("Ohne eigene IBAN – erscheint nicht auf Rechnungen.")).toBeVisible();
+    const select = screen.getByLabelText("Zuordnen zu") as HTMLSelectElement;
+    expect([...select.options].map((o) => o.textContent)).toEqual(["Neues Bankkonto anlegen", "Revolut EUR"]);
+    await user.selectOptions(select, "acc1");
+    await user.click(screen.getByRole("button", { name: "Übernehmen" }));
+    expect(backend.calls["bankFeedNode:mapAccount"]).toHaveBeenCalledWith({ uid: "u1", accountId: "acc1" });
+  });
+
+  test("BNK-116 the written confirmation of Enable Banking is recorded with status and note", async () => {
+    const user = userEvent.setup();
+    renderWithIntl(<BankConnectionView view={view()} canSetup canFetch />);
+    expect(screen.getByText("ausstehend", { selector: "p" })).toBeVisible();
+    await user.selectOptions(screen.getByLabelText("Status"), "confirmed");
+    await user.type(screen.getByLabelText("Vermerk"), "E-Mail vom 01.10.2026");
+    await user.click(screen.getByRole("button", { name: "Bestätigung speichern" }));
+    expect(backend.calls["bankFeed:recordEvaluationConfirmation"]).toHaveBeenCalledWith({
+      status: "confirmed",
+      note: "E-Mail vom 01.10.2026",
+    });
+  });
+
+  test("BNK-107 a skipped or failed „Jetzt abrufen“ shows the error toast", async () => {
+    sync.syncNowAction.mockResolvedValueOnce({ ok: true, result: { skipped: "budget", accounts: [] } });
+    sync.syncNowAction.mockResolvedValueOnce({ ok: false, message: "Bitte erneut anmelden." });
+    const user = userEvent.setup();
+    renderWithIntl(
+      <BankConnectionView view={view({ status: "active", configured: true })} canSetup={false} canFetch />,
+    );
+    expect(screen.queryByRole("button", { name: "Trennen" })).toBeNull();
+    await user.click(screen.getByRole("button", { name: "Jetzt abrufen" }));
+    await vi.waitFor(() =>
+      expect(toast.error).toHaveBeenCalledWith("Der Abruf wurde nicht ausgeführt. Details stehen bei der Verbindung."),
+    );
+    await user.click(screen.getByRole("button", { name: "Jetzt abrufen" }));
+    await vi.waitFor(() => expect(toast.error).toHaveBeenCalledWith("Bitte erneut anmelden."));
+  });
+
+  test("SET-049 the panel loads the connection view from Convex", () => {
+    backend.data = { "banking:accounts": [], "bankFeed:connection": view() };
+    renderWithIntl(<BankConnectionPanel />);
+    expect(screen.getByRole("button", { name: "Bank verbinden" })).toBeDisabled();
   });
 });
