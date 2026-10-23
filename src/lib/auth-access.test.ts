@@ -27,6 +27,16 @@ describe("requireRole decision for Server Components / Actions (02 §4.1 step 5)
     });
   });
 
+  test("E-AUD-32 a Server Action of an auditor is refused with „Nur Lesezugriff.“; reads pass", () => {
+    const auditor = member("auditor", { auditor: { organisation: "Finanzamt", purpose: "Az 1", fiscalYears: [2025] } });
+    expect(checkAccess(auditor, "documents.write", 0)).toEqual({
+      ok: false,
+      reason: "forbidden_role",
+      message: "Nur Lesezugriff.",
+    });
+    expect(checkAccess(auditor, "documents.read", 0)).toMatchObject({ ok: true });
+  });
+
   test("SEC-02 an expired member is refused even if the session is still alive (E-AUD-30)", () => {
     expect(checkAccess(member("bookkeeper", { expiresAt: 10 }), "session.self", 11)).toMatchObject({
       ok: false,

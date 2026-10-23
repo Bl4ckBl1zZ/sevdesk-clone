@@ -1,4 +1,5 @@
 import { v } from "convex/values";
+import { memberRefusalMessage } from "../src/domain/access/auditor";
 import { memberAccess, normalizeEmail } from "../src/domain/access/signup";
 import { sha256Hex } from "../src/domain/audit/chain";
 import { systemMutation, systemQuery } from "./functions";
@@ -23,11 +24,9 @@ export const checkSignIn = systemQuery({
     if (member) {
       const access = memberAccess(member, ctx.now());
       if (access === "active") return { allowed: true };
-      return {
-        allowed: false,
-        reason: `member_${access}`,
-        message: access === "expired" ? "Ihr Zugang ist abgelaufen." : "Ihr Zugang wurde beendet.",
-      };
+      // E-AUD-30/31: sign-in refused, no data; an auditor is told the date and whom to contact.
+      const company = member.role === "auditor" ? (await ctx.db.query("companyProfile").first())?.name : undefined;
+      return { allowed: false, reason: `member_${access}`, message: memberRefusalMessage(member, access, company) };
     }
     const decision = await signupDecision(ctx, email, ctx.now());
     return decision.allowed
