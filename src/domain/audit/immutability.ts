@@ -123,6 +123,12 @@ export const IMMUTABILITY_MATRIX: Readonly<Record<string, TableRule>> = {
     message: "Zahlungen können nicht geändert oder gelöscht werden. Bitte stornieren und neu erfassen.",
   },
   journalEntries: { kind: "guarded", fields: { lockedAt: "once" } },
+  // F05 PAY-005/048, DUN-028/044: archived letters; only the manual sent mark is added once.
+  receivableLetters: {
+    kind: "guarded",
+    fields: { sent: "once" },
+    message: "Archivierte Schreiben sind unveränderbar (GoBD). Bitte ein neues Schreiben erstellen.",
+  },
   // F08 ACC-013 opening items: the reference data is frozen; payments maintain the open amount (like salesDocuments).
   openingItems: { kind: "guarded", fields: { openAmountCents: "mutable", lockedAt: "once" } },
   // journalEntryIds grows: the entry is posted after the row exists (it references the row), and the T5 bank leg of a

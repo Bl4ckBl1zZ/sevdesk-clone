@@ -471,7 +471,7 @@ export async function dunnableInvoices(ctx: ReadCtx): Promise<SalesDoc[]> {
   return out.sort((a, b) => ((a.dueDate ?? "") < (b.dueDate ?? "") ? -1 : 1));
 }
 
-function defaultStartFor(l: LoadedInvoice, s: RunSettings): DefaultStart | null {
+export function defaultStartFor(l: LoadedInvoice, s: RunSettings): DefaultStart | null {
   return defaultStartOf({
     dueDate: l.state.dueDate,
     invoiceZugang: l.state.zugang,
