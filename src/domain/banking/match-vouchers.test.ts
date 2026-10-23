@@ -61,8 +61,14 @@ describe("matching vouchers (BNK-049)", () => {
         differences: [{ reason: "bank_fees", amountCents: -50 }],
       },
     ]);
-    // Never auto-applied: an allocation with differences is a suggestion (BNK-047).
-    expect(c && autoApplicable(c)).toBe(false);
+    // Never auto-applied: even with the number in the purpose (score ≥ auto threshold) the differences block it.
+    const [n] = scoreTransaction(
+      { ...tx, purpose: "Rechnung INV-77812" },
+      { documents: [], vouchers: [voucher({ documentNumber: "INV-77812" })] },
+    );
+    expect(n?.reasons).toContain("number_in_purpose");
+    expect(n?.score).toBeGreaterThanOrEqual(0.98);
+    expect(n && autoApplicable(n)).toBe(false);
   });
 
   test("BNK-049 card payment by merchant name + exact amount within ±3 days", () => {
