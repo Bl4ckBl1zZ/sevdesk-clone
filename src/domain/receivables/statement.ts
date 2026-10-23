@@ -87,6 +87,7 @@ const DIFF_TEXT: Readonly<Record<string, string>> = {
   default_interest: "Verzugszinsen",
   write_off: "Forderungsausfall",
   other: "Preisminderung",
+  fx_difference: "Kursdifferenz",
 };
 
 interface RawEntry {

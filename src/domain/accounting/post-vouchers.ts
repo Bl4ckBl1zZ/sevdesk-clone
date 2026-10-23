@@ -320,6 +320,11 @@ export function postVoucherPaid(e: VoucherPaidEvent): Result<VoucherPostingResul
     if (d.reason === "bank_fees") {
       // Expense: we paid more than the voucher (amount < 0); income: the bank kept a fee (amount > 0).
       lines.push(...debit(R("expense.bank_fees"), income ? d.amountCents : -d.amountCents));
+    } else if (d.reason === "fx_difference") {
+      // EC-BNK-76 (PAY-018 mirrored): realised exchange difference, no VAT. The side decides loss or gain.
+      const lossSide = income ? d.amountCents > 0 : d.amountCents < 0;
+      const role = R(lossSide ? "expense.fx_loss" : "income.fx_gain");
+      lines.push(...(income ? debit(role, d.amountCents) : credit(role, d.amountCents)));
     } else if (d.reason === "other") {
       if (!d.account) return err(invalid("Für „Sonstige Differenz“ ist ein Konto anzugeben."));
       lines.push(

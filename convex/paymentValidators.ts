@@ -36,6 +36,8 @@ export const vDifferenceReason = v.union(
   v.literal("default_interest"),
   v.literal("write_off"),
   v.literal("other"),
+  // EC-BNK-76: realised exchange difference of a foreign-currency voucher (server-derived, never client input).
+  v.literal("fx_difference"),
 );
 export const vWriteOffReason = v.union(
   v.literal("insolvency"),

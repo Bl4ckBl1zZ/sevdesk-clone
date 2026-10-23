@@ -37,8 +37,11 @@ export interface VoucherPaymentArgs {
   transactionId?: Id<"bankTransactions">;
   backdateReason?: string;
   note?: string;
-  /** VOU-132: Skonto (+, settles more than the money), bank fees (−, the money exceeds the voucher), other (account). */
-  differences?: { reason: "skonto" | "bank_fees" | "other"; amountCents: number; account?: string }[];
+  /**
+   * VOU-132: Skonto (+, settles more than the money), bank fees (−, the money exceeds the voucher), other (account);
+   * EC-BNK-76 `fx_difference` (realised Kursdifferenz, set only by the bank matching).
+   */
+  differences?: { reason: "skonto" | "bank_fees" | "other" | "fx_difference"; amountCents: number; account?: string }[];
   acknowledgeWarnings?: string[];
   match?: { score: number; reasons: string[]; auto: boolean };
 }

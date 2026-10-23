@@ -401,6 +401,11 @@ describe("matching vouchers (BNK-049)", () => {
     const lines = await s.t.run((ctx) => ctx.db.query("journalLines").collect());
     // SKR04 6880 Aufwendungen aus Kursdifferenzen: 102,50 € paid for a 100,00 € (119,00 USD @ 1.19) claim.
     expect(lines.filter((l) => l.account === "6880").map((l) => l.debitCents - l.creditCents)).toEqual([250]);
+    // Stored and labelled as a realised Kursdifferenz, not as „Sonstige Differenz“ with a hand-picked account.
+    const payment = await s.t.run(async (ctx) =>
+      (await ctx.db.query("payments").collect()).find((p) => p.bankTransactionId === tx),
+    );
+    expect(payment?.differences).toEqual([{ reason: "fx_difference", amountCents: -250 }]);
   });
 
   test("EC-BNK-25 T07-024 a fee field: principal pays the voucher, the fee is its own bank-fee line without VAT", async () => {
