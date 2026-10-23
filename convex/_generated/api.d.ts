@@ -78,6 +78,7 @@ import type * as lib_finalizePipeline from "../lib/finalizePipeline.js";
 import type * as lib_importFiles from "../lib/importFiles.js";
 import type * as lib_jws from "../lib/jws.js";
 import type * as lib_ntfy from "../lib/ntfy.js";
+import type * as lib_occRetry from "../lib/occRetry.js";
 import type * as lib_parse from "../lib/parse.js";
 import type * as lib_r2Inbox from "../lib/r2Inbox.js";
 import type * as lib_rateLimits from "../lib/rateLimits.js";
@@ -297,6 +298,7 @@ declare const fullApi: ApiFromModules<{
   "lib/importFiles": typeof lib_importFiles;
   "lib/jws": typeof lib_jws;
   "lib/ntfy": typeof lib_ntfy;
+  "lib/occRetry": typeof lib_occRetry;
   "lib/parse": typeof lib_parse;
   "lib/r2Inbox": typeof lib_r2Inbox;
   "lib/rateLimits": typeof lib_rateLimits;
