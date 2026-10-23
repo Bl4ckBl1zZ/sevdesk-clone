@@ -5,6 +5,7 @@ import { genesisHash, sha256Hex, verifyChainPage } from "../../src/domain/audit/
 import { isEncryptedValue } from "../../src/domain/audit/personal";
 import { REDACTED } from "../../src/domain/audit/redact";
 import { TECHNICAL_TABLES, technicalFields } from "../../src/domain/audit/technical";
+import { checkGeschaeftsbriefFooter } from "../../src/domain/company/invariants";
 import { type ChainInvariantRow, checkChains } from "../../src/domain/documents/chain-invariants";
 import {
   type ArtifactInvariantRow,
@@ -17,10 +18,14 @@ import {
 import { type LayoutDocType, SALES_DOC_TYPES } from "../../src/domain/documents/layout";
 import { isChainType } from "../../src/domain/documents/relations";
 import type { DocumentSnapshot } from "../../src/domain/documents/snapshot";
+import { checkEinvoiceDocument } from "../../src/domain/einvoice/invariants";
+import { type DocumentedGap, parseDocumentedGap } from "../../src/domain/numbering/gaps";
+import { checkCounterSequences } from "../../src/domain/numbering/invariants";
 import { checkStockCaches, checkTimeEntryLocks } from "../../src/domain/projects/invariants";
 import { ROLE_MAPPING_ROWS, seededAccount } from "../../src/domain/rules/accounting";
 import { defaultInterestRateBp } from "../../src/domain/rules/basiszinssatz";
 import { groupOverrides, overrideRowId } from "../../src/domain/rules/overrides";
+import { checkKleinunternehmerDocument } from "../../src/domain/tax/ku-invariants";
 import { berlinCalendarDate } from "../../src/domain/time/berlin";
 import { type CalendarDate, isCalendarDate } from "../../src/domain/time/calendar-date";
 import { checkVoucherBelege } from "../../src/domain/vouchers/invariants";
@@ -230,11 +235,52 @@ export async function checkInvariants(ctx: ReadCtx): Promise<InvariantViolation[
     }
   }
   out.push(...(await checkJournalInvariants(ctx)));
+  out.push(...(await checkNumberingInvariants(ctx, entries)));
   out.push(...(await checkDocumentInvariants(ctx)));
   out.push(...(await checkDunningInvariants(ctx)));
   out.push(...(await checkVoucherInvariants(ctx)));
   out.push(...(await checkProjectInvariants(ctx)));
   return out;
+}
+
+/**
+ * RI-03 (GOBD-02): per counter (range + period) the issued values increase in finalisation order and gaps exist only
+ * where an audited counter change documented them (SET-059); the pure check lives in src/domain/numbering/invariants.ts.
+ */
+export async function checkNumberingInvariants(
+  ctx: ReadCtx,
+  entries: readonly Doc<"auditLog">[],
+): Promise<InvariantViolation[]> {
+  const register = await ctx.db.query("numberRegister").collect();
+  if (register.length === 0) return [];
+  const ranges = new Map(
+    (await ctx.db.query("numberRanges").collect()).map((r) => [
+      String(r._id),
+      { name: r.name, startValue: r.startValue },
+    ]),
+  );
+  const counters = new Map((await ctx.db.query("numberCounters").collect()).map((c) => [String(c._id), c]));
+  const documented = new Map<string, DocumentedGap[]>();
+  for (const e of entries) {
+    if (e.entity.table !== "numberCounters") continue;
+    const c = counters.get(e.entity.id);
+    const gap = c ? parseDocumentedGap(e.reason) : null;
+    if (!c || !gap) continue;
+    const key = String(c.rangeId);
+    documented.set(key, [...(documented.get(key) ?? []), { periodKey: c.periodKey, ...gap }]);
+  }
+  return checkCounterSequences(
+    register.map((r) => ({
+      number: r.number,
+      ...(r.rangeId ? { rangeId: String(r.rangeId) } : {}),
+      ...(r.periodKey !== undefined ? { periodKey: r.periodKey } : {}),
+      ...(r.counter !== undefined ? { counter: r.counter } : {}),
+      order: r._creationTime,
+      ...(r.imported ? { imported: true } : {}),
+    })),
+    ranges,
+    documented,
+  );
 }
 
 /** RI-30 (stock cache) and RI-31 (time entry locks); the pure checks live in src/domain/projects/invariants.ts. */
@@ -348,7 +394,9 @@ const hexToBase64 = (hex: string): string => {
 
 /**
  * RI-01, RI-02, RI-05, RI-19 and the chain invariants RI-06/07/08 (F04 sales documents); the pure checks live in
- * src/domain/documents/invariants.ts and chain-invariants.ts.
+ * src/domain/documents/invariants.ts and chain-invariants.ts. On the frozen snapshots also RI-17 (KU, src/domain/tax/
+ * ku-invariants.ts), RI-18/RI-25 (E-Rechnung, Leitweg-ID: src/domain/einvoice/invariants.ts) and RI-26 (Geschäftsbrief
+ * footer: src/domain/company/invariants.ts).
  */
 export async function checkDocumentInvariants(ctx: ReadCtx): Promise<InvariantViolation[]> {
   const docs = await ctx.db.query("salesDocuments").collect();
@@ -357,13 +405,16 @@ export async function checkDocumentInvariants(ctx: ReadCtx): Promise<InvariantVi
   const out: InvariantViolation[] = [];
   const rows = [];
   const chainRows: ChainInvariantRow[] = [];
+  const kuHistory = (await ctx.db.query("companyProfile").first())?.kleinunternehmer ?? [];
   for (const d of docs) {
     const artifacts: ArtifactInvariantRow[] = [];
+    const artifactKinds: { id: string; kind: string }[] = [];
     for (const a of await ctx.db
       .query("documentArtifacts")
       .withIndex("by_document", (q) => q.eq("documentId", d._id))
       .collect()) {
       const file = await ctx.db.system.get(a.storageId);
+      artifactKinds.push({ id: String(a._id), kind: a.kind });
       artifacts.push({
         id: String(a._id),
         sha256: a.sha256,
@@ -436,6 +487,39 @@ export async function checkDocumentInvariants(ctx: ReadCtx): Promise<InvariantVi
       .query("sendLog")
       .withIndex("by_document_at", (q) => q.eq("documentId", d._id))
       .collect();
+    if (parsed) {
+      const name = d.number ?? String(d._id);
+      out.push(
+        ...checkKleinunternehmerDocument(
+          { name, type: d.type, ...(d.imported ? { imported: true } : {}), snapshot: parsed },
+          kuHistory,
+        ),
+      );
+      out.push(
+        ...checkEinvoiceDocument({
+          name,
+          type: d.type,
+          status: d.status,
+          ...(d.imported ? { imported: true } : {}),
+          decision: d.einvoice?.decision,
+          validation: d.einvoice?.validation,
+          artifactStatus: d.artifactStatus,
+          snapshot: parsed,
+          artifacts: artifactKinds,
+          marks: [...marks]
+            .sort((a, b) => a.at - b.at)
+            .map((m) => ({
+              id: String(m._id),
+              kind: m.kind,
+              ...(m.retractsId ? { retractsId: String(m.retractsId) } : {}),
+              channel: m.channel,
+              artifactIds: m.artifacts.map((a) => String(a.artifactId)),
+              ...(m.einvoiceHandedOverElectronically ? { einvoiceHandedOverElectronically: true } : {}),
+            })),
+        }),
+      );
+      out.push(...checkGeschaeftsbriefFooter(name, parsed.issuer ?? parsed.seller));
+    }
     out.push(
       ...checkSentMarks(
         {
