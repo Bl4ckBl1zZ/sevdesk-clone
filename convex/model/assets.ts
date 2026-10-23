@@ -624,6 +624,7 @@ export async function disposeAsset(
     costCents: a.costCents,
     plan,
     postedPeriods: posted.afa.map((p) => p.period),
+    acquisitionDate: calendarDate(a.acquisitionDate),
     disposal: {
       date: calendarDate(args.date),
       kind: args.kind,
