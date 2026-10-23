@@ -6,6 +6,7 @@ import type { ConfirmIntent } from "../src/domain/api/confirm";
 import type { Actor } from "../src/domain/schemas/actor";
 import { internal } from "./_generated/api";
 import {
+  type DatabaseWriter,
   action as rawAction,
   internalAction as rawInternalAction,
   internalMutation as rawInternalMutation,
@@ -16,6 +17,7 @@ import {
 import { resolveActor } from "./lib/actor";
 import { auditorScopedDb } from "./lib/auditorScope";
 import { appError } from "./lib/errors";
+import { recordCronRun } from "./model/clock";
 import { consumeConfirmToken } from "./model/confirmTokens";
 import { guardedDb, newWriteStats, type WriteStats } from "./model/db";
 import type { ActorContext, ModelCtx } from "./model/types";
@@ -78,6 +80,7 @@ export const SYSTEM_JOBS = [
   "system.restore", // F09 EXP-024 ops only (npx convex run restore:preflight / restore:complete) → system.restore
   "cron.retention.scan", // F12 PRV-003 monthly scan → retention.purge_eligible (never purges)
   "cron.dsgvo.deadlines", // F12 PRV-010 daily: reminders at due − 7 / − 1 days, overdue error (E-PRV-12)
+  "system.cronRuns", // F01 SET-134: records the latest run of a cron.* system action (technical table cronRuns)
   "cron.rules.freshness", // F01 SET-124 weekly: stale rule tables, overrides duplicating/contradicting shipped rows
   "retention.purge", // F12 PRV-006/008 purge worker reads (writes run as the owner via actorMutations)
   "retention.replay", // F12 PRV-009 ops: re-applies the off-host purge log after a restore
@@ -170,9 +173,16 @@ function withConfirmToken(def: ConfirmableDef, intent: ConfirmIntent): Confirmab
   };
 }
 
-const auditCheck = (stats: WriteStats) => () => {
-  if (stats.writes > 0 && stats.audits === 0) throw appError("audit_missing");
-};
+/** F01 SET-134: `cron.*` system mutations whose run is recorded after the audit check (latest run per job). */
+const cronRunStarts = new WeakMap<WriteStats, { job: SystemJob; startedAt: number }>();
+
+const auditCheck =
+  (stats: WriteStats) =>
+  async ({ ctx }: { ctx: { db: DatabaseWriter } }) => {
+    if (stats.writes > 0 && stats.audits === 0) throw appError("audit_missing");
+    const cron = cronRunStarts.get(stats);
+    if (cron) await recordCronRun(ctx, { ...cron, finishedAt: Date.now(), result: "ok" });
+  };
 
 function systemContext(job: SystemJob): ActorContext {
   return { actor: `system:${job}` as Actor, channel: job.startsWith("cron.") ? "cron" : "system" };
@@ -227,12 +237,16 @@ export const systemQuery = tagged(
   }),
 );
 
+/** F01 SET-134: runs of `cron.*` jobs are recorded (latest per job) for the cron status table. */
+const isCronJob = (job: SystemJob) => job.startsWith("cron.");
+
 export const systemMutation = tagged(
   { wrapper: "systemMutation" },
   customMutation(rawInternalMutation, {
     args: {},
     input: async (ctx, _args, extra: { job: SystemJob }) => {
       const stats = newWriteStats();
+      if (isCronJob(extra.job)) cronRunStarts.set(stats, { job: extra.job, startedAt: Date.now() });
       return {
         ctx: { ...fields(systemContext(extra.job)), db: guardedDb(ctx.db, stats) },
         args: {},
@@ -246,7 +260,24 @@ export const systemAction = tagged(
   { wrapper: "systemAction" },
   customAction(rawInternalAction, {
     args: {},
-    input: async (_ctx, _args, extra: { job: SystemJob }) => ({ ctx: fields(systemContext(extra.job)), args: {} }),
+    input: async (ctx, _args, extra: { job: SystemJob }) => {
+      const startedAt = Date.now();
+      return {
+        ctx: fields(systemContext(extra.job)),
+        args: {},
+        ...(isCronJob(extra.job)
+          ? {
+              onSuccess: async () => {
+                await ctx.runMutation(internal.system.recordCronRun, {
+                  job: extra.job,
+                  startedAt,
+                  finishedAt: Date.now(),
+                });
+              },
+            }
+          : {}),
+      };
+    },
   }),
 );
 

@@ -1,5 +1,6 @@
 import { CLOCK_SKEW_BLOCK_MS, clockSkewCheck } from "../../src/domain/system/clock";
 import type { Doc } from "../_generated/dataModel";
+import type { DatabaseWriter } from "../_generated/server";
 import { appError } from "../lib/errors";
 import { appendAudit } from "./audit";
 import { notifyKind, resolveEntityNotifications } from "./notifications";
@@ -72,4 +73,33 @@ export async function assertClockOk(ctx: ReadCtx & { now: () => number }): Promi
 export async function clockView(ctx: ReadCtx) {
   const r = await latestClockReading(ctx);
   return r ? { at: r.at, offsetMs: r.offsetMs, status: r.status, detail: r.detail, reference: r.reference } : null;
+}
+
+// ── F01 SET-134 cron runs ───────────────────────────────────────────────────────────────────────────────
+
+/**
+ * Records the latest run of a cron job (`cron.*` system job) — called by the system wrappers in convex/functions.ts
+ * after a successful run (a failing mutation rolls back, so a missed run shows as overdue in the status table).
+ * `cronRuns` is technical (one row per job, no audit).
+ */
+export async function recordCronRun(
+  ctx: { db: DatabaseWriter },
+  run: { job: string; startedAt: number; finishedAt: number; result: "ok" | "error" },
+): Promise<void> {
+  const row = {
+    job: run.job,
+    lastRunAt: run.startedAt,
+    durationMs: Math.max(0, run.finishedAt - run.startedAt),
+    result: run.result,
+  };
+  const existing = await ctx.db
+    .query("cronRuns")
+    .withIndex("by_job", (q) => q.eq("job", run.job))
+    .first();
+  if (existing) await ctx.db.patch("cronRuns", existing._id, row);
+  else await ctx.db.insert("cronRuns", row);
+}
+
+export async function listCronRuns(ctx: ReadCtx): Promise<Doc<"cronRuns">[]> {
+  return ctx.db.query("cronRuns").collect();
 }

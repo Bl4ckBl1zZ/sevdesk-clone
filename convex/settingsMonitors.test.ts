@@ -175,3 +175,40 @@ describe("SET-133 integrity.runNow", () => {
     await expect(bookkeeper.action(api.integrity.runNow, {})).rejects.toThrow();
   });
 });
+
+describe("SET-134 settings.cronStatus", () => {
+  test("SET-134 lists every registered cron; cron mutations and actions record last run, duration and result", async () => {
+    const t = makeT();
+    const { owner } = await setupInvoicing(t);
+    const before = await owner.query(api.settings.cronStatus, {});
+    const names = before.map((r) => r.name);
+    expect(names).toEqual(expect.arrayContaining(["rules.freshness", "system.clock", "integrity.verify (CET)"]));
+    expect(before.every((r) => r.state === "never" && r.lastRunAt === null)).toBe(true);
+    expect(before.find((r) => r.name === "rules.freshness")).toMatchObject({
+      job: "cron.rules.freshness",
+      schedule: "20 6 * * 1 (UTC)",
+      nextRunAt: Date.parse("2026-10-19T06:20:00Z"), // NOW is Monday 2026-10-12 10:00 UTC
+    });
+
+    await t.mutation(internal.settings.rulesFreshnessCron, { force: true }); // systemMutation
+    await t.action(internal.system.clockCron, { force: true }); // systemAction
+    const after = await owner.query(api.settings.cronStatus, {});
+    expect(after.find((r) => r.name === "rules.freshness")).toMatchObject({
+      lastRunAt: NOW.getTime(),
+      result: "ok",
+      state: "ok",
+      nextRunAt: Date.parse("2026-10-19T06:20:00Z"),
+    });
+    expect(after.find((r) => r.name === "rules.freshness")?.durationMs).toBeGreaterThanOrEqual(0);
+    expect(after.find((r) => r.name === "system.clock")).toMatchObject({
+      lastRunAt: NOW.getTime(),
+      result: "ok",
+      nextRunAt: NOW.getTime() + 10 * 60_000,
+    });
+    // a run expected 10 minutes later that did not happen within the grace period shows as overdue
+    vi.setSystemTime(new Date(NOW.getTime() + 30 * 60_000));
+    expect((await owner.query(api.settings.cronStatus, {})).find((r) => r.name === "system.clock")?.state).toBe(
+      "overdue",
+    );
+  });
+});

@@ -23,10 +23,12 @@ import {
   taxPatchFromForm,
 } from "../src/domain/settings/profile";
 import { thresholdMonitor as thresholdMonitorOf } from "../src/domain/settings/threshold-monitor";
+import { type CronScheduleSpec, cronStatusRows } from "../src/domain/system/cron-status";
 import { taxScope as taxScopeOf } from "../src/domain/tax/scope";
 import { berlinCalendarDate } from "../src/domain/time/berlin";
 import { internal } from "./_generated/api";
 import type { Doc } from "./_generated/dataModel";
+import crons from "./crons";
 import { action, actorMutation, mutation, query, systemMutation } from "./functions";
 import { configuredTransport } from "./lib/authMail";
 import { checkpointStoreFromEnv, r2LatestObject } from "./lib/checkpointStore";
@@ -42,6 +44,7 @@ import {
   saveDefaultInvoiceAccount,
   setDefaultInvoiceAccount,
 } from "./model/bankAccounts";
+import { listCronRuns } from "./model/clock";
 import { getCompanyProfile, patchCompanyProfile } from "./model/companyProfile";
 import { datevExportCount, finalisedDocumentsForKu } from "./model/documentHistory";
 import { countDraftsUsingCompanyData } from "./model/files";
@@ -80,6 +83,7 @@ import {
 import { seedSettingsDefaults } from "./model/seeds";
 import { setupChecklist, setupFacts } from "./model/setup";
 import { thresholdMonitorInput } from "./model/turnover";
+import inventory from "./mutation-inventory.json";
 
 /**
  * Setup wizard and company settings (F01 §3.1–3.7, SET-140…143). Public functions via the wrappers: every write
@@ -229,6 +233,28 @@ export const rulesFreshnessCron = systemMutation({
   handler: async (ctx, { force }) => {
     if (isTest() && !force) return null; // 02 §7: crons skip with IS_TEST unless invoked explicitly
     return runRulesFreshness(ctx, berlinCalendarDate(ctx.now()));
+  },
+});
+
+/** SET-134: cron status table — every registered cron (convex/crons.ts) with last run, duration, result, next run. */
+export const cronStatus = query({
+  permission: "settings.read",
+  args: {},
+  handler: async (ctx) => {
+    const jobs = inventory as Record<string, { job?: string }>;
+    const registered = Object.entries(crons.crons).map(([name, c]) => ({
+      name,
+      functionName: c.name,
+      job: jobs[c.name]?.job ?? null,
+      schedule: c.schedule as CronScheduleSpec,
+    }));
+    const runs = (await listCronRuns(ctx)).map((r) => ({
+      job: r.job,
+      lastRunAt: r.lastRunAt,
+      durationMs: r.durationMs,
+      result: r.result,
+    }));
+    return cronStatusRows(registered, runs, ctx.now());
   },
 });
 

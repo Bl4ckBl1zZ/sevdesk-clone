@@ -3643,6 +3643,12 @@
     "wrapper": "mutation",
     "permission": "settings.write"
   },
+  "settings:cronStatus": {
+    "kind": "query",
+    "visibility": "public",
+    "wrapper": "query",
+    "permission": "settings.read"
+  },
   "settings:deactivateNumberRange": {
     "kind": "mutation",
     "visibility": "public",
@@ -3960,6 +3966,12 @@
     "visibility": "internal",
     "wrapper": "systemMutation",
     "job": "cron.system.clock"
+  },
+  "system:recordCronRun": {
+    "kind": "mutation",
+    "visibility": "internal",
+    "wrapper": "systemMutation",
+    "job": "system.cronRuns"
   },
   "system:recordRestoreDrill": {
     "kind": "mutation",

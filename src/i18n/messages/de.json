@@ -577,6 +577,24 @@
     "bankConnection": "Bankanbindung",
     "bankConnectionHint": "Umsätze automatisch über Enable Banking (PSD2, Revolut Business) abrufen – viermal täglich, Zustimmung für 180 Tage. Kontoauszug-Importe bleiben jederzeit möglich.",
     "sectionsLabel": "Abschnitte",
+    "cronStatus": {
+      "title": "Hintergrundaufgaben",
+      "description": "Geplante Aufgaben (Cron) mit letzter Ausführung, Dauer, Ergebnis und nächstem Lauf. Zeiten in deutscher Zeit.",
+      "name": "Aufgabe",
+      "schedule": "Zeitplan",
+      "lastRun": "Letzter Lauf",
+      "duration": "Dauer",
+      "result": "Ergebnis",
+      "nextRun": "Nächster Lauf",
+      "never": "noch nie",
+      "unknown": "unbekannt",
+      "states": {
+        "ok": "in Ordnung",
+        "overdue": "überfällig",
+        "never": "noch nicht gelaufen",
+        "error": "Fehler"
+      }
+    },
     "thresholds": {
       "title": "Buchführungsgrenzen (§ 141 AO)",
       "intro": "Nur ein Hinweis, keine Sperre: Liegen Umsatz oder Gewinn über den Grenzen, kann das Finanzamt zur Buchführung (Bilanz) auffordern.",
