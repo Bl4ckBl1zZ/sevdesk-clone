@@ -96,11 +96,14 @@ export function InboxItem({
   canWrite,
   actions,
   mergeCandidates = [],
+  correction,
 }: {
   item: InboxDetail;
   canWrite: boolean;
   actions: InboxItemActions;
   mergeCandidates?: readonly MergeCandidate[];
+  /** INB-046 „Korrektur anfordern“ panel (self-fetching; rendered by the screen). */
+  correction?: React.ReactNode;
 }) {
   const t = useTranslations("inbox.item");
   const tSource = useTranslations("inbox.source");
@@ -252,6 +255,7 @@ export function InboxItem({
         </div>
       )}
       <SplitMergeLinks item={item} />
+      {correction}
       {item.duplicateOfInboxItemId && (
         <p className="text-sm">
           <Link href={`/posteingang?id=${item.duplicateOfInboxItemId}` as Route} className="underline">

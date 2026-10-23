@@ -38,6 +38,7 @@ import { INBOX_FILTERS, type InboxFilter } from "@/domain/inbox/status";
 import { useAuthedQuery } from "@/hooks/use-authed-query";
 import { cn } from "@/lib/utils";
 import { filesFromDataTransfer, type PickedFile, precheckFiles } from "./drop-files";
+import { InboxCorrection } from "./inbox-correction";
 import { InboxItem, InboxStatusBadge, sourceKey, useFlagLabel } from "./inbox-item";
 
 /**
@@ -322,7 +323,13 @@ function InboxScreenInner() {
             ) : detail === null || !actions ? (
               <p className="text-muted-foreground text-sm">{t("notFound")}</p>
             ) : (
-              <InboxItem item={detail} canWrite={canWrite} actions={actions} mergeCandidates={mergeCandidates} />
+              <InboxItem
+                item={detail}
+                canWrite={canWrite}
+                actions={actions}
+                mergeCandidates={mergeCandidates}
+                correction={<InboxCorrection id={detail.id} canWrite={canWrite} />}
+              />
             )}
           </div>
         )}
