@@ -709,7 +709,7 @@ async function insertDerivedItem(
     {
       source: first.source,
       receivedAt: Math.min(...sources.map((s) => s.receivedAt)),
-      capturedAt: Math.min(...sources.map((s) => s.capturedAt)),
+      capturedAt: ctx.now(), // the split/merge commit; Zugang stays in receivedAt, file entries keep their capture time
       ...(first.clientCapturedAt !== undefined ? { clientCapturedAt: first.clientCapturedAt } : {}),
       actor: ctx.actor,
       ...(first.from ? { from: first.from } : {}),
