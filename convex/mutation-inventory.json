@@ -2131,6 +2131,12 @@
     "wrapper": "systemMutation",
     "job": "cron.integrity.checkpoint"
   },
+  "integrity:runNow": {
+    "kind": "action",
+    "visibility": "public",
+    "wrapper": "action",
+    "permission": "settings.write"
+  },
   "integrity:startupCron": {
     "kind": "action",
     "visibility": "internal",

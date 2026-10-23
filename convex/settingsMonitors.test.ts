@@ -142,3 +142,36 @@ describe("SET-124 rules.freshness cron", () => {
     expect(await stale()).toHaveLength(notes.length);
   });
 });
+
+describe("SET-133 integrity.runNow", () => {
+  test("SET-133 the owner runs integrity.verify on demand (recorded as a full run), at most once per 10 minutes", async () => {
+    const t = makeT();
+    const { owner } = await setupInvoicing(t);
+    const runs = () => t.run((ctx) => ctx.db.query("integrityRuns").collect());
+    const before = (await runs()).length;
+
+    expect(await owner.action(api.integrity.runNow, {})).toMatchObject({ ok: true, findings: 0 });
+    const after = await runs();
+    expect(after).toHaveLength(before + 1);
+    expect(after.at(-1)).toMatchObject({ scope: "full", ok: true });
+
+    const second = await owner.action(api.integrity.runNow, {}).then(
+      () => null,
+      (e: { data?: Record<string, unknown> }) => e.data,
+    );
+    expect(second).toMatchObject({ code: "conflict", reason: "RATE_LIMITED" });
+    expect(String(second?.message)).toContain("Die Integritätsprüfung wurde gerade erst ausgeführt.");
+    expect(await runs()).toHaveLength(before + 1);
+
+    vi.setSystemTime(new Date(NOW.getTime() + 10 * 60_000 + 1_000));
+    expect(await owner.action(api.integrity.runNow, {})).toMatchObject({ ok: true });
+    expect(await runs()).toHaveLength(before + 2);
+  });
+
+  test("SET-133 only the owner may trigger it (settings.write)", async () => {
+    const t = makeT();
+    await setupInvoicing(t);
+    const bookkeeper = await t.asUser("bookkeeper");
+    await expect(bookkeeper.action(api.integrity.runNow, {})).rejects.toThrow();
+  });
+});

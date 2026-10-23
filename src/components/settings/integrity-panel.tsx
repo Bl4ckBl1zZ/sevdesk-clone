@@ -1,8 +1,13 @@
 "use client";
 
 import { api } from "@convex/_generated/api";
+import { useAction } from "convex/react";
 import { useTranslations } from "next-intl";
+import { useState } from "react";
+import { toast } from "sonner";
+import { useRun } from "@/components/catalog/shared";
 import { ConvexGuard } from "@/components/convex/convex-provider";
+import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { useAuthedQuery } from "@/hooks/use-authed-query";
 
@@ -30,6 +35,7 @@ function IntegrityPanelInner() {
   const t = useTranslations("integrity.panel");
   const status = useAuthedQuery(api.integrity.status, {});
   const clock = useAuthedQuery(api.system.clock, {});
+  const me = useAuthedQuery(api.members.me, {});
   if (status === undefined) return <div className="h-40" aria-busy="true" />;
   const run = status.lastRun;
   const cp = status.latestCheckpoint;
@@ -85,7 +91,38 @@ function IntegrityPanelInner() {
             ))}
           </ul>
         )}
+        {me?.role === "owner" && <RunNowButton />}
       </CardContent>
     </Card>
   );
 }
+
+/** F01 SET-133: on-demand `integrity.verify` (rate-limited server-side to one run per 10 minutes). */
+function RunNowButton() {
+  const t = useTranslations("integrity.panel");
+  const runNow = useAction(api.integrity.runNow);
+  const run = useRun();
+  const [busy, setBusy] = useState(false);
+  return (
+    <div className="mt-4 flex flex-wrap items-center gap-3">
+      <Button
+        variant="outline"
+        disabled={busy}
+        aria-busy={busy || undefined}
+        onClick={async () => {
+          setBusy(true);
+          const r = await run(() => runNow({}));
+          setBusy(false);
+          if (r.ok) (r.value.ok ? toastOk : toastFail)(t, r.value.findings);
+        }}
+      >
+        {busy ? t("running") : t("runNow")}
+      </Button>
+      <p className="text-muted-foreground text-sm">{t("runNowHint")}</p>
+    </div>
+  );
+}
+
+type T = ReturnType<typeof useTranslations<"integrity.panel">>;
+const toastOk = (t: T) => toast.success(t("runNowOk"));
+const toastFail = (t: T, count: number) => toast.error(t("runNowFailed", { count }));

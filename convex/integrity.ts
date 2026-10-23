@@ -10,11 +10,13 @@ import {
 import { PROTECTED_TABLES } from "../src/domain/audit/immutability";
 import { internal } from "./_generated/api";
 import type { Doc, Id, TableNames } from "./_generated/dataModel";
-import { mutation, query, systemAction, systemMutation, systemQuery } from "./functions";
+import { action, mutation, query, systemAction, systemMutation, systemQuery } from "./functions";
 import { verifyJournal } from "./journalIntegrity";
 import { checkpointKey, checkpointStoreFromEnv } from "./lib/checkpointStore";
 import { env, instanceName, isTest } from "./lib/env";
+import { appError } from "./lib/errors";
 import { loadCheckpointKey, signCheckpoint, verifyCheckpoint } from "./lib/jws";
+import { rateLimiter } from "./lib/rateLimits";
 import { berlinParts } from "./lib/time";
 import { chainHead } from "./model/audit";
 import {
@@ -498,6 +500,28 @@ export const status = query({
         : null,
       finalisationBlocked: Boolean(run && !run.ok && run.acknowledgedAt === undefined),
     };
+  },
+});
+
+/**
+ * F01 SET-133: „Integritätsprüfung jetzt ausführen“ (Einstellungen › System) runs the full `integrity.verify` on
+ * demand and records the run like the nightly job; rate-limited to one run per 10 minutes for the whole instance.
+ */
+export const runNow = action({
+  permission: "settings.write",
+  args: {},
+  handler: async (ctx) => {
+    const limit = await rateLimiter.limit(ctx, "integrityRunNow");
+    if (!limit.ok) {
+      const minutes = Math.max(1, Math.ceil(limit.retryAfter / 60_000));
+      throw appError(
+        "conflict",
+        `Die Integritätsprüfung wurde gerade erst ausgeführt. Bitte in ${minutes} ${minutes === 1 ? "Minute" : "Minuten"} erneut versuchen.`,
+        { reason: "RATE_LIMITED", retryAfterMs: limit.retryAfter },
+      );
+    }
+    const r = await runVerify(ctx, "full");
+    return { ok: r.ok, lastVerifiedSeq: r.lastVerifiedSeq, findings: r.findings.length };
   },
 });
 

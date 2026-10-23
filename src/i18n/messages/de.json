@@ -1467,7 +1467,12 @@
       "noHead": "Noch keine Einträge",
       "clock": "Serveruhr",
       "clockUnknown": "Noch nicht gemessen (CLOCK_REFERENCE_URL nicht gesetzt)",
-      "findingsLabel": "Befunde der letzten Prüfung"
+      "findingsLabel": "Befunde der letzten Prüfung",
+      "runNow": "Integritätsprüfung jetzt ausführen",
+      "running": "Prüfung läuft …",
+      "runNowHint": "Vollständige Prüfung der Hash-Kette; höchstens einmal in 10 Minuten.",
+      "runNowOk": "Integritätsprüfung abgeschlossen: in Ordnung.",
+      "runNowFailed": "Integritätsprüfung abgeschlossen: {count, plural, one {# Befund} other {# Befunde}}."
     }
   },
   "accounting": {
