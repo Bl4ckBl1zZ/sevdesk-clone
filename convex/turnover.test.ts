@@ -149,3 +149,36 @@ describe("Gesamtumsatz and OSS in EUR (DOC-56, TAX-017, UVA-07)", () => {
     await settle(t);
   });
 });
+
+describe("turnover read window (EC-001, 10 §1 scale)", () => {
+  test("EC-001 TAX-012 the KU totals read only the recent years: thousands of old documents stay within the read limits", async () => {
+    const t = makeT({ transactionLimits: true });
+    const { owner } = await setupInvoicing(t, { seller: "ku" });
+    const contactId = await consumerBuyer(owner);
+    const { id } = await finalized(t, owner, contactId, 1_000);
+    // 2,100 old consumer invoices without the stored OSS figure (as imported history): each would cost a snapshot and
+    // a lines read in the legacy OSS path, together more than Convex's 4,096 reads per transaction.
+    await t.run(async (ctx) => {
+      const doc = await ctx.db.get(id);
+      if (!doc) throw new Error("missing");
+      const { _id, _creationTime, ossNetEurCents, number, ...rest } = doc;
+      for (let i = 0; i < 2_100; i++) {
+        await ctx.db.insert("salesDocuments", {
+          ...rest,
+          number: `ALT-2019-${i}`,
+          documentDate: "2019-06-01",
+          supplyDate: { kind: "date", date: "2019-06-01" as CalendarDate },
+        });
+      }
+    });
+    const totals = await t.run((ctx) => turnoverTotals(ctx, 2026));
+    expect(totals.gesamtumsatz.currentYearCents).toBe(100_000);
+    expect(totals.gesamtumsatz.priorYearCents).toBe(0);
+    // The copies bypass the model (no audit entries): remove them before the invariant hook replays the chain.
+    await t.run(async (ctx) => {
+      for (const d of await ctx.db.query("salesDocuments").collect()) {
+        if (d.number?.startsWith("ALT-2019-")) await ctx.db.delete(d._id);
+      }
+    });
+  }, 120_000);
+});

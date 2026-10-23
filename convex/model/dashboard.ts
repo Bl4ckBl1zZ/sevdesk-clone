@@ -108,7 +108,8 @@ export async function dashboardOverview(
     }
     const dated = docs.filter((d): d is Doc<"salesDocuments"> & { documentDate: string } => !!d.documentDate);
     // TAX-012/DOC-56: Gesamtumsatz = net EUR of every invoice-family document incl. Storno/credit, by supply year.
-    const rows = await turnoverRows(ctx);
+    // Only the current year counts (kuProgress); the window keeps the dashboard's reads flat as history grows.
+    const rows = await turnoverRows(ctx, undefined, { fromDate: `${Number(today.slice(0, 4)) - 3}-01-01` });
     ku = kuProgress({
       today,
       kleinunternehmer: profile?.kleinunternehmer ?? [],

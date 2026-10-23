@@ -64,10 +64,28 @@ async function ossOf(ctx: ReadCtx, d: Doc<"salesDocuments">): Promise<number> {
   return d.ossNetEurCents ?? (await legacyOss(ctx, d));
 }
 
+/** Every non-draft status a finalised turnover document can carry (`by_type_status_date` needs the status first). */
+const FINAL_STATUSES = [
+  "finalized",
+  "sent",
+  "cancelled",
+  "accepted",
+  "rejected",
+  "expired",
+  "superseded",
+  "partially_invoiced",
+  "invoiced",
+  "withdrawn",
+] as const satisfies readonly Exclude<Doc<"salesDocuments">["status"], "draft">[];
+
+/**
+ * `fromDate` limits the scan to documents dated on/after it (index range), so the KU/OSS totals of a year cost the
+ * same however much history the instance holds (EC-001: finalisation reads them in its transaction).
+ */
 export async function turnoverRows(
   ctx: ReadCtx,
   exclude?: Id<"salesDocuments">,
-  opts: { withOss?: boolean } = {},
+  opts: { withOss?: boolean; fromDate?: string } = {},
 ): Promise<TurnoverRow[]> {
   const out: TurnoverRow[] = [];
   // EC-065: proceeds of fixed-asset sales (AST-010 disposal linked to its invoice) are not part of the Gesamtumsatz.
@@ -77,11 +95,27 @@ export async function turnoverRows(
     if (sale?.kind !== "sale" || !sale.documentId || a.voidedAt !== undefined) continue;
     assetSales.set(sale.documentId, (assetSales.get(sale.documentId) ?? 0) + (sale.proceedsCents ?? 0));
   }
+  const docsOf = async (type: (typeof TURNOVER_DOC_TYPES)[number]) => {
+    const from = opts.fromDate;
+    if (from === undefined) {
+      return ctx.db
+        .query("salesDocuments")
+        .withIndex("by_type_status_date", (q) => q.eq("type", type))
+        .collect();
+    }
+    const out: Doc<"salesDocuments">[] = [];
+    for (const status of FINAL_STATUSES) {
+      out.push(
+        ...(await ctx.db
+          .query("salesDocuments")
+          .withIndex("by_type_status_date", (q) => q.eq("type", type).eq("status", status).gte("documentDate", from))
+          .collect()),
+      );
+    }
+    return out;
+  };
   for (const type of TURNOVER_DOC_TYPES) {
-    for (const d of await ctx.db
-      .query("salesDocuments")
-      .withIndex("by_type_status_date", (q) => q.eq("type", type))
-      .collect()) {
+    for (const d of await docsOf(type)) {
       if (d._id === exclude || d.status === "draft") continue;
       const deducted = (d.deductions ?? []).reduce((s, x) => s + x.byGroup.reduce((t, g) => t + g.netCents, 0), 0);
       const assetSale =
@@ -116,7 +150,9 @@ export async function turnoverTotals(
   year: number,
   exclude?: Id<"salesDocuments">,
 ): Promise<TurnoverTotals> {
-  const rows = await turnoverRows(ctx, exclude);
+  // A document counts in the year of its supply end (else its date). Documents dated more than two years before the
+  // prior year (an advance invoice that far ahead of its supply) are not read — bounded cost per finalisation.
+  const rows = await turnoverRows(ctx, exclude, { fromDate: `${year - 3}-01-01` });
   const oss = (y: number) => rows.reduce((s, r) => (turnoverYear(r) === y ? s + r.ossNetEurCents : s), 0);
   return {
     year,
@@ -136,7 +172,7 @@ export async function turnoverTotals(
 export async function thresholdMonitorInput(ctx: ReadCtx, today: CalendarDate) {
   const profile = await getCompanyProfile(ctx);
   const year = Number(today.slice(0, 4));
-  const rows = await turnoverRows(ctx, undefined, { withOss: false });
+  const rows = await turnoverRows(ctx, undefined, { withOss: false, fromDate: `${year - 3}-01-01` });
   const manualPrior = profile?.priorYearTotalTurnoverCents.find((t) => t.year === year - 1)?.amountCents;
   const method = [...(profile?.taxationMethod ?? [])].sort((a, b) => a.validFrom.localeCompare(b.validFrom)).at(-1);
   const profit = profile ? await euerProfitCents(ctx, profile, year - 1) : null;
