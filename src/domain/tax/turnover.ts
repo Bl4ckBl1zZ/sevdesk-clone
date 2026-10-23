@@ -49,10 +49,10 @@ export interface TurnoverDoc {
   /** Final invoices: Σ net of the deducted advances (document currency). */
   readonly deductedNetCents?: number | undefined;
   /**
-   * EC-065: net proceeds of fixed-asset sales contained in the document (document currency, signed like `netCents`);
-   * not part of the Gesamtumsatz (§ 19 Abs. 2 Satz 1 UStG).
+   * EC-065: net proceeds (EUR, signed like `netCents`) of fixed-asset sales contained in the document; not part of
+   * the Gesamtumsatz (§ 19 Abs. 2 Satz 1 UStG).
    */
-  readonly assetSaleNetCents?: number | undefined;
+  readonly assetSaleNetEurCents?: number | undefined;
 }
 
 export function toEurCents(cents: number, d: Pick<TurnoverDoc, "currency" | "fxRateToEur">): number {
@@ -70,9 +70,8 @@ export function turnoverYear(d: Pick<TurnoverDoc, "supplyEnd" | "documentDate">)
 /** Contribution of one document to the Gesamtumsatz (EUR cents, signed); 0 for drafts and other types. */
 export function gesamtumsatzContribution(d: TurnoverDoc): number {
   if (d.status === "draft" || !(TURNOVER_DOC_TYPES as readonly string[]).includes(d.type)) return 0;
-  const net =
-    (d.type === "final_invoice" ? d.netCents - (d.deductedNetCents ?? 0) : d.netCents) - (d.assetSaleNetCents ?? 0);
-  return toEurCents(net, d);
+  const net = d.type === "final_invoice" ? d.netCents - (d.deductedNetCents ?? 0) : d.netCents;
+  return toEurCents(net, d) - (d.assetSaleNetEurCents ?? 0);
 }
 
 export function gesamtumsatzOfYear(docs: readonly TurnoverDoc[], year: number): number {

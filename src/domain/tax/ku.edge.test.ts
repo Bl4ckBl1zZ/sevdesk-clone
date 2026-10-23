@@ -85,13 +85,13 @@ describe("KU thresholds (KU-01)", () => {
       ...over,
     });
     // the sale of the used delivery van (15,000 €) is an invoice, but its proceeds are excluded
-    const vanSale = doc({ assetSaleNetCents: 1_500_000 });
+    const vanSale = doc({ assetSaleNetEurCents: 1_500_000 });
     expect(gesamtumsatzContribution(vanSale)).toBe(0);
     // an invoice with the asset plus regular lines counts only the regular part
-    expect(gesamtumsatzContribution(doc({ netCents: 1_800_000, assetSaleNetCents: 1_500_000 }))).toBe(300_000);
+    expect(gesamtumsatzContribution(doc({ netCents: 1_800_000, assetSaleNetEurCents: 1_500_000 }))).toBe(300_000);
     // the Storno of the asset sale takes nothing out either
     expect(
-      gesamtumsatzContribution(doc({ type: "cancellation", netCents: -1_500_000, assetSaleNetCents: -1_500_000 })),
+      gesamtumsatzContribution(doc({ type: "cancellation", netCents: -1_500_000, assetSaleNetEurCents: -1_500_000 })),
     ).toBe(0);
     expect(gesamtumsatzOfYear([doc({ netCents: 2_000_000 }), vanSale], 2026)).toBe(2_000_000);
   });

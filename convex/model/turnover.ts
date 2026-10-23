@@ -70,6 +70,13 @@ export async function turnoverRows(
   opts: { withOss?: boolean } = {},
 ): Promise<TurnoverRow[]> {
   const out: TurnoverRow[] = [];
+  // EC-065: proceeds of fixed-asset sales (AST-010 disposal linked to its invoice) are not part of the Gesamtumsatz.
+  const assetSales = new Map<string, number>();
+  for (const a of await ctx.db.query("assets").collect()) {
+    const sale = a.disposal;
+    if (sale?.kind !== "sale" || !sale.documentId || a.voidedAt !== undefined) continue;
+    assetSales.set(sale.documentId, (assetSales.get(sale.documentId) ?? 0) + (sale.proceedsCents ?? 0));
+  }
   for (const type of TURNOVER_DOC_TYPES) {
     for (const d of await ctx.db
       .query("salesDocuments")
@@ -77,6 +84,8 @@ export async function turnoverRows(
       .collect()) {
       if (d._id === exclude || d.status === "draft") continue;
       const deducted = (d.deductions ?? []).reduce((s, x) => s + x.byGroup.reduce((t, g) => t + g.netCents, 0), 0);
+      const assetSale =
+        assetSales.get(d._id) ?? (d.type === "cancellation" && d.correctsId ? -(assetSales.get(d.correctsId) ?? 0) : 0);
       out.push({
         id: d._id,
         type: d.type,
@@ -87,6 +96,7 @@ export async function turnoverRows(
         currency: d.currency,
         ...(d.fxRateToEur ? { fxRateToEur: { rate: d.fxRateToEur.rate } } : {}),
         ...(deducted ? { deductedNetCents: deducted } : {}),
+        ...(assetSale ? { assetSaleNetEurCents: assetSale } : {}),
         ossNetEurCents: opts.withOss === false ? 0 : await ossOf(ctx, d),
       });
     }
