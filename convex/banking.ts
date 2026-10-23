@@ -554,6 +554,7 @@ const markArgs = {
   reason: v.optional(vIgnoreReason),
   linkId: v.optional(v.id("bankTransactions")),
   shareholder: v.optional(vShareholder),
+  cashTransferId: v.optional(v.id("cashTransfers")),
 };
 
 /** Validates the mark and returns the Eigenbeleg data (null for „Ignorieren“). */

@@ -510,6 +510,7 @@ export async function commitStatementImport(
       counts: p.preview.counts,
       reconciliation: null,
       continuity: p.preview.continuity,
+      lockedPeriods: p.preview.lockedPeriods,
     };
   }
   const { start, end } = periodInstants(st);

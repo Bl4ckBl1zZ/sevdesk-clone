@@ -1,6 +1,6 @@
 import { isCorporation } from "../../src/domain/accounting/roles";
 import { type EigenbelegInput, markEigenbelegKind } from "../../src/domain/banking/eigenbeleg";
-import { findReversalCandidates, type LinkRow } from "../../src/domain/banking/links";
+import { findReversalCandidates, findTransferCandidates, type LinkRow } from "../../src/domain/banking/links";
 import {
   cashWithdrawalAmount,
   checkMark,
@@ -10,6 +10,12 @@ import {
   statusForMark,
 } from "../../src/domain/banking/marking";
 import { allocationStatus, openAmountCents, type UnmatchedTransaction } from "../../src/domain/banking/match-types";
+import {
+  autoDepositPair,
+  checkDepositPair,
+  type TransitBankRow,
+  type TransitCashDeposit,
+} from "../../src/domain/banking/transit";
 import { suggestTypeDefault } from "../../src/domain/banking/type-defaults";
 import { berlinCalendarDate } from "../../src/domain/time/berlin";
 import { addDays, type CalendarDate } from "../../src/domain/time/calendar-date";
@@ -53,7 +59,87 @@ export interface MarkArgs {
   reason?: IgnoreReason;
   linkId?: Id<"bankTransactions">;
   shareholder?: { name: string; note: string };
+  /** `transfer` of a bank credit: the cash deposit (CSH-024) it is the bank side of (E-ACC-31: exact amount). */
+  cashTransferId?: Id<"cashTransfers">;
   eigenbeleg?: FileRefValue;
+}
+
+// ── open Geldtransit (BNK-061, CSH-024, E-ACC-23/31) ───────────────────────────────────────────────────
+
+/** „Bargeld eingezahlt“ transfers (not reversed) and whether a bank credit is already their bank side. */
+export async function transitDeposits(ctx: ReadCtx): Promise<TransitCashDeposit[]> {
+  const transfers = await ctx.db.query("cashTransfers").collect();
+  const reversed = new Set(transfers.flatMap((t) => (t.reversalOfId ? [t.reversalOfId as string] : [])));
+  const credits = await ctx.db
+    .query("bankTransactions")
+    .withIndex("by_status", (q) => q.eq("status", "transfer"))
+    .collect();
+  const paired = new Set(credits.flatMap((t) => (t.transferCashId ? [t.transferCashId as string] : [])));
+  return transfers.flatMap((t) =>
+    t.kind === "deposit_to_bank" && !t.reversalOfId && !reversed.has(t._id) && t.bankAccountId
+      ? [
+          {
+            id: t._id,
+            date: t.date,
+            amountCents: t.amountCents,
+            bankAccountId: t.bankAccountId,
+            paired: paired.has(t._id) || t.bankTransactionId !== undefined,
+          },
+        ]
+      : [],
+  );
+}
+
+/** Bank rows marked „Geldtransit“ (ATM withdrawals into the till post both legs themselves and are excluded). */
+export async function transitBankRows(ctx: ReadCtx): Promise<TransitBankRow[]> {
+  const rows = await ctx.db
+    .query("bankTransactions")
+    .withIndex("by_status", (q) => q.eq("status", "transfer"))
+    .collect();
+  const atm = new Set(
+    (await ctx.db.query("cashTransfers").collect()).flatMap((c) =>
+      c.bankTransactionId ? [c.bankTransactionId as string] : [],
+    ),
+  );
+  return rows
+    .filter((r) => !atm.has(r._id))
+    .map((r) => ({
+      id: r._id,
+      accountId: r.accountId,
+      bookingDate: r.bookingDate,
+      amountCents: r.amountCents,
+      currency: r.currency,
+      ...(r.source.instructedAmount && r.source.instructedAmount.currency !== r.currency
+        ? { instructedCurrency: r.source.instructedAmount.currency }
+        : {}),
+      paired: r.transferPeerId !== undefined || r.transferCashId !== undefined,
+    }));
+}
+
+const depositCredit = (tx: Doc<"bankTransactions">) => ({
+  accountId: tx.accountId,
+  bookingDate: tx.bookingDate,
+  amountCents: tx.amountCents,
+  currency: tx.currency,
+});
+
+/** The other leg of a Geldtransit pair (BNK-061): the unique unpaired `transfer` row that fits. */
+async function transferPeer(ctx: ReadCtx, tx: Doc<"bankTransactions">): Promise<Doc<"bankTransactions"> | null> {
+  const marked = (
+    await ctx.db
+      .query("bankTransactions")
+      .withIndex("by_status", (q) => q.eq("status", "transfer").eq("bookingDate", tx.bookingDate))
+      .collect()
+  ).filter((r) => r.transferPeerId === undefined && r.transferCashId === undefined);
+  if (marked.length === 0) return null;
+  const accounts = (await ctx.db.query("bankAccounts").collect()).map((a) => ({
+    id: a._id as string,
+    currency: a.currency,
+    ...(a.iban ? { iban: a.iban } : {}),
+  }));
+  const hits = findTransferCandidates(linkRow(tx), marked.map(linkRow), accounts);
+  if (hits.length !== 1) return null;
+  return marked.find((r) => r._id === hits[0]?.peerId) ?? null;
 }
 
 /** Validation shared by the action (before rendering the Eigenbeleg) and the mutation. */
@@ -87,7 +173,16 @@ export async function checkMarkFor(ctx: ReadCtx, args: Omit<MarkArgs, "eigenbele
   if (args.as === "ignored" && link && link._id === tx._id) {
     throw appError("invalid_input", MARK_MESSAGES.ignoreRestricted, { reason: "MARK_REJECTED" });
   }
-  return { tx, account, profile, link };
+  let deposit: TransitCashDeposit | undefined;
+  if (args.cashTransferId) {
+    deposit = (await transitDeposits(ctx)).find((d) => d.id === args.cashTransferId);
+    const problem =
+      args.as !== "transfer" || !deposit
+        ? "Diese Bareinzahlung ist bereits zugeordnet oder gehört zu einem anderen Konto."
+        : checkDepositPair(depositCredit(tx), deposit);
+    if (problem) throw appError("invalid_input", problem, { reason: "DEPOSIT_PAIR_REJECTED" });
+  }
+  return { tx, account, profile, link, deposit };
 }
 
 /** Data for the Eigenbeleg of a mark (BNK-060/061, CSH-025). */
@@ -121,9 +216,17 @@ export async function markEigenbelegInput(
 }
 
 export async function markTransaction(ctx: ModelCtx, args: MarkArgs): Promise<{ status: string }> {
-  const { tx, account, link } = await checkMarkFor(ctx, args);
+  const { tx, account, link, deposit } = await checkMarkFor(ctx, args);
   const status = statusForMark(args.as);
   const attachments = args.eigenbeleg ? [args.eigenbeleg] : [];
+  // BNK-061 / CSH-024: find the other side before this row is marked (it must not pair with itself).
+  let cashId: Id<"cashTransfers"> | undefined = deposit ? (deposit.id as Id<"cashTransfers">) : undefined;
+  let peer: Doc<"bankTransactions"> | null = null;
+  if (args.as === "transfer" && !cashId) {
+    const auto = tx.amountCents > 0 ? autoDepositPair(depositCredit(tx), await transitDeposits(ctx)) : null;
+    if (auto) cashId = auto as Id<"cashTransfers">;
+    else peer = await transferPeer(ctx, tx);
+  }
   if (args.as === "private" || args.as === "transfer") {
     const fee = feeOf(tx);
     await postJournalEntry(
@@ -186,7 +289,18 @@ export async function markTransaction(ctx: ModelCtx, args: MarkArgs): Promise<{ 
     patch.ignoredReason = args.reason;
     if (link) patch.ignoredLinkId = link._id;
   }
+  if (cashId) patch.transferCashId = cashId;
+  if (peer) patch.transferPeerId = peer._id;
   await auditedPatch(ctx, "bankTransactions", tx._id, patch, { action: "bank.mark", label: txLabel(tx) });
+  if (peer) {
+    await auditedPatch(
+      ctx,
+      "bankTransactions",
+      peer._id,
+      { transferPeerId: tx._id },
+      { action: "bank.mark", label: `Geldtransit-Paar ${txLabel(peer)}` },
+    );
+  }
   // A neutralised pair (BNK-063) ignores both halves, linked to each other.
   if (args.as === "ignored" && args.reason === "neutralised_pair" && link) {
     await auditedPatch(
@@ -284,11 +398,30 @@ export async function unmarkTransaction(
   } else {
     throw appError("invalid_input", "Der Umsatz ist nicht markiert.");
   }
+  // The Geldtransit pair (BNK-061) comes apart: the other side stays marked and is open transit again.
+  if (tx.transferPeerId) {
+    const peer = await ctx.db.get(tx.transferPeerId);
+    if (peer?.transferPeerId === tx._id) {
+      await auditedPatch(
+        ctx,
+        "bankTransactions",
+        peer._id,
+        { transferPeerId: undefined },
+        { action: "bank.unmark", label: `Geldtransit-Paar ${txLabel(peer)}`, reason },
+      );
+    }
+  }
   await auditedPatch(
     ctx,
     "bankTransactions",
     tx._id,
-    { status: "open", ignoredReason: undefined, ignoredLinkId: undefined },
+    {
+      status: "open",
+      ignoredReason: undefined,
+      ignoredLinkId: undefined,
+      transferPeerId: undefined,
+      transferCashId: undefined,
+    },
     { action: "bank.unmark", label: txLabel(tx), reason },
   );
 }

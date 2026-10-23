@@ -5,11 +5,11 @@ import { berlinCalendarDate } from "../src/domain/time/berlin";
 import { addDays, type CalendarDate, formatGermanDate } from "../src/domain/time/calendar-date";
 import { api, internal } from "./_generated/api";
 import type { Id } from "./_generated/dataModel";
-import inventory from "./mutation-inventory.json";
 import { finalizedInvoice } from "./invoices.fixtures";
 import { errorCode } from "./lib/errors";
 import { auditedInsert, auditedPatch } from "./model/audit";
 import { postJournalEntry } from "./model/journal";
+import inventory from "./mutation-inventory.json";
 import { bookedTransaction } from "./payments.fixtures";
 import type { TestT } from "./test.setup";
 import { makeT } from "./test.setup";
@@ -147,7 +147,13 @@ describe("CSH-027 immutability, CSH-024 Belege, CSH-029 no POS", () => {
     expect(patchTransfer).toBe("immutable_record");
     const patchPayment = await t
       .model(OWNER, (ctx) =>
-        auditedPatch(ctx, "payments", r.paymentIds[0] as Id<"payments">, { amountCents: 1 }, { action: "payment.record" }),
+        auditedPatch(
+          ctx,
+          "payments",
+          r.paymentIds[0] as Id<"payments">,
+          { amountCents: 1 },
+          { action: "payment.record" },
+        ),
       )
       .catch(errorCode);
     expect(patchPayment).toBe("immutable_record");

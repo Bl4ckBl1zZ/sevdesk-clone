@@ -139,6 +139,8 @@ export const IMMUTABILITY_MATRIX: Readonly<Record<string, TableRule>> = {
       ignoredLinkId: "mutable",
       allocatedCents: "mutable",
       transferPeerId: "mutable",
+      // F07 CSH-024 / BNK-061: the cash deposit a bank credit is the bank side of (cleared again on unmark).
+      transferCashId: "mutable",
       bookedAt: "once",
       lockedAt: "once",
       sources: "append",

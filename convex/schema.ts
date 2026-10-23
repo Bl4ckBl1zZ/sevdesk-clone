@@ -288,6 +288,8 @@ export default defineSchema({
     reversal: v.optional(v.boolean()),
     /** BNK-061: the other leg of a Geldtransit pair. */
     transferPeerId: v.optional(v.id("bankTransactions")),
+    /** CSH-024: the „Bargeld eingezahlt“ cash transfer whose bank side this credit is (E-ACC-31). */
+    transferCashId: v.optional(v.id("cashTransfers")),
     allocatedCents: v.number(),
     recordedAt: v.number(),
     bookedAt: v.optional(v.number()),
