@@ -4,8 +4,10 @@
  * - RI-18 (ER-03, ER-12, MAIL-04): a document whose ER-03 decision was `MUST_E` has an archived, validated
  *   E-Rechnung XML — or `artifactStatus = "blocked"` with the sent mark disabled. While the artifacts are still
  *   `pending` (EC-005 retry) nothing is archived yet. If marked sent, the effective (first non-retracted) mark handed
- *   over the structured e-invoice on an electronic channel. The KoSIT report is required unless the preview
- *   validation was `skipped` (test deployments without the sidecar, convex/lib/einvoiceTools.ts).
+ *   over the structured e-invoice on an electronic channel. The KoSIT report is required when the preview
+ *   validation `passed`; Storno and corrections carry no preview result (they are validated only after the commit,
+ *   where an unreachable sidecar fails the render outside test deployments — convex/lib/einvoiceTools.ts — so a
+ *   `ready` XML always comes with its report there) and test deployments record `skipped`.
  * - RI-25 (ER-20): every invoice to a public authority (B2G) carries a valid Leitweg-ID in BT-10.
  */
 import type { DocumentSnapshot, Er03Decision, SalesDocType } from "../documents/snapshot";
@@ -54,7 +56,7 @@ export function checkEinvoiceDocument(d: EinvoiceInvariantDoc): EinvoiceInvarian
     if (d.validation === "not_required") err("RI-18", `${d.name}: E-Rechnung Pflicht, aber nicht validiert.`);
     if (d.artifactStatus === "ready") {
       if (!kinds.has("xrechnung_xml")) err("RI-18", `${d.name}: E-Rechnung Pflicht, aber keine XML archiviert.`);
-      if (d.validation !== "skipped" && !kinds.has("validation_report_kosit")) {
+      if (d.validation === "passed" && !kinds.has("validation_report_kosit")) {
         err("RI-18", `${d.name}: E-Rechnung Pflicht, aber kein Prüfbericht (KoSIT) archiviert.`);
       }
     }

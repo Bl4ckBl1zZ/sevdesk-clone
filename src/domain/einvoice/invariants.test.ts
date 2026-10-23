@@ -47,6 +47,17 @@ describe("RI-18 MUST_E documents have a validated E-Rechnung", () => {
     expect(
       checkEinvoiceDocument(mustE({ validation: "skipped", artifacts: [{ id: "a2", kind: "xrechnung_xml" }] })),
     ).toEqual([]);
+    // Storno/corrections have no preview validation: the XML is required, the report only follows a `passed` preview
+    expect(
+      checkEinvoiceDocument(
+        mustE({ type: "cancellation", validation: undefined, artifacts: [{ id: "a2", kind: "xrechnung_xml" }] }),
+      ),
+    ).toEqual([]);
+    expect(
+      checkEinvoiceDocument(
+        mustE({ type: "cancellation", validation: undefined, artifacts: [{ id: "a1", kind: "pdf" }] }),
+      ),
+    ).toEqual([expect.objectContaining({ id: "RI-18", message: expect.stringContaining("keine XML") })]);
   });
 
   test("RI-18 pending artifacts are not yet checked; blocked artifacts must not carry a sent mark", () => {
