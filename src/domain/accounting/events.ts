@@ -278,6 +278,17 @@ export interface BankTransactionMarkedEvent {
    * expense account (chart accounts, defaults in `rules/accounting/loan-accounts.ts`).
    */
   loan?: { principalCents: number; interestCents: number; loanAccount: string; interestAccount: string };
+  /**
+   * F07 BNK-028 / F08 R1–R2: the foreign-currency pocket side of a Geldtransit (`amountCents` in `fx.currency`).
+   * `eurCents` = EUR value of the paired EUR side (transit amount); `costCents` = moving-average EUR cost of an
+   * outflow (inflow: = eurCents). The difference of an outflow is the realised FX result.
+   */
+  fx?: {
+    currency: string;
+    eurCents: number;
+    costCents: number;
+    rate: { rate: string; source: "bmf_monthly" | "ecb_daily" | "manual" | "transaction"; date: string };
+  };
 }
 
 /** „Markierung aufheben“: mirrors the entries of the mark (Generalumkehr, ACC-004). */

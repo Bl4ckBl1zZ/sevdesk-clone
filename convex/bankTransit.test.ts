@@ -238,6 +238,122 @@ describe("Geldtransit between own accounts (BNK-061, E-ACC-23, EC-BNK-68, EC-BNK
   });
 });
 
+describe("exchange between own pockets (BNK-028, F08 R1/R2)", () => {
+  const ledgerOf = async (t: TestT, id: Id<"bankAccounts">) =>
+    (await t.run((ctx) => ctx.db.get(id)))?.ledgerAccount as string;
+  const entryOf = (t: TestT, id: Id<"bankTransactions">) =>
+    t.run(async (ctx) => {
+      const e = await ctx.db
+        .query("journalEntries")
+        .withIndex("by_source", (q) => q.eq("source.kind", "bankTransaction").eq("source.id", id))
+        .first();
+      return e
+        ? {
+            explanation: e.explanation,
+            lines: e.lines.map((l) => [l.account, l.debitCents, l.creditCents, l.currency ?? null, l.amountFx ?? null]),
+          }
+        : null;
+    });
+
+  test("EC-BNK-26 T07-032 EUR→USD then USD→EUR: Geldtransit nets to 0, lot cost = EUR side, FX gain 5,00 at moving average", async () => {
+    const { t, owner, eur, usd } = await setup();
+    const usdLedger = await ledgerOf(t, usd);
+    const eurOut = await booked(t, eur, {
+      bookingDate: "2026-10-01",
+      amountCents: -92_000,
+      purpose: "Exchanged to USD",
+      instructed: { amountMinor: 100_000, currency: "USD" },
+    });
+    const usdIn = await booked(t, usd, {
+      bookingDate: "2026-10-01",
+      amountCents: 100_000,
+      currency: "USD",
+      purpose: "Exchanged from EUR",
+      instructed: { amountMinor: 92_000, currency: "EUR" },
+    });
+    // The pocket side alone has no EUR value yet.
+    const early = await owner.action(api.banking.mark, { transactionId: usdIn, as: "transfer" }).catch((x) => x);
+    expect(messageOf(early)).toBe(
+      "Umsätze in Fremdwährung werden über die EUR-Seite bewertet: bitte zuerst die EUR-Seite des Umtauschs als Geldtransit markieren.",
+    );
+    await owner.action(api.banking.mark, { transactionId: eurOut, as: "transfer" });
+    await owner.action(api.banking.mark, { transactionId: usdIn, as: "transfer" });
+    expect(await entryOf(t, usdIn)).toEqual({
+      explanation: "R1",
+      lines: [
+        [usdLedger, 92_000, 0, "USD", 100_000],
+        ["1360", 0, 92_000, null, null],
+      ],
+    });
+    expect((await txOf(t, usdIn)).transferPeerId).toBe(eurOut);
+    expect(await transitBalance(t)).toBe(0);
+    // USD → EUR: 500 USD for 465,00 € — book value at 0,92 = 460,00 → 5,00 € FX gain (2660), no revenue/expense.
+    const eurIn = await booked(t, eur, {
+      bookingDate: "2026-10-05",
+      amountCents: 46_500,
+      purpose: "Exchanged from USD",
+      instructed: { amountMinor: 50_000, currency: "USD" },
+    });
+    const usdOut = await booked(t, usd, {
+      bookingDate: "2026-10-05",
+      amountCents: -50_000,
+      currency: "USD",
+      purpose: "Exchanged to EUR",
+      instructed: { amountMinor: 46_500, currency: "EUR" },
+    });
+    await owner.action(api.banking.mark, { transactionId: eurIn, as: "transfer" });
+    await owner.action(api.banking.mark, { transactionId: usdOut, as: "transfer" });
+    expect(await entryOf(t, usdOut)).toEqual({
+      explanation: "R2",
+      lines: [
+        ["1360", 46_500, 0, null, null],
+        [usdLedger, 0, 46_000, "USD", 50_000],
+        ["2660", 0, 500, null, null],
+      ],
+    });
+    expect(await transitBalance(t)).toBe(0);
+    const usdLines = await t.run((ctx) =>
+      ctx.db
+        .query("journalLines")
+        .withIndex("by_account_date_seq", (q) => q.eq("account", usdLedger))
+        .collect(),
+    );
+    expect(usdLines.reduce((s, l) => s + l.debitCents - l.creditCents, 0)).toBe(46_000);
+    expect(await transitTodos(owner)).toEqual([]);
+  });
+
+  test("EC-BNK-69 BNK-028 a pocket outflow without a complete EUR basis is not valued (no guessed rate)", async () => {
+    const { t, owner, eur, usd } = await setup();
+    // An opening balance of the USD pocket without EUR valuation of its USD amount.
+    await t.model(OWNER, (ctx) =>
+      postJournalEntry(ctx, {
+        kind: "opening_balance",
+        fiscalYear: 2026,
+        date: "2026-01-01",
+        part: { kind: "bank", bankAccountId: usd, amountCents: 50_000 },
+      }),
+    );
+    const eurIn = await booked(t, eur, {
+      bookingDate: "2026-10-05",
+      amountCents: 9_300,
+      instructed: { amountMinor: 10_000, currency: "USD" },
+    });
+    const usdOut = await booked(t, usd, {
+      bookingDate: "2026-10-05",
+      amountCents: -10_000,
+      currency: "USD",
+      instructed: { amountMinor: 9_300, currency: "EUR" },
+    });
+    await owner.action(api.banking.mark, { transactionId: eurIn, as: "transfer" });
+    const e = await owner.action(api.banking.mark, { transactionId: usdOut, as: "transfer" }).catch((x) => x);
+    expect(messageOf(e)).toBe(
+      "Der EUR-Anschaffungswert des Fremdwährungskontos ist unvollständig (Zugang ohne EUR-Bewertung). Bitte zuerst die Zugänge buchen (z. B. den Umtausch aus EUR).",
+    );
+    expect((await txOf(t, usdOut)).status).toBe("open");
+    expect(await entryOf(t, usdOut)).toBeNull();
+  });
+});
+
 describe("Darlehen (BNK-062)", () => {
   const entryLines = (t: TestT, id: Id<"bankTransactions">) =>
     t.run(async (ctx) => {

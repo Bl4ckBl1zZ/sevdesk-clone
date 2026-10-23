@@ -493,13 +493,14 @@ describe("F07 revisions and foreign currency (BNK-026, BNK-028)", () => {
     const tx = usdRows.find((r) => r.amountCents < 0) ?? usdRows[0];
     if (!tx) throw new Error("no USD row");
     expect(tx.currency).toBe("USD");
-    for (const as of ["private", "transfer"] as const) {
-      const e = await s.owner.action(api.banking.mark, { transactionId: tx._id, as }).catch((x) => x);
-      expect(reasonOf(e), as).toBe("FX_POSTING_DEFERRED");
-      expect(messageOf(e)).toContain(
-        "Umsätze in Fremdwährung können erst mit der EUR-Bewertung (Kurs der EZB) gebucht werden.",
-      );
-    }
+    const e = await s.owner.action(api.banking.mark, { transactionId: tx._id, as: "private" }).catch((x) => x);
+    expect(reasonOf(e)).toBe("FX_POSTING_DEFERRED");
+    expect(messageOf(e)).toContain(
+      "Umsätze in Fremdwährung können erst mit der EUR-Bewertung (Kurs der EZB) gebucht werden.",
+    );
+    // A Geldtransit side is valued through its EUR side (R1/R2, bankTransit.test.ts); without one it is refused.
+    const transfer = await s.owner.action(api.banking.mark, { transactionId: tx._id, as: "transfer" }).catch((x) => x);
+    expect(["FX_PEER_REQUIRED", "FX_POSTING_DEFERRED"]).toContain(reasonOf(transfer));
     const d = await s.owner.query(api.banking.transaction, { id: tx._id });
     expect(d).toMatchObject({ status: "open", postings: [], eigenbelege: [] });
     // „Ignorieren“ is not an FX posting: it is judged by the normal ignore rules only

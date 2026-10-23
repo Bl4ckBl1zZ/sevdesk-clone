@@ -30,6 +30,68 @@ function brief(r: ReturnType<typeof postEvent>) {
   };
 }
 
+describe("foreign-currency pocket side of a Geldtransit (F08 R1/R2, F07 BNK-028)", () => {
+  const rate = { rate: "0.92", source: "transaction" as const, date: "2026-10-01" };
+  const fxLines = (r: ReturnType<typeof postEvent>) => {
+    if (!r.ok || r.value.kind !== "entry") throw new Error("no entry");
+    return r.value.posting.lines.map((l: RoleLine) => [
+      l.role ?? l.account,
+      l.debitCents > 0 ? "S" : "H",
+      l.debitCents || l.creditCents,
+      l.currency ?? null,
+      l.amountFx ?? null,
+    ]);
+  };
+
+  test("EC-BNK-26 T07-032 R1 USD side of EUR→USD: S bank.usd 920,00 € (memo 1.000,00 USD) · H transit 920,00", () => {
+    const r = postEvent(
+      mark({
+        mark: "transfer",
+        bankAccountId: "usd",
+        amountCents: 100_000,
+        fx: { currency: "USD", eurCents: 92_000, costCents: 92_000, rate },
+      }),
+      SOLE,
+    );
+    expect(r.ok && r.value.kind === "entry" && r.value.posting.explanation).toBe("R1");
+    expect(fxLines(r)).toEqual([
+      ["bank.usd", "S", 92_000, "USD", 100_000],
+      ["transit", "H", 92_000, null, null],
+    ]);
+  });
+
+  test("EC-BNK-26 T07-032 R2 USD side of USD→EUR: S transit 465,00 · H bank.usd 460,00 (500 USD) · H fx gain 5,00", () => {
+    const r = postEvent(
+      mark({
+        mark: "transfer",
+        bankAccountId: "usd",
+        amountCents: -50_000,
+        fx: { currency: "USD", eurCents: 46_500, costCents: 46_000, rate },
+      }),
+      SOLE,
+    );
+    expect(fxLines(r)).toEqual([
+      ["transit", "S", 46_500, null, null],
+      ["bank.usd", "H", 46_000, "USD", 50_000],
+      ["income.fx_gain", "H", 500, null, null],
+    ]);
+    const loss = postEvent(
+      mark({
+        mark: "transfer",
+        bankAccountId: "usd",
+        amountCents: -50_000,
+        fx: { currency: "USD", eurCents: 45_000, costCents: 46_000, rate },
+      }),
+      SOLE,
+    );
+    expect(fxLines(loss)).toEqual([
+      ["transit", "S", 45_000, null, null],
+      ["expense.fx_loss", "S", 1_000, null, null],
+      ["bank.usd", "H", 46_000, "USD", 50_000],
+    ]);
+  });
+});
+
 describe("Darlehen (F07 BNK-062)", () => {
   const loan = (over: Partial<BankTransactionMarkedEvent> = {}) =>
     mark({

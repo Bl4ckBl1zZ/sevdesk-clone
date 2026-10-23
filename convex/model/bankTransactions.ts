@@ -1,5 +1,7 @@
 import { isCorporation } from "../../src/domain/accounting/roles";
+import { currencyExponent } from "../../src/domain/banking/amount";
 import { type EigenbelegInput, markEigenbelegKind } from "../../src/domain/banking/eigenbeleg";
+import { outflowCost, type PocketLine, pocketBasis } from "../../src/domain/banking/fx-lots";
 import { findReversalCandidates, findTransferCandidates, type LinkRow } from "../../src/domain/banking/links";
 import { type LoanSplit, splitLoanPayment } from "../../src/domain/banking/loan";
 import {
@@ -171,8 +173,14 @@ export async function checkMarkFor(ctx: ReadCtx, args: Omit<MarkArgs, "eigenbele
     profile.legalForm,
   );
   if (problem) throw appError("invalid_input", problem.message, { reason: "MARK_REJECTED" });
+  let fx: FxValuation | undefined;
   if (args.as !== "ignored" && tx.currency !== "EUR") {
-    throw appError("invalid_input", FX_POSTING_DEFERRED, { reason: "FX_POSTING_DEFERRED" });
+    // BNK-028: only the Geldtransit side of an exchange can be valued today — at the paired EUR side (R1) or at
+    // the pocket's moving-average cost (R2). Everything else needs an ECB rate source (LEGAL-OPEN BNK-028).
+    if (args.as !== "transfer" || tx.source.feeCents) {
+      throw appError("invalid_input", FX_POSTING_DEFERRED, { reason: "FX_POSTING_DEFERRED" });
+    }
+    fx = await fxTransferValuation(ctx, tx, account);
   }
   if (args.as === "ignored" && link && link._id === tx._id) {
     throw appError("invalid_input", MARK_MESSAGES.ignoreRestricted, { reason: "MARK_REJECTED" });
@@ -203,7 +211,72 @@ export async function checkMarkFor(ctx: ReadCtx, args: Omit<MarkArgs, "eigenbele
       interestAccount: args.loan?.interestAccount?.trim() || defaults.interest,
     };
   }
-  return { tx, account, profile, link, deposit, loan };
+  return { tx, account, profile, link, deposit, loan, fx };
+}
+
+interface FxValuation {
+  peerId: Id<"bankTransactions">;
+  currency: string;
+  eurCents: number;
+  costCents: number;
+  rate: { rate: string; source: "transaction"; date: string };
+}
+
+const FX_PEER_REQUIRED =
+  "Umsätze in Fremdwährung werden über die EUR-Seite bewertet: bitte zuerst die EUR-Seite des Umtauschs als Geldtransit markieren.";
+
+/** EUR principal of a marked EUR row (what reached/left the transit account, the fee is booked separately). */
+const eurPrincipal = (t: Doc<"bankTransactions">) =>
+  t.amountCents < 0 ? -t.amountCents - (t.source.feeCents ?? 0) : t.amountCents + (t.source.feeCents ?? 0);
+
+/** The pocket's EUR basis from its ledger lines up to `date` (moving average, BNK-028). */
+async function pocketLines(ctx: ReadCtx, ledgerAccount: string, currency: string, date: string): Promise<PocketLine[]> {
+  const lines = await ctx.db
+    .query("journalLines")
+    .withIndex("by_account_date_seq", (q) => q.eq("account", ledgerAccount).lte("date", date))
+    .collect();
+  const entries = new Map<string, Doc<"journalEntries"> | null>();
+  const out: PocketLine[] = [];
+  for (const l of lines) {
+    if (!entries.has(l.entryId)) entries.set(l.entryId, await ctx.db.get(l.entryId));
+    const src = entries.get(l.entryId)?.lines[l.lineIndex];
+    const eurCents = l.debitCents - l.creditCents;
+    const fxMinor =
+      src?.currency === currency && src.amountFx !== undefined ? (l.debitCents > 0 ? 1 : -1) * src.amountFx : undefined;
+    out.push({ eurCents, ...(fxMinor !== undefined ? { fxMinor } : {}) });
+  }
+  return out;
+}
+
+/** BNK-028 / F08 R1–R2 valuation of the foreign-currency side of a Geldtransit pair (EC-BNK-26, EC-BNK-69). */
+async function fxTransferValuation(
+  ctx: ReadCtx,
+  tx: Doc<"bankTransactions">,
+  account: Doc<"bankAccounts">,
+): Promise<FxValuation> {
+  const peer = await transferPeer(ctx, tx);
+  const eurPeer = peer?.currency === "EUR" ? peer : null;
+  if (!eurPeer) throw appError("invalid_input", FX_PEER_REQUIRED, { reason: "FX_PEER_REQUIRED" });
+  const eurCents = eurPrincipal(eurPeer);
+  let costCents = eurCents;
+  if (tx.amountCents < 0) {
+    const basis = pocketBasis(await pocketLines(ctx, account.ledgerAccount, tx.currency, tx.bookingDate));
+    const cost = outflowCost(basis, -tx.amountCents);
+    if (!cost.ok) throw appError("invalid_input", cost.error.message, { reason: "FX_BASIS" });
+    costCents = cost.value;
+  }
+  // Implicit rate of the exchange (EUR per unit), a memo on the journal line (ACC-023); 6 decimals, half-up.
+  const fxUnits = BigInt(Math.abs(tx.amountCents)) * 100n;
+  const scaled =
+    (BigInt(eurCents) * 10n ** BigInt(currencyExponent(tx.currency)) * 1_000_000n + fxUnits / 2n) / fxUnits;
+  const rate = `${scaled / 1_000_000n}.${String(scaled % 1_000_000n).padStart(6, "0")}`;
+  return {
+    peerId: eurPeer._id,
+    currency: tx.currency,
+    eurCents,
+    costCents,
+    rate: { rate, source: "transaction", date: tx.bookingDate },
+  };
 }
 
 /** Data for the Eigenbeleg of a mark (BNK-060/061, CSH-025). */
@@ -238,7 +311,7 @@ export async function markEigenbelegInput(
 }
 
 export async function markTransaction(ctx: ModelCtx, args: MarkArgs): Promise<{ status: string }> {
-  const { tx, account, link, deposit, loan } = await checkMarkFor(ctx, args);
+  const { tx, account, link, deposit, loan, fx } = await checkMarkFor(ctx, args);
   const status = statusForMark(args.as);
   const attachments = args.eigenbeleg ? [args.eigenbeleg] : [];
   // BNK-061 / CSH-024: find the other side before this row is marked (it must not pair with itself).
@@ -272,6 +345,7 @@ export async function markTransaction(ctx: ModelCtx, args: MarkArgs): Promise<{ 
               },
             }
           : {}),
+        ...(fx ? { fx: { currency: fx.currency, eurCents: fx.eurCents, costCents: fx.costCents, rate: fx.rate } } : {}),
       },
       { attachments },
     );

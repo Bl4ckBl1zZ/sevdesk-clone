@@ -164,6 +164,10 @@ export const EXPLANATIONS: Readonly<Record<string, string>> = {
   "T2-corp": "Einlage laut Kontoauszug über das Verrechnungskonto Gesellschafter (Kapitalgesellschaft).",
   "T4-out": "Geldtransit: Abgang vom Bankkonto auf ein eigenes Konto (Gegenbuchung im Zielkonto).",
   "T4-in": "Geldtransit: Zugang von einem eigenen Konto (Gegenbuchung im Ursprungskonto).",
+  R1: "Umtausch EUR → Fremdwährung: Zugang im Fremdwährungskonto zum EUR-Wert der EUR-Seite (Anschaffungskosten), gegen Geldtransit.",
+  R2: "Umtausch Fremdwährung → EUR: Abgang zum gleitenden Durchschnittskurs; die Differenz zum EUR-Betrag ist Kursgewinn oder -verlust.",
+  L1: "Darlehensauszahlung: Bank an Verbindlichkeiten gegenüber Kreditinstituten.",
+  L2: "Darlehensrückzahlung: Tilgung an das Darlehenskonto, Zinsen als Zinsaufwand, an Bank.",
   "BNK-mark-reversal": "Markierung aufgehoben: Generalumkehr der Buchung des Bankumsatzes.",
   "ACC-013-cash": "Eröffnungsbilanz: Anfangsbestand der Kasse gegen Saldenvorträge Sachkonten.",
   "ACC-013-bank": "Eröffnungsbilanz: Anfangsbestand des Bankkontos gegen Saldenvorträge Sachkonten.",
@@ -833,6 +837,47 @@ function postBankMark(e: BankTransactionMarkedEvent, ctx: PostingContext): Resul
   // Principal = what left/reached the counter account; the fee is always borne by the business (R5).
   const principal = out ? -e.amountCents - fee : e.amountCents + fee;
   const feeLines = debit(R("expense.bank_fees"), fee);
+  if (e.mark === "transfer" && e.fx) {
+    // F08 R1 (inflow into the pocket at the EUR side's value) / R2 (outflow at the moving-average cost, the
+    // difference to the EUR side is the realised FX result). The bank line keeps the foreign amount (ACC-023).
+    const { eurCents, costCents } = e.fx;
+    if (fee !== 0 || !isInt(eurCents) || !isInt(costCents) || eurCents <= 0 || costCents < 0) {
+      return err(invalid("Die EUR-Bewertung des Fremdwährungsumsatzes ist ungültig."));
+    }
+    const memo = { currency: e.fx.currency, amountFx: Math.abs(e.amountCents), fxRate: e.fx.rate };
+    const bankLine = (cents: number): RoleLine[] =>
+      cents === 0
+        ? []
+        : [
+            {
+              ...bank,
+              ...(cents > 0 ? { debitCents: cents, creditCents: 0 } : { debitCents: 0, creditCents: -cents }),
+              ...memo,
+            },
+          ];
+    if (!out) {
+      return entry(e, ctx, {
+        date: e.date,
+        text: "Geldtransit in Fremdwährungskonto",
+        explanation: "R1",
+        lines: [...bankLine(eurCents), ...credit(R("transit"), eurCents)],
+        dating: "external",
+      });
+    }
+    const result = eurCents - costCents;
+    return entry(e, ctx, {
+      date: e.date,
+      text: "Geldtransit aus Fremdwährungskonto",
+      explanation: "R2",
+      lines: [
+        ...debit(R("transit"), eurCents),
+        ...(result < 0 ? debit(R("expense.fx_loss"), -result) : []),
+        ...bankLine(-costCents),
+        ...(result > 0 ? credit(R("income.fx_gain"), result) : []),
+      ],
+      dating: "external",
+    });
+  }
   if (e.mark === "loan") {
     // F07 BNK-062: L1 Kreditaufnahme (S bank · H loan), L2 Rückzahlung (S loan principal · S interest · H bank).
     const l = e.loan;
