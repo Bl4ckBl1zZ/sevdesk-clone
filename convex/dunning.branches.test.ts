@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
-import { api } from "./_generated/api";
+import { api, internal } from "./_generated/api";
 import type { Doc, Id } from "./_generated/dataModel";
 import { type DunningOwner, dunningSetup, markSent } from "./dunning.fixtures";
 import { invoiceValues, settle } from "./invoices.fixtures";
@@ -792,5 +792,224 @@ describe("DUN-030 DUN-037 DUN-057 run guards and the daily job", () => {
     expect(r).toMatchObject({ evaluated: 1, drafts: 1, finalized: [], errors: 0 });
     const runs = await t.run((ctx) => ctx.db.query("dunningRuns").collect());
     expect(runs[0]).toMatchObject({ mode: "manual", actor: full.actor });
+  });
+
+  test("DUN-031 EC-DUN-19 the preview on an empty deployment: no company profile, no bank account → nothing to do, bank data current", async () => {
+    const t = makeT();
+    const owner = await t.asUser("owner");
+    const p = await owner.query(api.dunning.preview, {});
+    expect(p).toMatchObject({ actions: [], bankDataCurrent: true, bankDataNote: null });
+    expect(p.date).toBe(p.today);
+    expect((await owner.query(api.dunning.cockpit, {})).runs).toEqual([]);
+  });
+
+  test("DUN-031 DUN-037 DUN-055 the preview for a chosen date shows the to-do for an unmarked reminder; the run log counts skips by reason", async () => {
+    const t = makeT();
+    const s = await dunningSetup(t);
+    const unmarked = await anotherInvoice(t, s.owner, s.contactId);
+    let owner = await jump(t, s.owner, "2026-10-19T08:00:00Z");
+    const ahead = await owner.query(api.dunning.preview, { date: "2026-10-26" });
+    expect(ahead.date).toBe("2026-10-26");
+    expect(ahead.today).toBe("2026-10-19");
+    expect((await owner.query(api.dunning.preview, { date: "26.10.2026" })).date).toBe("2026-10-19");
+    const { id } = await owner.mutation(api.dunning.createReminder, { invoiceId: s.invoiceId, values: {} });
+    await owner.mutation(api.dunning.finalize, { id: id as Id<"salesDocuments"> });
+    await settle(t);
+
+    owner = await jump(t, owner, "2026-10-22T08:00:00Z");
+    const p = await owner.query(api.dunning.preview, {});
+    const todo = p.actions.find((a) => a.invoiceId === s.invoiceId);
+    expect(todo).toMatchObject({
+      kind: "todo_mark_sent",
+      earliestDate: null,
+      level: null,
+      reason: null,
+      claim: null,
+      reasonLabel: "Mahnung MA-2026-0001 noch nicht als versendet markiert – Erinnerung",
+    });
+    expect(p.actions.find((a) => a.invoiceId === unmarked)).toMatchObject({ kind: "skip", reason: "not_marked_sent" });
+    const r = await owner.mutation(api.dunning.run, { mode: "drafts", expectedDigest: p.digest });
+    expect(r).toMatchObject({ todos: 1, skipped: 1, drafts: 0, errors: 0 });
+    const runs = (await owner.query(api.dunning.cockpit, {})).runs;
+    expect(runs[0]).toMatchObject({ todos: 1, drafts: 0, finalized: 0, errors: 0 });
+    expect(runs[0]?.skipped).toEqual([
+      { reason: "not_marked_sent", label: expect.stringContaining("versendet"), count: 1 },
+    ]);
+    expect(await caseOf(t, s.invoiceId)).toMatchObject({ todoLogged: [id] });
+  });
+
+  test("DUN-034 a manual pause with a resume date ends on that date: the next run resumes the case and plans the reminder", async () => {
+    const t = makeT();
+    const s = await dunningSetup(t);
+    await s.owner.mutation(api.dunning.caseAction, {
+      invoiceId: s.invoiceId,
+      values: { action: "pause", until: "2026-10-20" },
+    });
+    let owner = await jump(t, s.owner, "2026-10-19T08:00:00Z");
+    expect((await owner.query(api.dunning.preview, {})).actions[0]).toMatchObject({ kind: "skip" });
+    owner = await jump(t, owner, "2026-10-20T08:00:00Z");
+    const r = await owner.mutation(api.dunning.run, { mode: "drafts" });
+    expect(r.drafts).toBe(1);
+    const resumed = await caseOf(t, s.invoiceId);
+    expect(resumed?.status).toBe("active");
+    expect(resumed?.pausedUntil).toBeUndefined();
+    expect((await auditOf(t, "dunning.case.resume")).at(-1)).toMatchObject({ reason: "Pausendatum erreicht" });
+  });
+});
+
+describe("DUN-008 EC-DUN-17 DUN-033 manual reminder warnings", () => {
+  test("EC-DUN-17 DUN-033 a manual next level before the deadline, on a blocked or disputed claim needs acknowledged warnings", async () => {
+    const t = makeT();
+    const { owner, invoiceId } = await firstReminderSent(t);
+    await owner.mutation(api.dunning.caseAction, { invoiceId, values: { action: "block", reason: "Ratenzahlung" } });
+    await owner.mutation(api.dunning.caseAction, { invoiceId, values: { action: "dispute", reason: "Mängelrüge" } });
+    const e = await catching(owner.mutation(api.dunning.createReminder, { invoiceId, values: {} }));
+    expect(errorCode(e)).toBe("invalid_input");
+    expect(reasonOf(e)).toBe("WARNINGS_UNACKNOWLEDGED");
+    const codes = String(dataOf(e).warnings).split(",");
+    expect(codes).toEqual(expect.arrayContaining(["previous_deadline_running", "dunning_blocked", "disputed"]));
+    expect(messageOf(e)).toContain("Die Frist der letzten Mahnung läuft noch bis");
+    expect(messageOf(e)).toContain("Für diese Rechnung bzw. diesen Kunden ist „Nicht mahnen“ gesetzt.");
+    expect(messageOf(e)).toContain("Die Forderung ist als bestritten markiert.");
+    const { id } = await owner.mutation(api.dunning.createReminder, {
+      invoiceId,
+      values: {
+        acknowledgeWarnings: codes,
+        newDueDate: "2026-11-30",
+        includeFlatFee: false,
+        interestReason: "   ",
+      },
+    });
+    const draft = await docOf(t, id as Id<"salesDocuments">);
+    expect(draft.reminder).toMatchObject({ level: 2, newDueDate: "2026-11-30", flatFee40Cents: 0 });
+    expect(draft.reminder?.manual).toEqual({ includeFlatFee: false, newDueDate: "2026-11-30" });
+    // The editor keeps the texts it is not given and records the new deadline.
+    const { version } = await owner.mutation(api.dunning.updateReminder, {
+      id: id as Id<"salesDocuments">,
+      version: 1,
+      values: { newDueDate: "2026-12-04", acknowledgeWarnings: codes },
+    });
+    expect(version).toBe(2);
+    const updated = await docOf(t, id as Id<"salesDocuments">);
+    expect(updated.headText).toBe(draft.headText);
+    expect(updated.reminder?.newDueDate).toBe("2026-12-04");
+  });
+
+  test("EC-DUN-21 EC-077 no reminder for a cancelled invoice; a Storno resolves the to-do of an unmarked reminder, which stays archived", async () => {
+    const t = makeT();
+    const s = await dunningSetup(t);
+    const owner = await jump(t, s.owner, "2026-10-19T08:00:00Z");
+    const { id } = await owner.mutation(api.dunning.createReminder, { invoiceId: s.invoiceId, values: {} });
+    const rid = id as Id<"salesDocuments">;
+    await owner.mutation(api.dunning.finalize, { id: rid });
+    await settle(t);
+    const open = async () =>
+      t.run(async (ctx) =>
+        (await ctx.db.query("notifications").collect()).filter(
+          (n) => n.kind === "reminder_mark_sent" && n.entity?.id === rid && n.resolvedAt === undefined,
+        ),
+      );
+    expect(await open()).toHaveLength(1);
+    await owner.mutation(api.corrections.cancel, { id: s.invoiceId, reason: "Doppelt erstellt" });
+    expect(await open()).toEqual([]);
+    expect(await docOf(t, rid)).toMatchObject({ status: "finalized", number: "MA-2026-0001" });
+    expect((await caseOf(t, s.invoiceId))?.status).toBe("closed");
+    const e = await catching(owner.mutation(api.dunning.createReminder, { invoiceId: s.invoiceId, values: {} }));
+    expect(messageOf(e)).toBe("Für diese Rechnung kann keine Mahnung erstellt werden (Status: storniert).");
+  });
+
+  test("DUN-042 EC-DUN-35 after the hand-over to a collection agency the reminder's sent mark cannot be retracted", async () => {
+    const t = makeT();
+    const { owner, invoiceId, r1 } = await firstReminderSent(t);
+    await owner.mutation(api.dunning.caseAction, {
+      invoiceId,
+      values: { action: "hand_over", partner: "Inkasso Nord GmbH" },
+    });
+    const log = await t.run((ctx) =>
+      ctx.db
+        .query("sendLog")
+        .withIndex("by_document_at", (q) => q.eq("documentId", r1))
+        .collect(),
+    );
+    const e = await catching(
+      owner.mutation(api.invoices.retractMark, {
+        id: r1,
+        values: { retractsId: log[0]?._id ?? "", reason: "Falsch markiert" },
+      }),
+    );
+    expect(errorCode(e)).toBe("retraction_invalid");
+    expect(messageOf(e)).toBe(
+      "Die Versandmarkierung kann nicht zurückgenommen werden, weil die Übergabe an das Inkassobüro darauf aufbaut.",
+    );
+  });
+});
+
+describe("DUN-001 DUN-053 policy references and the due-soon to-do", () => {
+  test("DUN-001 a renamed seeded default is no longer found by its seed reference; a new B2C default replaces the seeded one", async () => {
+    const t = makeT();
+    const s = await dunningSetup(t);
+    const settings = await s.owner.query(api.dunning.settings, {});
+    const b2c = settings.policies.find((p) => p.name === "Standard B2C") as (typeof settings.policies)[number];
+    const values = {
+      name: "Verbraucher (angepasst)",
+      isDefault: true,
+      appliesTo: b2c.appliesTo,
+      steps: b2c.steps.map(({ textTemplateId: _t, ...x }) => x),
+      dueSoonTodo: false,
+      minOpenAmountCents: b2c.minOpenAmountCents,
+      pauseOnPartialPaymentDays: b2c.pauseOnPartialPaymentDays,
+      stopAfterLastLevel: b2c.stopAfterLastLevel,
+    };
+    await s.owner.mutation(api.dunning.updatePolicy, { id: "seed:1", version: 0, values });
+    const missing = await catching(s.owner.mutation(api.dunning.updatePolicy, { id: "seed:1", version: 0, values }));
+    expect(errorCode(missing)).toBe("not_found");
+    expect(messageOf(missing)).toBe("Die Mahnrichtlinie existiert nicht.");
+
+    const created = await s.owner.mutation(api.dunning.createPolicy, {
+      values: { ...values, name: "Verbraucher neu" },
+    });
+    const after = await s.owner.query(api.dunning.settings, {});
+    expect(after.policies.find((p) => p.name === "Verbraucher (angepasst)")?.isDefault).toBe(false);
+    expect(after.policies.find((p) => p.id === created.id)?.isDefault).toBe(true);
+    // A non-default edit leaves the other defaults alone.
+    const plain = after.policies.find((p) => p.name === "Verbraucher (angepasst)") as (typeof after.policies)[number];
+    await s.owner.mutation(api.dunning.updatePolicy, {
+      id: plain.id,
+      version: plain.version,
+      values: { ...values, isDefault: false },
+    });
+    expect((await s.owner.query(api.dunning.settings, {})).policies.find((p) => p.id === created.id)?.isDefault).toBe(
+      true,
+    );
+  });
+
+  test("DUN-053 PAY-044 the due-soon to-do follows the contact's policy and its own horizon", async () => {
+    const t = makeT();
+    const s = await dunningSetup(t, { dueDays: 2 });
+    const settings = await s.owner.query(api.dunning.settings, {});
+    const b2b = settings.policies.find((p) => p.name === "Standard B2B") as (typeof settings.policies)[number];
+    const base = {
+      isDefault: false,
+      appliesTo: b2b.appliesTo,
+      steps: b2b.steps.map(({ textTemplateId: _t, ...x }) => x),
+      minOpenAmountCents: b2b.minOpenAmountCents,
+      pauseOnPartialPaymentDays: b2b.pauseOnPartialPaymentDays,
+      stopAfterLastLevel: b2b.stopAfterLastLevel,
+    };
+    const short = await s.owner.mutation(api.dunning.createPolicy, {
+      values: { ...base, name: "Kurz", dueSoonTodo: true, dueSoonDays: 1 },
+    });
+    const contactId = s.contactId as Id<"contacts">;
+    await s.owner.mutation(api.dunning.saveContact, { contactId, policyId: short.id });
+    // Due in 2 days, the contact's policy looks 1 day ahead → no to-do yet.
+    expect(await t.mutation(internal.dunning.refreshOverdueCron, { force: true })).toEqual({ overdue: 0, dueSoon: 0 });
+    const standard = await s.owner.mutation(api.dunning.createPolicy, {
+      values: { ...base, name: "Standardhorizont", dueSoonTodo: true },
+    });
+    await s.owner.mutation(api.dunning.saveContact, { contactId, policyId: standard.id });
+    expect(await t.mutation(internal.dunning.refreshOverdueCron, { force: true })).toEqual({ overdue: 0, dueSoon: 1 });
+    const todos = (await s.owner.query(api.invoices.todos, {})).filter((n) => n.kind === "due_soon");
+    expect(todos).toHaveLength(1);
+    expect(todos[0]?.title).toMatch(/^Bald fällig: RE-2026-0001 am 14\.10\.2026/);
   });
 });
