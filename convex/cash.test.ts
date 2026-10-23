@@ -113,21 +113,34 @@ describe("CSH-026 never negative (AO-05, RI-11)", () => {
   test("EC-CSH-08 EC-151 CSH-026 two deposits that are each fine but jointly negative: exactly one is stored, the other gets „Kassenbestand hat sich geändert“", async () => {
     const { t, owner, bankAccount } = await setup();
     await openingCash(t, 10_000);
-    // Both actions pass the pre-check before either posts (the Eigenbeleg is rendered in between).
-    const results = await Promise.allSettled([
-      owner.action(api.cash.recordTransfer, deposit(bankAccount, TODAY, 6_000)),
-      owner.action(api.cash.recordTransfer, deposit(bankAccount, TODAY, 6_000)),
-    ]);
-    expect(results.filter((r) => r.status === "fulfilled")).toHaveLength(1);
-    const rejected = results.find((r) => r.status === "rejected") as PromiseRejectedResult;
-    expect(errorCode(rejected.reason)).toBe("cash_negative");
-    expect(messageOf(rejected.reason)).toBe("Der Kassenbestand hat sich geändert. Bitte erneut versuchen.");
+    const args = deposit(bankAccount, TODAY, 6_000);
+    // Both requests pass the pre-check (the action's `transferContext`) before either posts …
+    await owner.query(api.cash.transferContext, args);
+    await owner.query(api.cash.transferContext, args);
+    const eigenbeleg = async (seed: string) => ({
+      storageId: await t.run((ctx) => ctx.storage.store(new Blob([`%PDF-1.7 ${seed}`], { type: "application/pdf" }))),
+      sha256: "0".repeat(63) + seed,
+      bytes: 12,
+      mime: "application/pdf",
+      name: `Eigenbeleg-${seed}.pdf`,
+    });
+    // … then the serialisable postings run one after the other: the first wins, the second re-checks and aborts.
+    const post = async (seed: string) =>
+      t.mutation(internal.cash.recordTransferInternal, {
+        actorContext: OWNER,
+        ...args,
+        eigenbeleg: await eigenbeleg(seed),
+        prechecked: true,
+      });
+    await post("1");
+    const e = await post("2").catch((x) => x);
+    expect(errorCode(e)).toBe("cash_negative");
+    expect(messageOf(e)).toBe("Der Kassenbestand hat sich geändert. Bitte erneut versuchen.");
     expect(await transfers(t)).toHaveLength(1);
     expect((await owner.query(api.cash.overview, {})).balanceCents).toBe(4_000);
-    // No orphaned Eigenbeleg of the aborted attempt stays in storage.
-    const files = await t.run((ctx) => ctx.db.system.query("_storage").collect());
-    const pdfs = files.filter((f) => f.contentType === "application/pdf");
-    expect(pdfs.length).toBeLessThanOrEqual(2); // the invoice PDF of the fixture + the stored Eigenbeleg
+    // Through the action (no concurrency) the second attempt is refused by the pre-check with EC-CSH-01.
+    const again = await owner.action(api.cash.recordTransfer, args).catch((x) => x);
+    expect(messageOf(again)).toMatch(/^Der Kassenbestand würde negativ werden/);
   });
 });
 

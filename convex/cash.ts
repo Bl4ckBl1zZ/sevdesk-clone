@@ -97,13 +97,28 @@ export const transferContext = query({
 
 export const recordTransferInternal = actorMutation({
   permission: "cash.write",
-  args: { ...transferArgs, eigenbeleg: v.optional(vFileRef), confirmToken: vConfirmToken },
+  args: {
+    ...transferArgs,
+    eigenbeleg: v.optional(vFileRef),
+    /** The action's pre-check (`transferContext`) passed before the Eigenbeleg was rendered. */
+    prechecked: v.optional(v.boolean()),
+    confirmToken: vConfirmToken,
+  },
   // The token binds what the caller chose; the Eigenbeleg is rendered by the server after the preview.
   confirmArgs: Object.keys(transferArgs),
-  handler: async (ctx, args) => {
+  handler: async (ctx, { prechecked, ...args }) => {
     // EC-CSH-09: the transfer's Beleg is its Eigenbeleg; no path records a cash movement without one.
     if (!args.eigenbeleg) throw appError("invalid_input", CASH_BELEG_REQUIRED, { reason: "BELEG_REQUIRED" });
-    return recordCashTransfer(ctx, args);
+    try {
+      return await recordCashTransfer(ctx, args);
+    } catch (e) {
+      // EC-CSH-08 / EC-151: the pre-check passed, so a concurrent movement changed the till meanwhile; the
+      // serialisable posting re-checked and aborted this one (nothing is written).
+      if (prechecked && errorCode(e) === "cash_negative") {
+        throw appError("cash_negative", CASH_CHANGED, { reason: "CASH_CHANGED" });
+      }
+      throw e;
+    }
   },
 });
 
@@ -133,13 +148,11 @@ export const recordTransfer = action({
         actorContext: ctx.actorContext,
         ...args,
         eigenbeleg,
+        prechecked: true,
         ...(confirmToken ? { confirmToken } : {}),
       });
     } catch (e) {
       await ctx.storage.delete(storageId);
-      // EC-CSH-08 / EC-151: the pre-check above passed, so a concurrent movement changed the till meanwhile; the
-      // serialisable posting re-checked and aborted this one.
-      if (errorCode(e) === "cash_negative") throw appError("cash_negative", CASH_CHANGED, { reason: "CASH_CHANGED" });
       throw e;
     }
   },
