@@ -42,7 +42,7 @@ const doc = (t: TestT, id: Id<"salesDocuments">) =>
   });
 const snapshotOf = async (t: TestT, id: Id<"salesDocuments">) => {
   const d = await doc(t, id);
-  const s = await t.run((ctx) => (d.snapshotId ? ctx.db.get(d.snapshotId) : null));
+  const s = await t.run(async (ctx) => (d.snapshotId ? await ctx.db.get(d.snapshotId) : null));
   return JSON.parse(s?.json ?? "null") as DocumentSnapshot;
 };
 
@@ -149,7 +149,7 @@ describe("frozen buyer and seller data (DOC-22, CON-009/180)", () => {
     const snap = await snapshotOf(t, id);
     expect(snap.seller).toMatchObject({ tradeName: "Muster Design", address: { poBox: "99 88" } });
     expect(snap.buyer.address?.city).toBe("Berlin");
-    expect(snap.deliveryAddress?.city ?? snap.delivery?.address?.city).toBe("Potsdam");
+    expect(snap.delivery?.address?.city).toBe("Potsdam");
     expect((await doc(t, id)).billingAddressId).toBeDefined();
     await settle(t);
   });
@@ -194,7 +194,7 @@ describe("draft header fields (DOC-03, DOC-08, EC-DOC-97)", () => {
     });
     const { id } = await owner.mutation(api.invoices.createDraft, { values });
     const d = await owner.query(api.invoices.get, { id });
-    expect(d?.values).toMatchObject({
+    expect(d && "values" in d ? d.values : null).toMatchObject({
       backdateReason: "Leistung im Vormonat abgeschlossen",
       footText: "Danke.",
       buyerReference: "LR-7",
