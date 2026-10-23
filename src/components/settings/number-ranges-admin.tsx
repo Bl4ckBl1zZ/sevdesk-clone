@@ -22,7 +22,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { RESET_POLICIES } from "@/domain/numbering/format";
+import { counterCapacityWarning, RESET_POLICIES } from "@/domain/numbering/format";
 import { NUMBERED_TYPE_LABEL_DE } from "@/domain/numbering/register";
 import {
   NUMBERED_DOC_TYPES,
@@ -87,6 +87,7 @@ function RangeRow({ range }: { range: Range }) {
   const remove = useMutation(api.settings.deleteNumberRange);
   const showError = useAdapterErrorToast();
   const [busy, setBusy] = useState(false);
+  const capacityWarning = range.active ? counterCapacityWarning(range.format, range.next) : null;
   const run = async (fn: () => Promise<unknown>, success: string) => {
     setBusy(true);
     try {
@@ -111,6 +112,8 @@ function RangeRow({ range }: { range: Range }) {
           {range.docTypes.map(typeLabel).join(", ")} · <code className="font-mono">{range.format}</code> ·{" "}
           {t(`reset.${range.resetPolicy}`)} · {t("next")} {range.next}
         </span>
+        {/* EC-011: warning from 90 % of the counter padding on (domain message, German). */}
+        {capacityWarning && <span className="text-warning">{capacityWarning}</span>}
       </div>
       <div className="flex gap-2">
         {range.active && (

@@ -303,7 +303,12 @@ export function validateDocument(
       ),
     );
   }
-  if (range && (draft.type === "invoice" || draft.type === "final_invoice") && range.from > docDate) {
+  // EC-023: only Anzahlungen (advance, amount-based partial) and non-invoices may name a future supply date.
+  if (
+    range &&
+    (draft.type === "invoice" || draft.type === "final_invoice" || draft.type === "correction") &&
+    range.from > docDate
+  ) {
     push(
       finding(
         "supply_date_in_future",
@@ -358,7 +363,11 @@ export function validateDocument(
     );
     const startKu = ctx.company.kleinunternehmer.filter((e) => e.validFrom <= range.from).at(-1)?.isKU ?? false;
     if (change || startKu !== kuFrom) {
-      const at = change?.validFrom ?? range.to;
+      // EC-025: name the first status change inside the period (not the period end).
+      const first = ctx.company.kleinunternehmer.find(
+        (e) => e.validFrom > range.from && e.validFrom <= range.to && e.isKU !== startKu,
+      );
+      const at = first?.validFrom ?? change?.validFrom ?? range.to;
       push(
         finding(
           "supply_period_crosses_ku_change",
