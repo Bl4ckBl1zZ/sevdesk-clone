@@ -6,6 +6,7 @@ import { DOCUMENT_ID_PREFIXES, decodeDocumentId, decodeId } from "@/domain/api/i
 import { DRAFT_TYPES, type DraftType } from "@/domain/documents/doc-types";
 import type { SalesDocType } from "@/domain/documents/snapshot";
 import { decimalToScaled } from "@/domain/schemas/api/common";
+import { objectionArgs, objectionWire } from "@/domain/schemas/api/corrections";
 import { type DispatchIdType, finalizeArgs } from "@/domain/schemas/api/dispatch";
 import {
   acceptWire,
@@ -293,6 +294,8 @@ function sharedEndpoints(res: DocumentResourceDef): AnyEndpoint[] {
   const params = docParams(res);
   const op = (verb: string) => `${verb}${res.schemaPrefix}`;
   const isInvoices = res.path === "invoices";
+  // F04 §4.9: a self-billing Gutschrift has no conversions, no withdrawal and no chain; its Storno is the objection.
+  const isSelfBilling = res.path === "self-billing";
   const endpoints: AnyEndpoint[] = [
     defineEndpoint({
       method: "GET",
@@ -436,7 +439,8 @@ function sharedEndpoints(res: DocumentResourceDef): AnyEndpoint[] {
         const id = rawDocId(res, p.id);
         const doc = await loadDocument(convex, id, res.types, res.singular);
         // F04 §7.1: letters (quotes, orders, delivery notes, proforma) need documents:write as well.
-        if (doc.type !== "invoice" && !key.scopes.includes("documents:write")) {
+        // A self-billing Gutschrift is an invoice replacement (05 §4.3): invoices:finalize only.
+        if (doc.type !== "invoice" && doc.type !== "self_billing" && !key.scopes.includes("documents:write")) {
           throw new ApiProblem("insufficient_scope", {
             extra: { required_scope: "documents:write invoices:finalize" },
           });
@@ -503,7 +507,7 @@ function sharedEndpoints(res: DocumentResourceDef): AnyEndpoint[] {
     }),
   );
   // `/invoices/{id}/chain` belongs to the invoice-correction slice (Storno/Abschläge); the letters get theirs here.
-  if (!isInvoices) {
+  if (!isInvoices && !isSelfBilling) {
     endpoints.push(
       defineEndpoint({
         method: "GET",
@@ -524,7 +528,7 @@ function sharedEndpoints(res: DocumentResourceDef): AnyEndpoint[] {
       }),
     );
   }
-  return endpoints;
+  return isSelfBilling ? endpoints.filter((e) => !/\/(convert|withdraw)$/.test(e.path)) : endpoints;
 }
 
 const pathOf = (type: string) =>
@@ -660,5 +664,60 @@ export const documentsResource = defineResource(
     ...sharedEndpoints(resourceFor("delivery-notes")),
     ...deliveryNoteEndpoints,
     ...sharedEndpoints(resourceFor("invoices")),
+  ],
+);
+
+const selfBilling = resourceFor("self-billing");
+
+const objectionOut = z
+  .object({
+    cancellation_id: z.string().meta({ description: "Die Spiegel-Stornorechnung (inv_…)" }),
+    number: z.string(),
+    self_billing: documentOut,
+  })
+  .meta({ id: "SelfBillingObjectionResult" });
+
+/**
+ * F04 §4.9 / 05 §4.3 `/self-billing` (P3, INV-16): the shared draft/finalise/dispatch endpoints with prefix `sbc_`
+ * plus the supplier's objection (Widerspruch) as `POST /self-billing/{id}/cancel`. All rules (agreement, swapped
+ * parties, purchase voucher, mirror cancellation) run in convex/invoices.ts and convex/corrections.ts.
+ */
+export const selfBillingResource = defineResource(
+  "self-billing",
+  "Gutschriften im Gutschriftsverfahren (§ 14 Abs. 2 UStG)",
+  [
+    ...sharedEndpoints(selfBilling),
+    defineEndpoint({
+      method: "POST",
+      path: "/self-billing/{id}/cancel",
+      operationId: "objectSelfBilling",
+      summary: "Widerspruch zur Gutschrift erfassen",
+      description:
+        "Der Lieferant hat der Gutschrift widersprochen (§ 14 Abs. 2 UStG): Datum und Inhalt werden festgehalten, die Gutschrift wird durch eine Spiegel-Stornorechnung zum Widerspruchsdatum aufgehoben und der Einkaufsbeleg storniert. Braucht invoices:cancel und invoices:finalize. `Idempotency-Key` ist Pflicht.",
+      tag: selfBilling.tag,
+      scope: "invoices:cancel",
+      params: docParams(selfBilling),
+      body: objectionWire,
+      idempotency: "required",
+      response: { status: 200, schema: objectionOut, description: "Storno und Gutschrift nach dem Widerspruch" },
+      errors: ["not_found", "validation_failed", "conflict", "period_locked", "idempotency_key_required"],
+      handler: async ({ convex, key, params: p, body }) => {
+        if (!key.scopes.includes("invoices:finalize")) {
+          throw new ApiProblem("insufficient_scope", {
+            extra: { required_scope: "invoices:cancel invoices:finalize" },
+          });
+        }
+        const id = rawDocId(selfBilling, p.id);
+        await loadDocument(convex, id, selfBilling.types, selfBilling.singular);
+        const r = await convex.mutation(api.corrections.recordObjection, objectionArgs(id, body) as never);
+        return {
+          body: {
+            cancellation_id: encodeDoc("cancellation", r.cancellationId),
+            number: r.number,
+            self_billing: await loadDocument(convex, id, selfBilling.types, selfBilling.singular),
+          },
+        };
+      },
+    }),
   ],
 );

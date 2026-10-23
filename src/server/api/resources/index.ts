@@ -4,13 +4,14 @@ import { accountingReportsResource } from "./accounting-reports";
 import { bankFeedResource } from "./bank-feed";
 import { contactsResource } from "./contacts";
 import { correctionsResource } from "./corrections";
-import { documentsResource } from "./documents";
+import { documentsResource, selfBillingResource } from "./documents";
 import { dunningResource } from "./dunning";
 import { exportsResource } from "./exports";
 import { inboxResource } from "./inbox";
 import { metaResource } from "./meta";
 import { paymentsResource } from "./payments";
 import { productsResource } from "./products";
+import { receivableLettersResource } from "./receivable-letters";
 import { recurringResource } from "./recurring";
 import { reportsResource } from "./reports";
 import { settingsResource } from "./settings";
@@ -27,7 +28,9 @@ export const RESOURCES: readonly Resource[] = [
   settingsResource,
   documentsResource,
   correctionsResource,
+  selfBillingResource,
   paymentsResource,
+  receivableLettersResource,
   recurringResource,
   dunningResource,
   vouchersResource,

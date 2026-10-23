@@ -329,7 +329,8 @@ export function buildImportProtocol(input: ImportProtocolInput): ImportProtocol 
   const missing = input.preview?.pdf?.missing ?? [];
   const ignored = input.files.filter((f) => f.ignored);
   const notImported = input.files.filter(
-    (f) => !f.ignored && !isMappedCsvKind(f.kind) && !["pdf", "xml", "zip"].includes(f.kind),
+    // IMP-025/026: voucher images and the DATEV export are read now; only unrecognised files remain.
+    (f) => !f.ignored && !isMappedCsvKind(f.kind) && !["pdf", "image", "xml", "zip", "datev"].includes(f.kind),
   );
   const points = [
     ...(orphans.length ? [`PDFs ohne Beleg in der Liste (nicht übernommen): ${orphans.join(", ")}`] : []),
@@ -337,7 +338,7 @@ export function buildImportProtocol(input: ImportProtocolInput): ImportProtocol 
     ...(ignored.length ? [`Ignorierte Dateien: ${ignored.map((f) => `${f.id} ${f.name}`).join(", ")}`] : []),
     ...(notImported.length
       ? [
-          `Nicht übernommene Dateiarten (spätere Ausbaustufe): ${notImported.map((f) => `${f.id} ${f.name} (${kindLabel(f.kind)})`).join(", ")}`,
+          `Nicht erkannte Dateien (nicht übernommen): ${notImported.map((f) => `${f.id} ${f.name} (${kindLabel(f.kind)})`).join(", ")}`,
         ]
       : []),
   ];

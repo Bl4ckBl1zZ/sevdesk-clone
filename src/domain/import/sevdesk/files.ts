@@ -21,7 +21,9 @@ export interface InspectedFile {
 
 const looksBinary = (head: Uint8Array) =>
   (head[0] === 0x25 && head[1] === 0x50 && head[2] === 0x44 && head[3] === 0x46) || // %PDF
-  (head[0] === 0x50 && head[1] === 0x4b); // PK (ZIP)
+  (head[0] === 0x50 && head[1] === 0x4b) || // PK (ZIP)
+  (head[0] === 0xff && head[1] === 0xd8 && head[2] === 0xff) || // JPEG (IMP-025 voucher files)
+  (head[0] === 0x89 && head[1] === 0x50 && head[2] === 0x4e && head[3] === 0x47); // PNG
 
 export function inspectFile(name: string, bytes: Uint8Array): InspectedFile {
   const head = bytes.subarray(0, 16);

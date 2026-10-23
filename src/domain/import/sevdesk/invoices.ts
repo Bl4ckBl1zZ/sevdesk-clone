@@ -56,6 +56,8 @@ export interface ImportedDocument {
   readonly taxCase: TaxCase;
   /** EC-202: the file carries no tax data; `kleinunternehmer` was taken from the company's KU history. */
   readonly taxCaseFromCompany?: true;
+  /** §4.3.2 input (1): the tax case came from an explicit tax-rule label (it wins over the DATEV export, IMP-026). */
+  readonly taxCaseFromLabel?: true;
   readonly groups: SummaryGroup[];
   readonly totals: { netCents: number; vatCents: number; grossCents: number };
   /** Status text „Storniert“ (the original of a Storno). */
@@ -452,6 +454,9 @@ export function parseInvoiceRow(
       currency,
       taxCase,
       ...(fromCompany ? { taxCaseFromCompany: true as const } : {}),
+      ...(!fromCompany && taxCase !== "unknown_imported" && label !== null && typeof label === "object"
+        ? { taxCaseFromLabel: true as const }
+        : {}),
       groups,
       totals,
       cancelledByStatus,

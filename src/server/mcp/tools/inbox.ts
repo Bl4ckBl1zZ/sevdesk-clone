@@ -110,6 +110,29 @@ function safeDraft(v: Awaited<ReturnType<typeof voucherWire>>) {
 
 export const inboxTools = [
   defineTool({
+    name: "inbox_correction_request_text",
+    title: "Korrekturanforderung – Text",
+    description: `Text des Briefs „Bitte um Rechnungskorrektur“ für einen fehlerhaften Posteingangsbeleg (inb_…): Lieferant, Rechnungsnummer, Prüfbefunde mit BMF-Kategorie und Regel-IDs, unsere Empfangsadresse. Nur lesen: Brief als PDF archivieren und „Als versendet markieren“ macht der Inhaber in der App oder per REST. available false = kein Prüfbefund. ${UNTRUSTED_NOTE}`,
+    kind: "read",
+    scopes: ["vouchers:read"],
+    input: z.object({ inbox_item_id: prefixedId("inboxItems") }),
+    handler: async ({ inbox_item_id }, { convex }) => {
+      const raw = rawId("inboxItems", inbox_item_id);
+      await loadInboxItem(convex, raw);
+      const v = await convex.query(api.inbox.correctionRequest, { id: raw as never });
+      return {
+        inbox_item_id,
+        available: v.available,
+        // The letter quotes the supplier's name, invoice number and finding texts → untrusted as a whole.
+        subject: untrustedText(v.subject),
+        text: untrustedText(v.text, 20_000),
+        archived: v.artifact !== null,
+        sent: v.effectiveMarkId !== null,
+        notice: UNTRUSTED_NOTE,
+      };
+    },
+  }),
+  defineTool({
     name: "inbox_list",
     title: "Posteingang auflisten",
     description: `Belege im Posteingang, neueste zuerst. status: all, new, needs_review, einvoice, faulty, duplicate, rejected, older_than_10_days. ${UNTRUSTED_NOTE}`,

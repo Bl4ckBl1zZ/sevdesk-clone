@@ -2,16 +2,25 @@ import "server-only";
 import { api } from "@convex/_generated/api";
 import type { Id } from "@convex/_generated/dataModel";
 import { z } from "zod";
+import { encodeId } from "@/domain/api/ids";
 import { prefixedId } from "@/domain/schemas/api/common";
 import {
+  type CorrectionRequestRecord,
+  correctionLetterOut,
+  correctionMarkSentWire,
+  correctionRequestOut,
+  correctionRetractWire,
   type InboxDetailRecord,
   type InboxRowRecord,
   inboxItemList,
   inboxItemOut,
   inboxListQuery,
+  inboxMergeWire,
   inboxRejectWire,
+  inboxSplitWire,
   inboxUploadOut,
   inboxUploadWire,
+  serializeCorrectionRequest,
   serializeInboxItem,
   serializeInboxRow,
 } from "@/domain/schemas/api/inbox";
@@ -19,6 +28,7 @@ import { CAPTURE_MESSAGES, MAX_UPLOAD_BYTES } from "@/domain/vouchers/capture";
 import type { ConvexCaller } from "../backend";
 import { defineEndpoint, defineResource } from "../endpoint";
 import { ApiProblem } from "../http";
+import { rawId } from "./shared";
 
 /**
  * F06 §7.1 receipt inbox (05 §4.5 `/inbox-items`). Upload = one inbox item per file (INB-001); classification runs
@@ -183,6 +193,149 @@ export const inboxResource = defineResource("inbox-items", "Posteingang (Belege,
         ...(body.text ? { text: body.text } : {}),
       });
       return { body: await inboxItemWire(convex, raw) };
+    },
+  }),
+  defineEndpoint({
+    method: "POST",
+    path: "/inbox-items/{id}/split",
+    operationId: "splitInboxItem",
+    summary: "Posteingangs-Eintrag aufteilen",
+    description:
+      "INB-009: ein Eintrag mit mehreren Dateien wird in neue Einträge aufgeteilt (`groups` = Datei-Indizes je neuem Eintrag, jede Datei genau einmal). Originale und SHA-256 bleiben unverändert; der Ausgangseintrag bleibt als „ersetzt“ erhalten, sein Belegentwurf entfällt. Protokolliert.",
+    tag: "Posteingang",
+    scope: "vouchers:write",
+    params,
+    body: inboxSplitWire,
+    response: { status: 201, schema: inboxUploadOut, description: "Die neuen Einträge" },
+    errors: ["not_found", "validation_failed", "conflict"],
+    handler: async ({ convex, params, body }) => {
+      const raw = params.id.slice(4);
+      await loadInboxItem(convex, raw);
+      const r = await convex.mutation(api.inbox.split, { id: raw as IId, groups: body.groups });
+      const data = [];
+      for (const id of r.ids) data.push(await inboxItemWire(convex, id));
+      return { status: 201, body: { data } };
+    },
+  }),
+  defineEndpoint({
+    method: "POST",
+    path: "/inbox-items/merge",
+    operationId: "mergeInboxItems",
+    summary: "Posteingangs-Einträge zusammenführen",
+    description:
+      "INB-009: mehrere Einträge (z. B. Vorder- und Rückseite) werden zu einem neuen Eintrag mit allen Dateien in der angegebenen Reihenfolge. Originale und SHA-256 bleiben unverändert; die Ausgangseinträge bleiben als „ersetzt“ erhalten. Protokolliert.",
+    tag: "Posteingang",
+    scope: "vouchers:write",
+    body: inboxMergeWire,
+    response: { status: 201, schema: inboxItemOut, description: "Der zusammengeführte Eintrag" },
+    errors: ["not_found", "validation_failed", "conflict"],
+    handler: async ({ convex, body }) => {
+      const ids = body.ids.map((id) => rawId("inboxItems", id) as IId);
+      for (const id of new Set(ids)) await loadInboxItem(convex, id);
+      const r = await convex.mutation(api.inbox.merge, { ids });
+      return { status: 201, body: await inboxItemWire(convex, r.id) };
+    },
+  }),
+  defineEndpoint({
+    method: "GET",
+    path: "/inbox-items/{id}/correction-request",
+    operationId: "getInboxCorrectionRequest",
+    summary: "Korrekturanforderung (Brieftext)",
+    description:
+      "INB-046: Text „Bitte um Rechnungskorrektur“ mit den Prüfbefunden (BMF-Kategorie, Regel-IDs), der archivierte Brief (falls exportiert) und die Versandmarkierungen. Schreibt nichts.",
+    tag: "Posteingang",
+    scope: "vouchers:read",
+    params,
+    response: { status: 200, schema: correctionRequestOut, description: "Brieftext und Verlauf" },
+    errors: ["not_found"],
+    handler: async ({ convex, params }) => {
+      const raw = params.id.slice(4);
+      await loadInboxItem(convex, raw);
+      const v = await convex.query(api.inbox.correctionRequest, { id: raw as IId });
+      return { body: serializeCorrectionRequest(v as unknown as CorrectionRequestRecord) };
+    },
+  }),
+  defineEndpoint({
+    method: "POST",
+    path: "/inbox-items/{id}/correction-request",
+    operationId: "createInboxCorrectionLetter",
+    summary: "Korrekturanforderung als PDF archivieren",
+    description:
+      "INB-046: erzeugt den Brief als PDF und archiviert ihn einmalig mit SHA-256 (weitere Aufrufe liefern denselben Brief). Versendet nichts — der Inhaber verschickt ihn selbst und markiert ihn mit `…/mark-sent`.",
+    tag: "Posteingang",
+    scope: "vouchers:write",
+    params,
+    body: z.object({}).strict(),
+    response: { status: 200, schema: correctionLetterOut, description: "Der archivierte Brief" },
+    errors: ["not_found", "validation_failed"],
+    handler: async ({ convex, params }) => {
+      const raw = params.id.slice(4);
+      await loadInboxItem(convex, raw);
+      const r = await convex.action(api.inboxNode.exportCorrectionLetter, { id: raw as IId });
+      return {
+        body: {
+          text: r.text,
+          artifact_id: encodeId("documentArtifacts", r.artifactId),
+          sha256: r.sha256,
+          url: r.url,
+        },
+      };
+    },
+  }),
+  defineEndpoint({
+    method: "POST",
+    path: "/inbox-items/{id}/correction-request/mark-sent",
+    operationId: "markInboxCorrectionSent",
+    summary: "Korrekturanforderung als versendet markieren",
+    description:
+      "INB-046: nachdem der Inhaber den archivierten Brief selbst verschickt hat (Datum ≤ heute; Kanal „Sonstiges“ mit Notiz). Hängt einen Versandeintrag mit dem SHA-256 des Briefs an. `Idempotency-Key` ist Pflicht. Nicht über MCP.",
+    tag: "Posteingang",
+    scope: "vouchers:write",
+    params,
+    body: correctionMarkSentWire,
+    idempotency: "required",
+    response: {
+      status: 200,
+      schema: z.object({ send_log_id: z.string() }).meta({ id: "InboxCorrectionMarkSentResult" }),
+      description: "Der Versandeintrag",
+    },
+    errors: ["not_found", "validation_failed", "conflict", "idempotency_key_required"],
+    handler: async ({ convex, params, body }) => {
+      const raw = params.id.slice(4);
+      await loadInboxItem(convex, raw);
+      const r = await convex.mutation(api.inbox.markCorrectionSent, {
+        id: raw as IId,
+        sentOn: body.sent_on,
+        channel: body.channel,
+        ...(body.note ? { note: body.note } : {}),
+      });
+      return { body: { send_log_id: encodeId("sendLog", r.sendLogId) } };
+    },
+  }),
+  defineEndpoint({
+    method: "POST",
+    path: "/inbox-items/{id}/correction-request/mark-sent/{sendLogId}/retract",
+    operationId: "retractInboxCorrectionMark",
+    summary: "Versandmarkierung der Korrekturanforderung zurücknehmen",
+    description:
+      "INB-046 mit Grund (mind. 10 Zeichen); hängt eine Rücknahme an, nichts wird geändert oder gelöscht. `Idempotency-Key` ist Pflicht. Nicht über MCP.",
+    tag: "Posteingang",
+    scope: "vouchers:write",
+    params: params.extend({ sendLogId: prefixedId("sendLog") }),
+    body: correctionRetractWire,
+    idempotency: "required",
+    response: { status: 200, schema: correctionRequestOut, description: "Brieftext und Verlauf nach der Rücknahme" },
+    errors: ["not_found", "validation_failed", "conflict", "idempotency_key_required"],
+    handler: async ({ convex, params, body }) => {
+      const raw = params.id.slice(4);
+      await loadInboxItem(convex, raw);
+      await convex.mutation(api.inbox.retractCorrectionMark, {
+        id: raw as IId,
+        retractsId: rawId("sendLog", params.sendLogId) as Id<"sendLog">,
+        reason: body.reason,
+      });
+      const v = await convex.query(api.inbox.correctionRequest, { id: raw as IId });
+      return { body: serializeCorrectionRequest(v as unknown as CorrectionRequestRecord) };
     },
   }),
 ]);
