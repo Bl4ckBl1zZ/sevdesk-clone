@@ -468,7 +468,7 @@ describe("INV-03 INV-06 INV-07 advance and final invoices", { timeout: 30_000 },
     await settle(t);
   });
 
-  test("INV-07 EC-071 an unpaid advance blocks the final (advance_not_settled); its Storno resolves it", async () => {
+  test("INV-07 EC-071 EC-DOC-55 EC-DOC-57 an unpaid advance blocks the final (advance_not_settled); its Storno resolves it and it is not deducted", async () => {
     const t = makeT();
     const { owner, advanceId, personId } = await finalizedAdvance(t);
     const { id: second } = await owner.mutation(api.corrections.createChainDraft, {
@@ -497,6 +497,9 @@ describe("INV-03 INV-06 INV-07 advance and final invoices", { timeout: 30_000 },
     const overview = await owner.query(api.corrections.relations, { id: finalId });
     expect(overview?.chain?.advances.map((a) => a.resolution)).toEqual(["storno", "settled"]);
     await owner.mutation(api.corrections.cancel, { id: advanceId, reason: "Nicht gezahlt" });
+    // EC-DOC-57: the cancelled advance is listed as „Storniert – wird nicht abgezogen“
+    const after = await owner.query(api.corrections.relations, { id: finalId });
+    expect(after?.chain?.advances.map((a) => a.resolution)).toEqual(["cancelled", "settled"]);
     await owner.action(api.invoices.finalize, { id: finalId, version: (await doc(t, finalId)).version });
     const f = await doc(t, finalId);
     expect(f.deductions?.map((d) => d.advanceId)).toEqual([second]);
@@ -504,7 +507,7 @@ describe("INV-03 INV-06 INV-07 advance and final invoices", { timeout: 30_000 },
     await settle(t);
   });
 
-  test("INV-07 EC-071 a partially paid advance is reduced to the received amount and then deducted", async () => {
+  test("INV-07 EC-071 EC-DOC-56 a partially paid advance is reduced to the received amount and then deducted", async () => {
     const t = makeT();
     const { owner, advanceId } = await finalizedAdvance(t);
     await receive(t, owner, advanceId, 238_000);

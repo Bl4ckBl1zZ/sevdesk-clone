@@ -122,6 +122,16 @@ export function emptyLine(kind: DraftLineValues["kind"] = "item"): EditorLine {
   };
 }
 
+/** DOC-36: nothing typed yet — no line content and no texts (the offer to take over the last document shows). */
+export function isEmptyContent(s: Pick<EditorState, "lines" | "subject" | "headText" | "footText">): boolean {
+  return (
+    !s.subject.trim() &&
+    !s.headText.trim() &&
+    !s.footText.trim() &&
+    s.lines.every((l) => !l.name.trim() && !l.description.trim() && !l.price.trim())
+  );
+}
+
 export function emptyEditor(today: string, defaults: Partial<EditorState> = {}): EditorState {
   return {
     type: "invoice",

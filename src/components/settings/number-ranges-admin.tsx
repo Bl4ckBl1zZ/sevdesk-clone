@@ -111,6 +111,7 @@ function RangeRow({ range }: { range: Range }) {
           {range.docTypes.map(typeLabel).join(", ")} · <code className="font-mono">{range.format}</code> ·{" "}
           {t(`reset.${range.resetPolicy}`)} · {t("next")} {range.next}
         </span>
+        {range.capacityWarning && <span className="text-warning">{range.capacityWarning}</span>}
       </div>
       <div className="flex gap-2">
         {range.active && (

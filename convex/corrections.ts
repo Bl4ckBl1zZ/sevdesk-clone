@@ -27,11 +27,17 @@ import { settlementOf } from "./model/settlement";
  * convex/model/invoiceCorrections.ts; correction/advance/final drafts are finalised by `invoices.finalize`.
  */
 
-const vCancelOptions = { reason: v.optional(v.string()), documentDate: v.optional(v.string()) };
+const vCancelOptions = {
+  reason: v.optional(v.string()),
+  documentDate: v.optional(v.string()),
+  // EC-DOC-110: Storno without XML after blocked artifacts (UI „Ohne E-Rechnung stornieren“).
+  einvoiceFallback: v.optional(v.boolean()),
+};
 
-const optionsOf = (a: { reason?: string; documentDate?: string }) => ({
+const optionsOf = (a: { reason?: string; documentDate?: string; einvoiceFallback?: boolean }) => ({
   ...(a.reason?.trim() ? { reason: a.reason.trim() } : {}),
   ...(a.documentDate ? { documentDate: a.documentDate } : {}),
+  ...(a.einvoiceFallback ? { einvoiceFallback: true } : {}),
 });
 
 function mirrorView(s: DocumentSnapshot) {
@@ -68,6 +74,8 @@ export const cancelPreview = query({
       original: p.original,
       documentDate: p.documentDate,
       notice: p.notice,
+      exportSuggested: p.exportSuggested,
+      artifactsBlocked: p.artifactsBlocked,
       mirror: p.snapshot ? mirrorView(p.snapshot) : null,
     };
   },

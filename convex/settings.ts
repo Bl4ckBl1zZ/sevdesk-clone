@@ -1,4 +1,5 @@
 import { v } from "convex/values";
+import { counterCapacityWarning } from "../src/domain/numbering/format";
 import { isEuEeaCountry } from "../src/domain/rules/eu-eea";
 import {
   accessSchema,
@@ -402,6 +403,8 @@ export const listNumberRanges = query({
         active: r.active,
         isDefault: r.isDefault,
         next: await nextValue(ctx, r, ym),
+        // F01 §5.5, F04 EC-DOC-06: "Der Zähler erreicht bald …" from 90 % of the padding.
+        capacityWarning: counterCapacityWarning(r.format, await nextValue(ctx, r, ym)),
         inUse: (await issuedCount(ctx, r._id)) > 0,
       })),
     );

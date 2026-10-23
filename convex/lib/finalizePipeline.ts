@@ -24,6 +24,7 @@ interface PreviewOut {
   findings: { code: string; severity: string; message: string }[];
   snapshotJson: string | null;
   format: "zugferd_en16931" | "zugferd_xrechnung" | "xrechnung_cii" | "xrechnung_ubl" | "none";
+  expected: { taxCase: string; buyerIsConsumer: boolean } | null;
 }
 type CommitOut =
   | { status: "finalized"; number: string; idempotentReplay: boolean }
@@ -51,6 +52,8 @@ export async function runFinalizePipeline(
     throw appError("document_not_draft");
   }
   if (p.version !== a.version) {
+    // EC-DOC-04: an MCP finalisation carries the token of a preview of the older version → that preview is outdated.
+    if (a.confirmToken) throw appError("preview_outdated");
     throw appError("version_conflict", "Der Entwurf wurde zwischenzeitlich geändert. Bitte Vorschau aktualisieren.");
   }
   const errors = p.findings.filter((f) => f.severity === "E");
@@ -81,6 +84,7 @@ export async function runFinalizePipeline(
     id: a.id,
     version: a.version,
     validation,
+    ...(p.expected ? { expected: p.expected } : {}),
     ...opts,
     // ⚠ MCP (06 §3.4): the commit consumes the document_preview token in its transaction.
     ...(a.confirmToken ? { confirmToken: a.confirmToken } : {}),

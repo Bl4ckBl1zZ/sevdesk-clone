@@ -303,6 +303,58 @@ describe("QUO-01…07 quotes", () => {
     expect(after.map((n) => n.kind)).toEqual(expect.arrayContaining(["quote_expired"]));
     expect(after.map((n) => n.kind)).not.toContain("quote_expiring");
   });
+
+  test("QUO-16 deadlines.notify raises „Angebot nachfassen“ +5 and +12 days after sending; a reaction resolves it", async () => {
+    const t = makeT();
+    const { owner, personId } = await setup(t);
+    const { id } = await finalized(t, owner, values("quote", personId, { validUntil: "2026-11-30" as CalendarDate }));
+    await owner.mutation(api.invoices.markSent, {
+      id,
+      values: {
+        sentOn: "2026-10-12",
+        channel: "email_manual",
+        artifactIds: (await owner.query(api.invoices.get, { id }))?.artifacts.map((a) => a._id) ?? [],
+      },
+    });
+    const followUps = async () =>
+      (await t.run((ctx) => ctx.db.query("notifications").collect())).filter((n) => n.kind === "quote_follow_up");
+    const run = async (iso: string) => {
+      vi.setSystemTime(new Date(iso));
+      await t.mutation(internal.invoices.notifyDeadlinesCron, { force: true });
+    };
+    await run("2026-10-16T07:00:00Z");
+    expect(await followUps()).toHaveLength(0);
+    await run("2026-10-17T07:00:00Z");
+    const first = await followUps();
+    expect(first).toHaveLength(1);
+    expect(first[0]?.title).toMatch(
+      /^Angebot nachfassen: AN-2026-\d{4} – seit 5 Tagen keine Reaktion \(versendet am 12\.10\.2026\)$/,
+    );
+    await run("2026-10-18T07:00:00Z"); // idempotent per level
+    expect(await followUps()).toHaveLength(1);
+    await run("2026-10-24T07:00:00Z");
+    const second = await followUps();
+    expect(second.map((n) => [n.title.split(":")[0], n.resolvedAt === undefined])).toEqual([
+      ["Angebot nachfassen", false],
+      ["Angebot erneut nachfassen", true],
+    ]);
+    await run("2026-11-10T07:00:00Z"); // no third level
+    expect(await followUps()).toHaveLength(2);
+    // the customer reacts → the open follow-up to-do is resolved
+    const later = await t.asUser("owner", { existingUserId: owner.userId });
+    await accept(later, id, { date: "2026-11-10" });
+    expect((await followUps()).every((n) => n.resolvedAt !== undefined)).toBe(true);
+  });
+
+  test("QUO-16 quotes that were not marked as sent are not followed up", async () => {
+    const t = makeT();
+    const { owner, personId } = await setup(t);
+    await finalized(t, owner, values("quote", personId, { validUntil: "2026-11-30" as CalendarDate }));
+    vi.setSystemTime(new Date("2026-10-30T07:00:00Z"));
+    await t.mutation(internal.invoices.notifyDeadlinesCron, { force: true });
+    const all = await t.run((ctx) => ctx.db.query("notifications").collect());
+    expect(all.filter((n) => n.kind === "quote_follow_up")).toHaveLength(0);
+  });
 });
 
 // ── conversions and progress ─────────────────────────────────────────────────────────────────────────────
@@ -451,7 +503,7 @@ describe("DOC-33 QUO-08…13 conversions and invoicing progress", () => {
     expect(reasonOf(e)).toBe("withdraw_has_invoices");
   });
 
-  test("QUO-11 UST-08 T-QUO-006 three delivery notes become one collective invoice; all notes are invoiced once", {
+  test("QUO-11 UST-08 T-QUO-006 EC-DOC-72 T-EC-072 three delivery notes become one collective invoice; all notes are invoiced once", {
     timeout: 60_000,
   }, async () => {
     const t = makeT();

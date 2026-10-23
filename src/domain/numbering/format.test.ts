@@ -1,5 +1,26 @@
 import { describe, expect, test } from "vitest";
-import { normalizeNumber, periodKey, previewNumbers, SEEDED_RANGES, validateFormat } from "./format";
+import {
+  counterCapacityWarning,
+  normalizeNumber,
+  periodKey,
+  previewNumbers,
+  render,
+  SEEDED_RANGES,
+  validateFormat,
+} from "./format";
+
+describe("counter capacity (F01 §5.5, F04 EC-DOC-06)", () => {
+  test("EC-DOC-06 T-EC-006 the counter outgrows its padding: RE-2026-10000 is longer but unique; warning from 90 %", () => {
+    expect(render("RE-{YYYY}-{####}", { year: 2026, month: 10 }, 9_999)).toBe("RE-2026-9999");
+    expect(render("RE-{YYYY}-{####}", { year: 2026, month: 10 }, 10_000)).toBe("RE-2026-10000");
+    expect(normalizeNumber("RE-2026-10000")).not.toBe(normalizeNumber("RE-2026-1000"));
+    expect(counterCapacityWarning("RE-{YYYY}-{####}", 8_999)).toBeNull();
+    const msg = "Der Zähler erreicht bald 9999; danach werden die Nummern eine Stelle länger.";
+    expect(counterCapacityWarning("RE-{YYYY}-{####}", 9_000)).toBe(msg);
+    expect(counterCapacityWarning("RE-{YYYY}-{####}", 10_000)).toBe(msg);
+    expect(counterCapacityWarning("RE-{YYYY}-{######}", 9_000)).toBeNull();
+  });
+});
 
 const code = (format: string, reset: "never" | "yearly" | "monthly" = "never") => {
   const r = validateFormat(format, reset);

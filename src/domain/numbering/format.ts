@@ -109,6 +109,19 @@ export function render(format: string, date: YearMonth, counter: number): string
   });
 }
 
+/**
+ * F01 §5.5 / F04 EC-DOC-06: warning once the counter reaches 90 % of what its padding holds ({####} → 9.000). The
+ * number simply gets one digit longer afterwards (render never truncates), so uniqueness is kept.
+ */
+export function counterCapacityWarning(format: string, next: number): string | null {
+  const digits = /\{(#{1,10})\}/.exec(format)?.[1]?.length;
+  if (!digits) return null;
+  const max = 10 ** digits - 1;
+  return next >= Math.ceil((max + 1) * 0.9)
+    ? `Der Zähler erreicht bald ${max}; danach werden die Nummern eine Stelle länger.`
+    : null;
+}
+
 /** Next three numbers for a business date (Europe/Berlin year/month, passed in). */
 export function previewNumbers(format: string, date: YearMonth, next: number): string[] {
   return [next, next + 1, next + 2].map((n) => render(format, date, n));

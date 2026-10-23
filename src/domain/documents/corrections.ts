@@ -139,6 +139,11 @@ export function cancellationSnapshotInput(
     readonly documentDate: string;
     readonly layoutVersionId: string;
     readonly reason?: string;
+    /**
+     * EC-DOC-110 / EC-006: the original's artifacts are blocked (its XML never reached anyone) and the Storno's XML
+     * fails as well → the Storno is issued without XML (audited by the caller).
+     */
+    readonly einvoiceFallback?: boolean;
   },
 ): SnapshotInput {
   const lines: SnapshotInputLine[] = original.lines.map((l) => {
@@ -183,7 +188,7 @@ export function cancellationSnapshotInput(
     ? original.payment.paymentReference.slice(0, -original.number.length)
     : "";
   const r = original.references;
-  const hadXml = original.einvoice.format !== "none";
+  const hadXml = original.einvoice.format !== "none" && p.einvoiceFallback !== true;
   return {
     type: "cancellation",
     number: p.number,
@@ -240,7 +245,7 @@ export function cancellationSnapshotInput(
     // ER-03 rule R1 (EC-DOC-88/89): a Storno of an E-Rechnung is an E-Rechnung; otherwise the original's decision
     // (the reference date is the original's) and always the original's format family (§4.6.3).
     einvoice: {
-      format: original.einvoice.format,
+      format: hadXml ? original.einvoice.format : "none",
       ...(hadXml
         ? { decision: "MUST_E" as const }
         : original.einvoice.decision

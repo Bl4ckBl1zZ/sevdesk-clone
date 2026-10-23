@@ -5,6 +5,9 @@ import { normalizeSearchQuery } from "../src/domain/contacts/core";
 import { defaultMarkSelection, effectiveMark, exportEntriesFor } from "../src/domain/documents/dispatch";
 import { DRAFT_TYPES, type DraftType, isLetterType } from "../src/domain/documents/doc-types";
 import type { DraftDocument } from "../src/domain/documents/draft";
+import type { DuplicateSource } from "../src/domain/documents/duplicate";
+import { lastDocumentContent, pickLastDocument } from "../src/domain/documents/last-document";
+import { messageText as buildMessageText, mailtoHref } from "../src/domain/documents/message-text";
 import { canonicalSnapshotJson } from "../src/domain/documents/snapshot";
 import { blocking, type Finding, validateDocument } from "../src/domain/documents/validate";
 import { resolvePrice } from "../src/domain/products/pricing";
@@ -21,7 +24,7 @@ import { runFinalizePipeline } from "./lib/finalizePipeline";
 import { parse } from "./lib/parse";
 import { defaultInvoiceAccount } from "./model/bankAccounts";
 import { getCompanyProfile } from "./model/companyProfile";
-import { getContact } from "./model/contacts";
+import { contactChannels, getContact } from "./model/contacts";
 import { deliveryNoteDeadline, runUninvoicedSupplyDeadlines } from "./model/deliveryDeadlines";
 import {
   addAttachment as addAttachmentModel,
@@ -48,6 +51,7 @@ import {
   getDocument,
   lastExportArtifactIds,
   loadDocumentContext,
+  logoAt,
   markSent as markSentModel,
   notifyExportedNotMarked,
   openTodos,
@@ -579,6 +583,60 @@ export const updateDraft = mutation({
 });
 
 /** F04 DOC-35 „Duplizieren“ (new draft of the same type; advance/partial/final → invoice). */
+/**
+ * DOC-36 „Letztes Dokument übernehmen“: lines and texts of the contact's last issued document of the same type, for
+ * the editor's offer on a new empty draft. Read only; the editor saves the copied content as a normal draft.
+ */
+export const lastDocument = query({
+  permission: "documents.read",
+  args: { contactId: v.id("contacts"), type: v.string() },
+  handler: async (ctx, { contactId, type }) => {
+    if (!(DRAFT_TYPES as readonly string[]).includes(type)) return null;
+    const docs = await ctx.db
+      .query("salesDocuments")
+      .withIndex("by_contact", (q) => q.eq("contactId", contactId).eq("type", type as DraftType))
+      .collect();
+    const last = pickLastDocument(docs.map((d) => ({ ...d, createdAt: d._creationTime })));
+    if (!last) return null;
+    const content = lastDocumentContent(
+      draftFromDoc(last, await documentLines(ctx, last._id)) as unknown as DuplicateSource,
+    );
+    if (!content) return null;
+    return { id: last._id, number: last.number ?? null, documentDate: last.documentDate ?? null, content };
+  },
+});
+
+/**
+ * SND-19 „E-Mail-Text kopieren“: subject/body from the `message_text` template resolved from the snapshot, plus the
+ * contact's invoice e-mail addresses. Read only — nothing is sent, logged or changed. Drafts → null.
+ */
+export const messageText = query({
+  permission: "documents.read",
+  args: { id: v.id("salesDocuments") },
+  handler: async (ctx, { id }) => {
+    const doc = await ctx.db.get(id);
+    // A self-billing Gutschrift swaps the parties (buyer = our company): no customer e-mail text (F04 §4.9).
+    if (!doc || doc.status === "draft" || doc.type === "self_billing") return null;
+    const snapshot = await snapshotOf(ctx, doc);
+    if (!snapshot) return null;
+    const templates = (await ctx.db.query("textTemplates").collect()).filter((t) => t.kind === "message_text");
+    const text = buildMessageText(snapshot, {
+      templates,
+      today: berlinCalendarDate(ctx.now()),
+      openAmountCents: doc.openAmountCents,
+    });
+    const recipients = new Set<string>();
+    if (snapshot.buyer.invoiceEmail) recipients.add(snapshot.buyer.invoiceEmail);
+    const contact = doc.contactId ? await ctx.db.get(doc.contactId) : null;
+    for (const c of [contact?._id, contact?.parentId]) {
+      if (!c) continue;
+      for (const ch of await contactChannels(ctx, c)) if (ch.isInvoiceEmail) recipients.add(ch.value);
+    }
+    const to = [...recipients];
+    return { ...text, recipients: to, mailto: mailtoHref(to, text.subject, text.body) };
+  },
+});
+
 export const duplicate = mutation({
   permission: "documents.write",
   args: { id: v.id("salesDocuments") },
@@ -669,6 +727,7 @@ export const pipelinePreview = systemQuery({
       snapshotJson: p.snapshot ? canonicalSnapshotJson(p.snapshot) : null,
       format: p.format,
       decision: p.decision,
+      expected: p.taxCase ? { taxCase: p.taxCase, buyerIsConsumer: p.buyerIsConsumer ?? false } : null,
     };
   },
 });
@@ -683,12 +742,18 @@ export const commit = actorMutation({
     id: v.id("salesDocuments"),
     version: v.number(),
     validation: v.union(v.literal("passed"), v.literal("skipped"), v.literal("not_required")),
+    // EC-DOC-02: the derivation the preview of this pipeline run saw (not part of the MCP token).
+    expected: v.optional(v.object({ taxCase: v.string(), buyerIsConsumer: v.boolean() })),
     ...vFinalizeOptions,
     confirmToken: vConfirmToken,
   },
   confirmArgs: ["id", "version", ...Object.keys(vFinalizeOptions)],
   handler: async (ctx, a) => {
-    const r = await commitFinalization(ctx, a.id, a.version, { ...optionsOf(a), validation: a.validation });
+    const r = await commitFinalization(ctx, a.id, a.version, {
+      ...optionsOf(a),
+      validation: a.validation,
+      ...(a.expected ? { expected: a.expected } : {}),
+    });
     if (r.status === "finalized" && !r.idempotentReplay) {
       await ctx.scheduler.runAfter(0, internal.documentArtifacts.render, { id: a.id });
     }
@@ -882,7 +947,11 @@ export const renderInput = systemQuery({
       finalizedAt: doc.finalizedAt ?? null,
       snapshotJson: snap?.json ?? null,
       layoutConfig: layoutVersion?.config ?? null,
-      logoStorageId: profile?.logoStorageId ?? null,
+      // EC-DOC-98: copies re-render with the logo of the profile version valid at the finalisation.
+      logoStorageId:
+        (doc.finalizedAt !== undefined ? await logoAt(ctx, doc.finalizedAt) : undefined) ??
+        profile?.logoStorageId ??
+        null,
       hasArtifacts: (await documentArtifacts(ctx, id)).some((a) => (a.variant ?? "original") !== "copy"),
       // DOC-18: attachments embedded as BG-24 in the XML (frozen with the snapshot hashes)
       xmlAttachments: (doc.attachments ?? [])

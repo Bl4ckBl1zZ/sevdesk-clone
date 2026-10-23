@@ -61,7 +61,7 @@ describe("document totals, net mode (F04 App. E.2)", () => {
     expect(t.groups[0]?.baseCents).toBe(30_000);
   });
 
-  test("EC-055 golden de-document-discount: 100,00 over 1.000,00 @ 19 / 500,00 @ 7 → bases 933,33 / 466,67, gross 1.610,00", () => {
+  test("EC-055 EC-DOC-51 T-EC-051 golden de-document-discount: 100,00 over 1.000,00 @ 19 / 500,00 @ 7 → bases 933,33 / 466,67, gross 1.610,00", () => {
     const lines = [item(1000, 10_000_000, 1900), item(1000, 5_000_000, 700)];
     const t = totalsOf({ priceMode: "net", lines, adjustment: { type: "allowance", amountCents: 10_000 } });
     expect(t.groups.map((g) => [g.allowanceCents, g.baseCents, g.vatCents])).toEqual([

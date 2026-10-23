@@ -11,7 +11,7 @@ import { useTranslations } from "next-intl";
 import { useEffect, useId, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 import { CustomFieldsEditor, TagPicker } from "@/components/catalog/custom-fields";
-import { ConfirmDialog, selectClass, todayBerlin, useRun } from "@/components/catalog/shared";
+import { ConfirmDialog, formatDate, selectClass, todayBerlin, useRun } from "@/components/catalog/shared";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -35,6 +35,7 @@ import {
   editorFromValues,
   emptyEditor,
   emptyLine,
+  isEmptyContent,
   lineFromValues,
   toDraftValues,
   typeFeatures,
@@ -123,6 +124,26 @@ export function InvoiceEditor({
     api.invoices.draftDefaults,
     state.contactId ? { contactId: state.contactId as Id<"contacts"> } : {},
   );
+  // DOC-36 „Letztes Dokument übernehmen“: offered on a new draft while nothing has been typed yet.
+  const [takeoverDismissed, setTakeoverDismissed] = useState<string | null>(null);
+  const offerTakeover = !id && !!state.contactId && takeoverDismissed !== state.contactId && isEmptyContent(state);
+  const lastDoc = useAuthedQuery(
+    api.invoices.lastDocument,
+    { contactId: state.contactId as Id<"contacts">, type },
+    offerTakeover,
+  );
+  const takeOver = () => {
+    if (!lastDoc) return;
+    const c = lastDoc.content;
+    set({
+      lines: c.lines.length > 0 ? c.lines.map((l) => lineFromValues(l as DraftValues["lines"][number])) : state.lines,
+      subject: c.subject ?? "",
+      headText: c.headText ?? "",
+      footText: c.footText ?? "",
+      ...(features.deliveryTerms && c.deliveryTerms ? { deliveryTerms: c.deliveryTerms } : {}),
+    });
+    setTakeoverDismissed(state.contactId);
+  };
 
   const set = (patch: Partial<EditorState>) => {
     setState((s) => ({ ...s, ...patch }));
@@ -311,6 +332,32 @@ export function InvoiceEditor({
                     </span>
                   )}
                 </address>
+              )}
+              {offerTakeover && lastDoc && (
+                <div
+                  role="note"
+                  className="flex flex-wrap items-center justify-between gap-2 rounded-md border border-info/40 bg-info/10 p-3 text-sm @lg/editor:col-span-2"
+                  data-testid="last-document-offer"
+                >
+                  <span>
+                    {t("lastDocument.hint", {
+                      number: lastDoc.number ?? "",
+                      date: lastDoc.documentDate ? formatDate(lastDoc.documentDate) : "",
+                    })}
+                  </span>
+                  <span className="flex gap-2">
+                    <Button
+                      variant="outline"
+                      className="h-11 md:h-9"
+                      onClick={() => setTakeoverDismissed(state.contactId)}
+                    >
+                      {t("lastDocument.dismiss")}
+                    </Button>
+                    <Button className="h-11 md:h-9" onClick={takeOver}>
+                      {t("lastDocument.apply")}
+                    </Button>
+                  </span>
+                </div>
               )}
             </section>
 

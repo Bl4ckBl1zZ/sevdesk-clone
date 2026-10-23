@@ -50,11 +50,12 @@ import { formatMicros, formatMilli } from "@/domain/money/format";
 import type { DraftValues } from "@/domain/schemas/documents";
 import { useAuthedQuery } from "@/hooks/use-authed-query";
 import { AttachmentsSection } from "./attachments-section";
-import { CorrectionActions, DraftBanner, docTypeKey, RelationsPanel } from "./corrections";
+import { CorrectionActions, DraftBanner, docTypeKey, RelationsPanel, StornoDialog } from "./corrections";
 import { ChainCard, DocumentFlowActions } from "./document-actions";
 import { DuplicateButton } from "./duplicate-button";
 import { InvoiceEditor } from "./invoice-editor";
 import { DECISION_LABELS, downloadExport, FORMAT_LABELS, InvoiceStatusBadge, money } from "./invoice-shared";
+import { MessageTextDialog } from "./message-text-dialog";
 import { SelfBillingPanel } from "./self-billing";
 
 type Detail = NonNullable<FunctionReturnType<typeof api.invoices.get>>;
@@ -204,10 +205,18 @@ function InvoiceDetailInner({ id }: { id: Id<"salesDocuments"> }) {
 function ArtifactState({ data }: { data: Detail }) {
   const t = useTranslations("invoices.detail");
   const run = useRun();
+  const tStorno = useTranslations("invoiceCorrections.storno");
   const retry = useMutation(api.invoices.retryArtifacts);
   const canFinalize = useCan("invoices.finalize");
+  const canWrite = useCan("documents.write");
+  const [recreate, setRecreate] = useState(false);
   if (data.doc.artifactStatus === "ready") return null;
   if (data.doc.artifactStatus === "blocked") {
+    // EC-DOC-110: unsent invoice whose files cannot be produced → Storno (optionally without XML) and a fresh copy.
+    const canRecreate =
+      canWrite &&
+      data.doc.sentAt === undefined &&
+      ["invoice", "advance_invoice", "partial_invoice", "final_invoice"].includes(data.doc.type);
     return (
       <div
         role="alert"
@@ -227,6 +236,12 @@ function ArtifactState({ data }: { data: Detail }) {
             {t("retry")}
           </Button>
         )}
+        {canRecreate && (
+          <Button variant="outline" className="h-11 md:h-9" onClick={() => setRecreate(true)}>
+            {tStorno("recreate")}
+          </Button>
+        )}
+        {recreate && <StornoDialog id={data.doc._id} recreate onClose={() => setRecreate(false)} />}
       </div>
     );
   }
@@ -244,6 +259,7 @@ function FinalActions({ data }: { data: Detail }) {
   const canSend = useCan("invoices.send");
   const [markOpen, setMarkOpen] = useState(false);
   const [originalEntry, setOriginalEntry] = useState<ExportEntry | null>(null);
+  const [mailOpen, setMailOpen] = useState(false);
   const ready = data.doc.artifactStatus === "ready";
   const marked = data.doc.sentAt !== undefined;
   const doExport = async (entry: ExportEntry, original = false, reason?: string) => {
@@ -281,6 +297,12 @@ function FinalActions({ data }: { data: Detail }) {
             </>
           )}
           <DropdownMenuSeparator />
+          {data.doc.type !== "self_billing" && (
+            <>
+              <DropdownMenuItem onClick={() => setMailOpen(true)}>{t("mailText")}</DropdownMenuItem>
+              <DropdownMenuSeparator />
+            </>
+          )}
           <p className="px-2 py-1.5 text-muted-foreground text-xs" data-testid="postal-hint">
             {POSTAL_HINT}
           </p>
@@ -293,6 +315,7 @@ function FinalActions({ data }: { data: Detail }) {
         </Button>
       )}
       {markOpen && <MarkSentDialog data={data} onClose={() => setMarkOpen(false)} />}
+      {mailOpen && <MessageTextDialog id={data.doc._id} onClose={() => setMailOpen(false)} />}
       {originalEntry && (
         <ReasonDialog
           title={t("exportOriginal")}

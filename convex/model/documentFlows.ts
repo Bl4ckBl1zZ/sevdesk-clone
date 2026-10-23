@@ -13,6 +13,7 @@ import {
 import { DOC_TYPE_LABEL_DE, documentPath, isLetterType } from "../../src/domain/documents/doc-types";
 import type { DraftDocument } from "../../src/domain/documents/draft";
 import { type LifecycleEvent, transition } from "../../src/domain/documents/lifecycle";
+import { QUOTE_FOLLOW_UP_POLICY, quoteFollowUps } from "../../src/domain/documents/quote-follow-up";
 import type { SalesDocType } from "../../src/domain/documents/snapshot";
 import type { Issue } from "../../src/domain/result";
 import {
@@ -86,7 +87,7 @@ async function snapshotHashOf(ctx: ReadCtx, doc: SalesDoc): Promise<string> {
   return s.snapshotHash;
 }
 
-const QUOTE_TODOS = ["quote_expiring", "quote_expired"] as const;
+const QUOTE_TODOS = ["quote_expiring", "quote_expired", "quote_follow_up"] as const;
 
 async function closeQuoteTodos(ctx: ModelCtx, id: Id<"salesDocuments">) {
   for (const k of QUOTE_TODOS) await resolveNotifications(ctx, id, k);
@@ -495,6 +496,7 @@ export async function runQuoteDeadlines(ctx: ModelCtx): Promise<{ expired: numbe
       { action: "document.expire", label: label(q) },
     );
     await resolveNotifications(ctx, q._id, "quote_expiring");
+    await resolveNotifications(ctx, q._id, "quote_follow_up");
     await upsertNotification(ctx, {
       kind: "quote_expired",
       severity: "info",
@@ -523,5 +525,44 @@ export async function runQuoteDeadlines(ctx: ModelCtx): Promise<{ expired: numbe
     });
     reminded++;
   }
-  return { expired: due.expire.length, reminded };
+  const followedUp = await runQuoteFollowUps(ctx, quotes, today);
+  return { expired: due.expire.length, reminded: reminded + followedUp };
+}
+
+const followUpKey = (id: Id<"salesDocuments">, level: number) => `quote_follow_up:${id}:${level}`;
+
+/**
+ * QUO-16: „Angebot nachfassen“ to-dos +5/+12 days after the quote was marked as sent without a reaction (dunning
+ * step model, one level per run). The raised level is read back from the dedupe keys; a reaction (accept, reject,
+ * withdraw, expire) resolves the to-do via `closeQuoteTodos`.
+ */
+async function runQuoteFollowUps(ctx: ModelCtx, quotes: readonly SalesDoc[], today: string): Promise<number> {
+  const rows = [];
+  for (const q of quotes) {
+    if (q.status !== "sent" || !q.sentOn) continue;
+    let level = 0;
+    for (const s of QUOTE_FOLLOW_UP_POLICY.steps) {
+      const n = await ctx.db
+        .query("notifications")
+        .withIndex("by_dedupe", (x) => x.eq("dedupeKey", followUpKey(q._id, s.level)))
+        .first();
+      if (n) level = Math.max(level, s.level);
+    }
+    rows.push({ id: q._id as string, status: q.status, sentOn: q.sentOn, validUntil: q.validUntil, level });
+  }
+  const byId = new Map(quotes.map((q) => [q._id as string, q]));
+  const due = quoteFollowUps(rows, today);
+  for (const f of due) {
+    const q = byId.get(f.id) as SalesDoc;
+    await resolveNotifications(ctx, q._id, "quote_follow_up");
+    await upsertNotification(ctx, {
+      kind: "quote_follow_up",
+      severity: "info",
+      title: `${f.title}: ${label(q)} – seit ${f.daysSinceSent} Tagen keine Reaktion (versendet am ${formatGermanDate(q.sentOn as CalendarDate)})`,
+      link: documentPath(q.type, q._id),
+      entity: { table: "salesDocuments", id: q._id },
+      dedupeKey: followUpKey(q._id, f.level),
+    });
+  }
+  return due.length;
 }

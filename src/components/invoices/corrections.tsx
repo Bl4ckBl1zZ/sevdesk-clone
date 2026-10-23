@@ -27,7 +27,7 @@ import type { DocumentSnapshot } from "@/domain/documents/snapshot";
 import { formatMicros, formatMilli } from "@/domain/money/format";
 import { parseMicros, parseMilli } from "@/domain/money/parse";
 import { useAuthedQuery } from "@/hooks/use-authed-query";
-import { money } from "./invoice-shared";
+import { downloadExport, money } from "./invoice-shared";
 
 /**
  * Storno, Korrektur-Assistent and the advance → final chain in the UI (F04 §4.7/§4.8, §6.3/§6.4). German texts in
@@ -377,25 +377,100 @@ export function StornoDialog({
   id,
   onClose,
   onCorrection,
+  recreate = false,
 }: {
   id: Id<"salesDocuments">;
   onClose: () => void;
   onCorrection?: () => void;
+  /** EC-DOC-110 „Stornieren und neu erstellen“: after the Storno a copy of the invoice opens as a new draft. */
+  recreate?: boolean;
 }) {
   const t = useTranslations("invoiceCorrections.storno");
   const router = useRouter();
   const run = useRun();
   const [reason, setReason] = useState("");
   const [busy, setBusy] = useState(false);
+  const [fallbackOffered, setFallbackOffered] = useState(false);
+  const [done, setDone] = useState<{ id: Id<"salesDocuments">; number: string } | null>(null);
   const preview = useAuthedQuery(api.corrections.cancelPreview, { id });
   const validate = useAction(api.corrections.validateCancel);
   const cancel = useMutation(api.corrections.cancel);
+  const duplicate = useMutation(api.invoices.duplicate);
+  const exportFiles = useAction(api.documentArtifacts.exportFiles);
   const rid = useId();
   const m = preview?.mirror;
   const blocked = preview?.guard ?? null;
+
+  const finish = async (storno: { id: Id<"salesDocuments">; number: string }) => {
+    toast.success(t("done", { number: storno.number }));
+    if (recreate) {
+      const copy = await run(() => duplicate({ id }), t("recreated", { number: preview?.original.number ?? "" }));
+      onClose();
+      if (copy.ok) router.push(href(copy.value.id));
+      return;
+    }
+    // EC-DOC-116: the customer may hold the invoice → offer the export of the Storno right away.
+    if (preview?.exportSuggested) return setDone(storno);
+    onClose();
+    router.push(href(storno.id));
+  };
+
+  const doCancel = async (fallback: boolean) => {
+    setBusy(true);
+    const options = {
+      ...(reason.trim() ? { reason: reason.trim() } : {}),
+      ...(fallback ? { einvoiceFallback: true } : {}),
+    };
+    if (!fallback) {
+      const check = await run(() => validate({ id, ...options }));
+      if (!check.ok) return setBusy(false);
+      if (check.value.status === "failed" || check.value.status === "blocked") {
+        toast.error(check.value.message ?? t("xmlInvalid"));
+        // EC-DOC-110: an unsent invoice with blocked files may be cancelled without XML.
+        if (check.value.status === "failed" && preview?.artifactsBlocked) setFallbackOffered(true);
+        return setBusy(false);
+      }
+    }
+    const r = await run(() => cancel({ id, ...options }));
+    setBusy(false);
+    if (r.ok) await finish(r.value);
+  };
+
+  if (done) {
+    return (
+      <ConfirmDialog
+        title={t("successTitle", { number: done.number })}
+        description={t("successExport")}
+        confirmLabel={t("export")}
+        onConfirm={async () => {
+          const r = await run(async () => {
+            const res = await exportFiles({ id: done.id, request: { entry: "default" } });
+            await downloadExport([...res.files, ...res.attachments], res.zipName);
+          });
+          if (r.ok) {
+            onClose();
+            router.push(href(done.id));
+          }
+        }}
+        onClose={() => {
+          onClose();
+          router.push(href(done.id));
+        }}
+      >
+        <p className="text-sm" data-testid="storno-success">
+          {preview?.notice}
+        </p>
+      </ConfirmDialog>
+    );
+  }
+
   return (
     <ConfirmDialog
-      title={t("title", { number: preview?.original.number ?? "" })}
+      title={
+        recreate
+          ? t("recreateTitle", { number: preview?.original.number ?? "" })
+          : t("title", { number: preview?.original.number ?? "" })
+      }
       description={t("description", {
         number: preview?.original.number ?? "",
         date: formatDate(preview?.original.documentDate),
@@ -403,23 +478,7 @@ export function StornoDialog({
       confirmLabel={t("confirm")}
       destructive
       confirmDisabled={busy || !preview || !!blocked}
-      onConfirm={async () => {
-        setBusy(true);
-        const reasonArg = reason.trim() ? { reason: reason.trim() } : {};
-        const check = await run(() => validate({ id, ...reasonArg }));
-        if (!check.ok) return setBusy(false);
-        if (check.value.status === "failed" || check.value.status === "blocked") {
-          toast.error(check.value.message ?? t("xmlInvalid"));
-          return setBusy(false);
-        }
-        const r = await run(() => cancel({ id, ...reasonArg }));
-        setBusy(false);
-        if (r.ok) {
-          toast.success(t("done", { number: r.value.number }));
-          onClose();
-          router.push(href(r.value.id));
-        }
-      }}
+      onConfirm={() => doCancel(false)}
       onClose={onClose}
     >
       {blocked ? (
@@ -449,13 +508,31 @@ export function StornoDialog({
               </dd>
             </dl>
           )}
-          <p className="text-muted-foreground">{preview?.notice}</p>
+          <p
+            className={preview?.exportSuggested ? "text-warning" : "text-muted-foreground"}
+            data-testid="storno-notice"
+          >
+            {preview?.notice}
+          </p>
           <div className="flex flex-col gap-1.5">
             <label htmlFor={rid} className="font-medium">
               {t("reason")}
             </label>
             <Textarea id={rid} value={reason} onChange={(e) => setReason(e.target.value)} />
           </div>
+          {fallbackOffered && (
+            <div role="alert" className="flex flex-col gap-2 rounded-lg border border-warning/40 bg-warning/5 p-3">
+              <p>{t("fallbackHint")}</p>
+              <Button
+                variant="outline"
+                className="h-11 self-start md:h-9"
+                disabled={busy}
+                onClick={() => void doCancel(true)}
+              >
+                {t("fallback")}
+              </Button>
+            </div>
+          )}
         </div>
       )}
     </ConfirmDialog>

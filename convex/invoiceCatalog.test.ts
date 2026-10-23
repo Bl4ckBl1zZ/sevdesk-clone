@@ -264,7 +264,7 @@ describe("F03 products × invoices", () => {
     expect(snap?.json).not.toMatch(/purchase|377700|37,77|margin/i);
   });
 
-  test("PRD-071 T-PRD-002 EC-041 draft lines keep their copy but take a changed VAT key with a notice", async () => {
+  test("PRD-071 T-PRD-002 EC-041 EC-DOC-21 T-EC-021 draft lines keep their copy but take a changed VAT key with a notice", async () => {
     const t = makeT();
     const { owner, productId, personId, line } = await withProduct(t);
     const { id } = await owner.mutation(api.invoices.createDraft, {
