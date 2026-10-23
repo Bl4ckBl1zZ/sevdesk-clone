@@ -814,6 +814,7 @@ export async function unmatchedTransactions(
         ...(t.mandateRef ? { mandateRef: t.mandateRef } : {}),
         ...(t.source.merchantName ? { merchantName: t.source.merchantName } : {}),
         ...(t.source.instructedAmount ? { instructedAmount: t.source.instructedAmount } : {}),
+        ...(t.source.feeCents ? { feeCents: t.source.feeCents } : {}),
         ...(typeDefault ? { typeDefault } : {}),
       });
     }

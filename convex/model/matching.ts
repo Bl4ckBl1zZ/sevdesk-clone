@@ -316,6 +316,18 @@ export interface ConfirmArgs {
  * BNK-046 ✓ Bestätigen: runs F05 `recordPayment` (incoming), `refundCredit` (outgoing to a credit balance) or the
  * PAY-047 reconciliation of an existing manual payment, then learns the counterparty alias (BNK-048).
  */
+/** EC-BNK-25: only bank-fee/other differences carry over to a voucher payment (no write-offs on purchase vouchers). */
+function voucherDifferences(diffs: DifferenceInput[] | undefined) {
+  const out = (diffs ?? []).map((d) => {
+    if (d.reason !== "bank_fees" && d.reason !== "skonto" && d.reason !== "other")
+      throw appError("invalid_input", "Diese Differenz ist bei Belegen nicht möglich.", {
+        reason: "DIFFERENCE_REASON",
+      });
+    return { reason: d.reason, amountCents: d.amountCents, ...(d.account ? { account: d.account } : {}) };
+  });
+  return out.length ? { differences: out } : {};
+}
+
 export async function confirmMatch(
   ctx: ModelCtx,
   args: ConfirmArgs,
@@ -346,6 +358,7 @@ export async function confirmMatch(
       method: "bank",
       transactionId: tx._id,
       amountCents: first.amountCents,
+      ...voucherDifferences(first.differences),
       ...(args.acknowledgeWarnings ? { acknowledgeWarnings: args.acknowledgeWarnings } : {}),
       ...(args.provenance ? { match: args.provenance } : {}),
     });

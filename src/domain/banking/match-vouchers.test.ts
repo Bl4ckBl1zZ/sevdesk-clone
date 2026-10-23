@@ -1,5 +1,5 @@
 import { describe, expect, test } from "vitest";
-import { type OpenVoucher, scoreTransaction } from "./match";
+import { autoApplicable, type OpenVoucher, scoreTransaction } from "./match";
 import type { UnmatchedTransaction } from "./match-types";
 
 const out = (over: Partial<UnmatchedTransaction> = {}): UnmatchedTransaction => ({
@@ -42,6 +42,27 @@ describe("matching vouchers (BNK-049)", () => {
     expect(c?.score).toBe(0.6);
     expect(c?.reasons).toEqual(["bill_amount", "name_similarity", "date_window"]);
     expect(c?.allocations).toEqual([{ target: { kind: "voucher", id: "v1" }, amountCents: 1205 }]);
+  });
+
+  test("EC-BNK-25 EC-145 a fee field: the principal matches the voucher, the fee becomes a bank-fee difference", () => {
+    const tx = out({
+      amountCents: -5040,
+      openCents: 5040,
+      feeCents: 50,
+      merchantName: "ADOBE SYSTEMS SOFTWARE IRELAND",
+      counterpartyName: "ADOBE SYSTEMS SOFTWARE IRELAND",
+    });
+    const [c] = scoreTransaction(tx, { documents: [], vouchers: [voucher()] });
+    expect(c?.reasons).toEqual(["exact_amount", "name_similarity", "date_window"]);
+    expect(c?.allocations).toEqual([
+      {
+        target: { kind: "voucher", id: "v1" },
+        amountCents: 5040,
+        differences: [{ reason: "bank_fees", amountCents: -50 }],
+      },
+    ]);
+    // Never auto-applied: an allocation with differences is a suggestion (BNK-047).
+    expect(c && autoApplicable(c)).toBe(false);
   });
 
   test("BNK-049 card payment by merchant name + exact amount within ±3 days", () => {

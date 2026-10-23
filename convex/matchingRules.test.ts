@@ -307,4 +307,67 @@ describe("matching vouchers (BNK-049)", () => {
     expect((await txOf(s.t, tx)).status).toBe("matched");
     expect((await s.t.run((ctx) => ctx.db.get(voucherId)))?.status).toBe("paid");
   });
+
+  test("EC-BNK-25 T07-024 a fee field: principal pays the voucher, the fee is its own bank-fee line without VAT", async () => {
+    const s = await setup();
+    const draft = await s.owner.mutation(api.vouchers.create, {
+      input: {
+        direction: "expense",
+        supplierContactId: s.supplier,
+        supplierName: "Büro Schmidt GmbH",
+        documentNumber: "RS-99813",
+        documentDate: TODAY,
+        lines: [line({ vatRateBp: 0 })],
+      },
+    });
+    const voucherId = (typeof draft === "string" ? draft : (draft as { id: Id<"vouchers"> }).id) as Id<"vouchers">;
+    await upload(s.t, s.owner, { voucherId });
+    await s.owner.mutation(api.vouchers.finalize, { id: voucherId });
+    // CAMT card payment: the entry amount includes the charge (BNK-023, mapper keeps the fee as a field).
+    const tx = await s.t.model(OWNER, (ctx) =>
+      auditedInsert(
+        ctx,
+        "bankTransactions",
+        {
+          accountId: s.bank,
+          bookingDate: TODAY,
+          amountCents: -12_050,
+          currency: "EUR",
+          counterpartyName: "Buero Schmidt GmbH",
+          counterpartySource: "statement" as const,
+          purpose: "RS-99813 Büromaterial",
+          source: { kind: "camt053", entryReference: "ER-FEE-1", rawSha256: "fee-1", feeCents: 150 },
+          sources: [],
+          dedupeKey: `${s.bank}:er:ER-FEE-1`,
+          contentHash: "fee-1",
+          status: "open",
+          allocatedCents: 0,
+          recordedAt: Date.now(),
+        },
+        { action: "bank.import", label: `${TODAY} -12050 EUR` },
+      ),
+    );
+    const sug = await s.owner.query(api.matching.suggestions, { transactionId: tx });
+    const [best] = sug.candidates;
+    expect(best?.allocations[0]).toMatchObject({
+      target: { kind: "voucher", id: voucherId },
+      amountCents: 12_050,
+      differences: [{ reason: "bank_fees", amountCents: -150 }],
+    });
+    await s.owner.mutation(api.matching.confirm, {
+      transactionId: tx,
+      allocations: [
+        {
+          target: { kind: "voucher", id: voucherId },
+          amountCents: 12_050,
+          differences: [{ reason: "bank_fees", amountCents: -150 }],
+        },
+      ],
+    });
+    expect((await txOf(s.t, tx)).status).toBe("matched");
+    expect((await s.t.run((ctx) => ctx.db.get(voucherId)))?.status).toBe("paid");
+    const lines = await s.t.run((ctx) => ctx.db.query("journalLines").collect());
+    const fee = lines.filter((l) => l.account === "6855");
+    expect(fee.map((l) => l.debitCents - l.creditCents)).toEqual([150]);
+  });
 });
