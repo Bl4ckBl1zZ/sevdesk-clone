@@ -26,12 +26,15 @@ const base: CompanyValues = {
   phone: "+49 30 123456",
   email: "info@muster.de",
 };
-const tax = (over: Partial<TaxValues> = {}): TaxValues => ({
-  ...taxDefaults("einzelunternehmen"),
-  taxNumberState: "BY",
-  taxNumber: "181/815/08155",
-  ...over,
-});
+// Plain form values (dates as entered); cast because the parsed form type brands calendar dates. Some cases
+// deliberately bypass the zod form validation (API/MCP defence in depth).
+const tax = (over: Partial<Record<keyof TaxValues, unknown>> = {}): TaxValues =>
+  ({
+    ...taxDefaults("einzelunternehmen"),
+    taxNumberState: "BY",
+    taxNumber: "181/815/08155",
+    ...over,
+  }) as unknown as TaxValues;
 const emptyTax = newCompanyProfile() as unknown as TaxSettingsData;
 
 describe("company form → profile (SET-011, SET-015, SET-017)", () => {
