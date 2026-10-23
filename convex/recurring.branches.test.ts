@@ -5,6 +5,7 @@ import type { Id } from "./_generated/dataModel";
 import { b2bBuyer, setupInvoicing } from "./invoices.fixtures";
 import { errorCode } from "./lib/errors";
 import { auditedPatch } from "./model/audit";
+import { patchCompanyProfile } from "./model/companyProfile";
 import { callerMayFinalize, recordFinalizeFailure, recordRunFailure } from "./model/recurring";
 import { makeT, type TestT } from "./test.setup";
 
@@ -412,5 +413,75 @@ describe("generation edge paths (REC-05, REC-07, REC-12)", () => {
     });
     const key = await t.asApiKey(["documents:write", "documents:read"]);
     expect(await key.action(api.recurring.runNow, { id })).toMatchObject({ created: 1, finalized: 0 });
+  });
+});
+
+describe("KU boundary, end date and list order (REC-03, REC-15, §6.1)", () => {
+  test("REC-15 KU-01 a period across a Kleinunternehmer change: the preview hints it and the generated draft is a split review", async () => {
+    at("2026-11-01");
+    const t = makeT();
+    const { owner, personId } = await setup(t);
+    await t.model({ actor: owner.actor, role: "owner", channel: "ui" }, (ctx) =>
+      patchCompanyProfile(
+        ctx,
+        {
+          kleinunternehmer: [
+            { validFrom: "2020-01-01", isKU: false },
+            { validFrom: "2026-11-15", isKU: true },
+          ],
+        },
+        { action: "settings.company.update" },
+      ),
+    );
+    const { id } = await owner.mutation(api.recurring.create, {
+      values: templateValues(personId, { automation: { finalize: true } }),
+      confirmAutomation: true,
+    });
+    const rows = await owner.query(api.recurring.occurrences, { id, count: 1 });
+    expect(rows?.[0]?.hints).toContain("Wechsel der Kleinunternehmerregelung am 15.11.2026 – Entwurf zur Prüfung");
+    expect(rows?.[0]?.blocking).toBeNull();
+    const r = await t.action(internal.recurring.generateCron, { force: true });
+    expect(r).toMatchObject({ created: 1, finalized: 0 });
+    const split = (await todos(t)).find((n) => n.kind === "recurring_review_split");
+    expect(split?.body).toContain("Wechsel der Kleinunternehmerregelung am 15.11.2026");
+  });
+
+  test("REC-03 an end date ends the template after its last occurrence; templates are listed by next date, then name", async () => {
+    at("2026-10-20");
+    const t = makeT();
+    const { owner, personId } = await setup(t);
+    const ending = await owner.mutation(api.recurring.create, {
+      values: templateValues(personId, {
+        name: "B Wartung",
+        schedule: {
+          interval: "P1M",
+          firstDate: "2026-11-01",
+          endDate: "2026-11-30",
+          billing: "in_advance",
+          periodTextEnabled: false,
+        },
+      }),
+    });
+    await owner.mutation(api.recurring.create, { values: templateValues(personId, { name: "A Wartung" }) });
+    const listed = await owner.query(api.recurring.list, {});
+    expect(listed.rows.map((r) => r.name)).toEqual(["A Wartung", "B Wartung"]);
+    expect(listed.rows[1]?.schedule.endDate).toBe("2026-11-30");
+    expect(await owner.query(api.recurring.occurrences, { id: ending.id })).toHaveLength(1);
+    await owner.action(api.recurring.runNow, { id: ending.id });
+    expect((await owner.query(api.recurring.get, { id: ending.id }))?.state).toBe("ended");
+  });
+
+  test("REC-07 a run failure of a deleted template is still notified („?“)", async () => {
+    at("2026-10-20");
+    const t = makeT();
+    const { owner, personId } = await setup(t);
+    const { id } = await owner.mutation(api.recurring.create, { values: templateValues(personId) });
+    await owner.mutation(api.recurring.remove, { id });
+    await t.model({ actor: "system:cron.recurring.generate", channel: "cron" }, (ctx) =>
+      recordRunFailure(ctx, id, "Fehler"),
+    );
+    expect((await todos(t)).find((n) => n.kind === "recurring_run_failed")?.title).toBe(
+      "Wiederkehrende Rechnung „?“: Erzeugung fehlgeschlagen",
+    );
   });
 });
