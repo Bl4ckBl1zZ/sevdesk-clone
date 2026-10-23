@@ -28,6 +28,7 @@ import { Button, buttonVariants } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { telHref } from "@/domain/contacts/channels";
 import { ROLE_LABELS } from "@/domain/contacts/core";
+import { rowsToXlsx } from "@/domain/contacts/xlsx";
 import { type CsvVariant, csvFileName, formatTextCsv } from "@/domain/csv/export";
 import { formatEuro } from "@/domain/money";
 import { useAuthedQuery } from "@/hooks/use-authed-query";
@@ -129,6 +130,23 @@ function ContactsListInner() {
     downloadText(csvFileName("kontakte", variant, day), formatTextCsv(r.value, variant));
   };
 
+  /** CON-144: the same rows as an Excel workbook (all cells text). */
+  const exportXlsx = async () => {
+    const r = await run(() => convex.query(api.contacts.exportRows, args), t("exported"));
+    if (!r.ok) return;
+    const day = new Date().toISOString().slice(0, 10);
+    const url = URL.createObjectURL(
+      new Blob([rowsToXlsx(r.value) as BlobPart], {
+        type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+      }),
+    );
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `kontakte_${day}.xlsx`;
+    a.click();
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+  };
+
   const filters = (
     <StatusFilter
       label={t("statusLabel")}
@@ -187,6 +205,9 @@ function ContactsListInner() {
           </Link>
         )}
         <ExportMenu local={(variant) => exportCsv(variant)} />
+        <Button variant="outline" className="h-11 md:h-9" onClick={() => void exportXlsx()}>
+          {t("exportXlsx")}
+        </Button>
         {canWrite && (
           <Link href="/kontakte/neu" className={cn(buttonVariants(), "hidden h-9 md:inline-flex")}>
             <PlusIcon aria-hidden="true" />

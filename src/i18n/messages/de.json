@@ -1741,6 +1741,7 @@
         "open": "Offen",
         "revenueYear": "Umsatz (Jahr)"
       },
+      "exportXlsx": "Excel (XLSX)",
       "selectAll": "Alle auf dieser Seite auswählen",
       "selectRow": "{name} auswählen",
       "empty": "Noch keine Kontakte vorhanden.",
