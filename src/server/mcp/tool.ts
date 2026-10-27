@@ -45,7 +45,20 @@ export interface ToolDef<I extends z.ZodObject = z.ZodObject> {
   openWorld?: boolean;
   idempotent?: boolean;
   fieldMapper?: FieldMapper;
-  handler: (args: z.output<I>, ctx: ToolContext) => Promise<Record<string, unknown>>;
+  handler: (args: z.output<I>, ctx: ToolContext) => Promise<Record<string, unknown> | ToolContent>;
+}
+
+/** MCP content blocks a tool may return next to its JSON (the draft preview's pages/PDF, MCP-017). */
+export type ExtraContent =
+  | { type: "image"; data: string; mimeType: string }
+  | { type: "resource"; resource: { uri: string; mimeType: string; blob: string } };
+
+/** A handler result with extra content blocks after the JSON text block. */
+export class ToolContent {
+  constructor(
+    readonly data: Record<string, unknown>,
+    readonly extra: readonly ExtraContent[],
+  ) {}
 }
 
 export interface RegisteredToolDef extends ToolDef {
@@ -92,8 +105,10 @@ export function toolVisible(tool: RegisteredToolDef, scopes: readonly string[]):
 }
 
 // ── results ──────────────────────────────────────────────────────────────────────────────────────────
-export function toolResult(data: Record<string, unknown>) {
-  return { content: [{ type: "text" as const, text: JSON.stringify(data) }], structuredContent: data };
+export function toolResult(out: Record<string, unknown> | ToolContent) {
+  const data = out instanceof ToolContent ? out.data : out;
+  const extra = out instanceof ToolContent ? out.extra : [];
+  return { content: [{ type: "text" as const, text: JSON.stringify(data) }, ...extra], structuredContent: data };
 }
 
 const CONFIRM_CODES = new Set(Object.keys(CONFIRM_TOKEN_MESSAGES));

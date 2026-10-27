@@ -17,6 +17,7 @@ function routeFiles(dir: string, acc: string[] = []): string[] {
 describe("no inbound webhooks (BNK-108, SEC-06, 05 §5.1)", () => {
   test("BNK-108 the only HTTP entry points are auth, health, docs, MCP and the keyed REST API — no bank or payment webhook", () => {
     expect(routeFiles(join(ROOT, "src/app")).sort()).toEqual([
+      "(app)/(shell)/dokumente/[id]/vorschau/route.ts", // session-checked draft PDF preview (DOC-42)
       "(app)/(shell)/einstellungen/layouts/vorschau/route.ts", // session-checked layout preview (SET-073)
       "api/auth/[...all]/route.ts",
       "api/docs/route.ts",

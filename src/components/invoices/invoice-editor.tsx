@@ -3,7 +3,7 @@
 import { api } from "@convex/_generated/api";
 import type { Id } from "@convex/_generated/dataModel";
 import { useAction, useConvex, useMutation } from "convex/react";
-import { ArrowDownIcon, ArrowUpIcon, PackageIcon, PlusIcon, Trash2Icon, TypeIcon } from "lucide-react";
+import { ArrowDownIcon, ArrowUpIcon, FileTextIcon, PackageIcon, PlusIcon, Trash2Icon, TypeIcon } from "lucide-react";
 import type { Route } from "next";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -874,6 +874,28 @@ export function InvoiceEditor({
           <Button variant="ghost" className="h-11 md:h-9" onClick={() => setConfirmDelete(true)}>
             <Trash2Icon aria-hidden="true" />
             <span className="sr-only md:not-sr-only">{t("delete")}</span>
+          </Button>
+        )}
+        {id && (
+          <Button
+            variant="outline"
+            className="h-11 md:h-9"
+            disabled={saving || navigating || (!dirty && check?.canFinalize === false)}
+            onClick={async () => {
+              // F04 §4.4.7 / DOC-42: save first so the PDF shows what is on screen. The tab is opened within the
+              // click (popup blockers) and pointed at the preview once the draft is saved.
+              const tab = window.open("", "_blank");
+              const saved = await save();
+              const href = `/dokumente/${saved}/vorschau`;
+              // Popup blocked: show the preview in this tab rather than silently doing nothing after the save.
+              if (!tab) {
+                if (saved) window.location.assign(href);
+              } else if (saved) tab.location.href = href;
+              else tab.close();
+            }}
+          >
+            <FileTextIcon aria-hidden="true" />
+            <span className="sr-only md:not-sr-only">{t("pdfPreview")}</span>
           </Button>
         )}
         <Button

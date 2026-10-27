@@ -199,7 +199,9 @@ export function SalesDocument({
         {/* H */}
         <View style={s.header}>
           {layout.logoPosition === "left" ? (logoNode ?? <Text style={s.sellerName}>{model.sellerName}</Text>) : null}
-          <View style={{ flex: 1 }}>{model.stamp ? <Text style={s.stamp}>{model.stamp}</Text> : null}</View>
+          <View style={{ flex: 1, paddingHorizontal: 12 }}>
+            {model.stamp ? <Text style={s.stamp}>{model.stamp}</Text> : null}
+          </View>
           {layout.logoPosition === "right" ? (logoNode ?? <Text style={s.sellerName}>{model.sellerName}</Text>) : null}
         </View>
 

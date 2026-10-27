@@ -56,6 +56,26 @@ export function jsonResponse(status: number, body: unknown, ctx: ResponseContext
   });
 }
 
+/** A binary success body (PDF preview); same request id and cache headers as `jsonResponse`. */
+export function bytesResponse(
+  status: number,
+  body: Uint8Array,
+  contentType: string,
+  ctx: ResponseContext,
+  extra: Record<string, string> = {},
+) {
+  return new Response(body as Uint8Array<ArrayBuffer>, {
+    status,
+    headers: {
+      "Content-Type": contentType,
+      "X-Request-Id": ctx.requestId,
+      "Cache-Control": "no-store",
+      ...ctx.headers,
+      ...extra,
+    },
+  });
+}
+
 export function problemResponse(
   code: ProblemCode,
   ctx: ResponseContext,

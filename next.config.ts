@@ -11,7 +11,7 @@ const nextConfig: NextConfig = {
   poweredByHeader: false,
   typedRoutes: true,
   // Server-only packages that must not be bundled by Turbopack/webpack.
-  serverExternalPackages: ["@react-pdf/renderer", "pdfjs-dist", "pino"],
+  serverExternalPackages: ["@react-pdf/renderer", "pdfjs-dist", "@napi-rs/canvas", "pino"],
 };
 
 export default withNextIntl(nextConfig);

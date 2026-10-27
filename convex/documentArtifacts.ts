@@ -12,7 +12,7 @@ import {
   exportFiles as exportFileSpecs,
   zipFileName,
 } from "../src/domain/documents/dispatch";
-import { DEFAULT_LAYOUT, type RenderLayout } from "../src/domain/documents/render-model";
+import { layoutFromConfig } from "../src/domain/documents/render-model";
 import type { DocumentSnapshot } from "../src/domain/documents/snapshot";
 import type { XmlAttachment } from "../src/domain/einvoice/model";
 import { exportRequestSchema } from "../src/domain/schemas/documents";
@@ -36,19 +36,6 @@ import type { ActorContext } from "./model/types";
  */
 
 const MIME = { pdf: "application/pdf", xml: "application/xml" } as const;
-
-function layoutOf(config: unknown): RenderLayout {
-  if (!config || typeof config !== "object") return DEFAULT_LAYOUT;
-  const c = config as RenderLayout & { printOptions: Record<string, unknown> };
-  const { portalQr: _p, ...printOptions } = c.printOptions as Record<string, unknown>;
-  return {
-    template: c.template,
-    accentColor: c.accentColor,
-    font: c.font,
-    logoPosition: c.logoPosition,
-    printOptions: { ...DEFAULT_LAYOUT.printOptions, ...(printOptions as Partial<RenderLayout["printOptions"]>) },
-  };
-}
 
 async function loadLogo(ctx: ActionCtx, storageId: Id<"_storage"> | null): Promise<PdfLogo | null> {
   if (!storageId) return null;
@@ -145,7 +132,7 @@ export const render = systemAction({
       const snapshot = JSON.parse(input.snapshotJson) as DocumentSnapshot;
       const createdAt = new Date(input.finalizedAt ?? Date.now());
       const xmlAttachments = await loadXmlAttachments(ctx, input.xmlAttachments, snapshot);
-      const r = await renderArtifacts(snapshot, layoutOf(input.layoutConfig), "original", {
+      const r = await renderArtifacts(snapshot, layoutFromConfig(input.layoutConfig), "original", {
         logo: await loadLogo(ctx, input.logoStorageId),
         letterhead: await loadLetterhead(ctx, input.layoutConfig),
         createdAt,
@@ -364,7 +351,7 @@ async function collectExportFiles(
       if (!r.snapshotJson) throw appError("artifacts_not_ready");
       const rendered = await renderArtifacts(
         JSON.parse(r.snapshotJson) as DocumentSnapshot,
-        layoutOf(r.layoutConfig),
+        layoutFromConfig(r.layoutConfig),
         "copy",
         {
           logo: await loadLogo(ctx, r.logoStorageId),

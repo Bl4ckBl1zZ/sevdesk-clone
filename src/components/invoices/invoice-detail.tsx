@@ -4,7 +4,7 @@ import { api } from "@convex/_generated/api";
 import type { Id } from "@convex/_generated/dataModel";
 import { useAction, useMutation } from "convex/react";
 import type { FunctionReturnType } from "convex/server";
-import { ChevronDownIcon, DownloadIcon, LockIcon, RefreshCwIcon, SendIcon } from "lucide-react";
+import { ChevronDownIcon, DownloadIcon, FileTextIcon, LockIcon, RefreshCwIcon, SendIcon } from "lucide-react";
 import type { Route } from "next";
 import Link from "next/link";
 import { useTranslations } from "next-intl";
@@ -24,7 +24,7 @@ import { InvoiceDunningSection } from "@/components/dunning/invoice-dunning-sect
 import { DetailLayout, FactList, PageBody } from "@/components/layout/list-layout";
 import { PageHeader } from "@/components/layout/page-header";
 import { PaymentsSection } from "@/components/payments/payments-section";
-import { Button } from "@/components/ui/button";
+import { Button, buttonVariants } from "@/components/ui/button";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -49,6 +49,7 @@ import type { DocumentSnapshot } from "@/domain/documents/snapshot";
 import { formatMicros, formatMilli } from "@/domain/money/format";
 import type { DraftValues } from "@/domain/schemas/documents";
 import { useAuthedQuery } from "@/hooks/use-authed-query";
+import { cn } from "@/lib/utils";
 import { AttachmentsSection } from "./attachments-section";
 import { CorrectionActions, DraftBanner, docTypeKey, RelationsPanel, StornoDialog } from "./corrections";
 import { ChainCard, DocumentFlowActions } from "./document-actions";
@@ -91,6 +92,7 @@ export function InvoiceDetail({ id }: { id: string }) {
 function InvoiceDetailInner({ id }: { id: Id<"salesDocuments"> }) {
   const t = useTranslations("invoices.detail");
   const tDoc = useTranslations("documents.detail");
+  const tEditor = useTranslations("invoices.editor");
   const tNav = useTranslations("nav");
   const tc = useTranslations("invoiceCorrections");
   const tSb = useTranslations("selfBilling");
@@ -143,7 +145,19 @@ function InvoiceDetailInner({ id }: { id: Id<"salesDocuments"> }) {
               chainRoot={data.doc.chainRootId === undefined}
             />
           ) : (
-            <p>{t("readOnlyDraft")}</p>
+            <div className="flex flex-wrap items-center gap-3">
+              <p>{t("readOnlyDraft")}</p>
+              {/* F04 §4.4.7 / DOC-42: the stored draft as PDF (watermark „ENTWURF“) */}
+              <a
+                href={`/dokumente/${id}/vorschau`}
+                target="_blank"
+                rel="noopener"
+                className={cn(buttonVariants({ variant: "outline" }), "h-11 md:h-9")}
+              >
+                <FileTextIcon aria-hidden="true" />
+                {tEditor("pdfPreview")}
+              </a>
+            </div>
           )}
           <AttachmentsSection id={id} draft files={data.files} />
           <ChainCard chain={chain} />

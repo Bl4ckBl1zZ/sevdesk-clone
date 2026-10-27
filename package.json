@@ -43,6 +43,7 @@
     "@e-invoice-eu/core": "3.4.0",
     "@hookform/resolvers": "5.9.1",
     "@modelcontextprotocol/server": "2.3.1",
+    "@napi-rs/canvas": "1.0.11",
     "@react-pdf/renderer": "4.9.0",
     "@scalar/nextjs-api-reference": "0.12.9",
     "@tanstack/react-table": "8.21.3",
