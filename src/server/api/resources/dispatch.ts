@@ -25,6 +25,7 @@ import {
 } from "@/domain/schemas/api/dispatch";
 import { documentFieldMapper, finalizeWire } from "@/domain/schemas/api/documents";
 import type { Scope } from "@/domain/schemas/scopes";
+import { draftPdf } from "../../documents/draft-pdf";
 import type { KeyInfo } from "../auth";
 import type { ConvexCaller } from "../backend";
 import { type AnyEndpoint, defineEndpoint } from "../endpoint";
@@ -145,6 +146,21 @@ export async function finalizePreviewOf(
   return { wire: serializeFinalizeCheck(doc.wireId, c), version: c.version, options };
 }
 
+/** Families with a draft „PDF-Vorschau“ (reminders are previewed with `document_preview`, DUN-004). */
+export const DRAFT_PDF_FAMILIES = [
+  "quote",
+  "order_confirmation",
+  "delivery_note",
+  "invoice",
+  "correction",
+  "self_billing",
+] as const satisfies readonly DispatchIdType[];
+
+/** „PDF-Vorschau“ (DOC-42): the draft rendered with the „ENTWURF“ watermark; writes and archives nothing. */
+export async function draftPdfOf(convex: ConvexCaller, doc: ResolvedDoc) {
+  return draftPdf(await convex.query(api.invoices.draftRenderInput, { id: doc.id as never }));
+}
+
 /** Export (SND-16): 5-minute tailnet links to the archived files; audited `document.export`. */
 export async function exportDocument(convex: ConvexCaller, doc: ResolvedDoc, w: z.output<typeof documentExportWire>) {
   const r = await convex.action(api.documentArtifacts.exportFiles, { id: doc.id as never, request: exportRequest(w) });
@@ -253,6 +269,23 @@ export function dispatchEndpoints(res: DispatchResource): AnyEndpoint[] {
           const doc = await load(convex, p.id);
           const r = await finalizePreviewOf(convex, doc, body);
           return { body: { ...r.wire, confirm_token: null } };
+        },
+      }),
+      defineEndpoint({
+        method: "POST",
+        path: `${base}/{id}/preview-pdf`,
+        operationId: `previewPdf${res.schemaPrefix}`,
+        summary: `${res.singular} als PDF-Vorschau (Entwurf)`,
+        description:
+          "DOC-42: der Entwurf als PDF mit dem Wasserzeichen „ENTWURF“ (Nummer erst bei Fertigstellung, ohne E-Rechnungs-XML und GiroCode). Schreibt und archiviert nichts. Blockierende Fehler → 422 mit den Befunden; fertiggestellte Belege → 409 (stattdessen `/export`).",
+        tag: res.tag,
+        scope: "documents:read",
+        params,
+        response: { status: 200, description: "PDF (inline)", contentType: "application/pdf" },
+        errors: ["not_found", "immutable_record", "validation_failed"],
+        handler: async ({ convex, params: p }) => {
+          const { pdf, fileName } = await draftPdfOf(convex, await load(convex, p.id));
+          return { body: pdf, headers: { "Content-Disposition": `inline; filename="${fileName}"` } };
         },
       }),
     );

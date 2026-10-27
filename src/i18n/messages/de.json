@@ -3012,6 +3012,7 @@
       "taxCase": "Steuerfall",
       "er03": "E-Rechnungspflicht",
       "save": "Entwurf speichern",
+      "pdfPreview": "PDF-Vorschau",
       "saved": "Entwurf gespeichert.",
       "inputInvalid": "Bitte die markierten Eingaben prüfen.",
       "finalize": "Fertigstellen",

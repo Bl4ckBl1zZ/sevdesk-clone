@@ -274,7 +274,7 @@ describe("InvoiceDetail (F04 §6.4)", () => {
     expect(screen.getByTestId("artifacts-pending")).toHaveTextContent("PDF und E-Rechnung werden erzeugt");
   });
 
-  test("DOC-03 a draft opens the editor for writers and is read-only for viewers", () => {
+  test("DOC-03 DOC-42 a draft opens the editor for writers and is read-only (with the PDF preview) for viewers", () => {
     backend.data["invoices:get"] = detail({
       doc: doc({ status: "draft", number: undefined, sentAt: undefined }),
       values: { lines: [] },
@@ -288,6 +288,8 @@ describe("InvoiceDetail (F04 §6.4)", () => {
     renderWithIntl(<InvoiceDetail id="d1" />);
     expect(screen.getByText("Ihre Rolle erlaubt das Bearbeiten von Entwürfen nicht.")).toBeInTheDocument();
     expect(screen.queryByTestId("editor")).toBeNull();
+    // DOC-42: viewers can still look at the draft PDF
+    expect(screen.getByRole("link", { name: "PDF-Vorschau" })).toHaveAttribute("href", "/dokumente/d1/vorschau");
   });
 
   test("QUO-05 a quote shows validity, acceptance and the next steps; no payments or dunning", () => {

@@ -808,6 +808,42 @@ export const finalizeCheck = query({
   },
 });
 
+/**
+ * F04 §4.4.7 „PDF-Vorschau“ (DOC-42, REST `preview-pdf`, MCP `document_preview_pdf`): the preview snapshot of the
+ * pipeline (number PREVIEW-0000) plus the layout inputs; Next.js renders it with the „ENTWURF“ watermark. Writes
+ * nothing; `snapshot` is null for non-drafts and while blocking findings exist.
+ */
+export const draftRenderInput = query({
+  permission: "documents.read",
+  args: { id: v.id("salesDocuments") },
+  handler: async (ctx, { id }) => {
+    const doc = await getDocument(ctx, id);
+    if (doc.status !== "draft") {
+      return { status: doc.status, type: doc.type, version: doc.version, findings: [], snapshot: null };
+    }
+    const p = await finalizePreview(ctx, id, ctx.now());
+    const snapshot = p.snapshot;
+    const layoutVersion =
+      snapshot && snapshot.layoutVersionId !== "default"
+        ? await ctx.db.get(snapshot.layoutVersionId as Id<"layoutVersions">)
+        : null;
+    const config = layoutVersion?.config ?? null;
+    const profile = await getCompanyProfile(ctx);
+    const urlOf = async (storageId: Id<"_storage"> | undefined) => (storageId ? ctx.storage.getUrl(storageId) : null);
+    return {
+      status: doc.status,
+      type: doc.type,
+      version: doc.version,
+      findings: findingsValue(p.findings),
+      snapshot,
+      layoutConfig: config,
+      logoUrl: await urlOf(profile?.logoStorageId),
+      letterheadUrl: await urlOf(config?.letterheadStorageId),
+      letterheadFollowUrl: await urlOf(config?.letterheadPage2StorageId),
+    };
+  },
+});
+
 /** „Erneut erzeugen“ (§4.6.5) after a sidecar/config fix: re-renders from the unchanged snapshot. */
 export const retryArtifacts = mutation({
   permission: "invoices.finalize",

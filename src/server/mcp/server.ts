@@ -51,6 +51,7 @@ export const INSTRUCTIONS = [
   "Rechnungen: Buchhaltung und Rechnungen eines deutschen Kleinunternehmens (GoBD, UStG).",
   'Beginne mit workspace_overview. IDs haben Präfixe (con_, prd_ …); Preise sind Dezimalstrings mit Punkt ("95.00"), Beträge Cent-Ganzzahlen.',
   "Ablauf für Belege: Entwurf → document_preview → Freigabe durch den Nutzer → document_finalize → document_export → der Inhaber versendet selbst → document_mark_sent. Die App versendet nie selbst.",
+  "Wie ein Entwurf als PDF aussieht: document_preview_pdf (format png = Seiten als Bilder zum Zeigen, pdf = die Datei).",
   'Ausgaben (vou_): voucher_update_draft → preview_action {action:"voucher_finalize"} → Freigabe → voucher_finalize; „Bezahlt mit“ bar/privat nur, wenn der Nutzer es sagt.',
   "⚠-Werkzeuge (Fertigstellen, Belege buchen, Stornieren, Zahlungen, Mahnlauf, Bankabgleich, Zusammenführen, DATEV-Export) brauchen ein confirm_token aus der passenden Vorschau (preview_action, document_preview, dunning_preview) mit denselben Parametern. Zeige immer die Vorschau und frage vor dem Ausführen.",
   "Erfinde niemals USt-IdNr, Steuernummern, IBANs, Steuersätze oder Rechtstexte – frage nach oder nutze settings_get_tax_rates.",

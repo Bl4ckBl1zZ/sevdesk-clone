@@ -9,6 +9,7 @@ import type { ConvexCaller, Principal } from "./backend";
 import { type CompiledRoute, matchRoute } from "./endpoint";
 import {
   ApiProblem,
+  bytesResponse,
   errorResponse,
   jsonResponse,
   problemResponse,
@@ -224,13 +225,17 @@ export async function handleApiRequest(request: Request, routes: readonly Compil
         ifMatch,
         ...(form ? { form } : {}),
       });
-      result = jsonResponse(out.status ?? def.response.status, out.body, ctx, out.headers);
+      result =
+        def.response.contentType && out.body instanceof Uint8Array
+          ? bytesResponse(out.status ?? def.response.status, out.body, def.response.contentType, ctx, out.headers)
+          : jsonResponse(out.status ?? def.response.status, out.body, ctx, out.headers);
     } catch (e) {
       result = errorResponse(e, ctx, def.fieldMapper);
     }
     if (idemId && convex) {
       const id = idemId as never;
-      if (result.status < 500) {
+      // a binary body is not replayed from the idempotency store (it holds text); the key is released instead
+      if (result.status < 500 && !(def.response.contentType && result.ok)) {
         await convex.mutation(api.idempotency.complete, {
           id,
           status: result.status,

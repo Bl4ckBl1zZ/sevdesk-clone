@@ -19,6 +19,7 @@ import {
   billableItems,
   type DocumentSnapshot,
   monthBounds,
+  PREVIEW_NUMBER,
   type SnapshotAddress,
   type SnapshotItemLine,
   type SnapshotNote,
@@ -64,6 +65,20 @@ export const DEFAULT_LAYOUT: RenderLayout = {
     footerInLetterhead: null,
   },
 };
+
+/** A stored layout version `config` → the render layout (defaults for missing options; the portal QR is not printed). */
+export function layoutFromConfig(config: unknown): RenderLayout {
+  if (!config || typeof config !== "object") return DEFAULT_LAYOUT;
+  const c = config as RenderLayout & { printOptions: Record<string, unknown> };
+  const { portalQr: _p, ...printOptions } = c.printOptions as Record<string, unknown>;
+  return {
+    template: c.template,
+    accentColor: c.accentColor,
+    font: c.font,
+    logoPosition: c.logoPosition,
+    printOptions: { ...DEFAULT_LAYOUT.printOptions, ...(printOptions as Partial<RenderLayout["printOptions"]>) },
+  };
+}
 
 export interface RenderColumn {
   readonly key: "pos" | "name" | "quantity" | "unit" | "unitPrice" | "vat" | "discount" | "amount";
@@ -208,6 +223,8 @@ const L = {
     einvoiceZugferd: "Diese Rechnung enthält eine E-Rechnung nach EN 16931 (ZUGFeRD 2.5).",
     reading: "Lesefassung – maßgeblich ist die XRechnung",
     draft: "ENTWURF – keine gültige Rechnung",
+    draftNumber: "Entwurf",
+    draftReference: "Rechnungsnummer (wird bei Fertigstellung vergeben)",
     subtotal: "Zwischensumme",
     reminderInvoice: (nr: string, date: string) => `Rechnung ${nr} vom ${date}`,
     reminderDue: "fällig seit",
@@ -288,6 +305,8 @@ const L = {
     einvoiceZugferd: "This invoice contains an EN 16931 e-invoice (ZUGFeRD 2.5).",
     reading: "Reading copy – the XRechnung is authoritative / Lesefassung – maßgeblich ist die XRechnung",
     draft: "DRAFT – not a valid invoice / ENTWURF – keine gültige Rechnung",
+    draftNumber: "Draft",
+    draftReference: "invoice number (assigned on finalisation)",
     subtotal: "Subtotal",
     reminderInvoice: (nr: string, date: string) => `Invoice ${nr} dated ${date}`,
     reminderDue: "due since",
@@ -422,8 +441,12 @@ export function buildRenderModel(
     "correction",
   ].includes(s.type);
 
+  // DOC-42: the draft preview has the placeholder number PREVIEW-0000; the real one is assigned on finalisation.
+  const placeholder = variant === "draft" && s.number === PREVIEW_NUMBER;
+  const number = placeholder ? l.draftNumber : s.number;
+
   // ── info block (zone I) ──
-  const info: { label: string; value: string }[] = [{ label: l.number, value: s.number }];
+  const info: { label: string; value: string }[] = [{ label: l.number, value: number }];
   info.push({
     label: invoiceLike ? l.invoiceDate : s.type === "quote" ? l.quoteDate : l.date,
     value: fd(s.documentDate),
@@ -551,7 +574,9 @@ export function buildRenderModel(
 
   // ── payment (zone L) ──
   const payNotes = s.notes.filter((n) => n.zone === "payment");
-  const paymentLines = noteLines(payNotes, lang);
+  const paymentLines = noteLines(payNotes, lang).map((x) =>
+    placeholder ? x.replaceAll(PREVIEW_NUMBER, l.draftReference) : x,
+  );
   const paymentRelevant = ["invoice", "advance_invoice", "partial_invoice", "final_invoice", "proforma"].includes(
     s.type,
   );
@@ -573,7 +598,8 @@ export function buildRenderModel(
   if (s.type === "self_billing" && t.payableCents > 0) {
     paymentLines.push(acc ? l.selfBillingPayoutTo(acc.iban.replace(/(.{4})/g, "$1 ").trim()) : l.selfBillingPayout);
   }
-  const epcPayload = layout.printOptions.epcQr ? girocodeFor(s) : null;
+  // DOC-51: the GiroCode carries exactly the invoice number — none while the draft only has the placeholder.
+  const epcPayload = layout.printOptions.epcQr && !placeholder ? girocodeFor(s) : null;
 
   // ── reminder (F05 DUN-005) ──
   let reminder: RenderModel["reminder"];
@@ -641,7 +667,7 @@ export function buildRenderModel(
     language: lang,
     variant,
     title: docTitle,
-    number: s.number,
+    number,
     ...(stamp ? { stamp } : {}),
     ...(variant === "copy"
       ? { watermark: copyStamp(s) }
@@ -699,12 +725,12 @@ export function buildRenderModel(
     pageLabel: { page: l.page, of: l.of },
     layout,
     meta: {
-      title: `${docTitle} ${s.number}`,
+      title: `${docTitle} ${number}`,
       author: seller.name,
-      subject: `${docTitle} ${s.number} – ${s.issuer ? s.seller.name : s.buyer.name}`,
+      subject: `${docTitle} ${number} – ${s.issuer ? s.seller.name : s.buyer.name}`,
       keywords: [
         docTitle,
-        s.number,
+        number,
         ...(s.einvoice.format.startsWith("zugferd") ? ["ZUGFeRD", "Factur-X", "EN 16931"] : []),
       ],
     },

@@ -53,7 +53,11 @@ function operation(e: AnyEndpoint): ZodOpenApiOperationObject {
   const responses: Record<string, ZodOpenApiResponseObject> = {
     [e.response.status]: {
       description: e.response.description,
-      ...(e.response.schema ? { content: { "application/json": { schema: e.response.schema } } } : {}),
+      ...(e.response.contentType
+        ? { content: { [e.response.contentType]: { schema: { type: "string", format: "binary" } } } }
+        : e.response.schema
+          ? { content: { "application/json": { schema: e.response.schema } } }
+          : {}),
       ...(e.scope === "public" ? {} : { headers: rateHeaders }),
     },
   };

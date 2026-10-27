@@ -28,6 +28,7 @@ export interface HandlerContext<P, Q, B> {
   form?: FormData;
 }
 
+/** `body` is JSON, or raw bytes for an endpoint whose `response.contentType` is not JSON (e.g. a PDF preview). */
 export type HandlerResult = { status?: number; body?: unknown; headers?: Record<string, string> };
 
 export interface EndpointDef<
@@ -51,7 +52,13 @@ export interface EndpointDef<
   query?: Q;
   body?: B;
   /** Success response (status + schema) for OpenAPI and contract tests. */
-  response: { status: number; schema?: z.ZodType; description: string };
+  response: {
+    status: number;
+    schema?: z.ZodType;
+    description: string;
+    /** Binary success response (handler returns a `Uint8Array` body), e.g. `application/pdf`; default JSON. */
+    contentType?: string;
+  };
   /** Problem codes this endpoint documents besides the generic ones (401/403/429/500). */
   errors?: readonly ProblemCode[];
   /** `required`: POST without `Idempotency-Key` → 400 `idempotency_key_required` (finalize, cancel, … F04 §7.1). */

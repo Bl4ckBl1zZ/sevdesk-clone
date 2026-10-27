@@ -4,6 +4,7 @@ import { paymentMeansFor, paymentTermsText } from "../einvoice/payment";
 import { girocodeFor } from "../epc/girocode";
 import type { SnapshotInputItem } from "./build-snapshot";
 import { buildRenderModel, DEFAULT_LAYOUT, type RenderLayout } from "./render-model";
+import { PREVIEW_NUMBER } from "./snapshot";
 
 const item = (over: Partial<SnapshotInputItem> = {}): SnapshotInputItem => ({
   kind: "item",
@@ -91,6 +92,22 @@ describe("buildRenderModel (App. F)", () => {
     const original = buildRenderModel(makeSnapshot());
     expect(original.stamp).toBeUndefined();
     expect(original.watermark).toBeUndefined();
+  });
+
+  test("DOC-42 a draft preview shows „Entwurf“ instead of the placeholder number", () => {
+    const m = buildRenderModel(makeSnapshot({ number: PREVIEW_NUMBER }), DEFAULT_LAYOUT, "draft");
+    expect(m.number).toBe("Entwurf");
+    expect(m.info[0]).toEqual({ label: "Nummer", value: "Entwurf" });
+    expect(m.meta.title).not.toContain(PREVIEW_NUMBER);
+    expect(
+      buildRenderModel(makeSnapshot({ number: PREVIEW_NUMBER, language: "en" }), DEFAULT_LAYOUT, "draft").number,
+    ).toBe("Draft");
+    // the payment reference names the future number, and no GiroCode carries the placeholder
+    expect(m.payment.lines.join("\n")).not.toContain(PREVIEW_NUMBER);
+    expect(m.payment.lines.join("\n")).toContain("Rechnungsnummer (wird bei Fertigstellung vergeben)");
+    expect(m.payment.epcPayload).toBeNull();
+    // a real number (e.g. a finalised document rendered as draft in tests) stays as it is
+    expect(buildRenderModel(makeSnapshot(), DEFAULT_LAYOUT, "draft").number).toBe("RE-2026-0042");
   });
 
   test("DOC-16 English documents: labels, formats, country line and bilingual legal notes", () => {

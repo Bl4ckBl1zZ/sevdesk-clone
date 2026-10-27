@@ -4,8 +4,11 @@ import { z } from "zod";
 import { dispatchDocId, documentExportWire, documentMarkSentWire, finalizeArgs } from "@/domain/schemas/api/dispatch";
 import { finalizeWire } from "@/domain/schemas/api/documents";
 import { reminderFinalizeArgs } from "@/domain/schemas/api/dunning";
+import { pdfToPngs } from "@/pdf/draft-preview";
 import { ApiProblem } from "../../api/http";
 import {
+  DRAFT_PDF_FAMILIES,
+  draftPdfOf,
   exportDocument,
   markSentArgsOrThrow,
   markSentDocument,
@@ -13,14 +16,15 @@ import {
   requireFinalizeScopes,
   resolveDispatchDoc,
 } from "../../api/resources/dispatch";
-import { confirmTokenArg, defineTool, type ToolContext } from "../tool";
+import { confirmTokenArg, defineTool, ToolContent, type ToolContext } from "../tool";
 import type { PreviewPlan } from "./previews";
 
 /**
  * 06 §3.4 / F04 §7.2: ⚠ `document_finalize` (token from `document_preview`, intent finalize), `document_export` (W:
  * only the `document.export` audit entry; transmits nothing) and ⚠ `document_mark_sent` (token from
  * `preview_action { action: "document_mark_sent" }`). The app never sends a document (EC-189): the owner sends the
- * exported files and confirms how and when, then Claude records the mark.
+ * exported files and confirms how and when, then Claude records the mark. `document_preview_pdf` (R, MCP-017) shows a
+ * draft as PNG pages or PDF (watermark „ENTWURF“) so Claude can show the owner what the document will look like.
  */
 
 const FINALIZE_FAMILIES = [
@@ -141,6 +145,44 @@ export const dispatchTools = [
     scopes: ["documents:read"],
     input: documentExportWire.omit({ original: true, reason: true }).extend({ id: dispatchDocId }),
     handler: async ({ id, ...w }, { convex }) => exportDocument(convex, await resolveDispatchDoc(convex, id), w),
+  }),
+  defineTool({
+    name: "document_preview_pdf",
+    title: "PDF-Vorschau eines Entwurfs",
+    description:
+      "Zeigt einen Entwurf (Rechnung, Angebot, Auftragsbestätigung, Lieferschein, Korrektur, Gutschrift) so, wie das PDF aussehen wird — mit Wasserzeichen „ENTWURF“, ohne Nummer. format png (Standard): die Seiten als Bilder (max_pages, Standard 3) zum Ansehen oder Zeigen; format pdf: die PDF-Datei als eingebettete Ressource, wenn der Nutzer die Datei möchte. Schreibt nichts. Fertiggestellte Belege: document_export. Blockierende Fehler kommen als validation_failed mit den Befunden zurück.",
+    kind: "read",
+    scopes: ["documents:read"],
+    input: z.object({
+      id: dispatchDocId,
+      format: z.enum(["png", "pdf"]).default("png").meta({ description: "png = Seiten als Bilder, pdf = PDF-Datei" }),
+      max_pages: z.number().int().min(1).max(10).default(3).meta({ description: "Nur png: höchstens so viele Seiten" }),
+    }),
+    handler: async ({ id, format, max_pages }, { convex }) => {
+      const doc = await resolveDispatchDoc(convex, id, DRAFT_PDF_FAMILIES);
+      const { pdf, fileName } = await draftPdfOf(convex, doc);
+      const base = { id: doc.wireId, format, file_name: fileName, watermark: "ENTWURF" };
+      if (format === "pdf") {
+        return new ToolContent({ ...base, bytes: pdf.length }, [
+          {
+            type: "resource",
+            resource: {
+              uri: `rechnung://documents/${doc.wireId}/${fileName}`,
+              mimeType: "application/pdf",
+              blob: Buffer.from(pdf).toString("base64"),
+            },
+          },
+        ]);
+      }
+      const { pageCount, pages } = await pdfToPngs(pdf, { maxPages: max_pages });
+      return new ToolContent({ ...base, page_count: pageCount, pages_returned: pages.length }, [
+        ...pages.map((png) => ({
+          type: "image" as const,
+          data: Buffer.from(png).toString("base64"),
+          mimeType: "image/png",
+        })),
+      ]);
+    },
   }),
   defineTool({
     name: "document_mark_sent",
