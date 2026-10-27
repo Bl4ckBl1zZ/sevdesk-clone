@@ -1,6 +1,7 @@
 /// <reference types="vite/client" />
 import { describe, expect, test, vi } from "vitest";
 import { sha256Hex } from "../src/domain/audit/chain";
+import { berlinCalendarDate } from "../src/domain/time/berlin";
 import camtOct from "../test/fixtures/bank/revolut-statements/synthetic-2026-10/eur-2026-10.camt053.xml?raw";
 import csvOct from "../test/fixtures/bank/revolut-statements/synthetic-2026-10/eur-2026-10.csv?raw";
 import mt940Oct from "../test/fixtures/bank/revolut-statements/synthetic-2026-10/eur-2026-10.mt940.txt?raw";
@@ -447,7 +448,11 @@ describe("F07 marking, reversals and cash (BNK-060/061/063/121, CSH-024…027)",
   test("T07-148 EC-CSH-32 private cash withdrawal is blocked for a GmbH", async () => {
     const s = await setup("gmbh");
     const e = await s.owner
-      .action(api.cash.recordTransfer, { kind: "private_withdrawal", date: "2026-10-13", amountCents: 1_000 })
+      .action(api.cash.recordTransfer, {
+        kind: "private_withdrawal",
+        date: berlinCalendarDate(Date.now()),
+        amountCents: 1_000,
+      })
       .catch(reasonOf);
     expect(e).toBe("PRIVATE_WITHDRAWAL_CORPORATION");
   });
