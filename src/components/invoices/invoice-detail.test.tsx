@@ -30,8 +30,8 @@ vi.mock("@/components/dunning/invoice-dunning-section", () => ({
   InvoiceDunningSection: () => <div data-testid="dunning-section" />,
 }));
 vi.mock("./invoice-editor", () => ({
-  InvoiceEditor: ({ version, type }: { version: number; type: string }) => (
-    <div data-testid="editor">
+  InvoiceEditor: ({ version, type, askFinalize }: { version: number; type: string; askFinalize?: boolean }) => (
+    <div data-testid="editor" data-ask-finalize={String(!!askFinalize)}>
       {type} v{version}
     </div>
   ),
@@ -145,6 +145,29 @@ const user = () => userEvent.setup();
 const last = (name: string) => backend.calls.filter((c) => c.name === name).at(-1)?.args;
 
 describe("InvoiceDetail (F04 §6.4)", () => {
+  test("DOC-61 the finalise request reaches the editor only for roles that may finalise", () => {
+    backend.data["invoices:get"] = detail({
+      doc: doc({ status: "draft", number: undefined }),
+      values: { type: "invoice", lines: [] },
+    });
+    const { unmount } = renderWithIntl(<InvoiceDetail id={"d1" as never} askFinalize />);
+    expect(screen.getByTestId("editor")).toHaveAttribute("data-ask-finalize", "true");
+    unmount();
+    backend.data["members:me"] = { role: "viewer" };
+    renderWithIntl(<InvoiceDetail id={"d1" as never} askFinalize />);
+    expect(screen.queryByTestId("editor")).toBeNull();
+    expect(screen.queryByRole("dialog")).toBeNull();
+  });
+
+  test("DOC-61 without a finalise request the editor is not asked", () => {
+    backend.data["invoices:get"] = detail({
+      doc: doc({ status: "draft", number: undefined }),
+      values: { type: "invoice", lines: [] },
+    });
+    renderWithIntl(<InvoiceDetail id={"d1" as never} />);
+    expect(screen.getByTestId("editor")).toHaveAttribute("data-ask-finalize", "false");
+  });
+
   test("DOC-29 a finalised invoice is read-only and shows the frozen snapshot, facts and register entry", () => {
     renderWithIntl(<InvoiceDetail id="d1" />);
     expect(screen.getByRole("heading", { name: "Rechnung RE-2026-0042" })).toBeInTheDocument();

@@ -64,6 +64,7 @@ export function InvoiceEditor({
   presetContactId,
   type: typeProp,
   chainRoot = true,
+  askFinalize = false,
 }: {
   id?: Id<"salesDocuments">;
   initial?: DraftValues;
@@ -72,6 +73,8 @@ export function InvoiceEditor({
   type?: DraftType;
   /** Advance drafts: the first document of a standalone chain carries the order reference (INV-03). */
   chainRoot?: boolean;
+  /** DOC-61: a link asked for the finalise dialog. It only opens the dialog; the confirm click still finalises. */
+  askFinalize?: boolean;
 }) {
   const t = useTranslations("invoices.editor");
   const tSb = useTranslations("selfBilling");
@@ -241,6 +244,19 @@ export function InvoiceEditor({
 
   const findings = check?.findings ?? [];
   const canFinalize = !!id && !dirty && check?.canFinalize === true && inputErrors.length === 0;
+
+  // DOC-61: once, when the check for the stored draft is in. replaceState drops the parameter without a
+  // navigation, so a reload or the back button cannot ask again.
+  const finalizeAsked = useRef(false);
+  const checkedCanFinalize = check?.canFinalize;
+  useEffect(() => {
+    if (!askFinalize || !id || checkedCanFinalize === undefined || finalizeAsked.current) return;
+    finalizeAsked.current = true;
+    window.history.replaceState(null, "", window.location.pathname);
+    if (checkedCanFinalize) setConfirmFinalize(true);
+    else toast.error(t("finalizeBlockedFromLink", { label: typeLabel }));
+  }, [askFinalize, id, checkedCanFinalize, t, typeLabel]);
+
   const ids = {
     contact: useId(),
     contactSearch: useId(),

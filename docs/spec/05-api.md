@@ -129,9 +129,9 @@ Every rule violation carries the compliance requirement ID (`rule`), so integrat
 | GET | `/contacts/{id}` | contacts:read | `expand=addresses,channels,persons,stats,vat_status` |
 | PATCH | `/contacts/{id}` | contacts:write | |
 | POST | `/contacts/{id}/archive` | contacts:write | No hard delete if documents exist; delete allowed only for contacts without any documents |
-| GET/POST | `/contacts/{id}/addresses` | read/write | |
+| GET/POST | `/contacts/{id}/addresses` (specified, not built yet: REST reads addresses with `?expand=addresses`; MCP can add them) | read/write | |
 | PATCH/DELETE | `/contacts/{id}/addresses/{adr}` | contacts:write | Address snapshots on issued documents are unaffected (UST-03) |
-| GET/POST | `/contacts/{id}/channels` | read/write | |
+| GET/POST | `/contacts/{id}/channels` (specified, not built yet) | read/write | |
 | POST | `/contacts/{id}/vat-id-checks` | contacts:write | Runs eVatR (qualified) or VIES; returns the stored evidence (MISC-04) |
 | GET | `/contacts/{id}/open-items` | payments:read | |
 | GET | `/contacts/{id}/activities` / POST | read/write | Notes, calls, tasks |
@@ -401,12 +401,14 @@ export async function POST(req: Request) {
 
 1. **Contact form → contact + quote draft:** `POST /contacts?match=email`, then `POST /quotes` with the requested products (key preset "Website"). The owner reviews and sends the quote from the app. A webhook `quote.accepted` (when the owner marks the quote accepted) can trigger an onboarding flow.
 2. **Shop checkout → invoice:** after payment succeeds on the website, `POST /invoices` with `Idempotency-Key = order id`, then `POST /invoices/{id}/finalize` (key with `invoices:finalize invoices:send`), fetch the files with `POST /invoices/{id}/export` (links valid 5 min, reachable from the tailnet-joined website server), e-mail them **from the website's own mailer**, and record that with `POST /invoices/{id}/mark-sent` (`channel: "email_manual"`) — the app itself sends nothing. Record the payment with `POST /invoices/{id}/payments` (`source.kind = "clearing"`, the clearing account for the payment provider). Consumer rules apply automatically (gross prices, B2C notes, OSS block if EU B2C is over the threshold).
-3. **Product catalogue on the website:** `GET /products?active=true&updated_since=…` from the website **server** (never expose the key in the browser). Cache with ISR.
+3. **Product catalogue from the website (BloomPrint3D):** by owner decision 2026-11-01 the shop is the product master, the reverse of a catalogue read from here. Its **server** pushes products and customers with the Website preset plus `products:write`, and creates invoice **drafts** only: the key has no `invoices:finalize`, so recipe 2's finalise step does not apply and the owner finalises and sends here. Links, queue and retries live in the shop; idempotency keys last 24 h, so its link records are the real duplicate guard.
 4. **Customer area:** the website shows invoice data it fetched server-side (`GET /invoices?contact_id=…`, documents read scope) and serves the archived PDFs itself; portal links return only with F10 (deferred).
 
 > **Never put an API key in browser JavaScript.** All calls go server-to-server (the API is not reachable from the internet anyway). CORS is off.
 
 ### 6.1 Network access for the website (tailnet)
+
+> In public edge mode (`EDGE_MODE=public`, 08 §12) the website calls `https://api.<BASE_DOMAIN>/api/v1/…` directly and the tailnet steps below do not apply. They describe tailnet-only instances.
 
 The API has no public host. The website's **server** joins the owner's tailnet (research 14 §4.6):
 1. Create a **tagged, pre-authorised, non-ephemeral** auth key with `tag:website` (for containers: the `tailscale/tailscale` sidecar or `tsnet`/userspace mode). Serverless hosting (Vercel, Workers) cannot easily join a tailnet; the website needs a small always-on server (UNSURE for 2026 offerings).
