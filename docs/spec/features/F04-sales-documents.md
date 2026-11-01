@@ -130,6 +130,7 @@ Normative inputs: [01-compliance](../01-compliance.md) (rule IDs), [02-architect
 | DOC-58 | Control characters are stripped from all text inputs; texts are XML-escaped; glyphs missing from the embedded fonts render as "□" with warning `unsupported_glyph` before finalising (10 EC-096) | MUST | P1 | ER-11 |
 | DOC-59 | Clock-skew guard: finalisation is refused when the server clock deviates > 60 s from NTP (EC-027) | MUST | P1 | GOBD-22, UST-05 |
 | DOC-60 | When an `RI-*` ERROR invariant is unacknowledged, finalisation of new documents is blocked (10 §2) | MUST | P1 | GOBD-06 |
+| DOC-61 | `/rechnungen/{id}?fertigstellen=1` opens the existing finalise dialog once the compliance check of the stored draft has loaded, for roles with `invoices.finalize`. The link never finalises: only the confirm click does. A draft with blocking errors gets no dialog but a toast saying why. The parameter is dropped from the URL immediately, so a reload or the back button asks nothing. Used by linked apps that create drafts but may not finalise (BloomPrint3D) | MUST | P1 | GOBD-06 |
 
 ### 3.2 Quotes, order confirmations, delivery notes, proforma (QUO)
 
@@ -1102,6 +1103,7 @@ Naming: test titles start with the compliance ID(s) and the 10-edge-cases ID(s),
 | T-DOC-042 | Given 5,000 invoices / When the list is filtered by `display_status=overdue`, period and customer / Then results are correct, the totals row sums in EUR and filtering takes < 150 ms | E | DOC-37 |
 | T-DOC-043 | Given a finalised invoice / When its detail page opens / Then the register row (number, range, assignedAt, status) is shown and links to the F01 register | E | DOC-39 · GOBD-02 |
 | T-DOC-044 | Given a line cost centre and a printable custom field / When finalised / Then the cost centre is in the snapshot (DATEV KOST1) and the custom field is printed | C,G | DOC-53 · DATEV-02 |
+| T-DOC-045 | Given a draft and `?fertigstellen=1` / When the page loads / Then the dialog opens after the check, the parameter is gone, nothing is finalised before the confirm click; cancelling leaves the draft; blocking errors give a toast and no dialog | U | DOC-61 |
 | T-QUO-001 | Given company default validity 30 days / When a quote is finalised on 2026-10-12 / Then `validUntil = 2026-11-11` and the PDF prints "Gültig bis 11.11.2026" | C,G | QUO-01 |
 | T-QUO-002 | Given a sent quote with `validUntil` yesterday / When `deadlines.notify` runs / Then status `expired` and a notification was created 3 days before | C | QUO-04 |
 | T-QUO-003 | Given a sent quote / When marked accepted / Then `acceptance.snapshotHash` equals the snapshot hash | C | QUO-05 · GOBD-06 |

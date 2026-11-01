@@ -81,15 +81,15 @@ const NAV_KEY: Partial<Record<string, "angebote" | "auftraege" | "lieferscheine"
  * Beleg detail (F04 §6.3/§6.4) for invoices, proforma, quotes, order confirmations and delivery notes: the draft
  * editor, or the finalised document with next steps, chain, export, sent mark and dispatch history.
  */
-export function InvoiceDetail({ id }: { id: string }) {
+export function InvoiceDetail({ id, askFinalize = false }: { id: string; askFinalize?: boolean }) {
   return (
     <ConvexGuard fallback={<div className="h-96" aria-busy="true" />}>
-      <InvoiceDetailInner id={id as Id<"salesDocuments">} />
+      <InvoiceDetailInner id={id as Id<"salesDocuments">} askFinalize={askFinalize} />
     </ConvexGuard>
   );
 }
 
-function InvoiceDetailInner({ id }: { id: Id<"salesDocuments"> }) {
+function InvoiceDetailInner({ id, askFinalize }: { id: Id<"salesDocuments">; askFinalize: boolean }) {
   const t = useTranslations("invoices.detail");
   const tDoc = useTranslations("documents.detail");
   const tEditor = useTranslations("invoices.editor");
@@ -99,6 +99,7 @@ function InvoiceDetailInner({ id }: { id: Id<"salesDocuments"> }) {
   const data = useAuthedQuery(api.invoices.get, { id });
   const chain = useAuthedQuery(api.documentFlows.chain, { id });
   const canWrite = useCan("documents.write");
+  const canFinalize = useCan("invoices.finalize");
   if (data === undefined) return <div className="h-96" aria-busy="true" />;
   const type = (data?.doc.type ?? "invoice") as DraftType;
   const navKey = NAV_KEY[type] ?? "rechnungen";
@@ -143,6 +144,7 @@ function InvoiceDetailInner({ id }: { id: Id<"salesDocuments"> }) {
               version={data.doc.version}
               type={type}
               chainRoot={data.doc.chainRootId === undefined}
+              askFinalize={askFinalize && canFinalize}
             />
           ) : (
             <div className="flex flex-wrap items-center gap-3">
