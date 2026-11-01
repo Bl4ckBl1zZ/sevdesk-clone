@@ -1737,6 +1737,8 @@ Labour lines (`isLaborCost`, F03 PRD-041 split for B2C) → `laborNet = Σ lineN
 
 ## Appendix F. PDF layout and mandatory items
 
+The zones and items below apply to every template. The template `sevdesk` (F01 SET-071, `src/pdf/sevdesk-document.tsx`) is the owner's former sevdesk design with its own wording: amounts in „EUR“, four labelled footer columns, the bank details in Z instead of L (they return to L when `printOptions.footerInLetterhead` hides the footer), the buyer's country always spelled out in W, the document date also right of the title in T, and the §19 note in ∑ between the net and gross bands. The legal content is unchanged: note texts still come from the rule data, no VAT amount on KU documents, EPC QR per DOC-51. Issued documents keep the template of their layout version (SET-E20).
+
 Zones (DIN 5008 form B, A4): **H** header (logo, company name) · **S** sender line above the window · **W** address window · **I** info block right of the window · **T** title + subject + head text · **P** positions table · **∑** totals block · **L** legal/payment block · **F** foot text · **Z** footer on every page (Geschäftsbrief items, page x/y).
 
 | Item | Source | Zone | Types | Rule |

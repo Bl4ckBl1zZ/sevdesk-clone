@@ -69,8 +69,11 @@ export function LayoutForm({
         name="template"
         label={t("template")}
         required
-        columns={3}
-        options={(["classic", "modern", "minimal"] as const).map((v) => ({ value: v, label: t(`templates.${v}`) }))}
+        columns={2}
+        options={(["classic", "modern", "minimal", "sevdesk"] as const).map((v) => ({
+          value: v,
+          label: t(`templates.${v}`),
+        }))}
       />
       <div className="flex flex-col gap-1.5">
         <label htmlFor={colorId} className="font-medium text-sm">

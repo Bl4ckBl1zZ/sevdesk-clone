@@ -1,5 +1,5 @@
 import { describe, expect, test } from "vitest";
-import { type FooterCompany, footerDeltaMessage, geschaeftsbriefFooter } from "./footer";
+import { type FooterCompany, footerDeltaMessage, geschaeftsbriefFooter, labelledGeschaeftsbriefFooter } from "./footer";
 
 const GMBH: FooterCompany = {
   legalForm: "gmbh",
@@ -133,5 +133,59 @@ describe("SET-013 Geschäftsbrief footer (MAIL-03)", () => {
       "Pflichtangaben im Fußtext: + Sitz, + Registergericht, + HRB, + Geschäftsführer",
     );
     expect(footerDeltaMessage("gmbh", "einzelunternehmen")).toBeNull();
+  });
+});
+
+describe("SET-071 labelled footer of the layout sevdesk (MAIL-03)", () => {
+  const SOLE: FooterCompany = {
+    ...GMBH,
+    legalForm: "einzelunternehmen",
+    name: "Lena Kleinert",
+    seat: "",
+    register: undefined,
+    representatives: [],
+    contact: { name: "Lena", phone: "0341 555", email: "hallo@example.org" },
+  };
+
+  test("SET-071 sole trader: address · contact · tax IDs and owner · bank, like the sevdesk footer", () => {
+    expect(
+      labelledGeschaeftsbriefFooter(SOLE, [
+        { ...ACCOUNT, bankName: "Revolut Bank UAB", accountHolder: "Lena Kleinert" },
+      ]),
+    ).toEqual([
+      [{ value: "Lena Kleinert" }, { value: "Hauptstr. 1" }, { value: "10115 Berlin" }, { value: "Deutschland" }],
+      [
+        { label: "Tel.", value: "0341 555" },
+        { label: "E-Mail", value: "hallo@example.org" },
+      ],
+      [
+        { label: "USt.-ID", value: "DE123456788" },
+        { label: "Steuer-Nr.", value: expect.any(String) },
+        { label: "Inhaber/-in", value: "Lena Kleinert", stacked: true },
+      ],
+      [
+        { label: "Bank", value: "Revolut Bank UAB" },
+        { label: "IBAN", value: "DE89370400440532013000" },
+        { label: "BIC", value: "COBADEFFXXX" },
+      ],
+    ]);
+  });
+
+  test("MAIL-03 GmbH: every item of the legal column survives the labelling", () => {
+    const flat = labelledGeschaeftsbriefFooter(GMBH, [ACCOUNT])
+      .flat()
+      .map((f) => f.value);
+    const legal = geschaeftsbriefFooter(GMBH, [ACCOUNT]).columns[1];
+    expect(legal.length).toBeGreaterThan(3);
+    for (const line of legal) expect(flat.some((v) => line.endsWith(v))).toBe(true);
+  });
+
+  test("SET-051 the option „alle Rechnungskonten“ lists the further accounts", () => {
+    const [, , , bank] = labelledGeschaeftsbriefFooter(
+      GMBH,
+      [ACCOUNT, { name: "Zweitkonto", iban: "DE02120300000000202051", accountHolder: "Muster Design GmbH" }],
+      { allInvoiceAccounts: true },
+    );
+    expect(bank).toContainEqual({ label: "Zweitkonto", value: "DE02120300000000202051" });
   });
 });

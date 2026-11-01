@@ -18,7 +18,12 @@ export interface LayoutConfigLike {
   };
 }
 
-const TEMPLATE_LABEL: Readonly<Record<string, string>> = { classic: "Klassisch", modern: "Modern", minimal: "Minimal" };
+const TEMPLATE_LABEL: Readonly<Record<string, string>> = {
+  classic: "Klassisch",
+  modern: "Modern",
+  minimal: "Minimal",
+  sevdesk: "sevdesk",
+};
 const FONT_LABEL: Readonly<Record<string, string>> = {
   inter: "Inter",
   noto: "Noto Sans",

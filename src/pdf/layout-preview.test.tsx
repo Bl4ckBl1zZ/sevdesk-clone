@@ -37,6 +37,39 @@ async function pdfText(buffer: Buffer): Promise<string> {
   return parts.join("\n").replace(/\s+/g, " ");
 }
 
+const withTemplate = (template: string): LayoutPreviewData => ({
+  ...DATA,
+  layout: { name: "Standard", config: { template, accentColor: "#1F6FEB" } },
+});
+
+describe("SET-073 layout preview of the template sevdesk (SET-071)", () => {
+  test("SET-073 the preview shows the design of the real document, not the shared sample layout", async () => {
+    const model = buildLayoutPreview(withTemplate("sevdesk"), { type: "invoice", b2b: true });
+    const text = await pdfText(await renderLayoutPreview(model));
+    expect(text).toContain("Rechnung Nr. RE-2026-0001 (Muster)");
+    expect(text).toContain("Gesamtbetrag brutto");
+    expect(text).toContain("Vorschau");
+    expect(text).toContain("DE89370400440532013000");
+    expect(text).toContain("Max Mustermann");
+  });
+
+  test("SET-073 a Lieferschein has no prices and KU keeps its note between the totals", async () => {
+    const note = await pdfText(
+      await renderLayoutPreview(buildLayoutPreview(withTemplate("sevdesk"), { type: "delivery_note", b2b: true })),
+    );
+    expect(note).not.toContain("Gesamtbetrag");
+    const ku = await pdfText(
+      await renderLayoutPreview(buildLayoutPreview(withTemplate("sevdesk"), { type: "invoice", b2b: true, ku: true })),
+    );
+    expect(ku).toContain("§ 19");
+    expect(ku).not.toContain("USt 19 %");
+  });
+
+  test("SET-073 the other templates keep the sample layout", () => {
+    expect(buildLayoutPreview(DATA, { type: "invoice", b2b: true }).sevdesk).toBeUndefined();
+  });
+});
+
 describe("SET-073 layout preview PDF", () => {
   test("SET-073 SET-013 a sample invoice shows title, sample number, totals with 19 % and the Geschäftsbrief footer", async () => {
     const model = buildLayoutPreview(DATA, { type: "invoice", b2b: true });

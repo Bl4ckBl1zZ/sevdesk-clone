@@ -468,7 +468,7 @@ export default defineSchema({
     layoutId: v.id("layouts"),
     version: v.number(),
     config: v.object({
-      template: v.union(v.literal("classic"), v.literal("modern"), v.literal("minimal")),
+      template: v.union(v.literal("classic"), v.literal("modern"), v.literal("minimal"), v.literal("sevdesk")),
       accentColor: v.string(),
       font: v.union(v.literal("inter"), v.literal("noto"), v.literal("source-serif")),
       logoPosition: v.union(v.literal("left"), v.literal("right")),

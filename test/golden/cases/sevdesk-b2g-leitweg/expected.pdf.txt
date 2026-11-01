@@ -1,0 +1,34 @@
+--- page 1 ---
+Muster Design GmbH
+Lesefassung – maßgeblich ist die XRechnung
+Muster Design GmbH | → | Hauptstraße 1 | → | 10115 Berlin | R E C H N U N G S - N R . | RE-2026-0042
+R E C H N U N G S D AT U M | 12.10.2026
+Stadtverwaltung Musterstadt
+R E F E R E N Z | BEST-2026-118
+Rathausplatz 1
+L E I T W E G - I D | 04011000-1234512345-06
+28195 Bremen
+L I E F E R D AT U M | 09.10.2026
+Deutschland
+I H R E | K U N D E N N U M M E R | K-50001
+Erika Musterfrau
+I H R | A N S P R E C H PA R T N E R
+rechnung@muster-design.de
+Rechnung Nr. RE-2026-0042 | 12.10.2026
+Beschreibung | Menge | Einzelpreis netto | Gesamtpreis netto
+1. | Beratung Webdesign | 10,00 Std. | 100,00 EUR | 1.000,00 EUR
+Konzeption der Startseite
+Gesamtbetrag netto | 1.000,00 EUR
+zzgl. 19 % USt auf 1.000,00 EUR | 190,00 EUR
+Gesamtbetrag brutto | 1.190,00 EUR
+Zahlbar ohne Abzug bis zum 11.11.2026.
+Bitte geben Sie als Verwendungszweck ausschließlich an: RE-2026-0042
+U S T . - I D | DE123456788
+S T E U E R - N R . | 21/815/08150
+S I T Z | Berlin
+R E G I S T E R G E R I C H T | Amtsgericht
+Charlottenburg
+Muster Design GmbH | T E L . | +49 30 1234567 | HRB 123456 B
+Hauptstraße 1 | E - M A I L | G E S C H Ä F T S F Ü H R E R | Max | B A N K | Commerzbank
+10115 Berlin | rechnung@muster-design.de | Mustermann, Erika Musterfrau | I B A N | DE89370400440532013000
+Deutschland | W E B | www.muster-design.de | S TA M M K A P I TA L | 25.000,00 € | B I C | COBADEFFXXX | 1/1
