@@ -1,0 +1,56 @@
+--- page 1 ---
+Muster Design GmbH
+Muster Design GmbH | → | Hauptstraße 1 | → | 10115 Berlin | R E C H N U N G S - N R . | RE-2026-0101
+R E C H N U N G S D AT U M | 31.10.2026
+Beispiel Kunde GmbH
+R E F E R E N Z | PO-55812
+Max Beispiel
+L E I S T U N G S Z E I T R A U M | 03.10.2026 – 17.10.2026
+Musterweg 5
+I H R E | K U N D E N N U M M E R | K-10023
+50667 Köln
+LS-2026-0012,
+Deutschland
+L I E F E R S C H E I N ( E ) | LS-2026-0013,
+LS-2026-0014
+I H R E | U S T- I D . | DE811907980
+Erika Musterfrau
+I H R | A N S P R E C H PA R T N E R
+rechnung@muster-design.de
+Rechnung Nr. RE-2026-0101 | 31.10.2026
+Beschreibung | Menge | Einzelpreis netto | Gesamtpreis netto
+Lieferschein LS-2026-0012 vom 03.10.2026
+1. | Bürostuhl ergonomisch | 2,00 Stk. | 249,00 EUR | 498,00 EUR
+Zeitraum: 03.10.2026 – 03.10.2026
+Lieferschein LS-2026-0013 vom 10.10.2026
+2. | Bürostuhl ergonomisch | 3,00 Stk. | 249,00 EUR | 747,00 EUR
+Zeitraum: 10.10.2026 – 10.10.2026
+Lieferschein LS-2026-0014 vom 17.10.2026
+3. | Bürostuhl ergonomisch | 1,00 Stk. | 249,00 EUR | 249,00 EUR
+Zeitraum: 17.10.2026 – 17.10.2026
+Gesamtbetrag netto | 1.494,00 EUR
+zzgl. 19 % USt auf 1.494,00 EUR | 283,86 EUR
+Gesamtbetrag brutto | 1.777,86 EUR
+U S T . - I D | DE123456788
+S T E U E R - N R . | 21/815/08150
+S I T Z | Berlin
+R E G I S T E R G E R I C H T | Amtsgericht
+Charlottenburg
+Muster Design GmbH | T E L . | +49 30 1234567 | HRB 123456 B
+Hauptstraße 1 | E - M A I L | G E S C H Ä F T S F Ü H R E R | Max | B A N K | Commerzbank
+10115 Berlin | rechnung@muster-design.de | Mustermann, Erika Musterfrau | I B A N | DE89370400440532013000
+Deutschland | W E B | www.muster-design.de | S TA M M K A P I TA L | 25.000,00 € | B I C | COBADEFFXXX | 1/2
+--- page 2 ---
+Muster Design GmbH
+Zahlbar ohne Abzug bis zum 30.11.2026.
+Bitte geben Sie als Verwendungszweck ausschließlich an: RE-2026-0101
+Diese Rechnung enthält eine E-Rechnung nach EN 16931 (ZUGFeRD 2.5).
+U S T . - I D | DE123456788
+S T E U E R - N R . | 21/815/08150
+S I T Z | Berlin
+R E G I S T E R G E R I C H T | Amtsgericht
+Charlottenburg
+Muster Design GmbH | T E L . | +49 30 1234567 | HRB 123456 B
+Hauptstraße 1 | E - M A I L | G E S C H Ä F T S F Ü H R E R | Max | B A N K | Commerzbank
+10115 Berlin | rechnung@muster-design.de | Mustermann, Erika Musterfrau | I B A N | DE89370400440532013000
+Deutschland | W E B | www.muster-design.de | S TA M M K A P I TA L | 25.000,00 € | B I C | COBADEFFXXX | 2/2

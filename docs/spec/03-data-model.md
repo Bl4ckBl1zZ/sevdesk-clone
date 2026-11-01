@@ -258,7 +258,7 @@ textTemplates:   { kind: "document_head" | "document_foot" | "message_text";   /
 layouts:         { name: string; currentVersionId: Id<"layoutVersions"> /* optional in the schema only: set in the
                    same transaction that creates the layout and its first version (circular reference) */;
                    isDefaultFor: SalesDocType[] }
-layoutVersions:  { layoutId; version: number; config: { template: "classic" | "modern" | "minimal";
+layoutVersions:  { layoutId; version: number; config: { template: "classic" | "modern" | "minimal" | "sevdesk";
                    accentColor: string; font: "inter" | "noto" | "source-serif"; logoPosition: "left" | "right";
                    letterheadStorageId?: Id<"_storage">; letterheadPage2StorageId?: Id<"_storage">;
                    printOptions: { foldMarks: boolean; pageNumbers: boolean; senderLine: boolean;

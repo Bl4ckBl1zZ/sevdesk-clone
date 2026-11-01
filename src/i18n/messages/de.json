@@ -1341,7 +1341,8 @@
       "templates": {
         "classic": "Klassisch",
         "modern": "Modern",
-        "minimal": "Minimal"
+        "minimal": "Minimal",
+        "sevdesk": "sevdesk"
       },
       "accentColor": "Akzentfarbe",
       "previewHint": "Die PDF-Vorschau folgt mit den Dokumenten (Phase P1)."

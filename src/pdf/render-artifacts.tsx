@@ -26,6 +26,7 @@ import { type SerializedEinvoice, serializeEinvoice } from "@/domain/einvoice/se
 import { registerPdfFonts } from "./fonts";
 import { applyLetterhead, type LetterheadFiles } from "./letterhead";
 import { type PdfLogo, SalesDocument } from "./sales-document";
+import { SevdeskDocument } from "./sevdesk-document";
 
 export type ArtifactKind = "zugferd_pdf" | "xrechnung_xml" | "pdf";
 
@@ -72,9 +73,8 @@ export async function renderPdf(
   registerPdfFonts();
   const createdAt = options.createdAt ?? new Date(`${snapshot.documentDate}T00:00:00Z`);
   const model = buildRenderModel(snapshot, layout, variant);
-  const buffer = await renderToBuffer(
-    <SalesDocument model={model} logo={options.logo ?? null} createdAt={createdAt} />,
-  );
+  const Template = layout.template === "sevdesk" ? SevdeskDocument : SalesDocument;
+  const buffer = await renderToBuffer(<Template model={model} logo={options.logo ?? null} createdAt={createdAt} />);
   const pdf = new Uint8Array(buffer);
   return options.letterhead ? applyLetterhead(pdf, options.letterhead) : pdf;
 }

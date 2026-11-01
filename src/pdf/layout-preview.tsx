@@ -11,12 +11,16 @@ import {
   type FooterCompany,
   type GeschaeftsbriefFooter,
   geschaeftsbriefFooter,
+  labelledGeschaeftsbriefFooter,
 } from "@/domain/company/footer";
 import { footerItems } from "@/domain/company/legal-forms";
 import { footerVisible, PREVIEW_SAMPLE_TYPES, type PreviewSampleType } from "@/domain/documents/layout";
+import { DEFAULT_LAYOUT, type RenderModel } from "@/domain/documents/render-model";
 import { type SampleDocument, sampleDocument } from "@/domain/documents/sample";
 import { formatEuro, formatMicros, formatMilli } from "@/domain/money/format";
+import { registerPdfFonts } from "./fonts";
 import { applyLetterhead, type LetterheadFiles } from "./letterhead";
+import { SevdeskDocument } from "./sevdesk-document";
 
 export interface LayoutPreviewData {
   today: string;
@@ -56,6 +60,91 @@ export interface LayoutPreviewModel {
   foldMarks: boolean;
   pageNumbers: boolean;
   layoutName: string;
+  /** Template `sevdesk`: the sample as a `RenderModel`, so the preview shows the real design. */
+  sevdesk?: RenderModel;
+}
+
+const eur = (cents: number) => formatEuro(cents).replace("€", "EUR");
+
+/** The sample document in the terms of `SevdeskDocument`; „(Muster)“ and the preview stamp stay visible. */
+function sevdeskSample(model: Omit<LayoutPreviewModel, "sevdesk">, data: LayoutPreviewData): RenderModel {
+  const { sample } = model;
+  const company = data.company;
+  const print = data.layout?.config?.printOptions ?? {};
+  const ku = sample.notes.find((n) => n.includes("§ 19"));
+  const net = sample.vatLines.length > 0;
+  const seller = company?.name ?? "";
+  return {
+    language: "de",
+    variant: "original",
+    title: `${sample.title} Nr.`,
+    number: sample.number,
+    documentDate: sample.date,
+    stamp: `Vorschau · Layout „${model.layoutName}“`,
+    sellerName: seller,
+    ...(model.senderLine ? { senderLine: model.senderLine.replaceAll(" · ", " → ") } : {}),
+    recipient: sample.recipient.map((line) => line.replace("z. Hd. Herrn ", "")),
+    info: [
+      { label: "Nr.", value: sample.number },
+      { label: "Datum", value: sample.date },
+      ...(company?.contact.name
+        ? [{ label: "Ihr Ansprechpartner", value: `${company.contact.name}\n${company.contact.email}` }]
+        : []),
+    ],
+    titleNotes: [],
+    headText: sample.intro,
+    columns: [
+      { key: "pos", label: "", align: "left" },
+      { key: "name", label: "Beschreibung", align: "left" },
+      { key: "quantity", label: "Menge", align: "right" },
+      ...(sample.showPrices
+        ? ([
+            { key: "unitPrice", label: net ? "Einzelpreis netto" : "Einzelpreis", align: "right" },
+            { key: "amount", label: net ? "Gesamtpreis netto" : "Gesamtpreis", align: "right" },
+          ] as const)
+        : []),
+    ],
+    rows: sample.lines.map((l, i) => ({
+      kind: "item",
+      pos: `${i + 1}.`,
+      name: l.name,
+      description: l.description,
+      quantity: `${formatMicros(l.quantityMilli * 10)} ${l.unit}`,
+      unit: l.unit,
+      unitPrice: `${formatMicros(l.unitPriceMicros)} EUR`,
+      vat: l.rateLabel,
+      discount: "",
+      amount: eur(l.netCents),
+      optional: false,
+    })),
+    totals: sample.totals
+      ? [
+          { label: "Gesamtbetrag netto", value: eur(sample.totals.netCents), emphasis: "band" },
+          ...sample.vatLines.map((v) => ({ label: `${v.label} auf ${eur(v.baseCents)}`, value: eur(v.vatCents) })),
+          ...(ku ? [{ label: ku, value: "", emphasis: "note" as const }] : []),
+          { label: "Gesamtbetrag brutto", value: eur(sample.totals.grossCents), emphasis: "strong" },
+        ]
+      : [],
+    totalsNotes: [],
+    legalNotes: [],
+    payment: { lines: sample.notes.filter((n) => n !== ku), epcPayload: null },
+    customFields: [],
+    footer: model.footer?.columns ?? null,
+    ...(company && model.footer
+      ? {
+          labelledFooter: labelledGeschaeftsbriefFooter(company, data.accounts, {
+            allInvoiceAccounts: print.allInvoiceAccountsInFooter ?? false,
+          }),
+        }
+      : {}),
+    pageLabel: { page: "Seite", of: "von" },
+    layout: {
+      ...DEFAULT_LAYOUT,
+      template: "sevdesk",
+      printOptions: { ...DEFAULT_LAYOUT.printOptions, foldMarks: model.foldMarks, pageNumbers: model.pageNumbers },
+    },
+    meta: { title: `${sample.title} ${sample.number}`, author: "Layout-Vorschau", subject: sample.title, keywords: [] },
+  };
 }
 
 /** Pure: everything the PDF shows, derived from the preview data (tested without rendering). */
@@ -71,7 +160,7 @@ export function buildLayoutPreview(data: LayoutPreviewData, opts: LayoutPreviewO
   });
   const required = company ? ["Firma", ...footerItems(company.legalForm)] : [];
   const showFooter = footerVisible({ footerInLetterhead: print.footerInLetterhead ?? null }, required);
-  return {
+  const model = {
     sample,
     senderLine:
       company && print.senderLine !== false
@@ -95,6 +184,7 @@ export function buildLayoutPreview(data: LayoutPreviewData, opts: LayoutPreviewO
     pageNumbers: print.pageNumbers ?? true,
     layoutName: data.layout?.name ?? "Standard",
   };
+  return config?.template === "sevdesk" ? { ...model, sevdesk: sevdeskSample(model, data) } : model;
 }
 
 const styles = StyleSheet.create({
@@ -261,7 +351,14 @@ export async function renderLayoutPreview(
   logo?: { data: Buffer; format: "png" | "jpg" } | null,
   letterhead?: LetterheadFiles | null,
 ): Promise<Buffer> {
-  const pdf = await renderToBuffer(<LayoutPreviewDocument model={model} logo={logo ?? null} />);
+  if (model.sevdesk) registerPdfFonts();
+  const pdf = await renderToBuffer(
+    model.sevdesk ? (
+      <SevdeskDocument model={model.sevdesk} logo={logo ?? null} createdAt={new Date()} />
+    ) : (
+      <LayoutPreviewDocument model={model} logo={logo ?? null} />
+    ),
+  );
   // SET-072: the uploaded letterhead is the background of the preview as well
   return letterhead ? Buffer.from(await applyLetterhead(new Uint8Array(pdf), letterhead)) : pdf;
 }

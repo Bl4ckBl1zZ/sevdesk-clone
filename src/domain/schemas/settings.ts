@@ -369,7 +369,7 @@ export const LOGO_MAX_BYTES = 2 * 1024 * 1024;
 export const LOGO_INVALID_MESSAGE = "Logo muss PNG, JPG oder SVG sein, höchstens 2 MB, mindestens 300 px breit.";
 
 export const layoutSchema = z.object({
-  template: z.enum(["classic", "modern", "minimal"]),
+  template: z.enum(["classic", "modern", "minimal", "sevdesk"]),
   accentColor: trimmed().regex(/^#[0-9a-fA-F]{6}$/, "Bitte eine Farbe im Format #RRGGBB angeben."),
 });
 export type LayoutValues = z.infer<typeof layoutSchema>;

@@ -38,11 +38,20 @@ export interface FooterAccount {
   name?: string;
   iban?: string;
   bic?: string;
+  bankName?: string;
   accountHolder: string;
 }
 
 export interface GeschaeftsbriefFooter {
   columns: [string[], string[], string[]];
+}
+
+/** One entry of the labelled footer („IBAN LT13…“); address lines have no label. */
+export interface FooterField {
+  readonly label?: string;
+  readonly value: string;
+  /** The value goes on its own line under the label. */
+  readonly stacked?: boolean;
 }
 
 const REPRESENTATIVE_LABEL: Record<string, string> = {
@@ -141,6 +150,57 @@ export function geschaeftsbriefFooter(
       bankColumn(company, accounts, opts.allInvoiceAccounts ?? false),
     ],
   };
+}
+
+const SHORT_LABEL: Readonly<Record<string, string>> = { "USt-IdNr.": "USt.-ID", Steuernummer: "Steuer-Nr." };
+
+/** A `legalColumn` line as label and value; the short labels of the layout replace the long ones. */
+function legalField(line: string): FooterField {
+  const i = line.indexOf(": ");
+  if (i < 0) return { value: line };
+  const label = line.slice(0, i);
+  return { label: SHORT_LABEL[label] ?? label, value: line.slice(i + 2) };
+}
+
+/**
+ * The same Geschäftsbrief items as `geschaeftsbriefFooter` (MAIL-03) in the four labelled columns of the layout
+ * `sevdesk` (F01 SET-071): address · contact · tax IDs, register and representatives · bank. The legal lines come from
+ * `legalColumn`, so no legal form can lose an item here.
+ */
+export function labelledGeschaeftsbriefFooter(
+  c: FooterCompany,
+  accounts: readonly FooterAccount[],
+  opts: { allInvoiceAccounts?: boolean } = {},
+): FooterField[][] {
+  const address = [
+    c.name,
+    c.tradeName,
+    c.address.street || c.address.poBox,
+    [c.address.postalCode, c.address.city].filter(Boolean).join(" "),
+    c.address.countryCode ? (regionNames.of(c.address.countryCode) ?? c.address.countryCode) : undefined,
+  ].flatMap((value) => (value?.trim() ? [{ value }] : []));
+  const contact = [
+    { label: "Tel.", value: c.contact.phone },
+    { label: "E-Mail", value: c.contact.email },
+    { label: "Web", value: c.contact.website ?? "" },
+  ].filter((f) => f.value.trim() !== "");
+  const legal = legalColumn(c).map(legalField);
+  const taxIds = legal.filter((f) => f.label === "USt.-ID").concat(legal.filter((f) => f.label === "Steuer-Nr."));
+  const rest = legal.filter((f) => !taxIds.includes(f));
+  const owner = c.legalForm === "einzelunternehmen" ? [{ label: "Inhaber/-in", value: c.name, stacked: true }] : [];
+  const [first, ...others] = accounts.filter((a) => a.iban);
+  const bank: FooterField[] = first?.iban
+    ? [
+        ...(first.bankName ? [{ label: "Bank", value: first.bankName }] : []),
+        { label: "IBAN", value: first.iban },
+        ...(first.bic ? [{ label: "BIC", value: first.bic }] : []),
+        ...(first.accountHolder && first.accountHolder !== c.name
+          ? [{ label: "Kontoinhaber", value: first.accountHolder }]
+          : []),
+        ...(opts.allInvoiceAccounts ? others.map((a) => ({ label: a.name ?? "Konto", value: a.iban ?? "" })) : []),
+      ]
+    : [];
+  return [address, contact, [...taxIds, ...rest, ...owner], bank];
 }
 
 /** „Pflichtangaben im Fußtext: + Registergericht, + HRB, + Geschäftsführer" when the legal form changes. */

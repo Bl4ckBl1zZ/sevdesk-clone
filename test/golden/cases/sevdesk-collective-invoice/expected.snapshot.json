@@ -1,0 +1,212 @@
+{
+  "buyer": {
+    "address": {
+      "city": "Köln",
+      "countryCode": "DE",
+      "postalCode": "50667",
+      "street": "Musterweg 5"
+    },
+    "contactNumber": "K-10023",
+    "contactPerson": {
+      "name": "Max Beispiel"
+    },
+    "invoiceEmail": "buchhaltung@beispiel-kunde.de",
+    "isConsumer": false,
+    "isPublicAuthority": false,
+    "name": "Beispiel Kunde GmbH",
+    "vatId": "DE811907980"
+  },
+  "currency": "EUR",
+  "documentDate": "2026-10-31",
+  "dueDate": "2026-11-30",
+  "einvoice": {
+    "decision": "PDF_NEEDS_CONSENT",
+    "format": "zugferd_en16931"
+  },
+  "flags": {},
+  "language": "de",
+  "layoutVersionId": "layout-v1",
+  "lines": [
+    {
+      "kind": "heading",
+      "text": "Lieferschein LS-2026-0012 vom 03.10.2026"
+    },
+    {
+      "kind": "item",
+      "name": "Bürostuhl ergonomisch",
+      "netCents": 49800,
+      "note": "Lieferschein LS-2026-0012 vom 03.10.2026",
+      "period": {
+        "from": "2026-10-03",
+        "to": "2026-10-03"
+      },
+      "position": 1,
+      "quantityMilli": 2000,
+      "unitCode": "C62",
+      "unitPriceMicros": 2490000,
+      "vatCategory": "S",
+      "vatRateBp": 1900,
+      "vatRuleRowId": "standard@2021-01-01"
+    },
+    {
+      "kind": "heading",
+      "text": "Lieferschein LS-2026-0013 vom 10.10.2026"
+    },
+    {
+      "kind": "item",
+      "name": "Bürostuhl ergonomisch",
+      "netCents": 74700,
+      "note": "Lieferschein LS-2026-0013 vom 10.10.2026",
+      "period": {
+        "from": "2026-10-10",
+        "to": "2026-10-10"
+      },
+      "position": 2,
+      "quantityMilli": 3000,
+      "unitCode": "C62",
+      "unitPriceMicros": 2490000,
+      "vatCategory": "S",
+      "vatRateBp": 1900,
+      "vatRuleRowId": "standard@2021-01-01"
+    },
+    {
+      "kind": "heading",
+      "text": "Lieferschein LS-2026-0014 vom 17.10.2026"
+    },
+    {
+      "kind": "item",
+      "name": "Bürostuhl ergonomisch",
+      "netCents": 24900,
+      "note": "Lieferschein LS-2026-0014 vom 17.10.2026",
+      "period": {
+        "from": "2026-10-17",
+        "to": "2026-10-17"
+      },
+      "position": 3,
+      "quantityMilli": 1000,
+      "unitCode": "C62",
+      "unitPriceMicros": 2490000,
+      "vatCategory": "S",
+      "vatRateBp": 1900,
+      "vatRuleRowId": "standard@2021-01-01"
+    }
+  ],
+  "notes": [
+    {
+      "de": "Zahlbar ohne Abzug bis zum 30.11.2026.",
+      "en": "Payable without deduction by 30 Nov 2026.",
+      "id": "terms",
+      "ruleRowId": "terms@2007-01-01",
+      "zone": "payment"
+    },
+    {
+      "de": "Bitte geben Sie als Verwendungszweck ausschließlich an: RE-2026-0101",
+      "en": "Please use only this payment reference: RE-2026-0101",
+      "id": "pay_ref",
+      "ruleRowId": "pay_ref@2007-01-01",
+      "zone": "payment"
+    }
+  ],
+  "number": "RE-2026-0101",
+  "payment": {
+    "bankAccount": {
+      "accountHolder": "Muster Design GmbH",
+      "bankName": "Commerzbank",
+      "bic": "COBADEFFXXX",
+      "iban": "DE89370400440532013000"
+    },
+    "dueDays": 30,
+    "method": "transfer",
+    "paymentReference": "RE-2026-0101",
+    "showEpcQr": true
+  },
+  "priceMode": "net",
+  "references": {
+    "deliveryNoteNumbers": [
+      "LS-2026-0012",
+      "LS-2026-0013",
+      "LS-2026-0014"
+    ],
+    "orderReference": "PO-55812",
+    "precedingInvoices": [],
+    "salesOrderReference": "AB-2026-0007"
+  },
+  "ruleVersions": {
+    "note:pay_ref": "pay_ref@2007-01-01",
+    "note:terms": "terms@2007-01-01",
+    "vat:standard": "standard@2021-01-01"
+  },
+  "schemaVersion": 1,
+  "seller": {
+    "address": {
+      "city": "Berlin",
+      "countryCode": "DE",
+      "postalCode": "10115",
+      "street": "Hauptstraße 1"
+    },
+    "contact": {
+      "email": "rechnung@muster-design.de",
+      "name": "Erika Musterfrau",
+      "phone": "+49 30 1234567",
+      "website": "www.muster-design.de"
+    },
+    "electronicAddress": {
+      "scheme": "EM",
+      "value": "rechnung@muster-design.de"
+    },
+    "kleinunternehmer": false,
+    "legalForm": "gmbh",
+    "name": "Muster Design GmbH",
+    "register": {
+      "court": "Amtsgericht Charlottenburg",
+      "number": "123456 B",
+      "type": "HRB"
+    },
+    "representatives": [
+      {
+        "name": "Max Mustermann"
+      },
+      {
+        "name": "Erika Musterfrau"
+      }
+    ],
+    "seat": "Berlin",
+    "shareCapital": {
+      "amountCents": 2500000
+    },
+    "taxNumber": "1121081508150",
+    "taxNumberState": "BE",
+    "vatAccounting": "soll",
+    "vatId": "DE123456788"
+  },
+  "supplyDate": {
+    "from": "2026-10-03",
+    "kind": "period",
+    "to": "2026-10-17"
+  },
+  "taxCase": "domestic",
+  "texts": {},
+  "totals": {
+    "advancesDeductedGrossCents": 0,
+    "allowanceTotalCents": 0,
+    "byGroup": [
+      {
+        "allowanceCents": 0,
+        "baseCents": 149400,
+        "category": "S",
+        "chargeCents": 0,
+        "lineNetSumCents": 149400,
+        "rateBp": 1900,
+        "vatCents": 28386
+      }
+    ],
+    "chargeTotalCents": 0,
+    "grossCents": 177786,
+    "lineNetSumCents": 149400,
+    "netCents": 149400,
+    "payableCents": 177786,
+    "roundingCents": 0,
+    "vatCents": 28386
+  },
+  "type": "invoice"
+}

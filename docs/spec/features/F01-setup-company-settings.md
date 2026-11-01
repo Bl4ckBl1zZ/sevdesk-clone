@@ -172,7 +172,7 @@
 | ID | Requirement | Priority | Phase | Compliance refs |
 |---|---|---|---|---|
 | SET-070 | `layouts` with immutable `layoutVersions`. Each save creates a new version and moves `currentVersionId`. Drafts render with the current version. Finalisation stores the `layoutVersionId` in the snapshot | MUST | P0 | GOBD-06 |
-| SET-071 | Config fields: `template` (`classic` / `modern` / `minimal`), `accentColor` (hex), `font` (`inter` / `noto` / `source-serif`), `logoPosition` (`left` / `right`), letterhead page 1 and page 2, print options (§6.6) | MUST | P0 | — |
+| SET-071 | Config fields: `template` (`classic` / `modern` / `minimal` / `sevdesk`; `sevdesk` is the owner's former sevdesk design with its own renderer, see F04 App. F, and ignores `accentColor` and `logoPosition`), `accentColor` (hex), `font` (`inter` / `noto` / `source-serif`), `logoPosition` (`left` / `right`), letterhead page 1 and page 2, print options (§6.6) | MUST | P0 | — |
 | SET-072 | Letterhead: PDF, A4 portrait, 1–2 pages, ≤ 5 MB, no JavaScript, no encryption. Page 1 is the background of the first page; page 2 (or page 1 if only one page) the background of all later pages. Fonts in the letterhead must be embedded. A non-conforming letterhead is converted to a 300 dpi image background, with the notice "Briefpapier wurde für PDF/A in ein Bild umgewandelt." | MUST | P1 | ER-11 |
 | SET-073 | Layout preview: server-rendered PDF of a sample document. The owner picks the sample type (Rechnung, Angebot, Mahnung, Lieferschein), B2B/B2C and KU/regular | MUST | P0 | — |
 | SET-074 | Default layout per document type; a document can choose another layout while it is a draft | MUST | P0 | — |

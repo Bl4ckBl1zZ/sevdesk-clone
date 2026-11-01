@@ -4,7 +4,7 @@
  * (DOC-16; EN legal notes bilingual), so the react-pdf components only lay it out and the golden PDF text can be
  * reasoned about from the snapshot alone.
  */
-import { geschaeftsbriefFooter } from "../company/footer";
+import { type FooterField, geschaeftsbriefFooter, labelledGeschaeftsbriefFooter } from "../company/footer";
 import { footerItems } from "../company/legal-forms";
 import { girocodeFor } from "../epc/girocode";
 import { SEED_UNITS } from "../lookups/units";
@@ -29,7 +29,8 @@ export type RenderVariant = "original" | "copy" | "reading" | "draft";
 
 /** Layout version config (03 `layoutVersions.config`, F01 SET-071, §6.6). */
 export interface RenderLayout {
-  readonly template: "classic" | "modern" | "minimal";
+  /** `sevdesk` is the design of `SevdeskDocument`; the others share `SalesDocument`. */
+  readonly template: "classic" | "modern" | "minimal" | "sevdesk";
   readonly accentColor: string;
   readonly font: "inter" | "noto" | "source-serif";
   readonly logoPosition: "left" | "right";
@@ -100,6 +101,8 @@ export type RenderRow =
       readonly vat: string;
       readonly discount: string;
       readonly amount: string;
+      /** Template `sevdesk`: the line discount, printed small under the amount. */
+      readonly discountNote?: string;
       readonly optional: boolean;
     }
   | { readonly kind: "heading" | "text"; readonly text: string }
@@ -108,7 +111,8 @@ export type RenderRow =
 export interface RenderTotalRow {
   readonly label: string;
   readonly value: string;
-  readonly emphasis?: "strong" | "muted";
+  /** `band`/`note`: template `sevdesk` only (shaded row; a legal note between the totals, without a value). */
+  readonly emphasis?: "strong" | "muted" | "band" | "note";
 }
 
 export interface RenderModel {
@@ -116,6 +120,8 @@ export interface RenderModel {
   readonly variant: RenderVariant;
   readonly title: string;
   readonly number: string;
+  /** Template `sevdesk`: the date right of the title. */
+  readonly documentDate?: string;
   /** Header-right stamp ("Kopie", "Lesefassung – …"), plus a diagonal watermark for copies and drafts. */
   readonly stamp?: string;
   readonly watermark?: string;
@@ -145,6 +151,8 @@ export interface RenderModel {
   readonly footText?: string;
   readonly customFields: readonly { readonly label: string; readonly value: string }[];
   readonly footer: readonly (readonly string[])[] | null;
+  /** Template `sevdesk`: the same items as `footer`, labelled, in four columns. */
+  readonly labelledFooter?: readonly (readonly FooterField[])[];
   readonly einvoiceHint?: string;
   readonly pageLabel: { readonly page: string; readonly of: string };
   readonly layout: RenderLayout;
@@ -323,6 +331,122 @@ const L = {
   },
 } as const;
 
+/** Wording of the template `sevdesk`, taken from the owner's sevdesk documents (F01 SET-071). */
+const SEVDESK_L = {
+  de: {
+    no: "Nr.",
+    number: {
+      invoice: "Rechnungs-Nr.",
+      quote: "Angebots-Nr.",
+      order_confirmation: "Auftrags-Nr.",
+      delivery_note: "Lieferschein-Nr.",
+      proforma: "Proforma-Nr.",
+      reminder: "Mahnungs-Nr.",
+      self_billing: "Gutschrifts-Nr.",
+    },
+    reference: "Referenz",
+    customerNumber: "Ihre Kundennummer",
+    yourVatId: "Ihre USt-ID.",
+    contactPerson: "Ihr Ansprechpartner",
+    name: "Beschreibung",
+    amount: "Gesamtpreis",
+    amountNet: "Gesamtpreis netto",
+    amountGross: "Gesamtpreis brutto",
+    discount: "Rabatt",
+    net: "Gesamtbetrag netto",
+    gross: "Gesamtbetrag brutto",
+  },
+  en: {
+    no: "no.",
+    number: {
+      invoice: "Invoice no.",
+      quote: "Quotation no.",
+      order_confirmation: "Order no.",
+      delivery_note: "Delivery note no.",
+      proforma: "Pro forma no.",
+      reminder: "Reminder no.",
+      self_billing: "Self-billing no.",
+    },
+    reference: "Reference",
+    customerNumber: "Your customer no.",
+    yourVatId: "Your VAT ID",
+    contactPerson: "Your contact",
+    name: "Description",
+    amount: "Amount",
+    amountNet: "Amount (net)",
+    amountGross: "Amount (gross)",
+    discount: "Discount",
+    net: "Total net",
+    gross: "Total gross",
+  },
+} as const;
+
+type InfoKey =
+  | "number"
+  | "date"
+  | "supply"
+  | "orderReference"
+  | "buyerReference"
+  | "customerNumber"
+  | "contactPerson"
+  | "phone"
+  | "email"
+  | "yourVatId";
+
+interface InfoRow {
+  readonly key?: InfoKey;
+  readonly label: string;
+  readonly value: string;
+}
+
+/** Print order of the sevdesk info block; everything else stands between the customer number and the VAT ID. */
+const SEVDESK_INFO_ORDER: readonly InfoKey[] = [
+  "number",
+  "date",
+  "orderReference",
+  "buyerReference",
+  "supply",
+  "customerNumber",
+];
+
+function sevdeskInfo(rows: readonly InfoRow[], s: DocumentSnapshot, footerShown: boolean): InfoRow[] {
+  const l = L[s.language];
+  const sl = SEVDESK_L[s.language];
+  const value = (key: InfoKey) => rows.find((r) => r.key === key)?.value;
+  const numberLabel = sl.number[s.type as keyof typeof sl.number] ?? sl.number.invoice;
+  const relabelled = rows.map((r): InfoRow => {
+    if (r.key === "number") return { ...r, label: numberLabel };
+    if (r.key === "supply" && r.label === l.supplyDate) return { ...r, label: l.deliveryDate };
+    if (r.key === "orderReference") return { ...r, label: sl.reference };
+    if (r.key === "buyerReference" && !s.buyer.isPublicAuthority && !value("orderReference")) {
+      return { ...r, label: sl.reference };
+    }
+    if (r.key === "customerNumber") return { ...r, label: sl.customerNumber };
+    return r;
+  });
+  const leading = SEVDESK_INFO_ORDER.flatMap((key) => relabelled.filter((r) => r.key === key));
+  const moved: readonly (InfoKey | undefined)[] = [
+    ...SEVDESK_INFO_ORDER,
+    "yourVatId",
+    "contactPerson",
+    "email",
+    "phone",
+  ];
+  const middle = relabelled.filter((r) => !moved.includes(r.key));
+  // The buyer's ID is printed whenever it is known; the legal note of EU cases stays as it is (App. F).
+  const vatId = value("yourVatId") ?? (s.issuer ? undefined : s.buyer.vatId);
+  const name = value("contactPerson");
+  const contact: InfoRow[] = name
+    ? [
+        {
+          label: sl.contactPerson,
+          value: [name, value("email"), footerShown ? undefined : value("phone")].filter(Boolean).join("\n"),
+        },
+      ]
+    : relabelled.filter((r) => r.key === "phone" || r.key === "email");
+  return [...leading, ...middle, ...(vatId ? [{ label: sl.yourVatId, value: vatId }] : []), ...contact];
+}
+
 const TITLES: Record<string, { de: string; en: string }> = {
   quote: { de: "Angebot", en: "Quotation" },
   order_confirmation: { de: "Auftragsbestätigung", en: "Order confirmation" },
@@ -352,7 +476,7 @@ const regionNames = {
   en: new Intl.DisplayNames(["en"], { type: "region" }),
 };
 
-function addressLines(a: SnapshotAddress | undefined, lang: DocLanguage): string[] {
+function addressLines(a: SnapshotAddress | undefined, lang: DocLanguage, spellCountry = false): string[] {
   if (!a) return [];
   const out: string[] = [];
   if (a.department) out.push(a.department);
@@ -360,7 +484,9 @@ function addressLines(a: SnapshotAddress | undefined, lang: DocLanguage): string
   if (a.street2) out.push(a.street2);
   if (a.poBox) out.push(a.poBox);
   out.push([a.postalCode, a.city].filter(Boolean).join(" "));
-  if (a.countryCode !== "DE") out.push((regionNames[lang].of(a.countryCode) ?? a.countryCode).toUpperCase());
+  const country = regionNames[lang].of(a.countryCode) ?? a.countryCode;
+  if (spellCountry) out.push(country);
+  else if (a.countryCode !== "DE") out.push(country.toUpperCase());
   return out;
 }
 
@@ -419,7 +545,12 @@ export function buildRenderModel(
 ): RenderModel {
   const lang = s.language;
   const l = L[lang];
-  const money = (c: number) => formatAmount(c, s.currency, lang);
+  const sev = layout.template === "sevdesk";
+  const sl = SEVDESK_L[lang];
+  const money = (c: number) => {
+    const amount = formatAmount(c, s.currency, lang);
+    return sev ? amount.replace("€", "EUR") : amount;
+  };
   const fd = (d: string) => formatDate(d, lang);
   const isKu = s.taxCase === "kleinunternehmer" || s.totals.byGroup.some((g) => g.category === "KU");
   const priced = s.type !== "delivery_note" || s.flags.showPrices === true;
@@ -431,7 +562,7 @@ export function buildRenderModel(
   const items = s.lines.filter((x): x is SnapshotItemLine => x.kind === "item");
   const rates = new Set(billableItems(s).map((x) => `${x.vatCategory}${x.vatRateBp}`));
   const showVat = priced && !isKu && (rates.size > 1 || layout.printOptions.vatPerLine);
-  const showDiscount = priced && items.some((x) => x.discount);
+  const showDiscount = priced && !sev && items.some((x) => x.discount);
   const invoiceLike = [
     "invoice",
     "advance_invoice",
@@ -446,18 +577,22 @@ export function buildRenderModel(
   const number = placeholder ? l.draftNumber : s.number;
 
   // ── info block (zone I) ──
-  const info: { label: string; value: string }[] = [{ label: l.number, value: number }];
+  const info: InfoRow[] = [{ key: "number", label: l.number, value: number }];
   info.push({
+    key: "date",
     label: invoiceLike ? l.invoiceDate : s.type === "quote" ? l.quoteDate : l.date,
     value: fd(s.documentDate),
   });
   const supply = supplyText(s);
-  if (supply) info.push(supply);
+  if (supply) info.push({ key: "supply", ...supply });
   if (s.validUntil) info.push({ label: l.validUntil, value: fd(s.validUntil) });
-  if (s.buyer.contactNumber) info.push({ label: l.customerNumber, value: s.buyer.contactNumber });
-  if (s.references.orderReference) info.push({ label: l.orderReference, value: s.references.orderReference });
+  if (s.buyer.contactNumber)
+    info.push({ key: "customerNumber", label: l.customerNumber, value: s.buyer.contactNumber });
+  if (s.references.orderReference)
+    info.push({ key: "orderReference", label: l.orderReference, value: s.references.orderReference });
   if (s.references.buyerReference && s.references.buyerReference !== s.buyer.contactNumber) {
     info.push({
+      key: "buyerReference",
       label: s.buyer.isPublicAuthority ? l.leitwegId : l.buyerReference,
       value: s.references.buyerReference,
     });
@@ -474,21 +609,28 @@ export function buildRenderModel(
     if (s.seller.vatId) info.push({ label: l.supplierVatId, value: s.seller.vatId });
     else if (s.seller.taxNumber) info.push({ label: l.supplierTaxNumber, value: s.seller.taxNumber });
   }
-  if (letterFrom.contact.name) info.push({ label: l.contactPerson, value: letterFrom.contact.name });
-  if (letterFrom.contact.phone) info.push({ label: l.phone, value: letterFrom.contact.phone });
-  if (letterFrom.contact.email) info.push({ label: l.email, value: letterFrom.contact.email });
+  if (letterFrom.contact.name)
+    info.push({ key: "contactPerson", label: l.contactPerson, value: letterFrom.contact.name });
+  if (letterFrom.contact.phone) info.push({ key: "phone", label: l.phone, value: letterFrom.contact.phone });
+  if (letterFrom.contact.email) info.push({ key: "email", label: l.email, value: letterFrom.contact.email });
   const euCase = s.taxCase === "eu_b2b_service" || s.taxCase === "intra_community_supply";
   if (euCase && s.seller.vatId) info.push({ label: l.ourVatId, value: s.seller.vatId });
   if ((euCase || s.taxCase === "reverse_charge_13b") && s.buyer.vatId)
-    info.push({ label: l.yourVatId, value: s.buyer.vatId });
+    info.push({ key: "yourVatId", label: l.yourVatId, value: s.buyer.vatId });
 
   // ── positions (zone P) ──
-  const columns: RenderColumn[] = [
-    { key: "pos", label: l.pos, align: "left" },
-    { key: "name", label: l.name, align: "left" },
-    { key: "quantity", label: l.quantity, align: "right" },
-    { key: "unit", label: l.unit, align: "left" },
-  ];
+  const columns: RenderColumn[] = sev
+    ? [
+        { key: "pos", label: "", align: "left" },
+        { key: "name", label: sl.name, align: "left" },
+        { key: "quantity", label: l.quantity, align: "right" },
+      ]
+    : [
+        { key: "pos", label: l.pos, align: "left" },
+        { key: "name", label: l.name, align: "left" },
+        { key: "quantity", label: l.quantity, align: "right" },
+        { key: "unit", label: l.unit, align: "left" },
+      ];
   if (priced) {
     columns.push({
       key: "unitPrice",
@@ -497,7 +639,8 @@ export function buildRenderModel(
     });
     if (showVat) columns.push({ key: "vat", label: l.vat, align: "right" });
     if (showDiscount) columns.push({ key: "discount", label: l.discount, align: "right" });
-    columns.push({ key: "amount", label: isKu ? l.amount : gross ? l.amountGross : l.amountNet, align: "right" });
+    const a = sev ? sl : l;
+    columns.push({ key: "amount", label: isKu ? a.amount : gross ? a.amountGross : a.amountNet, align: "right" });
   }
   const rows: RenderRow[] = s.lines.map((x): RenderRow => {
     if (x.kind === "subtotal") return { kind: "subtotal", text: x.text, amount: priced ? money(x.amountCents) : "" };
@@ -508,26 +651,38 @@ export function buildRenderModel(
         ? (x.grossCents ?? x.netCents)
         : x.netCents;
     const amount = priced ? (x.optional ? `(${money(amountCents)})` : money(amountCents)) : "";
+    const unitMicros = consumerGross ? grossUnitForDisplay(x.unitPriceMicros, x.vatRateBp) : x.unitPriceMicros;
     const discount = x.discount
       ? x.discount.kind === "percent"
         ? `${formatRate(x.discount.bp, lang)} %`
         : money(x.discount.cents)
       : "";
+    // Template `sevdesk`: „(Rabatt 10%“ / „8,00 EUR)“ under the amount; display only, the amount is the snapshot's.
+    const undiscounted = Number(roundHalfAway(BigInt(unitMicros) * BigInt(x.quantityMilli), 100_000n));
+    const discountNote =
+      sev && priced && x.discount
+        ? x.discount.kind === "percent"
+          ? `(${sl.discount} ${formatRate(x.discount.bp, lang)}%\n${money(Math.abs(undiscounted - amountCents))})`
+          : `(${sl.discount} ${money(x.discount.cents)})`
+        : undefined;
     return {
       kind: "item",
-      pos: String(x.position),
+      pos: sev ? `${x.position}.` : String(x.position),
       name: x.optional ? `${l.optional}: ${x.name}` : x.name,
       ...(x.itemNumber && layout.printOptions.productNumbers ? { itemNumber: `${l.itemNumber} ${x.itemNumber}` } : {}),
       ...(x.description && layout.printOptions.lineDescriptions ? { description: x.description } : {}),
       ...(x.period ? { period: `${l.period}: ${fd(x.period.from)} – ${fd(x.period.to)}` } : {}),
-      quantity: formatQuantity(x.quantityMilli, lang),
+      quantity: sev
+        ? `${formatUnitPrice(x.quantityMilli * 10, lang)} ${unitLabel(x, lang)}`
+        : formatQuantity(x.quantityMilli, lang),
       unit: unitLabel(x, lang),
       unitPrice: priced
-        ? `${formatUnitPrice(consumerGross ? grossUnitForDisplay(x.unitPriceMicros, x.vatRateBp) : x.unitPriceMicros, lang)}${lang === "de" ? ` ${s.currency === "EUR" ? "€" : s.currency}` : ""}`
+        ? `${formatUnitPrice(unitMicros, lang)}${lang === "de" ? ` ${s.currency === "EUR" ? (sev ? "EUR" : "€") : s.currency}` : ""}`
         : "",
       vat: showVat ? `${formatRate(x.vatRateBp, lang)} %` : "",
       discount: showDiscount ? discount : "",
       amount,
+      ...(discountNote ? { discountNote } : {}),
       optional: x.optional === true,
     };
   });
@@ -535,6 +690,14 @@ export function buildRenderModel(
   // ── totals (zone ∑) ──
   const t = s.totals;
   const totals: RenderTotalRow[] = [];
+  const legalNotes = noteLines(
+    s.notes.filter((n) => n.zone === "legal"),
+    lang,
+  );
+  const legalBetweenTotals = sev && isKu && priced && s.type !== "reminder";
+  const netBand: RenderTotalRow = sev
+    ? { label: sl.net, value: money(t.netCents), emphasis: "band" }
+    : { label: l.net, value: money(t.netCents) };
   if (priced && s.type !== "reminder") {
     if (!isKu) {
       if (t.allowanceTotalCents !== 0 || t.chargeTotalCents !== 0) {
@@ -544,12 +707,15 @@ export function buildRenderModel(
           totals.push({ label: `${l.allowance}${reason}`, value: money(-t.allowanceTotalCents) });
         if (t.chargeTotalCents !== 0) totals.push({ label: `${l.charge}${reason}`, value: money(t.chargeTotalCents) });
       }
-      totals.push({ label: l.net, value: money(t.netCents) });
+      totals.push(netBand);
       for (const g of t.byGroup.filter((x) => x.category === "S" || x.category === "Z")) {
         totals.push({ label: l.vatOn(formatRate(g.rateBp, lang), money(g.baseCents)), value: money(g.vatCents) });
       }
     }
-    totals.push({ label: l.gross, value: money(t.grossCents), emphasis: "strong" });
+    if (legalBetweenTotals) {
+      totals.push(netBand, ...legalNotes.map((label): RenderTotalRow => ({ label, value: "", emphasis: "note" })));
+    }
+    totals.push({ label: sev ? sl.gross : l.gross, value: money(t.grossCents), emphasis: "strong" });
     for (const d of s.deductions ?? []) {
       for (const g of d.byGroup) {
         // UST-41 (§ 14 Abs. 5 S. 2 UStG): deducted net and VAT per advance and rate.
@@ -638,26 +804,35 @@ export function buildRenderModel(
 
   // ── footer (zone Z) ──
   const required = ["Firma", ...footerItems(letterFrom.legalForm)];
-  const footer = !footerVisible({ footerInLetterhead: layout.printOptions.footerInLetterhead }, required)
-    ? null
-    : geschaeftsbriefFooter(
-        letterFrom,
-        // A Gutschrift's account is the supplier's payout account — never printed as ours in the footer.
-        acc && !s.issuer
-          ? [{ iban: acc.iban, ...(acc.bic ? { bic: acc.bic } : {}), accountHolder: acc.accountHolder }]
-          : [],
-        { allInvoiceAccounts: layout.printOptions.allInvoiceAccountsInFooter },
-      ).columns;
+  const footerShown = footerVisible({ footerInLetterhead: layout.printOptions.footerInLetterhead }, required);
+  // A Gutschrift's account is the supplier's payout account — never printed as ours in the footer.
+  const footerAccounts =
+    acc && !s.issuer
+      ? [
+          {
+            iban: acc.iban,
+            ...(acc.bic ? { bic: acc.bic } : {}),
+            ...(acc.bankName ? { bankName: acc.bankName } : {}),
+            accountHolder: acc.accountHolder,
+          },
+        ]
+      : [];
+  const footerOptions = { allInvoiceAccounts: layout.printOptions.allInvoiceAccountsInFooter };
+  const footer = footerShown ? geschaeftsbriefFooter(letterFrom, footerAccounts, footerOptions).columns : null;
+  const labelledFooter =
+    sev && footerShown ? labelledGeschaeftsbriefFooter(letterFrom, footerAccounts, footerOptions) : undefined;
 
   const seller = letterFrom;
   const recipient = s.issuer
-    ? [s.seller.name, ...(s.seller.tradeName ? [s.seller.tradeName] : []), ...addressLines(s.seller.address, lang)]
+    ? [s.seller.name, ...(s.seller.tradeName ? [s.seller.tradeName] : []), ...addressLines(s.seller.address, lang, sev)]
     : [
         s.buyer.name,
         ...(s.buyer.tradeName ? [s.buyer.tradeName] : []),
         ...(s.buyer.address?.name2 ? [s.buyer.address.name2] : []),
-        ...(s.buyer.contactPerson?.name ? [`${lang === "en" ? "Attn." : "z. Hd."} ${s.buyer.contactPerson.name}`] : []),
-        ...addressLines(s.buyer.address, lang),
+        ...(s.buyer.contactPerson?.name
+          ? [sev ? s.buyer.contactPerson.name : `${lang === "en" ? "Attn." : "z. Hd."} ${s.buyer.contactPerson.name}`]
+          : []),
+        ...addressLines(s.buyer.address, lang, sev),
       ];
   const docTitle = title(s);
   const stamp =
@@ -666,8 +841,9 @@ export function buildRenderModel(
   return {
     language: lang,
     variant,
-    title: docTitle,
+    title: sev ? `${docTitle} ${sl.no}` : docTitle,
     number,
+    ...(sev ? { documentDate: fd(s.documentDate) } : {}),
     ...(stamp ? { stamp } : {}),
     ...(variant === "copy"
       ? { watermark: copyStamp(s) }
@@ -683,11 +859,11 @@ export function buildRenderModel(
             `${seller.address.postalCode} ${seller.address.city}`,
           ]
             .filter(Boolean)
-            .join(" · "),
+            .join(sev ? " → " : " · "),
         }
       : {}),
     recipient,
-    info,
+    info: (sev ? sevdeskInfo(info, s, footerShown) : info).map(({ label, value }) => ({ label, value })),
     ...(s.texts.subject ? { subject: s.texts.subject } : {}),
     titleNotes: noteLines(
       s.notes.filter((n) => n.zone === "title"),
@@ -701,11 +877,9 @@ export function buildRenderModel(
       s.notes.filter((n) => n.zone === "totals"),
       lang,
     ),
-    legalNotes: noteLines(
-      s.notes.filter((n) => n.zone === "legal"),
-      lang,
-    ),
-    payment: { lines: paymentLines, ...(bank ? { bank } : {}), epcPayload },
+    legalNotes: legalBetweenTotals ? [] : legalNotes,
+    // Template `sevdesk`: the footer carries the bank details (App. F L + Z); without a footer they stay here.
+    payment: { lines: paymentLines, ...(bank && !labelledFooter ? { bank } : {}), epcPayload },
     ...(reminder ? { reminder } : {}),
     ...(s.texts.footText || s.texts.deliveryTerms
       ? {
@@ -719,6 +893,7 @@ export function buildRenderModel(
       : {}),
     customFields: s.customFields ?? [],
     footer,
+    ...(labelledFooter ? { labelledFooter } : {}),
     ...(s.einvoice.format === "zugferd_en16931" || s.einvoice.format === "zugferd_xrechnung"
       ? { einvoiceHint: l.einvoiceZugferd }
       : {}),
