@@ -131,6 +131,7 @@ Normative inputs: [01-compliance](../01-compliance.md) (rule IDs), [02-architect
 | DOC-59 | Clock-skew guard: finalisation is refused when the server clock deviates > 60 s from NTP (EC-027) | MUST | P1 | GOBD-22, UST-05 |
 | DOC-60 | When an `RI-*` ERROR invariant is unacknowledged, finalisation of new documents is blocked (10 §2) | MUST | P1 | GOBD-06 |
 | DOC-61 | `/rechnungen/{id}?fertigstellen=1` opens the existing finalise dialog once the compliance check of the stored draft has loaded, for roles with `invoices.finalize`. The link never finalises: only the confirm click does. A draft with blocking errors gets no dialog but a toast saying why. The parameter is dropped from the URL immediately, so a reload or the back button asks nothing. Used by linked apps that create drafts but may not finalise (BloomPrint3D) | MUST | P1 | GOBD-06 |
+| DOC-62 | On-screen view („Vorschau“ section of the Beleg page, above „Verlauf“, always shown): the pages of the document as images. Finalised: the archived **original** PDF without stamp (ZUGFeRD-PDF; XRechnung → Lesefassung; otherwise the plain PDF) — viewing is not an export (no `document.export` entry, no „Kopie“ rendered, nothing written). Draft: the stored draft with the „ENTWURF“ watermark (same render as DOC-42), refreshed after every save or API/MCP edit; while blocking errors exist, the section explains why no preview is possible; a document imported without a file says that nothing is archived | MUST | P1 | — |
 
 ### 3.2 Quotes, order confirmations, delivery notes, proforma (QUO)
 
@@ -975,6 +976,7 @@ Every irreversible confirm button requires the dialog to be open ≥ 1 s (no acc
 - Primary action by status: Entwurf → "Bearbeiten"; Nicht versendet → "Exportieren" (after an export: "Als versendet markieren"); Offen/Überfällig → "Zahlung buchen"; Angebot offen → "Angenommen"/"Umwandeln".
 - Tabs: Übersicht (PDF preview of the **original** without stamp, key facts, payment block, legal notes list), Zahlungen (F05), Verlauf (audit timeline with actor badges), Dateien (artifacts with sha256, size, tool version, variant; attachments; Nachweise), Versand (dispatch record: exports with file hashes, marks with date/channel/note/files, retractions with reason; „Versandmarkierung zurücknehmen“), Verknüpft (chain tree with amounts and progress bars).
 - "Ansehen" (on-screen) vs "Exportieren" (SND-16; Kopie once marked as sent, "Original erneut exportieren" requires a reason, DOC-32).
+- **Implemented 2026-11-17 (DOC-62):** the Beleg page shows a „Vorschau“ section directly above „Verlauf“ (single page, no tabs yet). `GET /dokumente/{id}/ansicht` (session + `documents.read`) returns the pages as PNG data URLs (pdfjs + @napi-rs/canvas, the MCP-017 rasteriser): finalised → `invoices.viewInput` names the archived PDF (`viewFileSpec`), drafts → `invoices.draftRenderInput` (DOC-42). The client re-fetches when the draft version or the artifact status changes.
 
 ### 6.5 Recurring template editor
 

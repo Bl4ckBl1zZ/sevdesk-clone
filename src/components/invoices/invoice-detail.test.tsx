@@ -1,7 +1,7 @@
 import { screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { getFunctionName } from "convex/server";
-import { beforeEach, describe, expect, test, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
 import { renderWithIntl } from "@/i18n/test-utils";
 import { InvoiceDetail } from "./invoice-detail";
 
@@ -25,7 +25,7 @@ vi.mock("@/hooks/use-authed-query", () => ({
 vi.mock("@/components/convex/convex-provider", () => ({
   ConvexGuard: ({ children }: { children: React.ReactNode }) => children,
 }));
-vi.mock("@/components/audit/entity-history", () => ({ EntityHistory: () => null }));
+vi.mock("@/components/audit/entity-history", () => ({ EntityHistory: () => <section data-testid="history" /> }));
 vi.mock("@/components/dunning/invoice-dunning-section", () => ({
   InvoiceDunningSection: () => <div data-testid="dunning-section" />,
 }));
@@ -130,7 +130,13 @@ const detail = (over: Record<string, unknown> = {}) => ({
   ...over,
 });
 
+// DOC-62: the „Vorschau“ section loads the page images from the route handler.
+const pagesFetch = vi.fn(async () => new Response(JSON.stringify({ state: "unavailable", reason: "pending" })));
+afterEach(() => vi.unstubAllGlobals());
+
 beforeEach(() => {
+  vi.stubGlobal("fetch", pagesFetch);
+  pagesFetch.mockClear();
   backend.calls = [];
   backend.result = {};
   backend.download.mockReset();
@@ -313,6 +319,22 @@ describe("InvoiceDetail (F04 §6.4)", () => {
     expect(screen.queryByTestId("editor")).toBeNull();
     // DOC-42: viewers can still look at the draft PDF
     expect(screen.getByRole("link", { name: "PDF-Vorschau" })).toHaveAttribute("href", "/dokumente/d1/vorschau");
+  });
+
+  test("DOC-62 the „Vorschau“ section sits directly above „Verlauf“ on finalised documents and drafts", () => {
+    const { unmount } = renderWithIntl(<InvoiceDetail id="d1" />);
+    const preview = screen.getByTestId("document-preview");
+    expect(within(preview).getByRole("heading", { name: "Vorschau" })).toBeInTheDocument();
+    expect(preview.nextElementSibling).toBe(screen.getByTestId("history"));
+    expect(pagesFetch).toHaveBeenCalledWith("/dokumente/d1/ansicht", expect.anything());
+    unmount();
+    backend.data["invoices:get"] = detail({
+      doc: doc({ status: "draft", number: undefined, sentAt: undefined }),
+      values: { lines: [] },
+      snapshot: null,
+    });
+    renderWithIntl(<InvoiceDetail id="d1" />);
+    expect(screen.getByTestId("document-preview").nextElementSibling).toBe(screen.getByTestId("history"));
   });
 
   test("QUO-05 a quote shows validity, acceptance and the next steps; no payments or dunning", () => {

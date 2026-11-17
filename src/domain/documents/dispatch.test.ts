@@ -17,6 +17,8 @@ import {
   sentStateOf,
   validateMarkSent,
   validateRetraction,
+  viewArtifact,
+  viewFileSpec,
   zugangFor,
 } from "./dispatch";
 import type { Er03Decision } from "./snapshot";
@@ -264,5 +266,26 @@ describe("postal sending (SND-09)", () => {
     for (const format of ["none", "zugferd_en16931", "xrechnung_cii"] as const) {
       expect(exportEntriesFor(format).some((e) => /post|brief/i.test(e))).toBe(false);
     }
+  });
+});
+
+describe("on-screen view (DOC-62)", () => {
+  test("DOC-62 shows the archived original PDF without stamp: ZUGFeRD-PDF, XRechnung Lesefassung, otherwise the plain PDF", () => {
+    expect(viewFileSpec("zugferd_en16931")).toEqual({ kind: "zugferd_pdf", variant: "original" });
+    expect(viewFileSpec("zugferd_xrechnung")).toEqual({ kind: "zugferd_pdf", variant: "original" });
+    expect(viewFileSpec("xrechnung_cii")).toEqual({ kind: "pdf", variant: "reading" });
+    expect(viewFileSpec("xrechnung_ubl")).toEqual({ kind: "pdf", variant: "reading" });
+    expect(viewFileSpec("none")).toEqual({ kind: "pdf", variant: "original" });
+  });
+
+  test("DOC-62 picks the expected archived file, else any original PDF (imports keep a plain PDF), never a Kopie or XML", () => {
+    const zugferd = { kind: "zugferd_pdf", variant: "original" as const, id: "z" };
+    const plain = { kind: "pdf", variant: undefined, id: "p" };
+    const copy = { kind: "zugferd_pdf", variant: "copy" as const, id: "c" };
+    const xml = { kind: "xrechnung_xml", variant: "original" as const, id: "x" };
+    const spec = viewFileSpec("zugferd_en16931");
+    expect(viewArtifact(spec, [copy, xml, zugferd, plain])?.id).toBe("z");
+    expect(viewArtifact(spec, [copy, xml, plain])?.id).toBe("p");
+    expect(viewArtifact(spec, [copy, xml])).toBeUndefined();
   });
 });

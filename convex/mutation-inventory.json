@@ -2515,6 +2515,12 @@
     "wrapper": "mutation",
     "permission": "documents.write"
   },
+  "invoices:viewInput": {
+    "kind": "query",
+    "visibility": "public",
+    "wrapper": "query",
+    "permission": "documents.read"
+  },
   "jobs:cancel": {
     "kind": "mutation",
     "visibility": "public",

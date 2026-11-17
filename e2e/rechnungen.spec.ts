@@ -51,6 +51,10 @@ async function saveAndFinalize(page: Page): Promise<string> {
   await expect(page.getByTestId("compliance").getByRole("status")).toHaveText(/Bereit zum Fertigstellen/, {
     timeout: 20_000,
   });
+  // DOC-62: the saved draft as page images (ENTWURF render) in „Vorschau“.
+  const draftPreview = page.getByTestId("document-preview");
+  await expect(draftPreview).toContainText("zuletzt gespeicherten Stand");
+  await expect(draftPreview.getByRole("img", { name: /^Seite 1 von \d+$/ })).toBeVisible({ timeout: 30_000 });
   await page.getByRole("button", { name: "Fertigstellen" }).click();
   const dialog = page.getByRole("dialog", { name: "Rechnung fertigstellen?" });
   await expect(dialog).toBeVisible();
@@ -97,6 +101,11 @@ test("DOC-24 DOC-37 SND-16 MAIL-02 contact + product → draft → finalise → 
   const number = await saveAndFinalize(page);
   await expect(page.getByText("Festgeschrieben")).toBeVisible();
   await expect(page.getByTestId("artifacts")).toContainText("ZUGFeRD-PDF");
+  // DOC-62: the archived original as page images in „Vorschau“, directly above „Verlauf“.
+  const preview = page.getByTestId("document-preview");
+  await expect(preview).toContainText("Archiviertes Original");
+  await expect(preview).toHaveAttribute("aria-busy", "false", { timeout: 30_000 });
+  await expect(preview.getByRole("img", { name: /^Seite 1 von \d+$/ })).toBeVisible();
   await expectNoAxeViolations();
 
   // Export: „Alles als ZIP“ downloads the archived PDF + XML with SHA256SUMS.txt.
