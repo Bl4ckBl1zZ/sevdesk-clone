@@ -53,6 +53,7 @@ import { cn } from "@/lib/utils";
 import { AttachmentsSection } from "./attachments-section";
 import { CorrectionActions, DraftBanner, docTypeKey, RelationsPanel, StornoDialog } from "./corrections";
 import { ChainCard, DocumentFlowActions } from "./document-actions";
+import { DocumentPreview } from "./document-preview";
 import { DuplicateButton } from "./duplicate-button";
 import { InvoiceEditor } from "./invoice-editor";
 import { DECISION_LABELS, downloadExport, FORMAT_LABELS, InvoiceStatusBadge, money } from "./invoice-shared";
@@ -163,6 +164,7 @@ function InvoiceDetailInner({ id, askFinalize }: { id: Id<"salesDocuments">; ask
           )}
           <AttachmentsSection id={id} draft files={data.files} />
           <ChainCard chain={chain} />
+          <DocumentPreview id={id} refreshKey={`draft:${data.doc.version}`} draft />
           <EntityHistory table="salesDocuments" id={id} />
         </PageBody>
       </>
@@ -212,6 +214,11 @@ function InvoiceDetailInner({ id, askFinalize }: { id: Id<"salesDocuments">; ask
         <Files data={data} />
         <AttachmentsSection id={data.doc._id} draft={false} files={data.files} />
         <SendLog data={data} />
+        <DocumentPreview
+          id={data.doc._id}
+          refreshKey={`${data.doc.status}:${data.doc.artifactStatus ?? ""}`}
+          draft={false}
+        />
         <EntityHistory table="salesDocuments" id={data.doc._id} />
       </DetailLayout>
     </>

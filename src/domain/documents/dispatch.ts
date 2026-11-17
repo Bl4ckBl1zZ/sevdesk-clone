@@ -92,6 +92,29 @@ export function exportFiles(format: EinvoiceFormat, entry: ExportEntry, copy: bo
   return [{ kind: "pdf", variant: pdfVariant }];
 }
 
+/**
+ * DOC-62 / §6.4 „Ansehen“: the archived file shown on screen — always the original without stamp (viewing is not
+ * handing over, so no „Kopie“); for XRechnung the Lesefassung, since the XML itself is not readable.
+ */
+export function viewFileSpec(format: EinvoiceFormat): ExportFileSpec {
+  if (format === "zugferd_en16931" || format === "zugferd_xrechnung")
+    return { kind: "zugferd_pdf", variant: "original" };
+  if (format === "xrechnung_cii" || format === "xrechnung_ubl") return { kind: "pdf", variant: "reading" };
+  return { kind: "pdf", variant: "original" };
+}
+
+/** DOC-62: the archived file for `spec`; imports (F09) archive a plain PDF whatever the format says, so any original. */
+export function viewArtifact<A extends { kind: string; variant?: ArtifactVariant | undefined }>(
+  spec: ExportFileSpec,
+  artifacts: readonly A[],
+): A | undefined {
+  const variant = (a: A) => a.variant ?? "original";
+  return (
+    artifacts.find((a) => a.kind === spec.kind && variant(a) === spec.variant) ??
+    artifacts.find((a) => (a.kind === "pdf" || a.kind === "zugferd_pdf") && variant(a) !== "copy")
+  );
+}
+
 /** §4.10.2 file names: number with `/` → `-`. */
 export function exportFileName(number: string, spec: ExportFileSpec): string {
   const stem = number.replaceAll("/", "-");

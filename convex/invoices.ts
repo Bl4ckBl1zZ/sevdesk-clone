@@ -2,7 +2,13 @@ import { paginationOptsValidator } from "convex/server";
 import { v } from "convex/values";
 import { filter } from "convex-helpers/server/filter";
 import { normalizeSearchQuery } from "../src/domain/contacts/core";
-import { defaultMarkSelection, effectiveMark, exportEntriesFor } from "../src/domain/documents/dispatch";
+import {
+  defaultMarkSelection,
+  effectiveMark,
+  exportEntriesFor,
+  viewArtifact,
+  viewFileSpec,
+} from "../src/domain/documents/dispatch";
 import { DRAFT_TYPES, type DraftType, isLetterType } from "../src/domain/documents/doc-types";
 import type { DraftDocument } from "../src/domain/documents/draft";
 import type { DuplicateSource } from "../src/domain/documents/duplicate";
@@ -841,6 +847,30 @@ export const draftRenderInput = query({
       letterheadUrl: await urlOf(config?.letterheadStorageId),
       letterheadFollowUrl: await urlOf(config?.letterheadPage2StorageId),
     };
+  },
+});
+
+/**
+ * DOC-62 „Vorschau“ on the Beleg page: the archived original PDF of a finalised document (`viewFileSpec`). Read-only —
+ * viewing is not an export (no audit entry, no „Kopie“). Drafts return no URL; their preview is `draftRenderInput`.
+ */
+export const viewInput = query({
+  permission: "documents.read",
+  args: { id: v.id("salesDocuments") },
+  handler: async (ctx, { id }) => {
+    const doc = await getDocument(ctx, id);
+    const spec = viewFileSpec(doc.einvoice.format ?? "none");
+    const base = {
+      status: doc.status,
+      version: doc.version,
+      artifactStatus: doc.artifactStatus ?? null,
+      number: doc.number ?? null,
+      kind: spec.kind,
+      variant: spec.variant,
+    };
+    if (doc.status === "draft" || doc.artifactStatus !== "ready") return { ...base, url: null };
+    const a = viewArtifact(spec, await documentArtifacts(ctx, id));
+    return { ...base, url: a ? await ctx.storage.getUrl(a.storageId) : null };
   },
 });
 

@@ -3196,6 +3196,22 @@
       "fileMissing": "Bitte eine Datei auswählen.",
       "evidenceAdd": "Nachweis hinzufügen",
       "evidenceAdded": "Nachweis hinzugefügt."
+    },
+    "preview": {
+      "title": "Vorschau",
+      "loading": "Vorschau wird erstellt …",
+      "refreshing": "Wird aktualisiert …",
+      "page": "Seite {page} von {count}",
+      "more": "Die ersten {shown} von {count} Seiten. Das vollständige Dokument steht unter „Exportieren“.",
+      "original": "Archiviertes Original (unveränderbar).",
+      "draft": "Entwurf – zeigt den zuletzt gespeicherten Stand.",
+      "pending": "Die Dateien werden gerade erzeugt. Die Vorschau erscheint, sobald sie fertig sind.",
+      "blocked": "Die Dateien konnten nicht erzeugt werden – keine Vorschau verfügbar.",
+      "none": "Für dieses Dokument ist keine PDF-Datei archiviert (z. B. aus sevdesk ohne Datei importiert).",
+      "missing": "Die archivierte Datei konnte nicht geladen werden.",
+      "invalid": "Eine Vorschau ist möglich, sobald diese Angaben ergänzt sind:",
+      "failed": "Die Vorschau konnte nicht geladen werden.",
+      "retry": "Erneut versuchen"
     }
   },
   "documents": {
